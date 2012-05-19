@@ -12,12 +12,11 @@ filters. Filter is a functor returning bool and acting on a cl::Device
 parameter. Several standard filters are provided, such as device type or name
 filter, double precision support etc. Filters can be combined with logical
 operators. In the example below all available NVIDIA GPUs are selected:
-
 ```C++
 #include <iostream>
 #include <oclutil/devlist.hpp>
 
-using namespace std;
+using namespace clu;
 
 int main() {
     auto device = device_list(
@@ -31,3 +30,24 @@ int main() {
 }
 
 ```
+
+Often you want not just device list, but initialized OpenCL context with
+command queue on each available device. This may be achieved with queue_list
+function:
+```C++
+#include <iostream>
+#include <oclutil/devlist.hpp>
+
+using namespace clu;
+
+int main() {
+    cl::Context context;
+    std::vector<cl::CommandQueue> queue;
+
+    std::tie(context, queue) = queue_list(
+        Filter::Name("Radeon") && Filter::DoublePrecision()
+        );
+}
+
+```
+
