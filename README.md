@@ -20,12 +20,11 @@ using namespace clu;
 int main() {
     auto device = device_list(
         Filter::Name("Radeon") && Filter::DoublePrecision()
-        });
+        );
     std::cout << device.size() << " GPUs found:" << std::endl;
     for(auto &d : device)
         std::cout << "\t" << d.getInfo<CL_DEVICE_NAME>() << std::endl;
 }
-
 ```
 
 Often you want not just device list, but initialized OpenCL context with
@@ -58,9 +57,9 @@ cl::Context context;
 std::vector<cl::CommandQueue> queue;
 std::tie(context, queue) = queue_list(Filter::Type(CL_DEVICE_TYPE_GPU));
 
-clu::vector X(queue, CL_MEM_READ_ONLY,  x);
-clu::vector Y(queue, CL_MEM_READ_WRITE, n);
-clu::vector Z(queue, CL_MEM_READ_WRITE, n);
+clu::vector<double> X(queue, CL_MEM_READ_ONLY,  x);
+clu::vector<double> Y(queue, CL_MEM_READ_WRITE, n);
+clu::vector<double> Z(queue, CL_MEM_READ_WRITE, n);
 ```
 
 You can now use simple vector arithmetic with device vector. For every
@@ -103,7 +102,7 @@ auto program = build_sources(context, std::string(
     ));
 
 for(uint d = 0; d < queue.size(); d++) {
-    auto dummy = cl::Kernel(program, "dummy").bind(q, alignup(N, 256), 256);
+    auto dummy = cl::Kernel(program, "dummy").bind(queue[d], alignup(n, 256), 256);
     dummy((uint)x.part_size(d), x(d));
 }
 
