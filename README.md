@@ -63,7 +63,7 @@ clu::vector<double> Y(queue, CL_MEM_READ_WRITE, n);
 clu::vector<double> Z(queue, CL_MEM_READ_WRITE, n);
 ```
 
-You can now use simple vector arithmetic with device vector. For every
+You can now use simple vector arithmetic with device vectors. For every
 expression you use, appropriate kernel is compiled (first time it is
 encountered in your program) and called automagically.
 
