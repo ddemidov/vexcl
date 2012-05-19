@@ -262,7 +262,7 @@ class vector {
 
 	template <class Expr>
 	    void operator=(const Expr &expr) {
-		if (!Expr::compiled) {
+		if (!exdata<Expr>::compiled) {
 		    std::ostringstream kernel;
 
 		    std::string kernel_name = expr.kernel_name();
@@ -299,18 +299,18 @@ class vector {
 
 		    auto program = build_sources(context, kernel.str());
 
-		    Expr::kernel = cl::Kernel(program, kernel_name.c_str());
-		    Expr::compiled = true;
+		    exdata<Expr>::kernel = cl::Kernel(program, kernel_name.c_str());
+		    exdata<Expr>::compiled = true;
 		}
 
 		for(uint d = 0; d < queue.size(); d++) {
 		    uint pos = 0, psize = part[d + 1] - part[d];
-		    Expr::kernel.setArg(pos++, psize);
-		    Expr::kernel.setArg(pos++, buf[d]);
+		    exdata<Expr>::kernel.setArg(pos++, psize);
+		    exdata<Expr>::kernel.setArg(pos++, buf[d]);
 
-		    expr.kernel_args(Expr::kernel, d, pos);
+		    expr.kernel_args(exdata<Expr>::kernel, d, pos);
 
-		    queue[d].enqueueNDRangeKernel(Expr::kernel, cl::NullRange,
+		    queue[d].enqueueNDRangeKernel(exdata<Expr>::kernel, cl::NullRange,
 			    alignup(psize, 256U), 256U
 			    );
 		}
@@ -319,6 +319,12 @@ class vector {
 	void operator=(const SpMV<T> &spmv);
 
     private:
+	template <class Expr>
+	struct exdata {
+	    static bool       compiled;
+	    static cl::Kernel kernel;
+	};
+
 	cl::Context                     context;
 	std::vector<cl::CommandQueue>	queue;
 	std::vector<size_t>             part;
@@ -368,6 +374,12 @@ class vector {
 };
 
 template <class T> bool vector<T>::show_kernels = false;
+
+template <class T> template <class Expr>
+bool vector<T>::exdata<Expr>::compiled = false;
+
+template <class T> template <class Expr>
+cl::Kernel vector<T>::exdata<Expr>::kernel;
 
 template <class T>
 void copy(const clu::vector<T> &dv, T *hv) {
@@ -437,16 +449,7 @@ template <class LHS, char OP, class RHS>
 
     const LHS &lhs;
     const RHS &rhs;
-
-    static bool compiled;
-    static cl::Kernel kernel;
 };
-
-template <class LHS, char OP, class RHS>
-bool BinaryExpression<LHS,OP,RHS>::compiled = false;
-
-template <class LHS, char OP, class RHS>
-cl::Kernel BinaryExpression<LHS,OP,RHS>::kernel;
 
 /// Sum of two expressions.
 template <class LHS, class RHS>
@@ -513,15 +516,9 @@ struct Constant {
     void prologue(std::ostream &os, std::string name = "c") const {
     }
 
-    static bool compiled;
-    static cl::Kernel kernel;
-
     private:
 	T value;
 };
-
-template <class T> bool       Constant<T>::compiled = false;
-template <class T> cl::Kernel Constant<T>::kernel;
 
 template <class T>
 Constant<T> Const(T value) { return Constant<T>(value); }
@@ -560,9 +557,6 @@ struct UnaryExpression {
 	expr.prologue(os, name);
     }
 
-    static bool compiled;
-    static cl::Kernel kernel;
-
     private:
 	const Expr &expr;
 
@@ -577,9 +571,6 @@ struct UnaryExpression {
 	    }
 	}
 };
-
-template <UnaryFunction F,class Expr> bool UnaryExpression<F,Expr>::compiled = false;
-template <UnaryFunction F,class Expr> cl::Kernel UnaryExpression<F,Expr>::kernel;
 
 template <class Expr>
 typename std::enable_if<Expr::is_expression, UnaryExpression<SQRT, Expr>>::type
