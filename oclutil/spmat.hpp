@@ -16,6 +16,7 @@
 #include <iostream>
 #include <type_traits>
 #include <CL/cl.hpp>
+#include <oclutil/util.hpp>
 #include <oclutil/vector.hpp>
 
 /// OpenCL convenience utilities.
@@ -179,17 +180,7 @@ SpMat<real>::SpMat(const std::vector<cl::CommandQueue> &queue,
 	for(auto q = queue.begin(); q != queue.end(); q++)
 	    device.push_back(q->getInfo<CL_QUEUE_DEVICE>());
 
-	cl::Program program(context, cl::Program::Sources(
-		    1, std::make_pair(source.str().c_str(), source.str().size())
-		    ));
-
-	try {
-	    program.build(device);
-	} catch(const cl::Error&) {
-	    std::cerr << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device[0])
-		<< std::endl;
-	    throw;
-	}
+	auto program = build_sources(context, source.str());
 
 	spmv_set            = cl::Kernel(program, "spmv_set");
 	spmv_add            = cl::Kernel(program, "spmv_add");
