@@ -19,4 +19,7 @@ int main() {
     Z = sqrt(Const(2) * X) + cos(Y);
     copy(Z, x);
     assert(x[42] == Z[42]);
+    Reductor<double> sum(queue);
+    std::cout << sum(Z) << std::endl;
+    std::cout << sum(sqrt(Const(2) * X) + cos(Y)) << std::endl;
 }

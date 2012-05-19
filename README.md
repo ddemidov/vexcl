@@ -80,6 +80,15 @@ copy(Z, x);
 assert(x[42] == Z[42]);
 ```
 
+Another frequently performed operation is reduction of a vector expresion to
+single value, such as summation. This can be done with `Reductor` class:
+```C++
+Reductor<double> sum(queue);
+
+std::cout << sum(Z) << std::endl;
+std::cout << sum(sqrt(Const(2) * X) + cos(Y)) << std::endl;
+```
+
 Using custom kernels
 --------------------
 
