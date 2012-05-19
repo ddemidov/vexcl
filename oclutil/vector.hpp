@@ -245,11 +245,11 @@ class vector {
 	    return "v";
 	}
 
-	void kernel_expr(std::ostream &os, std::string name) const {
+	void kernel_expr(std::ostream &os, std::string name = "v") const {
 	    os << name << "[i]";
 	}
 
-	void kernel_prm(std::ostream &os, std::string name) const {
+	void kernel_prm(std::ostream &os, std::string name = "v") const {
 	    os << ",\n\tglobal " << type_name<T>() << " *" << name;
 	}
 
@@ -257,7 +257,7 @@ class vector {
 	    k.setArg(pos++, buf[devnum]);
 	}
 
-	void prologue(std::ostream &os, std::string name) const {
+	void prologue(std::ostream &os, std::string name = "v") const {
 	}
 
 	template <class Expr>
@@ -403,38 +403,38 @@ void copy(const std::vector<T> &hv, clu::vector<T> &dv) {
 
 /// Expression template.
 template <class LHS, char OP, class RHS>
-    struct BinaryExpression {
-	static constexpr bool is_expression = true;
+struct BinaryExpression {
+    static constexpr bool is_expression = true;
 
-	BinaryExpression(const LHS &lhs, const RHS &rhs) : lhs(lhs), rhs(rhs) {}
+    BinaryExpression(const LHS &lhs, const RHS &rhs) : lhs(lhs), rhs(rhs) {}
 
-	std::string kernel_name() const {
-	    // Polish notation.
-	    switch (OP) {
-		case '+':
-		    return "p" + lhs.kernel_name() + rhs.kernel_name();
-		case '-':
-		    return "m" + lhs.kernel_name() + rhs.kernel_name();
-		case '*':
-		    return "t" + lhs.kernel_name() + rhs.kernel_name();
-		case '/':
-		    return "d" + lhs.kernel_name() + rhs.kernel_name();
-		default:
-		    throw "unknown operation";
-	    }
+    std::string kernel_name() const {
+	// Polish notation.
+	switch (OP) {
+	    case '+':
+		return "p" + lhs.kernel_name() + rhs.kernel_name();
+	    case '-':
+		return "m" + lhs.kernel_name() + rhs.kernel_name();
+	    case '*':
+		return "t" + lhs.kernel_name() + rhs.kernel_name();
+	    case '/':
+		return "d" + lhs.kernel_name() + rhs.kernel_name();
+	    default:
+		throw "unknown operation";
 	}
+    }
 
-	void kernel_prm(std::ostream &os, std::string name = "") const {
-	    lhs.kernel_prm(os, name + "l");
-	    rhs.kernel_prm(os, name + "r");
-	}
+    void kernel_prm(std::ostream &os, std::string name = "") const {
+	lhs.kernel_prm(os, name + "l");
+	rhs.kernel_prm(os, name + "r");
+    }
 
-	void kernel_expr(std::ostream &os, std::string name = "") const {
-	    os << "(";
-	    lhs.kernel_expr(os, name + "l");
-	    os << " " << OP << " ";
-	    rhs.kernel_expr(os, name + "r");
-	    os << ")";
+    void kernel_expr(std::ostream &os, std::string name = "") const {
+	os << "(";
+	lhs.kernel_expr(os, name + "l");
+	os << " " << OP << " ";
+	rhs.kernel_expr(os, name + "r");
+	os << ")";
     }
 
     void kernel_args(cl::Kernel &k, uint devnum, uint &pos) const {
@@ -445,6 +445,10 @@ template <class LHS, char OP, class RHS>
     void prologue(std::ostream &os, std::string name = "") const {
 	lhs.prologue(os, name + "l");
 	rhs.prologue(os, name + "r");
+    }
+
+    size_t part_size(uint dev) const {
+	return std::max(lhs.part_size(dev), rhs.part_size(dev));
     }
 
     const LHS &lhs;
@@ -516,6 +520,10 @@ struct Constant {
     void prologue(std::ostream &os, std::string name = "c") const {
     }
 
+    size_t part_size(uint dev) const {
+	return 1;
+    }
+
     private:
 	T value;
 };
@@ -555,6 +563,10 @@ struct UnaryExpression {
 
     void prologue(std::ostream &os, std::string name = "") const {
 	expr.prologue(os, name);
+    }
+
+    size_t part_size(uint dev) const {
+	return expr.part_size(dev);
     }
 
     private:
