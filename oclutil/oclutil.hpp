@@ -1,5 +1,5 @@
-#ifndef OCLUTIL_HPP
-#define OCLUTIL_HPP
+#ifndef OCLUTIL_OCLUTIL_HPP
+#define OCLUTIL_OCLUTIL_HPP
 
 /**
  * \file   oclutil.hpp
@@ -7,175 +7,131 @@
  * \brief  OpenCL convenience utilities.
  */
 
+/**
+\mainpage oclutil
+
+oclutil is header-only template library created for ease of C++ based OpenCL
+development.
+
+\section devlist Selection of compute devices
+
+You can select any number of available compute devices, which satisfy provided
+filters. Filter is a functor returning bool and acting on a cl::Device
+parameter. Several standard filters are provided, such as device type or name
+filter, double precision support etc. Filters can be combined with logical
+operators. In the example below all devices with names matching "Radeon" and
+supporting double precision are selected:
+\code
+#include <iostream>
+#include <oclutil/oclutil.hpp>
+using namespace clu;
+int main() {
+    auto device = device_list(
+        Filter::Name("Radeon") && Filter::DoublePrecision()
+        );
+    std::cout << device.size() << " GPUs found:" << std::endl;
+    for(auto &d : device)
+        std::cout << "\t" << d.getInfo<CL_DEVICE_NAME>() << std::endl;
+}
+\endcode
+
+Often you want not just device list, but initialized OpenCL context with
+command queue on each available device. This may be achieved with queue_list()
+function:
+\code
+cl::Context context;
+std::vector<cl::CommandQueue> queue;
+// Select no more than 2 NVIDIA GPUs:
+std::tie(context, queue) = queue_list(
+    [](const cl::Device &d) {
+        return d.getInfo<CL_DEVICE_VENDOR>() == "NVIDIA Corporation";
+    } && Filter::Count(2)
+    );
+\endcode
+
+\section vector Memory allocation and vector arithmetic
+
+Once you got queue list, you can allocate OpenCL buffers on the associated
+devices. clu::vector constructor accepts std::vector of cl::CommandQueue.
+The contents of the created vector will be equally partitioned between each
+queue (presumably, each of the provided queues is linked with separate device). 
+\code
+const uint n = 1 << 20;
+std::vector<double> x(n);
+std::generate(x.begin(), x.end(), [](){ return (double)rand() / RAND_MAX; });
+
+cl::Context context;
+std::vector<cl::CommandQueue> queue;
+std::tie(context, queue) = queue_list(Filter::Type(CL_DEVICE_TYPE_GPU));
+
+clu::vector<double> X(queue, CL_MEM_READ_ONLY,  x);
+clu::vector<double> Y(queue, CL_MEM_READ_WRITE, n);
+clu::vector<double> Z(queue, CL_MEM_READ_WRITE, n);
+\endcode
+
+You can now use simple vector arithmetic with device vector. For every
+expression you use, appropriate kernel is compiled (first time it is
+encountered in your program) and called automagically.
+
+Vectors are processed in parallel across all devices they were allocated on:
+\code
+Y = Const(42);
+Z = sqrt(Const(2) * X) + cos(Y);
+\endcode
+
+You can copy the result back to host or you can use vector::operator[] to
+read (or write) vector elements diectly. Though latter technique is very
+ineffective and should be used for debugging purposes only.
+\code
+copy(Z, x);
+assert(x[42] == Z[42]);
+\endcode
+
+Another frequently performed operation is reduction of a vector expresion to
+single value, such as summation. This can be done with clu::Reductor class:
+\code
+Reductor<double> sum(queue);
+
+std::cout << sum(Z) << std::endl;
+std::cout << sum(sqrt(Const(2) * X) + cos(Y)) << std::endl;
+\endcode
+
+\section custkern Using custom kernels
+
+Custom kernels are of course possible as well. vector::operator(uint)
+returns cl::Buffer object for a specified device:
+\code
+cl::Context context;
+std::vector<cl::CommandQueue> queue;
+std::tie(context, queue) = queue_list(Filter::Type(CL_DEVICE_TYPE_GPU));
+
+const uint n = 1 << 20;
+clu::vector<float> x(queue, CL_MEM_WRITE_ONLY, n);
+
+auto program = build_sources(context, std::string(
+    "kernel void dummy(uint size, global float *x)\n"
+    "{\n"
+    "    uint i = get_global_id(0);\n"
+    "    if (i < size) x[i] = 4.2;\n"
+    "}\n"
+    ));
+
+for(uint d = 0; d < queue.size(); d++) {
+    auto dummy = cl::Kernel(program, "dummy").bind(queue[d], alignup(n, 256), 256);
+    dummy((uint)x.part_size(d), x(d));
+}
+
+std::cout << sum(x) << std::endl;
+\endcode
+*/
+
 #include <CL/cl.hpp>
 #include <iostream>
 
+#include <oclutil/util.hpp>
 #include <oclutil/devlist.hpp>
 #include <oclutil/vector.hpp>
 #include <oclutil/spmat.hpp>
 #include <oclutil/reduce.hpp>
-
-/// Output description of an OpenCL error to a stream.
-std::ostream& operator<<(std::ostream &os, const cl::Error &e) {
-    os << e.what() << "(";
-
-    switch (e.err()) {
-	case 0:
-	    os << "Success";
-	    break;
-	case -1:
-	    os << "Device not found";
-	    break;
-	case -2:
-	    os << "Device not available";
-	    break;
-	case -3:
-	    os << "Compiler not available";
-	    break;
-	case -4:
-	    os << "Mem object allocation failure";
-	    break;
-	case -5:
-	    os << "Out of resources";
-	    break;
-	case -6:
-	    os << "Out of host memory";
-	    break;
-	case -7:
-	    os << "Profiling info not available";
-	    break;
-	case -8:
-	    os << "Mem copy overlap";
-	    break;
-	case -9:
-	    os << "Image format mismatch";
-	    break;
-	case -10:
-	    os << "Image format not supported";
-	    break;
-	case -11:
-	    os << "Build program failure";
-	    break;
-	case -12:
-	    os << "Map failure";
-	    break;
-	case -13:
-	    os << "Misaligned sub buffer offset";
-	    break;
-	case -14:
-	    os << "Exec status error for events in wait list";
-	    break;
-	case -30:
-	    os << "Invalid value";
-	    break;
-	case -31:
-	    os << "Invalid device type";
-	    break;
-	case -32:
-	    os << "Invalid platform";
-	    break;
-	case -33:
-	    os << "Invalid device";
-	    break;
-	case -34:
-	    os << "Invalid context";
-	    break;
-	case -35:
-	    os << "Invalid queue properties";
-	    break;
-	case -36:
-	    os << "Invalid command queue";
-	    break;
-	case -37:
-	    os << "Invalid host ptr";
-	    break;
-	case -38:
-	    os << "Invalid mem object";
-	    break;
-	case -39:
-	    os << "Invalid image format descriptor";
-	    break;
-	case -40:
-	    os << "Invalid image size";
-	    break;
-	case -41:
-	    os << "Invalid sampler";
-	    break;
-	case -42:
-	    os << "Invalid binary";
-	    break;
-	case -43:
-	    os << "Invalid build options";
-	    break;
-	case -44:
-	    os << "Invalid program";
-	    break;
-	case -45:
-	    os << "Invalid program executable";
-	    break;
-	case -46:
-	    os << "Invalid kernel name";
-	    break;
-	case -47:
-	    os << "Invalid kernel definition";
-	    break;
-	case -48:
-	    os << "Invalid kernel";
-	    break;
-	case -49:
-	    os << "Invalid arg index";
-	    break;
-	case -50:
-	    os << "Invalid arg value";
-	    break;
-	case -51:
-	    os << "Invalid arg size";
-	    break;
-	case -52:
-	    os << "Invalid kernel args";
-	    break;
-	case -53:
-	    os << "Invalid work dimension";
-	    break;
-	case -54:
-	    os << "Invalid work group size";
-	    break;
-	case -55:
-	    os << "Invalid work item size";
-	    break;
-	case -56:
-	    os << "Invalid global offset";
-	    break;
-	case -57:
-	    os << "Invalid event wait list";
-	    break;
-	case -58:
-	    os << "Invalid event";
-	    break;
-	case -59:
-	    os << "Invalid operation";
-	    break;
-	case -60:
-	    os << "Invalid gl object";
-	    break;
-	case -61:
-	    os << "Invalid buffer size";
-	    break;
-	case -62:
-	    os << "Invalid mip level";
-	    break;
-	case -63:
-	    os << "Invalid global work size";
-	    break;
-	case -64:
-	    os << "Invalid property";
-	    break;
-	default:
-	    os << "Unknown error";
-	    break;
-    }
-
-    return os << ")";
-}
 
 #endif

@@ -1,5 +1,5 @@
-#ifndef DEVLIST_HPP
-#define DEVLIST_HPP
+#ifndef OCLUTIL_DEVLIST_HPP
+#define OCLUTIL_DEVLIST_HPP
 
 /**
  * \file   devlist.hpp
@@ -74,12 +74,12 @@ namespace Filter {
 	    mutable int count;
     };
 
-    /// Filter join operators.
+    /// \internal Filter join operators.
     enum FilterOp {
 	FilterAnd, FilterOr
     };
 
-    /// Filter join expression template.
+    /// \internal Filter join expression template.
     template <class LeftFilter, class RightFilter, FilterOp op>
 	struct FilterBinaryOp {
 	    FilterBinaryOp(const LeftFilter &l, const RightFilter &r)
@@ -99,7 +99,7 @@ namespace Filter {
 	    const RightFilter &right;
 	};
 
-    /// Join two filters with AND operator.
+    /// \internal Join two filters with AND operator.
     template <class LeftFilter, class RightFilter>
 	FilterBinaryOp<LeftFilter, RightFilter, FilterAnd> operator&&(
 		const LeftFilter &left, const RightFilter &right)
@@ -107,7 +107,7 @@ namespace Filter {
 	    return FilterBinaryOp<LeftFilter, RightFilter, FilterAnd>(left, right);
 	}
 
-    /// Join two filters with OR operator.
+    /// \internal Join two filters with OR operator.
     template <class LeftFilter, class RightFilter>
 	FilterBinaryOp<LeftFilter, RightFilter, FilterOr> operator||(
 		const LeftFilter &left, const RightFilter &right)
@@ -115,6 +115,7 @@ namespace Filter {
 	    return FilterBinaryOp<LeftFilter, RightFilter, FilterOr>(left, right);
 	}
 
+    /// \internal Negation of a filter.
     template <class Flt>
 	struct NegateFilter {
 	    NegateFilter(const Flt &flt) : flt(flt) {}
@@ -127,6 +128,7 @@ namespace Filter {
 	    const Flt &flt;
 	};
 
+    /// \internal Negation of a filter.
     template <class Flt>
 	NegateFilter<Flt> operator!(const Flt &flt) {
 	    return NegateFilter<Flt>(flt);

@@ -1,10 +1,10 @@
-#ifndef VECTOR_HPP
-#define VECTOR_HPP
+#ifndef OCLUTIL_VECTOR_HPP
+#define OCLUTIL_VECTOR_HPP
 
 /**
  * \file   vector.hpp
  * \author Denis Demidov <ddemidov@ksu.ru>
- * \brief  OpenCL vector type.
+ * \brief  OpenCL device vector.
  */
 
 #include <vector>
@@ -36,11 +36,7 @@ class vector {
 	static constexpr bool is_expression = true;
 	static bool show_kernels;
 
-	/// Proxy class.
-	/**
-	 * Is used to set or obtain a value from a device vector.
-	 * Should be used only for debugging, since it is very ineffective.
-	 */
+	/// \internal Proxy class.
 	class element {
 	    public:
 		operator T() {
@@ -73,6 +69,7 @@ class vector {
 		friend class vector::iterator;
 	};
 
+	/// \internal Proxy class.
 	class const_element {
 	    public:
 		operator T() {
@@ -96,7 +93,7 @@ class vector {
 		friend class vector::iterator;
 	};
 
-	/// Iterator class.
+	/// \internal Iterator class.
 	class iterator {
 	    public:
 		element operator*() {
@@ -137,7 +134,7 @@ class vector {
 
 	};
 
-	/// Iterator class.
+	/// \internal Iterator class.
 	class const_iterator {
 	    public:
 		const_element operator*() {
@@ -381,27 +378,31 @@ bool vector<T>::exdata<Expr>::compiled = false;
 template <class T> template <class Expr>
 cl::Kernel vector<T>::exdata<Expr>::kernel;
 
+/// Copy device vector to host vector.
 template <class T>
 void copy(const clu::vector<T> &dv, T *hv) {
     dv.read_data(hv);
 }
 
+/// Copy host vector to device vector.
 template <class T>
 void copy(const T *hv, clu::vector<T> &dv) {
     dv.write_data(hv);
 }
 
+/// Copy device vector to host vector.
 template <class T>
 void copy(const clu::vector<T> &dv, std::vector<T> &hv) {
     dv.read_data(hv.data());
 }
 
+/// Copy host vector to device vector.
 template <class T>
 void copy(const std::vector<T> &hv, clu::vector<T> &dv) {
     dv.write_data(hv.data());
 }
 
-/// Expression template.
+/// \internal Expression template.
 template <class LHS, char OP, class RHS>
 struct BinaryExpression {
     static constexpr bool is_expression = true;
@@ -455,7 +456,7 @@ struct BinaryExpression {
     const RHS &rhs;
 };
 
-/// Sum of two expressions.
+/// \internal Sum of two expressions.
 template <class LHS, class RHS>
 typename std::enable_if<
     LHS::is_expression && RHS::is_expression,
@@ -465,7 +466,7 @@ typename std::enable_if<
 	return BinaryExpression<LHS,'+',RHS>(lhs, rhs);
     }
 
-/// Difference of two expressions.
+/// \internal Difference of two expressions.
 template <class LHS, class RHS>
 typename std::enable_if<
     LHS::is_expression && RHS::is_expression,
@@ -475,7 +476,7 @@ typename std::enable_if<
 	return BinaryExpression<LHS,'-',RHS>(lhs, rhs);
     }
 
-/// Product of two expressions.
+/// \internal Product of two expressions.
 template <class LHS, class RHS>
 typename std::enable_if<
     LHS::is_expression && RHS::is_expression,
@@ -485,7 +486,7 @@ typename std::enable_if<
 	return BinaryExpression<LHS,'*',RHS>(lhs, rhs);
     }
 
-/// Division of two expressions.
+/// \internal Division of two expressions.
 template <class LHS, class RHS>
 typename std::enable_if<
     LHS::is_expression && RHS::is_expression,
@@ -495,6 +496,7 @@ typename std::enable_if<
 	return BinaryExpression<LHS,'/',RHS>(lhs, rhs);
     }
 
+/// \internal Constant for use in vector expressions.
 template <class T>
 struct Constant {
     static constexpr bool is_expression = true;
@@ -528,6 +530,7 @@ struct Constant {
 	T value;
 };
 
+/// Constant for use in vector expressions.
 template <class T>
 Constant<T> Const(T value) { return Constant<T>(value); }
 
@@ -537,6 +540,7 @@ enum UnaryFunction {
     COS
 };
 
+/// \internal Unary expression template.
 template <UnaryFunction F, class Expr>
 struct UnaryExpression {
     static constexpr bool is_expression = true;
@@ -584,19 +588,20 @@ struct UnaryExpression {
 	}
 };
 
+/// Square root of argument.
 template <class Expr>
 typename std::enable_if<Expr::is_expression, UnaryExpression<SQRT, Expr>>::type
 sqrt(const Expr &e) { return UnaryExpression<SQRT,Expr>(e); }
 
+/// Sine of argument.
 template <class Expr>
 typename std::enable_if<Expr::is_expression, UnaryExpression<SIN, Expr>>::type
 sin(const Expr &e) { return UnaryExpression<SIN,Expr>(e); }
 
-
+/// Cosine of argument.
 template <class Expr>
 typename std::enable_if<Expr::is_expression, UnaryExpression<COS, Expr>>::type
 cos(const Expr &e) { return UnaryExpression<COS,Expr>(e); }
-
 
 } // namespace clu
 

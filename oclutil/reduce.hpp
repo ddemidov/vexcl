@@ -1,5 +1,11 @@
-#ifndef REDUCE_HPP
-#define REDUCE_HPP
+#ifndef OCLUTIL_REDUCE_HPP
+#define OCLUTIL_REDUCE_HPP
+
+/**
+ * \file   reduce.hpp
+ * \author Denis Demidov <ddemidov@ksu.ru>
+ * \brief  OpenCL vector reduction.
+ */
 
 #include <vector>
 #include <sstream>
@@ -8,6 +14,8 @@
 #include <oclutil/vector.hpp>
 
 namespace clu {
+
+/// Parallel reduction of arbitrary expression.
 template <typename real>
 class Reductor {
     public:
@@ -154,6 +162,7 @@ real Reductor<real>::operator()(const Expr &expr) const {
     return std::accumulate(hbuf.begin(), hbuf.end(), static_cast<real>(0));
 }
 
+/// Sum of vector elements.
 template <typename real>
 real sum(const clu::vector<real> &x) {
     static Reductor<real> rdc(x.queue);
@@ -161,6 +170,7 @@ real sum(const clu::vector<real> &x) {
     return rdc(x);
 }
 
+/// Inner product of two vectors.
 template <typename real>
 real inner_product(const clu::vector<real> &x, const clu::vector<real> &y) {
     static Reductor<real> rdc(x.queue);

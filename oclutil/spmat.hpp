@@ -1,5 +1,5 @@
-#ifndef SPMAT_HPP
-#define SPMAT_HPP
+#ifndef OCLUTIL_SPMAT_HPP
+#define OCLUTIL_SPMAT_HPP
 
 /**
  * \file   spmat.hpp
@@ -22,6 +22,7 @@
 /// OpenCL convenience utilities.
 namespace clu {
 
+/// Sparse matrix.
 template <typename real>
 class SpMat {
     public:
@@ -133,6 +134,7 @@ kernel void gather_vals_to_send(\n\
 }\n\
 ";
 
+/// \internal Sparse matrix-vector product.
 template <typename real>
 struct SpMV {
     SpMV(const SpMat<real> &A, const clu::vector<real> &x) : A(A), x(x) {}
