@@ -14,7 +14,7 @@ class Reductor {
 	Reductor(const std::vector<cl::CommandQueue> &queue);
 
 	template <class Expr>
-	real sum(const Expr &expr) const;
+	real operator()(const Expr &expr) const;
     private:
 	cl::Context context;
 	std::vector<cl::CommandQueue> queue;
@@ -58,7 +58,7 @@ Reductor<real>::Reductor(const std::vector<cl::CommandQueue> &queue)
 }
 
 template <typename real> template <class Expr>
-real Reductor<real>::sum(const Expr &expr) const {
+real Reductor<real>::operator()(const Expr &expr) const {
     if (!exdata<Expr>::compiled) {
 	std::ostringstream source;
 
@@ -158,14 +158,14 @@ template <typename real>
 real sum(const clu::vector<real> &x) {
     static Reductor<real> rdc(x.queue);
 
-    return rdc.sum(x);
+    return rdc(x);
 }
 
 template <typename real>
 real inner_product(const clu::vector<real> &x, const clu::vector<real> &y) {
     static Reductor<real> rdc(x.queue);
 
-    return rdc.sum(x * y);
+    return rdc(x * y);
 }
 
 } // namespace clu
