@@ -56,7 +56,7 @@ std::generate(x.begin(), x.end(), [](){ return (double)rand() / RAND_MAX; });
 
 cl::Context context;
 std::vector<cl::CommandQueue> queue;
-std::tie(context, queue) = queue_list(Filter::DoublePrecision());
+std::tie(context, queue) = queue_list(Filter::Type(CL_DEVICE_TYPE_GPU));
 
 clu::vector X(queue, CL_MEM_READ_ONLY,  x);
 clu::vector Y(queue, CL_MEM_READ_WRITE, n);
@@ -73,10 +73,39 @@ Y = Const(42);
 Z = sqrt(Const(2) * X) + cos(Y);
 ```
 
-You can copy the result back to host or you can use `[]` notation to read (or
-write) vector elements diectly. Though latter technique is very ineffective and
-should be used for debugging purposes only.
+You can copy the result back to host or you can use `vector::operator[]` to
+read (or write) vector elements diectly. Though latter technique is very
+ineffective and should be used for debugging purposes only.
 ```C++
 copy(Z, x);
 assert(x[42] == Z[42]);
+```
+
+Using custom kernels
+--------------------
+
+Custom kernels are of course possible as well. `vector::operator(uint)` returns
+`cl::Buffer` object for a specified device:
+```C++
+cl::Context context;
+std::vector<cl::CommandQueue> queue;
+std::tie(context, queue) = queue_list(Filter::Type(CL_DEVICE_TYPE_GPU));
+
+const uint n = 1 << 20;
+clu::vector<float> x(queue, CL_MEM_WRITE_ONLY, n);
+
+auto program = build_sources(context, std::string(
+    "kernel void dummy(uint size, global float *x)\n"
+    "{\n"
+    "    uint i = get_global_id(0);\n"
+    "    if (i < size) x[i] = 4.2;\n"
+    "}\n"
+    ));
+
+for(uint d = 0; d < queue.size(); d++) {
+    auto dummy = cl::Kernel(program, "dummy").bind(q, alignup(N, 256), 256);
+    dummy((uint)x.part_size(d), x(d));
+}
+
+std::cout << sum(x) << std::endl;
 ```
