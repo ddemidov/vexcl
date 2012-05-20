@@ -535,9 +535,11 @@ template <class T>
 Constant<T> Const(T value) { return Constant<T>(value); }
 
 enum UnaryFunction {
+    ABS,
     SQRT,
     SIN,
-    COS
+    COS,
+    TAN
 };
 
 /// \internal Unary expression template.
@@ -578,15 +580,24 @@ struct UnaryExpression {
 
 	static std::string funstr() {
 	    switch (F) {
+		case ABS:
+		    return "abs";
 		case SQRT:
 		    return "sqrt";
 		case SIN:
 		    return "sin";
 		case COS:
 		    return "cos";
+		case TAN:
+		    return "tan";
 	    }
 	}
 };
+
+/// Absolut value of argument.
+template <class Expr>
+typename std::enable_if<Expr::is_expression, UnaryExpression<ABS, Expr>>::type
+abs(const Expr &e) { return UnaryExpression<ABS,Expr>(e); }
 
 /// Square root of argument.
 template <class Expr>
@@ -602,6 +613,11 @@ sin(const Expr &e) { return UnaryExpression<SIN,Expr>(e); }
 template <class Expr>
 typename std::enable_if<Expr::is_expression, UnaryExpression<COS, Expr>>::type
 cos(const Expr &e) { return UnaryExpression<COS,Expr>(e); }
+
+/// Tangent of argument.
+template <class Expr>
+typename std::enable_if<Expr::is_expression, UnaryExpression<TAN, Expr>>::type
+tan(const Expr &e) { return UnaryExpression<TAN,Expr>(e); }
 
 } // namespace clu
 
