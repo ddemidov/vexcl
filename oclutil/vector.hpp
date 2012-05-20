@@ -257,6 +257,15 @@ class vector {
 	void prologue(std::ostream &os, std::string name = "v") const {
 	}
 
+	const vector& operator=(const vector &x) {
+	    if (&x != this) {
+		for(uint i = 0; i < queue.size(); i++)
+		    queue[i].enqueueCopyBuffer(x.buf[i], buf[i], 0, 0, bytes[i]);
+	    }
+
+	    return *this;
+	}
+
 	template <class Expr>
 	    void operator=(const Expr &expr) {
 		if (!exdata<Expr>::compiled) {
@@ -546,9 +555,9 @@ struct UnaryExpression {
 
     std::string kernel_name() const;
 
-    void kernel_expr(std::ostream &os, std::string name = "") const;
+    void kernel_expr(std::ostream &os, std::string name = "f") const;
 
-    void kernel_prm(std::ostream &os, std::string name = "") const {
+    void kernel_prm(std::ostream &os, std::string name = "f") const {
 	expr.kernel_prm(os, name);
     }
 
@@ -556,7 +565,7 @@ struct UnaryExpression {
 	expr.kernel_args(k, devnum, pos);
     }
 
-    void prologue(std::ostream &os, std::string name = "") const {
+    void prologue(std::ostream &os, std::string name = "f") const {
 	expr.prologue(os, name);
     }
 

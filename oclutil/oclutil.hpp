@@ -96,6 +96,71 @@ std::cout << sum(Z) << std::endl;
 std::cout << sum(sqrt(Const(2) * X) + cos(Y)) << std::endl;
 \endcode
 
+\section spmv Sparse matrix-vector multiplication
+
+One of the most common operations in linear algebra is matrix-vector
+multiplication. Class clu::SpMat holds representation of a sparse matrix,
+spanning several GPUs. In the example below it is used for solution of a system
+of linear equations with conjugate gradients method:
+\code
+typedef double real;
+// Solve system of linear equations A u = f with conjugate gradients method.
+// Input matrix is represented in CSR format (parameters row, col, and val).
+void cg_gpu(
+	const std::vector<uint> &row,	// Indices to col and val vectors.
+	const std::vector<uint> &col,	// Column numbers of non-zero elements.
+	const std::vector<real> &val,	// Values of non-zero elements.
+	const std::vector<real> &rhs,	// Right-hand side.
+	std::vector<real> &x		// In: initial approximation; out: result.
+	)
+{
+    // Init OpenCL
+    cl::Context context;
+    std::vector<cl::CommandQueue> queue;
+
+    std::tie(context, queue) = queue_list(Filter::Type(CL_DEVICE_TYPE_GPU));
+
+    // Move data to GPU(s)
+    uint n = x.size();
+    clu::SpMat<real>  A(queue, n, row.data(), col.data(), val.data());
+    clu::vector<real> f(queue, CL_MEM_READ_ONLY,  rhs);
+    clu::vector<real> u(queue, CL_MEM_READ_WRITE, x);
+    clu::vector<real> r(queue, CL_MEM_READ_WRITE, n);
+    clu::vector<real> p(queue, CL_MEM_READ_WRITE, n);
+    clu::vector<real> q(queue, CL_MEM_READ_WRITE, n);
+
+    Reductor<real,MAX> max(queue);
+
+    // Solve equation Au = f with conjugate gradients method.
+    real rho1, rho2;
+    q = A * u;
+    r = f - q;
+
+    for(uint iter = 0; max(Abs(r)) > 1e-8 && iter < n; iter++) {
+	rho1 = inner_product(r, r);
+
+	if (iter == 0) {
+	    p = r;
+	} else {
+	    real beta = rho1 / rho2;
+	    p = r + Const(beta) * p;
+	}
+
+	q = A * p;
+
+	real alpha = rho1 / inner_product(p, q);
+
+	u = u + Const(alpha) * p;
+	r = r - Const(alpha) * q;
+
+	rho2 = rho1;
+    }
+
+    // Get result to host.
+    copy(u, x);
+}
+\endcode
+
 \section custkern Using custom kernels
 
 Custom kernels are of course possible as well. vector::operator(uint)

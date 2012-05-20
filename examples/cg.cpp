@@ -5,26 +5,24 @@
 using namespace clu;
 
 typedef double real;
-
+// Solve system of linear equations A u = f with conjugate gradients method.
+// Input matrix is represented in CSR format (parameters row, col, and val).
 void cg_gpu(
-	const std::vector<uint> &row,
-	const std::vector<uint> &col,
-	const std::vector<real> &val,
-	const std::vector<real> &rhs,
-	std::vector<real> &x
+	const std::vector<uint> &row,	// Indices to col and val vectors.
+	const std::vector<uint> &col,	// Column numbers of non-zero elements.
+	const std::vector<real> &val,	// Values of non-zero elements.
+	const std::vector<real> &rhs,	// Right-hand side.
+	std::vector<real> &x		// In: initial approximation; out: result.
 	)
 {
     // Init OpenCL
-    cl::Context      context;
+    cl::Context context;
     std::vector<cl::CommandQueue> queue;
 
-    std::tie(context, queue) = queue_list(
-	    Filter::Type(CL_DEVICE_TYPE_GPU) && Filter::DoublePrecision(),
-	    true);
-
-    uint n = x.size();
+    std::tie(context, queue) = queue_list(Filter::Type(CL_DEVICE_TYPE_GPU));
 
     // Move data to GPU(s)
+    uint n = x.size();
     clu::SpMat<real>  A(queue, n, row.data(), col.data(), val.data());
     clu::vector<real> f(queue, CL_MEM_READ_ONLY,  rhs);
     clu::vector<real> u(queue, CL_MEM_READ_WRITE, x);
@@ -32,17 +30,18 @@ void cg_gpu(
     clu::vector<real> p(queue, CL_MEM_READ_WRITE, n);
     clu::vector<real> q(queue, CL_MEM_READ_WRITE, n);
 
+    Reductor<real,MAX> max(queue);
 
-    // Solve equation Ax = f with conjugate gradients method.
+    // Solve equation Au = f with conjugate gradients method.
     real rho1, rho2;
     q = A * u;
     r = f - q;
 
-    rho1 = inner_product(r, r);
+    for(uint iter = 0; max(Abs(r)) > 1e-8 && iter < n; iter++) {
+	rho1 = inner_product(r, r);
 
-    for(uint iter = 0; rho1 > 1e-8 && iter < n; iter++) {
 	if (iter == 0) {
-	    p = Const(1) * r;
+	    p = r;
 	} else {
 	    real beta = rho1 / rho2;
 	    p = r + Const(beta) * p;
@@ -56,14 +55,11 @@ void cg_gpu(
 	r = r - Const(alpha) * q;
 
 	rho2 = rho1;
-	rho1 = inner_product(r, r);
     }
 
     // Get result to host.
     copy(u, x);
 }
-
-
 
 int main() {
     uint n = 1024;
