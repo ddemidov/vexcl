@@ -84,9 +84,10 @@ assert(x[42] == Z[42]);
 Another frequently performed operation is reduction of a vector expresion to
 single value, such as summation. This can be done with `Reductor` class:
 ```C++
-Reductor<double> sum(queue);
+Reductor<double,SUM> sum(queue);
+Reductor<double,MAX> max(queue);
 
-std::cout << sum(Z) << std::endl;
+std::cout << max(Abs(X) - Const(0.5)) << std::endl;
 std::cout << sum(Sqrt(Const(2) * X) + Cos(Y)) << std::endl;
 ```
 

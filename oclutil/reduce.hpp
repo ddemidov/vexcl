@@ -15,8 +15,14 @@
 
 namespace clu {
 
+enum ReductionKind {
+    SUM = 0,
+    MAX = 1,
+    MIN = 2
+};
+
 /// Parallel reduction of arbitrary expression.
-template <typename real>
+template <typename real, ReductionKind RDC>
 class Reductor {
     public:
 	Reductor(const std::vector<cl::CommandQueue> &queue);
@@ -32,22 +38,19 @@ class Reductor {
 
 	template <class Expr>
 	struct exdata {
-	    static bool       compiled;
-	    static cl::Kernel kernel;
+	    static bool       compiled[3];
+	    static cl::Kernel kernel[3];
 	};
-
-	void compile_sum() const;
-	void compile_inner() const;
 };
 
-template <typename real> template <class Expr>
-bool Reductor<real>::exdata<Expr>::compiled = false;
+template <typename real, ReductionKind RDC> template <class Expr>
+bool Reductor<real,RDC>::exdata<Expr>::compiled[3] = {false, false, false};
 
-template <typename real> template <class Expr>
-cl::Kernel Reductor<real>::exdata<Expr>::kernel;
+template <typename real, ReductionKind RDC> template <class Expr>
+cl::Kernel Reductor<real,RDC>::exdata<Expr>::kernel[3];
 
-template <typename real>
-Reductor<real>::Reductor(const std::vector<cl::CommandQueue> &queue)
+template <typename real, ReductionKind RDC>
+Reductor<real,RDC>::Reductor(const std::vector<cl::CommandQueue> &queue)
     : context(queue[0].getInfo<CL_QUEUE_CONTEXT>()), queue(queue)
 {
     idx.reserve(queue.size() + 1);
@@ -65,12 +68,31 @@ Reductor<real>::Reductor(const std::vector<cl::CommandQueue> &queue)
     hbuf.resize(idx.back());
 }
 
-template <typename real> template <class Expr>
-real Reductor<real>::operator()(const Expr &expr) const {
-    if (!exdata<Expr>::compiled) {
+template <typename real, ReductionKind RDC> template <class Expr>
+real Reductor<real,RDC>::operator()(const Expr &expr) const {
+    if (!exdata<Expr>::compiled[RDC]) {
 	std::ostringstream source;
 
 	std::string kernel_name = std::string("reduce_") + expr.kernel_name();
+
+	std::ostringstream increment_line;
+	switch (RDC) {
+	    case SUM:
+		increment_line << "mySum += ";
+		expr.kernel_expr(increment_line);
+		increment_line << ";\n";
+		break;
+	    case MAX:
+		increment_line << "mySum = max(mySum, ";
+		expr.kernel_expr(increment_line);
+		increment_line << ");\n";
+		break;
+	    case MIN:
+		increment_line << "mySum = min(mySum, ";
+		expr.kernel_expr(increment_line);
+		increment_line << ");\n";
+		break;
+	}
 
 	source << "#if defined(cl_khr_fp64)\n"
 		  "#  pragma OPENCL EXTENSION cl_khr_fp64: enable\n"
@@ -92,23 +114,35 @@ real Reductor<real>::operator()(const Expr &expr) const {
 		  "    uint gridSize   = get_num_groups(0) * block_size * 2;\n"
 		  "    uint i;\n"
 		  "\n"
-		  "    real mySum = 0;\n"
+		  "    real mySum = ";
+	switch(RDC) {
+	    case SUM:
+		source << 0;
+		break;
+	    case MAX:
+		source << -std::numeric_limits<real>::max();
+		break;
+	    case MIN:
+		source << std::numeric_limits<real>::max();
+		break;
+	}
+	source << ";\n"
 		  "\n"
 		  "    while (p < n) {\n"
 		  "        i = p;\n"
-		  "        mySum += ";
-	expr.kernel_expr(source);
-	source << ";\n"
+		  "        " << increment_line.str() <<
 		  "        i = p + block_size;\n"
-		  "        if (i < n) mySum += ";
-	expr.kernel_expr(source);
-	source << ";\n"
+		  "        if (i < n)\n"
+		  "            " << increment_line.str() <<
 		  "        p += gridSize;\n"
 		  "    }\n"
 		  "\n"
 		  "    sdata[tid] = mySum;\n"
 		  "    barrier(CLK_LOCAL_MEM_FENCE);\n"
-		  "\n"
+		  "\n";
+	switch (RDC) {
+	    case SUM:
+		source <<
 		  "    if (block_size >= 512) { if (tid < 256) { sdata[tid] = mySum = mySum + sdata[tid + 256]; } barrier(CLK_LOCAL_MEM_FENCE); }\n"
 		  "    if (block_size >= 256) { if (tid < 128) { sdata[tid] = mySum = mySum + sdata[tid + 128]; } barrier(CLK_LOCAL_MEM_FENCE); }\n"
 		  "    if (block_size >= 128) { if (tid <  64) { sdata[tid] = mySum = mySum + sdata[tid +  64]; } barrier(CLK_LOCAL_MEM_FENCE); }\n"
@@ -125,6 +159,46 @@ real Reductor<real>::operator()(const Expr &expr) const {
 		  "\n"
 		  "    if (tid == 0) g_odata[get_group_id(0)] = sdata[0];\n"
 		  "}\n";
+		break;
+	    case MAX:
+		source <<
+		  "    if (block_size >= 512) { if (tid < 256) { sdata[tid] = mySum = max(mySum, sdata[tid + 256]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
+		  "    if (block_size >= 256) { if (tid < 128) { sdata[tid] = mySum = max(mySum, sdata[tid + 128]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
+		  "    if (block_size >= 128) { if (tid <  64) { sdata[tid] = mySum = max(mySum, sdata[tid +  64]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
+		  "\n"
+		  "    if (tid < 32) {\n"
+		  "        local volatile real* smem = sdata;\n"
+		  "        if (block_size >=  64) { smem[tid] = mySum = max(mySum, smem[tid + 32]); }\n"
+		  "        if (block_size >=  32) { smem[tid] = mySum = max(mySum, smem[tid + 16]); }\n"
+		  "        if (block_size >=  16) { smem[tid] = mySum = max(mySum, smem[tid +  8]); }\n"
+		  "        if (block_size >=   8) { smem[tid] = mySum = max(mySum, smem[tid +  4]); }\n"
+		  "        if (block_size >=   4) { smem[tid] = mySum = max(mySum, smem[tid +  2]); }\n"
+		  "        if (block_size >=   2) { smem[tid] = mySum = max(mySum, smem[tid +  1]); }\n"
+		  "    }\n"
+		  "\n"
+		  "    if (tid == 0) g_odata[get_group_id(0)] = sdata[0];\n"
+		  "}\n";
+		break;
+	    case MIN:
+		source <<
+		  "    if (block_size >= 512) { if (tid < 256) { sdata[tid] = mySum = min(mySum, sdata[tid + 256]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
+		  "    if (block_size >= 256) { if (tid < 128) { sdata[tid] = mySum = min(mySum, sdata[tid + 128]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
+		  "    if (block_size >= 128) { if (tid <  64) { sdata[tid] = mySum = min(mySum, sdata[tid +  64]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
+		  "\n"
+		  "    if (tid < 32) {\n"
+		  "        local volatile real* smem = sdata;\n"
+		  "        if (block_size >=  64) { smem[tid] = mySum = min(mySum, smem[tid + 32]); }\n"
+		  "        if (block_size >=  32) { smem[tid] = mySum = min(mySum, smem[tid + 16]); }\n"
+		  "        if (block_size >=  16) { smem[tid] = mySum = min(mySum, smem[tid +  8]); }\n"
+		  "        if (block_size >=   8) { smem[tid] = mySum = min(mySum, smem[tid +  4]); }\n"
+		  "        if (block_size >=   4) { smem[tid] = mySum = min(mySum, smem[tid +  2]); }\n"
+		  "        if (block_size >=   2) { smem[tid] = mySum = min(mySum, smem[tid +  1]); }\n"
+		  "    }\n"
+		  "\n"
+		  "    if (tid == 0) g_odata[get_group_id(0)] = sdata[0];\n"
+		  "}\n";
+		break;
+	}
 
 	std::vector<cl::Device> device;
 	device.reserve(queue.size());
@@ -134,8 +208,8 @@ real Reductor<real>::operator()(const Expr &expr) const {
 
 	auto program = build_sources(context, source.str());
 
-	exdata<Expr>::kernel   = cl::Kernel(program, kernel_name.c_str());
-	exdata<Expr>::compiled = true;
+	exdata<Expr>::kernel[RDC]   = cl::Kernel(program, kernel_name.c_str());
+	exdata<Expr>::compiled[RDC] = true;
     }
 
 
@@ -146,12 +220,12 @@ real Reductor<real>::operator()(const Expr &expr) const {
 	auto lmem = cl::__local(l_size * sizeof(real));
 
 	uint pos = 0;
-	exdata<Expr>::kernel.setArg(pos++, psize);
-	expr.kernel_args(exdata<Expr>::kernel, d, pos);
-	exdata<Expr>::kernel.setArg(pos++, dbuf[d]());
-	exdata<Expr>::kernel.setArg(pos++, lmem);
+	exdata<Expr>::kernel[RDC].setArg(pos++, psize);
+	expr.kernel_args(exdata<Expr>::kernel[RDC], d, pos);
+	exdata<Expr>::kernel[RDC].setArg(pos++, dbuf[d]());
+	exdata<Expr>::kernel[RDC].setArg(pos++, lmem);
 
-	queue[d].enqueueNDRangeKernel(exdata<Expr>::kernel, cl::NullRange,
+	queue[d].enqueueNDRangeKernel(exdata<Expr>::kernel[RDC], cl::NullRange,
 		g_size, l_size);
     }
 
@@ -159,13 +233,21 @@ real Reductor<real>::operator()(const Expr &expr) const {
 	copy(dbuf[d], &hbuf[idx[d]]);
     }
 
-    return std::accumulate(hbuf.begin(), hbuf.end(), static_cast<real>(0));
+    switch(RDC) {
+	case SUM:
+	    return std::accumulate(
+		    hbuf.begin(), hbuf.end(), static_cast<real>(0));
+	case MAX:
+	    return *std::max_element(hbuf.begin(), hbuf.end());
+	case MIN:
+	    return *std::min_element(hbuf.begin(), hbuf.end());
+    }
 }
 
 /// Sum of vector elements.
 template <typename real>
 real sum(const clu::vector<real> &x) {
-    static Reductor<real> rdc(x.queue);
+    static Reductor<real,SUM> rdc(x.queue);
 
     return rdc(x);
 }
@@ -173,7 +255,7 @@ real sum(const clu::vector<real> &x) {
 /// Inner product of two vectors.
 template <typename real>
 real inner_product(const clu::vector<real> &x, const clu::vector<real> &y) {
-    static Reductor<real> rdc(x.queue);
+    static Reductor<real,SUM> rdc(x.queue);
 
     return rdc(x * y);
 }

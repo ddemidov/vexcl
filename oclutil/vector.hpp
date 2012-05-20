@@ -594,7 +594,8 @@ void UnaryExpression<Expr>::kernel_expr(std::ostream &os, std::string name) cons
 }
 
 static const UnaryFunction Sqrt("sqrt");
-static const UnaryFunction Abs ("abs");
+static const UnaryFunction Abs ("fabs");
+static const UnaryFunction Absf("fabsf");
 static const UnaryFunction Sin ("sin");
 static const UnaryFunction Cos ("cos");
 static const UnaryFunction Tan ("tan");
