@@ -47,7 +47,7 @@ int main() {
 	// Fill device vector with constant value...
 	y = Const(42);
 	// ... or with some expression:
-	z = sqrt(Const(2) * x) + cos(y);
+	z = Sqrt(Const(2) * x) + Cos(y);
 
 	std::cout << "y * y = " << inner_product(y, y) << std::endl;
 

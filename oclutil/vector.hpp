@@ -534,30 +534,19 @@ struct Constant {
 template <class T>
 Constant<T> Const(T value) { return Constant<T>(value); }
 
-enum UnaryFunction {
-    ABS,
-    SQRT,
-    SIN,
-    COS,
-    TAN
-};
+struct UnaryFunction;
 
 /// \internal Unary expression template.
-template <UnaryFunction F, class Expr>
+template <class Expr>
 struct UnaryExpression {
     static constexpr bool is_expression = true;
 
-    UnaryExpression(const Expr &expr) : expr(expr) {}
+    UnaryExpression(const Expr &expr, const UnaryFunction &fun)
+	: expr(expr), fun(fun) {}
 
-    std::string kernel_name() const {
-	return funstr() + expr.kernel_name();
-    }
+    std::string kernel_name() const;
 
-    void kernel_expr(std::ostream &os, std::string name = "") const {
-	os << funstr() << "(";
-	expr.kernel_expr(os, name);
-	os << ")";
-    }
+    void kernel_expr(std::ostream &os, std::string name = "") const;
 
     void kernel_prm(std::ostream &os, std::string name = "") const {
 	expr.kernel_prm(os, name);
@@ -577,47 +566,38 @@ struct UnaryExpression {
 
     private:
 	const Expr &expr;
-
-	static std::string funstr() {
-	    switch (F) {
-		case ABS:
-		    return "abs";
-		case SQRT:
-		    return "sqrt";
-		case SIN:
-		    return "sin";
-		case COS:
-		    return "cos";
-		case TAN:
-		    return "tan";
-	    }
-	}
+	const UnaryFunction &fun;
 };
 
-/// Absolut value of argument.
-template <class Expr>
-typename std::enable_if<Expr::is_expression, UnaryExpression<ABS, Expr>>::type
-abs(const Expr &e) { return UnaryExpression<ABS,Expr>(e); }
+struct UnaryFunction {
+    UnaryFunction(const std::string &name) : name(name) {}
 
-/// Square root of argument.
-template <class Expr>
-typename std::enable_if<Expr::is_expression, UnaryExpression<SQRT, Expr>>::type
-sqrt(const Expr &e) { return UnaryExpression<SQRT,Expr>(e); }
+    template <class Expr>
+    typename std::enable_if<Expr::is_expression, UnaryExpression<Expr>>::type
+    operator()(const Expr &expr) const {
+	return UnaryExpression<Expr>(expr, *this);
+    }
 
-/// Sine of argument.
-template <class Expr>
-typename std::enable_if<Expr::is_expression, UnaryExpression<SIN, Expr>>::type
-sin(const Expr &e) { return UnaryExpression<SIN,Expr>(e); }
+    std::string name;
+};
 
-/// Cosine of argument.
 template <class Expr>
-typename std::enable_if<Expr::is_expression, UnaryExpression<COS, Expr>>::type
-cos(const Expr &e) { return UnaryExpression<COS,Expr>(e); }
+std::string UnaryExpression<Expr>::kernel_name() const {
+    return fun.name + expr.kernel_name();
+}
 
-/// Tangent of argument.
 template <class Expr>
-typename std::enable_if<Expr::is_expression, UnaryExpression<TAN, Expr>>::type
-tan(const Expr &e) { return UnaryExpression<TAN,Expr>(e); }
+void UnaryExpression<Expr>::kernel_expr(std::ostream &os, std::string name) const {
+    os << fun.name << "(";
+    expr.kernel_expr(os, name);
+    os << ")";
+}
+
+static const UnaryFunction Sqrt("sqrt");
+static const UnaryFunction Abs ("abs");
+static const UnaryFunction Sin ("sin");
+static const UnaryFunction Cos ("cos");
+static const UnaryFunction Tan ("tan");
 
 } // namespace clu
 

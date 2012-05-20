@@ -16,10 +16,10 @@ int main() {
     clu::vector<double> Y(queue, CL_MEM_READ_WRITE, n);
     clu::vector<double> Z(queue, CL_MEM_READ_WRITE, n);
     Y = Const(42);
-    Z = sqrt(Const(2) * X) + cos(Y);
+    Z = Sqrt(Const(2) * X) + Cos(Y);
     copy(Z, x);
     assert(x[42] == Z[42]);
     Reductor<double> sum(queue);
     std::cout << sum(Z) << std::endl;
-    std::cout << sum(sqrt(Const(2) * X) + cos(Y)) << std::endl;
+    std::cout << sum(Sqrt(Const(2) * X) + Cos(Y)) << std::endl;
 }

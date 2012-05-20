@@ -70,7 +70,7 @@ encountered in your program) and called automagically.
 Vectors are processed in parallel across all devices they were allocated on:
 ```C++
 Y = Const(42);
-Z = sqrt(Const(2) * X) + cos(Y);
+Z = Sqrt(Const(2) * X) + Cos(Y);
 ```
 
 You can copy the result back to host or you can use `vector::operator[]` to
@@ -87,7 +87,7 @@ single value, such as summation. This can be done with `Reductor` class:
 Reductor<double> sum(queue);
 
 std::cout << sum(Z) << std::endl;
-std::cout << sum(sqrt(Const(2) * X) + cos(Y)) << std::endl;
+std::cout << sum(Sqrt(Const(2) * X) + Cos(Y)) << std::endl;
 ```
 
 Using custom kernels
