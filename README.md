@@ -103,12 +103,12 @@ typedef double real;
 // Solve system of linear equations A u = f with conjugate gradients method.
 // Input matrix is represented in CSR format (parameters row, col, and val).
 void cg_gpu(
-	const std::vector<uint> &row,	// Indices to col and val vectors.
-	const std::vector<uint> &col,	// Column numbers of non-zero elements.
-	const std::vector<real> &val,	// Values of non-zero elements.
-	const std::vector<real> &rhs,	// Right-hand side.
-	std::vector<real> &x		// In: initial approximation; out: result.
-	)
+        const std::vector<uint> &row,   // Indices to col and val vectors.
+        const std::vector<uint> &col,   // Column numbers of non-zero elements.
+        const std::vector<real> &val,   // Values of non-zero elements.
+        const std::vector<real> &rhs,   // Right-hand side.
+        std::vector<real> &x            // In: initial approximation; out: result.
+        )
 {
     // Init OpenCL
     cl::Context context;
@@ -133,23 +133,23 @@ void cg_gpu(
     r = f - q;
 
     for(uint iter = 0; max(Abs(r)) > 1e-8 && iter < n; iter++) {
-	rho1 = inner_product(r, r);
+        rho1 = inner_product(r, r);
 
-	if (iter == 0) {
-	    p = r;
-	} else {
-	    real beta = rho1 / rho2;
-	    p = r + Const(beta) * p;
-	}
+        if (iter == 0) {
+            p = r;
+        } else {
+            real beta = rho1 / rho2;
+            p = r + Const(beta) * p;
+        }
 
-	q = A * p;
+        q = A * p;
 
-	real alpha = rho1 / inner_product(p, q);
+        real alpha = rho1 / inner_product(p, q);
 
-	u = u + Const(alpha) * p;
-	r = r - Const(alpha) * q;
+        u = u + Const(alpha) * p;
+        r = r - Const(alpha) * q;
 
-	rho2 = rho1;
+        rho2 = rho1;
     }
 
     // Get result to host.
