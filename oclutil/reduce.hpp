@@ -153,9 +153,10 @@ real Reductor<real,RDC>::operator()(const Expr &expr) const {
 	switch (RDC) {
 	    case SUM:
 		source <<
-		  "    if (block_size >= 512) { if (tid < 256) { sdata[tid] = mySum = mySum + sdata[tid + 256]; } barrier(CLK_LOCAL_MEM_FENCE); }\n"
-		  "    if (block_size >= 256) { if (tid < 128) { sdata[tid] = mySum = mySum + sdata[tid + 128]; } barrier(CLK_LOCAL_MEM_FENCE); }\n"
-		  "    if (block_size >= 128) { if (tid <  64) { sdata[tid] = mySum = mySum + sdata[tid +  64]; } barrier(CLK_LOCAL_MEM_FENCE); }\n"
+		  "    if (block_size >= 1024) { if (tid < 512) { sdata[tid] = mySum = mySum + sdata[tid + 512]; } barrier(CLK_LOCAL_MEM_FENCE); }\n"
+		  "    if (block_size >=  512) { if (tid < 256) { sdata[tid] = mySum = mySum + sdata[tid + 256]; } barrier(CLK_LOCAL_MEM_FENCE); }\n"
+		  "    if (block_size >=  256) { if (tid < 128) { sdata[tid] = mySum = mySum + sdata[tid + 128]; } barrier(CLK_LOCAL_MEM_FENCE); }\n"
+		  "    if (block_size >=  128) { if (tid <  64) { sdata[tid] = mySum = mySum + sdata[tid +  64]; } barrier(CLK_LOCAL_MEM_FENCE); }\n"
 		  "\n"
 		  "    if (tid < 32) {\n"
 		  "        local volatile real* smem = sdata;\n"
@@ -172,9 +173,10 @@ real Reductor<real,RDC>::operator()(const Expr &expr) const {
 		break;
 	    case MAX:
 		source <<
-		  "    if (block_size >= 512) { if (tid < 256) { sdata[tid] = mySum = max(mySum, sdata[tid + 256]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
-		  "    if (block_size >= 256) { if (tid < 128) { sdata[tid] = mySum = max(mySum, sdata[tid + 128]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
-		  "    if (block_size >= 128) { if (tid <  64) { sdata[tid] = mySum = max(mySum, sdata[tid +  64]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
+		  "    if (block_size >= 1024) { if (tid < 512) { sdata[tid] = mySum = max(mySum, sdata[tid + 512]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
+		  "    if (block_size >=  512) { if (tid < 256) { sdata[tid] = mySum = max(mySum, sdata[tid + 256]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
+		  "    if (block_size >=  256) { if (tid < 128) { sdata[tid] = mySum = max(mySum, sdata[tid + 128]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
+		  "    if (block_size >=  128) { if (tid <  64) { sdata[tid] = mySum = max(mySum, sdata[tid +  64]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
 		  "\n"
 		  "    if (tid < 32) {\n"
 		  "        local volatile real* smem = sdata;\n"
@@ -191,9 +193,10 @@ real Reductor<real,RDC>::operator()(const Expr &expr) const {
 		break;
 	    case MIN:
 		source <<
-		  "    if (block_size >= 512) { if (tid < 256) { sdata[tid] = mySum = min(mySum, sdata[tid + 256]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
-		  "    if (block_size >= 256) { if (tid < 128) { sdata[tid] = mySum = min(mySum, sdata[tid + 128]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
-		  "    if (block_size >= 128) { if (tid <  64) { sdata[tid] = mySum = min(mySum, sdata[tid +  64]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
+		  "    if (block_size >= 1024) { if (tid < 512) { sdata[tid] = mySum = min(mySum, sdata[tid + 512]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
+		  "    if (block_size >=  512) { if (tid < 256) { sdata[tid] = mySum = min(mySum, sdata[tid + 256]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
+		  "    if (block_size >=  256) { if (tid < 128) { sdata[tid] = mySum = min(mySum, sdata[tid + 128]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
+		  "    if (block_size >=  128) { if (tid <  64) { sdata[tid] = mySum = min(mySum, sdata[tid +  64]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
 		  "\n"
 		  "    if (tid < 32) {\n"
 		  "        local volatile real* smem = sdata;\n"
@@ -222,6 +225,17 @@ real Reductor<real,RDC>::operator()(const Expr &expr) const {
 	exdata<Expr>::compiled[RDC] = true;
 	exdata<Expr>::wgsize[RDC]   = kernel_workgroup_size(
 		exdata<Expr>::kernel[RDC], device);
+
+	// Strange bug(?) in g++: cannot call getWorkGroupInfo directly on
+	// exdata<Expr>::kernel[RDC], but it works like this:
+	cl::Kernel &krn = exdata<Expr>::kernel[RDC];
+
+	for(auto d = device.begin(); d != device.end(); d++) {
+	    uint smem = d->getInfo<CL_DEVICE_LOCAL_MEM_SIZE>() -
+		krn.getWorkGroupInfo<CL_KERNEL_LOCAL_MEM_SIZE>(*d);
+	    while(exdata<Expr>::wgsize[RDC] * sizeof(real) > smem)
+		exdata<Expr>::wgsize[RDC] /= 2;
+	}
     }
 
 
