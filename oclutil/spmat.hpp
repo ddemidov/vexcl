@@ -31,11 +31,37 @@ namespace clu {
 template <typename real>
 class SpMat {
     public:
+	/// Constructor
+	/**
+	 * Constructs GPU representation of the matrix. Input matrix is in CSR
+	 * format. GPU matrix utilized ELL format and is split equally across
+	 * all compute devices. When there are more than one device, secondary
+	 * queue can be used to perform transfer of ghost values across GPU
+	 * boundaries in parallel with computation kernel.
+	 * \param queue vector of primary queues. Each queue represents one
+	 *              compute device.
+	 * \param queue vector of secondary queues. Secondary queues are used
+	 *              to transfer ghost values across GPU boundaries in
+	 *              parallel with computation kernel. It is possible to put
+	 *              primary queues here as well.
+	 * \param n     number of rows in the matrix.
+	 * \param row   row index into col and val vectors.
+	 * \param col   column numbers of nonzero elements of the matrix.
+	 * \param val   values of nonzero elements of the matrix.
+	 */
 	SpMat(const std::vector<cl::CommandQueue> &queue,
 	      const std::vector<cl::CommandQueue> &squeue,
 	      uint n, const uint *row, const uint *col, const real *val
 	      );
 
+	/// Matrix-vector multiplication.
+	/**
+	 * Matrix vector multiplication (y = Ax) is performed in parallel on
+	 * all registered compute devices. Ghost values of x are transfered
+	 * across GPU baoundaries as needed.
+	 * \param x input vector.
+	 * \param y output vector.
+	 */
 	void mul(const clu::vector<real> &x, clu::vector<real> &y) const;
     private:
 	struct ell {
