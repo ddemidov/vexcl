@@ -1,5 +1,6 @@
 #include <iostream>
 #include <vector>
+#include <tuple>
 #include <oclutil/oclutil.hpp>
 
 using namespace clu;
@@ -19,7 +20,9 @@ void cg_gpu(
     cl::Context context;
     std::vector<cl::CommandQueue> queue;
 
-    std::tie(context, queue) = queue_list(Filter::Type(CL_DEVICE_TYPE_GPU));
+    std::tie(context, queue) = queue_list(
+	Filter::Type(CL_DEVICE_TYPE_GPU) && Filter::DoublePrecision()
+	);
 
     // Move data to GPU(s)
     uint n = x.size();

@@ -7,6 +7,11 @@
  * \brief  OpenCL device enumeration.
  */
 
+#ifdef WIN32
+#  pragma warning(disable : 4290 4715)
+#  define NOMINMAX
+#endif
+
 #include <vector>
 #include <string>
 #include <CL/cl.hpp>
@@ -201,7 +206,7 @@ queue_list(DevFilter filter = Filter::All(), bool verbose = false)
     queue.reserve(device.size());
 
     for(auto d = device.begin(); d != device.end(); d++)
-	queue.emplace_back(context, *d);
+	queue.push_back(cl::CommandQueue(context, *d));
 
     return std::make_pair(context, queue);
 }

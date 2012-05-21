@@ -7,9 +7,15 @@
  * \brief  OpenCL vector reduction.
  */
 
+#ifdef WIN32
+#  pragma warning(disable : 4290 4715)
+#  define NOMINMAX
+#endif
+
 #include <vector>
 #include <sstream>
 #include <numeric>
+#include <limits>
 #include <CL/cl.hpp>
 #include <oclutil/vector.hpp>
 
@@ -62,7 +68,7 @@ Reductor<real,RDC>::Reductor(const std::vector<cl::CommandQueue> &queue)
 	idx.push_back(idx.back() + bufsize);
 
 	std::vector<cl::CommandQueue> lq(1, *q);
-	dbuf.emplace_back(lq, CL_MEM_READ_WRITE, bufsize);
+	dbuf.push_back(clu::vector<real>(lq, CL_MEM_READ_WRITE, bufsize));
     }
 
     hbuf.resize(idx.back());

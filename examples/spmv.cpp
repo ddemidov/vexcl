@@ -1,6 +1,7 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include <tuple>
 #include <cmath>
 #include <oclutil/oclutil.hpp>
 using namespace clu;

@@ -7,6 +7,11 @@
  * \brief  OpenCL sparse matrix.
  */
 
+#ifdef WIN32
+#  pragma warning(disable : 4290)
+#  define NOMINMAX
+#endif
+
 #include <vector>
 #include <set>
 #include <unordered_map>
@@ -33,22 +38,22 @@ class SpMat {
     private:
 	struct ell {
 	    uint n, w, pitch;
-	    std::unique_ptr<clu::vector<uint>> col;
-	    std::unique_ptr<clu::vector<real>> val;
+	    clu::vector<uint> col;
+	    clu::vector<real> val;
 	};
 
 	struct exdata {
 	    std::vector<uint> mycols;
 	    mutable std::vector<real> myvals;
 
-	    std::unique_ptr<clu::vector<uint>> cols_to_send;
-	    std::unique_ptr<clu::vector<real>> vals_to_send;
-	    std::unique_ptr<clu::vector<real>> rx;
+	    clu::vector<uint> cols_to_send;
+	    clu::vector<real> vals_to_send;
+	    mutable clu::vector<real> rx;
 	};
 
 	cl::Context                   context;
 	std::vector<cl::CommandQueue> queue;
-	std::vector<size_t>           part;
+	std::vector<uint>             part;
 
 	std::vector<ell> lm; // Local part of the matrix.
 	std::vector<ell> rm; // Remote part of the matrix.
@@ -149,12 +154,13 @@ SpMV<real> operator*(const SpMat<real> &A, const clu::vector<real> &x) {
 }
 
 template <typename real>
-void vector<real>::operator=(const SpMV<real> &spmv) {
+const vector<real>& vector<real>::operator=(const SpMV<real> &spmv) {
     spmv.A.mul(spmv.x, *this);
+    return *this;
 }
 
 #define NCOL (~0U)
-#define BLOCK_SIZE 256
+#define BLOCK_SIZE 256U
 
 template <typename real>
 SpMat<real>::SpMat(const std::vector<cl::CommandQueue> &queue,
@@ -202,7 +208,7 @@ SpMat<real>::SpMat(const std::vector<cl::CommandQueue> &queue,
 	// Convert CSR representation of the matrix to ELL format.
 	lm[d].n     = part[d + 1] - part[d];
 	lm[d].w     = 0;
-	lm[d].pitch = alignup(lm[d].n, 16);
+	lm[d].pitch = alignup(lm[d].n, 16U);
 
 	rm[d].n     = lm[d].n;
 	rm[d].w     = 0;
@@ -245,8 +251,8 @@ SpMat<real>::SpMat(const std::vector<cl::CommandQueue> &queue,
 	// Copy local part to the device.
 	std::vector<cl::CommandQueue> myq(1, queue[d]);
 
-	lm[d].col.reset(new vector<uint>(myq, CL_MEM_READ_ONLY, lcol));
-	lm[d].val.reset(new vector<real>(myq, CL_MEM_READ_ONLY, lval));
+	lm[d].col = clu::vector<uint>(myq, CL_MEM_READ_ONLY, lcol);
+	lm[d].val = clu::vector<real>(myq, CL_MEM_READ_ONLY, lval);
 
 	// Copy remote part to the device.
 	if (rm[d].w) {
@@ -260,8 +266,8 @@ SpMat<real>::SpMat(const std::vector<cl::CommandQueue> &queue,
 		if (*c != NCOL) *c = r2l[*c];
 
 	    // Copy data to device.
-	    rm[d].col.reset(new vector<uint>(myq, CL_MEM_READ_ONLY, rcol));
-	    rm[d].val.reset(new vector<real>(myq, CL_MEM_READ_ONLY, rval));
+	    rm[d].col = clu::vector<uint>(myq, CL_MEM_READ_ONLY, rcol);
+	    rm[d].val = clu::vector<real>(myq, CL_MEM_READ_ONLY, rval);
 	}
     }
 
@@ -281,7 +287,7 @@ SpMat<real>::SpMat(const std::vector<cl::CommandQueue> &queue,
 		exc[d].myvals.resize(rcols);
 
 		std::vector<cl::CommandQueue> myq(1, queue[d]);
-		exc[d].rx.reset(new clu::vector<real>(myq, CL_MEM_READ_ONLY, rcols));
+		exc[d].rx = clu::vector<real>(myq, CL_MEM_READ_ONLY, rcols);
 
 		for(uint i = 0, j = 0; i < cols_to_send.size(); i++)
 		    if (remote_cols[d].count(cols_to_send[i])) exc[d].mycols[j++] = i;
@@ -301,13 +307,13 @@ SpMat<real>::SpMat(const std::vector<cl::CommandQueue> &queue,
 	    std::vector<cl::CommandQueue> myq(1, queue[d]);
 
 	    if (uint ncols = cidx[d + 1] - cidx[d]) {
-		exc[d].cols_to_send.reset(new clu::vector<uint>(myq, CL_MEM_READ_ONLY, ncols));
-		exc[d].vals_to_send.reset(new clu::vector<real>(myq, CL_MEM_READ_WRITE, ncols));
+		exc[d].cols_to_send = clu::vector<uint>(myq, CL_MEM_READ_ONLY, ncols);
+		exc[d].vals_to_send = clu::vector<real>(myq, CL_MEM_READ_WRITE, ncols);
 
 		for(uint i = cidx[d]; i < cidx[d + 1]; i++)
 		    cols_to_send[i] -= part[d];
 
-		copy(&cols_to_send[cidx[d]], *exc[d].cols_to_send);
+		copy(&cols_to_send[cidx[d]], exc[d].cols_to_send);
 	    }
 	}
     }
@@ -317,47 +323,58 @@ template <typename real>
 void SpMat<real>::mul(const clu::vector<real> &x, clu::vector<real> &y) const {
     // Compute contribution from local part of the matrix.
     for(uint d = 0; d < queue.size(); d++) {
-	size_t g_size = alignup(lm[d].n, BLOCK_SIZE);
-	size_t l_size = BLOCK_SIZE;
+	uint g_size = alignup(lm[d].n, BLOCK_SIZE);
+	uint l_size = BLOCK_SIZE;
 
-	cl::KernelFunctor kset = spmv_set.bind(queue[d], g_size, l_size);
+	spmv_set.setArg(0, lm[d].n);
+	spmv_set.setArg(1, lm[d].w);
+	spmv_set.setArg(2, lm[d].pitch);
+	spmv_set.setArg(3, lm[d].col());
+	spmv_set.setArg(4, lm[d].val());
+	spmv_set.setArg(5, x(d));
+	spmv_set.setArg(6, y(d));
 
-	kset(lm[d].n, lm[d].w, lm[d].pitch, (*lm[d].col)(), (*lm[d].val)(),
-		x(d), y(d)
-		);
+	queue[d].enqueueNDRangeKernel(spmv_set, cl::NullRange, g_size, l_size);
     }
 
     if (rx.size()) {
 	// Transfer remote parts of the input vector.
 	for(uint d = 0; d < queue.size(); d++) {
 	    if (uint ncols = cidx[d + 1] - cidx[d]) {
-		size_t g_size = alignup(ncols, BLOCK_SIZE);
-		size_t l_size = BLOCK_SIZE;
+		uint g_size = alignup(ncols, BLOCK_SIZE);
+		uint l_size = BLOCK_SIZE;
 
-		cl::KernelFunctor gather = gather_vals_to_send.bind(
-			queue[d], g_size, l_size);
+		gather_vals_to_send.setArg(0, ncols);
+		gather_vals_to_send.setArg(1, x(d));
+		gather_vals_to_send.setArg(2, exc[d].cols_to_send());
+		gather_vals_to_send.setArg(3, exc[d].vals_to_send());
 
-		gather(ncols, x(d), (*exc[d].cols_to_send)(), (*exc[d].vals_to_send)());
+		queue[d].enqueueNDRangeKernel(gather_vals_to_send, cl::NullRange, g_size, l_size);
 
-		copy(*exc[d].vals_to_send, &rx[cidx[d]]);
+		copy(exc[d].vals_to_send, &rx[cidx[d]]);
 	    }
 	}
 
 	// Compute contribution from remote part of the matrix.
 	for(uint d = 0; d < queue.size(); d++) {
 	    if (exc[d].mycols.size()) {
-		size_t g_size = alignup(rm[d].n, BLOCK_SIZE);
-		size_t l_size = BLOCK_SIZE;
+		uint g_size = alignup(rm[d].n, BLOCK_SIZE);
+		uint l_size = BLOCK_SIZE;
 
 		for(uint i = 0; i < exc[d].mycols.size(); i++)
 		    exc[d].myvals[i] = rx[exc[d].mycols[i]];
 
-		copy(exc[d].myvals, *exc[d].rx);
+		copy(exc[d].myvals, exc[d].rx);
 
-		cl::KernelFunctor kadd = spmv_add.bind(queue[d], g_size, l_size);
+		spmv_add.setArg(0, rm[d].n);
+		spmv_add.setArg(1, rm[d].w);
+		spmv_add.setArg(2, rm[d].pitch);
+		spmv_add.setArg(3, rm[d].col());
+		spmv_add.setArg(4, rm[d].val());
+		spmv_add.setArg(5, exc[d].rx());
+		spmv_add.setArg(6, y(d));
 
-		kadd(rm[d].n, rm[d].w, rm[d].pitch, (*rm[d].col)(), (*rm[d].val)(),
-			(*exc[d].rx)(), y(d));
+		queue[d].enqueueNDRangeKernel(spmv_add, cl::NullRange, g_size, l_size);
 	    }
 	}
     }

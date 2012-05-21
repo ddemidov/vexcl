@@ -1,9 +1,14 @@
 #include <iostream>
 #include <iomanip>
 #include <vector>
+#include <tuple>
 #include <algorithm>
 #include <cstdlib>
 #include <oclutil/oclutil.hpp>
+
+#ifdef WIN32
+#  pragma warning (disable : 4244)
+#endif
 
 using namespace clu;
 

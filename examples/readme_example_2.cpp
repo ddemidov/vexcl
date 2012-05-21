@@ -1,4 +1,5 @@
 #include <iostream>
+#include <tuple>
 #include <oclutil/oclutil.hpp>
 using namespace clu;
 int main() {

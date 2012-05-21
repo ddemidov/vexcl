@@ -1,11 +1,12 @@
 #include <vector>
+#include <tuple>
 #include <cassert>
 #include <oclutil/oclutil.hpp>
 using namespace clu;
 int main() {
     cl::Context context;
     std::vector<cl::CommandQueue> queue;
-    std::tie(context, queue) = queue_list(Filter::Type(CL_DEVICE_TYPE_GPU));
+    std::tie(context, queue) = queue_list(Filter::Type(CL_DEVICE_TYPE_GPU) && Filter::DoublePrecision());
 
     const uint n = 1 << 20;
     clu::vector<float> x(queue, CL_MEM_WRITE_ONLY, n);
@@ -18,9 +19,14 @@ int main() {
 		"}\n"
 		));
 
+    cl::Kernel dummy = cl::Kernel(program, "dummy");
     for(uint d = 0; d < queue.size(); d++) {
-	auto dummy = cl::Kernel(program, "dummy").bind(queue[d], alignup(n, 256), 256);
-	dummy((uint)x.part_size(d), x(d));
+	dummy.setArg(0, (uint)x.part_size(d));
+	dummy.setArg(1, x(d));
+
+	queue[d].enqueueNDRangeKernel(
+		dummy, cl::NullRange, alignup(n, 256U), 256U
+		);
     }
 
     std::cout << sum(x) << std::endl;

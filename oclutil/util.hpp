@@ -7,8 +7,15 @@
  * \brief  OpenCL general utilities.
  */
 
+#ifdef WIN32
+#  pragma warning(disable : 4290)
+#  define NOMINMAX
+#endif
+
 #include <iostream>
 #include <string>
+#include <algorithm>
+#include <type_traits>
 #include <CL/cl.hpp>
 
 typedef unsigned int  uint;
@@ -26,7 +33,9 @@ template <> std::string type_name<uint>()   { return "unsigned int"; }
 template <> std::string type_name<uchar>()  { return "unsigned char"; }
 
 /// Return next power of 2.
-inline uint nextpow2(uint x) {
+template <class T>
+typename std::enable_if<std::is_integral<T>::value, T>::type
+nextpow2(T x) {
     --x;
     x |= x >> 1U;
     x |= x >> 2U;
@@ -37,19 +46,21 @@ inline uint nextpow2(uint x) {
 }
 
 /// Align n to the next multiple of m.
-inline uint alignup(uint n, uint m = 16U) {
+template <class T>
+typename std::enable_if<std::is_integral<T>::value, T>::type
+alignup(T n, T m = 16U) {
     return n % m ? n - n % m + m : n;
 }
 
 /// Partition n into m almost equal parts.
-inline std::vector<size_t> partition(size_t n, size_t m) {
-    std::vector<size_t> part(m + 1);
+inline std::vector<uint> partition(uint n, uint m) {
+    std::vector<uint> part(m + 1);
 
-    size_t chunk_size = alignup((n + m - 1) / m);
+    uint chunk_size = alignup((n + m - 1) / m);
 
     part[0] = 0;
 
-    for(size_t i = 0; i < m; i++)
+    for(uint i = 0; i < m; i++)
 	part[i + 1] = std::min(n, part[i] + chunk_size);
 
     return part;

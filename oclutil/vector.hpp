@@ -7,6 +7,11 @@
  * \brief  OpenCL device vector.
  */
 
+#ifdef WIN32
+#  pragma warning(disable : 4267 4290)
+#  define NOMINMAX
+#endif
+
 #include <vector>
 #include <iostream>
 #include <sstream>
@@ -27,13 +32,13 @@ template <class T> void copy(const std::vector<T> &hv, clu::vector<T> &dv);
 template <class T> T sum(const clu::vector<T> &x);
 template <class T> T inner_product(const clu::vector<T> &x, const clu::vector<T> &y);
 
-template<class T> class SpMV;
+template<class T> struct SpMV;
 
 /// Convenience class for work with cl::Buffer.
 template<class T>
 class vector {
     public:
-	static constexpr bool is_expression = true;
+	static const bool is_expression = true;
 	static bool show_kernels;
 
 	/// \internal Proxy class.
@@ -119,7 +124,7 @@ class vector {
 		}
 
 	    private:
-		iterator(vector &vec, size_t pos)
+		iterator(vector &vec, uint pos)
 		    : vec(vec), pos(pos), part(0)
 		{
 		    while(pos >= vec.part[part + 1] && part < vec.nparts())
@@ -127,8 +132,8 @@ class vector {
 		}
 
 		vector &vec;
-		size_t  pos;
-		size_t  part;
+		uint    pos;
+		uint    part;
 
 		friend class vector;
 
@@ -160,7 +165,7 @@ class vector {
 		}
 
 	    private:
-		const_iterator(const vector &vec, size_t pos)
+		const_iterator(const vector &vec, uint pos)
 		    : vec(vec), pos(pos), part(0)
 		{
 		    while(pos >= vec.part[part + 1] && part < vec.nparts())
@@ -168,8 +173,8 @@ class vector {
 		}
 
 		const vector &vec;
-		size_t  pos;
-		size_t  part;
+		uint  pos;
+		uint  part;
 
 		friend class vector;
 
@@ -180,13 +185,33 @@ class vector {
 
 	/// Copy host data to the new buffer.
 	vector(const std::vector<cl::CommandQueue> &queue, cl_mem_flags flags,
-		size_t size, const T *host = 0
+		uint size, const T *host = 0
 	      ) : context(queue[0].getInfo<CL_QUEUE_CONTEXT>()),
 	          queue(queue), part(partition(size, queue.size())),
 	          buf(queue.size()), bytes(queue.size(), 0),
 		  event(queue.size())
 	{
 	    if (size) allocate_buffers(flags, host);
+	}
+
+	/// Move constructor
+	vector(vector &&v)
+	    : context(std::move(v.context)), queue(std::move(v.queue)),
+	      part(std::move(v.part)), buf(std::move(v.buf)), bytes(std::move(v.bytes)),
+	      event(std::move(v.event))
+	{
+	}
+
+	/// Move assignment
+	const vector& operator=(vector &&v) {
+	    std::swap(context, v.context);
+	    std::swap(queue,   v.queue);
+	    std::swap(part,    v.part);
+	    std::swap(buf,     v.buf);
+	    std::swap(bytes,   v.bytes);
+	    std::swap(event,   v.event);
+
+	    return *this;
 	}
 
 	/// Copy host data to the new buffer.
@@ -220,21 +245,21 @@ class vector {
 	    return iterator(*this, size());
 	}
 
-	element operator[](size_t index) {
+	element operator[](uint index) {
 	    uint p = 0;
 	    while(index >= part[p + 1] && p < nparts()) p++;
 	    return element(queue[p], buf[p], index - part[p]);
 	}
 
-	size_t size() const {
+	uint size() const {
 	    return part.back();
 	}
 
-	size_t nparts() const {
+	uint nparts() const {
 	    return queue.size();
 	}
 
-	size_t part_size(uint p) const {
+	uint part_size(uint p) const {
 	    return part[p + 1] - part[p];
 	}
 
@@ -254,9 +279,6 @@ class vector {
 	    k.setArg(pos++, buf[devnum]);
 	}
 
-	void prologue(std::ostream &os, std::string name = "v") const {
-	}
-
 	const vector& operator=(const vector &x) {
 	    if (&x != this) {
 		for(uint i = 0; i < queue.size(); i++)
@@ -267,7 +289,7 @@ class vector {
 	}
 
 	template <class Expr>
-	    void operator=(const Expr &expr) {
+	    const vector& operator=(const Expr &expr) {
 		if (!exdata<Expr>::compiled) {
 		    std::ostringstream kernel;
 
@@ -278,14 +300,10 @@ class vector {
 			"#  pragma OPENCL EXTENSION cl_khr_fp64: enable\n"
 			"#elif defined(cl_amd_fp64)\n"
 			"#  pragma OPENCL EXTENSION cl_amd_fp64: enable\n"
-			"#endif\n";
-
-		    expr.prologue(kernel);
-
-		    kernel
-			<< "kernel void " << kernel_name
-			<< "(\n\tunsigned int n,\n\tglobal "
-			<< type_name<T>() << " *res";
+			"#endif\n" <<
+			"kernel void " << kernel_name << "(\n"
+			"\tunsigned int n,\n"
+			"\tglobal " << type_name<T>() << " *res";
 
 		    expr.kernel_prm(kernel);
 
@@ -320,9 +338,11 @@ class vector {
 			    alignup(psize, 256U), 256U
 			    );
 		}
+
+		return *this;
 	    }
 
-	void operator=(const SpMV<T> &spmv);
+	const vector& operator=(const SpMV<T> &spmv);
 
     private:
 	template <class Expr>
@@ -333,9 +353,9 @@ class vector {
 
 	cl::Context                     context;
 	std::vector<cl::CommandQueue>	queue;
-	std::vector<size_t>             part;
+	std::vector<uint>               part;
 	std::vector<cl::Buffer>		buf;
-	std::vector<size_t>		bytes;
+	std::vector<uint>		bytes;
 
 	mutable std::vector<cl::Event>          event;
 
@@ -414,7 +434,7 @@ void copy(const std::vector<T> &hv, clu::vector<T> &dv) {
 /// \internal Expression template.
 template <class LHS, char OP, class RHS>
 struct BinaryExpression {
-    static constexpr bool is_expression = true;
+    static const bool is_expression = true;
 
     BinaryExpression(const LHS &lhs, const RHS &rhs) : lhs(lhs), rhs(rhs) {}
 
@@ -452,12 +472,7 @@ struct BinaryExpression {
 	rhs.kernel_args(k, devnum, pos);
     }
 
-    void prologue(std::ostream &os, std::string name = "") const {
-	lhs.prologue(os, name + "l");
-	rhs.prologue(os, name + "r");
-    }
-
-    size_t part_size(uint dev) const {
+    uint part_size(uint dev) const {
 	return std::max(lhs.part_size(dev), rhs.part_size(dev));
     }
 
@@ -508,7 +523,7 @@ typename std::enable_if<
 /// \internal Constant for use in vector expressions.
 template <class T>
 struct Constant {
-    static constexpr bool is_expression = true;
+    static const bool is_expression = true;
 
     Constant(T value) : value(value) {}
 
@@ -528,10 +543,7 @@ struct Constant {
 	k.setArg(pos++, value);
     }
 
-    void prologue(std::ostream &os, std::string name = "c") const {
-    }
-
-    size_t part_size(uint dev) const {
+    uint part_size(uint dev) const {
 	return 1;
     }
 
@@ -548,7 +560,7 @@ struct UnaryFunction;
 /// \internal Unary expression template.
 template <class Expr>
 struct UnaryExpression {
-    static constexpr bool is_expression = true;
+    static const bool is_expression = true;
 
     UnaryExpression(const Expr &expr, const UnaryFunction &fun)
 	: expr(expr), fun(fun) {}
@@ -565,11 +577,7 @@ struct UnaryExpression {
 	expr.kernel_args(k, devnum, pos);
     }
 
-    void prologue(std::ostream &os, std::string name = "f") const {
-	expr.prologue(os, name);
-    }
-
-    size_t part_size(uint dev) const {
+    uint part_size(uint dev) const {
 	return expr.part_size(dev);
     }
 

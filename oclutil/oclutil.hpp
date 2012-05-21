@@ -190,6 +190,11 @@ std::cout << sum(x) << std::endl;
 \endcode
 */
 
+#ifdef WIN32
+#  pragma warning(disable : 4290)
+#  define NOMINMAX
+#endif
+
 #include <CL/cl.hpp>
 #include <iostream>
 
