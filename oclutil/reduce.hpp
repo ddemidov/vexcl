@@ -46,6 +46,7 @@ class Reductor {
 	struct exdata {
 	    static bool       compiled[3];
 	    static cl::Kernel kernel[3];
+	    static uint       wgsize[3];
 	};
 };
 
@@ -54,6 +55,9 @@ bool Reductor<real,RDC>::exdata<Expr>::compiled[3] = {false, false, false};
 
 template <typename real, ReductionKind RDC> template <class Expr>
 cl::Kernel Reductor<real,RDC>::exdata<Expr>::kernel[3];
+
+template <typename real, ReductionKind RDC> template <class Expr>
+uint Reductor<real,RDC>::exdata<Expr>::wgsize[3];
 
 template <typename real, ReductionKind RDC>
 Reductor<real,RDC>::Reductor(const std::vector<cl::CommandQueue> &queue)
@@ -216,14 +220,15 @@ real Reductor<real,RDC>::operator()(const Expr &expr) const {
 
 	exdata<Expr>::kernel[RDC]   = cl::Kernel(program, kernel_name.c_str());
 	exdata<Expr>::compiled[RDC] = true;
+	exdata<Expr>::wgsize[RDC]   = kernel_workgroup_size(
+		exdata<Expr>::kernel[RDC], device);
     }
 
 
     for(uint d = 0; d < queue.size(); d++) {
 	uint psize = expr.part_size(d);
-	uint l_size = 256;
-	uint g_size = (idx[d + 1] - idx[d]) * l_size;
-	auto lmem = cl::__local(l_size * sizeof(real));
+	uint g_size = (idx[d + 1] - idx[d]) * exdata<Expr>::wgsize[RDC];
+	auto lmem = cl::__local(exdata<Expr>::wgsize[RDC] * sizeof(real));
 
 	uint pos = 0;
 	exdata<Expr>::kernel[RDC].setArg(pos++, psize);
@@ -232,7 +237,7 @@ real Reductor<real,RDC>::operator()(const Expr &expr) const {
 	exdata<Expr>::kernel[RDC].setArg(pos++, lmem);
 
 	queue[d].enqueueNDRangeKernel(exdata<Expr>::kernel[RDC], cl::NullRange,
-		g_size, l_size);
+		g_size, exdata<Expr>::wgsize[RDC]);
     }
 
     for(uint d = 0; d < queue.size(); d++) {

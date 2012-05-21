@@ -88,6 +88,22 @@ inline cl::Program build_sources(
     return program;
 }
 
+/// Get maximum possible workgroup size for given kernel.
+inline uint kernel_workgroup_size(
+	const cl::Kernel &kernel,
+	const std::vector<cl::Device> &device
+	)
+{
+    uint wgsz = 1024U;
+
+    for(auto d = device.begin(); d != device.end(); d++) {
+	uint dev_wgsz = kernel.getWorkGroupInfo<CL_KERNEL_WORK_GROUP_SIZE>(*d);
+	while(wgsz > dev_wgsz) wgsz /= 2;
+    }
+
+    return wgsz;
+}
+
 } // namespace clu
 
 /// Output description of an OpenCL error to a stream.

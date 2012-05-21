@@ -323,8 +323,11 @@ class vector {
 
 		    auto program = build_sources(context, kernel.str());
 
-		    exdata<Expr>::kernel = cl::Kernel(program, kernel_name.c_str());
+		    exdata<Expr>::kernel   = cl::Kernel(program, kernel_name.c_str());
 		    exdata<Expr>::compiled = true;
+		    exdata<Expr>::wgsize   = kernel_workgroup_size(
+			    exdata<Expr>::kernel, device
+			    );
 		}
 
 		for(uint d = 0; d < queue.size(); d++) {
@@ -334,8 +337,11 @@ class vector {
 
 		    expr.kernel_args(exdata<Expr>::kernel, d, pos);
 
-		    queue[d].enqueueNDRangeKernel(exdata<Expr>::kernel, cl::NullRange,
-			    alignup(psize, 256U), 256U
+		    queue[d].enqueueNDRangeKernel(
+			    exdata<Expr>::kernel,
+			    cl::NullRange,
+			    alignup(psize, exdata<Expr>::wgsize),
+			    exdata<Expr>::wgsize
 			    );
 		}
 
@@ -349,6 +355,7 @@ class vector {
 	struct exdata {
 	    static bool       compiled;
 	    static cl::Kernel kernel;
+	    static uint       wgsize;
 	};
 
 	cl::Context                     context;
@@ -406,6 +413,9 @@ bool vector<T>::exdata<Expr>::compiled = false;
 
 template <class T> template <class Expr>
 cl::Kernel vector<T>::exdata<Expr>::kernel;
+
+template <class T> template <class Expr>
+uint vector<T>::exdata<Expr>::wgsize;
 
 /// Copy device vector to host vector.
 template <class T>

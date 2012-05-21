@@ -66,6 +66,7 @@ class SpMat {
 	static cl::Kernel spmv_set;
 	static cl::Kernel spmv_add;
 	static cl::Kernel gather_vals_to_send;
+	static uint wgsize;
 	static const char *cl_source;
 };
 
@@ -80,6 +81,9 @@ cl::Kernel SpMat<real>::spmv_add;
 
 template <typename real>
 cl::Kernel SpMat<real>::gather_vals_to_send;
+
+template <typename real>
+uint SpMat<real>::wgsize;
 
 template <typename real>
 const char *SpMat<real>::cl_source = "\
@@ -160,7 +164,6 @@ const vector<real>& vector<real>::operator=(const SpMV<real> &spmv) {
 }
 
 #define NCOL (~0U)
-#define BLOCK_SIZE 256U
 
 template <typename real>
 SpMat<real>::SpMat(const std::vector<cl::CommandQueue> &queue,
@@ -193,6 +196,10 @@ SpMat<real>::SpMat(const std::vector<cl::CommandQueue> &queue,
 	spmv_set            = cl::Kernel(program, "spmv_set");
 	spmv_add            = cl::Kernel(program, "spmv_add");
 	gather_vals_to_send = cl::Kernel(program, "gather_vals_to_send");
+
+	wgsize = kernel_workgroup_size(spmv_set, device);
+	wgsize = std::min(wgsize, kernel_workgroup_size(spmv_add, device));
+	wgsize = std::min(wgsize, kernel_workgroup_size(gather_vals_to_send, device));
 
 	compiled = true;
     }
@@ -323,8 +330,7 @@ template <typename real>
 void SpMat<real>::mul(const clu::vector<real> &x, clu::vector<real> &y) const {
     // Compute contribution from local part of the matrix.
     for(uint d = 0; d < queue.size(); d++) {
-	uint g_size = alignup(lm[d].n, BLOCK_SIZE);
-	uint l_size = BLOCK_SIZE;
+	uint g_size = alignup(lm[d].n, wgsize);
 
 	spmv_set.setArg(0, lm[d].n);
 	spmv_set.setArg(1, lm[d].w);
@@ -334,22 +340,21 @@ void SpMat<real>::mul(const clu::vector<real> &x, clu::vector<real> &y) const {
 	spmv_set.setArg(5, x(d));
 	spmv_set.setArg(6, y(d));
 
-	queue[d].enqueueNDRangeKernel(spmv_set, cl::NullRange, g_size, l_size);
+	queue[d].enqueueNDRangeKernel(spmv_set, cl::NullRange, g_size, wgsize);
     }
 
     if (rx.size()) {
 	// Transfer remote parts of the input vector.
 	for(uint d = 0; d < queue.size(); d++) {
 	    if (uint ncols = cidx[d + 1] - cidx[d]) {
-		uint g_size = alignup(ncols, BLOCK_SIZE);
-		uint l_size = BLOCK_SIZE;
+		uint g_size = alignup(ncols, wgsize);
 
 		gather_vals_to_send.setArg(0, ncols);
 		gather_vals_to_send.setArg(1, x(d));
 		gather_vals_to_send.setArg(2, exc[d].cols_to_send());
 		gather_vals_to_send.setArg(3, exc[d].vals_to_send());
 
-		queue[d].enqueueNDRangeKernel(gather_vals_to_send, cl::NullRange, g_size, l_size);
+		queue[d].enqueueNDRangeKernel(gather_vals_to_send, cl::NullRange, g_size, wgsize);
 
 		copy(exc[d].vals_to_send, &rx[cidx[d]]);
 	    }
@@ -358,8 +363,7 @@ void SpMat<real>::mul(const clu::vector<real> &x, clu::vector<real> &y) const {
 	// Compute contribution from remote part of the matrix.
 	for(uint d = 0; d < queue.size(); d++) {
 	    if (exc[d].mycols.size()) {
-		uint g_size = alignup(rm[d].n, BLOCK_SIZE);
-		uint l_size = BLOCK_SIZE;
+		uint g_size = alignup(rm[d].n, wgsize);
 
 		for(uint i = 0; i < exc[d].mycols.size(); i++)
 		    exc[d].myvals[i] = rx[exc[d].mycols[i]];
@@ -374,7 +378,7 @@ void SpMat<real>::mul(const clu::vector<real> &x, clu::vector<real> &y) const {
 		spmv_add.setArg(5, exc[d].rx());
 		spmv_add.setArg(6, y(d));
 
-		queue[d].enqueueNDRangeKernel(spmv_add, cl::NullRange, g_size, l_size);
+		queue[d].enqueueNDRangeKernel(spmv_add, cl::NullRange, g_size, wgsize);
 	    }
 	}
     }
