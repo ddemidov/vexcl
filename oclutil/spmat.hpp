@@ -39,15 +39,15 @@ class SpMat {
 	 * queue can be used to perform transfer of ghost values across GPU
 	 * boundaries in parallel with computation kernel.
 	 * \param queue vector of primary queues. Each queue represents one
-	 *              compute device.
-	 * \param queue vector of secondary queues. Secondary queues are used
-	 *              to transfer ghost values across GPU boundaries in
-	 *              parallel with computation kernel. It is possible to put
-	 *              primary queues here as well.
-	 * \param n     number of rows in the matrix.
-	 * \param row   row index into col and val vectors.
-	 * \param col   column numbers of nonzero elements of the matrix.
-	 * \param val   values of nonzero elements of the matrix.
+	 *            compute device.
+	 * \param squeue vector of secondary queues. Secondary queues are used
+	 *            to transfer ghost values across GPU boundaries in
+	 *            parallel with computation kernel. It is possible to put
+	 *            primary queues here as well.
+	 * \param n   number of rows in the matrix.
+	 * \param row row index into col and val vectors.
+	 * \param col column numbers of nonzero elements of the matrix.
+	 * \param val values of nonzero elements of the matrix.
 	 */
 	SpMat(const std::vector<cl::CommandQueue> &queue,
 	      const std::vector<cl::CommandQueue> &squeue,
