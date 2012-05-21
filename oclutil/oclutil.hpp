@@ -122,7 +122,7 @@ void cg_gpu(
 
     // Move data to GPU(s)
     uint n = x.size();
-    clu::SpMat<real>  A(queue, n, row.data(), col.data(), val.data());
+    clu::SpMat<real>  A(queue, queue, n, row.data(), col.data(), val.data());
     clu::vector<real> f(queue, CL_MEM_READ_ONLY,  rhs);
     clu::vector<real> u(queue, CL_MEM_READ_WRITE, x);
     clu::vector<real> r(queue, CL_MEM_READ_WRITE, n);

@@ -34,7 +34,7 @@ class SpMat {
 	/// Constructor
 	/**
 	 * Constructs GPU representation of the matrix. Input matrix is in CSR
-	 * format. GPU matrix utilized ELL format and is split equally across
+	 * format. GPU matrix utilizes ELL format and is split equally across
 	 * all compute devices. When there are more than one device, secondary
 	 * queue can be used to perform transfer of ghost values across GPU
 	 * boundaries in parallel with computation kernel.
