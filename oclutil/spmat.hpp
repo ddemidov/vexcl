@@ -58,7 +58,7 @@ class SpMat {
 	/**
 	 * Matrix vector multiplication (y = Ax) is performed in parallel on
 	 * all registered compute devices. Ghost values of x are transfered
-	 * across GPU baoundaries as needed.
+	 * across GPU boundaries as needed.
 	 * \param x input vector.
 	 * \param y output vector.
 	 */
