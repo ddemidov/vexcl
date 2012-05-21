@@ -25,10 +25,10 @@
 namespace clu {
 
 template <class T> class vector;
-template <class T> void copy(const clu::vector<T> &dv, T *hv);
-template <class T> void copy(const T *hv, clu::vector<T> &dv);
-template <class T> void copy(const clu::vector<T> &dv, std::vector<T> &hv);
-template <class T> void copy(const std::vector<T> &hv, clu::vector<T> &dv);
+template <class T> void copy(const clu::vector<T>&, T*, cl_bool = CL_TRUE);
+template <class T> void copy(const T*, clu::vector<T>&, cl_bool = CL_TRUE);
+template <class T> void copy(const clu::vector<T>&, std::vector<T>&, cl_bool = CL_TRUE);
+template <class T> void copy(const std::vector<T>&, clu::vector<T>&, cl_bool = CL_TRUE);
 template <class T> T sum(const clu::vector<T> &x);
 template <class T> T inner_product(const clu::vector<T> &x, const clu::vector<T> &y);
 
@@ -372,10 +372,10 @@ class vector {
 		buf[i] = cl::Buffer(context, flags, bytes[i]);
 	    }
 
-	    if (hostptr) write_data(hostptr);
+	    if (hostptr) write_data(hostptr, CL_TRUE);
 	}
 
-	void write_data(const T *hostptr) {
+	void write_data(const T *hostptr, cl_bool blocking) {
 	    for(uint i = 0; i < queue.size(); i++) {
 		queue[i].enqueueWriteBuffer(
 			buf[i], CL_FALSE, 0, bytes[i], hostptr + part[i],
@@ -383,10 +383,10 @@ class vector {
 			);
 	    }
 
-	    cl::Event::waitForEvents(event);
+	    if (blocking) cl::Event::waitForEvents(event);
 	}
 
-	void read_data(T *hostptr) const {
+	void read_data(T *hostptr, cl_bool blocking) const {
 	    for(uint i = 0; i < queue.size(); i++) {
 		queue[i].enqueueReadBuffer(
 			buf[i], CL_FALSE, 0, bytes[i], hostptr + part[i],
@@ -394,13 +394,13 @@ class vector {
 			);
 	    }
 
-	    cl::Event::waitForEvents(event);
+	    if (blocking) cl::Event::waitForEvents(event);
 	}
 
-	friend void copy<>(const clu::vector<T> &dv, T *hv);
-	friend void copy<>(const T *hv, clu::vector<T> &dv);
-	friend void copy<>(const clu::vector<T> &dv, std::vector<T> &hv);
-	friend void copy<>(const std::vector<T> &hv, clu::vector<T> &dv);
+	friend void copy<>(const clu::vector<T>&, T*, cl_bool);
+	friend void copy<>(const T*, clu::vector<T>&, cl_bool);
+	friend void copy<>(const clu::vector<T>&, std::vector<T>&, cl_bool);
+	friend void copy<>(const std::vector<T>&, clu::vector<T>&, cl_bool);
 
 	friend T sum<>(const clu::vector<T> &x);
 	friend T inner_product<>(const clu::vector<T> &x, const clu::vector<T> &y);
@@ -419,26 +419,26 @@ uint vector<T>::exdata<Expr>::wgsize;
 
 /// Copy device vector to host vector.
 template <class T>
-void copy(const clu::vector<T> &dv, T *hv) {
-    dv.read_data(hv);
+void copy(const clu::vector<T> &dv, T *hv, cl_bool blocking = CL_TRUE) {
+    dv.read_data(hv, blocking);
 }
 
 /// Copy host vector to device vector.
 template <class T>
-void copy(const T *hv, clu::vector<T> &dv) {
-    dv.write_data(hv);
+void copy(const T *hv, clu::vector<T> &dv, cl_bool blocking = CL_TRUE) {
+    dv.write_data(hv, blocking);
 }
 
 /// Copy device vector to host vector.
 template <class T>
-void copy(const clu::vector<T> &dv, std::vector<T> &hv) {
-    dv.read_data(hv.data());
+void copy(const clu::vector<T> &dv, std::vector<T> &hv, cl_bool blocking = CL_TRUE) {
+    dv.read_data(hv.data(), blocking);
 }
 
 /// Copy host vector to device vector.
 template <class T>
-void copy(const std::vector<T> &hv, clu::vector<T> &dv) {
-    dv.write_data(hv.data());
+void copy(const std::vector<T> &hv, clu::vector<T> &dv, cl_bool blocking = CL_TRUE) {
+    dv.write_data(hv.data(), blocking);
 }
 
 /// \internal Expression template.

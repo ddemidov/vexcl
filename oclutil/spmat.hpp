@@ -32,7 +32,9 @@ template <typename real>
 class SpMat {
     public:
 	SpMat(const std::vector<cl::CommandQueue> &queue,
-	      uint n, const uint *row, const uint *col, const real *val);
+	      const std::vector<cl::CommandQueue> &squeue,
+	      uint n, const uint *row, const uint *col, const real *val
+	      );
 
 	void mul(const clu::vector<real> &x, clu::vector<real> &y) const;
     private:
@@ -53,7 +55,9 @@ class SpMat {
 
 	cl::Context                   context;
 	std::vector<cl::CommandQueue> queue;
+	std::vector<cl::CommandQueue> squeue;
 	std::vector<uint>             part;
+	mutable std::vector<cl::Event>        event;
 
 	std::vector<ell> lm; // Local part of the matrix.
 	std::vector<ell> rm; // Remote part of the matrix.
@@ -67,7 +71,6 @@ class SpMat {
 	static cl::Kernel spmv_add;
 	static cl::Kernel gather_vals_to_send;
 	static uint wgsize;
-	static const char *cl_source;
 };
 
 template <typename real>
@@ -84,64 +87,6 @@ cl::Kernel SpMat<real>::gather_vals_to_send;
 
 template <typename real>
 uint SpMat<real>::wgsize;
-
-template <typename real>
-const char *SpMat<real>::cl_source = "\
-#define NCOL (~0U)\n\
-\n\
-kernel void spmv_set(\n\
-    uint n, uint w, uint pitch,\n\
-    global const uint *col,\n\
-    global const real *val,\n\
-    global const real *x,\n\
-    global real *y\n\
-    )\n\
-{\n\
-    uint row = get_global_id(0);\n\
-    if (row < n) {\n\
-	real sum = 0;\n\
-	col += row;\n\
-	val += row;\n\
-	for(uint j = 0; j < w; j++, col += pitch, val += pitch) {\n\
-	    uint c = *col;\n\
-	    if (c != NCOL) sum += (*val) * x[c];\n\
-	}\n\
-	y[row] = sum;\n\
-    }\n\
-}\n\
-\n\
-kernel void spmv_add(\n\
-    uint n, uint w, uint pitch,\n\
-    global const uint *col,\n\
-    global const real *val,\n\
-    global const real *x,\n\
-    global real *y\n\
-    )\n\
-{\n\
-    uint row = get_global_id(0);\n\
-    if (row < n) {\n\
-	real sum = y[row];\n\
-	col += row;\n\
-	val += row;\n\
-	for(uint j = 0; j < w; j++, col += pitch, val += pitch) {\n\
-	    uint c = *col;\n\
-	    if (c != NCOL) sum += (*val) * x[c];\n\
-	}\n\
-	y[row] = sum;\n\
-    }\n\
-}\n\
-\n\
-kernel void gather_vals_to_send(\n\
-    uint n,\n\
-    global const real *vals,\n\
-    global const uint *cols_to_send,\n\
-    global real *vals_to_send\n\
-    )\n\
-{\n\
-    uint i = get_global_id(0);\n\
-    if (i < n) vals_to_send[i] = vals[cols_to_send[i]];\n\
-}\n\
-";
 
 /// \internal Sparse matrix-vector product.
 template <typename real>
@@ -166,12 +111,14 @@ const vector<real>& vector<real>::operator=(const SpMV<real> &spmv) {
 #define NCOL (~0U)
 
 template <typename real>
-SpMat<real>::SpMat(const std::vector<cl::CommandQueue> &queue,
+SpMat<real>::SpMat(
+	const std::vector<cl::CommandQueue> &queue,
+	const std::vector<cl::CommandQueue> &squeue,
 	uint n, const uint *row, const uint *col, const real *val
 	)
     : context(queue[0].getInfo<CL_QUEUE_CONTEXT>()),
-      queue(queue), part(partition(n, queue.size())),
-      lm(queue.size()), rm(queue.size()), exc(queue.size())
+      queue(queue), squeue(squeue), part(partition(n, queue.size())),
+      event(queue.size()), lm(queue.size()), rm(queue.size()), exc(queue.size())
 {
     // Compile kernels.
     if (!compiled) {
@@ -182,20 +129,69 @@ SpMat<real>::SpMat(const std::vector<cl::CommandQueue> &queue,
 		  "#elif defined(cl_amd_fp64)\n"
 		  "#  pragma OPENCL EXTENSION cl_amd_fp64: enable\n"
 		  "#endif\n"
-	       << "typedef " << type_name<real>() << " real;\n"
-	       << cl_source;
-
-	std::vector<cl::Device> device;
-	device.reserve(queue.size());
-
-	for(auto q = queue.begin(); q != queue.end(); q++)
-	    device.push_back(q->getInfo<CL_QUEUE_DEVICE>());
+		  "typedef " << type_name<real>() << " real;\n"
+		  "#define NCOL (~0U)\n"
+		  "kernel void spmv_set(\n"
+		  "    uint n, uint w, uint pitch,\n"
+		  "    global const uint *col,\n"
+		  "    global const real *val,\n"
+		  "    global const real *x,\n"
+		  "    global real *y\n"
+		  "    )\n"
+		  "{\n"
+		  "    uint row = get_global_id(0);\n"
+		  "    if (row < n) {\n"
+		  "	real sum = 0;\n"
+		  "	col += row;\n"
+		  "	val += row;\n"
+		  "	for(uint j = 0; j < w; j++, col += pitch, val += pitch) {\n"
+		  "	    uint c = *col;\n"
+		  "	    if (c != NCOL) sum += (*val) * x[c];\n"
+		  "	}\n"
+		  "	y[row] = sum;\n"
+		  "    }\n"
+		  "}\n"
+		  "kernel void spmv_add(\n"
+		  "    uint n, uint w, uint pitch,\n"
+		  "    global const uint *col,\n"
+		  "    global const real *val,\n"
+		  "    global const real *x,\n"
+		  "    global real *y\n"
+		  "    )\n"
+		  "{\n"
+		  "    uint row = get_global_id(0);\n"
+		  "    if (row < n) {\n"
+		  "	real sum = y[row];\n"
+		  "	col += row;\n"
+		  "	val += row;\n"
+		  "	for(uint j = 0; j < w; j++, col += pitch, val += pitch) {\n"
+		  "	    uint c = *col;\n"
+		  "	    if (c != NCOL) sum += (*val) * x[c];\n"
+		  "	}\n"
+		  "	y[row] = sum;\n"
+		  "    }\n"
+		  "}\n"
+		  "kernel void gather_vals_to_send(\n"
+		  "    uint n,\n"
+		  "    global const real *vals,\n"
+		  "    global const uint *cols_to_send,\n"
+		  "    global real *vals_to_send\n"
+		  "    )\n"
+		  "{\n"
+		  "    uint i = get_global_id(0);\n"
+		  "    if (i < n) vals_to_send[i] = vals[cols_to_send[i]];\n"
+		  "}\n";
 
 	auto program = build_sources(context, source.str());
 
 	spmv_set            = cl::Kernel(program, "spmv_set");
 	spmv_add            = cl::Kernel(program, "spmv_add");
 	gather_vals_to_send = cl::Kernel(program, "gather_vals_to_send");
+
+	std::vector<cl::Device> device;
+	device.reserve(queue.size());
+	for(auto q = queue.begin(); q != queue.end(); q++)
+	    device.push_back(q->getInfo<CL_QUEUE_DEVICE>());
 
 	wgsize = kernel_workgroup_size(spmv_set, device);
 	wgsize = std::min(wgsize, kernel_workgroup_size(spmv_add, device));
@@ -328,6 +324,27 @@ SpMat<real>::SpMat(const std::vector<cl::CommandQueue> &queue,
 
 template <typename real>
 void SpMat<real>::mul(const clu::vector<real> &x, clu::vector<real> &y) const {
+    if (rx.size()) {
+	// Transfer remote parts of the input vector.
+	for(uint d = 0; d < queue.size(); d++) {
+	    if (uint ncols = cidx[d + 1] - cidx[d]) {
+		uint g_size = alignup(ncols, wgsize);
+
+		gather_vals_to_send.setArg(0, ncols);
+		gather_vals_to_send.setArg(1, x(d));
+		gather_vals_to_send.setArg(2, exc[d].cols_to_send());
+		gather_vals_to_send.setArg(3, exc[d].vals_to_send());
+
+		squeue[d].enqueueNDRangeKernel(
+			gather_vals_to_send, cl::NullRange, g_size, wgsize);
+
+		squeue[d].enqueueReadBuffer(exc[d].vals_to_send(), CL_FALSE,
+			0, ncols * sizeof(real), &rx[cidx[d]], 0, &event[d]
+			);
+	    }
+	}
+    }
+
     // Compute contribution from local part of the matrix.
     for(uint d = 0; d < queue.size(); d++) {
 	uint g_size = alignup(lm[d].n, wgsize);
@@ -344,31 +361,23 @@ void SpMat<real>::mul(const clu::vector<real> &x, clu::vector<real> &y) const {
     }
 
     if (rx.size()) {
-	// Transfer remote parts of the input vector.
-	for(uint d = 0; d < queue.size(); d++) {
-	    if (uint ncols = cidx[d + 1] - cidx[d]) {
-		uint g_size = alignup(ncols, wgsize);
-
-		gather_vals_to_send.setArg(0, ncols);
-		gather_vals_to_send.setArg(1, x(d));
-		gather_vals_to_send.setArg(2, exc[d].cols_to_send());
-		gather_vals_to_send.setArg(3, exc[d].vals_to_send());
-
-		queue[d].enqueueNDRangeKernel(gather_vals_to_send, cl::NullRange, g_size, wgsize);
-
-		copy(exc[d].vals_to_send, &rx[cidx[d]]);
-	    }
-	}
-
 	// Compute contribution from remote part of the matrix.
 	for(uint d = 0; d < queue.size(); d++) {
 	    if (exc[d].mycols.size()) {
 		uint g_size = alignup(rm[d].n, wgsize);
 
+		event[d].wait();
+
 		for(uint i = 0; i < exc[d].mycols.size(); i++)
 		    exc[d].myvals[i] = rx[exc[d].mycols[i]];
 
-		copy(exc[d].myvals, exc[d].rx);
+		squeue[d].enqueueWriteBuffer(
+			exc[d].rx(), CL_FALSE,
+			0, exc[d].mycols.size() * sizeof(real),
+			exc[d].myvals.data(), 0, &event[d]
+			);
+
+		std::vector<cl::Event> myevent(1, event[d]);
 
 		spmv_add.setArg(0, rm[d].n);
 		spmv_add.setArg(1, rm[d].w);
@@ -378,7 +387,9 @@ void SpMat<real>::mul(const clu::vector<real> &x, clu::vector<real> &y) const {
 		spmv_add.setArg(5, exc[d].rx());
 		spmv_add.setArg(6, y(d));
 
-		queue[d].enqueueNDRangeKernel(spmv_add, cl::NullRange, g_size, wgsize);
+		queue[d].enqueueNDRangeKernel(
+			spmv_add, cl::NullRange, g_size, wgsize, &myevent
+			);
 	    }
 	}
     }
