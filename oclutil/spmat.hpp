@@ -388,11 +388,11 @@ void SpMat<real>::mul(const clu::vector<real> &x, clu::vector<real> &y) const {
 
     if (rx.size()) {
 	// Compute contribution from remote part of the matrix.
+	cl::Event::waitForEvents(event);
+
 	for(uint d = 0; d < queue.size(); d++) {
 	    if (exc[d].mycols.size()) {
 		uint g_size = alignup(rm[d].n, wgsize);
-
-		event[d].wait();
 
 		for(uint i = 0; i < exc[d].mycols.size(); i++)
 		    exc[d].myvals[i] = rx[exc[d].mycols[i]];
