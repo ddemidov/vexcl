@@ -37,8 +37,7 @@ void cg_gpu(
 
     // Solve equation Au = f with conjugate gradients method.
     real rho1, rho2;
-    q = A * u;
-    r = f - q;
+    r = f - A * u;
 
     for(uint iter = 0; max(Abs(r)) > 1e-8 && iter < n; iter++) {
 	rho1 = inner_product(r, r);

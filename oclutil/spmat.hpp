@@ -56,13 +56,17 @@ class SpMat {
 
 	/// Matrix-vector multiplication.
 	/**
-	 * Matrix vector multiplication (y = Ax) is performed in parallel on
-	 * all registered compute devices. Ghost values of x are transfered
-	 * across GPU boundaries as needed.
-	 * \param x input vector.
-	 * \param y output vector.
+	 * Matrix vector multiplication (y = alpha Ax or y += alpha Ax) is
+	 * performed in parallel on all registered compute devices. Ghost
+	 * values of x are transfered across GPU boundaries as needed.
+	 * \param x      input vector.
+	 * \param y      output vector.
+	 * \param alpha  coefficient in front of matrix-vector product
+	 * \param append if set, matrix-vector product is appended to y.
+	 *               Otherwise, y is replaced with matrix-vector product.
 	 */
-	void mul(const clu::vector<real> &x, clu::vector<real> &y) const;
+	void mul(const clu::vector<real> &x, clu::vector<real> &y,
+		 real alpha = 1, bool append = false) const;
     private:
 	struct ell {
 	    uint n, w, pitch;
@@ -128,9 +132,51 @@ SpMV<real> operator*(const SpMat<real> &A, const clu::vector<real> &x) {
     return SpMV<real>(A, x);
 }
 
+/// \internal Expression with matrix-vector product.
+template <class Expr, typename real>
+struct ExSpMV {
+    ExSpMV(const Expr &expr, const real alpha, const SpMV<real> &spmv)
+	: expr(expr), alpha(alpha), spmv(spmv) {}
+
+    const Expr &expr;
+    const real alpha;
+    const SpMV<real> &spmv;
+};
+
+template <class Expr, typename real>
+typename std::enable_if<Expr::is_expression, ExSpMV<Expr,real>>::type
+operator+(const Expr &expr, const SpMV<real> &spmv) {
+    return ExSpMV<Expr,real>(expr, 1, spmv);
+}
+
+template <class Expr, typename real>
+typename std::enable_if<Expr::is_expression, ExSpMV<Expr,real>>::type
+operator-(const Expr &expr, const SpMV<real> &spmv) {
+    return ExSpMV<Expr,real>(expr, -1, spmv);
+}
+
 template <typename real>
 const vector<real>& vector<real>::operator=(const SpMV<real> &spmv) {
     spmv.A.mul(spmv.x, *this);
+    return *this;
+}
+
+template <typename real>
+const vector<real>& vector<real>::operator+=(const SpMV<real> &spmv) {
+    spmv.A.mul(spmv.x, *this, 1, true);
+    return *this;
+}
+
+template <typename real>
+const vector<real>& vector<real>::operator-=(const SpMV<real> &spmv) {
+    spmv.A.mul(spmv.x, *this, -1, true);
+    return *this;
+}
+
+template <typename real> template<class Expr>
+const vector<real>& vector<real>::operator=(const ExSpMV<Expr,real> &xmv) {
+    *this = xmv.expr;
+    xmv.spmv.A.mul(xmv.spmv.x, *this, xmv.alpha, true);
     return *this;
 }
 
@@ -162,7 +208,8 @@ SpMat<real>::SpMat(
 		  "    global const uint *col,\n"
 		  "    global const real *val,\n"
 		  "    global const real *x,\n"
-		  "    global real *y\n"
+		  "    global real *y,\n"
+		  "    real alpha\n"
 		  "    )\n"
 		  "{\n"
 		  "    uint row = get_global_id(0);\n"
@@ -174,7 +221,7 @@ SpMat<real>::SpMat(
 		  "	    uint c = *col;\n"
 		  "	    if (c != NCOL) sum += (*val) * x[c];\n"
 		  "	}\n"
-		  "	y[row] = sum;\n"
+		  "	y[row] = alpha * sum;\n"
 		  "    }\n"
 		  "}\n"
 		  "kernel void spmv_add(\n"
@@ -182,19 +229,20 @@ SpMat<real>::SpMat(
 		  "    global const uint *col,\n"
 		  "    global const real *val,\n"
 		  "    global const real *x,\n"
-		  "    global real *y\n"
+		  "    global real *y,\n"
+		  "    real alpha\n"
 		  "    )\n"
 		  "{\n"
 		  "    uint row = get_global_id(0);\n"
 		  "    if (row < n) {\n"
-		  "	real sum = y[row];\n"
+		  "	real sum = 0;\n"
 		  "	col += row;\n"
 		  "	val += row;\n"
 		  "	for(uint j = 0; j < w; j++, col += pitch, val += pitch) {\n"
 		  "	    uint c = *col;\n"
 		  "	    if (c != NCOL) sum += (*val) * x[c];\n"
 		  "	}\n"
-		  "	y[row] = sum;\n"
+		  "	y[row] += alpha * sum;\n"
 		  "    }\n"
 		  "}\n"
 		  "kernel void gather_vals_to_send(\n"
@@ -349,7 +397,9 @@ SpMat<real>::SpMat(
 }
 
 template <typename real>
-void SpMat<real>::mul(const clu::vector<real> &x, clu::vector<real> &y) const {
+void SpMat<real>::mul(const clu::vector<real> &x, clu::vector<real> &y,
+	real alpha, bool append) const
+{
     if (rx.size()) {
 	// Transfer remote parts of the input vector.
 	for(uint d = 0; d < queue.size(); d++) {
@@ -372,18 +422,21 @@ void SpMat<real>::mul(const clu::vector<real> &x, clu::vector<real> &y) const {
     }
 
     // Compute contribution from local part of the matrix.
+    cl::Kernel &spmv_loc = append ? spmv_add : spmv_set;
+
     for(uint d = 0; d < queue.size(); d++) {
 	uint g_size = alignup(lm[d].n, wgsize);
 
-	spmv_set.setArg(0, lm[d].n);
-	spmv_set.setArg(1, lm[d].w);
-	spmv_set.setArg(2, lm[d].pitch);
-	spmv_set.setArg(3, lm[d].col());
-	spmv_set.setArg(4, lm[d].val());
-	spmv_set.setArg(5, x(d));
-	spmv_set.setArg(6, y(d));
+	spmv_loc.setArg(0, lm[d].n);
+	spmv_loc.setArg(1, lm[d].w);
+	spmv_loc.setArg(2, lm[d].pitch);
+	spmv_loc.setArg(3, lm[d].col());
+	spmv_loc.setArg(4, lm[d].val());
+	spmv_loc.setArg(5, x(d));
+	spmv_loc.setArg(6, y(d));
+	spmv_loc.setArg(7, alpha);
 
-	queue[d].enqueueNDRangeKernel(spmv_set, cl::NullRange, g_size, wgsize);
+	queue[d].enqueueNDRangeKernel(spmv_loc, cl::NullRange, g_size, wgsize);
     }
 
     if (rx.size()) {
@@ -412,6 +465,7 @@ void SpMat<real>::mul(const clu::vector<real> &x, clu::vector<real> &y) const {
 		spmv_add.setArg(4, rm[d].val());
 		spmv_add.setArg(5, exc[d].rx());
 		spmv_add.setArg(6, y(d));
+		spmv_set.setArg(7, alpha);
 
 		queue[d].enqueueNDRangeKernel(
 			spmv_add, cl::NullRange, g_size, wgsize, &myevent

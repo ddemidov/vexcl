@@ -33,6 +33,7 @@ template <class T> T sum(const clu::vector<T> &x);
 template <class T> T inner_product(const clu::vector<T> &x, const clu::vector<T> &y);
 
 template<class T> struct SpMV;
+template <class Expr, typename T> struct ExSpMV;
 
 /// Convenience class for work with cl::Buffer.
 template<class T>
@@ -352,6 +353,11 @@ class vector {
 	    }
 
 	const vector& operator=(const SpMV<T> &spmv);
+	const vector& operator+=(const SpMV<T> &spmv);
+	const vector& operator-=(const SpMV<T> &spmv);
+
+	template <class Expr>
+	const vector& operator=(const ExSpMV<Expr,T> &xmv);
 
 	/// Expression assignment.
 	/**
