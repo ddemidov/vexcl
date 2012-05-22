@@ -11,7 +11,8 @@
 \mainpage oclutil
 
 oclutil is header-only template library created for ease of C++ based OpenCL
-development. Vector arithmetic and multidevice computation is supported.
+development. Vector arithmetic and multidevice computation is supported. The
+source code is available at https://github.com/ddemidov/oclutil.
 
 \section devlist Selection of compute devices
 
