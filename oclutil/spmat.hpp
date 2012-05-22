@@ -465,7 +465,7 @@ void SpMat<real>::mul(const clu::vector<real> &x, clu::vector<real> &y,
 		spmv_add.setArg(4, rm[d].val());
 		spmv_add.setArg(5, exc[d].rx());
 		spmv_add.setArg(6, y(d));
-		spmv_set.setArg(7, alpha);
+		spmv_add.setArg(7, alpha);
 
 		queue[d].enqueueNDRangeKernel(
 			spmv_add, cl::NullRange, g_size, wgsize, &myevent
