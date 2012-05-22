@@ -146,8 +146,8 @@ void cg_gpu(
 
         real alpha = rho1 / inner_product(p, q);
 
-        u = u + Const(alpha) * p;
-        r = r - Const(alpha) * q;
+        u += Const(alpha) * p;
+        r -= Const(alpha) * q;
 
         rho2 = rho1;
     }

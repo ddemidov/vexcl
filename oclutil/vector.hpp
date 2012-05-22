@@ -39,7 +39,6 @@ template<class T>
 class vector {
     public:
 	static const bool is_expression = true;
-	static bool show_kernels;
 
 	/// \internal Proxy class.
 	class element {
@@ -288,6 +287,13 @@ class vector {
 	    return *this;
 	}
 
+	/// Expression assignment.
+	/**
+	 * The appropriate kernel is compiled first time the assignment is
+	 * made. Vectors participating in expression should have same number of
+	 * parts; corresponding parts of the vectors should reside on the same
+	 * compute devices.
+	 */
 	template <class Expr>
 	    const vector& operator=(const Expr &expr) {
 		if (!exdata<Expr>::compiled) {
@@ -313,9 +319,6 @@ class vector {
 		    expr.kernel_expr(kernel);
 
 		    kernel << ";\n}" << std::endl;
-
-		    if (show_kernels)
-			std::cout << kernel.str() << std::endl;
 
 		    std::vector<cl::Device> device;
 		    for(auto q = queue.begin(); q != queue.end(); q++)
@@ -349,6 +352,54 @@ class vector {
 	    }
 
 	const vector& operator=(const SpMV<T> &spmv);
+
+	/// Expression assignment.
+	/**
+	 * The appropriate kernel is compiled first time the assignment is
+	 * made. Vectors participating in expression should have same number of
+	 * parts; corresponding parts of the vectors should reside on the same
+	 * compute devices.
+	 */
+	template <class Expr>
+	    const vector& operator+=(const Expr &expr) {
+		return *this = *this + expr;
+	    }
+
+	/// Expression assignment.
+	/**
+	 * The appropriate kernel is compiled first time the assignment is
+	 * made. Vectors participating in expression should have same number of
+	 * parts; corresponding parts of the vectors should reside on the same
+	 * compute devices.
+	 */
+	template <class Expr>
+	    const vector& operator*=(const Expr &expr) {
+		return *this = *this * expr;
+	    }
+
+	/// Expression assignment.
+	/**
+	 * The appropriate kernel is compiled first time the assignment is
+	 * made. Vectors participating in expression should have same number of
+	 * parts; corresponding parts of the vectors should reside on the same
+	 * compute devices.
+	 */
+	template <class Expr>
+	    const vector& operator/=(const Expr &expr) {
+		return *this = *this / expr;
+	    }
+
+	/// Expression assignment.
+	/**
+	 * The appropriate kernel is compiled first time the assignment is
+	 * made. Vectors participating in expression should have same number of
+	 * parts; corresponding parts of the vectors should reside on the same
+	 * compute devices.
+	 */
+	template <class Expr>
+	    const vector& operator-=(const Expr &expr) {
+		return *this = *this - expr;
+	    }
 
     private:
 	template <class Expr>
@@ -405,8 +456,6 @@ class vector {
 	friend T sum<>(const clu::vector<T> &x);
 	friend T inner_product<>(const clu::vector<T> &x, const clu::vector<T> &y);
 };
-
-template <class T> bool vector<T>::show_kernels = false;
 
 template <class T> template <class Expr>
 bool vector<T>::exdata<Expr>::compiled = false;

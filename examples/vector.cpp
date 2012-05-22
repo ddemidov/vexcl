@@ -45,10 +45,7 @@ int main() {
 	clu::vector<double> y(queue, CL_MEM_READ_WRITE, N);
 	clu::vector<double> z(queue, CL_MEM_READ_WRITE, N);
 
-	// Appropriate kernels are compiled (once) and called automagically.
-	// To see generated kernels uncomment the following line:
-	//clu::vector<double>::show_kernels = true;
-
+	// Appropriate kernels are compiled (once) and called automagically:
 	// Fill device vector with constant value...
 	y = Const(42);
 	// ... or with some expression:
