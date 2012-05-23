@@ -21,6 +21,7 @@
 
 namespace clu {
 
+/// Possible kinds of reduction.
 enum ReductionKind {
     SUM = 0,
     MAX = 1,
@@ -28,11 +29,22 @@ enum ReductionKind {
 };
 
 /// Parallel reduction of arbitrary expression.
+/**
+ * Reduction uses small temporary buffer on each device present in the queue
+ * parameter. One Reductor class for each reduction kind is enough per thread
+ * of execution.
+ */
 template <typename real, ReductionKind RDC>
 class Reductor {
     public:
+	/// Constructor.
 	Reductor(const std::vector<cl::CommandQueue> &queue);
 
+	/// Compute reduction of the input expression.
+	/**
+	 * The input expression can be as simple as a single vector, although
+	 * expressions of arbitrary complexity may be reduced.
+	 */
 	template <class Expr>
 	real operator()(const Expr &expr) const;
     private:

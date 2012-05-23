@@ -127,6 +127,7 @@ struct SpMV {
     const clu::vector<real> &x;
 };
 
+/// Multiply sparse matrix and a vector.
 template <typename real>
 SpMV<real> operator*(const SpMat<real> &A, const clu::vector<real> &x) {
     return SpMV<real>(A, x);
@@ -143,12 +144,14 @@ struct ExSpMV {
     const SpMV<real> &spmv;
 };
 
+/// Add an expression and sparse matrix - vector product.
 template <class Expr, typename real>
 typename std::enable_if<Expr::is_expression, ExSpMV<Expr,real>>::type
 operator+(const Expr &expr, const SpMV<real> &spmv) {
     return ExSpMV<Expr,real>(expr, 1, spmv);
 }
 
+/// Subtruct sparse matrix - vector product from an expression.
 template <class Expr, typename real>
 typename std::enable_if<Expr::is_expression, ExSpMV<Expr,real>>::type
 operator-(const Expr &expr, const SpMV<real> &spmv) {

@@ -104,7 +104,7 @@ namespace Filter {
 	    const RightFilter &right;
 	};
 
-    /// \internal Join two filters with AND operator.
+    /// Join two filters with AND operator.
     template <class LeftFilter, class RightFilter>
 	FilterBinaryOp<LeftFilter, RightFilter, FilterAnd> operator&&(
 		const LeftFilter &left, const RightFilter &right)
@@ -112,7 +112,7 @@ namespace Filter {
 	    return FilterBinaryOp<LeftFilter, RightFilter, FilterAnd>(left, right);
 	}
 
-    /// \internal Join two filters with OR operator.
+    /// Join two filters with OR operator.
     template <class LeftFilter, class RightFilter>
 	FilterBinaryOp<LeftFilter, RightFilter, FilterOr> operator||(
 		const LeftFilter &left, const RightFilter &right)
@@ -133,7 +133,7 @@ namespace Filter {
 	    const Flt &flt;
 	};
 
-    /// \internal Negation of a filter.
+    /// Negate a filter.
     template <class Flt>
 	NegateFilter<Flt> operator!(const Flt &flt) {
 	    return NegateFilter<Flt>(flt);
@@ -143,8 +143,9 @@ namespace Filter {
 
 /// Select devices by given criteria.
 /**
- * \param filter Device filter functor. Functors may be combined with logical
- *		 operators.
+ * \param filter  Device filter functor. Functors may be combined with logical
+ *		  operators.
+ * \param verbose If set, outputs list of selected devices to stdout.
  * \returns list of devices satisfying the provided filter. 
  *
  * This example selects any GPU which supports double precision arithmetic:

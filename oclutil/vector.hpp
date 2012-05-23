@@ -225,60 +225,61 @@ class vector {
 	    if (!host.empty()) allocate_buffers(flags, host.data());
 	}
 
-	cl::Buffer operator()(uint p = 0) const {
-	    return buf[p];
+	/// Return cl::Buffer object located on a given device.
+	cl::Buffer operator()(uint d = 0) const {
+	    return buf[d];
 	}
 
+	/// Const iterator to beginning.
 	const_iterator begin() const {
 	    return const_iterator(*this, 0);
 	}
 
+	/// Const iterator to end.
 	const_iterator end() const {
 	    return const_iterator(*this, size());
 	}
 
+	/// Iterator to beginning.
 	iterator begin() {
 	    return iterator(*this, 0);
 	}
 
+	/// Iterator to end.
 	iterator end() {
 	    return iterator(*this, size());
 	}
 
+	/// Access element.
+	const_element operator[](uint index) const {
+	    uint p = 0;
+	    while(index >= part[p + 1] && p < nparts()) p++;
+	    return element(queue[p], buf[p], index - part[p]);
+	}
+
+	/// Access element.
 	element operator[](uint index) {
 	    uint p = 0;
 	    while(index >= part[p + 1] && p < nparts()) p++;
 	    return element(queue[p], buf[p], index - part[p]);
 	}
 
+	/// Return size .
 	uint size() const {
 	    return part.back();
 	}
 
+	/// Return number of parts (devices).
 	uint nparts() const {
 	    return queue.size();
 	}
 
-	uint part_size(uint p) const {
-	    return part[p + 1] - part[p];
+	/// Return size of part on a given device.
+	uint part_size(uint d) const {
+	    return part[d + 1] - part[d];
 	}
 
-	std::string kernel_name() const {
-	    return "v";
-	}
-
-	void kernel_expr(std::ostream &os, std::string name = "v") const {
-	    os << name << "[i]";
-	}
-
-	void kernel_prm(std::ostream &os, std::string name = "v") const {
-	    os << ",\n\tglobal " << type_name<T>() << " *" << name;
-	}
-
-	void kernel_args(cl::Kernel &k, uint devnum, uint &pos) const {
-	    k.setArg(pos++, buf[devnum]);
-	}
-
+	/// Copies data from device vector.
 	const vector& operator=(const vector &x) {
 	    if (&x != this) {
 		for(uint i = 0; i < queue.size(); i++)
@@ -288,8 +289,8 @@ class vector {
 	    return *this;
 	}
 
-	/// Expression assignment.
-	/**
+	/** \name Expression assignments.
+	 * @{
 	 * The appropriate kernel is compiled first time the assignment is
 	 * made. Vectors participating in expression should have same number of
 	 * parts; corresponding parts of the vectors should reside on the same
@@ -352,60 +353,53 @@ class vector {
 		return *this;
 	    }
 
-	const vector& operator=(const SpMV<T> &spmv);
-	const vector& operator+=(const SpMV<T> &spmv);
-	const vector& operator-=(const SpMV<T> &spmv);
-
-	template <class Expr>
-	const vector& operator=(const ExSpMV<Expr,T> &xmv);
-
-	/// Expression assignment.
-	/**
-	 * The appropriate kernel is compiled first time the assignment is
-	 * made. Vectors participating in expression should have same number of
-	 * parts; corresponding parts of the vectors should reside on the same
-	 * compute devices.
-	 */
 	template <class Expr>
 	    const vector& operator+=(const Expr &expr) {
 		return *this = *this + expr;
 	    }
 
-	/// Expression assignment.
-	/**
-	 * The appropriate kernel is compiled first time the assignment is
-	 * made. Vectors participating in expression should have same number of
-	 * parts; corresponding parts of the vectors should reside on the same
-	 * compute devices.
-	 */
 	template <class Expr>
 	    const vector& operator*=(const Expr &expr) {
 		return *this = *this * expr;
 	    }
 
-	/// Expression assignment.
-	/**
-	 * The appropriate kernel is compiled first time the assignment is
-	 * made. Vectors participating in expression should have same number of
-	 * parts; corresponding parts of the vectors should reside on the same
-	 * compute devices.
-	 */
 	template <class Expr>
 	    const vector& operator/=(const Expr &expr) {
 		return *this = *this / expr;
 	    }
 
-	/// Expression assignment.
-	/**
-	 * The appropriate kernel is compiled first time the assignment is
-	 * made. Vectors participating in expression should have same number of
-	 * parts; corresponding parts of the vectors should reside on the same
-	 * compute devices.
-	 */
 	template <class Expr>
 	    const vector& operator-=(const Expr &expr) {
 		return *this = *this - expr;
 	    }
+
+	template <class Expr>
+	    const vector& operator=(const ExSpMV<Expr,T> &xmv);
+
+	const vector& operator=(const SpMV<T> &spmv);
+	const vector& operator+=(const SpMV<T> &spmv);
+	const vector& operator-=(const SpMV<T> &spmv);
+	/// @}
+
+	/** \name Service methods used for kernel generation.
+	 * @{
+	 */
+	std::string kernel_name() const {
+	    return "v";
+	}
+
+	void kernel_expr(std::ostream &os, std::string name = "v") const {
+	    os << name << "[i]";
+	}
+
+	void kernel_prm(std::ostream &os, std::string name = "v") const {
+	    os << ",\n\tglobal " << type_name<T>() << " *" << name;
+	}
+
+	void kernel_args(cl::Kernel &k, uint devnum, uint &pos) const {
+	    k.setArg(pos++, buf[devnum]);
+	}
+	/// @}
 
     private:
 	template <class Expr>
@@ -545,7 +539,7 @@ struct BinaryExpression {
     const RHS &rhs;
 };
 
-/// \internal Sum of two expressions.
+/// Sum of two expressions.
 template <class LHS, class RHS>
 typename std::enable_if<
     LHS::is_expression && RHS::is_expression,
@@ -555,7 +549,7 @@ typename std::enable_if<
 	return BinaryExpression<LHS,'+',RHS>(lhs, rhs);
     }
 
-/// \internal Difference of two expressions.
+/// Difference of two expressions.
 template <class LHS, class RHS>
 typename std::enable_if<
     LHS::is_expression && RHS::is_expression,
@@ -565,7 +559,7 @@ typename std::enable_if<
 	return BinaryExpression<LHS,'-',RHS>(lhs, rhs);
     }
 
-/// \internal Product of two expressions.
+/// Product of two expressions.
 template <class LHS, class RHS>
 typename std::enable_if<
     LHS::is_expression && RHS::is_expression,
@@ -575,7 +569,7 @@ typename std::enable_if<
 	return BinaryExpression<LHS,'*',RHS>(lhs, rhs);
     }
 
-/// \internal Division of two expressions.
+/// Division of two expressions.
 template <class LHS, class RHS>
 typename std::enable_if<
     LHS::is_expression && RHS::is_expression,
