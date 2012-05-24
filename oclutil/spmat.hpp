@@ -393,7 +393,8 @@ SpMat<real>::SpMat(
 		for(uint i = cidx[d]; i < cidx[d + 1]; i++)
 		    cols_to_send[i] -= part[d];
 
-		copy(&cols_to_send[cidx[d]], exc[d].cols_to_send);
+		clu::copy(&cols_to_send[cidx[d]], &cols_to_send[cidx[d + 1]],
+			exc[d].cols_to_send.begin());
 	    }
 	}
     }

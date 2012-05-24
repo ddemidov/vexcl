@@ -63,6 +63,9 @@ int main() {
 
 	// Or you can read the entire vector to host:
 	copy(z, host_vec);
+
+	clu::copy(host_vec.begin(), host_vec.end(), z.begin());
+	clu::copy(z.begin(), z.end(), host_vec.data());
     } catch (const cl::Error &e) {
 	std::cout << "OpenCL error: " << e << std::endl;
     }

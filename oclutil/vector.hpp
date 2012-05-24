@@ -25,10 +25,6 @@
 namespace clu {
 
 template <class T> class vector;
-template <class T> void copy(const clu::vector<T>&, T*, cl_bool = CL_TRUE);
-template <class T> void copy(const T*, clu::vector<T>&, cl_bool = CL_TRUE);
-template <class T> void copy(const clu::vector<T>&, std::vector<T>&, cl_bool = CL_TRUE);
-template <class T> void copy(const std::vector<T>&, clu::vector<T>&, cl_bool = CL_TRUE);
 template <class T> T sum(const clu::vector<T> &x);
 template <class T> T inner_product(const clu::vector<T> &x, const clu::vector<T> &y);
 
@@ -139,8 +135,7 @@ class vector {
 		uint size, const T *host = 0
 	      ) : context(queue[0].getInfo<CL_QUEUE_CONTEXT>()),
 	          queue(queue), part(partition(size, queue.size())),
-	          buf(queue.size()), bytes(queue.size(), 0),
-		  event(queue.size())
+	          buf(queue.size()), event(queue.size())
 	{
 	    if (size) allocate_buffers(flags, host);
 	}
@@ -148,7 +143,7 @@ class vector {
 	/// Move constructor
 	vector(vector &&v)
 	    : context(std::move(v.context)), queue(std::move(v.queue)),
-	      part(std::move(v.part)), buf(std::move(v.buf)), bytes(std::move(v.bytes)),
+	      part(std::move(v.part)), buf(std::move(v.buf)),
 	      event(std::move(v.event))
 	{
 	}
@@ -159,7 +154,6 @@ class vector {
 	    std::swap(queue,   v.queue);
 	    std::swap(part,    v.part);
 	    std::swap(buf,     v.buf);
-	    std::swap(bytes,   v.bytes);
 	    std::swap(event,   v.event);
 
 	    return *this;
@@ -170,8 +164,7 @@ class vector {
 		const std::vector<T> &host
 	      ) : context(queue[0].getInfo<CL_QUEUE_CONTEXT>()),
 	          queue(queue), part(partition(host.size(), queue.size())),
-	          buf(queue.size()), bytes(queue.size(), 0),
-		  event(queue.size())
+	          buf(queue.size()), event(queue.size())
 	{
 	    if (!host.empty()) allocate_buffers(flags, host.data());
 	}
@@ -234,7 +227,8 @@ class vector {
 	const vector& operator=(const vector &x) {
 	    if (&x != this) {
 		for(uint i = 0; i < queue.size(); i++)
-		    queue[i].enqueueCopyBuffer(x.buf[i], buf[i], 0, 0, bytes[i]);
+		    queue[i].enqueueCopyBuffer(x.buf[i], buf[i], 0, 0,
+			    (part[i + 1] - part[i]) * sizeof(T));
 	    }
 
 	    return *this;
@@ -352,6 +346,47 @@ class vector {
 	}
 	/// @}
 
+	/// Copy data from host buffer to device(s).
+	void write_data(uint offset, uint size, const T *hostptr, cl_bool blocking) {
+	    if (!size) return;
+
+	    for(uint d = 0; d < queue.size(); d++) {
+		uint start = std::max(offset,        part[d]);
+		uint stop  = std::min(offset + size, part[d + 1]);
+
+		if (stop <= start) continue;
+
+		queue[d].enqueueWriteBuffer(buf[d], CL_FALSE,
+			sizeof(T) * (start - part[d]),
+			sizeof(T) * (stop - start),
+			hostptr + start - offset,
+			0, &event[d]
+			);
+	    }
+
+	    if (blocking) cl::Event::waitForEvents(event);
+	}
+
+	/// Copy data from device(s) to host buffer .
+	void read_data(uint offset, uint size, T *hostptr, cl_bool blocking) const {
+	    if (!size) return;
+
+	    for(uint d = 0; d < queue.size(); d++) {
+		uint start = std::max(offset,        part[d]);
+		uint stop  = std::min(offset + size, part[d + 1]);
+
+		if (stop <= start) continue;
+
+		queue[d].enqueueReadBuffer(buf[d], CL_FALSE,
+			sizeof(T) * (start - part[d]),
+			sizeof(T) * (stop - start),
+			hostptr + start - offset,
+			0, &event[d]
+			);
+	    }
+
+	    if (blocking) cl::Event::waitForEvents(event);
+	}
     private:
 	template <class Expr>
 	struct exdata {
@@ -364,45 +399,18 @@ class vector {
 	std::vector<cl::CommandQueue>	queue;
 	std::vector<uint>               part;
 	std::vector<cl::Buffer>		buf;
-	std::vector<uint>		bytes;
 
 	mutable std::vector<cl::Event>          event;
 
 	void allocate_buffers(cl_mem_flags flags, const T *hostptr) {
 	    for(uint i = 0; i < nparts(); i++) {
-		bytes[i] = (part[i + 1] - part[i]) * sizeof(T);
-		buf[i] = cl::Buffer(context, flags, bytes[i]);
+		buf[i] = cl::Buffer(
+			context, flags, (part[i + 1] - part[i]) * sizeof(T));
 	    }
 
-	    if (hostptr) write_data(hostptr, CL_TRUE);
+	    if (hostptr) write_data(0, size(), hostptr, CL_TRUE);
 	}
 
-	void write_data(const T *hostptr, cl_bool blocking) {
-	    for(uint i = 0; i < queue.size(); i++) {
-		queue[i].enqueueWriteBuffer(
-			buf[i], CL_FALSE, 0, bytes[i], hostptr + part[i],
-			0, &event[i]
-			);
-	    }
-
-	    if (blocking) cl::Event::waitForEvents(event);
-	}
-
-	void read_data(T *hostptr, cl_bool blocking) const {
-	    for(uint i = 0; i < queue.size(); i++) {
-		queue[i].enqueueReadBuffer(
-			buf[i], CL_FALSE, 0, bytes[i], hostptr + part[i],
-			0, &event[i]
-			);
-	    }
-
-	    if (blocking) cl::Event::waitForEvents(event);
-	}
-
-	friend void copy<>(const clu::vector<T>&, T*, cl_bool);
-	friend void copy<>(const T*, clu::vector<T>&, cl_bool);
-	friend void copy<>(const clu::vector<T>&, std::vector<T>&, cl_bool);
-	friend void copy<>(const std::vector<T>&, clu::vector<T>&, cl_bool);
 
 	friend T sum<>(const clu::vector<T> &x);
 	friend T inner_product<>(const clu::vector<T> &x, const clu::vector<T> &y);
@@ -419,26 +427,60 @@ uint vector<T>::exdata<Expr>::wgsize;
 
 /// Copy device vector to host vector.
 template <class T>
-void copy(const clu::vector<T> &dv, T *hv, cl_bool blocking = CL_TRUE) {
-    dv.read_data(hv, blocking);
-}
-
-/// Copy host vector to device vector.
-template <class T>
-void copy(const T *hv, clu::vector<T> &dv, cl_bool blocking = CL_TRUE) {
-    dv.write_data(hv, blocking);
-}
-
-/// Copy device vector to host vector.
-template <class T>
 void copy(const clu::vector<T> &dv, std::vector<T> &hv, cl_bool blocking = CL_TRUE) {
-    dv.read_data(hv.data(), blocking);
+    dv.read_data(0, dv.size(), hv.data(), blocking);
 }
 
 /// Copy host vector to device vector.
 template <class T>
 void copy(const std::vector<T> &hv, clu::vector<T> &dv, cl_bool blocking = CL_TRUE) {
-    dv.write_data(hv.data(), blocking);
+    dv.write_data(0, dv.size(), hv.data(), blocking);
+}
+
+template<class Iterator, class Enable = void>
+struct stored_on_device {
+    static const bool value = false;
+};
+
+template<class Iterator>
+struct stored_on_device<Iterator, typename std::enable_if<Iterator::device_iterator>::type> {
+    static const bool value = true;
+};
+
+/// Copy data from device(s) to host.
+template<class InputIterator, class OutputIterator>
+typename std::enable_if<
+    std::is_same<
+	typename std::iterator_traits<InputIterator>::value_type,
+	typename std::iterator_traits<OutputIterator>::value_type
+	>::value &&
+    stored_on_device<InputIterator>::value &&
+    !stored_on_device<OutputIterator>::value,
+    OutputIterator
+    >::type
+copy(InputIterator first, InputIterator last,
+	OutputIterator result, cl_bool blocking = CL_TRUE)
+{
+    first.vec.read_data(first.pos, last - first, &result[0], blocking);
+    return result + (last - first);
+}
+
+/// Copy data from host to device(s).
+template<class InputIterator, class OutputIterator>
+typename std::enable_if<
+    std::is_same<
+	typename std::iterator_traits<InputIterator>::value_type,
+	typename std::iterator_traits<OutputIterator>::value_type
+	>::value &&
+    !stored_on_device<InputIterator>::value &&
+    stored_on_device<OutputIterator>::value,
+    OutputIterator
+    >::type
+copy(InputIterator first, InputIterator last,
+	OutputIterator result, cl_bool blocking = CL_TRUE)
+{
+    result.vec.write_data(result.pos, last - first, &first[0], blocking);
+    return result + (last - first);
 }
 
 /// \internal Expression template.
