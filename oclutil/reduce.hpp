@@ -51,8 +51,10 @@ class Reductor {
 	cl::Context context;
 	std::vector<cl::CommandQueue> queue;
 	std::vector<uint> idx;
-	mutable std::vector<real> hbuf;
 	std::vector<clu::vector<real>> dbuf;
+
+	mutable std::vector<real> hbuf;
+	mutable std::vector<cl::Event> event;
 
 	template <class Expr>
 	struct exdata {
@@ -73,7 +75,8 @@ uint Reductor<real,RDC>::exdata<Expr>::wgsize[3];
 
 template <typename real, ReductionKind RDC>
 Reductor<real,RDC>::Reductor(const std::vector<cl::CommandQueue> &queue)
-    : context(queue[0].getInfo<CL_QUEUE_CONTEXT>()), queue(queue)
+    : context(queue[0].getInfo<CL_QUEUE_CONTEXT>()), queue(queue),
+      event(queue.size())
 {
     idx.reserve(queue.size() + 1);
     idx.push_back(0);
@@ -267,8 +270,11 @@ real Reductor<real,RDC>::operator()(const Expr &expr) const {
     }
 
     for(uint d = 0; d < queue.size(); d++) {
-	copy(dbuf[d], &hbuf[idx[d]]);
+	queue[d].enqueueReadBuffer(dbuf[d](), CL_FALSE,
+		0, sizeof(real) * dbuf[d].size(), &hbuf[idx[d]], 0, &event[d]);
     }
+
+    cl::Event::waitForEvents(event);
 
     switch(RDC) {
 	case SUM:
