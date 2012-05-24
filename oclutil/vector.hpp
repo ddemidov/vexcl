@@ -44,7 +44,7 @@ class vector {
 	/// \internal Proxy class.
 	class element {
 	    public:
-		operator T() {
+		operator T() const {
 		    T val;
 		    queue.enqueueReadBuffer(
 			    buf, CL_TRUE,
@@ -74,111 +74,62 @@ class vector {
 		friend class vector::iterator;
 	};
 
-	/// \internal Proxy class.
-	class const_element {
-	    public:
-		operator T() {
-		    T val;
-		    queue.enqueueReadBuffer(
-			    buf, CL_TRUE,
-			    index * sizeof(T), sizeof(T),
-			    &val
-			    );
-		    return val;
-		}
-	    private:
-		const_element(cl::CommandQueue q, cl::Buffer b, uint i)
-		    : queue(q), buf(b), index(i) {}
-
-		cl::CommandQueue  queue;
-		cl::Buffer        buf;
-		uint              index;
-
-		friend class vector;
-		friend class vector::iterator;
-	};
-
 	/// \internal Iterator class.
-	class iterator {
+	template <class vector_type, class element_type>
+	class iterator_type
+	    : public std::iterator<std::random_access_iterator_tag, T>
+	{
 	    public:
-		element operator*() {
-		    return element(
+		static const bool device_iterator = true;
+
+		element_type operator*() {
+		    return element_type(
 			    vec.queue[part], vec.buf[part],
 			    pos - vec.part[part]
 			    );
 		}
 
-		iterator& operator++() {
+		iterator_type& operator++() {
 		    pos++;
 		    while (pos >= vec.part[part + 1] && part < vec.nparts())
 			part++;
 		    return *this;
 		}
 
-		iterator operator+(ptrdiff_t d) const {
+		iterator_type operator+(ptrdiff_t d) const {
 		    return iterator(vec, pos + d);
 		}
 
-		bool operator!=(const iterator &it) const {
+		ptrdiff_t operator-(iterator_type it) const {
+		    return pos - it.pos;
+		}
+
+		bool operator==(const iterator_type &it) const {
+		    return pos == it.pos;
+		}
+
+		bool operator!=(const iterator_type &it) const {
 		    return pos != it.pos;
 		}
 
+		vector_type &vec;
+		size_t  pos;
+		size_t  part;
+
 	    private:
-		iterator(vector &vec, uint pos)
+		iterator_type(vector_type &vec, size_t pos)
 		    : vec(vec), pos(pos), part(0)
 		{
 		    while(pos >= vec.part[part + 1] && part < vec.nparts())
 			part++;
 		}
 
-		vector &vec;
-		uint    pos;
-		uint    part;
-
 		friend class vector;
 
 	};
 
-	/// \internal Iterator class.
-	class const_iterator {
-	    public:
-		const_element operator*() {
-		    return const_element(
-			    vec.queue[part], vec.buf[part],
-			    pos - vec.part[part]
-			    );
-		}
-
-		const_iterator& operator++() {
-		    pos++;
-		    while (pos >= vec.part[part + 1] && part < vec.nparts())
-			part++;
-		    return *this;
-		}
-
-		const_iterator operator+(ptrdiff_t d) const {
-		    return const_iterator(vec, pos + d);
-		}
-
-		bool operator!=(const const_iterator &it) const {
-		    return pos != it.pos;
-		}
-
-	    private:
-		const_iterator(const vector &vec, uint pos)
-		    : vec(vec), pos(pos), part(0)
-		{
-		    while(pos >= vec.part[part + 1] && part < vec.nparts())
-			part++;
-		}
-
-		const vector &vec;
-		uint  pos;
-		uint  part;
-
-		friend class vector;
-
-	};
+	typedef iterator_type<vector, element> iterator;
+	typedef iterator_type<const vector, const element> const_iterator;
 
 	/// Empty constructor.
 	vector() {}
@@ -251,7 +202,7 @@ class vector {
 	}
 
 	/// Access element.
-	const_element operator[](uint index) const {
+	const element operator[](uint index) const {
 	    uint p = 0;
 	    while(index >= part[p + 1] && p < nparts()) p++;
 	    return element(queue[p], buf[p], index - part[p]);
