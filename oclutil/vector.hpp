@@ -31,15 +31,22 @@ template <class T> T inner_product(const clu::vector<T> &x, const clu::vector<T>
 template<class T> struct SpMV;
 template <class Expr, typename T> struct ExSpMV;
 
-/// Convenience class for work with cl::Buffer.
+/// Device vector.
 template<class T>
 class vector {
     public:
 	static const bool is_expression = true;
 
-	/// \internal Proxy class.
+	/// Proxy class.
+	/**
+	 * Instances of this class are returned from vector::operator[]. These
+	 * may be used to read or write single element of a vector, although
+	 * this operations are too expensive to be used extensively and should
+	 * be reserved for debugging purposes.
+	 */
 	class element {
 	    public:
+		/// Read associated element of a vector.
 		operator T() const {
 		    T val;
 		    queue.enqueueReadBuffer(
@@ -50,6 +57,7 @@ class vector {
 		    return val;
 		}
 
+		/// Write associated element of a vector.
 		T operator=(T val) {
 		    queue.enqueueWriteBuffer(
 			    buf, CL_TRUE,
@@ -70,7 +78,12 @@ class vector {
 		friend class vector::iterator;
 	};
 
-	/// \internal Iterator class.
+	/// Iterator class.
+	/**
+	 * This class may in principle be used with standard template library,
+	 * although its main purpose is range specification for vector copy
+	 * operations.
+	 */
 	template <class vector_type, class element_type>
 	class iterator_type
 	    : public std::iterator<std::random_access_iterator_tag, T>
@@ -121,7 +134,6 @@ class vector {
 		}
 
 		friend class vector;
-
 	};
 
 	typedef iterator_type<vector, element> iterator;
@@ -447,7 +459,7 @@ struct stored_on_device<Iterator, typename std::enable_if<Iterator::device_itera
     static const bool value = true;
 };
 
-/// Copy data from device(s) to host.
+/// Copy range from device vector to host vector.
 template<class InputIterator, class OutputIterator>
 typename std::enable_if<
     std::is_same<
@@ -465,7 +477,7 @@ copy(InputIterator first, InputIterator last,
     return result + (last - first);
 }
 
-/// Copy data from host to device(s).
+/// Copy range from host vector to device vector.
 template<class InputIterator, class OutputIterator>
 typename std::enable_if<
     std::is_same<
@@ -483,7 +495,7 @@ copy(InputIterator first, InputIterator last,
     return result + (last - first);
 }
 
-/// \internal Expression template.
+/// Expression template.
 template <class LHS, char OP, class RHS>
 struct BinaryExpression {
     static const bool is_expression = true;
@@ -572,7 +584,7 @@ typename std::enable_if<
 	return BinaryExpression<LHS,'/',RHS>(lhs, rhs);
     }
 
-/// \internal Constant for use in vector expressions.
+/// Constant for use in vector expressions.
 template <class T>
 struct Constant {
     static const bool is_expression = true;
