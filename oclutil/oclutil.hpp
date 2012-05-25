@@ -81,14 +81,14 @@ Z = sqrt(Const(2) * X) + cos(Y);
 \endcode
 
 You can copy the result back to host or you can use vector::operator[] to
-read (or write) vector elements diectly. Though latter technique is very
+read (or write) vector elements directly. Though latter technique is very
 ineffective and should be used for debugging purposes only.
 \code
 copy(Z, x);
 assert(x[42] == Z[42]);
 \endcode
 
-Another frequently performed operation is reduction of a vector expresion to
+Another frequently performed operation is reduction of a vector expression to
 single value, such as summation. This can be done with clu::Reductor class:
 \code
 Reductor<double> sum(queue);

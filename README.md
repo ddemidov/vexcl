@@ -74,14 +74,14 @@ Z = Sqrt(Const(2) * X) + Cos(Y);
 ```
 
 You can copy the result back to host or you can use `vector::operator[]` to
-read (or write) vector elements diectly. Though latter technique is very
+read (or write) vector elements directly. Though latter technique is very
 ineffective and should be used for debugging purposes only.
 ```C++
 copy(Z, x);
 assert(x[42] == Z[42]);
 ```
 
-Another frequently performed operation is reduction of a vector expresion to
+Another frequently performed operation is reduction of a vector expression to
 single value, such as summation. This can be done with `Reductor` class:
 ```C++
 Reductor<double,SUM> sum(queue);
