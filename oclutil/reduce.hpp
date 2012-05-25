@@ -96,6 +96,12 @@ Reductor<real,RDC>::Reductor(const std::vector<cl::CommandQueue> &queue)
 template <typename real, ReductionKind RDC> template <class Expr>
 real Reductor<real,RDC>::operator()(const Expr &expr) const {
     if (!exdata<Expr>::compiled[RDC]) {
+	std::vector<cl::Device> device;
+	device.reserve(queue.size());
+
+	for(auto q = queue.begin(); q != queue.end(); q++)
+	    device.push_back(q->getInfo<CL_QUEUE_DEVICE>());
+
 	std::ostringstream source;
 
 	std::string kernel_name = std::string("reduce_") + expr.kernel_name();
@@ -161,13 +167,13 @@ real Reductor<real,RDC>::operator()(const Expr &expr) const {
 		  "            " << increment_line.str() <<
 		  "        p += gridSize;\n"
 		  "    }\n"
-		  "\n"
 		  "    sdata[tid] = mySum;\n"
-		  "    barrier(CLK_LOCAL_MEM_FENCE);\n"
 		  "\n";
-	switch (RDC) {
+	if (device[0].getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_GPU) {
+	    switch (RDC) {
 	    case SUM:
 		source <<
+		  "    barrier(CLK_LOCAL_MEM_FENCE);\n"
 		  "    if (block_size >= 1024) { if (tid < 512) { sdata[tid] = mySum = mySum + sdata[tid + 512]; } barrier(CLK_LOCAL_MEM_FENCE); }\n"
 		  "    if (block_size >=  512) { if (tid < 256) { sdata[tid] = mySum = mySum + sdata[tid + 256]; } barrier(CLK_LOCAL_MEM_FENCE); }\n"
 		  "    if (block_size >=  256) { if (tid < 128) { sdata[tid] = mySum = mySum + sdata[tid + 128]; } barrier(CLK_LOCAL_MEM_FENCE); }\n"
@@ -181,13 +187,11 @@ real Reductor<real,RDC>::operator()(const Expr &expr) const {
 		  "        if (block_size >=   8) { smem[tid] = mySum = mySum + smem[tid +  4]; }\n"
 		  "        if (block_size >=   4) { smem[tid] = mySum = mySum + smem[tid +  2]; }\n"
 		  "        if (block_size >=   2) { smem[tid] = mySum = mySum + smem[tid +  1]; }\n"
-		  "    }\n"
-		  "\n"
-		  "    if (tid == 0) g_odata[get_group_id(0)] = sdata[0];\n"
-		  "}\n";
+		  "    }\n";
 		break;
 	    case MAX:
 		source <<
+		  "    barrier(CLK_LOCAL_MEM_FENCE);\n"
 		  "    if (block_size >= 1024) { if (tid < 512) { sdata[tid] = mySum = max(mySum, sdata[tid + 512]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
 		  "    if (block_size >=  512) { if (tid < 256) { sdata[tid] = mySum = max(mySum, sdata[tid + 256]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
 		  "    if (block_size >=  256) { if (tid < 128) { sdata[tid] = mySum = max(mySum, sdata[tid + 128]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
@@ -201,13 +205,11 @@ real Reductor<real,RDC>::operator()(const Expr &expr) const {
 		  "        if (block_size >=   8) { smem[tid] = mySum = max(mySum, smem[tid +  4]); }\n"
 		  "        if (block_size >=   4) { smem[tid] = mySum = max(mySum, smem[tid +  2]); }\n"
 		  "        if (block_size >=   2) { smem[tid] = mySum = max(mySum, smem[tid +  1]); }\n"
-		  "    }\n"
-		  "\n"
-		  "    if (tid == 0) g_odata[get_group_id(0)] = sdata[0];\n"
-		  "}\n";
+		  "    }\n";
 		break;
 	    case MIN:
 		source <<
+		  "    barrier(CLK_LOCAL_MEM_FENCE);\n"
 		  "    if (block_size >= 1024) { if (tid < 512) { sdata[tid] = mySum = min(mySum, sdata[tid + 512]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
 		  "    if (block_size >=  512) { if (tid < 256) { sdata[tid] = mySum = min(mySum, sdata[tid + 256]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
 		  "    if (block_size >=  256) { if (tid < 128) { sdata[tid] = mySum = min(mySum, sdata[tid + 128]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
@@ -221,18 +223,13 @@ real Reductor<real,RDC>::operator()(const Expr &expr) const {
 		  "        if (block_size >=   8) { smem[tid] = mySum = min(mySum, smem[tid +  4]); }\n"
 		  "        if (block_size >=   4) { smem[tid] = mySum = min(mySum, smem[tid +  2]); }\n"
 		  "        if (block_size >=   2) { smem[tid] = mySum = min(mySum, smem[tid +  1]); }\n"
-		  "    }\n"
-		  "\n"
-		  "    if (tid == 0) g_odata[get_group_id(0)] = sdata[0];\n"
-		  "}\n";
+		  "    }\n";
 		break;
+	    }
 	}
 
-	std::vector<cl::Device> device;
-	device.reserve(queue.size());
-
-	for(auto q = queue.begin(); q != queue.end(); q++)
-	    device.push_back(q->getInfo<CL_QUEUE_DEVICE>());
+	source << "    if (tid == 0) g_odata[get_group_id(0)] = sdata[0];\n"
+		  "}\n";
 
 	auto program = build_sources(context, source.str());
 
