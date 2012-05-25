@@ -238,18 +238,23 @@ real Reductor<real,RDC>::operator()(const Expr &expr) const {
 
 	exdata<Expr>::kernel[RDC]   = cl::Kernel(program, kernel_name.c_str());
 	exdata<Expr>::compiled[RDC] = true;
-	exdata<Expr>::wgsize[RDC]   = kernel_workgroup_size(
-		exdata<Expr>::kernel[RDC], device);
 
-	// Strange bug(?) in g++: cannot call getWorkGroupInfo directly on
-	// exdata<Expr>::kernel[RDC], but it works like this:
-	cl::Kernel &krn = exdata<Expr>::kernel[RDC];
+	if (device[0].getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU) {
+	    exdata<Expr>::wgsize[RDC] = 1;
+	} else {
+	    exdata<Expr>::wgsize[RDC] = kernel_workgroup_size(
+		    exdata<Expr>::kernel[RDC], device);
 
-	for(auto d = device.begin(); d != device.end(); d++) {
-	    uint smem = d->getInfo<CL_DEVICE_LOCAL_MEM_SIZE>() -
-		krn.getWorkGroupInfo<CL_KERNEL_LOCAL_MEM_SIZE>(*d);
-	    while(exdata<Expr>::wgsize[RDC] * sizeof(real) > smem)
-		exdata<Expr>::wgsize[RDC] /= 2;
+	    // Strange bug(?) in g++: cannot call getWorkGroupInfo directly on
+	    // exdata<Expr>::kernel[RDC], but it works like this:
+	    cl::Kernel &krn = exdata<Expr>::kernel[RDC];
+
+	    for(auto d = device.begin(); d != device.end(); d++) {
+		uint smem = d->getInfo<CL_DEVICE_LOCAL_MEM_SIZE>() -
+		    krn.getWorkGroupInfo<CL_KERNEL_LOCAL_MEM_SIZE>(*d);
+		while(exdata<Expr>::wgsize[RDC] * sizeof(real) > smem)
+		    exdata<Expr>::wgsize[RDC] /= 2;
+	    }
 	}
     }
 
