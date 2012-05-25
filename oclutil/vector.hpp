@@ -13,6 +13,7 @@
 #endif
 
 #include <vector>
+#include <map>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -255,7 +256,7 @@ class vector {
 	 */
 	template <class Expr>
 	    const vector& operator=(const Expr &expr) {
-		if (!exdata<Expr>::compiled) {
+		if (!exdata<Expr>::compiled[context()]) {
 		    std::ostringstream kernel;
 
 		    std::string kernel_name = expr.kernel_name();
@@ -285,25 +286,25 @@ class vector {
 
 		    auto program = build_sources(context, kernel.str());
 
-		    exdata<Expr>::kernel   = cl::Kernel(program, kernel_name.c_str());
-		    exdata<Expr>::compiled = true;
-		    exdata<Expr>::wgsize   = kernel_workgroup_size(
-			    exdata<Expr>::kernel, device
+		    exdata<Expr>::kernel[context()]   = cl::Kernel(program, kernel_name.c_str());
+		    exdata<Expr>::compiled[context()] = true;
+		    exdata<Expr>::wgsize[context()]   = kernel_workgroup_size(
+			    exdata<Expr>::kernel[context()], device
 			    );
 		}
 
 		for(uint d = 0; d < queue.size(); d++) {
 		    uint pos = 0, psize = part[d + 1] - part[d];
-		    exdata<Expr>::kernel.setArg(pos++, psize);
-		    exdata<Expr>::kernel.setArg(pos++, buf[d]);
+		    exdata<Expr>::kernel[context()].setArg(pos++, psize);
+		    exdata<Expr>::kernel[context()].setArg(pos++, buf[d]);
 
-		    expr.kernel_args(exdata<Expr>::kernel, d, pos);
+		    expr.kernel_args(exdata<Expr>::kernel[context()], d, pos);
 
 		    queue[d].enqueueNDRangeKernel(
-			    exdata<Expr>::kernel,
+			    exdata<Expr>::kernel[context()],
 			    cl::NullRange,
-			    alignup(psize, exdata<Expr>::wgsize),
-			    exdata<Expr>::wgsize
+			    alignup(psize, exdata<Expr>::wgsize[context()]),
+			    exdata<Expr>::wgsize[context()]
 			    );
 		}
 
@@ -402,9 +403,9 @@ class vector {
     private:
 	template <class Expr>
 	struct exdata {
-	    static bool       compiled;
-	    static cl::Kernel kernel;
-	    static uint       wgsize;
+	    static std::map<cl_context,bool>       compiled;
+	    static std::map<cl_context,cl::Kernel> kernel;
+	    static std::map<cl_context,uint>       wgsize;
 	};
 
 	cl::Context                     context;
@@ -429,13 +430,13 @@ class vector {
 };
 
 template <class T> template <class Expr>
-bool vector<T>::exdata<Expr>::compiled = false;
+std::map<cl_context, bool> vector<T>::exdata<Expr>::compiled;
 
 template <class T> template <class Expr>
-cl::Kernel vector<T>::exdata<Expr>::kernel;
+std::map<cl_context, cl::Kernel> vector<T>::exdata<Expr>::kernel;
 
 template <class T> template <class Expr>
-uint vector<T>::exdata<Expr>::wgsize;
+std::map<cl_context, uint> vector<T>::exdata<Expr>::wgsize;
 
 /// Copy device vector to host vector.
 template <class T>

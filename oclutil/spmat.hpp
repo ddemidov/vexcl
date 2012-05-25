@@ -14,6 +14,7 @@
 
 #include <vector>
 #include <set>
+#include <map>
 #include <unordered_map>
 #include <string>
 #include <memory>
@@ -96,27 +97,27 @@ class SpMat {
 	std::vector<uint> cidx;
 	mutable std::vector<real> rx;
 
-	static bool compiled;
-	static cl::Kernel spmv_set;
-	static cl::Kernel spmv_add;
-	static cl::Kernel gather_vals_to_send;
-	static uint wgsize;
+	static std::map<cl_context, bool>       compiled;
+	static std::map<cl_context, cl::Kernel> spmv_set;
+	static std::map<cl_context, cl::Kernel> spmv_add;
+	static std::map<cl_context, cl::Kernel> gather_vals_to_send;
+	static std::map<cl_context, uint>       wgsize;
 };
 
 template <typename real>
-bool SpMat<real>::compiled = false;
+std::map<cl_context, bool> SpMat<real>::compiled;
 
 template <typename real>
-cl::Kernel SpMat<real>::spmv_set;
+std::map<cl_context, cl::Kernel> SpMat<real>::spmv_set;
 
 template <typename real>
-cl::Kernel SpMat<real>::spmv_add;
+std::map<cl_context, cl::Kernel> SpMat<real>::spmv_add;
 
 template <typename real>
-cl::Kernel SpMat<real>::gather_vals_to_send;
+std::map<cl_context, cl::Kernel> SpMat<real>::gather_vals_to_send;
 
 template <typename real>
-uint SpMat<real>::wgsize;
+std::map<cl_context, uint> SpMat<real>::wgsize;
 
 /// \internal Sparse matrix-vector product.
 template <typename real>
@@ -196,7 +197,7 @@ SpMat<real>::SpMat(
       event(queue.size()), lm(queue.size()), rm(queue.size()), exc(queue.size())
 {
     // Compile kernels.
-    if (!compiled) {
+    if (!compiled[context()]) {
 	std::ostringstream source;
 
 	source << "#if defined(cl_khr_fp64)\n"
@@ -261,20 +262,24 @@ SpMat<real>::SpMat(
 
 	auto program = build_sources(context, source.str());
 
-	spmv_set            = cl::Kernel(program, "spmv_set");
-	spmv_add            = cl::Kernel(program, "spmv_add");
-	gather_vals_to_send = cl::Kernel(program, "gather_vals_to_send");
+	spmv_set[context()]            = cl::Kernel(program, "spmv_set");
+	spmv_add[context()]            = cl::Kernel(program, "spmv_add");
+	gather_vals_to_send[context()] = cl::Kernel(program, "gather_vals_to_send");
 
 	std::vector<cl::Device> device;
 	device.reserve(queue.size());
 	for(auto q = queue.begin(); q != queue.end(); q++)
 	    device.push_back(q->getInfo<CL_QUEUE_DEVICE>());
 
-	wgsize = kernel_workgroup_size(spmv_set, device);
-	wgsize = std::min(wgsize, kernel_workgroup_size(spmv_add, device));
-	wgsize = std::min(wgsize, kernel_workgroup_size(gather_vals_to_send, device));
+	wgsize[context()] = kernel_workgroup_size(spmv_set[context()], device);
 
-	compiled = true;
+	wgsize[context()] = std::min(wgsize[context()],
+		kernel_workgroup_size(spmv_add[context()], device));
+
+	wgsize[context()] = std::min(wgsize[context()],
+		kernel_workgroup_size(gather_vals_to_send[context()], device));
+
+	compiled[context()] = true;
     }
 
     std::vector<std::set<uint>> remote_cols(queue.size());
@@ -408,15 +413,15 @@ void SpMat<real>::mul(const clu::vector<real> &x, clu::vector<real> &y,
 	// Transfer remote parts of the input vector.
 	for(uint d = 0; d < queue.size(); d++) {
 	    if (uint ncols = cidx[d + 1] - cidx[d]) {
-		uint g_size = alignup(ncols, wgsize);
+		uint g_size = alignup(ncols, wgsize[context()]);
 
-		gather_vals_to_send.setArg(0, ncols);
-		gather_vals_to_send.setArg(1, x(d));
-		gather_vals_to_send.setArg(2, exc[d].cols_to_send());
-		gather_vals_to_send.setArg(3, exc[d].vals_to_send());
+		gather_vals_to_send[context()].setArg(0, ncols);
+		gather_vals_to_send[context()].setArg(1, x(d));
+		gather_vals_to_send[context()].setArg(2, exc[d].cols_to_send());
+		gather_vals_to_send[context()].setArg(3, exc[d].vals_to_send());
 
-		squeue[d].enqueueNDRangeKernel(
-			gather_vals_to_send, cl::NullRange, g_size, wgsize);
+		squeue[d].enqueueNDRangeKernel(gather_vals_to_send[context()],
+			cl::NullRange, g_size, wgsize[context()]);
 
 		squeue[d].enqueueReadBuffer(exc[d].vals_to_send(), CL_FALSE,
 			0, ncols * sizeof(real), &rx[cidx[d]], 0, &event[d]
@@ -426,10 +431,10 @@ void SpMat<real>::mul(const clu::vector<real> &x, clu::vector<real> &y,
     }
 
     // Compute contribution from local part of the matrix.
-    cl::Kernel &spmv_loc = append ? spmv_add : spmv_set;
+    cl::Kernel &spmv_loc = append ? spmv_add[context()] : spmv_set[context()];
 
     for(uint d = 0; d < queue.size(); d++) {
-	uint g_size = alignup(lm[d].n, wgsize);
+	uint g_size = alignup(lm[d].n, wgsize[context()]);
 
 	spmv_loc.setArg(0, lm[d].n);
 	spmv_loc.setArg(1, lm[d].w);
@@ -440,7 +445,8 @@ void SpMat<real>::mul(const clu::vector<real> &x, clu::vector<real> &y,
 	spmv_loc.setArg(6, y(d));
 	spmv_loc.setArg(7, alpha);
 
-	queue[d].enqueueNDRangeKernel(spmv_loc, cl::NullRange, g_size, wgsize);
+	queue[d].enqueueNDRangeKernel(spmv_loc,
+		cl::NullRange, g_size, wgsize[context()]);
     }
 
     if (rx.size()) {
@@ -449,7 +455,7 @@ void SpMat<real>::mul(const clu::vector<real> &x, clu::vector<real> &y,
 
 	for(uint d = 0; d < queue.size(); d++) {
 	    if (exc[d].mycols.size()) {
-		uint g_size = alignup(rm[d].n, wgsize);
+		uint g_size = alignup(rm[d].n, wgsize[context()]);
 
 		for(uint i = 0; i < exc[d].mycols.size(); i++)
 		    exc[d].myvals[i] = rx[exc[d].mycols[i]];
@@ -462,17 +468,17 @@ void SpMat<real>::mul(const clu::vector<real> &x, clu::vector<real> &y,
 
 		std::vector<cl::Event> myevent(1, event[d]);
 
-		spmv_add.setArg(0, rm[d].n);
-		spmv_add.setArg(1, rm[d].w);
-		spmv_add.setArg(2, rm[d].pitch);
-		spmv_add.setArg(3, rm[d].col());
-		spmv_add.setArg(4, rm[d].val());
-		spmv_add.setArg(5, exc[d].rx());
-		spmv_add.setArg(6, y(d));
-		spmv_add.setArg(7, alpha);
+		spmv_add[context()].setArg(0, rm[d].n);
+		spmv_add[context()].setArg(1, rm[d].w);
+		spmv_add[context()].setArg(2, rm[d].pitch);
+		spmv_add[context()].setArg(3, rm[d].col());
+		spmv_add[context()].setArg(4, rm[d].val());
+		spmv_add[context()].setArg(5, exc[d].rx());
+		spmv_add[context()].setArg(6, y(d));
+		spmv_add[context()].setArg(7, alpha);
 
-		queue[d].enqueueNDRangeKernel(
-			spmv_add, cl::NullRange, g_size, wgsize, &myevent
+		queue[d].enqueueNDRangeKernel(spmv_add[context()],
+			cl::NullRange, g_size, wgsize[context()], &myevent
 			);
 	    }
 	}

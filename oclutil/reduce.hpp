@@ -58,20 +58,20 @@ class Reductor {
 
 	template <class Expr>
 	struct exdata {
-	    static bool       compiled[3];
-	    static cl::Kernel kernel[3];
-	    static uint       wgsize[3];
+	    static std::map<cl_context, bool>       compiled;
+	    static std::map<cl_context, cl::Kernel> kernel;
+	    static std::map<cl_context, uint>       wgsize;
 	};
 };
 
 template <typename real, ReductionKind RDC> template <class Expr>
-bool Reductor<real,RDC>::exdata<Expr>::compiled[3] = {false, false, false};
+std::map<cl_context, bool> Reductor<real,RDC>::exdata<Expr>::compiled;
 
 template <typename real, ReductionKind RDC> template <class Expr>
-cl::Kernel Reductor<real,RDC>::exdata<Expr>::kernel[3];
+std::map<cl_context, cl::Kernel> Reductor<real,RDC>::exdata<Expr>::kernel;
 
 template <typename real, ReductionKind RDC> template <class Expr>
-uint Reductor<real,RDC>::exdata<Expr>::wgsize[3];
+std::map<cl_context, uint> Reductor<real,RDC>::exdata<Expr>::wgsize;
 
 template <typename real, ReductionKind RDC>
 Reductor<real,RDC>::Reductor(const std::vector<cl::CommandQueue> &queue)
@@ -95,7 +95,7 @@ Reductor<real,RDC>::Reductor(const std::vector<cl::CommandQueue> &queue)
 
 template <typename real, ReductionKind RDC> template <class Expr>
 real Reductor<real,RDC>::operator()(const Expr &expr) const {
-    if (!exdata<Expr>::compiled[RDC]) {
+    if (!exdata<Expr>::compiled[context()]) {
 	std::vector<cl::Device> device;
 	device.reserve(queue.size());
 
@@ -233,24 +233,24 @@ real Reductor<real,RDC>::operator()(const Expr &expr) const {
 
 	auto program = build_sources(context, source.str());
 
-	exdata<Expr>::kernel[RDC]   = cl::Kernel(program, kernel_name.c_str());
-	exdata<Expr>::compiled[RDC] = true;
+	exdata<Expr>::kernel[context()]   = cl::Kernel(program, kernel_name.c_str());
+	exdata<Expr>::compiled[context()] = true;
 
 	if (device[0].getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU) {
-	    exdata<Expr>::wgsize[RDC] = 1;
+	    exdata<Expr>::wgsize[context()] = 1;
 	} else {
-	    exdata<Expr>::wgsize[RDC] = kernel_workgroup_size(
-		    exdata<Expr>::kernel[RDC], device);
+	    exdata<Expr>::wgsize[context()] = kernel_workgroup_size(
+		    exdata<Expr>::kernel[context()], device);
 
 	    // Strange bug(?) in g++: cannot call getWorkGroupInfo directly on
-	    // exdata<Expr>::kernel[RDC], but it works like this:
-	    cl::Kernel &krn = exdata<Expr>::kernel[RDC];
+	    // exdata<Expr>::kernel[context()], but it works like this:
+	    cl::Kernel &krn = exdata<Expr>::kernel[context()];
 
 	    for(auto d = device.begin(); d != device.end(); d++) {
 		uint smem = d->getInfo<CL_DEVICE_LOCAL_MEM_SIZE>() -
 		    krn.getWorkGroupInfo<CL_KERNEL_LOCAL_MEM_SIZE>(*d);
-		while(exdata<Expr>::wgsize[RDC] * sizeof(real) > smem)
-		    exdata<Expr>::wgsize[RDC] /= 2;
+		while(exdata<Expr>::wgsize[context()] * sizeof(real) > smem)
+		    exdata<Expr>::wgsize[context()] /= 2;
 	    }
 	}
     }
@@ -258,17 +258,17 @@ real Reductor<real,RDC>::operator()(const Expr &expr) const {
 
     for(uint d = 0; d < queue.size(); d++) {
 	uint psize = expr.part_size(d);
-	uint g_size = (idx[d + 1] - idx[d]) * exdata<Expr>::wgsize[RDC];
-	auto lmem = cl::__local(exdata<Expr>::wgsize[RDC] * sizeof(real));
+	uint g_size = (idx[d + 1] - idx[d]) * exdata<Expr>::wgsize[context()];
+	auto lmem = cl::__local(exdata<Expr>::wgsize[context()] * sizeof(real));
 
 	uint pos = 0;
-	exdata<Expr>::kernel[RDC].setArg(pos++, psize);
-	expr.kernel_args(exdata<Expr>::kernel[RDC], d, pos);
-	exdata<Expr>::kernel[RDC].setArg(pos++, dbuf[d]());
-	exdata<Expr>::kernel[RDC].setArg(pos++, lmem);
+	exdata<Expr>::kernel[context()].setArg(pos++, psize);
+	expr.kernel_args(exdata<Expr>::kernel[context()], d, pos);
+	exdata<Expr>::kernel[context()].setArg(pos++, dbuf[d]());
+	exdata<Expr>::kernel[context()].setArg(pos++, lmem);
 
-	queue[d].enqueueNDRangeKernel(exdata<Expr>::kernel[RDC], cl::NullRange,
-		g_size, exdata<Expr>::wgsize[RDC]);
+	queue[d].enqueueNDRangeKernel(exdata<Expr>::kernel[context()], cl::NullRange,
+		g_size, exdata<Expr>::wgsize[context()]);
     }
 
     for(uint d = 0; d < queue.size(); d++) {

@@ -16,7 +16,7 @@ include_directories(${CMAKE_SOURCE_DIR})
 
 foreach(example
 	cg devlist spmv vector readme_example_1 readme_example_2
-	readme_example_3 readme_example_4
+	readme_example_3 readme_example_4 multiplatform
 	)
     add_executable(${example} ${example}.cpp)
     target_link_libraries(${example} ${OPENCL_LIBRARY})
