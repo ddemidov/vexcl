@@ -1,5 +1,3 @@
-add_definitions(-D__CL_ENABLE_EXCEPTIONS)
-
 if (WIN32)
     find_library(OPENCL_LIBRARY OpenCL
 	"c:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v4.0/lib/x64"

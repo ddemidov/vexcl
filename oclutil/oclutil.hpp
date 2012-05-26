@@ -195,6 +195,8 @@ std::cout << sum(x) << std::endl;
 #  define NOMINMAX
 #endif
 
+#define __CL_ENABLE_EXCEPTIONS
+
 #include <CL/cl.hpp>
 #include <iostream>
 

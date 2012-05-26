@@ -12,6 +12,8 @@
 #  define NOMINMAX
 #endif
 
+#define __CL_ENABLE_EXCEPTIONS
+
 #include <iostream>
 #include <string>
 #include <algorithm>
