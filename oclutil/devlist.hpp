@@ -30,7 +30,7 @@ namespace Filter {
 	}
     };
 
-    /// Selects devices whose platform vendor name match given value.
+    /// Selects devices whose vendor name match given value.
     struct Vendor {
 	Vendor(const std::string &name) : vendor(name) {}
 
