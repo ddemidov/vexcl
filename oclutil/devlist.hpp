@@ -40,6 +40,18 @@ namespace Filter {
 	    const std::string &vendor;
     };
 
+    /// Selects devices whose platform name match given value.
+    struct Platform {
+	Platform(const std::string &name) : platform(name) {}
+
+	bool operator()(const cl::Device &d) const {
+	    return cl::Platform(d.getInfo<CL_DEVICE_PLATFORM>()).getInfo<CL_PLATFORM_NAME>().find(platform) != std::string::npos;
+	}
+
+	private:
+	    const std::string &platform;
+    };
+
     /// Selects devices whose names match given value.
     struct Name {
 	Name(const std::string &name) : devname(name) {}
