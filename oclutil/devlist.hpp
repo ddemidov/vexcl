@@ -181,7 +181,7 @@ namespace Filter {
  *	    );
  * \endcode
  */
-template<class DevFilter>
+template<class DevFilter = Filter::All>
 std::vector<cl::Device> device_list(DevFilter filter = Filter::All(),
 	bool verbose = false
 	)
@@ -222,7 +222,7 @@ std::vector<cl::Device> device_list(DevFilter filter = Filter::All(),
  * \returns list of queues accociated with selected devices.
  * \see device_list
  */
-template<class DevFilter>
+template<class DevFilter = Filter::All>
 std::pair<std::vector<cl::Context>, std::vector<cl::CommandQueue>>
 queue_list(DevFilter filter = Filter::All(), bool verbose = false)
 {
