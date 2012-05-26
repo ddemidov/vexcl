@@ -49,6 +49,9 @@ Once you got queue list, you can allocate OpenCL buffers on the associated
 devices. `clu::vector` constructor accepts `std::vector` of `cl::CommandQueue`.
 The contents of the created vector will be equally partitioned between each
 queue (presumably, each of the provided queues is linked with separate device). 
+Multi-platform computation is supported (that is, you can spread your vectors
+across devices by different vendors), but should be used with caution: all
+computations will be performed with the speed of the slowest device selected.
 ```C++
 const uint n = 1 << 20;
 std::vector<double> x(n);
