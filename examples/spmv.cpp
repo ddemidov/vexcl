@@ -11,6 +11,11 @@ int main() {
 	// Read matrix.
 	std::ifstream f("problem.dat", std::ios::binary);
 
+	if (!f) {
+	    std::cerr << "problem.dat not found" << std::endl;
+	    return 1;
+	}
+
 	uint n;
 
 	f.read((char*)&n, sizeof(n));
