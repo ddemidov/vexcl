@@ -10,7 +10,7 @@ int main() {
     std::vector<double> x(n);
     std::generate(x.begin(), x.end(), [](){ return (double)rand() / RAND_MAX; });
 
-    cl::Context context;
+    std::vector<cl::Context>      context;
     std::vector<cl::CommandQueue> queue;
     std::tie(context, queue) = queue_list(Filter::Type(CL_DEVICE_TYPE_GPU) && Filter::DoublePrecision());
 

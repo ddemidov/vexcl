@@ -5,11 +5,11 @@
 using namespace clu;
 
 int main() {
-    cl::Context cpu_context;
+    std::vector<cl::Context>      cpu_context;
     std::vector<cl::CommandQueue> cpu_queue;
     std::tie(cpu_context, cpu_queue) = queue_list(Filter::Type(CL_DEVICE_TYPE_CPU), true);
 
-    cl::Context gpu_context;
+    std::vector<cl::Context>      gpu_context;
     std::vector<cl::CommandQueue> gpu_queue;
     std::tie(gpu_context, gpu_queue) = queue_list(Filter::Type(CL_DEVICE_TYPE_GPU), true);
 

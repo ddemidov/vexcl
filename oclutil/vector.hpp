@@ -146,8 +146,7 @@ class vector {
 	/// Copy host data to the new buffer.
 	vector(const std::vector<cl::CommandQueue> &queue, cl_mem_flags flags,
 		uint size, const T *host = 0
-	      ) : context(queue[0].getInfo<CL_QUEUE_CONTEXT>()),
-	          queue(queue), part(partition(size, queue.size())),
+	      ) : queue(queue), part(partition(size, queue.size())),
 	          buf(queue.size()), event(queue.size())
 	{
 	    if (size) allocate_buffers(flags, host);
@@ -155,15 +154,13 @@ class vector {
 
 	/// Move constructor
 	vector(vector &&v)
-	    : context(std::move(v.context)), queue(std::move(v.queue)),
-	      part(std::move(v.part)), buf(std::move(v.buf)),
-	      event(std::move(v.event))
+	    : queue(std::move(v.queue)), part(std::move(v.part)),
+	      buf(std::move(v.buf)), event(std::move(v.event))
 	{
 	}
 
 	/// Move assignment
 	const vector& operator=(vector &&v) {
-	    std::swap(context, v.context);
 	    std::swap(queue,   v.queue);
 	    std::swap(part,    v.part);
 	    std::swap(buf,     v.buf);
@@ -175,8 +172,7 @@ class vector {
 	/// Copy host data to the new buffer.
 	vector(const std::vector<cl::CommandQueue> &queue, cl_mem_flags flags,
 		const std::vector<T> &host
-	      ) : context(queue[0].getInfo<CL_QUEUE_CONTEXT>()),
-	          queue(queue), part(partition(host.size(), queue.size())),
+	      ) : queue(queue), part(partition(host.size(), queue.size())),
 	          buf(queue.size()), event(queue.size())
 	{
 	    if (!host.empty()) allocate_buffers(flags, host.data());
@@ -256,44 +252,48 @@ class vector {
 	 */
 	template <class Expr>
 	    const vector& operator=(const Expr &expr) {
-		if (!exdata<Expr>::compiled[context()]) {
-		    std::ostringstream kernel;
+		for(auto q = queue.begin(); q != queue.end(); q++) {
+		    cl::Context context = q->getInfo<CL_QUEUE_CONTEXT>();
 
-		    std::string kernel_name = expr.kernel_name();
+		    if (!exdata<Expr>::compiled[context()]) {
+			std::ostringstream kernel;
 
-		    kernel <<
-			"#if defined(cl_khr_fp64)\n"
-			"#  pragma OPENCL EXTENSION cl_khr_fp64: enable\n"
-			"#elif defined(cl_amd_fp64)\n"
-			"#  pragma OPENCL EXTENSION cl_amd_fp64: enable\n"
-			"#endif\n" <<
-			"kernel void " << kernel_name << "(\n"
-			"\tunsigned int n,\n"
-			"\tglobal " << type_name<T>() << " *res";
+			std::string kernel_name = expr.kernel_name();
 
-		    expr.kernel_prm(kernel);
+			kernel <<
+			    "#if defined(cl_khr_fp64)\n"
+			    "#  pragma OPENCL EXTENSION cl_khr_fp64: enable\n"
+			    "#elif defined(cl_amd_fp64)\n"
+			    "#  pragma OPENCL EXTENSION cl_amd_fp64: enable\n"
+			    "#endif\n" <<
+			    "kernel void " << kernel_name << "(\n"
+			    "\tunsigned int n,\n"
+			    "\tglobal " << type_name<T>() << " *res";
 
-		    kernel << "\n\t)\n{\n\tunsigned int i = get_global_id(0);\n"
-			"\tif (i < n) res[i] = ";
+			expr.kernel_prm(kernel);
 
-		    expr.kernel_expr(kernel);
+			kernel << "\n\t)\n{\n\tunsigned int i = get_global_id(0);\n"
+			    "\tif (i < n) res[i] = ";
 
-		    kernel << ";\n}" << std::endl;
+			expr.kernel_expr(kernel);
 
-		    std::vector<cl::Device> device;
-		    for(auto q = queue.begin(); q != queue.end(); q++)
-			device.push_back(q->getInfo<CL_QUEUE_DEVICE>());
+			kernel << ";\n}" << std::endl;
 
-		    auto program = build_sources(context, kernel.str());
+			std::vector<cl::Device> device = context.getInfo<CL_CONTEXT_DEVICES>();
 
-		    exdata<Expr>::kernel[context()]   = cl::Kernel(program, kernel_name.c_str());
-		    exdata<Expr>::compiled[context()] = true;
-		    exdata<Expr>::wgsize[context()]   = kernel_workgroup_size(
-			    exdata<Expr>::kernel[context()], device
-			    );
+			auto program = build_sources(context, kernel.str());
+
+			exdata<Expr>::kernel[context()]   = cl::Kernel(program, kernel_name.c_str());
+			exdata<Expr>::compiled[context()] = true;
+			exdata<Expr>::wgsize[context()]   = kernel_workgroup_size(
+				exdata<Expr>::kernel[context()], device
+				);
+		    }
 		}
 
 		for(uint d = 0; d < queue.size(); d++) {
+		    cl::Context context = queue[d].getInfo<CL_QUEUE_CONTEXT>();
+
 		    uint pos = 0, psize = part[d + 1] - part[d];
 		    exdata<Expr>::kernel[context()].setArg(pos++, psize);
 		    exdata<Expr>::kernel[context()].setArg(pos++, buf[d]);
@@ -377,7 +377,9 @@ class vector {
 			);
 	    }
 
-	    if (blocking) cl::Event::waitForEvents(event);
+	    if (blocking)
+		for(auto e = event.begin(); e != event.end(); e++)
+		    e->wait();
 	}
 
 	/// Copy data from device(s) to host buffer .
@@ -398,7 +400,9 @@ class vector {
 			);
 	    }
 
-	    if (blocking) cl::Event::waitForEvents(event);
+	    if (blocking)
+		for(auto e = event.begin(); e != event.end(); e++)
+		    e->wait();
 	}
     private:
 	template <class Expr>
@@ -408,7 +412,6 @@ class vector {
 	    static std::map<cl_context,uint>       wgsize;
 	};
 
-	cl::Context                     context;
 	std::vector<cl::CommandQueue>	queue;
 	std::vector<uint>               part;
 	std::vector<cl::Buffer>		buf;
@@ -416,9 +419,11 @@ class vector {
 	mutable std::vector<cl::Event>          event;
 
 	void allocate_buffers(cl_mem_flags flags, const T *hostptr) {
-	    for(uint i = 0; i < nparts(); i++) {
-		buf[i] = cl::Buffer(
-			context, flags, (part[i + 1] - part[i]) * sizeof(T));
+	    for(uint d = 0; d < queue.size(); d++) {
+		cl::Context context = queue[d].getInfo<CL_QUEUE_CONTEXT>();
+
+		buf[d] = cl::Buffer(context, flags,
+				    (part[d + 1] - part[d]) * sizeof(T));
 	    }
 
 	    if (hostptr) write_data(0, size(), hostptr, CL_TRUE);

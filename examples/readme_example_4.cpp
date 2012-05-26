@@ -4,14 +4,15 @@
 #include <oclutil/oclutil.hpp>
 using namespace clu;
 int main() {
-    cl::Context context;
+    std::vector<cl::Context>      context;
     std::vector<cl::CommandQueue> queue;
-    std::tie(context, queue) = queue_list(Filter::Type(CL_DEVICE_TYPE_GPU) && Filter::DoublePrecision());
+    std::tie(context, queue) = queue_list(
+	    Filter::Vendor("NVIDIA") && Filter::DoublePrecision());
 
     const uint n = 1 << 20;
     clu::vector<float> x(queue, CL_MEM_WRITE_ONLY, n);
 
-    auto program = build_sources(context, std::string(
+    auto program = build_sources(context[0], std::string(
 		"kernel void dummy(uint size, global float *x)\n"
 		"{\n"
 		"    uint i = get_global_id(0);\n"

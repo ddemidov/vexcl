@@ -26,22 +26,13 @@ int main() {
 	f.read((char*)col.data(), row.back() * sizeof(col[0]));
 	f.read((char*)val.data(), row.back() * sizeof(val[0]));
 
-	// Select every GPU supporting double precision.
-	auto device = device_list(
-		Filter::Type(CL_DEVICE_TYPE_GPU) && Filter::DoublePrecision(),
-		true);
-
-	cl::Context context(device);
+	// Select every device supporting double precision.
+	std::vector<cl::Context>      context;
 	std::vector<cl::CommandQueue> queue;
-	std::vector<cl::CommandQueue> squeue;
-
-	for(auto d = device.begin(); d != device.end(); d++) {
-	    queue.push_back(cl::CommandQueue(context, *d));
-	    squeue.push_back(cl::CommandQueue(context, *d));
-	}
+	std::tie(context, queue) = queue_list(Filter::DoublePrecision(), true);
 
 	// Create OpenCL matrix.
-	SpMat<double> A(queue, squeue, n, row.data(), col.data(), val.data());
+	SpMat<double> A(queue, n, row.data(), col.data(), val.data());
 
 	clu::vector<double> x(queue, CL_MEM_READ_WRITE, n);
 	clu::vector<double> y(queue, CL_MEM_READ_WRITE, n);

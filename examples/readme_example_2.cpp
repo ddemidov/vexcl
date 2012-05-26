@@ -3,7 +3,7 @@
 #include <oclutil/oclutil.hpp>
 using namespace clu;
 int main() {
-    cl::Context context;
+    std::vector<cl::Context>      context;
     std::vector<cl::CommandQueue> queue;
     // Select no more than 2 NVIDIA GPUs:
     std::tie(context, queue) = queue_list(

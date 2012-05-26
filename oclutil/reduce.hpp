@@ -48,7 +48,6 @@ class Reductor {
 	template <class Expr>
 	real operator()(const Expr &expr) const;
     private:
-	cl::Context context;
 	std::vector<cl::CommandQueue> queue;
 	std::vector<uint> idx;
 	std::vector<clu::vector<real>> dbuf;
@@ -75,8 +74,7 @@ std::map<cl_context, uint> Reductor<real,RDC>::exdata<Expr>::wgsize;
 
 template <typename real, ReductionKind RDC>
 Reductor<real,RDC>::Reductor(const std::vector<cl::CommandQueue> &queue)
-    : context(queue[0].getInfo<CL_QUEUE_CONTEXT>()), queue(queue),
-      event(queue.size())
+    : queue(queue), event(queue.size())
 {
     idx.reserve(queue.size() + 1);
     idx.push_back(0);
@@ -95,168 +93,170 @@ Reductor<real,RDC>::Reductor(const std::vector<cl::CommandQueue> &queue)
 
 template <typename real, ReductionKind RDC> template <class Expr>
 real Reductor<real,RDC>::operator()(const Expr &expr) const {
-    if (!exdata<Expr>::compiled[context()]) {
-	std::vector<cl::Device> device;
-	device.reserve(queue.size());
+    for(auto q = queue.begin(); q != queue.end(); q++) {
+	cl::Context context = q->getInfo<CL_QUEUE_CONTEXT>();
 
-	for(auto q = queue.begin(); q != queue.end(); q++)
-	    device.push_back(q->getInfo<CL_QUEUE_DEVICE>());
+	if (!exdata<Expr>::compiled[context()]) {
+	    std::vector<cl::Device> device = context.getInfo<CL_CONTEXT_DEVICES>();
 
-	std::ostringstream source;
+	    std::ostringstream source;
 
-	std::string kernel_name = std::string("reduce_") + expr.kernel_name();
+	    std::string kernel_name = std::string("reduce_") + expr.kernel_name();
 
-	std::ostringstream increment_line;
-	switch (RDC) {
-	    case SUM:
-		increment_line << "mySum += ";
-		expr.kernel_expr(increment_line);
-		increment_line << ";\n";
-		break;
-	    case MAX:
-		increment_line << "mySum = max(mySum, ";
-		expr.kernel_expr(increment_line);
-		increment_line << ");\n";
-		break;
-	    case MIN:
-		increment_line << "mySum = min(mySum, ";
-		expr.kernel_expr(increment_line);
-		increment_line << ");\n";
-		break;
-	}
-
-	source << "#if defined(cl_khr_fp64)\n"
-		  "#  pragma OPENCL EXTENSION cl_khr_fp64: enable\n"
-		  "#elif defined(cl_amd_fp64)\n"
-		  "#  pragma OPENCL EXTENSION cl_amd_fp64: enable\n"
-		  "#endif\n"
-	       << "typedef " << type_name<real>() << " real;\n"
-	       << "kernel void " << kernel_name << "(uint n";
-
-	expr.kernel_prm(source);
-
-	source << ",\n\tglobal real *g_odata,\n"
-		  "\tlocal  real *sdata\n"
-		  "\t)\n"
-		  "{\n"
-		  "    uint tid        = get_local_id(0);\n"
-		  "    uint block_size = get_local_size(0);\n"
-		  "    uint p          = get_group_id(0) * block_size * 2 + tid;\n"
-		  "    uint gridSize   = get_num_groups(0) * block_size * 2;\n"
-		  "    uint i;\n"
-		  "\n"
-		  "    real mySum = ";
-	switch(RDC) {
-	    case SUM:
-		source << 0;
-		break;
-	    case MAX:
-		source << -std::numeric_limits<real>::max();
-		break;
-	    case MIN:
-		source << std::numeric_limits<real>::max();
-		break;
-	}
-	source << ";\n"
-		  "\n"
-		  "    while (p < n) {\n"
-		  "        i = p;\n"
-		  "        " << increment_line.str() <<
-		  "        i = p + block_size;\n"
-		  "        if (i < n)\n"
-		  "            " << increment_line.str() <<
-		  "        p += gridSize;\n"
-		  "    }\n"
-		  "    sdata[tid] = mySum;\n"
-		  "\n";
-	if (device[0].getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_GPU) {
+	    std::ostringstream increment_line;
 	    switch (RDC) {
-	    case SUM:
-		source <<
-		  "    barrier(CLK_LOCAL_MEM_FENCE);\n"
-		  "    if (block_size >= 1024) { if (tid < 512) { sdata[tid] = mySum = mySum + sdata[tid + 512]; } barrier(CLK_LOCAL_MEM_FENCE); }\n"
-		  "    if (block_size >=  512) { if (tid < 256) { sdata[tid] = mySum = mySum + sdata[tid + 256]; } barrier(CLK_LOCAL_MEM_FENCE); }\n"
-		  "    if (block_size >=  256) { if (tid < 128) { sdata[tid] = mySum = mySum + sdata[tid + 128]; } barrier(CLK_LOCAL_MEM_FENCE); }\n"
-		  "    if (block_size >=  128) { if (tid <  64) { sdata[tid] = mySum = mySum + sdata[tid +  64]; } barrier(CLK_LOCAL_MEM_FENCE); }\n"
-		  "\n"
-		  "    if (tid < 32) {\n"
-		  "        local volatile real* smem = sdata;\n"
-		  "        if (block_size >=  64) { smem[tid] = mySum = mySum + smem[tid + 32]; }\n"
-		  "        if (block_size >=  32) { smem[tid] = mySum = mySum + smem[tid + 16]; }\n"
-		  "        if (block_size >=  16) { smem[tid] = mySum = mySum + smem[tid +  8]; }\n"
-		  "        if (block_size >=   8) { smem[tid] = mySum = mySum + smem[tid +  4]; }\n"
-		  "        if (block_size >=   4) { smem[tid] = mySum = mySum + smem[tid +  2]; }\n"
-		  "        if (block_size >=   2) { smem[tid] = mySum = mySum + smem[tid +  1]; }\n"
-		  "    }\n";
-		break;
-	    case MAX:
-		source <<
-		  "    barrier(CLK_LOCAL_MEM_FENCE);\n"
-		  "    if (block_size >= 1024) { if (tid < 512) { sdata[tid] = mySum = max(mySum, sdata[tid + 512]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
-		  "    if (block_size >=  512) { if (tid < 256) { sdata[tid] = mySum = max(mySum, sdata[tid + 256]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
-		  "    if (block_size >=  256) { if (tid < 128) { sdata[tid] = mySum = max(mySum, sdata[tid + 128]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
-		  "    if (block_size >=  128) { if (tid <  64) { sdata[tid] = mySum = max(mySum, sdata[tid +  64]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
-		  "\n"
-		  "    if (tid < 32) {\n"
-		  "        local volatile real* smem = sdata;\n"
-		  "        if (block_size >=  64) { smem[tid] = mySum = max(mySum, smem[tid + 32]); }\n"
-		  "        if (block_size >=  32) { smem[tid] = mySum = max(mySum, smem[tid + 16]); }\n"
-		  "        if (block_size >=  16) { smem[tid] = mySum = max(mySum, smem[tid +  8]); }\n"
-		  "        if (block_size >=   8) { smem[tid] = mySum = max(mySum, smem[tid +  4]); }\n"
-		  "        if (block_size >=   4) { smem[tid] = mySum = max(mySum, smem[tid +  2]); }\n"
-		  "        if (block_size >=   2) { smem[tid] = mySum = max(mySum, smem[tid +  1]); }\n"
-		  "    }\n";
-		break;
-	    case MIN:
-		source <<
-		  "    barrier(CLK_LOCAL_MEM_FENCE);\n"
-		  "    if (block_size >= 1024) { if (tid < 512) { sdata[tid] = mySum = min(mySum, sdata[tid + 512]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
-		  "    if (block_size >=  512) { if (tid < 256) { sdata[tid] = mySum = min(mySum, sdata[tid + 256]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
-		  "    if (block_size >=  256) { if (tid < 128) { sdata[tid] = mySum = min(mySum, sdata[tid + 128]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
-		  "    if (block_size >=  128) { if (tid <  64) { sdata[tid] = mySum = min(mySum, sdata[tid +  64]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
-		  "\n"
-		  "    if (tid < 32) {\n"
-		  "        local volatile real* smem = sdata;\n"
-		  "        if (block_size >=  64) { smem[tid] = mySum = min(mySum, smem[tid + 32]); }\n"
-		  "        if (block_size >=  32) { smem[tid] = mySum = min(mySum, smem[tid + 16]); }\n"
-		  "        if (block_size >=  16) { smem[tid] = mySum = min(mySum, smem[tid +  8]); }\n"
-		  "        if (block_size >=   8) { smem[tid] = mySum = min(mySum, smem[tid +  4]); }\n"
-		  "        if (block_size >=   4) { smem[tid] = mySum = min(mySum, smem[tid +  2]); }\n"
-		  "        if (block_size >=   2) { smem[tid] = mySum = min(mySum, smem[tid +  1]); }\n"
-		  "    }\n";
-		break;
+		case SUM:
+		    increment_line << "mySum += ";
+		    expr.kernel_expr(increment_line);
+		    increment_line << ";\n";
+		    break;
+		case MAX:
+		    increment_line << "mySum = max(mySum, ";
+		    expr.kernel_expr(increment_line);
+		    increment_line << ");\n";
+		    break;
+		case MIN:
+		    increment_line << "mySum = min(mySum, ";
+		    expr.kernel_expr(increment_line);
+		    increment_line << ");\n";
+		    break;
 	    }
-	}
 
-	source << "    if (tid == 0) g_odata[get_group_id(0)] = sdata[0];\n"
-		  "}\n";
+	    source << "#if defined(cl_khr_fp64)\n"
+		      "#  pragma OPENCL EXTENSION cl_khr_fp64: enable\n"
+		      "#elif defined(cl_amd_fp64)\n"
+		      "#  pragma OPENCL EXTENSION cl_amd_fp64: enable\n"
+		      "#endif\n"
+		   << "typedef " << type_name<real>() << " real;\n"
+		   << "kernel void " << kernel_name << "(uint n";
 
-	auto program = build_sources(context, source.str());
+	    expr.kernel_prm(source);
 
-	exdata<Expr>::kernel[context()]   = cl::Kernel(program, kernel_name.c_str());
-	exdata<Expr>::compiled[context()] = true;
+	    source << ",\n\tglobal real *g_odata,\n"
+		      "\tlocal  real *sdata\n"
+		      "\t)\n"
+		      "{\n"
+		      "    uint tid        = get_local_id(0);\n"
+		      "    uint block_size = get_local_size(0);\n"
+		      "    uint p          = get_group_id(0) * block_size * 2 + tid;\n"
+		      "    uint gridSize   = get_num_groups(0) * block_size * 2;\n"
+		      "    uint i;\n"
+		      "\n"
+		      "    real mySum = ";
+	    switch(RDC) {
+		case SUM:
+		    source << 0;
+		    break;
+		case MAX:
+		    source << -std::numeric_limits<real>::max();
+		    break;
+		case MIN:
+		    source << std::numeric_limits<real>::max();
+		    break;
+	    }
+	    source << ";\n"
+		      "\n"
+		      "    while (p < n) {\n"
+		      "        i = p;\n"
+		      "        " << increment_line.str() <<
+		      "        i = p + block_size;\n"
+		      "        if (i < n)\n"
+		      "            " << increment_line.str() <<
+		      "        p += gridSize;\n"
+		      "    }\n"
+		      "    sdata[tid] = mySum;\n"
+		      "\n";
+	    if (device[0].getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_GPU) {
+		switch (RDC) {
+		case SUM:
+		    source <<
+		      "    barrier(CLK_LOCAL_MEM_FENCE);\n"
+		      "    if (block_size >= 1024) { if (tid < 512) { sdata[tid] = mySum = mySum + sdata[tid + 512]; } barrier(CLK_LOCAL_MEM_FENCE); }\n"
+		      "    if (block_size >=  512) { if (tid < 256) { sdata[tid] = mySum = mySum + sdata[tid + 256]; } barrier(CLK_LOCAL_MEM_FENCE); }\n"
+		      "    if (block_size >=  256) { if (tid < 128) { sdata[tid] = mySum = mySum + sdata[tid + 128]; } barrier(CLK_LOCAL_MEM_FENCE); }\n"
+		      "    if (block_size >=  128) { if (tid <  64) { sdata[tid] = mySum = mySum + sdata[tid +  64]; } barrier(CLK_LOCAL_MEM_FENCE); }\n"
+		      "\n"
+		      "    if (tid < 32) {\n"
+		      "        local volatile real* smem = sdata;\n"
+		      "        if (block_size >=  64) { smem[tid] = mySum = mySum + smem[tid + 32]; }\n"
+		      "        if (block_size >=  32) { smem[tid] = mySum = mySum + smem[tid + 16]; }\n"
+		      "        if (block_size >=  16) { smem[tid] = mySum = mySum + smem[tid +  8]; }\n"
+		      "        if (block_size >=   8) { smem[tid] = mySum = mySum + smem[tid +  4]; }\n"
+		      "        if (block_size >=   4) { smem[tid] = mySum = mySum + smem[tid +  2]; }\n"
+		      "        if (block_size >=   2) { smem[tid] = mySum = mySum + smem[tid +  1]; }\n"
+		      "    }\n";
+		    break;
+		case MAX:
+		    source <<
+		      "    barrier(CLK_LOCAL_MEM_FENCE);\n"
+		      "    if (block_size >= 1024) { if (tid < 512) { sdata[tid] = mySum = max(mySum, sdata[tid + 512]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
+		      "    if (block_size >=  512) { if (tid < 256) { sdata[tid] = mySum = max(mySum, sdata[tid + 256]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
+		      "    if (block_size >=  256) { if (tid < 128) { sdata[tid] = mySum = max(mySum, sdata[tid + 128]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
+		      "    if (block_size >=  128) { if (tid <  64) { sdata[tid] = mySum = max(mySum, sdata[tid +  64]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
+		      "\n"
+		      "    if (tid < 32) {\n"
+		      "        local volatile real* smem = sdata;\n"
+		      "        if (block_size >=  64) { smem[tid] = mySum = max(mySum, smem[tid + 32]); }\n"
+		      "        if (block_size >=  32) { smem[tid] = mySum = max(mySum, smem[tid + 16]); }\n"
+		      "        if (block_size >=  16) { smem[tid] = mySum = max(mySum, smem[tid +  8]); }\n"
+		      "        if (block_size >=   8) { smem[tid] = mySum = max(mySum, smem[tid +  4]); }\n"
+		      "        if (block_size >=   4) { smem[tid] = mySum = max(mySum, smem[tid +  2]); }\n"
+		      "        if (block_size >=   2) { smem[tid] = mySum = max(mySum, smem[tid +  1]); }\n"
+		      "    }\n";
+		    break;
+		case MIN:
+		    source <<
+		      "    barrier(CLK_LOCAL_MEM_FENCE);\n"
+		      "    if (block_size >= 1024) { if (tid < 512) { sdata[tid] = mySum = min(mySum, sdata[tid + 512]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
+		      "    if (block_size >=  512) { if (tid < 256) { sdata[tid] = mySum = min(mySum, sdata[tid + 256]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
+		      "    if (block_size >=  256) { if (tid < 128) { sdata[tid] = mySum = min(mySum, sdata[tid + 128]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
+		      "    if (block_size >=  128) { if (tid <  64) { sdata[tid] = mySum = min(mySum, sdata[tid +  64]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
+		      "\n"
+		      "    if (tid < 32) {\n"
+		      "        local volatile real* smem = sdata;\n"
+		      "        if (block_size >=  64) { smem[tid] = mySum = min(mySum, smem[tid + 32]); }\n"
+		      "        if (block_size >=  32) { smem[tid] = mySum = min(mySum, smem[tid + 16]); }\n"
+		      "        if (block_size >=  16) { smem[tid] = mySum = min(mySum, smem[tid +  8]); }\n"
+		      "        if (block_size >=   8) { smem[tid] = mySum = min(mySum, smem[tid +  4]); }\n"
+		      "        if (block_size >=   4) { smem[tid] = mySum = min(mySum, smem[tid +  2]); }\n"
+		      "        if (block_size >=   2) { smem[tid] = mySum = min(mySum, smem[tid +  1]); }\n"
+		      "    }\n";
+		    break;
+		}
+	    }
 
-	if (device[0].getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU) {
-	    exdata<Expr>::wgsize[context()] = 1;
-	} else {
-	    exdata<Expr>::wgsize[context()] = kernel_workgroup_size(
-		    exdata<Expr>::kernel[context()], device);
+	    source << "    if (tid == 0) g_odata[get_group_id(0)] = sdata[0];\n"
+		      "}\n";
 
-	    // Strange bug(?) in g++: cannot call getWorkGroupInfo directly on
-	    // exdata<Expr>::kernel[context()], but it works like this:
-	    cl::Kernel &krn = exdata<Expr>::kernel[context()];
+	    auto program = build_sources(context, source.str());
 
-	    for(auto d = device.begin(); d != device.end(); d++) {
-		uint smem = d->getInfo<CL_DEVICE_LOCAL_MEM_SIZE>() -
-		    krn.getWorkGroupInfo<CL_KERNEL_LOCAL_MEM_SIZE>(*d);
-		while(exdata<Expr>::wgsize[context()] * sizeof(real) > smem)
-		    exdata<Expr>::wgsize[context()] /= 2;
+	    exdata<Expr>::kernel[context()]   = cl::Kernel(program, kernel_name.c_str());
+	    exdata<Expr>::compiled[context()] = true;
+
+	    if (device[0].getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU) {
+		exdata<Expr>::wgsize[context()] = 1;
+	    } else {
+		exdata<Expr>::wgsize[context()] = kernel_workgroup_size(
+			exdata<Expr>::kernel[context()], device);
+
+		// Strange bug(?) in g++: cannot call getWorkGroupInfo directly on
+		// exdata<Expr>::kernel[context()], but it works like this:
+		cl::Kernel &krn = exdata<Expr>::kernel[context()];
+
+		for(auto d = device.begin(); d != device.end(); d++) {
+		    uint smem = d->getInfo<CL_DEVICE_LOCAL_MEM_SIZE>() -
+			krn.getWorkGroupInfo<CL_KERNEL_LOCAL_MEM_SIZE>(*d);
+		    while(exdata<Expr>::wgsize[context()] * sizeof(real) > smem)
+			exdata<Expr>::wgsize[context()] /= 2;
+		}
 	    }
 	}
     }
 
 
     for(uint d = 0; d < queue.size(); d++) {
+	cl::Context context = queue[d].getInfo<CL_QUEUE_CONTEXT>();
+
 	uint psize = expr.part_size(d);
 	uint g_size = (idx[d + 1] - idx[d]) * exdata<Expr>::wgsize[context()];
 	auto lmem = cl::__local(exdata<Expr>::wgsize[context()] * sizeof(real));
@@ -276,7 +276,8 @@ real Reductor<real,RDC>::operator()(const Expr &expr) const {
 		0, sizeof(real) * dbuf[d].size(), &hbuf[idx[d]], 0, &event[d]);
     }
 
-    cl::Event::waitForEvents(event);
+    for(auto e = event.begin(); e != event.end(); e++)
+	e->wait();
 
     switch(RDC) {
 	case SUM:

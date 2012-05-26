@@ -28,6 +28,18 @@ namespace Filter {
 	}
     };
 
+    /// Selects devices whose platform vendor name match given value.
+    struct Vendor {
+	Vendor(const std::string &name) : vendor(name) {}
+
+	bool operator()(const cl::Device &d) const {
+	    return d.getInfo<CL_DEVICE_VENDOR>().find(vendor) != std::string::npos;
+	}
+
+	private:
+	    const std::string &vendor;
+    };
+
     /// Selects devices whose names match given value.
     struct Name {
 	Name(const std::string &name) : devname(name) {}
@@ -158,7 +170,8 @@ namespace Filter {
 template<class DevFilter>
 std::vector<cl::Device> device_list(DevFilter filter = Filter::All(),
 	bool verbose = false
-	) {
+	)
+{
     std::vector<cl::Device> device;
 
     std::vector<cl::Platform> platforms;
@@ -196,18 +209,42 @@ std::vector<cl::Device> device_list(DevFilter filter = Filter::All(),
  * \see device_list
  */
 template<class DevFilter>
-std::pair<cl::Context, std::vector<cl::CommandQueue>>
+std::pair<std::vector<cl::Context>, std::vector<cl::CommandQueue>>
 queue_list(DevFilter filter = Filter::All(), bool verbose = false)
 {
-    std::vector<cl::Device> device = device_list(filter, verbose);
-
-    cl::Context context(device);
-
+    std::vector<cl::Context>      context;
     std::vector<cl::CommandQueue> queue;
-    queue.reserve(device.size());
 
-    for(auto d = device.begin(); d != device.end(); d++)
-	queue.push_back(cl::CommandQueue(context, *d));
+    std::vector<cl::Platform> platforms;
+    cl::Platform::get(&platforms);
+
+    for(auto p = platforms.begin(); p != platforms.end(); p++) {
+	std::vector<cl::Device> device;
+	std::vector<cl::Device> dev_list;
+
+	p->getDevices(CL_DEVICE_TYPE_ALL, &dev_list);
+
+	for(auto d = dev_list.begin(); d != dev_list.end(); d++) {
+	    if (!d->getInfo<CL_DEVICE_AVAILABLE>()) continue;
+	    if (!filter(*d)) continue;
+
+	    device.push_back(*d);
+	}
+
+	if (device.empty()) continue;
+
+	context.push_back(cl::Context(device));
+	for(auto d = device.begin(); d != device.end(); d++)
+	    queue.push_back(cl::CommandQueue(context.back(), *d));
+    }
+
+    if (verbose) {
+	uint p = 1;
+	for(auto q = queue.begin(); q != queue.end(); q++)
+	    std::cout << p++ << ". "
+		      << q->getInfo<CL_QUEUE_DEVICE>().getInfo<CL_DEVICE_NAME>()
+		      << std::endl;
+    }
 
     return std::make_pair(context, queue);
 }

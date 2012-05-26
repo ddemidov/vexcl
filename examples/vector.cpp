@@ -16,14 +16,11 @@ int main() {
     srand(time(0));
 
     try {
-	cl::Context context;
+	std::vector<cl::Context>      context;
 	std::vector<cl::CommandQueue> queue;
 
-	// Select every GPU supporting double precision.
-	std::tie(context, queue) = queue_list(
-		Filter::Type(CL_DEVICE_TYPE_GPU) && Filter::DoublePrecision(),
-		true
-		);
+	// Select every device supporting double precision.
+	std::tie(context, queue) = queue_list(Filter::DoublePrecision(), true);
 
 	if (queue.empty()) {
 	    std::cerr << "No OpenCL devices found." << std::endl;

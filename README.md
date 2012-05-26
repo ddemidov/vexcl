@@ -2,7 +2,7 @@ oclutil
 =======
 
 oclutil is header-only template library created for ease of C++ based OpenCL
-development. Vector arithmetic and multidevice computation is supported.
+development. Multi-device (and multi-platform) vector arithmetic is supported.
 See Doxygen-generated documentation at http://ddemidov.github.com/oclutil.
 
 Selection of compute devices
@@ -32,7 +32,7 @@ Often you want not just device list, but initialized OpenCL context with
 command queue on each available device. This may be achieved with `queue_list`
 function:
 ```C++
-cl::Context context;
+std::vector<cl::Context>      context;
 std::vector<cl::CommandQueue> queue;
 // Select no more than 2 NVIDIA GPUs:
 std::tie(context, queue) = queue_list(
@@ -54,7 +54,7 @@ const uint n = 1 << 20;
 std::vector<double> x(n);
 std::generate(x.begin(), x.end(), [](){ return (double)rand() / RAND_MAX; });
 
-cl::Context context;
+std::vector<cl::Context>      context;
 std::vector<cl::CommandQueue> queue;
 std::tie(context, queue) = queue_list(Filter::Type(CL_DEVICE_TYPE_GPU));
 
@@ -111,14 +111,13 @@ void cg_gpu(
         )
 {
     // Init OpenCL
-    cl::Context context;
+    std::vector<cl::Context>      context;
     std::vector<cl::CommandQueue> queue;
-
     std::tie(context, queue) = queue_list(Filter::Type(CL_DEVICE_TYPE_GPU));
 
     // Move data to GPU(s)
     uint n = x.size();
-    clu::SpMat<real>  A(queue, queue, n, row.data(), col.data(), val.data());
+    clu::SpMat<real>  A(queue, n, row.data(), col.data(), val.data());
     clu::vector<real> f(queue, CL_MEM_READ_ONLY,  rhs);
     clu::vector<real> u(queue, CL_MEM_READ_WRITE, x);
     clu::vector<real> r(queue, CL_MEM_READ_WRITE, n);
@@ -162,14 +161,14 @@ Using custom kernels
 Custom kernels are of course possible as well. `vector::operator(uint)` returns
 `cl::Buffer` object for a specified device:
 ```C++
-cl::Context context;
+std::vector<cl::Context>      context;
 std::vector<cl::CommandQueue> queue;
-std::tie(context, queue) = queue_list(Filter::Type(CL_DEVICE_TYPE_GPU));
+std::tie(context, queue) = queue_list(Filter::Vendor("NVIDIA"));
 
 const uint n = 1 << 20;
 clu::vector<float> x(queue, CL_MEM_WRITE_ONLY, n);
 
-auto program = build_sources(context, std::string(
+auto program = build_sources(context[0], std::string(
     "kernel void dummy(uint size, global float *x)\n"
     "{\n"
     "    uint i = get_global_id(0);\n"
