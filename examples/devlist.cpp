@@ -7,6 +7,7 @@ int main() {
     auto dev = device_list();
     for (auto d = dev.begin(); d != dev.end(); d++) {
 	std::cout << "  " << d->getInfo<CL_DEVICE_NAME>() << std::endl
+		  << "    CL_PLATFORM_NAME              = " << cl::Platform(d->getInfo<CL_DEVICE_PLATFORM>()).getInfo<CL_PLATFORM_NAME>() << std::endl
 		  << "    CL_DEVICE_OPENCL_C_VERSION    = " << d->getInfo<CL_DEVICE_OPENCL_C_VERSION>() << std::endl
 		  << "    CL_DEVICE_MAX_COMPUTE_UNITS   = " << d->getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() << std::endl
 	          << "    CL_DEVICE_HOST_UNIFIED_MEMORY = " << d->getInfo<CL_DEVICE_HOST_UNIFIED_MEMORY>() << std::endl
