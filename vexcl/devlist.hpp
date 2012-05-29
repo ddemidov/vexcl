@@ -269,4 +269,49 @@ std::ostream& operator<<(std::ostream &os, const std::vector<cl::CommandQueue> &
 
 } // namespace vex
 
+#ifdef VEXCL_SMART_PARTITION
+#include <vexcl/vector.hpp>
+#include <vexcl/profiler.hpp>
+
+namespace vex {
+
+/// Returns relative device weights after simple bandwidth test
+template <typename real>
+std::vector<double> device_weights(
+	const std::vector<cl::CommandQueue> &queue, uint test_size = 1048576)
+{
+    double max_time = 0;
+    std::vector<double> weights(queue.size());
+
+    for(uint d = 0; d < queue.size(); d++) {
+	std::vector<cl::CommandQueue> local_queue(1, queue[d]);
+
+	// Allocate test vectors on current device and measure execution
+	// time of a simple kernel.
+	vex::vector<real> a(local_queue, CL_MEM_READ_WRITE, test_size);
+	vex::vector<real> b(local_queue, CL_MEM_READ_WRITE, test_size);
+	vex::vector<real> c(local_queue, CL_MEM_READ_WRITE, test_size);
+
+	b = Const(1);
+	c = Const(2);
+
+	// Skip the first run.
+	a = b + c;
+
+	// Measure the second run.
+	profiler prof(local_queue);
+	prof.tic_cl("test");
+	a = b + c;
+	max_time = std::max(max_time, (weights[d] = prof.toc("test")));
+    }
+
+    for(auto w = weights.begin(); w != weights.end(); w++)
+	*w = max_time / *w;
+
+    return weights;
+}
+
+} // namespace vex
+#endif
+
 #endif
