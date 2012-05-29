@@ -34,6 +34,9 @@ template <class T> T inner_product(const vex::vector<T> &x, const vex::vector<T>
 template<class T> struct SpMV;
 template <class Expr, typename T> struct ExSpMV;
 
+inline std::vector<uint> partition(
+	uint n, const std::vector<cl::CommandQueue> &queue);
+
 /// Device vector.
 template<class T>
 class vector {
@@ -148,7 +151,7 @@ class vector {
 	/// Copy host data to the new buffer.
 	vector(const std::vector<cl::CommandQueue> &queue, cl_mem_flags flags,
 		uint size, const T *host = 0
-	      ) : queue(queue), part(partition(size, queue.size())),
+	      ) : queue(queue), part(vex::partition(size, queue)),
 	          buf(queue.size()), event(queue.size())
 	{
 	    if (size) allocate_buffers(flags, host);
@@ -174,7 +177,7 @@ class vector {
 	/// Copy host data to the new buffer.
 	vector(const std::vector<cl::CommandQueue> &queue, cl_mem_flags flags,
 		const std::vector<T> &host
-	      ) : queue(queue), part(partition(host.size(), queue.size())),
+	      ) : queue(queue), part(vex::partition(host.size(), queue)),
 	          buf(queue.size()), event(queue.size())
 	{
 	    if (!host.empty()) allocate_buffers(flags, host.data());
@@ -688,6 +691,104 @@ static const UnaryFunction Absf("fabsf");
 static const UnaryFunction Sin ("sin");
 static const UnaryFunction Cos ("cos");
 static const UnaryFunction Tan ("tan");
+
+#ifndef VEXCL_DUMB_PARTITIONING
+
+/// Returns device weight after simple bandwidth test
+inline double device_weight(
+	const cl::Context &context, const cl::Device &device,
+	uint test_size = 1048576U
+	)
+{
+    cl::CommandQueue queue(context, device, CL_QUEUE_PROFILING_ENABLE);
+
+    std::vector<cl::CommandQueue> q(1, queue);
+
+    // Allocate test vectors on current device and measure execution
+    // time of a simple kernel.
+    vex::vector<float> a(q, CL_MEM_READ_WRITE, test_size);
+    vex::vector<float> b(q, CL_MEM_READ_WRITE, test_size);
+    vex::vector<float> c(q, CL_MEM_READ_WRITE, test_size);
+
+    b = Const(1);
+    c = Const(2);
+
+    // Skip the first run.
+    a = b + c;
+
+    // Measure the second run.
+    cl::Event beg, end;
+
+    queue.enqueueMarker(&beg);
+    a = b + c;
+    queue.enqueueMarker(&end);
+
+    beg.wait();
+    end.wait();
+
+    return 1.0 / (
+	    end.getProfilingInfo<CL_PROFILING_COMMAND_END>() -
+	    beg.getProfilingInfo<CL_PROFILING_COMMAND_END>()
+	    );
+}
+
+/// Returns partitions for vector of size n.
+inline std::vector<uint> partition(uint n, const std::vector<cl::CommandQueue> &queue)
+{
+    static std::map<cl_device_id, double> dev_weights;
+
+    double tot_weight = 0;
+    for(auto q = queue.begin(); q != queue.end(); q++) {
+	cl::Device device = q->getInfo<CL_QUEUE_DEVICE>();
+
+	auto dw = dev_weights.find(device());
+
+	if (dw == dev_weights.end()) {
+	    cl::Context context = q->getInfo<CL_QUEUE_CONTEXT>();
+	    tot_weight += (dev_weights[device()] = device_weight(context, device));
+	} else {
+	    tot_weight += dw->second;
+	}
+    }
+
+    std::vector<uint> part(queue.size() + 1);
+
+    part[0] = 0;
+
+    double sum = 0;
+    for(uint i = 0; i < queue.size(); i++) {
+	cl::Device device = queue[i].getInfo<CL_QUEUE_DEVICE>();
+
+	sum += dev_weights[device()] / tot_weight;
+
+	part[i + 1] = std::min(n, alignup(static_cast<uint>(sum * n)));
+    }
+
+    part.back() = n;
+
+    return part;
+}
+
+#else
+
+/// Returns partitions for vector of size n.
+inline std::vector<uint> partition(uint n, const std::vector<cl::CommandQueue> &queue)
+{
+    uint m = queue.size();
+
+    std::vector<uint> part(m + 1);
+
+    uint chunk_size = alignup((n + m - 1) / m);
+
+    part[0] = 0;
+
+    for(uint i = 0; i < m; i++)
+	part[i + 1] = std::min(n, part[i] + chunk_size);
+
+    return part;
+}
+
+#endif
 
 } // namespace vex
 

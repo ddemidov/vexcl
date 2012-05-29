@@ -21,12 +21,11 @@ int main() {
 		);
 	std::cout << queue << std::endl;
 
-	std::vector<double> w = device_weights<double>(queue);
+	auto part = partition(1024, queue);
 
-	for(uint d = 0; d < queue.size(); d++)
-	    std::cout << queue[d].getInfo<CL_QUEUE_DEVICE>().getInfo<CL_DEVICE_NAME>()
-		<< " - " << w[d] << std::endl;
-
+	for(auto p = part.begin(); p != part.end(); p++)
+	    std::cout << *p << " ";
+	std::cout << std::endl;
     } catch (const cl::Error &e) {
 	std::cerr << e << std::endl;
 	return 1;

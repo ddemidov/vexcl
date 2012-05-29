@@ -54,20 +54,6 @@ alignup(T n, T m = 16U) {
     return n % m ? n - n % m + m : n;
 }
 
-/// Partition n into m almost equal parts.
-inline std::vector<uint> partition(uint n, uint m) {
-    std::vector<uint> part(m + 1);
-
-    uint chunk_size = alignup((n + m - 1) / m);
-
-    part[0] = 0;
-
-    for(uint i = 0; i < m; i++)
-	part[i + 1] = std::min(n, part[i] + chunk_size);
-
-    return part;
-}
-
 /// Create and build a program from source string.
 inline cl::Program build_sources(
 	cl::Context context, const std::string &source

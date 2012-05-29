@@ -188,7 +188,7 @@ SpMat<real>::SpMat(
 	const std::vector<cl::CommandQueue> &queue,
 	uint n, const uint *row, const uint *col, const real *val
 	)
-    : queue(queue), part(partition(n, queue.size())), event(queue.size()),
+    : queue(queue), part(partition(n, queue)), event(queue.size()),
       lm(queue.size()), rm(queue.size()), exc(queue.size())
 {
     // Compile kernels.
