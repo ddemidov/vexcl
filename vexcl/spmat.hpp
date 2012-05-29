@@ -43,7 +43,7 @@ class SpMat {
 	 * all compute devices. When there are more than one device, secondary
 	 * queue can be used to perform transfer of ghost values across GPU
 	 * boundaries in parallel with computation kernel.
-	 * \param queue vector of primary queues. Each queue represents one
+	 * \param queue vector of queues. Each queue represents one
 	 *            compute device.
 	 * \param n   number of rows in the matrix.
 	 * \param row row index into col and val vectors.
