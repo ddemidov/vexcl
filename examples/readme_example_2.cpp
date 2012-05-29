@@ -11,5 +11,6 @@ int main() {
 	    return d.getInfo<CL_DEVICE_VENDOR>() == "NVIDIA Corporation";
 	    } && Filter::Count(2), true
 	    );
+    std::cout << queue << std::endl;
 }
 

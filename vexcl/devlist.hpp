@@ -171,7 +171,6 @@ namespace Filter {
 /**
  * \param filter  Device filter functor. Functors may be combined with logical
  *		  operators.
- * \param verbose If set, outputs list of selected devices to stdout.
  * \returns list of devices satisfying the provided filter. 
  *
  * This example selects any GPU which supports double precision arithmetic:
@@ -182,9 +181,7 @@ namespace Filter {
  * \endcode
  */
 template<class DevFilter = Filter::All>
-std::vector<cl::Device> device_list(DevFilter filter = Filter::All(),
-	bool verbose = false
-	)
+std::vector<cl::Device> device_list(DevFilter filter = Filter::All())
 {
     std::vector<cl::Device> device;
 
@@ -204,13 +201,6 @@ std::vector<cl::Device> device_list(DevFilter filter = Filter::All(),
 	}
     }
 
-    if (verbose) {
-	uint p = 1;
-	for(auto d = device.begin(); d != device.end(); d++)
-	    std::cout << p++ << ". "
-		      << d->getInfo<CL_DEVICE_NAME>() << std::endl;
-    }
-
     return device;
 }
 
@@ -218,13 +208,15 @@ std::vector<cl::Device> device_list(DevFilter filter = Filter::All(),
 /**
  * \param filter  Device filter functor. Functors may be combined with logical
  *		  operators.
- * \param verbose If set, output list of selected devices to stdout.
  * \returns list of queues accociated with selected devices.
  * \see device_list
  */
 template<class DevFilter = Filter::All>
 std::pair<std::vector<cl::Context>, std::vector<cl::CommandQueue>>
-queue_list(DevFilter filter = Filter::All(), bool verbose = false)
+queue_list(
+	DevFilter filter = Filter::All(),
+	cl_command_queue_properties properties = 0
+	)
 {
     std::vector<cl::Context>      context;
     std::vector<cl::CommandQueue> queue;
@@ -249,18 +241,30 @@ queue_list(DevFilter filter = Filter::All(), bool verbose = false)
 
 	context.push_back(cl::Context(device));
 	for(auto d = device.begin(); d != device.end(); d++)
-	    queue.push_back(cl::CommandQueue(context.back(), *d));
-    }
-
-    if (verbose) {
-	uint p = 1;
-	for(auto q = queue.begin(); q != queue.end(); q++)
-	    std::cout << p++ << ". "
-		      << q->getInfo<CL_QUEUE_DEVICE>().getInfo<CL_DEVICE_NAME>()
-		      << std::endl;
+	    queue.push_back(cl::CommandQueue(context.back(), *d, properties));
     }
 
     return std::make_pair(context, queue);
+}
+
+std::ostream& operator<<(std::ostream &os, const std::vector<cl::Device> &device) {
+    uint p = 1;
+
+    for(auto d = device.begin(); d != device.end(); d++)
+	os << p++ << ". " << d->getInfo<CL_DEVICE_NAME>() << std::endl;
+
+    return os;
+}
+
+std::ostream& operator<<(std::ostream &os, const std::vector<cl::CommandQueue> &queue) {
+    uint p = 1;
+
+    for(auto q = queue.begin(); q != queue.end(); q++)
+	os << p++ << ". "
+	   << q->getInfo<CL_QUEUE_DEVICE>().getInfo<CL_DEVICE_NAME>()
+	   << std::endl;
+
+    return os;
 }
 
 } // namespace vex

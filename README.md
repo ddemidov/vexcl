@@ -20,12 +20,10 @@ supporting double precision are selected:
 #include <vexcl/vexcl.hpp>
 using namespace vex;
 int main() {
-    auto device = device_list(
+    std::vector<cl::Device> device = device_list(
         Filter::Name("Radeon") && Filter::DoublePrecision()
         );
-    std::cout << device.size() << " GPUs found:" << std::endl;
-    for(auto &d : device)
-        std::cout << "\t" << d.getInfo<CL_DEVICE_NAME>() << std::endl;
+    std::cout << device << std::endl;
 }
 ```
 
@@ -41,6 +39,7 @@ std::tie(context, queue) = queue_list(
         return d.getInfo<CL_DEVICE_VENDOR>() == "NVIDIA Corporation";
     } && Filter::Count(2)
     );
+std::cout << queue << std::endl;
 ```
 
 Memory allocation and vector arithmetic
