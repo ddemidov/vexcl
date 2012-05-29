@@ -1,18 +1,19 @@
-#ifndef OCLUTIL_OCLUTIL_HPP
-#define OCLUTIL_OCLUTIL_HPP
+#ifndef VEXCL_VEXCL_HPP
+#define VEXCL_VEXCL_HPP
 
 /**
- * \file   oclutil.hpp
+ * \file   vexcl.hpp
  * \author Denis Demidov <ddemidov@ksu.ru>
- * \brief  OpenCL convenience utilities.
+ * \brief  Vector expression template library for OpenCL.
  */
 
 /**
-\mainpage oclutil
+\mainpage VexCL
 
-oclutil is header-only template library created for ease of C++ based OpenCL
-development. Vector arithmetic and multidevice computation is supported. The
-source code is available at https://github.com/ddemidov/oclutil.
+VexCL is vector expression template library for OpenCL. It has been created for
+ease of C++ based OpenCL development.  Multi-device (and multi-platform)
+computations are supported. The source code is available at
+https://github.com/ddemidov/vexcl.
 
 \section devlist Selection of compute devices
 
@@ -24,8 +25,8 @@ operators. In the example below all devices with names matching "Radeon" and
 supporting double precision are selected:
 \code
 #include <iostream>
-#include <oclutil/oclutil.hpp>
-using namespace clu;
+#include <vexcl/vexcl.hpp>
+using namespace vex;
 int main() {
     auto device = device_list(
         Filter::Name("Radeon") && Filter::DoublePrecision()
@@ -53,7 +54,7 @@ std::tie(context, queue) = queue_list(
 \section vector Memory allocation and vector arithmetic
 
 Once you got queue list, you can allocate OpenCL buffers on the associated
-devices. clu::vector constructor accepts std::vector of cl::CommandQueue.
+devices. vex::vector constructor accepts std::vector of cl::CommandQueue.
 The contents of the created vector will be equally partitioned between each
 queue (presumably, each of the provided queues is linked with separate device). 
 Multi-platform computation is supported (that is, you can spread your vectors
@@ -68,9 +69,9 @@ cl::Context context;
 std::vector<cl::CommandQueue> queue;
 std::tie(context, queue) = queue_list(Filter::Type(CL_DEVICE_TYPE_GPU));
 
-clu::vector<double> X(queue, CL_MEM_READ_ONLY,  x);
-clu::vector<double> Y(queue, CL_MEM_READ_WRITE, n);
-clu::vector<double> Z(queue, CL_MEM_READ_WRITE, n);
+vex::vector<double> X(queue, CL_MEM_READ_ONLY,  x);
+vex::vector<double> Y(queue, CL_MEM_READ_WRITE, n);
+vex::vector<double> Z(queue, CL_MEM_READ_WRITE, n);
 \endcode
 
 You can now use simple vector arithmetic with device vector. For every
@@ -92,7 +93,7 @@ assert(x[42] == Z[42]);
 \endcode
 
 Another frequently performed operation is reduction of a vector expression to
-single value, such as summation. This can be done with clu::Reductor class:
+single value, such as summation. This can be done with vex::Reductor class:
 \code
 Reductor<double> sum(queue);
 
@@ -103,7 +104,7 @@ std::cout << sum(sqrt(Const(2) * X) + cos(Y)) << std::endl;
 \section spmv Sparse matrix-vector multiplication
 
 One of the most common operations in linear algebra is matrix-vector
-multiplication. Class clu::SpMat holds representation of a sparse matrix,
+multiplication. Class vex::SpMat holds representation of a sparse matrix,
 spanning several GPUs. In the example below it is used for solution of a system
 of linear equations with conjugate gradients method:
 \code
@@ -126,12 +127,12 @@ void cg_gpu(
 
     // Move data to GPU(s)
     uint n = x.size();
-    clu::SpMat<real>  A(queue, n, row.data(), col.data(), val.data());
-    clu::vector<real> f(queue, CL_MEM_READ_ONLY,  rhs);
-    clu::vector<real> u(queue, CL_MEM_READ_WRITE, x);
-    clu::vector<real> r(queue, CL_MEM_READ_WRITE, n);
-    clu::vector<real> p(queue, CL_MEM_READ_WRITE, n);
-    clu::vector<real> q(queue, CL_MEM_READ_WRITE, n);
+    vex::SpMat<real>  A(queue, n, row.data(), col.data(), val.data());
+    vex::vector<real> f(queue, CL_MEM_READ_ONLY,  rhs);
+    vex::vector<real> u(queue, CL_MEM_READ_WRITE, x);
+    vex::vector<real> r(queue, CL_MEM_READ_WRITE, n);
+    vex::vector<real> p(queue, CL_MEM_READ_WRITE, n);
+    vex::vector<real> q(queue, CL_MEM_READ_WRITE, n);
 
     Reductor<real,MAX> max(queue);
 
@@ -174,7 +175,7 @@ std::vector<cl::CommandQueue> queue;
 std::tie(context, queue) = queue_list(Filter::Type(CL_DEVICE_TYPE_GPU));
 
 const uint n = 1 << 20;
-clu::vector<float> x(queue, CL_MEM_WRITE_ONLY, n);
+vex::vector<float> x(queue, CL_MEM_WRITE_ONLY, n);
 
 auto program = build_sources(context, std::string(
     "kernel void dummy(uint size, global float *x)\n"
@@ -203,10 +204,10 @@ std::cout << sum(x) << std::endl;
 #include <CL/cl.hpp>
 #include <iostream>
 
-#include <oclutil/util.hpp>
-#include <oclutil/devlist.hpp>
-#include <oclutil/vector.hpp>
-#include <oclutil/spmat.hpp>
-#include <oclutil/reduce.hpp>
+#include <vexcl/util.hpp>
+#include <vexcl/devlist.hpp>
+#include <vexcl/vector.hpp>
+#include <vexcl/spmat.hpp>
+#include <vexcl/reduce.hpp>
 
 #endif

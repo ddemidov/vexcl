@@ -2,8 +2,8 @@
 #include <vector>
 #include <tuple>
 #include <cassert>
-#include <oclutil/oclutil.hpp>
-using namespace clu;
+#include <vexcl/vexcl.hpp>
+using namespace vex;
 
 int main() {
     const uint n = 1 << 20;
@@ -14,9 +14,9 @@ int main() {
     std::vector<cl::CommandQueue> queue;
     std::tie(context, queue) = queue_list(Filter::Type(CL_DEVICE_TYPE_GPU) && Filter::DoublePrecision());
 
-    clu::vector<double> X(queue, CL_MEM_READ_ONLY,  x);
-    clu::vector<double> Y(queue, CL_MEM_READ_WRITE, n);
-    clu::vector<double> Z(queue, CL_MEM_READ_WRITE, n);
+    vex::vector<double> X(queue, CL_MEM_READ_ONLY,  x);
+    vex::vector<double> Y(queue, CL_MEM_READ_WRITE, n);
+    vex::vector<double> Z(queue, CL_MEM_READ_WRITE, n);
     Y = Const(42);
     Z = Sqrt(Const(2) * X) + Cos(Y);
     copy(Z, x);

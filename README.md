@@ -1,9 +1,10 @@
-oclutil
+vexcl
 =======
 
-oclutil is header-only template library created for ease of C++ based OpenCL
-development. Multi-device (and multi-platform) vector arithmetic is supported.
-See Doxygen-generated documentation at http://ddemidov.github.com/oclutil.
+VexCL is vector expression template library for OpenCL. It has been created for
+ease of C++ based OpenCL development.  Multi-device (and multi-platform)
+computations are supported.  See Doxygen-generated documentation at
+http://ddemidov.github.com/vexcl.
 
 Selection of compute devices
 ----------------------------
@@ -16,8 +17,8 @@ operators. In the example below all devices with names matching "Radeon" and
 supporting double precision are selected:
 ```C++
 #include <iostream>
-#include <oclutil/oclutil.hpp>
-using namespace clu;
+#include <vexcl/vexcl.hpp>
+using namespace vex;
 int main() {
     auto device = device_list(
         Filter::Name("Radeon") && Filter::DoublePrecision()
@@ -46,7 +47,7 @@ Memory allocation and vector arithmetic
 ---------------------------------------
 
 Once you got queue list, you can allocate OpenCL buffers on the associated
-devices. `clu::vector` constructor accepts `std::vector` of `cl::CommandQueue`.
+devices. `vex::vector` constructor accepts `std::vector` of `cl::CommandQueue`.
 The contents of the created vector will be equally partitioned between each
 queue (presumably, each of the provided queues is linked with separate device). 
 Multi-platform computation is supported (that is, you can spread your vectors
@@ -61,9 +62,9 @@ std::vector<cl::Context>      context;
 std::vector<cl::CommandQueue> queue;
 std::tie(context, queue) = queue_list(Filter::Type(CL_DEVICE_TYPE_GPU));
 
-clu::vector<double> X(queue, CL_MEM_READ_ONLY,  x);
-clu::vector<double> Y(queue, CL_MEM_READ_WRITE, n);
-clu::vector<double> Z(queue, CL_MEM_READ_WRITE, n);
+vex::vector<double> X(queue, CL_MEM_READ_ONLY,  x);
+vex::vector<double> Y(queue, CL_MEM_READ_WRITE, n);
+vex::vector<double> Z(queue, CL_MEM_READ_WRITE, n);
 ```
 
 You can now use simple vector arithmetic with device vectors. For every
@@ -120,12 +121,12 @@ void cg_gpu(
 
     // Move data to GPU(s)
     uint n = x.size();
-    clu::SpMat<real>  A(queue, n, row.data(), col.data(), val.data());
-    clu::vector<real> f(queue, CL_MEM_READ_ONLY,  rhs);
-    clu::vector<real> u(queue, CL_MEM_READ_WRITE, x);
-    clu::vector<real> r(queue, CL_MEM_READ_WRITE, n);
-    clu::vector<real> p(queue, CL_MEM_READ_WRITE, n);
-    clu::vector<real> q(queue, CL_MEM_READ_WRITE, n);
+    vex::SpMat<real>  A(queue, n, row.data(), col.data(), val.data());
+    vex::vector<real> f(queue, CL_MEM_READ_ONLY,  rhs);
+    vex::vector<real> u(queue, CL_MEM_READ_WRITE, x);
+    vex::vector<real> r(queue, CL_MEM_READ_WRITE, n);
+    vex::vector<real> p(queue, CL_MEM_READ_WRITE, n);
+    vex::vector<real> q(queue, CL_MEM_READ_WRITE, n);
 
     Reductor<real,MAX> max(queue);
 
@@ -169,7 +170,7 @@ std::vector<cl::CommandQueue> queue;
 std::tie(context, queue) = queue_list(Filter::Vendor("NVIDIA"));
 
 const uint n = 1 << 20;
-clu::vector<float> x(queue, CL_MEM_WRITE_ONLY, n);
+vex::vector<float> x(queue, CL_MEM_WRITE_ONLY, n);
 
 auto program = build_sources(context[0], std::string(
     "kernel void dummy(uint size, global float *x)\n"

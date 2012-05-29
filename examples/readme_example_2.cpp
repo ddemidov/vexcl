@@ -1,7 +1,7 @@
 #include <iostream>
 #include <tuple>
-#include <oclutil/oclutil.hpp>
-using namespace clu;
+#include <vexcl/vexcl.hpp>
+using namespace vex;
 int main() {
     std::vector<cl::Context>      context;
     std::vector<cl::CommandQueue> queue;

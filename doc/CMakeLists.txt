@@ -7,7 +7,7 @@ find_package(Doxygen QUIET)
 if (LATEX_COMPILER AND DOXYGEN_FOUND)
     option(DOC_BUILD_CHM "Build documentaion in chm format")
 
-    set(DOXYGEN_INPUT_DIR ${CMAKE_SOURCE_DIR}/oclutil)
+    set(DOXYGEN_INPUT_DIR ${CMAKE_SOURCE_DIR}/vexcl)
 
     set(DOXYGEN_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR})
 

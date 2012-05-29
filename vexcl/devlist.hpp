@@ -1,5 +1,5 @@
-#ifndef OCLUTIL_DEVLIST_HPP
-#define OCLUTIL_DEVLIST_HPP
+#ifndef VEXCL_DEVLIST_HPP
+#define VEXCL_DEVLIST_HPP
 
 /**
  * \file   devlist.hpp
@@ -19,7 +19,7 @@
 #include <CL/cl.hpp>
 
 /// OpenCL convenience utilities.
-namespace clu {
+namespace vex {
 
 /// Device filters.
 namespace Filter {
@@ -263,6 +263,6 @@ queue_list(DevFilter filter = Filter::All(), bool verbose = false)
     return std::make_pair(context, queue);
 }
 
-} // namespace clu
+} // namespace vex
 
 #endif

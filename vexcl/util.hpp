@@ -1,5 +1,5 @@
-#ifndef OCLUTIL_UTIL_HPP
-#define OCLUTIL_UTIL_HPP
+#ifndef VEXCL_UTIL_HPP
+#define VEXCL_UTIL_HPP
 
 /**
  * \file   util.hpp
@@ -23,7 +23,7 @@
 typedef unsigned int  uint;
 typedef unsigned char uchar;
 
-namespace clu {
+namespace vex {
 
 /// Convert typename to string.
 template <class T> std::string type_name()  { return "undefined_type"; }
@@ -106,7 +106,7 @@ inline uint kernel_workgroup_size(
     return wgsz;
 }
 
-} // namespace clu
+} // namespace vex
 
 /// Output description of an OpenCL error to a stream.
 std::ostream& operator<<(std::ostream &os, const cl::Error &e) {

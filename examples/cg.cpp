@@ -1,9 +1,9 @@
 #include <iostream>
 #include <vector>
 #include <tuple>
-#include <oclutil/oclutil.hpp>
+#include <vexcl/vexcl.hpp>
 
-using namespace clu;
+using namespace vex;
 
 typedef double real;
 // Solve system of linear equations A u = f with conjugate gradients method.
@@ -26,12 +26,12 @@ void cg_gpu(
 
     // Move data to GPU(s)
     uint n = x.size();
-    clu::SpMat<real>  A(queue, n, row.data(), col.data(), val.data());
-    clu::vector<real> f(queue, CL_MEM_READ_ONLY,  rhs);
-    clu::vector<real> u(queue, CL_MEM_READ_WRITE, x);
-    clu::vector<real> r(queue, CL_MEM_READ_WRITE, n);
-    clu::vector<real> p(queue, CL_MEM_READ_WRITE, n);
-    clu::vector<real> q(queue, CL_MEM_READ_WRITE, n);
+    vex::SpMat<real>  A(queue, n, row.data(), col.data(), val.data());
+    vex::vector<real> f(queue, CL_MEM_READ_ONLY,  rhs);
+    vex::vector<real> u(queue, CL_MEM_READ_WRITE, x);
+    vex::vector<real> r(queue, CL_MEM_READ_WRITE, n);
+    vex::vector<real> p(queue, CL_MEM_READ_WRITE, n);
+    vex::vector<real> q(queue, CL_MEM_READ_WRITE, n);
 
     Reductor<real,MAX> max(queue);
 

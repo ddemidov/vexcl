@@ -1,5 +1,5 @@
-#ifndef OCLUTIL_REDUCE_HPP
-#define OCLUTIL_REDUCE_HPP
+#ifndef VEXCL_REDUCE_HPP
+#define VEXCL_REDUCE_HPP
 
 /**
  * \file   reduce.hpp
@@ -19,9 +19,9 @@
 #include <numeric>
 #include <limits>
 #include <CL/cl.hpp>
-#include <oclutil/vector.hpp>
+#include <vexcl/vector.hpp>
 
-namespace clu {
+namespace vex {
 
 /// Possible kinds of reduction.
 enum ReductionKind {
@@ -52,7 +52,7 @@ class Reductor {
     private:
 	std::vector<cl::CommandQueue> queue;
 	std::vector<uint> idx;
-	std::vector<clu::vector<real>> dbuf;
+	std::vector<vex::vector<real>> dbuf;
 
 	mutable std::vector<real> hbuf;
 	mutable std::vector<cl::Event> event;
@@ -87,7 +87,7 @@ Reductor<real,RDC>::Reductor(const std::vector<cl::CommandQueue> &queue)
 	idx.push_back(idx.back() + bufsize);
 
 	std::vector<cl::CommandQueue> lq(1, *q);
-	dbuf.push_back(clu::vector<real>(lq, CL_MEM_READ_WRITE, bufsize));
+	dbuf.push_back(vex::vector<real>(lq, CL_MEM_READ_WRITE, bufsize));
     }
 
     hbuf.resize(idx.back());
@@ -294,7 +294,7 @@ real Reductor<real,RDC>::operator()(const Expr &expr) const {
 
 /// Sum of vector elements.
 template <typename real>
-real sum(const clu::vector<real> &x) {
+real sum(const vex::vector<real> &x) {
     static Reductor<real,SUM> rdc(x.queue);
 
     return rdc(x);
@@ -302,12 +302,12 @@ real sum(const clu::vector<real> &x) {
 
 /// Inner product of two vectors.
 template <typename real>
-real inner_product(const clu::vector<real> &x, const clu::vector<real> &y) {
+real inner_product(const vex::vector<real> &x, const vex::vector<real> &y) {
     static Reductor<real,SUM> rdc(x.queue);
 
     return rdc(x * y);
 }
 
-} // namespace clu
+} // namespace vex
 
 #endif

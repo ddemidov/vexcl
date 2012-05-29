@@ -1,8 +1,8 @@
 #include <vector>
 #include <tuple>
 #include <cassert>
-#include <oclutil/oclutil.hpp>
-using namespace clu;
+#include <vexcl/vexcl.hpp>
+using namespace vex;
 int main() {
     std::vector<cl::Context>      context;
     std::vector<cl::CommandQueue> queue;
@@ -10,7 +10,7 @@ int main() {
 	    Filter::Vendor("NVIDIA") && Filter::DoublePrecision());
 
     const uint n = 1 << 20;
-    clu::vector<float> x(queue, CL_MEM_WRITE_ONLY, n);
+    vex::vector<float> x(queue, CL_MEM_WRITE_ONLY, n);
 
     auto program = build_sources(context[0], std::string(
 		"kernel void dummy(uint size, global float *x)\n"

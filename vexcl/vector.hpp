@@ -1,5 +1,5 @@
-#ifndef OCLUTIL_VECTOR_HPP
-#define OCLUTIL_VECTOR_HPP
+#ifndef VEXCL_VECTOR_HPP
+#define VEXCL_VECTOR_HPP
 
 /**
  * \file   vector.hpp
@@ -21,15 +21,15 @@
 #include <string>
 #include <type_traits>
 #include <CL/cl.hpp>
-#include <oclutil/util.hpp>
+#include <vexcl/util.hpp>
 #include <cassert>
 
 /// OpenCL convenience utilities.
-namespace clu {
+namespace vex {
 
 template <class T> class vector;
-template <class T> T sum(const clu::vector<T> &x);
-template <class T> T inner_product(const clu::vector<T> &x, const clu::vector<T> &y);
+template <class T> T sum(const vex::vector<T> &x);
+template <class T> T inner_product(const vex::vector<T> &x, const vex::vector<T> &y);
 
 template<class T> struct SpMV;
 template <class Expr, typename T> struct ExSpMV;
@@ -432,8 +432,8 @@ class vector {
 	}
 
 
-	friend T sum<>(const clu::vector<T> &x);
-	friend T inner_product<>(const clu::vector<T> &x, const clu::vector<T> &y);
+	friend T sum<>(const vex::vector<T> &x);
+	friend T inner_product<>(const vex::vector<T> &x, const vex::vector<T> &y);
 };
 
 template <class T> template <class Expr>
@@ -447,13 +447,13 @@ std::map<cl_context, uint> vector<T>::exdata<Expr>::wgsize;
 
 /// Copy device vector to host vector.
 template <class T>
-void copy(const clu::vector<T> &dv, std::vector<T> &hv, cl_bool blocking = CL_TRUE) {
+void copy(const vex::vector<T> &dv, std::vector<T> &hv, cl_bool blocking = CL_TRUE) {
     dv.read_data(0, dv.size(), hv.data(), blocking);
 }
 
 /// Copy host vector to device vector.
 template <class T>
-void copy(const std::vector<T> &hv, clu::vector<T> &dv, cl_bool blocking = CL_TRUE) {
+void copy(const std::vector<T> &hv, vex::vector<T> &dv, cl_bool blocking = CL_TRUE) {
     dv.write_data(0, dv.size(), hv.data(), blocking);
 }
 
@@ -689,6 +689,6 @@ static const UnaryFunction Sin ("sin");
 static const UnaryFunction Cos ("cos");
 static const UnaryFunction Tan ("tan");
 
-} // namespace clu
+} // namespace vex
 
 #endif

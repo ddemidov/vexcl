@@ -3,8 +3,8 @@
 #include <vector>
 #include <tuple>
 #include <cmath>
-#include <oclutil/oclutil.hpp>
-using namespace clu;
+#include <vexcl/vexcl.hpp>
+using namespace vex;
 
 int main() {
     try {
@@ -39,8 +39,8 @@ int main() {
 	// Create OpenCL matrix.
 	SpMat<double> A(queue, n, row.data(), col.data(), val.data());
 
-	clu::vector<double> x(queue, CL_MEM_READ_WRITE, n);
-	clu::vector<double> y(queue, CL_MEM_READ_WRITE, n);
+	vex::vector<double> x(queue, CL_MEM_READ_WRITE, n);
+	vex::vector<double> y(queue, CL_MEM_READ_WRITE, n);
 
 	x = Const(1.0);
 	y = A * x;

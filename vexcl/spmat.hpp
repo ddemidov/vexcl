@@ -1,5 +1,5 @@
-#ifndef OCLUTIL_SPMAT_HPP
-#define OCLUTIL_SPMAT_HPP
+#ifndef VEXCL_SPMAT_HPP
+#define VEXCL_SPMAT_HPP
 
 /**
  * \file   spmat.hpp
@@ -24,13 +24,13 @@
 #include <iostream>
 #include <type_traits>
 #include <CL/cl.hpp>
-#include <oclutil/util.hpp>
-#include <oclutil/vector.hpp>
+#include <vexcl/util.hpp>
+#include <vexcl/vector.hpp>
 
 #include <cstdlib>
 
 /// OpenCL convenience utilities.
-namespace clu {
+namespace vex {
 
 /// Sparse matrix.
 template <typename real>
@@ -65,22 +65,22 @@ class SpMat {
 	 * \param append if set, matrix-vector product is appended to y.
 	 *               Otherwise, y is replaced with matrix-vector product.
 	 */
-	void mul(const clu::vector<real> &x, clu::vector<real> &y,
+	void mul(const vex::vector<real> &x, vex::vector<real> &y,
 		 real alpha = 1, bool append = false) const;
     private:
 	struct ell {
 	    uint n, w, pitch;
-	    clu::vector<uint> col;
-	    clu::vector<real> val;
+	    vex::vector<uint> col;
+	    vex::vector<real> val;
 	};
 
 	struct exdata {
 	    std::vector<uint> mycols;
 	    mutable std::vector<real> myvals;
 
-	    clu::vector<uint> cols_to_send;
-	    clu::vector<real> vals_to_send;
-	    mutable clu::vector<real> rx;
+	    vex::vector<uint> cols_to_send;
+	    vex::vector<real> vals_to_send;
+	    mutable vex::vector<real> rx;
 	};
 
 	std::vector<cl::CommandQueue> queue;
@@ -119,15 +119,15 @@ std::map<cl_context, uint> SpMat<real>::wgsize;
 /// \internal Sparse matrix-vector product.
 template <typename real>
 struct SpMV {
-    SpMV(const SpMat<real> &A, const clu::vector<real> &x) : A(A), x(x) {}
+    SpMV(const SpMat<real> &A, const vex::vector<real> &x) : A(A), x(x) {}
 
     const SpMat<real>       &A;
-    const clu::vector<real> &x;
+    const vex::vector<real> &x;
 };
 
 /// Multiply sparse matrix and a vector.
 template <typename real>
-SpMV<real> operator*(const SpMat<real> &A, const clu::vector<real> &x) {
+SpMV<real> operator*(const SpMat<real> &A, const vex::vector<real> &x) {
     return SpMV<real>(A, x);
 }
 
@@ -332,8 +332,8 @@ SpMat<real>::SpMat(
 	// Copy local part to the device.
 	std::vector<cl::CommandQueue> myq(1, queue[d]);
 
-	lm[d].col = clu::vector<uint>(myq, CL_MEM_READ_ONLY, lcol);
-	lm[d].val = clu::vector<real>(myq, CL_MEM_READ_ONLY, lval);
+	lm[d].col = vex::vector<uint>(myq, CL_MEM_READ_ONLY, lcol);
+	lm[d].val = vex::vector<real>(myq, CL_MEM_READ_ONLY, lval);
 
 	// Copy remote part to the device.
 	if (rm[d].w) {
@@ -347,8 +347,8 @@ SpMat<real>::SpMat(
 		if (*c != NCOL) *c = r2l[*c];
 
 	    // Copy data to device.
-	    rm[d].col = clu::vector<uint>(myq, CL_MEM_READ_ONLY, rcol);
-	    rm[d].val = clu::vector<real>(myq, CL_MEM_READ_ONLY, rval);
+	    rm[d].col = vex::vector<uint>(myq, CL_MEM_READ_ONLY, rcol);
+	    rm[d].val = vex::vector<real>(myq, CL_MEM_READ_ONLY, rval);
 	}
     }
 
@@ -368,7 +368,7 @@ SpMat<real>::SpMat(
 		exc[d].myvals.resize(rcols);
 
 		std::vector<cl::CommandQueue> myq(1, queue[d]);
-		exc[d].rx = clu::vector<real>(myq, CL_MEM_READ_ONLY, rcols);
+		exc[d].rx = vex::vector<real>(myq, CL_MEM_READ_ONLY, rcols);
 
 		for(uint i = 0, j = 0; i < cols_to_send.size(); i++)
 		    if (remote_cols[d].count(cols_to_send[i])) exc[d].mycols[j++] = i;
@@ -388,13 +388,13 @@ SpMat<real>::SpMat(
 	    std::vector<cl::CommandQueue> myq(1, queue[d]);
 
 	    if (uint ncols = cidx[d + 1] - cidx[d]) {
-		exc[d].cols_to_send = clu::vector<uint>(myq, CL_MEM_READ_ONLY, ncols);
-		exc[d].vals_to_send = clu::vector<real>(myq, CL_MEM_READ_WRITE, ncols);
+		exc[d].cols_to_send = vex::vector<uint>(myq, CL_MEM_READ_ONLY, ncols);
+		exc[d].vals_to_send = vex::vector<real>(myq, CL_MEM_READ_WRITE, ncols);
 
 		for(uint i = cidx[d]; i < cidx[d + 1]; i++)
 		    cols_to_send[i] -= part[d];
 
-		clu::copy(&cols_to_send[cidx[d]], &cols_to_send[cidx[d + 1]],
+		vex::copy(&cols_to_send[cidx[d]], &cols_to_send[cidx[d + 1]],
 			exc[d].cols_to_send.begin());
 	    }
 	}
@@ -402,7 +402,7 @@ SpMat<real>::SpMat(
 }
 
 template <typename real>
-void SpMat<real>::mul(const clu::vector<real> &x, clu::vector<real> &y,
+void SpMat<real>::mul(const vex::vector<real> &x, vex::vector<real> &y,
 	real alpha, bool append) const
 {
     if (rx.size()) {
@@ -497,6 +497,6 @@ void SpMat<real>::mul(const clu::vector<real> &x, clu::vector<real> &y,
     }
 }
 
-} // namespace clu
+} // namespace vex
 
 #endif

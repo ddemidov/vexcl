@@ -1,6 +1,6 @@
 #include <iostream>
-#include <oclutil/oclutil.hpp>
-using namespace clu;
+#include <vexcl/vexcl.hpp>
+using namespace vex;
 
 int main() {
     std::cout << "OpenCL devices:" << std::endl << std::endl;

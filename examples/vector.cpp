@@ -4,13 +4,13 @@
 #include <tuple>
 #include <algorithm>
 #include <cstdlib>
-#include <oclutil/oclutil.hpp>
+#include <vexcl/vexcl.hpp>
 
 #ifdef WIN32
 #  pragma warning (disable : 4244)
 #endif
 
-using namespace clu;
+using namespace vex;
 
 int main() {
     srand(time(0));
@@ -36,11 +36,11 @@ int main() {
 
 	// Allocate device vector initialized with host vector data.
 	// Device vector will be partitioned between selected devices.
-	clu::vector<double> x(queue, CL_MEM_READ_WRITE, host_vec);
+	vex::vector<double> x(queue, CL_MEM_READ_WRITE, host_vec);
 
 	// Allocate uninitialized device vectors.
-	clu::vector<double> y(queue, CL_MEM_READ_WRITE, N);
-	clu::vector<double> z(queue, CL_MEM_READ_WRITE, N);
+	vex::vector<double> y(queue, CL_MEM_READ_WRITE, N);
+	vex::vector<double> z(queue, CL_MEM_READ_WRITE, N);
 
 	// Appropriate kernels are compiled (once) and called automagically:
 	// Fill device vector with constant value...
@@ -61,8 +61,8 @@ int main() {
 	// Or you can read the entire vector to host:
 	copy(z, host_vec);
 
-	clu::copy(host_vec.begin(), host_vec.end(), z.begin());
-	clu::copy(z.begin(), z.end(), host_vec.data());
+	vex::copy(host_vec.begin(), host_vec.end(), z.begin());
+	vex::copy(z.begin(), z.end(), host_vec.data());
     } catch (const cl::Error &e) {
 	std::cout << "OpenCL error: " << e << std::endl;
     }
