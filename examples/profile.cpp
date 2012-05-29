@@ -45,7 +45,7 @@ int main() {
 
 	profiler prof(queue);
 
-	prof.tic_gpu("OpenCL");
+	prof.tic_cl("OpenCL");
 
 	for(uint i = 0; i < M; i++)
 	    a = b + c * d;

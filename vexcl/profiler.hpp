@@ -112,9 +112,9 @@ class profiler {
 		std::chrono::time_point<std::chrono::high_resolution_clock> start;
 	};
 
-	class gpu_profile_unit : public profile_unit {
+	class cl_profile_unit : public profile_unit {
 	    public:
-		gpu_profile_unit(std::vector<cl::CommandQueue> &queue)
+		cl_profile_unit(std::vector<cl::CommandQueue> &queue)
 		    : queue(queue), start(queue.size()), stop(queue.size())
 		{}
 
@@ -198,11 +198,11 @@ class profiler {
 	 * Also pushes named interval to the top of the profiler hierarchy.
 	 * \param name name of the measured interval.
 	 */
-	void tic_gpu(const std::string &name) {
+	void tic_cl(const std::string &name) {
 	    assert(!stack.empty());
 
 	    profile_unit *top  = stack.top();
-	    gpu_profile_unit *unit = new gpu_profile_unit(queue);
+	    cl_profile_unit *unit = new cl_profile_unit(queue);
 	    unit->tic();
 
 	    top->children[name].reset(unit);
