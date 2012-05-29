@@ -16,7 +16,6 @@
 
 #include <iostream>
 #include <iomanip>
-#include <chrono>
 #include <string>
 #include <map>
 #include <memory>
@@ -24,6 +23,15 @@
 #include <vector>
 #include <CL/cl.hpp>
 #include <cassert>
+
+#ifdef WIN32
+#  include <sys/timeb.h>
+inline double operator-(const timeb &a, const timeb &b) {
+    return a.time - b.time + 1e-3 * (a.millitm - b.millitm);
+}
+#else
+#  include <chrono>
+#endif
 
 namespace vex {
 
@@ -96,12 +104,21 @@ class profiler {
 	class cpu_profile_unit : public profile_unit {
 	    public:
 		void tic() {
+#ifdef WIN32
+		    ftime(&start);
+#endif
 		    start = std::chrono::high_resolution_clock::now();
 		}
 
 		double toc() {
+#ifdef WIN32
+		    timeb now;
+		    ftime(&now);
+		    delta = now - start;
+#else
 		    double delta = std::chrono::duration<double>(
 			    std::chrono::high_resolution_clock::now() - start).count();
+#endif
 
 		    length += delta;
 
@@ -109,7 +126,11 @@ class profiler {
 		}
 
 	    private:
+#ifdef WIN32
+		timeb start;
+#else
 		std::chrono::time_point<std::chrono::high_resolution_clock> start;
+#endif
 	};
 
 	class cl_profile_unit : public profile_unit {
