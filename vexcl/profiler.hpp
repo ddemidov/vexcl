@@ -125,28 +125,20 @@ class profiler {
 		}
 
 		double toc() {
-		    auto e = stop.begin();
-		    for(auto q = queue.begin(); q != queue.end(); q++, e++)
-			q->enqueueMarker(&e[0]);
-
-		    cl_ulong min_start = std::numeric_limits<cl_ulong>::max();
-		    cl_ulong max_stop  = 0;
-
-		    // Measured time starts after marker is out of the queue.
-		    for(auto e = start.begin(); e != start.end(); e++) {
-			e->wait();
-			min_start = std::min(min_start,
-				e->getProfilingInfo<CL_PROFILING_COMMAND_END>());
-		    }
+		    for(uint d = 0; d < queue.size(); d++)
+			queue[d].enqueueMarker(&stop[d]);
 
 		    // Measured time ends before marker is in the queue.
-		    for(auto e = stop.begin(); e != stop.end(); e++) {
-			e->wait();
-			max_stop = std::max(max_stop,
-				e->getProfilingInfo<CL_PROFILING_COMMAND_END>());
+		    cl_long max_delta = 0;
+		    for(uint d = 0; d < queue.size(); d++) {
+			stop[d].wait();
+			max_delta = std::max<cl_long>(max_delta,
+				stop [d].getProfilingInfo<CL_PROFILING_COMMAND_END>() -
+				start[d].getProfilingInfo<CL_PROFILING_COMMAND_END>()
+				);
 		    }
 
-		    double delta = (max_stop - min_start) * 1.0e-9;
+		    double delta = max_delta * 1.0e-9;
 
 		    length += delta;
 
@@ -163,8 +155,6 @@ class profiler {
 	/**
 	 * \param queue vector of command queues. Each queue should have been
 	 *              initialized with CL_QUEUE_PROFILING_ENABLE property.
-	 *              Profiling does not work when queues from different
-	 *              platforms are mixed (at least on author's workstation).
 	 * \param name  Opional name to be used when profiling info is printed.
 	 */
 	profiler(
