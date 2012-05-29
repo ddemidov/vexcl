@@ -15,6 +15,7 @@ include_directories(${CMAKE_SOURCE_DIR})
 set(EXAMPLES
     cg
     devlist
+    profile
     readme_example_1
     readme_example_2
     readme_example_3

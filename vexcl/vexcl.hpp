@@ -207,5 +207,6 @@ std::cout << sum(x) << std::endl;
 #include <vexcl/vector.hpp>
 #include <vexcl/spmat.hpp>
 #include <vexcl/reduce.hpp>
+#include <vexcl/profiler.hpp>
 
 #endif
