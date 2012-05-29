@@ -34,7 +34,8 @@ int main() {
 	// Select every device supporting double precision.
 	std::vector<cl::Context>      context;
 	std::vector<cl::CommandQueue> queue;
-	std::tie(context, queue) = queue_list(Filter::DoublePrecision(), true);
+	std::tie(context, queue) = queue_list(Filter::DoublePrecision());
+	std::cout << queue << std::endl;
 
 	// Create OpenCL matrix.
 	SpMat<double> A(queue, n, row.data(), col.data(), val.data());
