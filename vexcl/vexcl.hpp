@@ -207,7 +207,7 @@ std::cout << sum(x) << std::endl;
 In the images below, scalability of the library with respect to number of
 compute devices is shown. Effective performance (GFLOPS) and bandwidth (GB/sec)
 were measured by launching big number of test kernels on one, two, or three
-Nvidia Tesla C2070 cards. The results shown are averaged over 50 runs.
+Nvidia Tesla C2070 cards. The results shown are averaged over 20 runs.
 
 The details of the experiments may be found in <a
 href="https://github.com/ddemidov/vexcl/blob/master/examples/profiling.cpp">examples/profiling.cpp</a>
