@@ -60,51 +60,56 @@ void benchmark_vector(std::vector<cl::CommandQueue> &queue, profiler &prof)
     Reductor<real,SUM> sum(queue);
 
     a -= b;
-    std::cout << "  res = " << sum(a * a) << std::endl;
+    std::cout << "  res = " << sum(a * a)
+	      << std::endl << std::endl;
 }
 
 void benchmark_reductor(std::vector<cl::CommandQueue> &queue, profiler &prof)
 {
-    const uint N = 1024 * 1024;
-    const uint M = 1024;
+    const size_t N = 16 * 1024 * 1024;
+    const size_t M = 1024 / 16;
     double time_elapsed;
 
-    std::vector<real> A(N, 0);
+    std::vector<real> A(N);
+    std::vector<real> B(N);
+
     std::generate(A.begin(), A.end(), [](){ return (double)rand() / RAND_MAX; });
+    std::generate(B.begin(), B.end(), [](){ return (double)rand() / RAND_MAX; });
 
     vex::vector<real> a(queue, CL_MEM_READ_WRITE, A);
+    vex::vector<real> b(queue, CL_MEM_READ_WRITE, B);
 
     Reductor<real,SUM> sum(queue);
 
-    double sum_cl = sum(a);
-    std::cout << sum(a) << std::endl;
+    double sum_cl = sum(a * b);
     sum_cl = 0;
 
     prof.tic_cl("OpenCL");
     for(uint i = 0; i < M; i++)
-	sum_cl += sum(a);
+	sum_cl += sum(a * b);
     time_elapsed = prof.toc("OpenCL");
 
     std::cout << "Reduction\n"
               << "  OpenCL\n    GFLOPS:    "
-	      << N * M / time_elapsed / 1e9
+	      << 2.0 * N * M / time_elapsed / 1e9
               << "\n    Bandwidth: "
-	      << N * M * sizeof(real) / time_elapsed / 1e9
+	      << 2.0 * N * M * sizeof(real) / time_elapsed / 1e9
 	      << std::endl;
 
     double sum_cpp = 0;
     prof.tic_cpu("C++");
-    for(uint i = 0; i < M; i++)
-	sum_cpp += std::accumulate(A.begin(), A.end(), 0.0);
+    for(size_t i = 0; i < M; i++)
+	sum_cpp += std::inner_product(A.begin(), A.end(), B.begin(), 0.0);
     time_elapsed = prof.toc("C++");
 
     std::cout << "  C++\n    GFLOPS:    "
-	      << N * M / time_elapsed / 1e9
+	      << 2.0 * N * M / time_elapsed / 1e9
               << "\n    Bandwidth: "
-	      << N * M * sizeof(real) / time_elapsed / 1e9
+	      << 2.0 * N * M * sizeof(real) / time_elapsed / 1e9
 	      << std::endl;
 
-    std::cout << "  res = " << fabs(sum_cl - sum_cpp) << std::endl;
+    std::cout << "  res = " << fabs(sum_cl - sum_cpp)
+	      << std::endl << std::endl;
 }
 
 int main() {
