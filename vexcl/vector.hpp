@@ -178,7 +178,7 @@ class vector {
 	vector(const std::vector<cl::CommandQueue> &queue, cl_mem_flags flags,
 		const std::vector<T> &host
 	      ) : queue(queue), part(vex::partition(host.size(), queue)),
-	          buf(queue.size()), event(queue.size())
+		  buf(queue.size()), event(queue.size())
 	{
 	    if (!host.empty()) allocate_buffers(flags, host.data());
 	}
@@ -261,6 +261,12 @@ class vector {
 		    cl::Context context = q->getInfo<CL_QUEUE_CONTEXT>();
 
 		    if (!exdata<Expr>::compiled[context()]) {
+			std::vector<cl::Device> device = context.getInfo<CL_CONTEXT_DEVICES>();
+
+			bool device_is_cpu = (
+				device[0].getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU
+				);
+
 			std::ostringstream kernel;
 
 			std::string kernel_name = expr.kernel_name();
@@ -277,39 +283,64 @@ class vector {
 
 			expr.kernel_prm(kernel);
 
-			kernel << "\n\t)\n{\n\tunsigned int i = get_global_id(0);\n"
-			    "\tif (i < n) res[i] = ";
+			kernel <<
+			    "\n\t)\n{\n"
+			    "\tunsigned int i = get_global_id(0);\n";
+			if (device_is_cpu) {
+			    kernel <<
+				"\tif (i < n) {\n"
+				"\t\tres[i] = ";
+			} else {
+			    kernel <<
+				"\tunsigned int grid_size = get_num_groups(0) * get_local_size(0);\n"
+				"\twhile (i < n) {\n"
+				"\t\tres[i] = ";
+			}
 
 			expr.kernel_expr(kernel);
 
-			kernel << ";\n}" << std::endl;
-
-			std::vector<cl::Device> device = context.getInfo<CL_CONTEXT_DEVICES>();
+			if (device_is_cpu) {
+			    kernel <<
+				";\n"
+				"\t}\n"
+				"}" << std::endl;
+			} else {
+			    kernel <<
+				";\n"
+				"\t\ti += grid_size;\n"
+				"\t}\n"
+				"}" << std::endl;
+			}
 
 			auto program = build_sources(context, kernel.str());
 
 			exdata<Expr>::kernel[context()]   = cl::Kernel(program, kernel_name.c_str());
 			exdata<Expr>::compiled[context()] = true;
 			exdata<Expr>::wgsize[context()]   = kernel_workgroup_size(
-				exdata<Expr>::kernel[context()], device
-				);
+				exdata<Expr>::kernel[context()], device);
 		    }
 		}
 
 		for(uint d = 0; d < queue.size(); d++) {
 		    cl::Context context = queue[d].getInfo<CL_QUEUE_CONTEXT>();
+		    cl::Device  device  = queue[d].getInfo<CL_QUEUE_DEVICE>();
 
-		    uint pos = 0, psize = part[d + 1] - part[d];
+		    uint psize = part[d + 1] - part[d];
+
+		    uint g_size = device.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU ?
+			alignup(psize, exdata<Expr>::wgsize[context()]) :
+			device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() * exdata<Expr>::wgsize[context()] * 4;
+
+
+		    uint pos = 0;
 		    exdata<Expr>::kernel[context()].setArg(pos++, psize);
 		    exdata<Expr>::kernel[context()].setArg(pos++, buf[d]);
-
 		    expr.kernel_args(exdata<Expr>::kernel[context()], d, pos);
 
 		    queue[d].enqueueNDRangeKernel(
 			    exdata<Expr>::kernel[context()],
 			    cl::NullRange,
-			    alignup(psize, exdata<Expr>::wgsize[context()]),
-			    exdata<Expr>::wgsize[context()]
+			    g_size, exdata<Expr>::wgsize[context()]
 			    );
 		}
 
@@ -420,8 +451,7 @@ class vector {
 	std::vector<cl::CommandQueue>	queue;
 	std::vector<uint>               part;
 	std::vector<cl::Buffer>		buf;
-
-	mutable std::vector<cl::Event>          event;
+	mutable std::vector<cl::Event>  event;
 
 	void allocate_buffers(cl_mem_flags flags, const T *hostptr) {
 	    for(uint d = 0; d < queue.size(); d++) {
@@ -433,7 +463,6 @@ class vector {
 
 	    if (hostptr) write_data(0, size(), hostptr, CL_TRUE);
 	}
-
 
 	friend T sum<>(const vex::vector<T> &x);
 	friend T inner_product<>(const vex::vector<T> &x, const vex::vector<T> &y);
