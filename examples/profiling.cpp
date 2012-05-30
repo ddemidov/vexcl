@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 #include <tuple>
+#include <numeric>
 #include <cstdlib>
 #include <vexcl/vexcl.hpp>
 
@@ -8,7 +9,8 @@ using namespace vex;
 
 typedef double real;
 
-void benchmark_vector(std::vector<cl::CommandQueue> &queue, profiler &prof) {
+void benchmark_vector(std::vector<cl::CommandQueue> &queue, profiler &prof)
+{
     const uint N = 1024 * 1024;
     const uint M = 1024;
     double time_elapsed;
@@ -35,11 +37,10 @@ void benchmark_vector(std::vector<cl::CommandQueue> &queue, profiler &prof) {
 	a += b + c * d;
     time_elapsed = prof.toc("OpenCL");
 
-    std::cout << "Vector arithmetic" << std::endl;
-    std::cout << "  OpenCL\n    GFLOPS:    "
-	      << (3.0 * N * M) / time_elapsed / 1e9 << std::endl;
-
-    std::cout << "    Bandwidth: "
+    std::cout << "Vector arithmetic\n"
+              << "  OpenCL\n    GFLOPS:    "
+	      << (3.0 * N * M) / time_elapsed / 1e9
+              << "\n    Bandwidth: "
 	      << (5.0 * N * M * sizeof(real)) / time_elapsed / 1e9
 	      << std::endl;
 
@@ -50,9 +51,8 @@ void benchmark_vector(std::vector<cl::CommandQueue> &queue, profiler &prof) {
     time_elapsed = prof.toc("C++");
 
     std::cout << "  C++\n    GFLOPS:    "
-	      << (3.0 * N * M) / time_elapsed / 1e9 << std::endl;
-
-    std::cout << "    Bandwidth: "
+	      << (3.0 * N * M) / time_elapsed / 1e9
+              << "\n    Bandwidth: "
 	      << (5.0 * N * M * sizeof(real)) / time_elapsed / 1e9
 	      << std::endl;
 
@@ -61,6 +61,50 @@ void benchmark_vector(std::vector<cl::CommandQueue> &queue, profiler &prof) {
 
     a -= b;
     std::cout << "  res = " << sum(a * a) << std::endl;
+}
+
+void benchmark_reductor(std::vector<cl::CommandQueue> &queue, profiler &prof)
+{
+    const uint N = 1024 * 1024;
+    const uint M = 1024;
+    double time_elapsed;
+
+    std::vector<real> A(N, 0);
+    std::generate(A.begin(), A.end(), [](){ return (double)rand() / RAND_MAX; });
+
+    vex::vector<real> a(queue, CL_MEM_READ_WRITE, A);
+
+    Reductor<real,SUM> sum(queue);
+
+    double sum_cl = sum(a);
+    std::cout << sum(a) << std::endl;
+    sum_cl = 0;
+
+    prof.tic_cl("OpenCL");
+    for(uint i = 0; i < M; i++)
+	sum_cl += sum(a);
+    time_elapsed = prof.toc("OpenCL");
+
+    std::cout << "Reduction\n"
+              << "  OpenCL\n    GFLOPS:    "
+	      << N * M / time_elapsed / 1e9
+              << "\n    Bandwidth: "
+	      << N * M * sizeof(real) / time_elapsed / 1e9
+	      << std::endl;
+
+    double sum_cpp = 0;
+    prof.tic_cpu("C++");
+    for(uint i = 0; i < M; i++)
+	sum_cpp += std::accumulate(A.begin(), A.end(), 0.0);
+    time_elapsed = prof.toc("C++");
+
+    std::cout << "  C++\n    GFLOPS:    "
+	      << N * M / time_elapsed / 1e9
+              << "\n    Bandwidth: "
+	      << N * M * sizeof(real) / time_elapsed / 1e9
+	      << std::endl;
+
+    std::cout << "  res = " << fabs(sum_cl - sum_cpp) << std::endl;
 }
 
 int main() {
@@ -84,6 +128,10 @@ int main() {
 	prof.tic_cpu("Vector arithmetic");
 	benchmark_vector(queue, prof);
 	prof.toc("Vector arithmetic");
+
+	prof.tic_cpu("Reduction");
+	benchmark_reductor(queue, prof);
+	prof.toc("Reduction");
 
 	std::cout << prof << std::endl;
     } catch (const cl::Error &e) {
