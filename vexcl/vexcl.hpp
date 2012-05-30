@@ -195,6 +195,19 @@ for(uint d = 0; d < queue.size(); d++) {
 
 std::cout << sum(x) << std::endl;
 \endcode
+
+\section scalability Scalability
+
+In the images below, scalability of the library with respect to number of
+compute devices is shown. Effective performance (GFLOPS) and bandwidth (GB/sec)
+were measured by launching big number of test kernels on one, two, or three
+Nvidia Tesla C2070 cards. The results shown are averaged over 50 runs.
+
+The details of the experiments may be found in examples/profiling.cpp file.
+
+\image html gflops.png ""
+
+\image html bwidth.png ""
 */
 
 #ifdef WIN32
