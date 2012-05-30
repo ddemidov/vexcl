@@ -56,13 +56,17 @@ devices. vex::vector constructor accepts std::vector of cl::CommandQueue.
 The contents of the created vector will be equally partitioned between each
 queue (presumably, each of the provided queues is linked with separate device). 
 Size of each partition will be proportional to relative device bandwidth unless
-macro `VEXCL_DUMB_PARTITIONING` is defined, in which case equal partitioning
+macro VEXCL_DUMB_PARTITIONING is defined, in which case equal partitioning
 scheme will be applied. Device bandwidth is measured first time it is requested
 by launch of small test kernel.
 
 Multi-platform computation is supported (that is, you can spread your vectors
 across devices by different vendors), but should be used with caution: all
 computations will be performed with the speed of the slowest device selected.
+
+In the example below host vector is allocated and initialized, then copied to
+all devices obtained with the queue_list() call. A couple of empty device
+vectors are allocated as well:
 \code
 const uint n = 1 << 20;
 std::vector<double> x(n);
@@ -203,11 +207,24 @@ compute devices is shown. Effective performance (GFLOPS) and bandwidth (GB/sec)
 were measured by launching big number of test kernels on one, two, or three
 Nvidia Tesla C2070 cards. The results shown are averaged over 50 runs.
 
-The details of the experiments may be found in examples/profiling.cpp file.
+The details of the experiments may be found in <a
+href="https://github.com/ddemidov/vexcl/blob/master/examples/profiling.cpp">examples/profiling.cpp</a>
+file.  Basically, performance of the following code was measured:
+
+\code
+// Vector arithmetic
+a += b + c * d;
+
+// Reduction
+double s = sum(a * b);
+
+// SpMV
+y += A * x;
+\endcode
 
 \image html gflops.png ""
-
 \image html bwidth.png ""
+
 */
 
 #ifdef WIN32

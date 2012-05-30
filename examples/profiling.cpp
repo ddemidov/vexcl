@@ -10,8 +10,9 @@ using namespace vex;
 
 typedef double real;
 
-// #define CPU_BENCHMARK
+#define CPU_BENCHMARK
 
+//---------------------------------------------------------------------------
 std::pair<double,double> benchmark_vector(
 	std::vector<cl::CommandQueue> &queue, profiler &prof
 	)
@@ -81,6 +82,7 @@ std::pair<double,double> benchmark_vector(
     return std::make_pair(gflops, bwidth);
 }
 
+//---------------------------------------------------------------------------
 std::pair<double, double> benchmark_reductor(
 	std::vector<cl::CommandQueue> &queue, profiler &prof
 	)
@@ -143,6 +145,7 @@ std::pair<double, double> benchmark_reductor(
     return std::make_pair(gflops, bwidth);
 }
 
+//---------------------------------------------------------------------------
 std::pair<double,double> benchmark_spmv(
 	std::vector<cl::CommandQueue> &queue, profiler &prof
 	)
@@ -271,6 +274,7 @@ std::pair<double,double> benchmark_spmv(
     return std::make_pair(gflops, bwidth);
 }
 
+//---------------------------------------------------------------------------
 int main() {
     try {
 	const char *platform = getenv("OCL_PLATFORM");

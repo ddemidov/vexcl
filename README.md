@@ -58,6 +58,10 @@ Multi-platform computation is supported (that is, you
 can spread your vectors across devices by different vendors), but should be
 used with caution: all computations will be performed with the speed of the
 slowest device selected.
+
+In the example below host vector is allocated and initialized, then copied to
+all devices obtained with the queue_list() call. A couple of empty device
+vectors are allocated as well:
 ```C++
 const uint n = 1 << 20;
 std::vector<double> x(n);
