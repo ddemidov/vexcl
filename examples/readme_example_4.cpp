@@ -30,6 +30,8 @@ int main() {
 		);
     }
 
+    Reductor<float,SUM> sum(queue);
+
     std::cout << sum(x) << std::endl;
 }
 

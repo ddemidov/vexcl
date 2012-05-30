@@ -27,10 +27,6 @@
 /// OpenCL convenience utilities.
 namespace vex {
 
-template <class T> class vector;
-template <class T> T sum(const vex::vector<T> &x);
-template <class T> T inner_product(const vex::vector<T> &x, const vex::vector<T> &y);
-
 template<class T> struct SpMV;
 template <class Expr, typename T> struct ExSpMV;
 
@@ -463,9 +459,6 @@ class vector {
 
 	    if (hostptr) write_data(0, size(), hostptr, CL_TRUE);
 	}
-
-	friend T sum<>(const vex::vector<T> &x);
-	friend T inner_product<>(const vex::vector<T> &x, const vex::vector<T> &y);
 };
 
 template <class T> template <class Expr>

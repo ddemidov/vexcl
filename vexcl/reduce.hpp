@@ -398,22 +398,6 @@ std::string Reductor<real,RDC>::cpu_kernel_source(
     return source.str();
 }
 
-/// Sum of vector elements.
-template <typename real>
-real sum(const vex::vector<real> &x) {
-    static Reductor<real,SUM> rdc(x.queue);
-
-    return rdc(x);
-}
-
-/// Inner product of two vectors.
-template <typename real>
-real inner_product(const vex::vector<real> &x, const vex::vector<real> &y) {
-    static Reductor<real,SUM> rdc(x.queue);
-
-    return rdc(x * y);
-}
-
 } // namespace vex
 
 #endif

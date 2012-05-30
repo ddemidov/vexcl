@@ -48,7 +48,9 @@ int main() {
 	// ... or with some expression:
 	z = Sqrt(Const(2) * x) + Cos(y);
 
-	std::cout << "y * y = " << inner_product(y, y) << std::endl;
+	Reductor<double,SUM> sum(queue);
+
+	std::cout << "y * y = " << sum(y * y) << std::endl;
 
 	// Check results at random location.
 	uint pos = rand() % N;

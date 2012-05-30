@@ -142,13 +142,14 @@ void cg_gpu(
     vex::vector<real> q(queue, CL_MEM_READ_WRITE, n);
 
     Reductor<real,MAX> max(queue);
+    Reductor<real,SUM> sum(queue);
 
     // Solve equation Au = f with conjugate gradients method.
     real rho1, rho2;
     r = f - A * u;
 
     for(uint iter = 0; max(Abs(r)) > 1e-8 && iter < n; iter++) {
-	rho1 = inner_product(r, r);
+	rho1 = sum(r * r);
 
 	if (iter == 0) {
 	    p = r;
@@ -159,7 +160,7 @@ void cg_gpu(
 
 	q = A * p;
 
-	real alpha = rho1 / inner_product(p, q);
+	real alpha = rho1 / sum(p * q);
 
 	u += Const(alpha) * p;
 	r -= Const(alpha) * q;
@@ -197,6 +198,7 @@ for(uint d = 0; d < queue.size(); d++) {
     dummy((uint)x.part_size(d), x(d));
 }
 
+Reductor<float,SUM> sum(queue);
 std::cout << sum(x) << std::endl;
 \endcode
 
