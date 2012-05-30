@@ -135,7 +135,7 @@ class profiler {
 
 	class cl_profile_unit : public profile_unit {
 	    public:
-		cl_profile_unit(std::vector<cl::CommandQueue> &queue)
+		cl_profile_unit(const std::vector<cl::CommandQueue> &queue)
 		    : queue(queue), start(queue.size()), stop(queue.size())
 		{}
 
@@ -166,7 +166,7 @@ class profiler {
 		    return delta;
 		}
 	    private:
-		std::vector<cl::CommandQueue> &queue;
+		const std::vector<cl::CommandQueue> &queue;
 		std::vector<cl::Event> start;
 		std::vector<cl::Event> stop;
 	};
@@ -179,7 +179,7 @@ class profiler {
 	 * \param name  Opional name to be used when profiling info is printed.
 	 */
 	profiler(
-		std::vector<cl::CommandQueue> &queue,
+		const std::vector<cl::CommandQueue> &queue,
 		const std::string &name = "Profile"
 		) : name(name), queue(queue)
 	{
@@ -239,7 +239,7 @@ class profiler {
 
     private:
 	std::string name;
-	std::vector<cl::CommandQueue> &queue;
+	const std::vector<cl::CommandQueue> &queue;
 	cpu_profile_unit root;
 	std::stack<profile_unit*> stack;
 

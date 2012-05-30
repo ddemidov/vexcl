@@ -83,9 +83,9 @@ class SpMat {
 	    mutable vex::vector<real> rx;
 	};
 
-	std::vector<cl::CommandQueue> queue;
-	std::vector<uint>             part;
-	mutable std::vector<cl::Event>        event;
+	const std::vector<cl::CommandQueue> &queue;
+	const std::vector<uint>             part;
+	mutable std::vector<cl::Event>      event;
 
 	std::vector<ell> lm; // Local part of the matrix.
 	std::vector<ell> rm; // Remote part of the matrix.

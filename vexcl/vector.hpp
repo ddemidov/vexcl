@@ -76,9 +76,9 @@ class vector {
 		element(cl::CommandQueue q, cl::Buffer b, uint i)
 		    : queue(q), buf(b), index(i) {}
 
-		cl::CommandQueue  queue;
-		cl::Buffer        buf;
-		uint              index;
+		const cl::CommandQueue  &queue;
+		cl::Buffer              buf;
+		const uint              index;
 
 		friend class vector;
 		friend class vector::iterator;
@@ -97,7 +97,7 @@ class vector {
 	    public:
 		static const bool device_iterator = true;
 
-		element_type operator*() {
+		element_type operator*() const {
 		    return element_type(
 			    vec.queue[part], vec.buf[part],
 			    pos - vec.part[part]
@@ -348,27 +348,27 @@ class vector {
 	    }
 
 	template <class Expr>
-	    const vector& operator+=(const Expr &expr) {
-		return *this = *this + expr;
-	    }
+	const vector& operator+=(const Expr &expr) {
+	    return *this = *this + expr;
+	}
 
 	template <class Expr>
-	    const vector& operator*=(const Expr &expr) {
-		return *this = *this * expr;
-	    }
+	const vector& operator*=(const Expr &expr) {
+	    return *this = *this * expr;
+	}
 
 	template <class Expr>
-	    const vector& operator/=(const Expr &expr) {
-		return *this = *this / expr;
-	    }
+	const vector& operator/=(const Expr &expr) {
+	    return *this = *this / expr;
+	}
 
 	template <class Expr>
-	    const vector& operator-=(const Expr &expr) {
-		return *this = *this - expr;
-	    }
+	const vector& operator-=(const Expr &expr) {
+	    return *this = *this - expr;
+	}
 
 	template <class Expr>
-	    const vector& operator=(const ExSpMV<Expr,T> &xmv);
+	const vector& operator=(const ExSpMV<Expr,T> &xmv);
 
 	const vector& operator=(const SpMV<T> &spmv);
 	const vector& operator+=(const SpMV<T> &spmv);

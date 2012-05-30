@@ -56,7 +56,7 @@ alignup(T n, T m = 16U) {
 
 /// Create and build a program from source string.
 inline cl::Program build_sources(
-	cl::Context context, const std::string &source
+	const cl::Context &context, const std::string &source
 	)
 {
     cl::Program program(context, cl::Program::Sources(

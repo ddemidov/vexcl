@@ -50,7 +50,7 @@ class Reductor {
 	template <class Expr>
 	real operator()(const Expr &expr) const;
     private:
-	std::vector<cl::CommandQueue> queue;
+	const std::vector<cl::CommandQueue> &queue;
 	std::vector<uint> idx;
 	std::vector<vex::vector<real>> dbuf;
 
