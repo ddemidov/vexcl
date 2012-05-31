@@ -94,17 +94,17 @@ class SpMat {
     private:
 	struct ell {
 	    uint n, w, pitch;
-	    vex::vector<uint> col;
-	    vex::vector<real> val;
+	    cl::Buffer col;
+	    cl::Buffer val;
 	};
 
 	struct exdata {
-	    std::vector<uint> mycols;
-	    mutable std::vector<real> myvals;
+	    std::vector<uint> cols_to_recv;
+	    mutable std::vector<real> vals_to_recv;
 
-	    vex::vector<uint> cols_to_send;
-	    vex::vector<real> vals_to_send;
-	    mutable vex::vector<real> rx;
+	    cl::Buffer cols_to_send;
+	    cl::Buffer vals_to_send;
+	    mutable cl::Buffer rx;
 	};
 
 	const std::vector<cl::CommandQueue> &queue;
@@ -315,6 +315,7 @@ SpMat<real>::SpMat(
 	// Each strip is divided into local and remote parts.
 	// Local part of the strip is its square diagonal subblock.
 	// Remote part is everything else.
+	cl::Context context = queue[d].getInfo<CL_QUEUE_CONTEXT>();
 
 	// Convert CSR representation of the matrix to ELL format.
 	lm[d].n     = part[d + 1] - part[d];
@@ -360,10 +361,18 @@ SpMat<real>::SpMat(
 	}
 
 	// Copy local part to the device.
-	std::vector<cl::CommandQueue> myq(1, queue[d]);
+	lm[d].col = cl::Buffer(
+		context, CL_MEM_READ_ONLY, lcol.size() * sizeof(uint));
 
-	lm[d].col = vex::vector<uint>(myq, CL_MEM_READ_ONLY, lcol);
-	lm[d].val = vex::vector<real>(myq, CL_MEM_READ_ONLY, lval);
+	lm[d].val = cl::Buffer(
+		context, CL_MEM_READ_ONLY, lval.size() * sizeof(real));
+
+	queue[d].enqueueWriteBuffer(
+		lm[d].col, CL_FALSE, 0, lcol.size() * sizeof(uint), lcol.data());
+
+	queue[d].enqueueWriteBuffer(
+		lm[d].val, rm[d].w ? CL_FALSE : CL_TRUE,
+		0, lval.size() * sizeof(real), lval.data());
 
 	// Copy remote part to the device.
 	if (rm[d].w) {
@@ -377,8 +386,17 @@ SpMat<real>::SpMat(
 		if (*c != NCOL) *c = r2l[*c];
 
 	    // Copy data to device.
-	    rm[d].col = vex::vector<uint>(myq, CL_MEM_READ_ONLY, rcol);
-	    rm[d].val = vex::vector<real>(myq, CL_MEM_READ_ONLY, rval);
+	    rm[d].col = cl::Buffer(
+		    context, CL_MEM_READ_ONLY, rcol.size() * sizeof(uint));
+
+	    rm[d].val = cl::Buffer(
+		    context, CL_MEM_READ_ONLY, rval.size() * sizeof(real));
+
+	    queue[d].enqueueWriteBuffer(
+		    rm[d].col, CL_FALSE, 0, rcol.size() * sizeof(uint), rcol.data());
+
+	    queue[d].enqueueWriteBuffer(
+		    rm[d].val, CL_TRUE, 0, rval.size() * sizeof(real), rval.data());
 	}
     }
 
@@ -394,14 +412,15 @@ SpMat<real>::SpMat(
     if (cols_to_send.size()) {
 	for(uint d = 0; d < queue.size(); d++) {
 	    if (uint rcols = remote_cols[d].size()) {
-		exc[d].mycols.resize(rcols);
-		exc[d].myvals.resize(rcols);
+		cl::Context context = queue[d].getInfo<CL_QUEUE_CONTEXT>();
 
-		std::vector<cl::CommandQueue> myq(1, queue[d]);
-		exc[d].rx = vex::vector<real>(myq, CL_MEM_READ_ONLY, rcols);
+		exc[d].cols_to_recv.resize(rcols);
+		exc[d].vals_to_recv.resize(rcols);
+
+		exc[d].rx = cl::Buffer(context, CL_MEM_READ_ONLY, rcols * sizeof(real));
 
 		for(uint i = 0, j = 0; i < cols_to_send.size(); i++)
-		    if (remote_cols[d].count(cols_to_send[i])) exc[d].mycols[j++] = i;
+		    if (remote_cols[d].count(cols_to_send[i])) exc[d].cols_to_recv[j++] = i;
 	    }
 	}
 
@@ -415,17 +434,21 @@ SpMat<real>::SpMat(
 	cidx.back() = cols_to_send.size();
 
 	for(uint d = 0; d < queue.size(); d++) {
-	    std::vector<cl::CommandQueue> myq(1, queue[d]);
-
 	    if (uint ncols = cidx[d + 1] - cidx[d]) {
-		exc[d].cols_to_send = vex::vector<uint>(myq, CL_MEM_READ_ONLY, ncols);
-		exc[d].vals_to_send = vex::vector<real>(myq, CL_MEM_READ_WRITE, ncols);
+		cl::Context context = queue[d].getInfo<CL_QUEUE_CONTEXT>();
+
+		exc[d].cols_to_send = cl::Buffer(
+			context, CL_MEM_READ_ONLY, ncols * sizeof(uint));
+
+		exc[d].vals_to_send = cl::Buffer(
+			context, CL_MEM_READ_WRITE, ncols * sizeof(real));
 
 		for(uint i = cidx[d]; i < cidx[d + 1]; i++)
 		    cols_to_send[i] -= part[d];
 
-		vex::copy(&cols_to_send[cidx[d]], &cols_to_send[cidx[d + 1]],
-			exc[d].cols_to_send.begin());
+		queue[d].enqueueWriteBuffer(
+			exc[d].cols_to_send, CL_TRUE, 0, ncols * sizeof(uint),
+			&cols_to_send[cidx[d]]);
 	    }
 	}
     }
@@ -445,13 +468,13 @@ void SpMat<real>::mul(const vex::vector<real> &x, vex::vector<real> &y,
 
 		gather_vals_to_send[context()].setArg(0, ncols);
 		gather_vals_to_send[context()].setArg(1, x(d));
-		gather_vals_to_send[context()].setArg(2, exc[d].cols_to_send());
-		gather_vals_to_send[context()].setArg(3, exc[d].vals_to_send());
+		gather_vals_to_send[context()].setArg(2, exc[d].cols_to_send);
+		gather_vals_to_send[context()].setArg(3, exc[d].vals_to_send);
 
 		queue[d].enqueueNDRangeKernel(gather_vals_to_send[context()],
 			cl::NullRange, g_size, wgsize[context()], 0, &event1[d][0]);
 
-		squeue[d].enqueueReadBuffer(exc[d].vals_to_send(), CL_FALSE,
+		squeue[d].enqueueReadBuffer(exc[d].vals_to_send, CL_FALSE,
 			0, ncols * sizeof(real), &rx[cidx[d]], &event1[d], &event2[d][0]
 			);
 	    }
@@ -470,8 +493,8 @@ void SpMat<real>::mul(const vex::vector<real> &x, vex::vector<real> &y,
 	    spmv_add[context()].setArg(0, lm[d].n);
 	    spmv_add[context()].setArg(1, lm[d].w);
 	    spmv_add[context()].setArg(2, lm[d].pitch);
-	    spmv_add[context()].setArg(3, lm[d].col());
-	    spmv_add[context()].setArg(4, lm[d].val());
+	    spmv_add[context()].setArg(3, lm[d].col);
+	    spmv_add[context()].setArg(4, lm[d].val);
 	    spmv_add[context()].setArg(5, x(d));
 	    spmv_add[context()].setArg(6, y(d));
 	    spmv_add[context()].setArg(7, alpha);
@@ -482,8 +505,8 @@ void SpMat<real>::mul(const vex::vector<real> &x, vex::vector<real> &y,
 	    spmv_set[context()].setArg(0, lm[d].n);
 	    spmv_set[context()].setArg(1, lm[d].w);
 	    spmv_set[context()].setArg(2, lm[d].pitch);
-	    spmv_set[context()].setArg(3, lm[d].col());
-	    spmv_set[context()].setArg(4, lm[d].val());
+	    spmv_set[context()].setArg(3, lm[d].col);
+	    spmv_set[context()].setArg(4, lm[d].val);
 	    spmv_set[context()].setArg(5, x(d));
 	    spmv_set[context()].setArg(6, y(d));
 	    spmv_set[context()].setArg(7, alpha);
@@ -501,26 +524,26 @@ void SpMat<real>::mul(const vex::vector<real> &x, vex::vector<real> &y,
 	for(uint d = 0; d < queue.size(); d++) {
 	    cl::Context context = queue[d].getInfo<CL_QUEUE_CONTEXT>();
 
-	    if (exc[d].mycols.size()) {
+	    if (exc[d].cols_to_recv.size()) {
 		cl::Device  device  = queue[d].getInfo<CL_QUEUE_DEVICE>();
 		uint g_size = device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>()
 		    * wgsize[context()] * 4;
 
-		for(uint i = 0; i < exc[d].mycols.size(); i++)
-		    exc[d].myvals[i] = rx[exc[d].mycols[i]];
+		for(uint i = 0; i < exc[d].cols_to_recv.size(); i++)
+		    exc[d].vals_to_recv[i] = rx[exc[d].cols_to_recv[i]];
 
 		squeue[d].enqueueWriteBuffer(
-			exc[d].rx(), CL_FALSE,
-			0, exc[d].mycols.size() * sizeof(real),
-			exc[d].myvals.data(), 0, &event2[d][0]
+			exc[d].rx, CL_FALSE,
+			0, exc[d].cols_to_recv.size() * sizeof(real),
+			exc[d].vals_to_recv.data(), 0, &event2[d][0]
 			);
 
 		spmv_add[context()].setArg(0, rm[d].n);
 		spmv_add[context()].setArg(1, rm[d].w);
 		spmv_add[context()].setArg(2, rm[d].pitch);
-		spmv_add[context()].setArg(3, rm[d].col());
-		spmv_add[context()].setArg(4, rm[d].val());
-		spmv_add[context()].setArg(5, exc[d].rx());
+		spmv_add[context()].setArg(3, rm[d].col);
+		spmv_add[context()].setArg(4, rm[d].val);
+		spmv_add[context()].setArg(5, exc[d].rx);
 		spmv_add[context()].setArg(6, y(d));
 		spmv_add[context()].setArg(7, alpha);
 
