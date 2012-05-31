@@ -87,7 +87,8 @@ class SpMat {
 	std::vector<cl::CommandQueue>       squeue;
 	const std::vector<uint>             part;
 
-	mutable std::vector<std::vector<cl::Event>> event;
+	mutable std::vector<std::vector<cl::Event>> event1;
+	mutable std::vector<std::vector<cl::Event>> event2;
 
 	std::vector<ell> lm; // Local part of the matrix.
 	std::vector<ell> rm; // Remote part of the matrix.
@@ -191,7 +192,8 @@ SpMat<real>::SpMat(
 	uint n, const uint *row, const uint *col, const real *val
 	)
     : queue(queue), part(partition(n, queue)),
-      event(queue.size(), std::vector<cl::Event>(1)),
+      event1(queue.size(), std::vector<cl::Event>(1)),
+      event2(queue.size(), std::vector<cl::Event>(1)),
       lm(queue.size()), rm(queue.size()), exc(queue.size())
 {
     for(auto q = queue.begin(); q != queue.end(); q++) {
@@ -426,11 +428,11 @@ void SpMat<real>::mul(const vex::vector<real> &x, vex::vector<real> &y,
 		gather_vals_to_send[context()].setArg(2, exc[d].cols_to_send());
 		gather_vals_to_send[context()].setArg(3, exc[d].vals_to_send());
 
-		squeue[d].enqueueNDRangeKernel(gather_vals_to_send[context()],
-			cl::NullRange, g_size, wgsize[context()]);
+		queue[d].enqueueNDRangeKernel(gather_vals_to_send[context()],
+			cl::NullRange, g_size, wgsize[context()], 0, &event1[d][0]);
 
 		squeue[d].enqueueReadBuffer(exc[d].vals_to_send(), CL_FALSE,
-			0, ncols * sizeof(real), &rx[cidx[d]], 0, &event[d][0]
+			0, ncols * sizeof(real), &rx[cidx[d]], &event1[d], &event2[d][0]
 			);
 	    }
 	}
@@ -471,7 +473,7 @@ void SpMat<real>::mul(const vex::vector<real> &x, vex::vector<real> &y,
     if (rx.size()) {
 	// Compute contribution from remote part of the matrix.
 	for(uint d = 0; d < queue.size(); d++)
-	    if (cidx[d + 1] > cidx[d]) event[d][0].wait();
+	    if (cidx[d + 1] > cidx[d]) event2[d][0].wait();
 
 	for(uint d = 0; d < queue.size(); d++) {
 	    cl::Context context = queue[d].getInfo<CL_QUEUE_CONTEXT>();
@@ -485,7 +487,7 @@ void SpMat<real>::mul(const vex::vector<real> &x, vex::vector<real> &y,
 		squeue[d].enqueueWriteBuffer(
 			exc[d].rx(), CL_FALSE,
 			0, exc[d].mycols.size() * sizeof(real),
-			exc[d].myvals.data(), 0, &event[d][0]
+			exc[d].myvals.data(), 0, &event2[d][0]
 			);
 
 		spmv_add[context()].setArg(0, rm[d].n);
@@ -498,7 +500,7 @@ void SpMat<real>::mul(const vex::vector<real> &x, vex::vector<real> &y,
 		spmv_add[context()].setArg(7, alpha);
 
 		queue[d].enqueueNDRangeKernel(spmv_add[context()],
-			cl::NullRange, g_size, wgsize[context()], &event[d]
+			cl::NullRange, g_size, wgsize[context()], &event2[d]
 			);
 	    }
 	}
