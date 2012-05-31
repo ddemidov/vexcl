@@ -224,8 +224,7 @@ double s = sum(a * b);
 y += A * x;
 \endcode
 
-\image html gflops.png ""
-\image html bwidth.png ""
+\image html perf.png ""
 
 */
 
