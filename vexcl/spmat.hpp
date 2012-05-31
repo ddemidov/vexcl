@@ -219,16 +219,14 @@ SpMat<real>::SpMat(
 		      "    real alpha\n"
 		      "    )\n"
 		      "{\n"
-		      "    uint row = get_global_id(0);\n"
-		      "    if (row < n) {\n"
-		      "	real sum = 0;\n"
-		      "	col += row;\n"
-		      "	val += row;\n"
-		      "	for(uint j = 0; j < w; j++, col += pitch, val += pitch) {\n"
-		      "	    uint c = *col;\n"
-		      "	    if (c != NCOL) sum += (*val) * x[c];\n"
-		      "	}\n"
-		      "	y[row] = alpha * sum;\n"
+		      "    uint grid_size = get_num_groups(0) * get_local_size(0);\n"
+		      "    for (uint row = get_global_id(0); row < n; row += grid_size) {\n"
+		      "        real sum = 0;\n"
+		      "        for(uint j = 0; j < w; j++) {\n"
+		      "	           uint c = col[row + j * pitch];\n"
+		      "	           if (c != NCOL) sum += val[row + j * pitch] * x[c];\n"
+		      "	       }\n"
+		      "	       y[row] = alpha * sum;\n"
 		      "    }\n"
 		      "}\n"
 		      "kernel void spmv_add(\n"
@@ -240,16 +238,14 @@ SpMat<real>::SpMat(
 		      "    real alpha\n"
 		      "    )\n"
 		      "{\n"
-		      "    uint row = get_global_id(0);\n"
-		      "    if (row < n) {\n"
-		      "	real sum = 0;\n"
-		      "	col += row;\n"
-		      "	val += row;\n"
-		      "	for(uint j = 0; j < w; j++, col += pitch, val += pitch) {\n"
-		      "	    uint c = *col;\n"
-		      "	    if (c != NCOL) sum += (*val) * x[c];\n"
-		      "	}\n"
-		      "	y[row] += alpha * sum;\n"
+		      "    uint grid_size = get_num_groups(0) * get_local_size(0);\n"
+		      "    for(uint row = get_global_id(0); row < n; row += grid_size) {\n"
+		      "	       real sum = 0;\n"
+		      "	       for(uint j = 0; j < w; j++) {\n"
+		      "	           uint c = col[row + j * pitch];\n"
+		      "	           if (c != NCOL) sum += val[row + j * pitch] * x[c];\n"
+		      "	       }\n"
+		      "	       y[row] += alpha * sum;\n"
 		      "    }\n"
 		      "}\n"
 		      "kernel void gather_vals_to_send(\n"
@@ -441,7 +437,10 @@ void SpMat<real>::mul(const vex::vector<real> &x, vex::vector<real> &y,
     // Compute contribution from local part of the matrix.
     for(uint d = 0; d < queue.size(); d++) {
 	cl::Context context = queue[d].getInfo<CL_QUEUE_CONTEXT>();
-	uint g_size = alignup(lm[d].n, wgsize[context()]);
+	cl::Device  device  = queue[d].getInfo<CL_QUEUE_DEVICE>();
+
+	uint g_size = device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>()
+	    * wgsize[context()] * 4;
 
 	if (append) {
 	    spmv_add[context()].setArg(0, lm[d].n);
@@ -479,7 +478,9 @@ void SpMat<real>::mul(const vex::vector<real> &x, vex::vector<real> &y,
 	    cl::Context context = queue[d].getInfo<CL_QUEUE_CONTEXT>();
 
 	    if (exc[d].mycols.size()) {
-		uint g_size = alignup(rm[d].n, wgsize[context()]);
+		cl::Device  device  = queue[d].getInfo<CL_QUEUE_DEVICE>();
+		uint g_size = device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>()
+		    * wgsize[context()] * 4;
 
 		for(uint i = 0; i < exc[d].mycols.size(); i++)
 		    exc[d].myvals[i] = rx[exc[d].mycols[i]];
