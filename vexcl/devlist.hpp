@@ -16,6 +16,7 @@
 
 #include <vector>
 #include <string>
+#include <cstdlib>
 #include <CL/cl.hpp>
 
 /// OpenCL convenience utilities.
@@ -94,6 +95,12 @@ namespace Filter {
     };
 
     /// Selects no more than given number of devices.
+    /**
+     * \note This filter should be the last in filter expression. In this case,
+     * it will be applied only to devices which passed all other filters.
+     * Otherwise, you could get less devices than planned (every time this
+     * filter is applied, internal counter is decremented).
+     */
     struct Count {
 	Count(int c) : count(c) {}
 
@@ -102,6 +109,57 @@ namespace Filter {
 	}
 
 	private:
+	    mutable int count;
+    };
+
+    /// Environment filter
+    /**
+     * Selects devices with respect to environment variables. Recognized
+     * variables are:
+     *
+     * \li OCL_PLATFORM -- platform name;
+     * \li OCL_VENDOR   -- device vendor;
+     * \li OCL_DEVICE   -- device name;
+     * \li OCL_MAX_DEVICES -- maximum number of devices to use.
+     *
+     * \note Since this filter possibly counts passed devices, it should be the
+     * last in filter expression. Same reasoning applies as in case of
+     * Filter::Count.
+     */
+    struct Env {
+	Env()
+	    : platform(getenv("OCL_PLATFORM")),
+	      vendor  (getenv("OCL_VENDOR")),
+	      name    (getenv("OCL_DEVICE")),
+	      maxdev  (getenv("OCL_MAX_DEVICES")),
+	      count(maxdev ? atoi(maxdev) : std::numeric_limits<int>::max())
+	{}
+
+	bool operator()(const cl::Device &d) const {
+	    if (platform &&
+		    cl::Platform(
+			d.getInfo<CL_DEVICE_PLATFORM>()
+			).getInfo<CL_PLATFORM_NAME>().find(platform) == std::string::npos
+	       ) return false;
+
+	    if (vendor &&
+		    d.getInfo<CL_DEVICE_VENDOR>().find(vendor) == std::string::npos
+	       ) return false;
+
+	    if (name &&
+		    d.getInfo<CL_DEVICE_NAME>().find(name) == std::string::npos
+	       ) return false;
+
+	    if (maxdev) return --count >= 0;
+
+	    return true;
+	}
+
+	private:
+	    const char *platform;
+	    const char *vendor;
+	    const char *name;
+	    const char *maxdev;
 	    mutable int count;
     };
 

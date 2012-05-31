@@ -3,7 +3,6 @@
 #include <vector>
 #include <tuple>
 #include <algorithm>
-#include <cstdlib>
 #include <vexcl/vexcl.hpp>
 
 #ifdef WIN32

@@ -3,7 +3,6 @@
 #include <vector>
 #include <tuple>
 #include <numeric>
-#include <cstdlib>
 #include <vexcl/vexcl.hpp>
 
 using namespace vex;
@@ -277,19 +276,11 @@ std::pair<double,double> benchmark_spmv(
 //---------------------------------------------------------------------------
 int main() {
     try {
-	const char *platform = getenv("OCL_PLATFORM");
-	const char *device   = getenv("OCL_DEVICE");
-	const char *maxdev   = getenv("OCL_MAX_DEVICES");
-
 	std::vector<cl::Context>      context;
 	std::vector<cl::CommandQueue> queue;
 
 	std::tie(context, queue) = queue_list(
-		Filter::Platform(platform ? platform : "") &&
-		Filter::Name(device ? device : "") &&
-		Filter::Count(maxdev ? atoi(maxdev) : 999),
-		CL_QUEUE_PROFILING_ENABLE
-		);
+		Filter::Env(), CL_QUEUE_PROFILING_ENABLE);
 
 	std::cout << queue << std::endl;
 
