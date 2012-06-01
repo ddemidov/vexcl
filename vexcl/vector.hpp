@@ -93,7 +93,7 @@ class vector {
 		    return val;
 		}
 	    private:
-		element(cl::CommandQueue q, cl::Buffer b, uint i)
+		element(const cl::CommandQueue &q, cl::Buffer b, uint i)
 		    : queue(q), buf(b), index(i) {}
 
 		const cl::CommandQueue  &queue;
