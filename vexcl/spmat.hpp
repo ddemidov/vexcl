@@ -892,8 +892,8 @@ void SpMat<real>::SpMatCSR::prepare_kernels(const cl::Context &context) const {
 	    "    real alpha\n"
 	    "    )\n"
 	    "{\n"
-	    "    uint grid_size = get_num_groups(0) * get_local_size(0);\n"
-	    "    for (uint i = get_global_id(0); i < n; i += grid_size) {\n"
+	    "    uint i = get_global_id(0);\n"
+	    "    if (i < n) {\n"
 	    "        real sum = 0;\n"
 	    "        uint beg = row[i];\n"
 	    "        uint end = row[i + 1];\n"
@@ -912,8 +912,8 @@ void SpMat<real>::SpMatCSR::prepare_kernels(const cl::Context &context) const {
 	    "    real alpha\n"
 	    "    )\n"
 	    "{\n"
-	    "    uint grid_size = get_num_groups(0) * get_local_size(0);\n"
-	    "    for (uint i = get_global_id(0); i < n; i += grid_size) {\n"
+	    "    uint i = get_global_id(0);\n"
+	    "    if (i < n) {\n"
 	    "        real sum = 0;\n"
 	    "        uint beg = row[i];\n"
 	    "        uint end = row[i + 1];\n"
@@ -946,10 +946,8 @@ void SpMat<real>::SpMatCSR::mul_local(
 	) const
 {
     cl::Context context = queue.getInfo<CL_QUEUE_CONTEXT>();
-    cl::Device  device  = queue.getInfo<CL_QUEUE_DEVICE>();
 
-    uint g_size = device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>()
-	* wgsize[context()] * 4;
+    uint g_size = alignup(n, wgsize[context()]);
 
     if (append) {
 	uint pos = 0;
@@ -962,7 +960,7 @@ void SpMat<real>::SpMatCSR::mul_local(
 	spmv_add[context()].setArg(pos++, alpha);
 
 	queue.enqueueNDRangeKernel(spmv_add[context()],
-		cl::NullRange, g_size, wgsize[context()]);
+		cl::NullRange, n, cl::NullRange);
     } else {
 	uint pos = 0;
 	spmv_set[context()].setArg(pos++, n);
@@ -974,7 +972,7 @@ void SpMat<real>::SpMatCSR::mul_local(
 	spmv_set[context()].setArg(pos++, alpha);
 
 	queue.enqueueNDRangeKernel(spmv_set[context()],
-		cl::NullRange, g_size, wgsize[context()]);
+		cl::NullRange, n, cl::NullRange);
     }
 }
 
@@ -985,10 +983,6 @@ void SpMat<real>::SpMatCSR::mul_remote(
 	) const
 {
     cl::Context context = queue.getInfo<CL_QUEUE_CONTEXT>();
-    cl::Device  device  = queue.getInfo<CL_QUEUE_DEVICE>();
-
-    uint g_size = device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>()
-	* wgsize[context()] * 4;
 
     uint pos = 0;
     spmv_add[context()].setArg(pos++, n);
@@ -1000,7 +994,7 @@ void SpMat<real>::SpMatCSR::mul_remote(
     spmv_add[context()].setArg(pos++, alpha);
 
     queue.enqueueNDRangeKernel(spmv_add[context()],
-	    cl::NullRange, g_size, wgsize[context()], &event
+	    cl::NullRange, n, cl::NullRange, &event
 	    );
 }
 
