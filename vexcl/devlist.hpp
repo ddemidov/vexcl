@@ -329,9 +329,13 @@ queue_list(
 
 	if (device.empty()) continue;
 
-	context.push_back(cl::Context(device));
 	for(auto d = device.begin(); d != device.end(); d++)
-	    queue.push_back(cl::CommandQueue(context.back(), *d, properties));
+	    try {
+		context.push_back(cl::Context(std::vector<cl::Device>(1, *d)));
+		queue.push_back(cl::CommandQueue(context.back(), *d, properties));
+	    } catch(const cl::Error&) {
+		// Something bad happened. Better skip this device.
+	    }
     }
 
     return std::make_pair(context, queue);
