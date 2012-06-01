@@ -101,7 +101,6 @@ class vector {
 		const uint              index;
 
 		friend class vector;
-		friend typename vector::iterator;
 	};
 
 	/// Iterator class.

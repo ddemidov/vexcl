@@ -104,8 +104,8 @@ class SpMat {
 		    ) const = 0;
 	};
 
-	struct EllMatrix : sparse_matrix {
-	    EllMatrix(
+	struct SpMatELL : sparse_matrix {
+	    SpMatELL(
 		    const cl::CommandQueue &queue, uint beg, uint end,
 		    const uint *row, const uint *col, const real *val,
 		    const std::set<uint> &remote_cols
@@ -129,6 +129,41 @@ class SpMat {
 
 	    struct {
 		uint w;
+		cl::Buffer col;
+		cl::Buffer val;
+	    } loc, rem;
+
+	    static std::map<cl_context, bool>       compiled;
+	    static std::map<cl_context, cl::Kernel> spmv_set;
+	    static std::map<cl_context, cl::Kernel> spmv_add;
+	    static std::map<cl_context, uint>       wgsize;
+	};
+
+	struct SpMatCSR : public sparse_matrix {
+	    SpMatCSR(
+		    const cl::CommandQueue &queue, uint beg, uint end,
+		    const uint *row, const uint *col, const real *val,
+		    const std::set<uint> &remote_cols
+		    );
+
+	    void prepare_kernels(const cl::Context &context) const;
+
+	    void mul_local(
+		    const cl::Buffer &x, const cl::Buffer &y,
+		    real alpha, bool append
+		    ) const;
+
+	    void mul_remote(
+		    const cl::Buffer &x, const cl::Buffer &y,
+		    real alpha, const std::vector<cl::Event> &event
+		    ) const;
+
+	    const cl::CommandQueue &queue;
+
+	    uint n;
+
+	    struct {
+		cl::Buffer row;
 		cl::Buffer col;
 		cl::Buffer val;
 	    } loc, rem;
@@ -168,18 +203,6 @@ class SpMat {
 	std::vector<std::set<uint>> setup_exchange(
 		uint n, const uint *row, const uint *col, const real *val);
 };
-
-template <typename real>
-std::map<cl_context, bool> SpMat<real>::EllMatrix::compiled;
-
-template <typename real>
-std::map<cl_context, cl::Kernel> SpMat<real>::EllMatrix::spmv_set;
-
-template <typename real>
-std::map<cl_context, cl::Kernel> SpMat<real>::EllMatrix::spmv_add;
-
-template <typename real>
-std::map<cl_context, uint> SpMat<real>::EllMatrix::wgsize;
 
 template <typename real>
 std::map<cl_context, bool> SpMat<real>::compiled;
@@ -313,10 +336,18 @@ SpMat<real>::SpMat(
 
     // Each device get it's own strip of the matrix.
     for(uint d = 0; d < queue.size(); d++) {
-	mtx[d].reset(
-		new EllMatrix(queue[d], part[d], part[d + 1],
-		    row, col, val, remote_cols[d])
-		);
+	cl::Device device = queue[d].getInfo<CL_QUEUE_DEVICE>();
+
+	if (device.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU)
+	    mtx[d].reset(
+		    new SpMatCSR(queue[d], part[d], part[d + 1],
+			row, col, val, remote_cols[d])
+		    );
+	else
+	    mtx[d].reset(
+		    new SpMatELL(queue[d], part[d], part[d + 1],
+			row, col, val, remote_cols[d])
+		    );
     }
 }
 
@@ -332,10 +363,11 @@ void SpMat<real>::mul(const vex::vector<real> &x, vex::vector<real> &y,
 	    if (uint ncols = cidx[d + 1] - cidx[d]) {
 		uint g_size = alignup(ncols, wgsize[context()]);
 
-		gather_vals_to_send[context()].setArg(0, ncols);
-		gather_vals_to_send[context()].setArg(1, x(d));
-		gather_vals_to_send[context()].setArg(2, exc[d].cols_to_send);
-		gather_vals_to_send[context()].setArg(3, exc[d].vals_to_send);
+		uint pos = 0;
+		gather_vals_to_send[context()].setArg(pos++, ncols);
+		gather_vals_to_send[context()].setArg(pos++, x(d));
+		gather_vals_to_send[context()].setArg(pos++, exc[d].cols_to_send);
+		gather_vals_to_send[context()].setArg(pos++, exc[d].vals_to_send);
 
 		queue[d].enqueueNDRangeKernel(gather_vals_to_send[context()],
 			cl::NullRange, g_size, wgsize[context()], 0, &event1[d][0]);
@@ -457,8 +489,23 @@ std::vector<std::set<uint>> SpMat<real>::setup_exchange(
     return remote_cols;
 }
 
+//---------------------------------------------------------------------------
+// SpMat::SpMatELL
+//---------------------------------------------------------------------------
 template <typename real>
-SpMat<real>::EllMatrix::EllMatrix(
+std::map<cl_context, bool> SpMat<real>::SpMatELL::compiled;
+
+template <typename real>
+std::map<cl_context, cl::Kernel> SpMat<real>::SpMatELL::spmv_set;
+
+template <typename real>
+std::map<cl_context, cl::Kernel> SpMat<real>::SpMatELL::spmv_add;
+
+template <typename real>
+std::map<cl_context, uint> SpMat<real>::SpMatELL::wgsize;
+
+template <typename real>
+SpMat<real>::SpMatELL::SpMatELL(
 	const cl::CommandQueue &queue, uint beg, uint end,
 	const uint *row, const uint *col, const real *val,
 	const std::set<uint> &remote_cols
@@ -549,7 +596,7 @@ SpMat<real>::EllMatrix::EllMatrix(
 }
 
 template <typename real>
-void SpMat<real>::EllMatrix::prepare_kernels(const cl::Context &context) const {
+void SpMat<real>::SpMatELL::prepare_kernels(const cl::Context &context) const {
     if (!compiled[context()]) {
 	std::ostringstream source;
 
@@ -573,10 +620,10 @@ void SpMat<real>::EllMatrix::prepare_kernels(const cl::Context &context) const {
 	    "    for (uint row = get_global_id(0); row < n; row += grid_size) {\n"
 	    "        real sum = 0;\n"
 	    "        for(uint j = 0; j < w; j++) {\n"
-	    "	           uint c = col[row + j * pitch];\n"
-	    "	           if (c != NCOL) sum += val[row + j * pitch] * x[c];\n"
-	    "	       }\n"
-	    "	       y[row] = alpha * sum;\n"
+	    "            uint c = col[row + j * pitch];\n"
+	    "            if (c != NCOL) sum += val[row + j * pitch] * x[c];\n"
+	    "        }\n"
+	    "        y[row] = alpha * sum;\n"
 	    "    }\n"
 	    "}\n"
 	    "kernel void spmv_add(\n"
@@ -590,12 +637,12 @@ void SpMat<real>::EllMatrix::prepare_kernels(const cl::Context &context) const {
 	    "{\n"
 	    "    uint grid_size = get_num_groups(0) * get_local_size(0);\n"
 	    "    for(uint row = get_global_id(0); row < n; row += grid_size) {\n"
-	    "	       real sum = 0;\n"
-	    "	       for(uint j = 0; j < w; j++) {\n"
-	    "	           uint c = col[row + j * pitch];\n"
-	    "	           if (c != NCOL) sum += val[row + j * pitch] * x[c];\n"
-	    "	       }\n"
-	    "	       y[row] += alpha * sum;\n"
+	    "        real sum = 0;\n"
+	    "        for(uint j = 0; j < w; j++) {\n"
+	    "            uint c = col[row + j * pitch];\n"
+	    "            if (c != NCOL) sum += val[row + j * pitch] * x[c];\n"
+	    "        }\n"
+	    "        y[row] += alpha * sum;\n"
 	    "    }\n"
 	    "}\n";
 
@@ -616,7 +663,7 @@ void SpMat<real>::EllMatrix::prepare_kernels(const cl::Context &context) const {
 }
 
 template <typename real>
-void SpMat<real>::EllMatrix::mul_local(
+void SpMat<real>::SpMatELL::mul_local(
 	const cl::Buffer &x, const cl::Buffer &y,
 	real alpha, bool append
 	) const
@@ -628,34 +675,35 @@ void SpMat<real>::EllMatrix::mul_local(
 	* wgsize[context()] * 4;
 
     if (append) {
-	spmv_add[context()].setArg(0, n);
-	spmv_add[context()].setArg(1, loc.w);
-	spmv_add[context()].setArg(2, pitch);
-	spmv_add[context()].setArg(3, loc.col);
-	spmv_add[context()].setArg(4, loc.val);
-	spmv_add[context()].setArg(5, x);
-	spmv_add[context()].setArg(6, y);
-	spmv_add[context()].setArg(7, alpha);
+	uint pos = 0;
+	spmv_add[context()].setArg(pos++, n);
+	spmv_add[context()].setArg(pos++, loc.w);
+	spmv_add[context()].setArg(pos++, pitch);
+	spmv_add[context()].setArg(pos++, loc.col);
+	spmv_add[context()].setArg(pos++, loc.val);
+	spmv_add[context()].setArg(pos++, x);
+	spmv_add[context()].setArg(pos++, y);
+	spmv_add[context()].setArg(pos++, alpha);
 
 	queue.enqueueNDRangeKernel(spmv_add[context()],
 		cl::NullRange, g_size, wgsize[context()]);
     } else {
-	spmv_set[context()].setArg(0, n);
-	spmv_set[context()].setArg(1, loc.w);
-	spmv_set[context()].setArg(2, pitch);
-	spmv_set[context()].setArg(3, loc.col);
-	spmv_set[context()].setArg(4, loc.val);
-	spmv_set[context()].setArg(5, x);
-	spmv_set[context()].setArg(6, y);
-	spmv_set[context()].setArg(7, alpha);
+	uint pos = 0;
+	spmv_set[context()].setArg(pos++, n);
+	spmv_set[context()].setArg(pos++, loc.w);
+	spmv_set[context()].setArg(pos++, pitch);
+	spmv_set[context()].setArg(pos++, loc.col);
+	spmv_set[context()].setArg(pos++, loc.val);
+	spmv_set[context()].setArg(pos++, x);
+	spmv_set[context()].setArg(pos++, y);
+	spmv_set[context()].setArg(pos++, alpha);
 
 	queue.enqueueNDRangeKernel(spmv_set[context()],
 		cl::NullRange, g_size, wgsize[context()]);
     }
 }
-
 template <typename real>
-void SpMat<real>::EllMatrix::mul_remote(
+void SpMat<real>::SpMatELL::mul_remote(
 	const cl::Buffer &x, const cl::Buffer &y,
 	real alpha, const std::vector<cl::Event> &event
 	) const
@@ -666,14 +714,272 @@ void SpMat<real>::EllMatrix::mul_remote(
     uint g_size = device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>()
 	* wgsize[context()] * 4;
 
-    spmv_add[context()].setArg(0, n);
-    spmv_add[context()].setArg(1, rem.w);
-    spmv_add[context()].setArg(2, pitch);
-    spmv_add[context()].setArg(3, rem.col);
-    spmv_add[context()].setArg(4, rem.val);
-    spmv_add[context()].setArg(5, x);
-    spmv_add[context()].setArg(6, y);
-    spmv_add[context()].setArg(7, alpha);
+    uint pos = 0;
+    spmv_add[context()].setArg(pos++, n);
+    spmv_add[context()].setArg(pos++, rem.w);
+    spmv_add[context()].setArg(pos++, pitch);
+    spmv_add[context()].setArg(pos++, rem.col);
+    spmv_add[context()].setArg(pos++, rem.val);
+    spmv_add[context()].setArg(pos++, x);
+    spmv_add[context()].setArg(pos++, y);
+    spmv_add[context()].setArg(pos++, alpha);
+
+    queue.enqueueNDRangeKernel(spmv_add[context()],
+	    cl::NullRange, g_size, wgsize[context()], &event
+	    );
+}
+
+//---------------------------------------------------------------------------
+// SpMat::SpMatCSR
+//---------------------------------------------------------------------------
+template <typename real>
+std::map<cl_context, bool> SpMat<real>::SpMatCSR::compiled;
+
+template <typename real>
+std::map<cl_context, cl::Kernel> SpMat<real>::SpMatCSR::spmv_set;
+
+template <typename real>
+std::map<cl_context, cl::Kernel> SpMat<real>::SpMatCSR::spmv_add;
+
+template <typename real>
+std::map<cl_context, uint> SpMat<real>::SpMatCSR::wgsize;
+
+template <typename real>
+SpMat<real>::SpMatCSR::SpMatCSR(
+	const cl::CommandQueue &queue, uint beg, uint end,
+	const uint *row, const uint *col, const real *val,
+	const std::set<uint> &remote_cols
+	)
+    : queue(queue), n(end - beg)
+{
+    cl::Context context = queue.getInfo<CL_QUEUE_CONTEXT>();
+
+    prepare_kernels(context);
+
+    /* TODO
+     * Optimize for the case when there is only one device
+     */
+    std::vector<uint> lrow;
+    std::vector<uint> lcol;
+    std::vector<real> lval;
+
+    std::vector<uint> rrow;
+    std::vector<uint> rcol;
+    std::vector<real> rval;
+
+    lrow.reserve(end - beg + 1);
+    lrow.push_back(0);
+
+    lcol.reserve(row[end] - row[beg]);
+    lval.reserve(row[end] - row[beg]);
+
+    if (!remote_cols.empty()) {
+	rrow.reserve(end - beg + 1);
+	rrow.push_back(0);
+
+	rcol.reserve(row[end] - row[beg]);
+	rval.reserve(row[end] - row[beg]);
+    }
+
+    // Renumber columns.
+    std::unordered_map<uint,uint> r2l(2 * remote_cols.size());
+    for(auto c = remote_cols.begin(); c != remote_cols.end(); c++) {
+	uint idx = r2l.size();
+	r2l[*c] = idx;
+    }
+
+    for(uint i = beg; i < end; i++) {
+	for(uint j = row[i]; j < row[i + 1]; j++) {
+	    if (col[j] >= beg && col[j] < end) {
+		lcol.push_back(col[j] - beg);
+		lval.push_back(val[j]);
+	    } else {
+		assert(r2l.count(col[j]));
+		rcol.push_back(r2l[col[j]]);
+		rval.push_back(val[j]);
+	    }
+	}
+
+	lrow.push_back(lcol.size());
+	rrow.push_back(rcol.size());
+    }
+
+    cl::Event event;
+
+    // Copy local part to the device.
+    loc.row = cl::Buffer(
+	    context, CL_MEM_READ_ONLY, lrow.size() * sizeof(uint));
+
+    loc.col = cl::Buffer(
+	    context, CL_MEM_READ_ONLY, lcol.size() * sizeof(uint));
+
+    loc.val = cl::Buffer(
+	    context, CL_MEM_READ_ONLY, lval.size() * sizeof(real));
+
+    queue.enqueueWriteBuffer(
+	    loc.row, CL_FALSE, 0, lrow.size() * sizeof(uint), lrow.data());
+
+    queue.enqueueWriteBuffer(
+	    loc.col, CL_FALSE, 0, lcol.size() * sizeof(uint), lcol.data());
+
+    queue.enqueueWriteBuffer(
+	    loc.val, CL_FALSE, 0, lval.size() * sizeof(real), lval.data(),
+	    0, &event);
+
+    // Copy remote part to the device.
+    if (!remote_cols.empty()) {
+	rem.row = cl::Buffer(
+		context, CL_MEM_READ_ONLY, rrow.size() * sizeof(uint));
+
+	rem.col = cl::Buffer(
+		context, CL_MEM_READ_ONLY, rcol.size() * sizeof(uint));
+
+	rem.val = cl::Buffer(
+		context, CL_MEM_READ_ONLY, rval.size() * sizeof(real));
+
+	queue.enqueueWriteBuffer(
+		rem.row, CL_FALSE, 0, rrow.size() * sizeof(uint), rrow.data());
+
+	queue.enqueueWriteBuffer(
+		rem.col, CL_FALSE, 0, rcol.size() * sizeof(uint), rcol.data());
+
+	queue.enqueueWriteBuffer(
+		rem.val, CL_FALSE, 0, rval.size() * sizeof(real), rval.data(),
+		0, &event);
+    }
+
+    // Wait for data to be copied before it gets deallocated.
+    event.wait();
+}
+
+template <typename real>
+void SpMat<real>::SpMatCSR::prepare_kernels(const cl::Context &context) const {
+    if (!compiled[context()]) {
+	std::ostringstream source;
+
+	source << "#if defined(cl_khr_fp64)\n"
+	    "#  pragma OPENCL EXTENSION cl_khr_fp64: enable\n"
+	    "#elif defined(cl_amd_fp64)\n"
+	    "#  pragma OPENCL EXTENSION cl_amd_fp64: enable\n"
+	    "#endif\n"
+	    "typedef " << type_name<real>() << " real;\n"
+	    "#define NCOL (~0U)\n"
+	    "kernel void spmv_set(\n"
+	    "    uint n,\n"
+	    "    global const uint *row,\n"
+	    "    global const uint *col,\n"
+	    "    global const real *val,\n"
+	    "    global const real *x,\n"
+	    "    global real *y,\n"
+	    "    real alpha\n"
+	    "    )\n"
+	    "{\n"
+	    "    uint grid_size = get_num_groups(0) * get_local_size(0);\n"
+	    "    for (uint i = get_global_id(0); i < n; i += grid_size) {\n"
+	    "        real sum = 0;\n"
+	    "        uint beg = row[i];\n"
+	    "        uint end = row[i + 1];\n"
+	    "        for(uint j = beg; j < end; j++)\n"
+	    "            sum += val[j] * x[col[j]];\n"
+	    "        y[i] = alpha * sum;\n"
+	    "    }\n"
+	    "}\n"
+	    "kernel void spmv_add(\n"
+	    "    uint n,\n"
+	    "    global const uint *row,\n"
+	    "    global const uint *col,\n"
+	    "    global const real *val,\n"
+	    "    global const real *x,\n"
+	    "    global real *y,\n"
+	    "    real alpha\n"
+	    "    )\n"
+	    "{\n"
+	    "    uint grid_size = get_num_groups(0) * get_local_size(0);\n"
+	    "    for (uint i = get_global_id(0); i < n; i += grid_size) {\n"
+	    "        real sum = 0;\n"
+	    "        uint beg = row[i];\n"
+	    "        uint end = row[i + 1];\n"
+	    "        for(uint j = beg; j < end; j++)\n"
+	    "            sum += val[j] * x[col[j]];\n"
+	    "        y[i] += alpha * sum;\n"
+	    "    }\n"
+	    "}\n";
+
+	auto program = build_sources(context, source.str());
+
+	spmv_set[context()] = cl::Kernel(program, "spmv_set");
+	spmv_add[context()] = cl::Kernel(program, "spmv_add");
+
+	std::vector<cl::Device> device = context.getInfo<CL_CONTEXT_DEVICES>();
+
+	wgsize[context()] = std::min(
+		kernel_workgroup_size(spmv_set[context()], device),
+		kernel_workgroup_size(spmv_add[context()], device)
+		);
+
+	compiled[context()] = true;
+    }
+}
+
+template <typename real>
+void SpMat<real>::SpMatCSR::mul_local(
+	const cl::Buffer &x, const cl::Buffer &y,
+	real alpha, bool append
+	) const
+{
+    cl::Context context = queue.getInfo<CL_QUEUE_CONTEXT>();
+    cl::Device  device  = queue.getInfo<CL_QUEUE_DEVICE>();
+
+    uint g_size = device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>()
+	* wgsize[context()] * 4;
+
+    if (append) {
+	uint pos = 0;
+	spmv_add[context()].setArg(pos++, n);
+	spmv_add[context()].setArg(pos++, loc.row);
+	spmv_add[context()].setArg(pos++, loc.col);
+	spmv_add[context()].setArg(pos++, loc.val);
+	spmv_add[context()].setArg(pos++, x);
+	spmv_add[context()].setArg(pos++, y);
+	spmv_add[context()].setArg(pos++, alpha);
+
+	queue.enqueueNDRangeKernel(spmv_add[context()],
+		cl::NullRange, g_size, wgsize[context()]);
+    } else {
+	uint pos = 0;
+	spmv_set[context()].setArg(pos++, n);
+	spmv_set[context()].setArg(pos++, loc.row);
+	spmv_set[context()].setArg(pos++, loc.col);
+	spmv_set[context()].setArg(pos++, loc.val);
+	spmv_set[context()].setArg(pos++, x);
+	spmv_set[context()].setArg(pos++, y);
+	spmv_set[context()].setArg(pos++, alpha);
+
+	queue.enqueueNDRangeKernel(spmv_set[context()],
+		cl::NullRange, g_size, wgsize[context()]);
+    }
+}
+
+template <typename real>
+void SpMat<real>::SpMatCSR::mul_remote(
+	const cl::Buffer &x, const cl::Buffer &y,
+	real alpha, const std::vector<cl::Event> &event
+	) const
+{
+    cl::Context context = queue.getInfo<CL_QUEUE_CONTEXT>();
+    cl::Device  device  = queue.getInfo<CL_QUEUE_DEVICE>();
+
+    uint g_size = device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>()
+	* wgsize[context()] * 4;
+
+    uint pos = 0;
+    spmv_add[context()].setArg(pos++, n);
+    spmv_add[context()].setArg(pos++, rem.row);
+    spmv_add[context()].setArg(pos++, rem.col);
+    spmv_add[context()].setArg(pos++, rem.val);
+    spmv_add[context()].setArg(pos++, x);
+    spmv_add[context()].setArg(pos++, y);
+    spmv_add[context()].setArg(pos++, alpha);
 
     queue.enqueueNDRangeKernel(spmv_add[context()],
 	    cl::NullRange, g_size, wgsize[context()], &event

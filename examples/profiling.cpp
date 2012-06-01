@@ -232,8 +232,8 @@ std::pair<double,double> benchmark_spmv(
 	y += A * x;
     time_elapsed = prof.toc("OpenCL");
 
-    double gflops = 15.0 * N * M / time_elapsed / 1e9;
-    double bwidth = M * (7 * N * (2 * sizeof(real) + sizeof(uint)) + 2 * N * sizeof(real)) / time_elapsed / 1e9;
+    double gflops = (2.0 * nnz + N) * M / time_elapsed / 1e9;
+    double bwidth = M * (nnz * (2 * sizeof(real) + sizeof(uint)) + 4 * N * sizeof(real)) / time_elapsed / 1e9;
 
     std::cout
 	<< "SpMV\n"
