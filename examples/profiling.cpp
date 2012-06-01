@@ -9,7 +9,10 @@ using namespace vex;
 
 typedef double real;
 
-#define CPU_BENCHMARK
+#define BENCHMARK_VECTOR
+#define BENCHMARK_REDUCTOR
+#define BENCHMARK_SPMAT
+#define BENCHMARK_CPU
 
 //---------------------------------------------------------------------------
 std::pair<double,double> benchmark_vector(
@@ -52,7 +55,7 @@ std::pair<double,double> benchmark_vector(
 	<< "\n    Bandwidth: " << bwidth
 	<< std::endl;
 
-#ifdef CPU_BENCHMARK
+#ifdef BENCHMARK_CPU
     prof.tic_cpu("C++");
     for(uint i = 0; i < M; i++)
 	for(uint j = 0; j < N; j++)
@@ -119,7 +122,7 @@ std::pair<double, double> benchmark_reductor(
 	<< "\n    Bandwidth: " << bwidth
 	<< std::endl;
 
-#ifdef CPU_BENCHMARK
+#ifdef BENCHMARK_CPU
     double sum_cpp = 0;
     prof.tic_cpu("C++");
     for(size_t i = 0; i < M; i++)
@@ -239,7 +242,7 @@ std::pair<double,double> benchmark_spmv(
 	<< "\n    Bandwidth: " << bwidth
 	<< std::endl;
 
-#ifdef CPU_BENCHMARK
+#ifdef BENCHMARK_CPU
     prof.tic_cpu("C++");
     for(size_t k = 0; k < M; k++)
 	for(uint i = 0; i < N; i++) {
@@ -292,23 +295,29 @@ int main() {
 
 	profiler prof(queue);
 
+#ifdef BENCHMARK_VECTOR
 	prof.tic_cpu("Vector arithmetic");
 	std::tie(gflops, bwidth) = benchmark_vector(queue, prof);
 	prof.toc("Vector arithmetic");
 
 	log << gflops << " " << bwidth << " ";
+#endif
 
+#ifdef BENCHMARK_REDUCTOR
 	prof.tic_cpu("Reduction");
 	std::tie(gflops, bwidth) = benchmark_reductor(queue, prof);
 	prof.toc("Reduction");
 
 	log << gflops << " " << bwidth << " ";
+#endif
 
+#ifdef BENCHMARK_SPMAT
 	prof.tic_cpu("SpMV");
 	std::tie(gflops, bwidth) = benchmark_spmv(queue, prof);
 	prof.toc("SpMV");
 
 	log << gflops << " " << bwidth << std::endl;
+#endif
 
 	std::cout << prof << std::endl;
     } catch (const cl::Error &e) {

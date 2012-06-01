@@ -136,8 +136,8 @@ std::cout << sum(sqrt(Const(2) * X) + cos(Y)) << std::endl;
 
 One of the most common operations in linear algebra is matrix-vector
 multiplication. Class vex::SpMat holds representation of a sparse matrix,
-spanning several GPUs. In the example below it is used for solution of a system
-of linear equations with conjugate gradients method:
+spanning several devices. In the example below it is used for solution of a
+system of linear equations with conjugate gradients method:
 \code
 typedef double real;
 // Solve system of linear equations A u = f with conjugate gradients method.
@@ -150,13 +150,13 @@ void cg_gpu(
 	std::vector<real> &x		// In: initial approximation; out: result.
 	)
 {
-    // Init OpenCL
+    // Init OpenCL.
     cl::Context context;
     std::vector<cl::CommandQueue> queue;
 
     std::tie(context, queue) = queue_list(Filter::Type(CL_DEVICE_TYPE_GPU));
 
-    // Move data to GPU(s)
+    // Move data to compute devices.
     uint n = x.size();
     vex::SpMat<real>  A(queue, n, row.data(), col.data(), val.data());
     vex::vector<real> f(queue, CL_MEM_READ_ONLY,  rhs);
