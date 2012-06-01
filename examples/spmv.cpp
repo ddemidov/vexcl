@@ -35,7 +35,7 @@ int main() {
 	std::vector<cl::Context>      context;
 	std::vector<cl::CommandQueue> queue;
 	std::tie(context, queue) = queue_list(
-		Filter::Env() && Filter::DoublePrecision());
+		Filter::DoublePrecision() && Filter::Env());
 	std::cout << queue << std::endl;
 
 	// Create OpenCL matrix.

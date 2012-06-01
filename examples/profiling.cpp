@@ -283,7 +283,8 @@ int main() {
 	std::vector<cl::CommandQueue> queue;
 
 	std::tie(context, queue) = queue_list(
-		Filter::Env(), CL_QUEUE_PROFILING_ENABLE);
+		Filter::DoublePrecision() && Filter::Env(),
+		CL_QUEUE_PROFILING_ENABLE);
 
 	std::cout << queue << std::endl;
 
