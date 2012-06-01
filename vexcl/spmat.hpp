@@ -758,100 +758,116 @@ SpMat<real>::SpMatCSR::SpMatCSR(
 
     prepare_kernels(context);
 
-    /* TODO
-     * Optimize for the case when there is only one device
-     */
-    std::vector<uint> lrow;
-    std::vector<uint> lcol;
-    std::vector<real> lval;
+    if (beg == 0 && remote_cols.empty()) {
+	loc.row = cl::Buffer(
+		context, CL_MEM_READ_ONLY, (n + 1) * sizeof(uint));
 
-    std::vector<uint> rrow;
-    std::vector<uint> rcol;
-    std::vector<real> rval;
+	loc.col = cl::Buffer(
+		context, CL_MEM_READ_ONLY, row[n] * sizeof(uint));
 
-    lrow.reserve(end - beg + 1);
-    lrow.push_back(0);
+	loc.val = cl::Buffer(
+		context, CL_MEM_READ_ONLY, row[n] * sizeof(real));
 
-    lcol.reserve(row[end] - row[beg]);
-    lval.reserve(row[end] - row[beg]);
+	queue.enqueueWriteBuffer(
+		loc.row, CL_FALSE, 0, (n + 1) * sizeof(uint), row);
 
-    if (!remote_cols.empty()) {
-	rrow.reserve(end - beg + 1);
-	rrow.push_back(0);
+	queue.enqueueWriteBuffer(
+		loc.col, CL_FALSE, 0, row[n] * sizeof(uint), col);
 
-	rcol.reserve(row[end] - row[beg]);
-	rval.reserve(row[end] - row[beg]);
-    }
+	queue.enqueueWriteBuffer(
+		loc.val, CL_TRUE, 0, row[n] * sizeof(real), val);
+    } else {
+	std::vector<uint> lrow;
+	std::vector<uint> lcol;
+	std::vector<real> lval;
 
-    // Renumber columns.
-    std::unordered_map<uint,uint> r2l(2 * remote_cols.size());
-    for(auto c = remote_cols.begin(); c != remote_cols.end(); c++) {
-	uint idx = r2l.size();
-	r2l[*c] = idx;
-    }
+	std::vector<uint> rrow;
+	std::vector<uint> rcol;
+	std::vector<real> rval;
 
-    for(uint i = beg; i < end; i++) {
-	for(uint j = row[i]; j < row[i + 1]; j++) {
-	    if (col[j] >= beg && col[j] < end) {
-		lcol.push_back(col[j] - beg);
-		lval.push_back(val[j]);
-	    } else {
-		assert(r2l.count(col[j]));
-		rcol.push_back(r2l[col[j]]);
-		rval.push_back(val[j]);
-	    }
+	lrow.reserve(end - beg + 1);
+	lrow.push_back(0);
+
+	lcol.reserve(row[end] - row[beg]);
+	lval.reserve(row[end] - row[beg]);
+
+	if (!remote_cols.empty()) {
+	    rrow.reserve(end - beg + 1);
+	    rrow.push_back(0);
+
+	    rcol.reserve(row[end] - row[beg]);
+	    rval.reserve(row[end] - row[beg]);
 	}
 
-	lrow.push_back(lcol.size());
-	rrow.push_back(rcol.size());
-    }
+	// Renumber columns.
+	std::unordered_map<uint,uint> r2l(2 * remote_cols.size());
+	for(auto c = remote_cols.begin(); c != remote_cols.end(); c++) {
+	    uint idx = r2l.size();
+	    r2l[*c] = idx;
+	}
 
-    cl::Event event;
+	for(uint i = beg; i < end; i++) {
+	    for(uint j = row[i]; j < row[i + 1]; j++) {
+		if (col[j] >= beg && col[j] < end) {
+		    lcol.push_back(col[j] - beg);
+		    lval.push_back(val[j]);
+		} else {
+		    assert(r2l.count(col[j]));
+		    rcol.push_back(r2l[col[j]]);
+		    rval.push_back(val[j]);
+		}
+	    }
 
-    // Copy local part to the device.
-    loc.row = cl::Buffer(
-	    context, CL_MEM_READ_ONLY, lrow.size() * sizeof(uint));
+	    lrow.push_back(lcol.size());
+	    rrow.push_back(rcol.size());
+	}
 
-    loc.col = cl::Buffer(
-	    context, CL_MEM_READ_ONLY, lcol.size() * sizeof(uint));
+	cl::Event event;
 
-    loc.val = cl::Buffer(
-	    context, CL_MEM_READ_ONLY, lval.size() * sizeof(real));
+	// Copy local part to the device.
+	loc.row = cl::Buffer(
+		context, CL_MEM_READ_ONLY, lrow.size() * sizeof(uint));
 
-    queue.enqueueWriteBuffer(
-	    loc.row, CL_FALSE, 0, lrow.size() * sizeof(uint), lrow.data());
+	loc.col = cl::Buffer(
+		context, CL_MEM_READ_ONLY, lcol.size() * sizeof(uint));
 
-    queue.enqueueWriteBuffer(
-	    loc.col, CL_FALSE, 0, lcol.size() * sizeof(uint), lcol.data());
-
-    queue.enqueueWriteBuffer(
-	    loc.val, CL_FALSE, 0, lval.size() * sizeof(real), lval.data(),
-	    0, &event);
-
-    // Copy remote part to the device.
-    if (!remote_cols.empty()) {
-	rem.row = cl::Buffer(
-		context, CL_MEM_READ_ONLY, rrow.size() * sizeof(uint));
-
-	rem.col = cl::Buffer(
-		context, CL_MEM_READ_ONLY, rcol.size() * sizeof(uint));
-
-	rem.val = cl::Buffer(
-		context, CL_MEM_READ_ONLY, rval.size() * sizeof(real));
+	loc.val = cl::Buffer(
+		context, CL_MEM_READ_ONLY, lval.size() * sizeof(real));
 
 	queue.enqueueWriteBuffer(
-		rem.row, CL_FALSE, 0, rrow.size() * sizeof(uint), rrow.data());
+		loc.row, CL_FALSE, 0, lrow.size() * sizeof(uint), lrow.data());
 
 	queue.enqueueWriteBuffer(
-		rem.col, CL_FALSE, 0, rcol.size() * sizeof(uint), rcol.data());
+		loc.col, CL_FALSE, 0, lcol.size() * sizeof(uint), lcol.data());
 
 	queue.enqueueWriteBuffer(
-		rem.val, CL_FALSE, 0, rval.size() * sizeof(real), rval.data(),
+		loc.val, CL_FALSE, 0, lval.size() * sizeof(real), lval.data(),
 		0, &event);
-    }
 
-    // Wait for data to be copied before it gets deallocated.
-    event.wait();
+	// Copy remote part to the device.
+	if (!remote_cols.empty()) {
+	    rem.row = cl::Buffer(
+		    context, CL_MEM_READ_ONLY, rrow.size() * sizeof(uint));
+
+	    rem.col = cl::Buffer(
+		    context, CL_MEM_READ_ONLY, rcol.size() * sizeof(uint));
+
+	    rem.val = cl::Buffer(
+		    context, CL_MEM_READ_ONLY, rval.size() * sizeof(real));
+
+	    queue.enqueueWriteBuffer(
+		    rem.row, CL_FALSE, 0, rrow.size() * sizeof(uint), rrow.data());
+
+	    queue.enqueueWriteBuffer(
+		    rem.col, CL_FALSE, 0, rcol.size() * sizeof(uint), rcol.data());
+
+	    queue.enqueueWriteBuffer(
+		    rem.val, CL_FALSE, 0, rval.size() * sizeof(real), rval.data(),
+		    0, &event);
+	}
+
+	event.wait();
+    }
 }
 
 template <typename real>
