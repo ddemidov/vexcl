@@ -101,7 +101,7 @@ class vector {
 		const uint              index;
 
 		friend class vector;
-		friend class vector::iterator;
+		friend typename vector::iterator;
 	};
 
 	/// Iterator class.
@@ -132,7 +132,7 @@ class vector {
 		}
 
 		iterator_type operator+(ptrdiff_t d) const {
-		    return iterator(vec, pos + d);
+		    return iterator_type(vec, pos + d);
 		}
 
 		ptrdiff_t operator-(iterator_type it) const {

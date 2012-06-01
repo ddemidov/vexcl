@@ -130,15 +130,16 @@ class profiler {
 		void tic() {
 #ifdef WIN32
 		    ftime(&start);
-#endif
+#else
 		    start = std::chrono::high_resolution_clock::now();
+#endif
 		}
 
 		double toc() {
 #ifdef WIN32
 		    timeb now;
 		    ftime(&now);
-		    delta = now - start;
+		    double delta = now - start;
 #else
 		    double delta = std::chrono::duration<double>(
 			    std::chrono::high_resolution_clock::now() - start).count();

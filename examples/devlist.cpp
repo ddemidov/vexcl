@@ -4,7 +4,7 @@ using namespace vex;
 
 int main() {
     std::cout << "OpenCL devices:" << std::endl << std::endl;
-    auto dev = device_list();
+    auto dev = device_list(Filter::All());
     for (auto d = dev.begin(); d != dev.end(); d++) {
 	std::cout << "  " << d->getInfo<CL_DEVICE_NAME>() << std::endl
 		  << "    CL_PLATFORM_NAME              = " << cl::Platform(d->getInfo<CL_DEVICE_PLATFORM>()).getInfo<CL_PLATFORM_NAME>() << std::endl

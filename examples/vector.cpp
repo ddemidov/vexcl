@@ -26,6 +26,8 @@ int main() {
 	    return 1;
 	}
 
+	std::cout << queue << std::endl;
+
 	// Allocate host vector, fill it with random values.
 	const uint N = 1024 * 1024;
 	std::vector<double> host_vec(N);

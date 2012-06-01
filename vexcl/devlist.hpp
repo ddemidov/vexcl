@@ -262,7 +262,11 @@ namespace Filter {
  *	    );
  * \endcode
  */
-template<class DevFilter = Filter::All>
+template<class DevFilter
+#ifndef WIN32
+    = Filter::All
+#endif
+    >
 std::vector<cl::Device> device_list(DevFilter filter = Filter::All())
 {
     std::vector<cl::Device> device;
@@ -293,7 +297,11 @@ std::vector<cl::Device> device_list(DevFilter filter = Filter::All())
  * \returns list of queues accociated with selected devices.
  * \see device_list
  */
-template<class DevFilter = Filter::All>
+template<class DevFilter
+#ifndef WIN32
+    = Filter::All
+#endif
+    >
 std::pair<std::vector<cl::Context>, std::vector<cl::CommandQueue>>
 queue_list(
 	DevFilter filter = Filter::All(),
