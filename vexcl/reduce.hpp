@@ -76,7 +76,7 @@ class Reductor {
     private:
 	const std::vector<cl::CommandQueue> &queue;
 	std::vector<uint> idx;
-	std::vector<vex::vector<real>> dbuf;
+	std::vector<cl::Buffer> dbuf;
 
 	mutable std::vector<real> hbuf;
 	mutable std::vector<cl::Event> event;
@@ -118,12 +118,13 @@ Reductor<real,RDC>::Reductor(const std::vector<cl::CommandQueue> &queue)
     idx.push_back(0);
 
     for(auto q = queue.begin(); q != queue.end(); q++) {
+	cl::Context context = q->getInfo<CL_QUEUE_CONTEXT>();
 	cl::Device d = q->getInfo<CL_QUEUE_DEVICE>();
+
 	uint bufsize = d.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() * 2U;
 	idx.push_back(idx.back() + bufsize);
 
-	std::vector<cl::CommandQueue> lq(1, *q);
-	dbuf.push_back(vex::vector<real>(lq, CL_MEM_READ_WRITE, bufsize));
+	dbuf.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, bufsize * sizeof(real)));
     }
 
     hbuf.resize(idx.back());
@@ -181,7 +182,7 @@ real Reductor<real,RDC>::operator()(const Expr &expr) const {
 	uint pos   = 0;
 	exdata<Expr>::kernel[context()].setArg(pos++, psize);
 	expr.kernel_args(exdata<Expr>::kernel[context()], d, pos);
-	exdata<Expr>::kernel[context()].setArg(pos++, dbuf[d]());
+	exdata<Expr>::kernel[context()].setArg(pos++, dbuf[d]);
 	exdata<Expr>::kernel[context()].setArg(pos++, lmem);
 
 	queue[d].enqueueNDRangeKernel(exdata<Expr>::kernel[context()],
@@ -189,8 +190,8 @@ real Reductor<real,RDC>::operator()(const Expr &expr) const {
     }
 
     for(uint d = 0; d < queue.size(); d++) {
-	queue[d].enqueueReadBuffer(dbuf[d](), CL_FALSE,
-		0, sizeof(real) * dbuf[d].size(), &hbuf[idx[d]], 0, &event[d]);
+	queue[d].enqueueReadBuffer(dbuf[d], CL_FALSE,
+		0, sizeof(real) * (idx[d + 1] - idx[d]), &hbuf[idx[d]], 0, &event[d]);
     }
 
     for(auto e = event.begin(); e != event.end(); e++)
