@@ -102,6 +102,8 @@ class SpMat {
 		    const cl::Buffer &x, const cl::Buffer &y,
 		    real alpha, const std::vector<cl::Event> &event
 		    ) const = 0;
+
+	    virtual ~sparse_matrix() {}
 	};
 
 	struct SpMatELL : sparse_matrix {
