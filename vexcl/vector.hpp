@@ -746,15 +746,15 @@ inline double device_weight(
 	uint test_size = 1048576U
 	)
 {
-    cl::CommandQueue queue(context, device, CL_QUEUE_PROFILING_ENABLE);
-
-    std::vector<cl::CommandQueue> q(1, queue);
+    std::vector<cl::CommandQueue> queue(1,
+	    cl::CommandQueue(context, device, CL_QUEUE_PROFILING_ENABLE)
+	    );
 
     // Allocate test vectors on current device and measure execution
     // time of a simple kernel.
-    vex::vector<float> a(q, CL_MEM_READ_WRITE, test_size);
-    vex::vector<float> b(q, CL_MEM_READ_WRITE, test_size);
-    vex::vector<float> c(q, CL_MEM_READ_WRITE, test_size);
+    vex::vector<float> a(queue, CL_MEM_READ_WRITE, test_size);
+    vex::vector<float> b(queue, CL_MEM_READ_WRITE, test_size);
+    vex::vector<float> c(queue, CL_MEM_READ_WRITE, test_size);
 
     b = Const(1);
     c = Const(2);
@@ -765,9 +765,9 @@ inline double device_weight(
     // Measure the second run.
     cl::Event beg, end;
 
-    queue.enqueueMarker(&beg);
+    queue[0].enqueueMarker(&beg);
     a = b + c;
-    queue.enqueueMarker(&end);
+    queue[0].enqueueMarker(&end);
 
     beg.wait();
     end.wait();
@@ -783,31 +783,32 @@ inline std::vector<uint> partition(uint n, const std::vector<cl::CommandQueue> &
 {
     static std::map<cl_device_id, double> dev_weights;
 
-    double tot_weight = 0;
-    for(auto q = queue.begin(); q != queue.end(); q++) {
-	cl::Device device = q->getInfo<CL_QUEUE_DEVICE>();
-
-	auto dw = dev_weights.find(device());
-
-	if (dw == dev_weights.end()) {
-	    cl::Context context = q->getInfo<CL_QUEUE_CONTEXT>();
-	    tot_weight += (dev_weights[device()] = device_weight(context, device));
-	} else {
-	    tot_weight += dw->second;
-	}
-    }
-
     std::vector<uint> part(queue.size() + 1);
-
     part[0] = 0;
 
-    double sum = 0;
-    for(uint i = 0; i < queue.size(); i++) {
-	cl::Device device = queue[i].getInfo<CL_QUEUE_DEVICE>();
+    if (queue.size() > 1) {
+	double tot_weight = 0;
+	for(auto q = queue.begin(); q != queue.end(); q++) {
+	    cl::Device device = q->getInfo<CL_QUEUE_DEVICE>();
 
-	sum += dev_weights[device()] / tot_weight;
+	    auto dw = dev_weights.find(device());
 
-	part[i + 1] = std::min(n, alignup(static_cast<uint>(sum * n)));
+	    if (dw == dev_weights.end()) {
+		cl::Context context = q->getInfo<CL_QUEUE_CONTEXT>();
+		tot_weight += (dev_weights[device()] = device_weight(context, device));
+	    } else {
+		tot_weight += dw->second;
+	    }
+	}
+
+	double sum = 0;
+	for(uint i = 0; i < queue.size(); i++) {
+	    cl::Device device = queue[i].getInfo<CL_QUEUE_DEVICE>();
+
+	    sum += dev_weights[device()] / tot_weight;
+
+	    part[i + 1] = std::min(n, alignup(static_cast<uint>(sum * n)));
+	}
     }
 
     part.back() = n;
@@ -823,13 +824,14 @@ inline std::vector<uint> partition(uint n, const std::vector<cl::CommandQueue> &
     uint m = queue.size();
 
     std::vector<uint> part(m + 1);
-
-    uint chunk_size = alignup((n + m - 1) / m);
-
     part[0] = 0;
 
-    for(uint i = 0; i < m; i++)
-	part[i + 1] = std::min(n, part[i] + chunk_size);
+    if (queue.size() > 1) {
+	for(uint i = 0, chunk_size = alignup((n + m - 1) / m); i < m; i++)
+	    part[i + 1] = std::min(n, part[i] + chunk_size);
+    } else {
+	part.back() = n;
+    }
 
     return part;
 }
