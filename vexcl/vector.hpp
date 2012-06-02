@@ -178,6 +178,8 @@ template <typename T>
 struct KernelGenerator<T, typename std::enable_if<std::is_arithmetic<T>::value>::type> {
     KernelGenerator(const T &value) : value(value) {}
 
+    void preamble(std::ostream &os, std::string name) const {}
+
     std::string kernel_name() const {
 	return "c";
     }
@@ -486,7 +488,11 @@ class vector : public expression {
 			    "#  pragma OPENCL EXTENSION cl_khr_fp64: enable\n"
 			    "#elif defined(cl_amd_fp64)\n"
 			    "#  pragma OPENCL EXTENSION cl_amd_fp64: enable\n"
-			    "#endif\n" <<
+			    "#endif\n";
+
+			kgen.preamble(kernel, "prm");
+
+			kernel <<
 			    "kernel void " << kernel_name << "(\n"
 			    "\tunsigned int n,\n"
 			    "\tglobal " << type_name<T>() << " *res";
@@ -754,7 +760,7 @@ void swap(vector<T> &x, vector<T> &y) {
 
 /// Expression template.
 template <class LHS, char OP, class RHS>
-struct BinaryExpression : expression {
+struct BinaryExpression : public expression {
     BinaryExpression(const LHS &lhs, const RHS &rhs) : lhs(lhs), rhs(rhs) {}
 
     std::string kernel_name() const {
@@ -847,7 +853,7 @@ struct UnaryFunction;
 
 /// \internal Unary expression template.
 template <class Expr>
-struct UnaryExpression : expression {
+struct UnaryExpression : public expression {
     UnaryExpression(const Expr &expr, const UnaryFunction &fun)
 	: expr(expr), fun(fun) {}
 
