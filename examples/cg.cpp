@@ -47,15 +47,15 @@ void cg_gpu(
 	    p = r;
 	} else {
 	    real beta = rho1 / rho2;
-	    p = r + Const(beta) * p;
+	    p = r + beta * p;
 	}
 
 	q = A * p;
 
 	real alpha = rho1 / sum(p * q);
 
-	u += Const(alpha) * p;
-	r -= Const(alpha) * q;
+	u += alpha * p;
+	r -= alpha * q;
 
 	rho2 = rho1;
     }

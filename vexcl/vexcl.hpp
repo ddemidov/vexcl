@@ -111,8 +111,8 @@ encountered in your program) and called automagically.
 
 Vectors are processed in parallel across all devices they were allocated on:
 \code
-Y = Const(42);
-Z = sqrt(Const(2) * X) + cos(Y);
+Y = 42;
+Z = sqrt(2 * X) + cos(Y);
 \endcode
 
 You can copy the result back to host or you can use vector::operator[] to
@@ -129,7 +129,7 @@ single value, such as summation. This can be done with vex::Reductor class:
 Reductor<double> sum(queue);
 
 std::cout << sum(Z) << std::endl;
-std::cout << sum(sqrt(Const(2) * X) + cos(Y)) << std::endl;
+std::cout << sum(sqrt(2 * X) + cos(Y)) << std::endl;
 \endcode
 
 \section spmv Sparse matrix-vector multiplication
@@ -179,15 +179,15 @@ void cg_gpu(
 	    p = r;
 	} else {
 	    real beta = rho1 / rho2;
-	    p = r + Const(beta) * p;
+	    p = r + beta * p;
 	}
 
 	q = A * p;
 
 	real alpha = rho1 / sum(p * q);
 
-	u += Const(alpha) * p;
-	r -= Const(alpha) * q;
+	u += alpha * p;
+	r -= alpha * q;
 
 	rho2 = rho1;
     }

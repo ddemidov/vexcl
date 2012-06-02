@@ -17,12 +17,12 @@ int main() {
     vex::vector<double> X(queue, CL_MEM_READ_ONLY,  x);
     vex::vector<double> Y(queue, CL_MEM_READ_WRITE, n);
     vex::vector<double> Z(queue, CL_MEM_READ_WRITE, n);
-    Y = Const(42);
-    Z = Sqrt(Const(2) * X) + Cos(Y);
+    Y = 42;
+    Z = Sqrt(2 * X) + Cos(Y);
     copy(Z, x);
     assert(x[42] == Z[42]);
     Reductor<double,SUM> sum(queue);
     Reductor<double,MAX> max(queue);
-    std::cout << max(Abs(X) - Const(0.5)) << std::endl;
-    std::cout << sum(Sqrt(Const(2) * X) + Cos(Y)) << std::endl;
+    std::cout << max(Abs(X) - 0.5) << std::endl;
+    std::cout << sum(Sqrt(2 * X) + Cos(Y)) << std::endl;
 }

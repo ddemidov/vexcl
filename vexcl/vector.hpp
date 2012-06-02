@@ -57,6 +57,90 @@ template <class Expr, typename T> struct ExSpMV;
 inline std::vector<uint> partition(
 	uint n, const std::vector<cl::CommandQueue> &queue);
 
+/// Default kernel generation helper.
+/**
+ * Works on top of classes providing required functions.
+ */
+template <class T, class Enable = void>
+struct KernelGenerator {
+    KernelGenerator(const T &value) : value(value) {}
+
+    std::string kernel_name() const {
+	return value.kernel_name();
+    }
+
+    void kernel_expr(std::ostream &os, std::string name) const {
+	value.kernel_expr(os, name);
+    }
+
+    void kernel_expr(std::ostream &os) const {
+	value.kernel_expr(os);
+    }
+
+    void kernel_prm(std::ostream &os, std::string name) const {
+	value.kernel_prm(os, name);
+    }
+
+    void kernel_prm(std::ostream &os) const {
+	value.kernel_prm(os);
+    }
+
+    void kernel_args(cl::Kernel &k, uint devnum, uint &pos) const {
+	value.kernel_args(k, devnum, pos);
+    }
+
+    uint part_size(uint dev) const {
+	return value.part_size(dev);
+    }
+
+    private:
+	const T &value;
+};
+
+/// Kernel generation helper for arithmetic types.
+template <typename T>
+struct KernelGenerator<T, typename std::enable_if<std::is_arithmetic<T>::value>::type> {
+    KernelGenerator(const T &value) : value(value) {}
+
+    std::string kernel_name() const {
+	return "c";
+    }
+
+    void kernel_expr(std::ostream &os, std::string name = "c") const {
+	os << name;
+    }
+
+    void kernel_prm(std::ostream &os, std::string name = "c") const {
+	os << ",\n\t" << type_name<T>() << " " << name;
+    }
+
+    void kernel_args(cl::Kernel &k, uint devnum, uint &pos) const {
+	k.setArg(pos++, value);
+    }
+
+    uint part_size(uint dev) const {
+	return 1;
+    }
+
+    private:
+	const T &value;
+};
+
+template <class T, class Enable = void>
+struct valid_expression {
+    static const bool value = false;
+};
+
+template <typename T>
+struct valid_expression<T, typename std::enable_if<T::is_expression>::type> {
+    static const bool value = true;
+};
+
+template <typename T>
+struct valid_expression<T, typename std::enable_if<std::is_arithmetic<T>::value>::type> {
+    static const bool value = true;
+};
+
 /// Device vector.
 template<class T>
 class vector {
@@ -276,6 +360,8 @@ class vector {
 	 */
 	template <class Expr>
 	    const vector& operator=(const Expr &expr) {
+		KernelGenerator<Expr> kgen(expr);
+
 		for(auto q = queue.begin(); q != queue.end(); q++) {
 		    cl::Context context = q->getInfo<CL_QUEUE_CONTEXT>();
 
@@ -288,7 +374,7 @@ class vector {
 
 			std::ostringstream kernel;
 
-			std::string kernel_name = expr.kernel_name();
+			std::string kernel_name = kgen.kernel_name();
 
 			kernel <<
 			    "#if defined(cl_khr_fp64)\n"
@@ -300,7 +386,7 @@ class vector {
 			    "\tunsigned int n,\n"
 			    "\tglobal " << type_name<T>() << " *res";
 
-			expr.kernel_prm(kernel);
+			kgen.kernel_prm(kernel);
 
 			kernel <<
 			    "\n\t)\n{\n"
@@ -316,7 +402,7 @@ class vector {
 				"\t\tres[i] = ";
 			}
 
-			expr.kernel_expr(kernel);
+			kgen.kernel_expr(kernel);
 
 			if (device_is_cpu) {
 			    kernel <<
@@ -354,7 +440,7 @@ class vector {
 		    uint pos = 0;
 		    exdata<Expr>::kernel[context()].setArg(pos++, psize);
 		    exdata<Expr>::kernel[context()].setArg(pos++, buf[d]);
-		    expr.kernel_args(exdata<Expr>::kernel[context()], d, pos);
+		    kgen.kernel_args(exdata<Expr>::kernel[context()], d, pos);
 
 		    queue[d].enqueueNDRangeKernel(
 			    exdata<Expr>::kernel[context()],
@@ -596,14 +682,15 @@ struct BinaryExpression {
 	return std::max(lhs.part_size(dev), rhs.part_size(dev));
     }
 
-    const LHS &lhs;
-    const RHS &rhs;
+    const KernelGenerator<LHS> lhs;
+    const KernelGenerator<RHS> rhs;
 };
 
 /// Sum of two expressions.
 template <class LHS, class RHS>
 typename std::enable_if<
-    LHS::is_expression && RHS::is_expression,
+    valid_expression<LHS>::value &&
+    valid_expression<RHS>::value,
     BinaryExpression<LHS, '+', RHS>
     >::type
     operator+(const LHS &lhs, const RHS &rhs) {
@@ -613,7 +700,8 @@ typename std::enable_if<
 /// Difference of two expressions.
 template <class LHS, class RHS>
 typename std::enable_if<
-    LHS::is_expression && RHS::is_expression,
+    valid_expression<LHS>::value &&
+    valid_expression<RHS>::value,
     BinaryExpression<LHS, '-', RHS>
     >::type
     operator-(const LHS &lhs, const RHS &rhs) {
@@ -623,7 +711,8 @@ typename std::enable_if<
 /// Product of two expressions.
 template <class LHS, class RHS>
 typename std::enable_if<
-    LHS::is_expression && RHS::is_expression,
+    valid_expression<LHS>::value &&
+    valid_expression<RHS>::value,
     BinaryExpression<LHS, '*', RHS>
     >::type
     operator*(const LHS &lhs, const RHS &rhs) {
@@ -633,47 +722,13 @@ typename std::enable_if<
 /// Division of two expressions.
 template <class LHS, class RHS>
 typename std::enable_if<
-    LHS::is_expression && RHS::is_expression,
+    valid_expression<LHS>::value &&
+    valid_expression<RHS>::value,
     BinaryExpression<LHS, '/', RHS>
     >::type
     operator/(const LHS &lhs, const RHS &rhs) {
 	return BinaryExpression<LHS,'/',RHS>(lhs, rhs);
     }
-
-/// Constant for use in vector expressions.
-template <class T>
-struct Constant {
-    static const bool is_expression = true;
-
-    Constant(T value) : value(value) {}
-
-    std::string kernel_name() const {
-	return "c";
-    }
-
-    void kernel_expr(std::ostream &os, std::string name = "c") const {
-	os << name;
-    }
-
-    void kernel_prm(std::ostream &os, std::string name = "c") const {
-	os << ",\n\t" << type_name<T>() << " " << name;
-    }
-
-    void kernel_args(cl::Kernel &k, uint devnum, uint &pos) const {
-	k.setArg(pos++, value);
-    }
-
-    uint part_size(uint dev) const {
-	return 1;
-    }
-
-    private:
-	T value;
-};
-
-/// Constant for use in vector expressions.
-template <class T>
-Constant<T> Const(T value) { return Constant<T>(value); }
 
 struct UnaryFunction;
 
@@ -710,7 +765,7 @@ struct UnaryFunction {
     UnaryFunction(const std::string &name) : name(name) {}
 
     template <class Expr>
-    typename std::enable_if<Expr::is_expression, UnaryExpression<Expr>>::type
+    typename std::enable_if<valid_expression<Expr>::value, UnaryExpression<Expr>>::type
     operator()(const Expr &expr) const {
 	return UnaryExpression<Expr>(expr, *this);
     }
@@ -755,8 +810,8 @@ inline double device_weight(
     vex::vector<float> b(queue, CL_MEM_READ_WRITE, test_size);
     vex::vector<float> c(queue, CL_MEM_READ_WRITE, test_size);
 
-    b = Const(1);
-    c = Const(2);
+    b = 1;
+    c = 2;
 
     // Skip the first run.
     a = b + c;

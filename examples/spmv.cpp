@@ -44,7 +44,7 @@ int main() {
 	vex::vector<double> x(queue, CL_MEM_READ_WRITE, n);
 	vex::vector<double> y(queue, CL_MEM_READ_WRITE, n);
 
-	x = Const(1.0);
+	x = 1.0;
 	y = A * x;
 
 	std::vector<double> Y(n);

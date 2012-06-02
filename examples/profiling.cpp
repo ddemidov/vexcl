@@ -38,7 +38,7 @@ std::pair<double,double> benchmark_vector(
     vex::vector<real> d(queue, CL_MEM_READ_WRITE, D);
 
     a += b + c * d;
-    a = Const(0);
+    a = 0;
 
     prof.tic_cl("OpenCL");
     for(uint i = 0; i < M; i++)
@@ -225,7 +225,7 @@ std::pair<double,double> benchmark_spmv(
 
     // Get timings.
     y += A * x;
-    y = Const(0);
+    y = 0;
 
     prof.tic_cl("OpenCL");
     for(uint i = 0; i < M; i++)

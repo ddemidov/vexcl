@@ -45,9 +45,9 @@ int main() {
 
 	// Appropriate kernels are compiled (once) and called automagically:
 	// Fill device vector with constant value...
-	y = Const(42);
+	y = 42;
 	// ... or with some expression:
-	z = Sqrt(Const(2) * x) + Cos(y);
+	z = Sqrt(2 * x) + Cos(y);
 
 	Reductor<double,SUM> sum(queue);
 
