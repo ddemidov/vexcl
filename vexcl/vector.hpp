@@ -252,12 +252,23 @@ class vector {
 	vector() {}
 
 	/// Copy host data to the new buffer.
-	vector(const std::vector<cl::CommandQueue> &queue, cl_mem_flags flags,
-		uint size, const T *host = 0
+	vector(const std::vector<cl::CommandQueue> &queue,
+		uint size, const T *host = 0,
+		cl_mem_flags flags = CL_MEM_READ_WRITE
 	      ) : queue(queue), part(vex::partition(size, queue)),
 	          buf(queue.size()), event(queue.size())
 	{
 	    if (size) allocate_buffers(flags, host);
+	}
+
+	/// Copy host data to the new buffer.
+	vector(const std::vector<cl::CommandQueue> &queue,
+		const std::vector<T> &host,
+		cl_mem_flags flags = CL_MEM_READ_WRITE
+	      ) : queue(queue), part(vex::partition(host.size(), queue)),
+		  buf(queue.size()), event(queue.size())
+	{
+	    if (!host.empty()) allocate_buffers(flags, host.data());
 	}
 
 	/// Move constructor
@@ -269,21 +280,41 @@ class vector {
 
 	/// Move assignment
 	const vector& operator=(vector &&v) {
+	    swap(v);
+	    return *this;
+	}
+
+	/// Swap function.
+	void swap(vector &v) {
 	    std::swap(queue,   v.queue);
 	    std::swap(part,    v.part);
 	    std::swap(buf,     v.buf);
 	    std::swap(event,   v.event);
-
-	    return *this;
 	}
 
-	/// Copy host data to the new buffer.
-	vector(const std::vector<cl::CommandQueue> &queue, cl_mem_flags flags,
-		const std::vector<T> &host
-	      ) : queue(queue), part(vex::partition(host.size(), queue)),
-		  buf(queue.size()), event(queue.size())
+	/// Resize vector.
+	void resize(const vector &v, cl_mem_flags flags = CL_MEM_READ_WRITE)
 	{
-	    if (!host.empty()) allocate_buffers(flags, host.data());
+	    *this = std::move(vector(v.queue, v.size(), 0, flags));
+	    *this = v;
+	}
+
+	/// Resize vector.
+	void resize(const std::vector<cl::CommandQueue> &queue,
+		uint size, const T *host = 0,
+		cl_mem_flags flags = CL_MEM_READ_WRITE
+		)
+	{
+	    *this = std::move(vector(queue, size, host, flags));
+	}
+
+	/// Resize vector.
+	void resize(const std::vector<cl::CommandQueue> &queue,
+		const std::vector<T> &host,
+		cl_mem_flags flags = CL_MEM_READ_WRITE
+	      )
+	{
+	    *this = std::move(vector(queue, host, flags));
 	}
 
 	/// Return cl::Buffer object located on a given device.
@@ -637,6 +668,12 @@ copy(InputIterator first, InputIterator last,
     return result + (last - first);
 }
 
+/// Swap two vectors.
+template <typename T>
+void swap(vector<T> &x, vector<T> &y) {
+    x.swap(y);
+}
+
 /// Expression template.
 template <class LHS, char OP, class RHS>
 struct BinaryExpression {
@@ -806,9 +843,9 @@ inline double device_weight(
 
     // Allocate test vectors on current device and measure execution
     // time of a simple kernel.
-    vex::vector<float> a(queue, CL_MEM_READ_WRITE, test_size);
-    vex::vector<float> b(queue, CL_MEM_READ_WRITE, test_size);
-    vex::vector<float> c(queue, CL_MEM_READ_WRITE, test_size);
+    vex::vector<float> a(queue, test_size);
+    vex::vector<float> b(queue, test_size);
+    vex::vector<float> c(queue, test_size);
 
     b = 1;
     c = 2;

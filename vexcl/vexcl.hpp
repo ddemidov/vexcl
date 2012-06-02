@@ -100,9 +100,9 @@ cl::Context context;
 std::vector<cl::CommandQueue> queue;
 std::tie(context, queue) = queue_list(Filter::Type(CL_DEVICE_TYPE_GPU));
 
-vex::vector<double> X(queue, CL_MEM_READ_ONLY,  x);
-vex::vector<double> Y(queue, CL_MEM_READ_WRITE, n);
-vex::vector<double> Z(queue, CL_MEM_READ_WRITE, n);
+vex::vector<double> X(queue, x);
+vex::vector<double> Y(queue, n);
+vex::vector<double> Z(queue, n);
 \endcode
 
 You can now use simple vector arithmetic with device vector. For every
@@ -159,11 +159,11 @@ void cg_gpu(
     // Move data to compute devices.
     uint n = x.size();
     vex::SpMat<real>  A(queue, n, row.data(), col.data(), val.data());
-    vex::vector<real> f(queue, CL_MEM_READ_ONLY,  rhs);
-    vex::vector<real> u(queue, CL_MEM_READ_WRITE, x);
-    vex::vector<real> r(queue, CL_MEM_READ_WRITE, n);
-    vex::vector<real> p(queue, CL_MEM_READ_WRITE, n);
-    vex::vector<real> q(queue, CL_MEM_READ_WRITE, n);
+    vex::vector<real> f(queue, rhs);
+    vex::vector<real> u(queue, x);
+    vex::vector<real> r(queue, n);
+    vex::vector<real> p(queue, n);
+    vex::vector<real> q(queue, n);
 
     Reductor<real,MAX> max(queue);
     Reductor<real,SUM> sum(queue);
@@ -207,7 +207,7 @@ std::vector<cl::CommandQueue> queue;
 std::tie(context, queue) = queue_list(Filter::Type(CL_DEVICE_TYPE_GPU));
 
 const uint n = 1 << 20;
-vex::vector<float> x(queue, CL_MEM_WRITE_ONLY, n);
+vex::vector<float> x(queue, n);
 
 auto program = build_sources(context, std::string(
     "kernel void dummy(uint size, global float *x)\n"

@@ -41,8 +41,8 @@ int main() {
 	// Create OpenCL matrix.
 	SpMat<double> A(queue, n, row.data(), col.data(), val.data());
 
-	vex::vector<double> x(queue, CL_MEM_READ_WRITE, n);
-	vex::vector<double> y(queue, CL_MEM_READ_WRITE, n);
+	vex::vector<double> x(queue, n);
+	vex::vector<double> y(queue, n);
 
 	x = 1.0;
 	y = A * x;

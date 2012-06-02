@@ -32,10 +32,10 @@ std::pair<double,double> benchmark_vector(
     std::generate(C.begin(), C.end(), [](){ return (double)rand() / RAND_MAX; });
     std::generate(D.begin(), D.end(), [](){ return (double)rand() / RAND_MAX; });
 
-    vex::vector<real> a(queue, CL_MEM_READ_WRITE, A);
-    vex::vector<real> b(queue, CL_MEM_READ_WRITE, B);
-    vex::vector<real> c(queue, CL_MEM_READ_WRITE, C);
-    vex::vector<real> d(queue, CL_MEM_READ_WRITE, D);
+    vex::vector<real> a(queue, A);
+    vex::vector<real> b(queue, B);
+    vex::vector<real> c(queue, C);
+    vex::vector<real> d(queue, D);
 
     a += b + c * d;
     a = 0;
@@ -99,8 +99,8 @@ std::pair<double, double> benchmark_reductor(
     std::generate(A.begin(), A.end(), [](){ return (double)rand() / RAND_MAX; });
     std::generate(B.begin(), B.end(), [](){ return (double)rand() / RAND_MAX; });
 
-    vex::vector<real> a(queue, CL_MEM_READ_WRITE, A);
-    vex::vector<real> b(queue, CL_MEM_READ_WRITE, B);
+    vex::vector<real> a(queue, A);
+    vex::vector<real> b(queue, B);
 
     Reductor<real,SUM> sum(queue);
 
@@ -220,8 +220,8 @@ std::pair<double,double> benchmark_spmv(
 
     // Transfer data to compute devices.
     vex::SpMat<real>  A(queue, n * n * n, row.data(), col.data(), val.data());
-    vex::vector<real> x(queue, CL_MEM_READ_WRITE, X);
-    vex::vector<real> y(queue, CL_MEM_READ_WRITE, Y);
+    vex::vector<real> x(queue, X);
+    vex::vector<real> y(queue, Y);
 
     // Get timings.
     y += A * x;

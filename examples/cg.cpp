@@ -27,11 +27,11 @@ void cg_gpu(
     // Move data to GPU(s)
     uint n = x.size();
     vex::SpMat<real>  A(queue, n, row.data(), col.data(), val.data());
-    vex::vector<real> f(queue, CL_MEM_READ_ONLY,  rhs);
-    vex::vector<real> u(queue, CL_MEM_READ_WRITE, x);
-    vex::vector<real> r(queue, CL_MEM_READ_WRITE, n);
-    vex::vector<real> p(queue, CL_MEM_READ_WRITE, n);
-    vex::vector<real> q(queue, CL_MEM_READ_WRITE, n);
+    vex::vector<real> f(queue, rhs, CL_MEM_READ_ONLY);
+    vex::vector<real> u(queue, x);
+    vex::vector<real> r(queue, n);
+    vex::vector<real> p(queue, n);
+    vex::vector<real> q(queue, n);
 
     Reductor<real,MAX> max(queue);
     Reductor<real,SUM> sum(queue);

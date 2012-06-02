@@ -37,11 +37,11 @@ int main() {
 
 	// Allocate device vector initialized with host vector data.
 	// Device vector will be partitioned between selected devices.
-	vex::vector<double> x(queue, CL_MEM_READ_WRITE, host_vec);
+	vex::vector<double> x(queue, host_vec);
 
 	// Allocate uninitialized device vectors.
-	vex::vector<double> y(queue, CL_MEM_READ_WRITE, N);
-	vex::vector<double> z(queue, CL_MEM_READ_WRITE, N);
+	vex::vector<double> y(queue, N);
+	vex::vector<double> z(queue, N);
 
 	// Appropriate kernels are compiled (once) and called automagically:
 	// Fill device vector with constant value...

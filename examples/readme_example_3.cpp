@@ -14,9 +14,9 @@ int main() {
     std::vector<cl::CommandQueue> queue;
     std::tie(context, queue) = queue_list(Filter::Type(CL_DEVICE_TYPE_GPU) && Filter::DoublePrecision());
 
-    vex::vector<double> X(queue, CL_MEM_READ_ONLY,  x);
-    vex::vector<double> Y(queue, CL_MEM_READ_WRITE, n);
-    vex::vector<double> Z(queue, CL_MEM_READ_WRITE, n);
+    vex::vector<double> X(queue, x);
+    vex::vector<double> Y(queue, n);
+    vex::vector<double> Z(queue, n);
     Y = 42;
     Z = Sqrt(2 * X) + Cos(Y);
     copy(Z, x);
