@@ -3,6 +3,8 @@
 #include <vector>
 #include <tuple>
 #include <algorithm>
+
+#define VEX_SHOW_KERNELS
 #include <vexcl/vexcl.hpp>
 
 #ifdef WIN32

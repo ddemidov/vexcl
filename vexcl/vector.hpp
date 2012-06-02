@@ -448,6 +448,10 @@ class vector {
 				"}" << std::endl;
 			}
 
+#ifdef VEX_SHOW_KERNELS
+			std::cout << kernel.str() << std::endl;
+#endif
+
 			auto program = build_sources(context, kernel.str());
 
 			exdata<Expr>::kernel[context()]   = cl::Kernel(program, kernel_name.c_str());

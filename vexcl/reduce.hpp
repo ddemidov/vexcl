@@ -146,6 +146,10 @@ real Reductor<real,RDC>::operator()(const Expr &expr) const {
 		cpu_kernel_source(context, expr, kernel_name) :
 		gpu_kernel_source(context, expr, kernel_name) ;
 
+#ifdef VEX_SHOW_KERNELS
+	    std::cout << source << std::endl;
+#endif
+
 	    auto program = build_sources(context, source);
 
 	    exdata<Expr>::kernel[context()]   = cl::Kernel(program, kernel_name.c_str());
