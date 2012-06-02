@@ -225,17 +225,17 @@ std::string Reductor<real,RDC>::gpu_kernel_source(
     switch (RDC) {
 	case SUM:
 	    increment_line << "mySum += ";
-	    expr.kernel_expr(increment_line);
+	    expr.kernel_expr(increment_line, "prm");
 	    increment_line << ";\n";
 	    break;
 	case MAX:
 	    increment_line << "mySum = max(mySum, ";
-	    expr.kernel_expr(increment_line);
+	    expr.kernel_expr(increment_line, "prm");
 	    increment_line << ");\n";
 	    break;
 	case MIN:
 	    increment_line << "mySum = min(mySum, ";
-	    expr.kernel_expr(increment_line);
+	    expr.kernel_expr(increment_line, "prm");
 	    increment_line << ");\n";
 	    break;
     }
@@ -249,7 +249,7 @@ std::string Reductor<real,RDC>::gpu_kernel_source(
 	"typedef " << type_name<real>() << " real;\n"
 	"kernel void " << kernel_name << "(uint n";
 
-    expr.kernel_prm(source);
+    expr.kernel_prm(source, "prm");
 
     source << ",\n\tglobal real *g_odata,\n"
 	"\tlocal  real *sdata\n"
@@ -364,17 +364,17 @@ std::string Reductor<real,RDC>::cpu_kernel_source(
     switch (RDC) {
 	case SUM:
 	    increment_line << "mySum += ";
-	    expr.kernel_expr(increment_line);
+	    expr.kernel_expr(increment_line, "prm");
 	    increment_line << ";\n";
 	    break;
 	case MAX:
 	    increment_line << "mySum = max(mySum, ";
-	    expr.kernel_expr(increment_line);
+	    expr.kernel_expr(increment_line, "prm");
 	    increment_line << ");\n";
 	    break;
 	case MIN:
 	    increment_line << "mySum = min(mySum, ";
-	    expr.kernel_expr(increment_line);
+	    expr.kernel_expr(increment_line, "prm");
 	    increment_line << ");\n";
 	    break;
     }
@@ -388,7 +388,7 @@ std::string Reductor<real,RDC>::cpu_kernel_source(
 	"typedef " << type_name<real>() << " real;\n"
 	"kernel void " << kernel_name << "(uint n";
 
-    expr.kernel_prm(source);
+    expr.kernel_prm(source, "prm");
 
     source << ",\n\tglobal real *g_odata,\n"
 	"\tlocal  real *sdata\n"

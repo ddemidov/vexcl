@@ -57,36 +57,112 @@ template <class Expr, typename T> struct ExSpMV;
 inline std::vector<uint> partition(
 	uint n, const std::vector<cl::CommandQueue> &queue);
 
+/// Base class for a member of an expression.
+/**
+ * Each vector expression results in a single kernel. Name of the kernel,
+ * parameter list and the body are formed automatically with the help of
+ * members of the expression. This class is an abstract interface which any
+ * expression member should implement.
+ */
+struct expression {
+    static const bool is_expression = true;
+
+    /// Preamble.
+    /**
+     * An expression might need to put something prior the kernel definition.
+     * This could be a typedef, a helper function definition or anything else.
+     * Most expressions don't need it and so default empty function is
+     * provided.
+     * \param os   Output stream which holds kernel source.
+     * \param name Name of current node in an expression tree. Should be used
+     *		   as prefix when naming any objects created to escape
+     *		   possible ambiguities with other nodes.
+     */
+    virtual void preamble(std::ostream &os, std::string name) const {
+    }
+
+    /// Kernel name.
+    /**
+     * Name of the kernel is formed by its members through calls to their
+     * kernel_name() functions. For example, expression
+     * \code
+     *   x = 3 * y + z;
+     * \endcode
+     * will result in kernel named "ptcvv" (plus times constant vector vector;
+     * polish notation is used).
+     * This naming scheme is not strictly necessary, as each expression
+     * template holds its own cl::Program object and no ambiguity is possible.
+     * But it helps when you profiling your program performance.
+     */
+    virtual std::string kernel_name() const = 0;
+
+    /// Kernel parameter list.
+    /**
+     * Each terminal expression should output type and name of kernel
+     * parameters it needs here.
+     * \param os   Output stream which holds kernel source.
+     * \param name Name of current node in an expression tree. Should be used
+     *             directly or as a prefix to form parameter name(s).
+     */
+    virtual void kernel_prm(std::ostream &os, std::string name) const = 0;
+
+    /// Kernel arguments.
+    /**
+     * This function is called at the time of actual kernel launch.
+     * Each terminal expression should set kernel arguments for the parameters
+     * it needs at specified position. Position should be incremented
+     * afterwards.
+     * \param k      OpenCL kernel that is being prepared to launch.
+     * \param devnum Number of queue in queue list for which the kernel is
+     *               launched.
+     * \param pos    Current position in parameter stack.
+     */
+    virtual void kernel_args(cl::Kernel &k, uint devnum, uint &pos) const = 0;
+
+    /// Kernel body.
+    /**
+     * The actual expression which forms the kernel body.
+     * \param os   Output stream which holds kernel source.
+     * \param name Name of current node in an expression tree. Should be used
+     *             directly or as a prefix to form parameter name(s).
+     */
+    virtual void kernel_expr(std::ostream &os, std::string name) const  = 0;
+
+    /// Size of vectors forming the expression.
+    /**
+     * \param dev Position in active queue list for which to return the size.
+     */
+    virtual uint part_size(uint dev) const = 0;
+
+    virtual ~expression() {}
+};
+
 /// Default kernel generation helper.
 /**
- * Works on top of classes providing required functions.
+ * Works on top of classes inheriting expression interface;
  */
 template <class T, class Enable = void>
 struct KernelGenerator {
     KernelGenerator(const T &value) : value(value) {}
 
+    void preamble(std::ostream &os, std::string name) const {
+	value.preamble(os, name);
+    }
+
     std::string kernel_name() const {
 	return value.kernel_name();
-    }
-
-    void kernel_expr(std::ostream &os, std::string name) const {
-	value.kernel_expr(os, name);
-    }
-
-    void kernel_expr(std::ostream &os) const {
-	value.kernel_expr(os);
     }
 
     void kernel_prm(std::ostream &os, std::string name) const {
 	value.kernel_prm(os, name);
     }
 
-    void kernel_prm(std::ostream &os) const {
-	value.kernel_prm(os);
-    }
-
     void kernel_args(cl::Kernel &k, uint devnum, uint &pos) const {
 	value.kernel_args(k, devnum, pos);
+    }
+
+    void kernel_expr(std::ostream &os, std::string name) const {
+	value.kernel_expr(os, name);
     }
 
     uint part_size(uint dev) const {
@@ -106,11 +182,11 @@ struct KernelGenerator<T, typename std::enable_if<std::is_arithmetic<T>::value>:
 	return "c";
     }
 
-    void kernel_expr(std::ostream &os, std::string name = "c") const {
+    void kernel_expr(std::ostream &os, std::string name) const {
 	os << name;
     }
 
-    void kernel_prm(std::ostream &os, std::string name = "c") const {
+    void kernel_prm(std::ostream &os, std::string name) const {
 	os << ",\n\t" << type_name<T>() << " " << name;
     }
 
@@ -143,10 +219,8 @@ struct valid_expression<T, typename std::enable_if<std::is_arithmetic<T>::value>
 
 /// Device vector.
 template<class T>
-class vector {
+class vector : public expression {
     public:
-	static const bool is_expression = true;
-
 	/// Proxy class.
 	/**
 	 * Instances of this class are returned from vector::operator[]. These
@@ -417,7 +491,7 @@ class vector {
 			    "\tunsigned int n,\n"
 			    "\tglobal " << type_name<T>() << " *res";
 
-			kgen.kernel_prm(kernel);
+			kgen.kernel_prm(kernel, "prm");
 
 			kernel <<
 			    "\n\t)\n{\n"
@@ -433,7 +507,7 @@ class vector {
 				"\t\tres[i] = ";
 			}
 
-			kgen.kernel_expr(kernel);
+			kgen.kernel_expr(kernel, "prm");
 
 			if (device_is_cpu) {
 			    kernel <<
@@ -522,11 +596,11 @@ class vector {
 	    return "v";
 	}
 
-	void kernel_expr(std::ostream &os, std::string name = "v") const {
+	void kernel_expr(std::ostream &os, std::string name) const {
 	    os << name << "[i]";
 	}
 
-	void kernel_prm(std::ostream &os, std::string name = "v") const {
+	void kernel_prm(std::ostream &os, std::string name) const {
 	    os << ",\n\tglobal " << type_name<T>() << " *" << name;
 	}
 
@@ -680,9 +754,7 @@ void swap(vector<T> &x, vector<T> &y) {
 
 /// Expression template.
 template <class LHS, char OP, class RHS>
-struct BinaryExpression {
-    static const bool is_expression = true;
-
+struct BinaryExpression : expression {
     BinaryExpression(const LHS &lhs, const RHS &rhs) : lhs(lhs), rhs(rhs) {}
 
     std::string kernel_name() const {
@@ -775,17 +847,15 @@ struct UnaryFunction;
 
 /// \internal Unary expression template.
 template <class Expr>
-struct UnaryExpression {
-    static const bool is_expression = true;
-
+struct UnaryExpression : expression {
     UnaryExpression(const Expr &expr, const UnaryFunction &fun)
 	: expr(expr), fun(fun) {}
 
     std::string kernel_name() const;
 
-    void kernel_expr(std::ostream &os, std::string name = "f") const;
+    void kernel_expr(std::ostream &os, std::string name) const;
 
-    void kernel_prm(std::ostream &os, std::string name = "f") const {
+    void kernel_prm(std::ostream &os, std::string name) const {
 	expr.kernel_prm(os, name);
     }
 
