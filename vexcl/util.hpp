@@ -61,9 +61,7 @@ template <> std::string type_name<uint>()   { return "unsigned int"; }
 template <> std::string type_name<uchar>()  { return "unsigned char"; }
 
 /// Return next power of 2.
-template <class T>
-typename std::enable_if<std::is_integral<T>::value, T>::type
-nextpow2(T x) {
+uint nextpow2(uint x) {
     --x;
     x |= x >> 1U;
     x |= x >> 2U;
@@ -74,9 +72,7 @@ nextpow2(T x) {
 }
 
 /// Align n to the next multiple of m.
-template <class T>
-typename std::enable_if<std::is_integral<T>::value, T>::type
-alignup(T n, T m = 16U) {
+uint alignup(uint n, uint m = 16U) {
     return n % m ? n - n % m + m : n;
 }
 
@@ -154,7 +150,7 @@ bool partitioning_scheme::is_set = false;
 partitioning_scheme::function_type partitioning_scheme::pfun;
 
 /// Create and build a program from source string.
-inline cl::Program build_sources(
+cl::Program build_sources(
 	const cl::Context &context, const std::string &source
 	)
 {
@@ -176,7 +172,7 @@ inline cl::Program build_sources(
 }
 
 /// Get maximum possible workgroup size for given kernel.
-inline uint kernel_workgroup_size(
+uint kernel_workgroup_size(
 	const cl::Kernel &kernel,
 	const std::vector<cl::Device> &device
 	)

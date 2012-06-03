@@ -46,7 +46,7 @@ THE SOFTWARE.
 #include <type_traits>
 #include <CL/cl.hpp>
 #include <vexcl/util.hpp>
-#include <cassert>
+#include <vexcl/profiler.hpp>
 
 /// OpenCL convenience utilities.
 namespace vex {
@@ -918,39 +918,38 @@ static const UnaryFunction Tan ("tan");
 /// Returns device weight after simple bandwidth test
 double device_vector_perf(
 	const cl::Context &context, const cl::Device &device,
-	uint test_size = 1048576U
+	uint test_size = 1024U * 1024U
 	)
 {
-    std::vector<cl::CommandQueue> queue(1,
-	    cl::CommandQueue(context, device, CL_QUEUE_PROFILING_ENABLE)
-	    );
+    static std::map<cl_device_id, double> dev_weights;
 
-    // Allocate test vectors on current device and measure execution
-    // time of a simple kernel.
-    vex::vector<float> a(queue, test_size);
-    vex::vector<float> b(queue, test_size);
-    vex::vector<float> c(queue, test_size);
+    auto dw = dev_weights.find(device());
 
-    b = 1;
-    c = 2;
+    if (dw == dev_weights.end()) {
+	std::vector<cl::CommandQueue> queue(1,
+		cl::CommandQueue(context, device, CL_QUEUE_PROFILING_ENABLE)
+		);
 
-    // Skip the first run.
-    a = b + c;
+	// Allocate test vectors on current device and measure execution
+	// time of a simple kernel.
+	vex::vector<float> a(queue, test_size);
+	vex::vector<float> b(queue, test_size);
+	vex::vector<float> c(queue, test_size);
 
-    // Measure the second run.
-    cl::Event beg, end;
-    float buf;
+	b = 1;
+	c = 2;
 
-    queue[0].enqueueReadBuffer(a(), CL_FALSE, 0, 4, &buf, 0, &beg);
-    a = b + c;
-    queue[0].enqueueReadBuffer(a(), CL_FALSE, 0, 4, &buf, 0, &end);
+	// Skip the first run.
+	a = b + c;
 
-    end.wait();
-
-    return 1.0 / (
-	    end.getProfilingInfo<CL_PROFILING_COMMAND_START>() -
-	    beg.getProfilingInfo<CL_PROFILING_COMMAND_END>()
-	    );
+	// Measure the second run.
+	profiler prof(queue);
+	prof.tic_cl("");
+	a = b + c;
+	return dev_weights[device()] = 1 / prof.toc("");
+    } else {
+	return dw->second;
+    }
 }
 
 /// Partitions vector wrt to vector performance of devices.
@@ -965,36 +964,22 @@ double device_vector_perf(
 std::vector<uint> partition_by_vector_perf(
 	uint n, const std::vector<cl::CommandQueue> &queue)
 {
-    static std::map<cl_device_id, double> dev_weights;
 
-    std::vector<uint> part(queue.size() + 1);
-    part[0] = 0;
+    std::vector<uint> part(queue.size() + 1, 0);
 
     if (queue.size() > 1) {
-	double tot_weight = 0;
-	for(auto q = queue.begin(); q != queue.end(); q++) {
-	    cl::Device device = q->getInfo<CL_QUEUE_DEVICE>();
+	std::vector<double> cumsum;
+	cumsum.reserve(queue.size() + 1);
+	cumsum.push_back(0);
 
-	    auto dw = dev_weights.find(device());
+	for(auto q = queue.begin(); q != queue.end(); q++)
+	    cumsum.push_back(cumsum.back() + device_vector_perf(
+			q->getInfo<CL_QUEUE_CONTEXT>(),
+			q->getInfo<CL_QUEUE_DEVICE>()
+			));
 
-	    if (dw == dev_weights.end()) {
-		tot_weight += (
-			dev_weights[device()] = device_vector_perf(
-			    q->getInfo<CL_QUEUE_CONTEXT>(), device)
-			);
-	    } else {
-		tot_weight += dw->second;
-	    }
-	}
-
-	double sum = 0;
-	for(uint i = 0; i < queue.size(); i++) {
-	    cl::Device device = queue[i].getInfo<CL_QUEUE_DEVICE>();
-
-	    sum += dev_weights[device()] / tot_weight;
-
-	    part[i + 1] = std::min(n, alignup(static_cast<uint>(sum * n)));
-	}
+	for(uint d = 0; d < queue.size(); d++)
+	    part[d + 1] = std::min(n, alignup(n * cumsum[d + 1] / cumsum.back()));
     }
 
     part.back() = n;
