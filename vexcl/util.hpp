@@ -40,8 +40,10 @@ THE SOFTWARE.
 
 #include <iostream>
 #include <string>
+#include <vector>
 #include <algorithm>
 #include <type_traits>
+#include <functional>
 #include <CL/cl.hpp>
 
 typedef unsigned int  uint;
@@ -77,6 +79,79 @@ typename std::enable_if<std::is_integral<T>::value, T>::type
 alignup(T n, T m = 16U) {
     return n % m ? n - n % m + m : n;
 }
+
+/// Partitions vector wrt to vector performance of devices.
+/**
+ * Launches the following kernel on each device:
+ * \code
+ * a = b + c;
+ * \endcode
+ * where a, b and c are device vectors. Each device gets portion of the vector
+ * proportional to the performance of this operation.
+ */
+std::vector<uint> partition_by_vector_perf(
+	uint n, const std::vector<cl::CommandQueue> &queue);
+
+/// Partitions vector equally.
+std::vector<uint> partition_equally(
+	uint n, const std::vector<cl::CommandQueue> &queue)
+{
+    uint m = queue.size();
+
+    std::vector<uint> part(m + 1);
+    part[0] = 0;
+
+    if (queue.size() > 1) {
+	for(uint i = 0, chunk_size = alignup((n + m - 1) / m); i < m; i++)
+	    part[i + 1] = std::min(n, part[i] + chunk_size);
+    } else {
+	part.back() = n;
+    }
+
+    return part;
+}
+
+
+/// Partitioning scheme for vectors and matrices.
+/**
+ * Should be set once before any object of vector or matrix type is declared.
+ * Otherwise default parttioning function (partition_by_vector_perf) is
+ * selected.
+ */
+struct partitioning_scheme {
+    typedef std::function<
+	std::vector<uint>(uint, const std::vector<cl::CommandQueue>&)
+	> function_type;
+
+    static void set(function_type f) {
+	if (!is_set) {
+	    pfun = f;
+	    is_set = true;
+	} else {
+	    std::cerr <<
+		"Warning: "
+		"partitioning function is already set and will be left as is."
+		<< std::endl;
+	}
+    }
+
+    std::vector<uint> operator()(uint n,
+	    const std::vector<cl::CommandQueue> &queue) const
+    {
+	if (!is_set) {
+	    pfun = partition_by_vector_perf;
+	    is_set = true;
+	}
+	return pfun(n, queue);
+    }
+
+    private:
+	static bool is_set;
+	static function_type pfun;
+} partition;
+
+bool partitioning_scheme::is_set = false;
+partitioning_scheme::function_type partitioning_scheme::pfun;
 
 /// Create and build a program from source string.
 inline cl::Program build_sources(

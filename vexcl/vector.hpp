@@ -54,9 +54,6 @@ namespace vex {
 template<class T> struct SpMV;
 template <class Expr, typename T> struct ExSpMV;
 
-inline std::vector<uint> partition(
-	uint n, const std::vector<cl::CommandQueue> &queue);
-
 /// Base class for a member of an expression.
 /**
  * Each vector expression results in a single kernel. Name of the kernel,
@@ -918,10 +915,8 @@ static const UnaryFunction Sin ("sin");
 static const UnaryFunction Cos ("cos");
 static const UnaryFunction Tan ("tan");
 
-#ifndef VEXCL_DUMB_PARTITIONING
-
 /// Returns device weight after simple bandwidth test
-inline double device_weight(
+double device_vector_perf(
 	const cl::Context &context, const cl::Device &device,
 	uint test_size = 1048576U
 	)
@@ -958,8 +953,17 @@ inline double device_weight(
 	    );
 }
 
-/// Returns partitions for vector of size n.
-inline std::vector<uint> partition(uint n, const std::vector<cl::CommandQueue> &queue)
+/// Partitions vector wrt to vector performance of devices.
+/**
+ * Launches the following kernel on each device:
+ * \code
+ * a = b + c;
+ * \endcode
+ * where a, b and c are device vectors. Each device gets portion of the vector
+ * proportional to the performance of this operation.
+ */
+std::vector<uint> partition_by_vector_perf(
+	uint n, const std::vector<cl::CommandQueue> &queue)
 {
     static std::map<cl_device_id, double> dev_weights;
 
@@ -974,8 +978,10 @@ inline std::vector<uint> partition(uint n, const std::vector<cl::CommandQueue> &
 	    auto dw = dev_weights.find(device());
 
 	    if (dw == dev_weights.end()) {
-		cl::Context context = q->getInfo<CL_QUEUE_CONTEXT>();
-		tot_weight += (dev_weights[device()] = device_weight(context, device));
+		tot_weight += (
+			dev_weights[device()] = device_vector_perf(
+			    q->getInfo<CL_QUEUE_CONTEXT>(), device)
+			);
 	    } else {
 		tot_weight += dw->second;
 	    }
@@ -995,28 +1001,6 @@ inline std::vector<uint> partition(uint n, const std::vector<cl::CommandQueue> &
 
     return part;
 }
-
-#else
-
-/// Returns partitions for vector of size n.
-inline std::vector<uint> partition(uint n, const std::vector<cl::CommandQueue> &queue)
-{
-    uint m = queue.size();
-
-    std::vector<uint> part(m + 1);
-    part[0] = 0;
-
-    if (queue.size() > 1) {
-	for(uint i = 0, chunk_size = alignup((n + m - 1) / m); i < m; i++)
-	    part[i + 1] = std::min(n, part[i] + chunk_size);
-    } else {
-	part.back() = n;
-    }
-
-    return part;
-}
-
-#endif
 
 } // namespace vex
 
