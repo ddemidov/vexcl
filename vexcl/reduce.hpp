@@ -88,6 +88,17 @@ class Reductor {
 	    static std::map<cl_context, uint>       wgsize;
 	};
 
+	static real initial_value() {
+	    switch (RDC) {
+		case SUM:
+		    return 0;
+		case MAX:
+		    return -std::numeric_limits<real>::max();
+		case MIN:
+		    return std::numeric_limits<real>::max();
+	    }
+	}
+
 	template <class Expr>
 	std::string cpu_kernel_source(
 		const cl::Context &context, const Expr &expr,
@@ -177,29 +188,34 @@ real Reductor<real,RDC>::operator()(const Expr &expr) const {
 
 
     for(uint d = 0; d < queue.size(); d++) {
-	cl::Context context = queue[d].getInfo<CL_QUEUE_CONTEXT>();
+	if (uint psize = expr.part_size(d)) {
+	    cl::Context context = queue[d].getInfo<CL_QUEUE_CONTEXT>();
 
-	uint g_size = (idx[d + 1] - idx[d]) * exdata<Expr>::wgsize[context()];
-	auto lmem = cl::__local(exdata<Expr>::wgsize[context()] * sizeof(real));
+	    uint g_size = (idx[d + 1] - idx[d]) * exdata<Expr>::wgsize[context()];
+	    auto lmem = cl::__local(exdata<Expr>::wgsize[context()] * sizeof(real));
 
-	uint psize = expr.part_size(d);
-	uint pos   = 0;
-	exdata<Expr>::kernel[context()].setArg(pos++, psize);
-	expr.kernel_args(exdata<Expr>::kernel[context()], d, pos);
-	exdata<Expr>::kernel[context()].setArg(pos++, dbuf[d]);
-	exdata<Expr>::kernel[context()].setArg(pos++, lmem);
+	    uint pos   = 0;
+	    exdata<Expr>::kernel[context()].setArg(pos++, psize);
+	    expr.kernel_args(exdata<Expr>::kernel[context()], d, pos);
+	    exdata<Expr>::kernel[context()].setArg(pos++, dbuf[d]);
+	    exdata<Expr>::kernel[context()].setArg(pos++, lmem);
 
-	queue[d].enqueueNDRangeKernel(exdata<Expr>::kernel[context()],
-		cl::NullRange, g_size, exdata<Expr>::wgsize[context()]);
+	    queue[d].enqueueNDRangeKernel(exdata<Expr>::kernel[context()],
+		    cl::NullRange, g_size, exdata<Expr>::wgsize[context()]);
+	}
     }
+
+    std::fill(hbuf.begin(), hbuf.end(), initial_value());
 
     for(uint d = 0; d < queue.size(); d++) {
-	queue[d].enqueueReadBuffer(dbuf[d], CL_FALSE,
-		0, sizeof(real) * (idx[d + 1] - idx[d]), &hbuf[idx[d]], 0, &event[d]);
+	if (expr.part_size(d))
+	    queue[d].enqueueReadBuffer(dbuf[d], CL_FALSE,
+		    0, sizeof(real) * (idx[d + 1] - idx[d]), &hbuf[idx[d]], 0, &event[d]);
     }
 
-    for(auto e = event.begin(); e != event.end(); e++)
-	e->wait();
+    for(uint d = 0; d < queue.size(); d++)
+	if (expr.part_size(d))
+	    event[d].wait();
 
     switch(RDC) {
 	case SUM:
@@ -260,22 +276,7 @@ std::string Reductor<real,RDC>::gpu_kernel_source(
 	"    uint p          = get_group_id(0) * block_size * 2 + tid;\n"
 	"    uint gridSize   = get_num_groups(0) * block_size * 2;\n"
 	"    uint i;\n"
-	"\n"
-	"    real mySum = ";
-    switch(RDC) {
-	case SUM:
-	    source << 0;
-	    break;
-	case MAX:
-	    source << -std::numeric_limits<real>::max();
-	    break;
-	case MIN:
-	    source << std::numeric_limits<real>::max();
-	    break;
-    }
-
-    source << ";\n"
-	"\n"
+	"    real mySum = " << initial_value() << ";\n"
 	"    while (p < n) {\n"
 	"        i = p;\n"
 	"        " << increment_line.str() <<
@@ -399,24 +400,7 @@ std::string Reductor<real,RDC>::cpu_kernel_source(
 	"    uint chunk_id   = get_global_id(0);\n"
 	"    uint start      = min(n, chunk_size * chunk_id);\n"
 	"    uint stop       = min(n, chunk_size * (chunk_id + 1));\n"
-	"\n"
-	"    real mySum = ";
-
-    switch(RDC) {
-	case SUM:
-	    source << 0;
-	    break;
-	case MAX:
-	    source << -std::numeric_limits<real>::max();
-	    break;
-	case MIN:
-	    source << std::numeric_limits<real>::max();
-	    break;
-    }
-
-    source <<
-	";\n"
-	"\n"
+	"    real mySum = " << initial_value() << ";\n"
 	"    for (uint i = start; i < stop; i++) {\n"
 	"        " << increment_line.str() <<
 	"    }\n"

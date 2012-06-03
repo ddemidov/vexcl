@@ -342,18 +342,20 @@ SpMat<real>::SpMat(
 
     // Each device get it's own strip of the matrix.
     for(uint d = 0; d < queue.size(); d++) {
-	cl::Device device = queue[d].getInfo<CL_QUEUE_DEVICE>();
+	if (part[d + 1] > part[d]) {
+	    cl::Device device = queue[d].getInfo<CL_QUEUE_DEVICE>();
 
-	if (device.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU)
-	    mtx[d].reset(
-		    new SpMatCSR(queue[d], part[d], part[d + 1],
-			row, col, val, remote_cols[d])
-		    );
-	else
-	    mtx[d].reset(
-		    new SpMatELL(queue[d], part[d], part[d + 1],
-			row, col, val, remote_cols[d])
-		    );
+	    if (device.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU)
+		mtx[d].reset(
+			new SpMatCSR(queue[d], part[d], part[d + 1],
+			    row, col, val, remote_cols[d])
+			);
+	    else
+		mtx[d].reset(
+			new SpMatELL(queue[d], part[d], part[d + 1],
+			    row, col, val, remote_cols[d])
+			);
+	}
     }
 }
 
@@ -387,7 +389,7 @@ void SpMat<real>::mul(const vex::vector<real> &x, vex::vector<real> &y,
 
     // Compute contribution from local part of the matrix.
     for(uint d = 0; d < queue.size(); d++)
-	mtx[d]->mul_local(x(d), y(d), alpha, append);
+	if (mtx[d]) mtx[d]->mul_local(x(d), y(d), alpha, append);
 
     // Compute contribution from remote part of the matrix.
     if (rx.size()) {

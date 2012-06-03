@@ -197,7 +197,7 @@ struct KernelGenerator<T, typename std::enable_if<std::is_arithmetic<T>::value>:
     }
 
     uint part_size(uint dev) const {
-	return 1;
+	return 0;
     }
 
     private:
@@ -450,9 +450,11 @@ class vector : public expression {
 	/// Copies data from device vector.
 	const vector& operator=(const vector &x) {
 	    if (&x != this) {
-		for(uint i = 0; i < queue.size(); i++)
-		    queue[i].enqueueCopyBuffer(x.buf[i], buf[i], 0, 0,
-			    (part[i + 1] - part[i]) * sizeof(T));
+		for(uint d = 0; d < queue.size(); d++)
+		    if (uint psize = part[d + 1] - part[d]) {
+			queue[d].enqueueCopyBuffer(x.buf[d], buf[d], 0, 0,
+				psize * sizeof(T));
+		    }
 	    }
 
 	    return *this;
@@ -542,26 +544,25 @@ class vector : public expression {
 		}
 
 		for(uint d = 0; d < queue.size(); d++) {
-		    cl::Context context = queue[d].getInfo<CL_QUEUE_CONTEXT>();
-		    cl::Device  device  = queue[d].getInfo<CL_QUEUE_DEVICE>();
+		    if (uint psize = part[d + 1] - part[d]) {
+			cl::Context context = queue[d].getInfo<CL_QUEUE_CONTEXT>();
+			cl::Device  device  = queue[d].getInfo<CL_QUEUE_DEVICE>();
 
-		    uint psize = part[d + 1] - part[d];
+			uint g_size = device.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU ?
+			    alignup(psize, exdata<Expr>::wgsize[context()]) :
+			    device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() * exdata<Expr>::wgsize[context()] * 4;
 
-		    uint g_size = device.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU ?
-			alignup(psize, exdata<Expr>::wgsize[context()]) :
-			device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() * exdata<Expr>::wgsize[context()] * 4;
+			uint pos = 0;
+			exdata<Expr>::kernel[context()].setArg(pos++, psize);
+			exdata<Expr>::kernel[context()].setArg(pos++, buf[d]);
+			kgen.kernel_args(exdata<Expr>::kernel[context()], d, pos);
 
-
-		    uint pos = 0;
-		    exdata<Expr>::kernel[context()].setArg(pos++, psize);
-		    exdata<Expr>::kernel[context()].setArg(pos++, buf[d]);
-		    kgen.kernel_args(exdata<Expr>::kernel[context()], d, pos);
-
-		    queue[d].enqueueNDRangeKernel(
-			    exdata<Expr>::kernel[context()],
-			    cl::NullRange,
-			    g_size, exdata<Expr>::wgsize[context()]
-			    );
+			queue[d].enqueueNDRangeKernel(
+				exdata<Expr>::kernel[context()],
+				cl::NullRange,
+				g_size, exdata<Expr>::wgsize[context()]
+				);
+		    }
 		}
 
 		return *this;
@@ -634,8 +635,12 @@ class vector : public expression {
 	    }
 
 	    if (blocking)
-		for(auto e = event.begin(); e != event.end(); e++)
-		    e->wait();
+		for(uint d = 0; d < queue.size(); d++) {
+		    uint start = std::max(offset,        part[d]);
+		    uint stop  = std::min(offset + size, part[d + 1]);
+
+		    if (start < stop) event[d].wait();
+		}
 	}
 
 	/// Copy data from device(s) to host buffer .
@@ -657,8 +662,12 @@ class vector : public expression {
 	    }
 
 	    if (blocking)
-		for(auto e = event.begin(); e != event.end(); e++)
-		    e->wait();
+		for(uint d = 0; d < queue.size(); d++) {
+		    uint start = std::max(offset,        part[d]);
+		    uint stop  = std::min(offset + size, part[d + 1]);
+
+		    if (start < stop) event[d].wait();
+		}
 	}
     private:
 	template <class Expr>
@@ -675,12 +684,12 @@ class vector : public expression {
 
 	void allocate_buffers(cl_mem_flags flags, const T *hostptr) {
 	    for(uint d = 0; d < queue.size(); d++) {
-		cl::Context context = queue[d].getInfo<CL_QUEUE_CONTEXT>();
+		if (uint psize = part[d + 1] - part[d]) {
+		    cl::Context context = queue[d].getInfo<CL_QUEUE_CONTEXT>();
 
-		buf[d] = cl::Buffer(context, flags,
-				    (part[d + 1] - part[d]) * sizeof(T));
+		    buf[d] = cl::Buffer(context, flags, psize * sizeof(T));
+		}
 	    }
-
 	    if (hostptr) write_data(0, size(), hostptr, CL_TRUE);
 	}
 };
@@ -941,7 +950,6 @@ inline double device_weight(
     a = b + c;
     queue[0].enqueueReadBuffer(a(), CL_FALSE, 0, 4, &buf, 0, &end);
 
-    beg.wait();
     end.wait();
 
     return 1.0 / (
