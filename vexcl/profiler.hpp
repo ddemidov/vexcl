@@ -161,25 +161,30 @@ class profiler {
 	class cl_profile_unit : public profile_unit {
 	    public:
 		cl_profile_unit(const std::vector<cl::CommandQueue> &queue)
-		    : queue(queue), start(queue.size()), stop(queue.size())
-		{}
+		    : queue(queue), start(queue.size()), stop(queue.size()),
+		      dbuf(queue.size()), hbuf(queue.size())
+		{
+		    for(uint d = 0; d < queue.size(); d++) {
+			cl::Context context = queue[d].getInfo<CL_QUEUE_CONTEXT>();
+			dbuf[d] = cl::Buffer(context, CL_MEM_READ_WRITE, 1);
+		    }
+		}
 
 		void tic() {
-		    auto e = start.begin();
-		    for(auto q = queue.begin(); q != queue.end(); q++, e++)
-			q->enqueueMarker(&e[0]);
+		    for(uint d = 0; d < queue.size(); d++)
+			queue[d].enqueueReadBuffer(dbuf[d], CL_FALSE, 0, 1, &hbuf[d], 0, &start[d]);
 		}
 
 		double toc() {
 		    for(uint d = 0; d < queue.size(); d++)
-			queue[d].enqueueMarker(&stop[d]);
+			queue[d].enqueueReadBuffer(dbuf[d], CL_FALSE, 0, 1, &hbuf[d], 0, &stop[d]);
 
 		    // Measured time ends before marker is in the queue.
 		    cl_long max_delta = 0;
 		    for(uint d = 0; d < queue.size(); d++) {
 			stop[d].wait();
 			max_delta = std::max<cl_long>(max_delta,
-				stop [d].getProfilingInfo<CL_PROFILING_COMMAND_END>() -
+				stop [d].getProfilingInfo<CL_PROFILING_COMMAND_START>() -
 				start[d].getProfilingInfo<CL_PROFILING_COMMAND_END>()
 				);
 		    }
@@ -194,6 +199,8 @@ class profiler {
 		const std::vector<cl::CommandQueue> &queue;
 		std::vector<cl::Event> start;
 		std::vector<cl::Event> stop;
+		std::vector<cl::Buffer> dbuf;
+		std::vector<char> hbuf;
 	};
 
     public:

@@ -935,16 +935,17 @@ inline double device_weight(
 
     // Measure the second run.
     cl::Event beg, end;
+    float buf;
 
-    queue[0].enqueueMarker(&beg);
+    queue[0].enqueueReadBuffer(a(), CL_FALSE, 0, 4, &buf, 0, &beg);
     a = b + c;
-    queue[0].enqueueMarker(&end);
+    queue[0].enqueueReadBuffer(a(), CL_FALSE, 0, 4, &buf, 0, &end);
 
     beg.wait();
     end.wait();
 
     return 1.0 / (
-	    end.getProfilingInfo<CL_PROFILING_COMMAND_END>() -
+	    end.getProfilingInfo<CL_PROFILING_COMMAND_START>() -
 	    beg.getProfilingInfo<CL_PROFILING_COMMAND_END>()
 	    );
 }
