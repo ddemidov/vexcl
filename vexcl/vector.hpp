@@ -431,7 +431,7 @@ class vector : public expression {
 
 	/// Return size .
 	uint size() const {
-	    return part.back();
+	    return part.empty() ? 0 : part.back();
 	}
 
 	/// Return number of parts (devices).
