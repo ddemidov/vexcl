@@ -311,8 +311,9 @@ class vector : public expression {
 		iterator_type(vector_type &vec, size_t pos)
 		    : vec(vec), pos(pos), part(0)
 		{
-		    while(pos >= vec.part[part + 1] && part < vec.nparts())
-			part++;
+		    if (!vec.part.empty())
+			while(pos >= vec.part[part + 1] && part < vec.nparts())
+			    part++;
 		}
 
 		friend class vector;
