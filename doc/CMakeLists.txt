@@ -23,6 +23,7 @@ if (LATEX_COMPILER AND DOXYGEN_FOUND)
 	)
 
     add_custom_target(doc
+	COMMAND rm ${CMAKE_CURRENT_BINARY_DIR}/html/*
 	COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
 	COMMENT "Build Doxygen-generated documentation"
 	)

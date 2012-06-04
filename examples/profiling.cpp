@@ -163,7 +163,7 @@ std::pair<double,double> benchmark_spmv(
     const real h2i = (n - 1) * (n - 1);
 
     std::vector<size_t> row;
-    std::vector<size_t> col;
+    std::vector<uint>   col;
     std::vector<real>   val;
     std::vector<real>   X(n * n * n, 1e-2);
     std::vector<real>   Y(n * n * n, 0);
@@ -219,7 +219,7 @@ std::pair<double,double> benchmark_spmv(
     size_t nnz = row.back();
 
     // Transfer data to compute devices.
-    vex::SpMat<real>  A(queue, n * n * n, row.data(), col.data(), val.data());
+    vex::SpMat<real,uint>  A(queue, n * n * n, row.data(), col.data(), val.data());
     vex::vector<real> x(queue, X);
     vex::vector<real> y(queue, Y);
 

@@ -51,8 +51,8 @@ THE SOFTWARE.
 /// OpenCL convenience utilities.
 namespace vex {
 
-template<class T> struct SpMV;
-template <class Expr, typename T> struct ExSpMV;
+template<class T, typename column_t> struct SpMV;
+template <class Expr, typename T, typename column_t> struct ExSpMV;
 
 /// Base class for a member of an expression.
 /**
@@ -595,12 +595,17 @@ class vector : public expression {
 	    return *this = *this - expr;
 	}
 
-	template <class Expr>
-	const vector& operator=(const ExSpMV<Expr,T> &xmv);
+	template <class Expr, typename column_t>
+	const vector& operator=(const ExSpMV<Expr,T,column_t> &xmv);
 
-	const vector& operator=(const SpMV<T> &spmv);
-	const vector& operator+=(const SpMV<T> &spmv);
-	const vector& operator-=(const SpMV<T> &spmv);
+	template <typename column_t>
+	const vector& operator= (const SpMV<T,column_t> &spmv);
+
+	template <typename column_t>
+	const vector& operator+=(const SpMV<T,column_t> &spmv);
+
+	template <typename column_t>
+	const vector& operator-=(const SpMV<T,column_t> &spmv);
 	/// @}
 
 	/** \name Service methods used for kernel generation.
