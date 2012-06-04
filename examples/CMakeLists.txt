@@ -16,11 +16,6 @@ set(EXAMPLES
     cg
     devlist
     profiling
-    readme_example_1
-    readme_example_2
-    readme_example_3
-    readme_example_4
-    spmv
     utests
     vector
     )
