@@ -21,6 +21,7 @@ set(EXAMPLES
     readme_example_3
     readme_example_4
     spmv
+    utests
     vector
     )
 
