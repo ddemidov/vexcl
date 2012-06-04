@@ -129,7 +129,7 @@ struct expression {
     /**
      * \param dev Position in active queue list for which to return the size.
      */
-    virtual uint part_size(uint dev) const = 0;
+    virtual size_t part_size(uint dev) const = 0;
 
     virtual ~expression() {}
 };
@@ -162,7 +162,7 @@ struct KernelGenerator {
 	value.kernel_expr(os, name);
     }
 
-    uint part_size(uint dev) const {
+    size_t part_size(uint dev) const {
 	return value.part_size(dev);
     }
 
@@ -193,7 +193,7 @@ struct KernelGenerator<T, typename std::enable_if<std::is_arithmetic<T>::value>:
 	k.setArg(pos++, value);
     }
 
-    uint part_size(uint dev) const {
+    size_t part_size(uint dev) const {
 	return 0;
     }
 
@@ -250,12 +250,12 @@ class vector : public expression {
 		    return val;
 		}
 	    private:
-		element(const cl::CommandQueue &q, cl::Buffer b, uint i)
+		element(const cl::CommandQueue &q, cl::Buffer b, size_t i)
 		    : queue(q), buf(b), index(i) {}
 
 		const cl::CommandQueue  &queue;
 		cl::Buffer              buf;
-		const uint              index;
+		const size_t            index;
 
 		friend class vector;
 	};
@@ -336,7 +336,7 @@ class vector : public expression {
 
 	/// Copy host data to the new buffer.
 	vector(const std::vector<cl::CommandQueue> &queue,
-		uint size, const T *host = 0,
+		size_t size, const T *host = 0,
 		cl_mem_flags flags = CL_MEM_READ_WRITE
 	      ) : queue(queue), part(vex::partition(size, queue)),
 	          buf(queue.size()), event(queue.size())
@@ -384,7 +384,7 @@ class vector : public expression {
 
 	/// Resize vector.
 	void resize(const std::vector<cl::CommandQueue> &queue,
-		uint size, const T *host = 0,
+		size_t size, const T *host = 0,
 		cl_mem_flags flags = CL_MEM_READ_WRITE
 		)
 	{
@@ -426,21 +426,21 @@ class vector : public expression {
 	}
 
 	/// Access element.
-	const element operator[](uint index) const {
-	    uint p = 0;
-	    while(index >= part[p + 1] && p < nparts()) p++;
-	    return element(queue[p], buf[p], index - part[p]);
+	const element operator[](size_t index) const {
+	    uint d = 0;
+	    while(index >= part[d + 1] && d < nparts()) d++;
+	    return element(queue[d], buf[d], index - part[d]);
 	}
 
 	/// Access element.
-	element operator[](uint index) {
-	    uint p = 0;
-	    while(index >= part[p + 1] && p < nparts()) p++;
-	    return element(queue[p], buf[p], index - part[p]);
+	element operator[](size_t index) {
+	    uint d = 0;
+	    while(index >= part[d + 1] && d < nparts()) d++;
+	    return element(queue[d], buf[d], index - part[d]);
 	}
 
 	/// Return size .
-	uint size() const {
+	size_t size() const {
 	    return part.empty() ? 0 : part.back();
 	}
 
@@ -450,7 +450,7 @@ class vector : public expression {
 	}
 
 	/// Return size of part on a given device.
-	uint part_size(uint d) const {
+	size_t part_size(uint d) const {
 	    return part[d + 1] - part[d];
 	}
 
@@ -463,7 +463,7 @@ class vector : public expression {
 	const vector& operator=(const vector &x) {
 	    if (&x != this) {
 		for(uint d = 0; d < queue.size(); d++)
-		    if (uint psize = part[d + 1] - part[d]) {
+		    if (size_t psize = part[d + 1] - part[d]) {
 			queue[d].enqueueCopyBuffer(x.buf[d], buf[d], 0, 0,
 				psize * sizeof(T));
 		    }
@@ -503,21 +503,21 @@ class vector : public expression {
 
 			kernel <<
 			    "kernel void " << kernel_name << "(\n"
-			    "\tunsigned int n,\n"
+			    "\t" << type_name<size_t>() << " n,\n"
 			    "\tglobal " << type_name<T>() << " *res";
 
 			kgen.kernel_prm(kernel, "prm");
 
 			kernel <<
 			    "\n\t)\n{\n"
-			    "\tunsigned int i = get_global_id(0);\n";
+			    "\tsize_t i = get_global_id(0);\n";
 			if (device_is_cpu) {
 			    kernel <<
 				"\tif (i < n) {\n"
 				"\t\tres[i] = ";
 			} else {
 			    kernel <<
-				"\tunsigned int grid_size = get_num_groups(0) * get_local_size(0);\n"
+				"\tsize_t grid_size = get_num_groups(0) * get_local_size(0);\n"
 				"\twhile (i < n) {\n"
 				"\t\tres[i] = ";
 			}
@@ -551,11 +551,11 @@ class vector : public expression {
 		}
 
 		for(uint d = 0; d < queue.size(); d++) {
-		    if (uint psize = part[d + 1] - part[d]) {
+		    if (size_t psize = part[d + 1] - part[d]) {
 			cl::Context context = queue[d].getInfo<CL_QUEUE_CONTEXT>();
 			cl::Device  device  = queue[d].getInfo<CL_QUEUE_DEVICE>();
 
-			uint g_size = device.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU ?
+			size_t g_size = device.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU ?
 			    alignup(psize, exdata<Expr>::wgsize[context()]) :
 			    device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() * exdata<Expr>::wgsize[context()] * 4;
 
@@ -624,12 +624,12 @@ class vector : public expression {
 	/// @}
 
 	/// Copy data from host buffer to device(s).
-	void write_data(uint offset, uint size, const T *hostptr, cl_bool blocking) {
+	void write_data(size_t offset, size_t size, const T *hostptr, cl_bool blocking) {
 	    if (!size) return;
 
 	    for(uint d = 0; d < queue.size(); d++) {
-		uint start = std::max(offset,        part[d]);
-		uint stop  = std::min(offset + size, part[d + 1]);
+		size_t start = std::max(offset,        part[d]);
+		size_t stop  = std::min(offset + size, part[d + 1]);
 
 		if (stop <= start) continue;
 
@@ -642,21 +642,21 @@ class vector : public expression {
 	    }
 
 	    if (blocking)
-		for(uint d = 0; d < queue.size(); d++) {
-		    uint start = std::max(offset,        part[d]);
-		    uint stop  = std::min(offset + size, part[d + 1]);
+		for(size_t d = 0; d < queue.size(); d++) {
+		    size_t start = std::max(offset,        part[d]);
+		    size_t stop  = std::min(offset + size, part[d + 1]);
 
 		    if (start < stop) event[d].wait();
 		}
 	}
 
 	/// Copy data from device(s) to host buffer .
-	void read_data(uint offset, uint size, T *hostptr, cl_bool blocking) const {
+	void read_data(size_t offset, size_t size, T *hostptr, cl_bool blocking) const {
 	    if (!size) return;
 
 	    for(uint d = 0; d < queue.size(); d++) {
-		uint start = std::max(offset,        part[d]);
-		uint stop  = std::min(offset + size, part[d + 1]);
+		size_t start = std::max(offset,        part[d]);
+		size_t stop  = std::min(offset + size, part[d + 1]);
 
 		if (stop <= start) continue;
 
@@ -670,8 +670,8 @@ class vector : public expression {
 
 	    if (blocking)
 		for(uint d = 0; d < queue.size(); d++) {
-		    uint start = std::max(offset,        part[d]);
-		    uint stop  = std::min(offset + size, part[d + 1]);
+		    size_t start = std::max(offset,        part[d]);
+		    size_t stop  = std::min(offset + size, part[d + 1]);
 
 		    if (start < stop) event[d].wait();
 		}
@@ -681,17 +681,17 @@ class vector : public expression {
 	struct exdata {
 	    static std::map<cl_context,bool>       compiled;
 	    static std::map<cl_context,cl::Kernel> kernel;
-	    static std::map<cl_context,uint>       wgsize;
+	    static std::map<cl_context,size_t>     wgsize;
 	};
 
 	std::vector<cl::CommandQueue>	queue;
-	std::vector<uint>               part;
+	std::vector<size_t>             part;
 	std::vector<cl::Buffer>		buf;
 	mutable std::vector<cl::Event>  event;
 
 	void allocate_buffers(cl_mem_flags flags, const T *hostptr) {
 	    for(uint d = 0; d < queue.size(); d++) {
-		if (uint psize = part[d + 1] - part[d]) {
+		if (size_t psize = part[d + 1] - part[d]) {
 		    cl::Context context = queue[d].getInfo<CL_QUEUE_CONTEXT>();
 
 		    buf[d] = cl::Buffer(context, flags, psize * sizeof(T));
@@ -708,7 +708,7 @@ template <class T> template <class Expr>
 std::map<cl_context, cl::Kernel> vector<T>::exdata<Expr>::kernel;
 
 template <class T> template <class Expr>
-std::map<cl_context, uint> vector<T>::exdata<Expr>::wgsize;
+std::map<cl_context, size_t> vector<T>::exdata<Expr>::wgsize;
 
 /// Copy device vector to host vector.
 template <class T>
@@ -813,7 +813,7 @@ struct BinaryExpression : public expression {
 	rhs.kernel_args(k, devnum, pos);
     }
 
-    uint part_size(uint dev) const {
+    size_t part_size(uint dev) const {
 	return std::max(lhs.part_size(dev), rhs.part_size(dev));
     }
 
@@ -885,7 +885,7 @@ struct UnaryExpression : public expression {
 	expr.kernel_args(k, devnum, pos);
     }
 
-    uint part_size(uint dev) const {
+    size_t part_size(uint dev) const {
 	return expr.part_size(dev);
     }
 
@@ -928,7 +928,7 @@ static const UnaryFunction Tan ("tan");
 /// Returns device weight after simple bandwidth test
 double device_vector_perf(
 	const cl::Context &context, const cl::Device &device,
-	uint test_size = 1024U * 1024U
+	size_t test_size = 1024U * 1024U
 	)
 {
     static std::map<cl_device_id, double> dev_weights;
@@ -971,11 +971,11 @@ double device_vector_perf(
  * where a, b and c are device vectors. Each device gets portion of the vector
  * proportional to the performance of this operation.
  */
-std::vector<uint> partition_by_vector_perf(
-	uint n, const std::vector<cl::CommandQueue> &queue)
+std::vector<size_t> partition_by_vector_perf(
+	size_t n, const std::vector<cl::CommandQueue> &queue)
 {
 
-    std::vector<uint> part(queue.size() + 1, 0);
+    std::vector<size_t> part(queue.size() + 1, 0);
 
     if (queue.size() > 1) {
 	std::vector<double> cumsum;

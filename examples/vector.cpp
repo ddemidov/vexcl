@@ -31,7 +31,7 @@ int main() {
 	std::cout << queue << std::endl;
 
 	// Allocate host vector, fill it with random values.
-	const uint N = 1024 * 1024;
+	const size_t N = 1024 * 1024;
 	std::vector<double> host_vec(N);
 	std::generate(host_vec.begin(), host_vec.end(), []() {
 		return double(rand()) / RAND_MAX;
@@ -56,7 +56,7 @@ int main() {
 	std::cout << "y * y = " << sum(y * y) << std::endl;
 
 	// Check results at random location.
-	uint pos = rand() % N;
+	size_t pos = rand() % N;
 
 	// You can read or write device vector elements with [] notation (very
 	// ineffective but sometimes convenient).

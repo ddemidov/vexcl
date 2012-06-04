@@ -5,6 +5,8 @@
 #include <tuple>
 #include <functional>
 #include <cmath>
+
+//#define VEX_SHOW_KERNELS
 #include <vexcl/vexcl.hpp>
 
 using namespace vex;

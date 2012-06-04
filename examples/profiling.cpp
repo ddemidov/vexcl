@@ -19,8 +19,8 @@ std::pair<double,double> benchmark_vector(
 	std::vector<cl::CommandQueue> &queue, profiler &prof
 	)
 {
-    const uint N = 1024 * 1024;
-    const uint M = 1024;
+    const size_t N = 1024 * 1024;
+    const size_t M = 1024;
     double time_elapsed;
 
     std::vector<real> A(N, 0);
@@ -41,7 +41,7 @@ std::pair<double,double> benchmark_vector(
     a = 0;
 
     prof.tic_cl("OpenCL");
-    for(uint i = 0; i < M; i++)
+    for(size_t i = 0; i < M; i++)
 	a += b + c * d;
     time_elapsed = prof.toc("OpenCL");
 
@@ -57,8 +57,8 @@ std::pair<double,double> benchmark_vector(
 
 #ifdef BENCHMARK_CPU
     prof.tic_cpu("C++");
-    for(uint i = 0; i < M; i++)
-	for(uint j = 0; j < N; j++)
+    for(size_t i = 0; i < M; i++)
+	for(size_t j = 0; j < N; j++)
 	    A[j] += B[j] + C[j] * D[j];
     time_elapsed = prof.toc("C++");
 
@@ -108,7 +108,7 @@ std::pair<double, double> benchmark_reductor(
     sum_cl = 0;
 
     prof.tic_cl("OpenCL");
-    for(uint i = 0; i < M; i++)
+    for(size_t i = 0; i < M; i++)
 	sum_cl += sum(a * b);
     time_elapsed = prof.toc("OpenCL");
 
@@ -153,31 +153,31 @@ std::pair<double,double> benchmark_spmv(
 	)
 {
     // Construct matrix for 3D Poisson problem in cubic domain.
-    const uint n = 128;
-    const uint N = n * n * n;
-    const uint M = 1024;
+    const size_t n = 128;
+    const size_t N = n * n * n;
+    const size_t M = 1024;
 
     double time_elapsed;
 
     const real h   = 1.0 / (n - 1);
     const real h2i = (n - 1) * (n - 1);
 
-    std::vector<uint> row;
-    std::vector<uint> col;
-    std::vector<real> val;
-    std::vector<real> X(n * n * n, 1e-2);
-    std::vector<real> Y(n * n * n, 0);
+    std::vector<size_t> row;
+    std::vector<size_t> col;
+    std::vector<real>   val;
+    std::vector<real>   X(n * n * n, 1e-2);
+    std::vector<real>   Y(n * n * n, 0);
 
     row.reserve(n * n * n + 1);
     col.reserve(6 * (n - 2) * (n - 2) * (n - 2) + n * n * n);
     val.reserve(6 * (n - 2) * (n - 2) * (n - 2) + n * n * n);
 
     row.push_back(0);
-    for(uint k = 0, idx = 0; k < n; k++) {
+    for(size_t k = 0, idx = 0; k < n; k++) {
 	real z = k * h;
-	for(uint j = 0; j < n; j++) {
+	for(size_t j = 0; j < n; j++) {
 	    real y = j * h;
-	    for(uint i = 0; i < n; i++, idx++) {
+	    for(size_t i = 0; i < n; i++, idx++) {
 		real x = i * h;
 		if (
 			i == 0 || i == (n - 1) ||
@@ -216,7 +216,7 @@ std::pair<double,double> benchmark_spmv(
 	}
     }
 
-    uint nnz = row.back();
+    size_t nnz = row.back();
 
     // Transfer data to compute devices.
     vex::SpMat<real>  A(queue, n * n * n, row.data(), col.data(), val.data());
@@ -228,12 +228,12 @@ std::pair<double,double> benchmark_spmv(
     y = 0;
 
     prof.tic_cl("OpenCL");
-    for(uint i = 0; i < M; i++)
+    for(size_t i = 0; i < M; i++)
 	y += A * x;
     time_elapsed = prof.toc("OpenCL");
 
     double gflops = (2.0 * nnz + N) * M / time_elapsed / 1e9;
-    double bwidth = M * (nnz * (2 * sizeof(real) + sizeof(uint)) + 4 * N * sizeof(real)) / time_elapsed / 1e9;
+    double bwidth = M * (nnz * (2 * sizeof(real) + sizeof(size_t)) + 4 * N * sizeof(real)) / time_elapsed / 1e9;
 
     std::cout
 	<< "SpMV\n"
@@ -245,9 +245,9 @@ std::pair<double,double> benchmark_spmv(
 #ifdef BENCHMARK_CPU
     prof.tic_cpu("C++");
     for(size_t k = 0; k < M; k++)
-	for(uint i = 0; i < N; i++) {
+	for(size_t i = 0; i < N; i++) {
 	    real s = 0;
-	    for(uint j = row[i]; j < row[i + 1]; j++)
+	    for(size_t j = row[i]; j < row[i + 1]; j++)
 		s += val[j] * X[col[j]];
 	    Y[i] += s;
 	}
@@ -255,7 +255,7 @@ std::pair<double,double> benchmark_spmv(
 
     {
 	double gflops = (2.0 * nnz + N) * M / time_elapsed / 1e9;
-	double bwidth = M * (nnz * (2 * sizeof(real) + sizeof(uint)) + 4 * N * sizeof(real)) / time_elapsed / 1e9;
+	double bwidth = M * (nnz * (2 * sizeof(real) + sizeof(size_t)) + 4 * N * sizeof(real)) / time_elapsed / 1e9;
 
 	std::cout
 	    << "  C++"

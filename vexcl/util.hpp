@@ -61,18 +61,28 @@ template <> std::string type_name<char>()   { return "char"; }
 template <> std::string type_name<uint>()   { return "unsigned int"; }
 template <> std::string type_name<uchar>()  { return "unsigned char"; }
 
-std::string standard_kernel_header =
-	std::string(
-		"#if defined(cl_khr_fp64)\n"
-		"#  pragma OPENCL EXTENSION cl_khr_fp64: enable\n"
-		"#elif defined(cl_amd_fp64)\n"
-		"#  pragma OPENCL EXTENSION cl_amd_fp64: enable\n"
-		"#endif\n"
-		) +
-	std::string("typedef ") + type_name<uint>() + std::string("vex_size_t;\n");
+template <> std::string type_name<size_t>() {
+    static_assert(sizeof(size_t) == 4 || sizeof(size_t) == 8,
+	    "Only 32bit or 64bit architectures are supported");
+    return sizeof(size_t) == 4 ? "uint" : "ulong";
+}
+
+template <> std::string type_name<ptrdiff_t>() {
+    static_assert(sizeof(size_t) == 4 || sizeof(size_t) == 8,
+	    "Only 32bit or 64bit architectures are supported");
+    return sizeof(size_t) == 4 ? "int" : "long";
+}
+
+std::string standard_kernel_header = std::string(
+	"#if defined(cl_khr_fp64)\n"
+	"#  pragma OPENCL EXTENSION cl_khr_fp64: enable\n"
+	"#elif defined(cl_amd_fp64)\n"
+	"#  pragma OPENCL EXTENSION cl_amd_fp64: enable\n"
+	"#endif\n"
+	);
 
 /// Return next power of 2.
-uint nextpow2(uint x) {
+size_t nextpow2(size_t x) {
     --x;
     x |= x >> 1U;
     x |= x >> 2U;
@@ -83,7 +93,7 @@ uint nextpow2(uint x) {
 }
 
 /// Align n to the next multiple of m.
-uint alignup(uint n, uint m = 16U) {
+size_t alignup(size_t n, size_t m = 16U) {
     return n % m ? n - n % m + m : n;
 }
 
@@ -96,8 +106,8 @@ uint alignup(uint n, uint m = 16U) {
  * where a, b and c are device vectors. Each device gets portion of the vector
  * proportional to the performance of this operation.
  */
-std::vector<uint> partition_by_vector_perf(
-	uint n, const std::vector<cl::CommandQueue> &queue);
+std::vector<size_t> partition_by_vector_perf(
+	size_t n, const std::vector<cl::CommandQueue> &queue);
 
 /// Partitions vector wrt to spmv performance of devices.
 /**
@@ -109,21 +119,21 @@ std::vector<uint> partition_by_vector_perf(
  * domain. Each device gets portion of the vector proportional to the
  * performance of this operation.
  */
-std::vector<uint> partition_by_spmv_perf(
-	uint n, const std::vector<cl::CommandQueue> &queue);
+std::vector<size_t> partition_by_spmv_perf(
+	size_t n, const std::vector<cl::CommandQueue> &queue);
 
 /// Partitions vector equally.
-std::vector<uint> partition_equally(
-	uint n, const std::vector<cl::CommandQueue> &queue)
+std::vector<size_t> partition_equally(
+	size_t n, const std::vector<cl::CommandQueue> &queue)
 {
-    uint m = queue.size();
+    size_t m = queue.size();
 
-    std::vector<uint> part(m + 1);
+    std::vector<size_t> part(m + 1);
     part[0] = 0;
 
     if (queue.size() > 1) {
-	for(uint i = 0, chunk_size = alignup((n + m - 1) / m); i < m; i++)
-	    part[i + 1] = std::min(n, part[i] + chunk_size);
+	for(size_t d = 0, chunk_size = alignup((n + m - 1) / m); d < m; d++)
+	    part[d + 1] = std::min(n, part[d] + chunk_size);
     } else {
 	part.back() = n;
     }
@@ -140,7 +150,7 @@ std::vector<uint> partition_equally(
  */
 struct partitioning_scheme {
     typedef std::function<
-	std::vector<uint>(uint, const std::vector<cl::CommandQueue>&)
+	std::vector<size_t>(size_t, const std::vector<cl::CommandQueue>&)
 	> function_type;
 
     static void set(function_type f) {
@@ -155,7 +165,7 @@ struct partitioning_scheme {
 	}
     }
 
-    std::vector<uint> operator()(uint n,
+    std::vector<size_t> operator()(size_t n,
 	    const std::vector<cl::CommandQueue> &queue) const
     {
 	if (!is_set) {
@@ -196,15 +206,15 @@ cl::Program build_sources(
 }
 
 /// Get maximum possible workgroup size for given kernel.
-uint kernel_workgroup_size(
+size_t kernel_workgroup_size(
 	const cl::Kernel &kernel,
 	const std::vector<cl::Device> &device
 	)
 {
-    uint wgsz = 1024U;
+    size_t wgsz = 1024U;
 
     for(auto d = device.begin(); d != device.end(); d++) {
-	uint dev_wgsz = kernel.getWorkGroupInfo<CL_KERNEL_WORK_GROUP_SIZE>(*d);
+	size_t dev_wgsz = kernel.getWorkGroupInfo<CL_KERNEL_WORK_GROUP_SIZE>(*d);
 	while(wgsz > dev_wgsz) wgsz /= 2;
     }
 

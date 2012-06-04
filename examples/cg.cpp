@@ -9,10 +9,10 @@ typedef double real;
 // Solve system of linear equations A u = f with conjugate gradients method.
 // Input matrix is represented in CSR format (parameters row, col, and val).
 void cg_gpu(
-	const std::vector<uint> &row,	// Indices to col and val vectors.
-	const std::vector<uint> &col,	// Column numbers of non-zero elements.
-	const std::vector<real> &val,	// Values of non-zero elements.
-	const std::vector<real> &rhs,	// Right-hand side.
+	const std::vector<size_t> &row,	// Indices to col and val vectors.
+	const std::vector<size_t> &col,	// Column numbers of non-zero elements.
+	const std::vector<real>   &val,	// Values of non-zero elements.
+	const std::vector<real>   &rhs,	// Right-hand side.
 	std::vector<real> &x		// In: initial approximation; out: result.
 	)
 {
@@ -25,7 +25,7 @@ void cg_gpu(
 	);
 
     // Move data to GPU(s)
-    uint n = x.size();
+    size_t n = x.size();
     vex::SpMat<real>  A(queue, n, row.data(), col.data(), val.data());
     vex::vector<real> f(queue, rhs, CL_MEM_READ_ONLY);
     vex::vector<real> u(queue, x);
@@ -65,14 +65,14 @@ void cg_gpu(
 }
 
 int main() {
-    uint n = 1024;
+    size_t n = 1024;
     real h = 1.0 / (n - 1);
 
     // Prepare problem (1D Poisson equation).
-    std::vector<uint> row;
-    std::vector<uint> col;
-    std::vector<real> val;
-    std::vector<real> rhs;
+    std::vector<size_t> row;
+    std::vector<size_t> col;
+    std::vector<real>   val;
+    std::vector<real>   rhs;
 
     row.reserve(n + 1);
     col.reserve(2 + (n - 2) * 3);
@@ -80,7 +80,7 @@ int main() {
     rhs.reserve(n);
 
     row.push_back(0);
-    for(uint i = 0; i < n; i++) {
+    for(size_t i = 0; i < n; i++) {
 	if (i == 0 || i == n-1) {
 	    col.push_back(i);
 	    val.push_back(1);
@@ -108,7 +108,7 @@ int main() {
 
     // Compute actual residual.
     double res = 0;
-    for(uint i = 0; i < n; i++) {
+    for(size_t i = 0; i < n; i++) {
 	double y = i * h;
 	res = std::max(res, fabs(x[i] - y * (1 - y)));
     }

@@ -75,7 +75,7 @@ class Reductor {
 	real operator()(const Expr &expr) const;
     private:
 	const std::vector<cl::CommandQueue> &queue;
-	std::vector<uint> idx;
+	std::vector<size_t> idx;
 	std::vector<cl::Buffer> dbuf;
 
 	mutable std::vector<real> hbuf;
@@ -85,7 +85,7 @@ class Reductor {
 	struct exdata {
 	    static std::map<cl_context, bool>       compiled;
 	    static std::map<cl_context, cl::Kernel> kernel;
-	    static std::map<cl_context, uint>       wgsize;
+	    static std::map<cl_context, size_t>     wgsize;
 	};
 
 	static real initial_value() {
@@ -119,7 +119,7 @@ template <typename real, ReductionKind RDC> template <class Expr>
 std::map<cl_context, cl::Kernel> Reductor<real,RDC>::exdata<Expr>::kernel;
 
 template <typename real, ReductionKind RDC> template <class Expr>
-std::map<cl_context, uint> Reductor<real,RDC>::exdata<Expr>::wgsize;
+std::map<cl_context, size_t> Reductor<real,RDC>::exdata<Expr>::wgsize;
 
 template <typename real, ReductionKind RDC>
 Reductor<real,RDC>::Reductor(const std::vector<cl::CommandQueue> &queue)
@@ -132,7 +132,7 @@ Reductor<real,RDC>::Reductor(const std::vector<cl::CommandQueue> &queue)
 	cl::Context context = q->getInfo<CL_QUEUE_CONTEXT>();
 	cl::Device d = q->getInfo<CL_QUEUE_DEVICE>();
 
-	uint bufsize = d.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() * 2U;
+	size_t bufsize = d.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() * 2U;
 	idx.push_back(idx.back() + bufsize);
 
 	dbuf.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, bufsize * sizeof(real)));
@@ -177,7 +177,7 @@ real Reductor<real,RDC>::operator()(const Expr &expr) const {
 		cl::Kernel &krn = exdata<Expr>::kernel[context()];
 
 		for(auto d = device.begin(); d != device.end(); d++) {
-		    uint smem = d->getInfo<CL_DEVICE_LOCAL_MEM_SIZE>() -
+		    size_t smem = d->getInfo<CL_DEVICE_LOCAL_MEM_SIZE>() -
 			krn.getWorkGroupInfo<CL_KERNEL_LOCAL_MEM_SIZE>(*d);
 		    while(exdata<Expr>::wgsize[context()] * sizeof(real) > smem)
 			exdata<Expr>::wgsize[context()] /= 2;
@@ -188,13 +188,13 @@ real Reductor<real,RDC>::operator()(const Expr &expr) const {
 
 
     for(uint d = 0; d < queue.size(); d++) {
-	if (uint psize = expr.part_size(d)) {
+	if (size_t psize = expr.part_size(d)) {
 	    cl::Context context = queue[d].getInfo<CL_QUEUE_CONTEXT>();
 
-	    uint g_size = (idx[d + 1] - idx[d]) * exdata<Expr>::wgsize[context()];
+	    size_t g_size = (idx[d + 1] - idx[d]) * exdata<Expr>::wgsize[context()];
 	    auto lmem = cl::__local(exdata<Expr>::wgsize[context()] * sizeof(real));
 
-	    uint pos   = 0;
+	    uint pos = 0;
 	    exdata<Expr>::kernel[context()].setArg(pos++, psize);
 	    expr.kernel_args(exdata<Expr>::kernel[context()], d, pos);
 	    exdata<Expr>::kernel[context()].setArg(pos++, dbuf[d]);
@@ -214,8 +214,7 @@ real Reductor<real,RDC>::operator()(const Expr &expr) const {
     }
 
     for(uint d = 0; d < queue.size(); d++)
-	if (expr.part_size(d))
-	    event[d].wait();
+	if (expr.part_size(d)) event[d].wait();
 
     switch(RDC) {
 	case SUM:
@@ -257,7 +256,7 @@ std::string Reductor<real,RDC>::gpu_kernel_source(
     }
 
     source << standard_kernel_header <<
-	"kernel void " << kernel_name << "(uint n";
+	"kernel void " << kernel_name << "(" << type_name<size_t>()<< " n";
 
     expr.kernel_prm(source, "prm");
 
@@ -265,11 +264,11 @@ std::string Reductor<real,RDC>::gpu_kernel_source(
 	"\tlocal  " << type_name<real>() << " *sdata\n"
 	"\t)\n"
 	"{\n"
-	"    uint tid        = get_local_id(0);\n"
-	"    uint block_size = get_local_size(0);\n"
-	"    uint p          = get_group_id(0) * block_size * 2 + tid;\n"
-	"    uint gridSize   = get_num_groups(0) * block_size * 2;\n"
-	"    uint i;\n"
+	"    size_t tid        = get_local_id(0);\n"
+	"    size_t block_size = get_local_size(0);\n"
+	"    size_t p          = get_group_id(0) * block_size * 2 + tid;\n"
+	"    size_t gridSize   = get_num_groups(0) * block_size * 2;\n"
+	"    size_t i;\n"
 	"    " << type_name<real>() << " mySum = " << initial_value() << ";\n"
 	"    while (p < n) {\n"
 	"        i = p;\n"
@@ -375,7 +374,7 @@ std::string Reductor<real,RDC>::cpu_kernel_source(
     }
 
     source << standard_kernel_header <<
-	"kernel void " << kernel_name << "(uint n";
+	"kernel void " << kernel_name << "(" << type_name<size_t>() << " n";
 
     expr.kernel_prm(source, "prm");
 
@@ -383,13 +382,13 @@ std::string Reductor<real,RDC>::cpu_kernel_source(
 	"\tlocal  " << type_name<real>() << " *sdata\n"
 	"\t)\n"
 	"{\n"
-	"    uint grid_size  = get_num_groups(0) * get_local_size(0);\n"
-	"    uint chunk_size = (n + grid_size - 1) / grid_size;\n"
-	"    uint chunk_id   = get_global_id(0);\n"
-	"    uint start      = min(n, chunk_size * chunk_id);\n"
-	"    uint stop       = min(n, chunk_size * (chunk_id + 1));\n"
+	"    size_t grid_size  = get_num_groups(0) * get_local_size(0);\n"
+	"    size_t chunk_size = (n + grid_size - 1) / grid_size;\n"
+	"    size_t chunk_id   = get_global_id(0);\n"
+	"    size_t start      = min(n, chunk_size * chunk_id);\n"
+	"    size_t stop       = min(n, chunk_size * (chunk_id + 1));\n"
 	"    " << type_name<real>() << " mySum = " << initial_value() << ";\n"
-	"    for (uint i = start; i < stop; i++) {\n"
+	"    for (size_t i = start; i < stop; i++) {\n"
 	"        " << increment_line.str() <<
 	"    }\n"
 	"\n"

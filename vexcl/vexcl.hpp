@@ -92,7 +92,7 @@ In the example below host vector is allocated and initialized, then copied to
 all devices obtained with the queue_list() call. A couple of empty device
 vectors are allocated as well:
 \code
-const uint n = 1 << 20;
+const size_t n = 1 << 20;
 std::vector<double> x(n);
 std::generate(x.begin(), x.end(), [](){ return (double)rand() / RAND_MAX; });
 
@@ -143,11 +143,11 @@ typedef double real;
 // Solve system of linear equations A u = f with conjugate gradients method.
 // Input matrix is represented in CSR format (parameters row, col, and val).
 void cg_gpu(
-	const std::vector<uint> &row,	// Indices to col and val vectors.
-	const std::vector<uint> &col,	// Column numbers of non-zero elements.
-	const std::vector<real> &val,	// Values of non-zero elements.
-	const std::vector<real> &rhs,	// Right-hand side.
-	std::vector<real> &x		// In: initial approximation; out: result.
+	const std::vector<size_t> &row, // Indices to col and val vectors.
+	const std::vector<size_t> &col, // Column numbers of non-zero elements.
+	const std::vector<real>   &val, // Values of non-zero elements.
+	const std::vector<real>   &rhs, // Right-hand side.
+	std::vector<real> &x            // In: initial approximation; out: result.
 	)
 {
     // Init OpenCL.
@@ -157,7 +157,7 @@ void cg_gpu(
     std::tie(context, queue) = queue_list(Filter::Type(CL_DEVICE_TYPE_GPU));
 
     // Move data to compute devices.
-    uint n = x.size();
+    size_t n = x.size();
     vex::SpMat<real>  A(queue, n, row.data(), col.data(), val.data());
     vex::vector<real> f(queue, rhs);
     vex::vector<real> u(queue, x);
@@ -206,20 +206,20 @@ cl::Context context;
 std::vector<cl::CommandQueue> queue;
 std::tie(context, queue) = queue_list(Filter::Type(CL_DEVICE_TYPE_GPU));
 
-const uint n = 1 << 20;
+const size_t n = 1 << 20;
 vex::vector<float> x(queue, n);
 
 auto program = build_sources(context, std::string(
-    "kernel void dummy(uint size, global float *x)\n"
+    "kernel void dummy(ulong size, global float *x)\n"
     "{\n"
-    "    uint i = get_global_id(0);\n"
+    "    size_t i = get_global_id(0);\n"
     "    if (i < size) x[i] = 4.2;\n"
     "}\n"
     ));
 
 for(uint d = 0; d < queue.size(); d++) {
     auto dummy = cl::Kernel(program, "dummy").bind(queue[d], alignup(n, 256), 256);
-    dummy((uint)x.part_size(d), x(d));
+    dummy((cl_ulong)x.part_size(d), x(d));
 }
 
 Reductor<float,SUM> sum(queue);
