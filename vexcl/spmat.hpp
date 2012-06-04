@@ -299,22 +299,18 @@ SpMat<real>::SpMat(
 	if (!compiled[context()]) {
 	    std::ostringstream source;
 
-	    source << "#if defined(cl_khr_fp64)\n"
-		      "#  pragma OPENCL EXTENSION cl_khr_fp64: enable\n"
-		      "#elif defined(cl_amd_fp64)\n"
-		      "#  pragma OPENCL EXTENSION cl_amd_fp64: enable\n"
-		      "#endif\n"
-		      "typedef " << type_name<real>() << " real;\n"
-		      "kernel void gather_vals_to_send(\n"
-		      "    uint n,\n"
-		      "    global const real *vals,\n"
-		      "    global const uint *cols_to_send,\n"
-		      "    global real *vals_to_send\n"
-		      "    )\n"
-		      "{\n"
-		      "    uint i = get_global_id(0);\n"
-		      "    if (i < n) vals_to_send[i] = vals[cols_to_send[i]];\n"
-		      "}\n";
+	    source << standard_kernel_header <<
+		"typedef " << type_name<real>() << " real;\n"
+		"kernel void gather_vals_to_send(\n"
+		"    uint n,\n"
+		"    global const real *vals,\n"
+		"    global const uint *cols_to_send,\n"
+		"    global real *vals_to_send\n"
+		"    )\n"
+		"{\n"
+		"    uint i = get_global_id(0);\n"
+		"    if (i < n) vals_to_send[i] = vals[cols_to_send[i]];\n"
+		"}\n";
 
 #ifdef VEX_SHOW_KERNELS
 	    std::cout << source.str() << std::endl;
@@ -608,11 +604,7 @@ void SpMat<real>::SpMatELL::prepare_kernels(const cl::Context &context) const {
     if (!compiled[context()]) {
 	std::ostringstream source;
 
-	source << "#if defined(cl_khr_fp64)\n"
-	    "#  pragma OPENCL EXTENSION cl_khr_fp64: enable\n"
-	    "#elif defined(cl_amd_fp64)\n"
-	    "#  pragma OPENCL EXTENSION cl_amd_fp64: enable\n"
-	    "#endif\n"
+	source << standard_kernel_header <<
 	    "typedef " << type_name<real>() << " real;\n"
 	    "#define NCOL (~0U)\n"
 	    "kernel void spmv_set(\n"
@@ -885,11 +877,7 @@ void SpMat<real>::SpMatCSR::prepare_kernels(const cl::Context &context) const {
     if (!compiled[context()]) {
 	std::ostringstream source;
 
-	source << "#if defined(cl_khr_fp64)\n"
-	    "#  pragma OPENCL EXTENSION cl_khr_fp64: enable\n"
-	    "#elif defined(cl_amd_fp64)\n"
-	    "#  pragma OPENCL EXTENSION cl_amd_fp64: enable\n"
-	    "#endif\n"
+	source << standard_kernel_header <<
 	    "typedef " << type_name<real>() << " real;\n"
 	    "#define NCOL (~0U)\n"
 	    "kernel void spmv_set(\n"

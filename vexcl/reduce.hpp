@@ -256,19 +256,13 @@ std::string Reductor<real,RDC>::gpu_kernel_source(
 	    break;
     }
 
-    source <<
-	"#if defined(cl_khr_fp64)\n"
-	"#  pragma OPENCL EXTENSION cl_khr_fp64: enable\n"
-	"#elif defined(cl_amd_fp64)\n"
-	"#  pragma OPENCL EXTENSION cl_amd_fp64: enable\n"
-	"#endif\n"
-	"typedef " << type_name<real>() << " real;\n"
+    source << standard_kernel_header <<
 	"kernel void " << kernel_name << "(uint n";
 
     expr.kernel_prm(source, "prm");
 
-    source << ",\n\tglobal real *g_odata,\n"
-	"\tlocal  real *sdata\n"
+    source << ",\n\tglobal " << type_name<real>() << " *g_odata,\n"
+	"\tlocal  " << type_name<real>() << " *sdata\n"
 	"\t)\n"
 	"{\n"
 	"    uint tid        = get_local_id(0);\n"
@@ -276,7 +270,7 @@ std::string Reductor<real,RDC>::gpu_kernel_source(
 	"    uint p          = get_group_id(0) * block_size * 2 + tid;\n"
 	"    uint gridSize   = get_num_groups(0) * block_size * 2;\n"
 	"    uint i;\n"
-	"    real mySum = " << initial_value() << ";\n"
+	"    " << type_name<real>() << " mySum = " << initial_value() << ";\n"
 	"    while (p < n) {\n"
 	"        i = p;\n"
 	"        " << increment_line.str() <<
@@ -298,7 +292,7 @@ std::string Reductor<real,RDC>::gpu_kernel_source(
 		"    if (block_size >=  128) { if (tid <  64) { sdata[tid] = mySum = mySum + sdata[tid +  64]; } barrier(CLK_LOCAL_MEM_FENCE); }\n"
 		"\n"
 		"    if (tid < 32) {\n"
-		"        local volatile real* smem = sdata;\n"
+		"        local volatile " << type_name<real>() << "* smem = sdata;\n"
 		"        if (block_size >=  64) { smem[tid] = mySum = mySum + smem[tid + 32]; }\n"
 		"        if (block_size >=  32) { smem[tid] = mySum = mySum + smem[tid + 16]; }\n"
 		"        if (block_size >=  16) { smem[tid] = mySum = mySum + smem[tid +  8]; }\n"
@@ -316,7 +310,7 @@ std::string Reductor<real,RDC>::gpu_kernel_source(
 		"    if (block_size >=  128) { if (tid <  64) { sdata[tid] = mySum = max(mySum, sdata[tid +  64]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
 		"\n"
 		"    if (tid < 32) {\n"
-		"        local volatile real* smem = sdata;\n"
+		"        local volatile " << type_name<real>() << "* smem = sdata;\n"
 		"        if (block_size >=  64) { smem[tid] = mySum = max(mySum, smem[tid + 32]); }\n"
 		"        if (block_size >=  32) { smem[tid] = mySum = max(mySum, smem[tid + 16]); }\n"
 		"        if (block_size >=  16) { smem[tid] = mySum = max(mySum, smem[tid +  8]); }\n"
@@ -334,7 +328,7 @@ std::string Reductor<real,RDC>::gpu_kernel_source(
 		"    if (block_size >=  128) { if (tid <  64) { sdata[tid] = mySum = min(mySum, sdata[tid +  64]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
 		"\n"
 		"    if (tid < 32) {\n"
-		"        local volatile real* smem = sdata;\n"
+		"        local volatile " << type_name<real>() << "* smem = sdata;\n"
 		"        if (block_size >=  64) { smem[tid] = mySum = min(mySum, smem[tid + 32]); }\n"
 		"        if (block_size >=  32) { smem[tid] = mySum = min(mySum, smem[tid + 16]); }\n"
 		"        if (block_size >=  16) { smem[tid] = mySum = min(mySum, smem[tid +  8]); }\n"
@@ -380,19 +374,13 @@ std::string Reductor<real,RDC>::cpu_kernel_source(
 	    break;
     }
 
-    source <<
-	"#if defined(cl_khr_fp64)\n"
-	"#  pragma OPENCL EXTENSION cl_khr_fp64: enable\n"
-	"#elif defined(cl_amd_fp64)\n"
-	"#  pragma OPENCL EXTENSION cl_amd_fp64: enable\n"
-	"#endif\n"
-	"typedef " << type_name<real>() << " real;\n"
+    source << standard_kernel_header <<
 	"kernel void " << kernel_name << "(uint n";
 
     expr.kernel_prm(source, "prm");
 
-    source << ",\n\tglobal real *g_odata,\n"
-	"\tlocal  real *sdata\n"
+    source << ",\n\tglobal " << type_name<real>() << " *g_odata,\n"
+	"\tlocal  " << type_name<real>() << " *sdata\n"
 	"\t)\n"
 	"{\n"
 	"    uint grid_size  = get_num_groups(0) * get_local_size(0);\n"
@@ -400,7 +388,7 @@ std::string Reductor<real,RDC>::cpu_kernel_source(
 	"    uint chunk_id   = get_global_id(0);\n"
 	"    uint start      = min(n, chunk_size * chunk_id);\n"
 	"    uint stop       = min(n, chunk_size * (chunk_id + 1));\n"
-	"    real mySum = " << initial_value() << ";\n"
+	"    " << type_name<real>() << " mySum = " << initial_value() << ";\n"
 	"    for (uint i = start; i < stop; i++) {\n"
 	"        " << increment_line.str() <<
 	"    }\n"

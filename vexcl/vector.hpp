@@ -497,12 +497,7 @@ class vector : public expression {
 
 			std::string kernel_name = kgen.kernel_name();
 
-			kernel <<
-			    "#if defined(cl_khr_fp64)\n"
-			    "#  pragma OPENCL EXTENSION cl_khr_fp64: enable\n"
-			    "#elif defined(cl_amd_fp64)\n"
-			    "#  pragma OPENCL EXTENSION cl_amd_fp64: enable\n"
-			    "#endif\n";
+			kernel << standard_kernel_header;
 
 			kgen.preamble(kernel, "prm");
 

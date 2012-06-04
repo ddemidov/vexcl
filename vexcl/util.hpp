@@ -39,6 +39,7 @@ THE SOFTWARE.
 #define __CL_ENABLE_EXCEPTIONS
 
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <vector>
 #include <algorithm>
@@ -59,6 +60,16 @@ template <> std::string type_name<int>()    { return "int"; }
 template <> std::string type_name<char>()   { return "char"; }
 template <> std::string type_name<uint>()   { return "unsigned int"; }
 template <> std::string type_name<uchar>()  { return "unsigned char"; }
+
+std::string standard_kernel_header =
+	std::string(
+		"#if defined(cl_khr_fp64)\n"
+		"#  pragma OPENCL EXTENSION cl_khr_fp64: enable\n"
+		"#elif defined(cl_amd_fp64)\n"
+		"#  pragma OPENCL EXTENSION cl_amd_fp64: enable\n"
+		"#endif\n"
+		) +
+	std::string("typedef ") + type_name<uint>() + std::string("vex_size_t;\n");
 
 /// Return next power of 2.
 uint nextpow2(uint x) {
