@@ -784,6 +784,11 @@ template <class LHS, char OP, class RHS>
 struct BinaryExpression : public expression {
     BinaryExpression(const LHS &lhs, const RHS &rhs) : lhs(lhs), rhs(rhs) {}
 
+    void preamble(std::ostream &os, std::string name) const {
+	lhs.preamble(os, name + "l");
+	rhs.preamble(os, name + "r");
+    }
+
     std::string kernel_name() const {
 	// Polish notation.
 	switch (OP) {
@@ -877,6 +882,10 @@ template <class Expr>
 struct UnaryExpression : public expression {
     UnaryExpression(const Expr &expr, const UnaryFunction &fun)
 	: expr(expr), fun(fun) {}
+
+    void preamble(std::ostream &os, std::string name) const {
+	expr.preamble(os, name);
+    }
 
     std::string kernel_name() const;
 
