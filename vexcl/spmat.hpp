@@ -1012,6 +1012,134 @@ void SpMat<real>::SpMatCSR::mul_remote(
 	    );
 }
 
+/// Returns device weight after spmv test
+double device_spmv_perf(
+	const cl::Context &context, const cl::Device &device,
+	uint test_size = 64U
+	)
+{
+    static std::map<cl_device_id, double> dev_weights;
+
+    auto dw = dev_weights.find(device());
+
+    if (dw == dev_weights.end()) {
+	std::vector<cl::CommandQueue> queue(1,
+		cl::CommandQueue(context, device, CL_QUEUE_PROFILING_ENABLE)
+		);
+
+	// Construct matrix for 3D Poisson problem in cubic domain.
+	const uint  n   = test_size;
+	const float h   = 1.0 / (n - 1);
+	const float h2i = (n - 1) * (n - 1);
+
+	std::vector<uint>  row;
+	std::vector<uint>  col;
+	std::vector<float> val;
+
+	row.reserve(n * n * n + 1);
+	col.reserve(6 * (n - 2) * (n - 2) * (n - 2) + n * n * n);
+	val.reserve(6 * (n - 2) * (n - 2) * (n - 2) + n * n * n);
+
+	row.push_back(0);
+	for(uint k = 0, idx = 0; k < n; k++) {
+	    float z = k * h;
+	    for(uint j = 0; j < n; j++) {
+		float y = j * h;
+		for(uint i = 0; i < n; i++, idx++) {
+		    float x = i * h;
+		    if (
+			    i == 0 || i == (n - 1) ||
+			    j == 0 || j == (n - 1) ||
+			    k == 0 || k == (n - 1)
+		       )
+		    {
+			col.push_back(idx);
+			val.push_back(1);
+			row.push_back(row.back() + 1);
+		    } else {
+			col.push_back(idx - n * n);
+			val.push_back(-h2i);
+
+			col.push_back(idx - n);
+			val.push_back(-h2i);
+
+			col.push_back(idx - 1);
+			val.push_back(-h2i);
+
+			col.push_back(idx);
+			val.push_back(6 * h2i);
+
+			col.push_back(idx + 1);
+			val.push_back(-h2i);
+
+			col.push_back(idx + n);
+			val.push_back(-h2i);
+
+			col.push_back(idx + n * n);
+			val.push_back(-h2i);
+
+			row.push_back(row.back() + 7);
+		    }
+		}
+	    }
+	}
+
+	// Create device vectors and copy of the matrix.
+	vex::SpMat<float>  A(queue, n * n * n, row.data(), col.data(), val.data());
+	vex::vector<float> x(queue, n * n * n);
+	vex::vector<float> y(queue, n * n * n);
+
+	// Warming run.
+	x = 1;
+	y = A * x;
+
+	// Measure performance.
+	profiler prof(queue);
+	prof.tic_cl("");
+	y = A * x;
+	double time = prof.toc("");
+	std::cout << device.getInfo<CL_DEVICE_NAME>() << " - " << time << std::endl;
+	return dev_weights[device()] = 1 / time;
+    } else {
+	return dw->second;
+    }
+}
+
+/// Partitions vector wrt to vector performance of devices.
+/**
+ * Launches the following kernel on each device:
+ * \code
+ * a = b + c;
+ * \endcode
+ * where a, b and c are device vectors. Each device gets portion of the vector
+ * proportional to the performance of this operation.
+ */
+std::vector<uint> partition_by_spmv_perf(
+	uint n, const std::vector<cl::CommandQueue> &queue)
+{
+
+    std::vector<uint> part(queue.size() + 1, 0);
+
+    if (queue.size() > 1) {
+	std::vector<double> cumsum;
+	cumsum.reserve(queue.size() + 1);
+	cumsum.push_back(0);
+
+	for(auto q = queue.begin(); q != queue.end(); q++)
+	    cumsum.push_back(cumsum.back() + device_spmv_perf(
+			q->getInfo<CL_QUEUE_CONTEXT>(),
+			q->getInfo<CL_QUEUE_DEVICE>()
+			));
+
+	for(uint d = 0; d < queue.size(); d++)
+	    part[d + 1] = std::min(n, alignup(n * cumsum[d + 1] / cumsum.back()));
+    }
+
+    part.back() = n;
+
+    return part;
+}
+
 } // namespace vex
 
 #endif

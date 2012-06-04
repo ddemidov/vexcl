@@ -88,6 +88,19 @@ uint alignup(uint n, uint m = 16U) {
 std::vector<uint> partition_by_vector_perf(
 	uint n, const std::vector<cl::CommandQueue> &queue);
 
+/// Partitions vector wrt to spmv performance of devices.
+/**
+ * Launches the following kernel on each device:
+ * \code
+ * y = A * x;
+ * \endcode
+ * where x and y are vectors, and A is matrix for 3D Poisson problem in square
+ * domain. Each device gets portion of the vector proportional to the
+ * performance of this operation.
+ */
+std::vector<uint> partition_by_spmv_perf(
+	uint n, const std::vector<cl::CommandQueue> &queue);
+
 /// Partitions vector equally.
 std::vector<uint> partition_equally(
 	uint n, const std::vector<cl::CommandQueue> &queue)
