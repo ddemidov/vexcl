@@ -445,6 +445,11 @@ class vector : public expression {
 	    return part[d + 1] - part[d];
 	}
 
+	/// Return reference to vector's queue list
+	const std::vector<cl::CommandQueue>& queue_list() const {
+	    return queue;
+	}
+
 	/// Copies data from device vector.
 	const vector& operator=(const vector &x) {
 	    if (&x != this) {
