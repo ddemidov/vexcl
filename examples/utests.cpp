@@ -27,6 +27,11 @@ int main() {
 	std::tie(context, queue) = queue_list(Filter::Env());
 	std::cout << queue << std::endl;
 
+	if (queue.empty()) {
+	    std::cerr << "No OpenCL devices found." << std::endl;
+	    return 1;
+	}
+
 	run_test("Empty vector construction", [&]() {
 		bool rc = true;
 		vex::vector<float> x;
