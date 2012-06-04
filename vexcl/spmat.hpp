@@ -57,10 +57,10 @@ THE SOFTWARE.
 namespace vex {
 
 /// Sparse matrix.
-template <typename real, typename column_t = size_t>
+template <typename real, typename column_t = size_t, SpMatFormat format = ELL>
 class SpMat {
     public:
-	/// Constructor
+	/// Constructor for ELL format.
 	/**
 	 * Constructs GPU representation of the matrix. Input matrix is in CSR
 	 * format. GPU matrix utilizes ELL format and is split equally across
@@ -76,6 +76,22 @@ class SpMat {
 	 */
 	SpMat(const std::vector<cl::CommandQueue> &queue,
 	      size_t n, const size_t *row, const column_t *col, const real *val
+	      );
+
+	/// Constructor for CCSR format.
+	/**
+	 * Constructs GPU representation of the CCSR matrix.
+	 * \param queue vector of queues. Each queue represents one
+	 *            compute device.
+	 * \param n   number of rows in the matrix.
+	 * \param idx index into row vector.
+	 * \param row row index into col and val vectors.
+	 * \param col column positions of nonzero elements wrt to diagonal.
+	 * \param val values of nonzero elements of the matrix.
+	 */
+	SpMat(const std::vector<cl::CommandQueue> &queue,
+	      size_t n, const size_t *idx, const size_t *row,
+	      const column_t *col, const real *val
 	      );
 
 	/// Matrix-vector multiplication.
@@ -107,6 +123,8 @@ class SpMat {
 	};
 
 	struct SpMatELL : sparse_matrix {
+	    static const column_t ncol = -1;
+
 	    SpMatELL(
 		    const cl::CommandQueue &queue, size_t beg, size_t end,
 		    const size_t *row, const column_t *col, const real *val,
@@ -176,6 +194,37 @@ class SpMat {
 	    static std::map<cl_context, uint>       wgsize;
 	};
 
+	struct SpMatCCSR : public sparse_matrix {
+	    SpMatCCSR(
+		    const cl::CommandQueue &queue, size_t n, size_t m,
+		    const size_t *idx, const size_t *row, const column_t *col,
+		    const real *val
+		    );
+
+	    void prepare_kernels(const cl::Context &context) const;
+
+	    void mul_local(
+		    const cl::Buffer &x, const cl::Buffer &y,
+		    real alpha, bool append
+		    ) const;
+
+	    const cl::CommandQueue &queue;
+
+	    size_t n;
+
+	    struct {
+		cl::Buffer idx;
+		cl::Buffer row;
+		cl::Buffer col;
+		cl::Buffer val;
+	    } mtx;
+
+	    static std::map<cl_context, bool>       compiled;
+	    static std::map<cl_context, cl::Kernel> spmv_set;
+	    static std::map<cl_context, cl::Kernel> spmv_add;
+	    static std::map<cl_context, uint>       wgsize;
+	};
+
 	struct exdata {
 	    std::vector<column_t> cols_to_recv;
 	    mutable std::vector<real> vals_to_recv;
@@ -206,84 +255,82 @@ class SpMat {
 		size_t n, const size_t *row, const column_t *col, const real *val);
 };
 
-template <typename real, typename column_t>
-std::map<cl_context, bool> SpMat<real,column_t>::compiled;
+template <typename real, typename column_t, SpMatFormat format>
+std::map<cl_context, bool> SpMat<real,column_t,format>::compiled;
 
-template <typename real, typename column_t>
-std::map<cl_context, cl::Kernel> SpMat<real,column_t>::gather_vals_to_send;
+template <typename real, typename column_t, SpMatFormat format>
+std::map<cl_context, cl::Kernel> SpMat<real,column_t,format>::gather_vals_to_send;
 
-template <typename real, typename column_t>
-std::map<cl_context, uint> SpMat<real,column_t>::wgsize;
+template <typename real, typename column_t, SpMatFormat format>
+std::map<cl_context, uint> SpMat<real,column_t,format>::wgsize;
 
 /// \internal Sparse matrix-vector product.
-template <typename real, typename column_t>
+template <typename real, typename column_t, SpMatFormat format>
 struct SpMV {
-    SpMV(const SpMat<real, column_t> &A, const vex::vector<real> &x) : A(A), x(x) {}
+    SpMV(const SpMat<real, column_t,format> &A, const vex::vector<real> &x) : A(A), x(x) {}
 
-    const SpMat<real,column_t> &A;
-    const vex::vector<real>    &x;
+    const SpMat<real,column_t,format> &A;
+    const vex::vector<real> &x;
 };
 
 /// Multiply sparse matrix and a vector.
-template <typename real, typename column_t>
-SpMV<real,column_t> operator*(const SpMat<real, column_t> &A, const vex::vector<real> &x) {
-    return SpMV<real, column_t>(A, x);
+template <typename real, typename column_t, SpMatFormat format>
+SpMV<real,column_t,format> operator*(const SpMat<real, column_t,format> &A, const vex::vector<real> &x) {
+    return SpMV<real, column_t,format>(A, x);
 }
 
 /// \internal Expression with matrix-vector product.
-template <class Expr, typename real, typename column_t>
+template <class Expr, typename real, typename column_t, SpMatFormat format>
 struct ExSpMV {
-    ExSpMV(const Expr &expr, const real alpha, const SpMV<real, column_t> &spmv)
+    ExSpMV(const Expr &expr, const real alpha, const SpMV<real, column_t,format> &spmv)
 	: expr(expr), alpha(alpha), spmv(spmv) {}
 
     const Expr &expr;
     const real alpha;
-    const SpMV<real, column_t> &spmv;
+    const SpMV<real, column_t, format> &spmv;
 };
 
 /// Add an expression and sparse matrix - vector product.
-template <class Expr, typename real, typename column_t>
-typename std::enable_if<Expr::is_expression, ExSpMV<Expr,real,column_t>>::type
-operator+(const Expr &expr, const SpMV<real,column_t> &spmv) {
-    return ExSpMV<Expr,real,column_t>(expr, 1, spmv);
+template <class Expr, typename real, typename column_t, SpMatFormat format>
+typename std::enable_if<Expr::is_expression, ExSpMV<Expr,real,column_t,format>>::type
+operator+(const Expr &expr, const SpMV<real,column_t,format> &spmv) {
+    return ExSpMV<Expr,real,column_t,format>(expr, 1, spmv);
 }
 
 /// Subtruct sparse matrix - vector product from an expression.
-template <class Expr, typename real, typename column_t>
-typename std::enable_if<Expr::is_expression, ExSpMV<Expr,real,column_t>>::type
-operator-(const Expr &expr, const SpMV<real,column_t> &spmv) {
-    return ExSpMV<Expr,real,column_t>(expr, -1, spmv);
+template <class Expr, typename real, typename column_t, SpMatFormat format>
+typename std::enable_if<Expr::is_expression, ExSpMV<Expr,real,column_t,format>>::type
+operator-(const Expr &expr, const SpMV<real,column_t,format> &spmv) {
+    return ExSpMV<Expr,real,column_t,format>(expr, -1, spmv);
 }
 
-template <typename real> template <typename column_t>
-const vector<real>& vector<real>::operator=(const SpMV<real,column_t> &spmv) {
+template <typename real> template <typename column_t, SpMatFormat format>
+const vector<real>& vector<real>::operator=(const SpMV<real,column_t,format> &spmv) {
     spmv.A.mul(spmv.x, *this);
     return *this;
 }
 
-template <typename real> template <typename column_t>
-const vector<real>& vector<real>::operator+=(const SpMV<real,column_t> &spmv) {
+template <typename real> template <typename column_t, SpMatFormat format>
+const vector<real>& vector<real>::operator+=(const SpMV<real,column_t,format> &spmv) {
     spmv.A.mul(spmv.x, *this, 1, true);
     return *this;
 }
 
-template <typename real> template <typename column_t>
-const vector<real>& vector<real>::operator-=(const SpMV<real,column_t> &spmv) {
+template <typename real> template <typename column_t, SpMatFormat format>
+const vector<real>& vector<real>::operator-=(const SpMV<real,column_t,format> &spmv) {
     spmv.A.mul(spmv.x, *this, -1, true);
     return *this;
 }
 
-template <typename real> template<class Expr, typename column_t>
-const vector<real>& vector<real>::operator=(const ExSpMV<Expr,real,column_t> &xmv) {
+template <typename real> template<class Expr, typename column_t, SpMatFormat format>
+const vector<real>& vector<real>::operator=(const ExSpMV<Expr,real,column_t,format> &xmv) {
     *this = xmv.expr;
     xmv.spmv.A.mul(xmv.spmv.x, *this, xmv.alpha, true);
     return *this;
 }
 
-#define NCOL (~0U)
-
-template <typename real, typename column_t>
-SpMat<real,column_t>::SpMat(
+template <typename real, typename column_t, SpMatFormat format>
+SpMat<real,column_t,format>::SpMat(
 	const std::vector<cl::CommandQueue> &queue,
 	size_t n, const size_t *row, const column_t *col, const real *val
 	)
@@ -292,6 +339,8 @@ SpMat<real,column_t>::SpMat(
       event2(queue.size(), std::vector<cl::Event>(1)),
       mtx(queue.size()), exc(queue.size())
 {
+    static_assert(format == ELL, "Wrong SpMat constructor.");
+
     for(auto q = queue.begin(); q != queue.end(); q++) {
 	cl::Context context = q->getInfo<CL_QUEUE_CONTEXT>();
 
@@ -355,8 +404,8 @@ SpMat<real,column_t>::SpMat(
     }
 }
 
-template <typename real, typename column_t>
-void SpMat<real,column_t>::mul(const vex::vector<real> &x, vex::vector<real> &y,
+template <typename real, typename column_t, SpMatFormat format>
+void SpMat<real,column_t,format>::mul(const vex::vector<real> &x, vex::vector<real> &y,
 	real alpha, bool append) const
 {
     if (rx.size()) {
@@ -415,8 +464,8 @@ void SpMat<real,column_t>::mul(const vex::vector<real> &x, vex::vector<real> &y,
     }
 }
 
-template <typename real, typename column_t>
-std::vector<std::set<column_t>> SpMat<real,column_t>::setup_exchange(
+template <typename real, typename column_t, SpMatFormat format>
+std::vector<std::set<column_t>> SpMat<real,column_t,format>::setup_exchange(
 	size_t n, const size_t *row, const column_t *col, const real *val
 	)
 {
@@ -496,20 +545,23 @@ std::vector<std::set<column_t>> SpMat<real,column_t>::setup_exchange(
 //---------------------------------------------------------------------------
 // SpMat::SpMatELL
 //---------------------------------------------------------------------------
-template <typename real, typename column_t>
-std::map<cl_context, bool> SpMat<real,column_t>::SpMatELL::compiled;
+template <typename real, typename column_t, SpMatFormat format>
+const column_t SpMat<real,column_t,format>::SpMatELL::ncol;
 
-template <typename real, typename column_t>
-std::map<cl_context, cl::Kernel> SpMat<real,column_t>::SpMatELL::spmv_set;
+template <typename real, typename column_t, SpMatFormat format>
+std::map<cl_context, bool> SpMat<real,column_t,format>::SpMatELL::compiled;
 
-template <typename real, typename column_t>
-std::map<cl_context, cl::Kernel> SpMat<real,column_t>::SpMatELL::spmv_add;
+template <typename real, typename column_t, SpMatFormat format>
+std::map<cl_context, cl::Kernel> SpMat<real,column_t,format>::SpMatELL::spmv_set;
 
-template <typename real, typename column_t>
-std::map<cl_context, uint> SpMat<real,column_t>::SpMatELL::wgsize;
+template <typename real, typename column_t, SpMatFormat format>
+std::map<cl_context, cl::Kernel> SpMat<real,column_t,format>::SpMatELL::spmv_add;
 
-template <typename real, typename column_t>
-SpMat<real,column_t>::SpMatELL::SpMatELL(
+template <typename real, typename column_t, SpMatFormat format>
+std::map<cl_context, uint> SpMat<real,column_t,format>::SpMatELL::wgsize;
+
+template <typename real, typename column_t, SpMatFormat format>
+SpMat<real,column_t,format>::SpMatELL::SpMatELL(
 	const cl::CommandQueue &queue, size_t beg, size_t end,
 	const size_t *row, const column_t *col, const real *val,
 	const std::set<column_t> &remote_cols
@@ -533,10 +585,10 @@ SpMat<real,column_t>::SpMatELL::SpMatELL(
     }
 
     // Rearrange column numbers and matrix values to ELL format.
-    std::vector<column_t> lcol(pitch * loc.w, NCOL);
+    std::vector<column_t> lcol(pitch * loc.w, ncol);
     std::vector<real>     lval(pitch * loc.w, 0);
 
-    std::vector<column_t> rcol(pitch * rem.w, NCOL);
+    std::vector<column_t> rcol(pitch * rem.w, ncol);
     std::vector<real>     rval(pitch * rem.w, 0);
 
     {
@@ -599,14 +651,14 @@ SpMat<real,column_t>::SpMatELL::SpMatELL(
     event.wait();
 }
 
-template <typename real, typename column_t>
-void SpMat<real,column_t>::SpMatELL::prepare_kernels(const cl::Context &context) const {
+template <typename real, typename column_t, SpMatFormat format>
+void SpMat<real,column_t,format>::SpMatELL::prepare_kernels(const cl::Context &context) const {
     if (!compiled[context()]) {
 	std::ostringstream source;
 
 	source << standard_kernel_header <<
 	    "typedef " << type_name<real>() << " real;\n"
-	    "#define NCOL (~0U)\n"
+	    "#define NCOL ((" << type_name<column_t>() << ")(-1))\n"
 	    "kernel void spmv_set(\n"
 	    "    " << type_name<size_t>() << " n, uint w, " << type_name<size_t>() << " pitch,\n"
 	    "    global const " << type_name<column_t>() << " *col,\n"
@@ -666,8 +718,8 @@ void SpMat<real,column_t>::SpMatELL::prepare_kernels(const cl::Context &context)
     }
 }
 
-template <typename real, typename column_t>
-void SpMat<real,column_t>::SpMatELL::mul_local(
+template <typename real, typename column_t, SpMatFormat format>
+void SpMat<real,column_t,format>::SpMatELL::mul_local(
 	const cl::Buffer &x, const cl::Buffer &y,
 	real alpha, bool append
 	) const
@@ -706,8 +758,8 @@ void SpMat<real,column_t>::SpMatELL::mul_local(
 		cl::NullRange, g_size, wgsize[context()]);
     }
 }
-template <typename real, typename column_t>
-void SpMat<real,column_t>::SpMatELL::mul_remote(
+template <typename real, typename column_t, SpMatFormat format>
+void SpMat<real,column_t,format>::SpMatELL::mul_remote(
 	const cl::Buffer &x, const cl::Buffer &y,
 	real alpha, const std::vector<cl::Event> &event
 	) const
@@ -736,20 +788,20 @@ void SpMat<real,column_t>::SpMatELL::mul_remote(
 //---------------------------------------------------------------------------
 // SpMat::SpMatCSR
 //---------------------------------------------------------------------------
-template <typename real, typename column_t>
-std::map<cl_context, bool> SpMat<real,column_t>::SpMatCSR::compiled;
+template <typename real, typename column_t, SpMatFormat format>
+std::map<cl_context, bool> SpMat<real,column_t,format>::SpMatCSR::compiled;
 
-template <typename real, typename column_t>
-std::map<cl_context, cl::Kernel> SpMat<real,column_t>::SpMatCSR::spmv_set;
+template <typename real, typename column_t, SpMatFormat format>
+std::map<cl_context, cl::Kernel> SpMat<real,column_t,format>::SpMatCSR::spmv_set;
 
-template <typename real, typename column_t>
-std::map<cl_context, cl::Kernel> SpMat<real,column_t>::SpMatCSR::spmv_add;
+template <typename real, typename column_t, SpMatFormat format>
+std::map<cl_context, cl::Kernel> SpMat<real,column_t,format>::SpMatCSR::spmv_add;
 
-template <typename real, typename column_t>
-std::map<cl_context, uint> SpMat<real,column_t>::SpMatCSR::wgsize;
+template <typename real, typename column_t, SpMatFormat format>
+std::map<cl_context, uint> SpMat<real,column_t,format>::SpMatCSR::wgsize;
 
-template <typename real, typename column_t>
-SpMat<real,column_t>::SpMatCSR::SpMatCSR(
+template <typename real, typename column_t, SpMatFormat format>
+SpMat<real,column_t,format>::SpMatCSR::SpMatCSR(
 	const cl::CommandQueue &queue, size_t beg, size_t end,
 	const size_t *row, const column_t *col, const real *val,
 	const std::set<column_t> &remote_cols
@@ -872,14 +924,13 @@ SpMat<real,column_t>::SpMatCSR::SpMatCSR(
     }
 }
 
-template <typename real, typename column_t>
-void SpMat<real,column_t>::SpMatCSR::prepare_kernels(const cl::Context &context) const {
+template <typename real, typename column_t, SpMatFormat format>
+void SpMat<real,column_t,format>::SpMatCSR::prepare_kernels(const cl::Context &context) const {
     if (!compiled[context()]) {
 	std::ostringstream source;
 
 	source << standard_kernel_header <<
 	    "typedef " << type_name<real>() << " real;\n"
-	    "#define NCOL (~0U)\n"
 	    "kernel void spmv_set(\n"
 	    "    " << type_name<size_t>() << " n,\n"
 	    "    global const " << type_name<size_t>() << " *row,\n"
@@ -941,8 +992,8 @@ void SpMat<real,column_t>::SpMatCSR::prepare_kernels(const cl::Context &context)
     }
 }
 
-template <typename real, typename column_t>
-void SpMat<real,column_t>::SpMatCSR::mul_local(
+template <typename real, typename column_t, SpMatFormat format>
+void SpMat<real,column_t,format>::SpMatCSR::mul_local(
 	const cl::Buffer &x, const cl::Buffer &y,
 	real alpha, bool append
 	) const
@@ -978,8 +1029,8 @@ void SpMat<real,column_t>::SpMatCSR::mul_local(
     }
 }
 
-template <typename real, typename column_t>
-void SpMat<real,column_t>::SpMatCSR::mul_remote(
+template <typename real, typename column_t, SpMatFormat format>
+void SpMat<real,column_t,format>::SpMatCSR::mul_remote(
 	const cl::Buffer &x, const cl::Buffer &y,
 	real alpha, const std::vector<cl::Event> &event
 	) const
@@ -998,6 +1049,168 @@ void SpMat<real,column_t>::SpMatCSR::mul_remote(
     queue.enqueueNDRangeKernel(spmv_add[context()],
 	    cl::NullRange, n, cl::NullRange, &event
 	    );
+}
+
+//---------------------------------------------------------------------------
+// SpMat::SpMatCCSR
+//---------------------------------------------------------------------------
+template <typename real, typename column_t, SpMatFormat format>
+std::map<cl_context, bool> SpMat<real,column_t,format>::SpMatCCSR::compiled;
+
+template <typename real, typename column_t, SpMatFormat format>
+std::map<cl_context, cl::Kernel> SpMat<real,column_t,format>::SpMatCCSR::spmv_set;
+
+template <typename real, typename column_t, SpMatFormat format>
+std::map<cl_context, cl::Kernel> SpMat<real,column_t,format>::SpMatCCSR::spmv_add;
+
+template <typename real, typename column_t, SpMatFormat format>
+std::map<cl_context, uint> SpMat<real,column_t,format>::SpMatCCSR::wgsize;
+
+template <typename real, typename column_t, SpMatFormat format>
+SpMat<real,column_t,format>::SpMatCCSR::SpMatCCSR(
+	const cl::CommandQueue &queue, size_t n, size_t m, const size_t *idx,
+	const size_t *row, const column_t *col, const real *val
+	)
+    : queue(queue), n(n)
+{
+    cl::Context context = queue.getInfo<CL_QUEUE_CONTEXT>();
+
+    prepare_kernels(context);
+
+    mtx.idx = cl::Buffer(
+	    context, CL_MEM_READ_ONLY, n * sizeof(size_t));
+
+    mtx.row = cl::Buffer(
+	    context, CL_MEM_READ_ONLY, (m + 1) * sizeof(size_t));
+
+    mtx.col = cl::Buffer(
+	    context, CL_MEM_READ_ONLY, row[m] * sizeof(column_t));
+
+    mtx.val = cl::Buffer(
+	    context, CL_MEM_READ_ONLY, row[m] * sizeof(real));
+
+    queue.enqueueWriteBuffer(
+	    mtx.idx, CL_FALSE, 0, n * sizeof(size_t), idx);
+
+    queue.enqueueWriteBuffer(
+	    mtx.row, CL_FALSE, 0, (m + 1) * sizeof(size_t), row);
+
+    queue.enqueueWriteBuffer(
+	    mtx.col, CL_FALSE, 0, row[m] * sizeof(column_t), col);
+
+    queue.enqueueWriteBuffer(
+	    mtx.val, CL_TRUE, 0, row[m] * sizeof(real), val);
+}
+
+template <typename real, typename column_t, SpMatFormat format>
+void SpMat<real,column_t,format>::SpMatCCSR::prepare_kernels(const cl::Context &context) const {
+    if (!compiled[context()]) {
+	std::ostringstream source;
+
+	source << standard_kernel_header <<
+	    "typedef " << type_name<real>() << " real;\n"
+	    "kernel void spmv_set(\n"
+	    "    " << type_name<size_t>() << " n,\n"
+	    "    global const " << type_name<size_t>() << " *idx,\n"
+	    "    global const " << type_name<size_t>() << " *row,\n"
+	    "    global const " << type_name<column_t>() << " *col,\n"
+	    "    global const real *val,\n"
+	    "    global const real *x,\n"
+	    "    global real *y,\n"
+	    "    real alpha\n"
+	    "    )\n"
+	    "{\n"
+	    "    size_t i = get_global_id(0);\n"
+	    "    if (i < n) {\n"
+	    "        real sum = 0;\n"
+	    "        size_t pos = idx[i];\n"
+	    "        size_t beg = row[pos];\n"
+	    "        size_t end = row[pos + 1];\n"
+	    "        for(size_t j = beg; j < end; j++)\n"
+	    "            sum += val[j] * x[col[j]];\n"
+	    "        y[i] = alpha * sum;\n"
+	    "    }\n"
+	    "}\n"
+	    "kernel void spmv_add(\n"
+	    "    " << type_name<size_t>() << " n,\n"
+	    "    global const " << type_name<size_t>() << " *idx,\n"
+	    "    global const " << type_name<size_t>() << " *row,\n"
+	    "    global const " << type_name<column_t>() << " *col,\n"
+	    "    global const real *val,\n"
+	    "    global const real *x,\n"
+	    "    global real *y,\n"
+	    "    real alpha\n"
+	    "    )\n"
+	    "{\n"
+	    "    size_t i = get_global_id(0);\n"
+	    "    if (i < n) {\n"
+	    "        real sum = 0;\n"
+	    "        size_t pos = idx[i];\n"
+	    "        size_t beg = row[pos];\n"
+	    "        size_t end = row[pos + 1];\n"
+	    "        for(size_t j = beg; j < end; j++)\n"
+	    "            sum += val[j] * x[col[j]];\n"
+	    "        y[i] += alpha * sum;\n"
+	    "    }\n"
+	    "}\n";
+
+#ifdef VEX_SHOW_KERNELS
+	std::cout << source.str() << std::endl;
+#endif
+
+	auto program = build_sources(context, source.str());
+
+	spmv_set[context()] = cl::Kernel(program, "spmv_set");
+	spmv_add[context()] = cl::Kernel(program, "spmv_add");
+
+	std::vector<cl::Device> device = context.getInfo<CL_CONTEXT_DEVICES>();
+
+	wgsize[context()] = std::min(
+		kernel_workgroup_size(spmv_set[context()], device),
+		kernel_workgroup_size(spmv_add[context()], device)
+		);
+
+	compiled[context()] = true;
+    }
+}
+
+template <typename real, typename column_t, SpMatFormat format>
+void SpMat<real,column_t,format>::SpMatCCSR::mul_local(
+	const cl::Buffer &x, const cl::Buffer &y,
+	real alpha, bool append
+	) const
+{
+    cl::Context context = queue.getInfo<CL_QUEUE_CONTEXT>();
+
+    size_t g_size = alignup(n, wgsize[context()]);
+
+    if (append) {
+	uint pos = 0;
+	spmv_add[context()].setArg(pos++, n);
+	spmv_add[context()].setArg(pos++, mtx.idx);
+	spmv_add[context()].setArg(pos++, mtx.row);
+	spmv_add[context()].setArg(pos++, mtx.col);
+	spmv_add[context()].setArg(pos++, mtx.val);
+	spmv_add[context()].setArg(pos++, x);
+	spmv_add[context()].setArg(pos++, y);
+	spmv_add[context()].setArg(pos++, alpha);
+
+	queue.enqueueNDRangeKernel(spmv_add[context()],
+		cl::NullRange, n, cl::NullRange);
+    } else {
+	uint pos = 0;
+	spmv_set[context()].setArg(pos++, n);
+	spmv_set[context()].setArg(pos++, mtx.idx);
+	spmv_set[context()].setArg(pos++, mtx.row);
+	spmv_set[context()].setArg(pos++, mtx.col);
+	spmv_set[context()].setArg(pos++, mtx.val);
+	spmv_set[context()].setArg(pos++, x);
+	spmv_set[context()].setArg(pos++, y);
+	spmv_set[context()].setArg(pos++, alpha);
+
+	queue.enqueueNDRangeKernel(spmv_set[context()],
+		cl::NullRange, n, cl::NullRange);
+    }
 }
 
 /// Returns device weight after spmv test
