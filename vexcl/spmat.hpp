@@ -1022,19 +1022,36 @@ void SpMat<real,column_t>::SpMatCSR::mul_remote(
 }
 
 /// Sparse matrix in CCSR format.
+/** 
+ * Compressed CSR format. row, col, and val arrays contain unique rows of the
+ * matrix. Column numbers in col array are relative to diagonal. idx array
+ * contains index into row vector, corresponding to each row of the matrix. So
+ * that matrix-vector multiplication may be performed as follows:
+ * \code
+ * for(uint i = 0; i < n; i++) {
+ *     real sum = 0;
+ *     for(uint j = row[idx[i]]; j < row[idx[i] + 1]; j++)
+ *         sum += val[j] * x[i + col[j]];
+ *     y[i] = sum;
+ * }
+ * \endcode
+ * This format does not support multi-device computation, so it accepts single
+ * queue at initialization. Vectors x and y should also be single-queued and
+ * reside on the same device with matrix.
+ */
 template <typename real, typename column_t = ptrdiff_t>
 class SpMatCCSR : public SpMatBase<real, column_t>{
     public:
 	/// Constructor for CCSR format.
 	/**
 	 * Constructs GPU representation of the CCSR matrix.
-	 * \param queue vector of queues. Each queue represents one
-	 *            compute device.
-	 * \param n   number of rows in the matrix.
-	 * \param idx index into row vector.
-	 * \param row row index into col and val vectors.
-	 * \param col column positions of nonzero elements wrt to diagonal.
-	 * \param val values of nonzero elements of the matrix.
+	 * \param queue single queue.
+	 * \param n     number of rows in the matrix.
+	 * \param m     number of unique rows in the matrix.
+	 * \param idx   index into row vector.
+	 * \param row   row index into col and val vectors.
+	 * \param col   column positions of nonzero elements wrt to diagonal.
+	 * \param val   values of nonzero elements of the matrix.
 	 */
 	SpMatCCSR(const cl::CommandQueue &queue,
 		size_t n, size_t m, const size_t *idx, const size_t *row,
