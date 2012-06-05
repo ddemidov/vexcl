@@ -219,7 +219,7 @@ std::pair<double,double> benchmark_spmv(
     size_t nnz = row.back();
 
     // Transfer data to compute devices.
-    vex::SpMat_ELL<real,uint> A(queue, n * n * n, row.data(), col.data(), val.data());
+    vex::SpMat<real,uint> A(queue, n * n * n, row.data(), col.data(), val.data());
 
     vex::vector<real> x(queue, X);
     vex::vector<real> y(queue, Y);
@@ -257,6 +257,137 @@ std::pair<double,double> benchmark_spmv(
     {
 	double gflops = (2.0 * nnz + N) * M / time_elapsed / 1e9;
 	double bwidth = M * (nnz * (2 * sizeof(real) + sizeof(size_t)) + 4 * N * sizeof(real)) / time_elapsed / 1e9;
+
+	std::cout
+	    << "  C++"
+	    << "\n    GFLOPS:    " << gflops
+	    << "\n    Bandwidth: " << bwidth
+	    << std::endl;
+    }
+
+    copy(Y, x);
+
+    y -= x;
+
+    Reductor<real,SUM> sum(queue);
+
+    std::cout << "  res = " << sum(y * y) << std::endl << std::endl;
+#endif
+
+    return std::make_pair(gflops, bwidth);
+}
+
+//---------------------------------------------------------------------------
+std::pair<double,double> benchmark_spmv_ccsr(
+	std::vector<cl::CommandQueue> &queue, profiler &prof
+	)
+{
+    // Construct matrix for 3D Poisson problem in cubic domain.
+    const uint n = 128;
+    const uint N = n * n * n;
+    const uint M = 1024;
+
+    double time_elapsed;
+
+    const real h   = 1.0 / (n - 1);
+    const real h2i = (n - 1) * (n - 1);
+
+    std::vector<size_t> idx;
+    std::vector<size_t> row(3);
+    std::vector<int>    col(8);
+    std::vector<real>   val(8);
+
+    std::vector<real>   X(n * n * n, 1e-2);
+    std::vector<real>   Y(n * n * n, 0);
+
+    idx.reserve(n * n * n);
+
+    row[0] = 0;
+    row[1] = 1;
+    row[2] = 8;
+
+    col[0] = 0;
+    val[0] = 1;
+
+    col[1] = -(n * n);
+    col[2] =    -n;
+    col[3] =    -1;
+    col[4] =     0;
+    col[5] =     1;
+    col[6] =     n;
+    col[7] =  (n * n);
+
+    val[1] = -h2i;
+    val[2] = -h2i;
+    val[3] = -h2i;
+    val[4] =  h2i * 6;
+    val[5] = -h2i;
+    val[6] = -h2i;
+    val[7] = -h2i;
+
+    for(size_t k = 0; k < n; k++) {
+	real z = k * h;
+	for(size_t j = 0; j < n; j++) {
+	    real y = j * h;
+	    for(size_t i = 0; i < n; i++) {
+		real x = i * h;
+		if (
+			i == 0 || i == (n - 1) ||
+			j == 0 || j == (n - 1) ||
+			k == 0 || k == (n - 1)
+		   )
+		{
+		    idx.push_back(0);
+		} else {
+		    idx.push_back(1);
+		}
+	    }
+	}
+    }
+
+    size_t nnz = 6 * (n - 2) * (n - 2) * (n - 2) + n * n * n;
+
+    // Transfer data to compute devices.
+    vex::SpMatCCSR<real,int> A(queue[0], n * n * n, 2,
+	    idx.data(), row.data(), col.data(), val.data());
+
+    std::vector<cl::CommandQueue> q1(1, queue[0]);
+    vex::vector<real> x(q1, X);
+    vex::vector<real> y(q1, Y);
+
+    // Get timings.
+    y += A * x;
+    y = 0;
+
+    prof.tic_cl("OpenCL");
+    for(size_t i = 0; i < M; i++)
+	y += A * x;
+    time_elapsed = prof.toc("OpenCL");
+
+    double gflops = (2.0 * nnz + N) * M / time_elapsed / 1e9;
+    double bwidth = M * (nnz * (2 * sizeof(real) + sizeof(int)) + 4 * N * sizeof(real)) / time_elapsed / 1e9;
+
+    std::cout
+	<< "SpMV (CCSR)\n"
+	<< "  OpenCL"
+	<< "\n    GFLOPS:    " << gflops
+	<< "\n    Bandwidth: " << bwidth
+	<< std::endl;
+
+#ifdef BENCHMARK_CPU
+    prof.tic_cpu("C++");
+    for(size_t k = 0; k < M; k++)
+	for(size_t i = 0; i < N; i++) {
+	    real s = 0;
+	    for(size_t j = row[idx[i]]; j < row[idx[i] + 1]; j++)
+		s += val[j] * X[i + col[j]];
+	    Y[i] += s;
+	}
+    time_elapsed = prof.toc("C++");
+
+    {
+	double gflops = (2.0 * nnz + N) * M / time_elapsed / 1e9;
+	double bwidth = M * (nnz * (2 * sizeof(real) + sizeof(int)) + 4 * N * sizeof(real)) / time_elapsed / 1e9;
 
 	std::cout
 	    << "  C++"
@@ -319,6 +450,10 @@ int main() {
 	prof.toc("SpMV");
 
 	log << gflops << " " << bwidth << std::endl;
+
+	prof.tic_cpu("SpMV (CCSR)");
+	std::tie(gflops, bwidth) = benchmark_spmv_ccsr(queue, prof);
+	prof.toc("SpMV (CCSR)");
 #endif
 
 	std::cout << prof << std::endl;

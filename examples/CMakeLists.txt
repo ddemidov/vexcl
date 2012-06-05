@@ -13,9 +13,9 @@ endif (WIN32)
 include_directories(${CMAKE_SOURCE_DIR})
 
 set(EXAMPLES
+    benchmark
     cg
     devlist
-    profiling
     utests
     vector
     )

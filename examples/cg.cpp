@@ -27,8 +27,7 @@ void cg_gpu(
 	);
 
     // Move data to GPU(s)
-    vex::SpMat_ELL<real> A(queue, n, row.data(), col.data(), val.data());
-
+    vex::SpMat <real> A(queue, n, row.data(), col.data(), val.data());
     vex::vector<real> f(queue, rhs, CL_MEM_READ_ONLY);
     vex::vector<real> u(queue, x);
     vex::vector<real> r(queue, n);
