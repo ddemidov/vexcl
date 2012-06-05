@@ -36,6 +36,10 @@ THE SOFTWARE.
 #  define NOMINMAX
 #endif
 
+#ifndef _MSC_VER
+#  define VEXCL_VARIADIC_TEMPLATES
+#endif
+
 #define __CL_ENABLE_EXCEPTIONS
 
 #include <vector>
@@ -875,6 +879,207 @@ typename std::enable_if<
 	return BinaryExpression<LHS,'/',RHS>(lhs, rhs);
     }
 
+#ifdef VEXCL_VARIADIC_TEMPLATES
+
+
+/// \internal Builtin function call.
+template <const char *func_name, class... Expr>
+class BuiltinFunction : public expression {
+    public:
+	BuiltinFunction(const Expr&... expr) : expr(expr...) {}
+
+	void preamble(std::ostream &os, std::string name) const {
+	    build_preamble<0>(os, name);
+	}
+
+	std::string kernel_name() const {
+	    return std::string(func_name) + build_kernel_name<0>();
+	}
+
+	void kernel_prm(std::ostream &os, std::string name) const {
+	    build_kernel_prm<0>(os, name);
+	}
+
+	void kernel_args(cl::Kernel &k, uint devnum, uint &pos) const {
+	    set_kernel_args<0>(k, devnum, pos);
+	}
+
+	void kernel_expr(std::ostream &os, std::string name) const {
+	    os << func_name << "(";
+	    build_kernel_expr<0>(os, name);
+	    os << ")";
+	}
+
+	size_t part_size(uint dev) const {
+	    return get_part_size<0>(dev);
+	}
+    private:
+	std::tuple<const Expr&...> expr;
+
+	//------------------------------------------------------------
+	template <int num>
+	typename std::enable_if<num == sizeof...(Expr), std::string>::type
+	build_kernel_name() const {
+	    return "";
+	}
+
+	template <int num>
+	typename std::enable_if<num < sizeof...(Expr), std::string>::type
+	build_kernel_name() const {
+	    return std::get<num>(expr).kernel_name() + build_kernel_name<num + 1>();
+	}
+
+	//------------------------------------------------------------
+	template <int num>
+	typename std::enable_if<num == sizeof...(Expr), void>::type
+	build_kernel_prm(std::ostream &os, std::string name) const {}
+
+	template <int num>
+	typename std::enable_if<num < sizeof...(Expr), void>::type
+	build_kernel_prm(std::ostream &os, std::string name) const {
+	    std::ostringstream cname;
+	    cname << name << num + 1;
+	    std::get<num>(expr).kernel_prm(os, cname.str());
+	    build_kernel_prm<num + 1>(os, name);
+	}
+
+	//------------------------------------------------------------
+	template <int num>
+	typename std::enable_if<num == sizeof...(Expr), void>::type
+	set_kernel_args(cl::Kernel &k, uint devnum, uint &pos) const {}
+
+	template <int num>
+	typename std::enable_if<num < sizeof...(Expr), void>::type
+	set_kernel_args(cl::Kernel &k, uint devnum, uint &pos) const {
+	    std::get<num>(expr).kernel_args(k, devnum, pos);
+	    set_kernel_args<num + 1>(k, devnum, pos);
+	}
+
+	//------------------------------------------------------------
+	template <int num>
+	typename std::enable_if<num == sizeof...(Expr), void>::type
+	build_kernel_expr(std::ostream &os, std::string name) const {}
+
+	template <int num>
+	typename std::enable_if<num < sizeof...(Expr), void>::type
+	build_kernel_expr(std::ostream &os, std::string name) const {
+	    std::ostringstream cname;
+	    cname << name << num + 1;
+	    std::get<num>(expr).kernel_expr(os, cname.str());
+	    if (num + 1 < sizeof...(Expr)) {
+		os << ", ";
+		build_kernel_expr<num + 1>(os, name);
+	    }
+	}
+
+	//------------------------------------------------------------
+	template <int num>
+	typename std::enable_if<num == sizeof...(Expr), void>::type
+	build_preamble(std::ostream &os, std::string name) const {}
+
+	template <int num>
+	typename std::enable_if<num < sizeof...(Expr), void>::type
+	build_preamble(std::ostream &os, std::string name) const {
+	    std::ostringstream cname;
+	    cname << name << num + 1;
+	    std::get<num>(expr).preamble(os, cname.str());
+	    build_preamble<num + 1>(os, name);
+	}
+
+	//------------------------------------------------------------
+	template <int num>
+	typename std::enable_if<num == sizeof...(Expr), size_t>::type
+	get_part_size(uint dev) const {
+	    return 0;
+	}
+
+	template <int num>
+	typename std::enable_if<num < sizeof...(Expr), size_t>::type
+	get_part_size(uint dev) const {
+	    return std::max(
+		    std::get<num>(expr).part_size(dev),
+		    get_part_size<num + 1>(dev)
+		    );
+	}
+};
+
+#define DEFINE_BUILTIN_FUNCTION(name) \
+extern const char name##_fun[] = #name; \
+template <class Expr> \
+typename std::enable_if<Expr::is_expression, \
+BuiltinFunction<name##_fun, Expr>>::type \
+name(const Expr &expr) { \
+return BuiltinFunction<name##_fun, Expr>(expr); \
+}
+
+DEFINE_BUILTIN_FUNCTION(acos)
+DEFINE_BUILTIN_FUNCTION(acosh)
+DEFINE_BUILTIN_FUNCTION(acospi)
+DEFINE_BUILTIN_FUNCTION(asin)
+DEFINE_BUILTIN_FUNCTION(asinh)
+DEFINE_BUILTIN_FUNCTION(asinpi)
+DEFINE_BUILTIN_FUNCTION(atan)
+DEFINE_BUILTIN_FUNCTION(atan2)
+DEFINE_BUILTIN_FUNCTION(atanh)
+DEFINE_BUILTIN_FUNCTION(atanpi)
+DEFINE_BUILTIN_FUNCTION(atan2pi)
+DEFINE_BUILTIN_FUNCTION(cbrt)
+DEFINE_BUILTIN_FUNCTION(ceil)
+DEFINE_BUILTIN_FUNCTION(copysign)
+DEFINE_BUILTIN_FUNCTION(cos)
+DEFINE_BUILTIN_FUNCTION(cosh)
+DEFINE_BUILTIN_FUNCTION(cospi)
+DEFINE_BUILTIN_FUNCTION(erfc)
+DEFINE_BUILTIN_FUNCTION(erf)
+DEFINE_BUILTIN_FUNCTION(exp)
+DEFINE_BUILTIN_FUNCTION(exp2)
+DEFINE_BUILTIN_FUNCTION(exp10)
+DEFINE_BUILTIN_FUNCTION(expm1)
+DEFINE_BUILTIN_FUNCTION(fabs)
+DEFINE_BUILTIN_FUNCTION(fdim)
+DEFINE_BUILTIN_FUNCTION(floor)
+DEFINE_BUILTIN_FUNCTION(fma)
+DEFINE_BUILTIN_FUNCTION(fmax)
+DEFINE_BUILTIN_FUNCTION(fmin)
+DEFINE_BUILTIN_FUNCTION(fmod)
+DEFINE_BUILTIN_FUNCTION(fract)
+DEFINE_BUILTIN_FUNCTION(frexp)
+DEFINE_BUILTIN_FUNCTION(hypot)
+DEFINE_BUILTIN_FUNCTION(ilogb)
+DEFINE_BUILTIN_FUNCTION(ldexp)
+DEFINE_BUILTIN_FUNCTION(lgamma)
+DEFINE_BUILTIN_FUNCTION(lgamma_r)
+DEFINE_BUILTIN_FUNCTION(log)
+DEFINE_BUILTIN_FUNCTION(log2)
+DEFINE_BUILTIN_FUNCTION(log10)
+DEFINE_BUILTIN_FUNCTION(log1p)
+DEFINE_BUILTIN_FUNCTION(logb)
+DEFINE_BUILTIN_FUNCTION(mad)
+DEFINE_BUILTIN_FUNCTION(maxmag)
+DEFINE_BUILTIN_FUNCTION(minmag)
+DEFINE_BUILTIN_FUNCTION(modf)
+DEFINE_BUILTIN_FUNCTION(nan)
+DEFINE_BUILTIN_FUNCTION(nextafter)
+DEFINE_BUILTIN_FUNCTION(pow)
+DEFINE_BUILTIN_FUNCTION(pown)
+DEFINE_BUILTIN_FUNCTION(powr)
+DEFINE_BUILTIN_FUNCTION(remainder)
+DEFINE_BUILTIN_FUNCTION(remquo)
+DEFINE_BUILTIN_FUNCTION(rint)
+DEFINE_BUILTIN_FUNCTION(rootn)
+DEFINE_BUILTIN_FUNCTION(round)
+DEFINE_BUILTIN_FUNCTION(rsqrt)
+DEFINE_BUILTIN_FUNCTION(sin)
+DEFINE_BUILTIN_FUNCTION(sincos)
+DEFINE_BUILTIN_FUNCTION(sinh)
+DEFINE_BUILTIN_FUNCTION(sinpi)
+DEFINE_BUILTIN_FUNCTION(sqrt)
+DEFINE_BUILTIN_FUNCTION(tan)
+DEFINE_BUILTIN_FUNCTION(tanh)
+DEFINE_BUILTIN_FUNCTION(tanpi)
+DEFINE_BUILTIN_FUNCTION(tgamma)
+DEFINE_BUILTIN_FUNCTION(trunc)
+
 /// \internal Custom user function expression template
 template<class RetType, class... ArgType>
 struct UserFunctionFamily {
@@ -919,24 +1124,24 @@ struct UserFunctionFamily {
 
 	    //------------------------------------------------------------
 	    template <int num>
-	    typename std::enable_if<num == sizeof...(ArgType), std::string>::type
+	    typename std::enable_if<num == sizeof...(Expr), std::string>::type
 	    build_kernel_name() const {
 		return "";
 	    }
 
 	    template <int num>
-	    typename std::enable_if<num < sizeof...(ArgType), std::string>::type
+	    typename std::enable_if<num < sizeof...(Expr), std::string>::type
 	    build_kernel_name() const {
 		return std::get<num>(expr).kernel_name() + build_kernel_name<num + 1>();
 	    }
 
 	    //------------------------------------------------------------
 	    template <int num>
-	    typename std::enable_if<num == sizeof...(ArgType), void>::type
+	    typename std::enable_if<num == sizeof...(Expr), void>::type
 	    build_kernel_prm(std::ostream &os, std::string name) const {}
 
 	    template <int num>
-	    typename std::enable_if<num < sizeof...(ArgType), void>::type
+	    typename std::enable_if<num < sizeof...(Expr), void>::type
 	    build_kernel_prm(std::ostream &os, std::string name) const {
 		std::ostringstream cname;
 		cname << name << num + 1;
@@ -946,11 +1151,11 @@ struct UserFunctionFamily {
 
 	    //------------------------------------------------------------
 	    template <int num>
-	    typename std::enable_if<num == sizeof...(ArgType), void>::type
+	    typename std::enable_if<num == sizeof...(Expr), void>::type
 	    set_kernel_args(cl::Kernel &k, uint devnum, uint &pos) const {}
 
 	    template <int num>
-	    typename std::enable_if<num < sizeof...(ArgType), void>::type
+	    typename std::enable_if<num < sizeof...(Expr), void>::type
 	    set_kernel_args(cl::Kernel &k, uint devnum, uint &pos) const {
 		std::get<num>(expr).kernel_args(k, devnum, pos);
 		set_kernel_args<num + 1>(k, devnum, pos);
@@ -958,16 +1163,16 @@ struct UserFunctionFamily {
 
 	    //------------------------------------------------------------
 	    template <int num>
-	    typename std::enable_if<num == sizeof...(ArgType), void>::type
+	    typename std::enable_if<num == sizeof...(Expr), void>::type
 	    build_kernel_expr(std::ostream &os, std::string name) const {}
 
 	    template <int num>
-	    typename std::enable_if<num < sizeof...(ArgType), void>::type
+	    typename std::enable_if<num < sizeof...(Expr), void>::type
 	    build_kernel_expr(std::ostream &os, std::string name) const {
 		std::ostringstream cname;
 		cname << name << num + 1;
 		std::get<num>(expr).kernel_expr(os, cname.str());
-		if (num + 1 < sizeof...(ArgType)) {
+		if (num + 1 < sizeof...(Expr)) {
 		    os << ", ";
 		    build_kernel_expr<num + 1>(os, name);
 		}
@@ -975,11 +1180,11 @@ struct UserFunctionFamily {
 
 	    //------------------------------------------------------------
 	    template <int num>
-	    typename std::enable_if<num == sizeof...(ArgType), void>::type
+	    typename std::enable_if<num == sizeof...(Expr), void>::type
 	    build_preamble(std::ostream &os, std::string name) const {}
 
 	    template <int num>
-	    typename std::enable_if<num < sizeof...(ArgType), void>::type
+	    typename std::enable_if<num < sizeof...(Expr), void>::type
 	    build_preamble(std::ostream &os, std::string name) const {
 		std::ostringstream cname;
 		cname << name << num + 1;
@@ -1002,13 +1207,13 @@ struct UserFunctionFamily {
 
 	    //------------------------------------------------------------
 	    template <int num>
-	    typename std::enable_if<num == sizeof...(ArgType), size_t>::type
+	    typename std::enable_if<num == sizeof...(Expr), size_t>::type
 	    get_part_size(uint dev) const {
 		return 0;
 	    }
 
 	    template <int num>
-	    typename std::enable_if<num < sizeof...(ArgType), size_t>::type
+	    typename std::enable_if<num < sizeof...(Expr), size_t>::type
 	    get_part_size(uint dev) const {
 		return std::max(
 			std::get<num>(expr).part_size(dev),
@@ -1057,10 +1262,12 @@ struct UserFunction {
     }
 };
 
-/// \internal Unary expression template.
+#else
+
+/// \internal Builtin function call.
 template <const char *func_name, class Expr>
-struct UnaryExpression : public expression {
-    UnaryExpression(const Expr &expr) : expr(expr) {}
+struct BuiltinFunction : public expression {
+    BuiltinFunction(const Expr &expr) : expr(expr) {}
 
     void preamble(std::ostream &os, std::string name) const {
 	expr.preamble(os, name);
@@ -1092,350 +1299,60 @@ struct UnaryExpression : public expression {
 	const Expr &expr;
 };
 
-extern const char acos_fun[]   = "acos";
-extern const char acosh_fun[]  = "acosh";
-extern const char acospi_fun[] = "acospi";
-extern const char asin_fun[]   = "asin";
-extern const char asinh_fun[]  = "asinh";
-extern const char asinpi_fun[] = "asinpi";
-extern const char atan_fun[]   = "atan";
-extern const char atanh_fun[]  = "atanh";
-extern const char atanpi_fun[] = "atanpi";
-extern const char cbrt_fun[]   = "cbrt";
-extern const char ceil_fun[]   = "ceil";
-extern const char cos_fun[]    = "cos";
-extern const char cosh_fun[]   = "cosh";
-extern const char cospi_fun[]  = "cospi";
-extern const char erfc_fun[]   = "erfc";
-extern const char erf_fun[]    = "erf";
-extern const char exp_fun[]    = "exp";
-extern const char exp2_fun[]   = "exp2";
-extern const char exp10_fun[]  = "exp10";
-extern const char expm1_fun[]  = "expm1";
-extern const char fabs_fun[]   = "fabs";
-extern const char floor_fun[]  = "floor";
-extern const char ilogb_fun[]  = "ilogb";
-extern const char lgamma_fun[] = "lgamma";
-extern const char log_fun[]    = "log";
-extern const char log2_fun[]   = "log2";
-extern const char log10_fun[]  = "log10";
-extern const char log1p_fun[]  = "log1p";
-extern const char logb_fun[]   = "logb";
-extern const char nan_fun[]    = "nan";
-extern const char rint_fun[]   = "rint";
-extern const char rootn_fun[]  = "rootn";
-extern const char round_fun[]  = "round";
-extern const char rsqrt_fun[]  = "rsqrt";
-extern const char sin_fun[]    = "sin";
-extern const char sinh_fun[]   = "sinh";
-extern const char sinpi_fun[]  = "sinpi";
-extern const char sqrt_fun[]   = "sqrt";
-extern const char tan_fun[]    = "tan";
-extern const char tanh_fun[]   = "tanh";
-extern const char tanpi_fun[]  = "tanpi";
-extern const char tgamma_fun[] = "tgamma";
-extern const char trunc_fun[]  = "trunc";
-
-template <class Expr>
-typename std::enable_if<Expr::is_expression,
-UnaryExpression<acos_fun, Expr>>::type
-acos(const Expr &expr) {
-return UnaryExpression<acos_fun, Expr>(expr);
+#define DEFINE_BUILTIN_FUNCTION(name) \
+extern const char name##_fun[] = #name; \
+template <class Expr> \
+typename std::enable_if<Expr::is_expression, \
+BuiltinFunction<name##_fun, Expr>>::type \
+name(const Expr &expr) { \
+return BuiltinFunction<name##_fun, Expr>(expr); \
 }
 
-template <class Expr>
-typename std::enable_if<Expr::is_expression,
-UnaryExpression<acosh_fun, Expr>>::type
-acosh(const Expr &expr) {
-return UnaryExpression<acosh_fun, Expr>(expr);
-}
+DEFINE_BUILTIN_FUNCTION(acos)
+DEFINE_BUILTIN_FUNCTION(acosh)
+DEFINE_BUILTIN_FUNCTION(acospi)
+DEFINE_BUILTIN_FUNCTION(asin)
+DEFINE_BUILTIN_FUNCTION(asinh)
+DEFINE_BUILTIN_FUNCTION(asinpi)
+DEFINE_BUILTIN_FUNCTION(atan)
+DEFINE_BUILTIN_FUNCTION(atanh)
+DEFINE_BUILTIN_FUNCTION(atanpi)
+DEFINE_BUILTIN_FUNCTION(cbrt)
+DEFINE_BUILTIN_FUNCTION(ceil)
+DEFINE_BUILTIN_FUNCTION(cos)
+DEFINE_BUILTIN_FUNCTION(cosh)
+DEFINE_BUILTIN_FUNCTION(cospi)
+DEFINE_BUILTIN_FUNCTION(erfc)
+DEFINE_BUILTIN_FUNCTION(erf)
+DEFINE_BUILTIN_FUNCTION(exp)
+DEFINE_BUILTIN_FUNCTION(exp2)
+DEFINE_BUILTIN_FUNCTION(exp10)
+DEFINE_BUILTIN_FUNCTION(expm1)
+DEFINE_BUILTIN_FUNCTION(fabs)
+DEFINE_BUILTIN_FUNCTION(floor)
+DEFINE_BUILTIN_FUNCTION(ilogb)
+DEFINE_BUILTIN_FUNCTION(lgamma)
+DEFINE_BUILTIN_FUNCTION(log)
+DEFINE_BUILTIN_FUNCTION(log2)
+DEFINE_BUILTIN_FUNCTION(log10)
+DEFINE_BUILTIN_FUNCTION(log1p)
+DEFINE_BUILTIN_FUNCTION(logb)
+DEFINE_BUILTIN_FUNCTION(nan)
+DEFINE_BUILTIN_FUNCTION(rint)
+DEFINE_BUILTIN_FUNCTION(rootn)
+DEFINE_BUILTIN_FUNCTION(round)
+DEFINE_BUILTIN_FUNCTION(rsqrt)
+DEFINE_BUILTIN_FUNCTION(sin)
+DEFINE_BUILTIN_FUNCTION(sinh)
+DEFINE_BUILTIN_FUNCTION(sinpi)
+DEFINE_BUILTIN_FUNCTION(sqrt)
+DEFINE_BUILTIN_FUNCTION(tan)
+DEFINE_BUILTIN_FUNCTION(tanh)
+DEFINE_BUILTIN_FUNCTION(tanpi)
+DEFINE_BUILTIN_FUNCTION(tgamma)
+DEFINE_BUILTIN_FUNCTION(trunc)
 
-template <class Expr>
-typename std::enable_if<Expr::is_expression,
-UnaryExpression<acospi_fun, Expr>>::type
-acospi(const Expr &expr) {
-return UnaryExpression<acospi_fun, Expr>(expr);
-}
-
-template <class Expr>
-typename std::enable_if<Expr::is_expression,
-UnaryExpression<asin_fun, Expr>>::type
-asin(const Expr &expr) {
-return UnaryExpression<asin_fun, Expr>(expr);
-}
-
-template <class Expr>
-typename std::enable_if<Expr::is_expression,
-UnaryExpression<asinh_fun, Expr>>::type
-asinh(const Expr &expr) {
-return UnaryExpression<asinh_fun, Expr>(expr);
-}
-
-template <class Expr>
-typename std::enable_if<Expr::is_expression,
-UnaryExpression<asinpi_fun, Expr>>::type
-asinpi(const Expr &expr) {
-return UnaryExpression<asinpi_fun, Expr>(expr);
-}
-
-template <class Expr>
-typename std::enable_if<Expr::is_expression,
-UnaryExpression<atan_fun, Expr>>::type
-atan(const Expr &expr) {
-return UnaryExpression<atan_fun, Expr>(expr);
-}
-
-template <class Expr>
-typename std::enable_if<Expr::is_expression,
-UnaryExpression<atanh_fun, Expr>>::type
-atanh(const Expr &expr) {
-return UnaryExpression<atanh_fun, Expr>(expr);
-}
-
-template <class Expr>
-typename std::enable_if<Expr::is_expression,
-UnaryExpression<atanpi_fun, Expr>>::type
-atanpi(const Expr &expr) {
-return UnaryExpression<atanpi_fun, Expr>(expr);
-}
-
-template <class Expr>
-typename std::enable_if<Expr::is_expression,
-UnaryExpression<cbrt_fun, Expr>>::type
-cbrt(const Expr &expr) {
-return UnaryExpression<cbrt_fun, Expr>(expr);
-}
-
-template <class Expr>
-typename std::enable_if<Expr::is_expression,
-UnaryExpression<ceil_fun, Expr>>::type
-ceil(const Expr &expr) {
-return UnaryExpression<ceil_fun, Expr>(expr);
-}
-
-template <class Expr>
-typename std::enable_if<Expr::is_expression,
-UnaryExpression<cos_fun, Expr>>::type
-cos(const Expr &expr) {
-return UnaryExpression<cos_fun, Expr>(expr);
-}
-
-template <class Expr>
-typename std::enable_if<Expr::is_expression,
-UnaryExpression<cosh_fun, Expr>>::type
-cosh(const Expr &expr) {
-return UnaryExpression<cosh_fun, Expr>(expr);
-}
-
-template <class Expr>
-typename std::enable_if<Expr::is_expression,
-UnaryExpression<cospi_fun, Expr>>::type
-cospi(const Expr &expr) {
-return UnaryExpression<cospi_fun, Expr>(expr);
-}
-
-template <class Expr>
-typename std::enable_if<Expr::is_expression,
-UnaryExpression<erfc_fun, Expr>>::type
-erfc(const Expr &expr) {
-return UnaryExpression<erfc_fun, Expr>(expr);
-}
-
-template <class Expr>
-typename std::enable_if<Expr::is_expression,
-UnaryExpression<erf_fun, Expr>>::type
-erf(const Expr &expr) {
-return UnaryExpression<erf_fun, Expr>(expr);
-}
-
-template <class Expr>
-typename std::enable_if<Expr::is_expression,
-UnaryExpression<exp_fun, Expr>>::type
-exp(const Expr &expr) {
-return UnaryExpression<exp_fun, Expr>(expr);
-}
-
-template <class Expr>
-typename std::enable_if<Expr::is_expression,
-UnaryExpression<exp2_fun, Expr>>::type
-exp2(const Expr &expr) {
-return UnaryExpression<exp2_fun, Expr>(expr);
-}
-
-template <class Expr>
-typename std::enable_if<Expr::is_expression,
-UnaryExpression<exp10_fun, Expr>>::type
-exp10(const Expr &expr) {
-return UnaryExpression<exp10_fun, Expr>(expr);
-}
-
-template <class Expr>
-typename std::enable_if<Expr::is_expression,
-UnaryExpression<expm1_fun, Expr>>::type
-expm1(const Expr &expr) {
-return UnaryExpression<expm1_fun, Expr>(expr);
-}
-
-template <class Expr>
-typename std::enable_if<Expr::is_expression,
-UnaryExpression<fabs_fun, Expr>>::type
-fabs(const Expr &expr) {
-return UnaryExpression<fabs_fun, Expr>(expr);
-}
-
-template <class Expr>
-typename std::enable_if<Expr::is_expression,
-UnaryExpression<floor_fun, Expr>>::type
-floor(const Expr &expr) {
-return UnaryExpression<floor_fun, Expr>(expr);
-}
-
-template <class Expr>
-typename std::enable_if<Expr::is_expression,
-UnaryExpression<ilogb_fun, Expr>>::type
-ilogb(const Expr &expr) {
-return UnaryExpression<ilogb_fun, Expr>(expr);
-}
-
-template <class Expr>
-typename std::enable_if<Expr::is_expression,
-UnaryExpression<lgamma_fun, Expr>>::type
-lgamma(const Expr &expr) {
-return UnaryExpression<lgamma_fun, Expr>(expr);
-}
-
-template <class Expr>
-typename std::enable_if<Expr::is_expression,
-UnaryExpression<log_fun, Expr>>::type
-log(const Expr &expr) {
-return UnaryExpression<log_fun, Expr>(expr);
-}
-
-template <class Expr>
-typename std::enable_if<Expr::is_expression,
-UnaryExpression<log2_fun, Expr>>::type
-log2(const Expr &expr) {
-return UnaryExpression<log2_fun, Expr>(expr);
-}
-
-template <class Expr>
-typename std::enable_if<Expr::is_expression,
-UnaryExpression<log10_fun, Expr>>::type
-log10(const Expr &expr) {
-return UnaryExpression<log10_fun, Expr>(expr);
-}
-
-template <class Expr>
-typename std::enable_if<Expr::is_expression,
-UnaryExpression<log1p_fun, Expr>>::type
-log1p(const Expr &expr) {
-return UnaryExpression<log1p_fun, Expr>(expr);
-}
-
-template <class Expr>
-typename std::enable_if<Expr::is_expression,
-UnaryExpression<logb_fun, Expr>>::type
-logb(const Expr &expr) {
-return UnaryExpression<logb_fun, Expr>(expr);
-}
-
-template <class Expr>
-typename std::enable_if<Expr::is_expression,
-UnaryExpression<nan_fun, Expr>>::type
-nan(const Expr &expr) {
-return UnaryExpression<nan_fun, Expr>(expr);
-}
-
-template <class Expr>
-typename std::enable_if<Expr::is_expression,
-UnaryExpression<rint_fun, Expr>>::type
-rint(const Expr &expr) {
-return UnaryExpression<rint_fun, Expr>(expr);
-}
-
-template <class Expr>
-typename std::enable_if<Expr::is_expression,
-UnaryExpression<rootn_fun, Expr>>::type
-rootn(const Expr &expr) {
-return UnaryExpression<rootn_fun, Expr>(expr);
-}
-
-template <class Expr>
-typename std::enable_if<Expr::is_expression,
-UnaryExpression<round_fun, Expr>>::type
-round(const Expr &expr) {
-return UnaryExpression<round_fun, Expr>(expr);
-}
-
-template <class Expr>
-typename std::enable_if<Expr::is_expression,
-UnaryExpression<rsqrt_fun, Expr>>::type
-rsqrt(const Expr &expr) {
-return UnaryExpression<rsqrt_fun, Expr>(expr);
-}
-
-template <class Expr>
-typename std::enable_if<Expr::is_expression,
-UnaryExpression<sin_fun, Expr>>::type
-sin(const Expr &expr) {
-return UnaryExpression<sin_fun, Expr>(expr);
-}
-
-template <class Expr>
-typename std::enable_if<Expr::is_expression,
-UnaryExpression<sinh_fun, Expr>>::type
-sinh(const Expr &expr) {
-return UnaryExpression<sinh_fun, Expr>(expr);
-}
-
-template <class Expr>
-typename std::enable_if<Expr::is_expression,
-UnaryExpression<sinpi_fun, Expr>>::type
-sinpi(const Expr &expr) {
-return UnaryExpression<sinpi_fun, Expr>(expr);
-}
-
-template <class Expr>
-typename std::enable_if<Expr::is_expression,
-UnaryExpression<sqrt_fun, Expr>>::type
-sqrt(const Expr &expr) {
-return UnaryExpression<sqrt_fun, Expr>(expr);
-}
-
-template <class Expr>
-typename std::enable_if<Expr::is_expression,
-UnaryExpression<tan_fun, Expr>>::type
-tan(const Expr &expr) {
-return UnaryExpression<tan_fun, Expr>(expr);
-}
-
-template <class Expr>
-typename std::enable_if<Expr::is_expression,
-UnaryExpression<tanh_fun, Expr>>::type
-tanh(const Expr &expr) {
-return UnaryExpression<tanh_fun, Expr>(expr);
-}
-
-template <class Expr>
-typename std::enable_if<Expr::is_expression,
-UnaryExpression<tanpi_fun, Expr>>::type
-tanpi(const Expr &expr) {
-return UnaryExpression<tanpi_fun, Expr>(expr);
-}
-
-template <class Expr>
-typename std::enable_if<Expr::is_expression,
-UnaryExpression<tgamma_fun, Expr>>::type
-tgamma(const Expr &expr) {
-return UnaryExpression<tgamma_fun, Expr>(expr);
-}
-
-template <class Expr>
-typename std::enable_if<Expr::is_expression,
-UnaryExpression<trunc_fun, Expr>>::type
-trunc(const Expr &expr) {
-return UnaryExpression<trunc_fun, Expr>(expr);
-}
+#endif
 
 
 /// Returns device weight after simple bandwidth test
