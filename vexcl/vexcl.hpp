@@ -172,7 +172,7 @@ void cg_gpu(
     real rho1, rho2;
     r = f - A * u;
 
-    for(uint iter = 0; max(Abs(r)) > 1e-8 && iter < n; iter++) {
+    for(uint iter = 0; max(fabs(r)) > 1e-8 && iter < n; iter++) {
 	rho1 = sum(r * r);
 
 	if (iter == 0) {

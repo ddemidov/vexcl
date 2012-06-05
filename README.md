@@ -83,7 +83,7 @@ encountered in your program) and called automagically.
 Vectors are processed in parallel across all devices they were allocated on:
 ```C++
 Y = 42;
-Z = Sqrt(2 * X) + Cos(Y);
+Z = sqrt(2 * X) + cos(Y);
 ```
 
 You can copy the result back to host or you can use `vector::operator[]` to
@@ -100,8 +100,8 @@ single value, such as summation. This can be done with `Reductor` class:
 Reductor<double,SUM> sum(queue);
 Reductor<double,MAX> max(queue);
 
-std::cout << max(Abs(X) - 0.5) << std::endl;
-std::cout << sum(Sqrt(2 * X) + Cos(Y)) << std::endl;
+std::cout << max(fabs(X) - 0.5) << std::endl;
+std::cout << sum(sqrt(2 * X) + cos(Y)) << std::endl;
 ```
 
 Sparse matrix-vector multiplication
@@ -144,7 +144,7 @@ void cg_gpu(
     real rho1, rho2;
     r = f - A * u;
 
-    for(uint iter = 0; max(Abs(r)) > 1e-8 && iter < n; iter++) {
+    for(uint iter = 0; max(fabs(r)) > 1e-8 && iter < n; iter++) {
         rho1 = sum(r * r);
 
         if (iter == 0) {

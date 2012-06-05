@@ -1057,21 +1057,24 @@ struct UserFunction {
     }
 };
 
-struct UnaryFunction;
-
 /// \internal Unary expression template.
-template <class Expr>
+template <const char *func_name, class Expr>
 struct UnaryExpression : public expression {
-    UnaryExpression(const Expr &expr, const UnaryFunction &fun)
-	: expr(expr), fun(fun) {}
+    UnaryExpression(const Expr &expr) : expr(expr) {}
 
     void preamble(std::ostream &os, std::string name) const {
 	expr.preamble(os, name);
     }
 
-    std::string kernel_name() const;
+    std::string kernel_name() const {
+	return func_name + expr.kernel_name();
+    }
 
-    void kernel_expr(std::ostream &os, std::string name) const;
+    void kernel_expr(std::ostream &os, std::string name) const {
+	os << func_name << "(";
+	expr.kernel_expr(os, name);
+	os << ")";
+    }
 
     void kernel_prm(std::ostream &os, std::string name) const {
 	expr.kernel_prm(os, name);
@@ -1087,39 +1090,353 @@ struct UnaryExpression : public expression {
 
     private:
 	const Expr &expr;
-	const UnaryFunction &fun;
 };
 
-struct UnaryFunction {
-    UnaryFunction(const std::string &name) : name(name) {}
-
-    template <class Expr>
-    typename std::enable_if<valid_expression<Expr>::value, UnaryExpression<Expr>>::type
-    operator()(const Expr &expr) const {
-	return UnaryExpression<Expr>(expr, *this);
-    }
-
-    std::string name;
-};
+extern const char acos_fun[]   = "acos";
+extern const char acosh_fun[]  = "acosh";
+extern const char acospi_fun[] = "acospi";
+extern const char asin_fun[]   = "asin";
+extern const char asinh_fun[]  = "asinh";
+extern const char asinpi_fun[] = "asinpi";
+extern const char atan_fun[]   = "atan";
+extern const char atanh_fun[]  = "atanh";
+extern const char atanpi_fun[] = "atanpi";
+extern const char cbrt_fun[]   = "cbrt";
+extern const char ceil_fun[]   = "ceil";
+extern const char cos_fun[]    = "cos";
+extern const char cosh_fun[]   = "cosh";
+extern const char cospi_fun[]  = "cospi";
+extern const char erfc_fun[]   = "erfc";
+extern const char erf_fun[]    = "erf";
+extern const char exp_fun[]    = "exp";
+extern const char exp2_fun[]   = "exp2";
+extern const char exp10_fun[]  = "exp10";
+extern const char expm1_fun[]  = "expm1";
+extern const char fabs_fun[]   = "fabs";
+extern const char floor_fun[]  = "floor";
+extern const char ilogb_fun[]  = "ilogb";
+extern const char lgamma_fun[] = "lgamma";
+extern const char log_fun[]    = "log";
+extern const char log2_fun[]   = "log2";
+extern const char log10_fun[]  = "log10";
+extern const char log1p_fun[]  = "log1p";
+extern const char logb_fun[]   = "logb";
+extern const char nan_fun[]    = "nan";
+extern const char rint_fun[]   = "rint";
+extern const char rootn_fun[]  = "rootn";
+extern const char round_fun[]  = "round";
+extern const char rsqrt_fun[]  = "rsqrt";
+extern const char sin_fun[]    = "sin";
+extern const char sinh_fun[]   = "sinh";
+extern const char sinpi_fun[]  = "sinpi";
+extern const char sqrt_fun[]   = "sqrt";
+extern const char tan_fun[]    = "tan";
+extern const char tanh_fun[]   = "tanh";
+extern const char tanpi_fun[]  = "tanpi";
+extern const char tgamma_fun[] = "tgamma";
+extern const char trunc_fun[]  = "trunc";
 
 template <class Expr>
-std::string UnaryExpression<Expr>::kernel_name() const {
-    return fun.name + expr.kernel_name();
+typename std::enable_if<Expr::is_expression,
+UnaryExpression<acos_fun, Expr>>::type
+acos(const Expr &expr) {
+return UnaryExpression<acos_fun, Expr>(expr);
 }
 
 template <class Expr>
-void UnaryExpression<Expr>::kernel_expr(std::ostream &os, std::string name) const {
-    os << fun.name << "(";
-    expr.kernel_expr(os, name);
-    os << ")";
+typename std::enable_if<Expr::is_expression,
+UnaryExpression<acosh_fun, Expr>>::type
+acosh(const Expr &expr) {
+return UnaryExpression<acosh_fun, Expr>(expr);
 }
 
-static const UnaryFunction Sqrt("sqrt");
-static const UnaryFunction Abs ("fabs");
-static const UnaryFunction Absf("fabsf");
-static const UnaryFunction Sin ("sin");
-static const UnaryFunction Cos ("cos");
-static const UnaryFunction Tan ("tan");
+template <class Expr>
+typename std::enable_if<Expr::is_expression,
+UnaryExpression<acospi_fun, Expr>>::type
+acospi(const Expr &expr) {
+return UnaryExpression<acospi_fun, Expr>(expr);
+}
+
+template <class Expr>
+typename std::enable_if<Expr::is_expression,
+UnaryExpression<asin_fun, Expr>>::type
+asin(const Expr &expr) {
+return UnaryExpression<asin_fun, Expr>(expr);
+}
+
+template <class Expr>
+typename std::enable_if<Expr::is_expression,
+UnaryExpression<asinh_fun, Expr>>::type
+asinh(const Expr &expr) {
+return UnaryExpression<asinh_fun, Expr>(expr);
+}
+
+template <class Expr>
+typename std::enable_if<Expr::is_expression,
+UnaryExpression<asinpi_fun, Expr>>::type
+asinpi(const Expr &expr) {
+return UnaryExpression<asinpi_fun, Expr>(expr);
+}
+
+template <class Expr>
+typename std::enable_if<Expr::is_expression,
+UnaryExpression<atan_fun, Expr>>::type
+atan(const Expr &expr) {
+return UnaryExpression<atan_fun, Expr>(expr);
+}
+
+template <class Expr>
+typename std::enable_if<Expr::is_expression,
+UnaryExpression<atanh_fun, Expr>>::type
+atanh(const Expr &expr) {
+return UnaryExpression<atanh_fun, Expr>(expr);
+}
+
+template <class Expr>
+typename std::enable_if<Expr::is_expression,
+UnaryExpression<atanpi_fun, Expr>>::type
+atanpi(const Expr &expr) {
+return UnaryExpression<atanpi_fun, Expr>(expr);
+}
+
+template <class Expr>
+typename std::enable_if<Expr::is_expression,
+UnaryExpression<cbrt_fun, Expr>>::type
+cbrt(const Expr &expr) {
+return UnaryExpression<cbrt_fun, Expr>(expr);
+}
+
+template <class Expr>
+typename std::enable_if<Expr::is_expression,
+UnaryExpression<ceil_fun, Expr>>::type
+ceil(const Expr &expr) {
+return UnaryExpression<ceil_fun, Expr>(expr);
+}
+
+template <class Expr>
+typename std::enable_if<Expr::is_expression,
+UnaryExpression<cos_fun, Expr>>::type
+cos(const Expr &expr) {
+return UnaryExpression<cos_fun, Expr>(expr);
+}
+
+template <class Expr>
+typename std::enable_if<Expr::is_expression,
+UnaryExpression<cosh_fun, Expr>>::type
+cosh(const Expr &expr) {
+return UnaryExpression<cosh_fun, Expr>(expr);
+}
+
+template <class Expr>
+typename std::enable_if<Expr::is_expression,
+UnaryExpression<cospi_fun, Expr>>::type
+cospi(const Expr &expr) {
+return UnaryExpression<cospi_fun, Expr>(expr);
+}
+
+template <class Expr>
+typename std::enable_if<Expr::is_expression,
+UnaryExpression<erfc_fun, Expr>>::type
+erfc(const Expr &expr) {
+return UnaryExpression<erfc_fun, Expr>(expr);
+}
+
+template <class Expr>
+typename std::enable_if<Expr::is_expression,
+UnaryExpression<erf_fun, Expr>>::type
+erf(const Expr &expr) {
+return UnaryExpression<erf_fun, Expr>(expr);
+}
+
+template <class Expr>
+typename std::enable_if<Expr::is_expression,
+UnaryExpression<exp_fun, Expr>>::type
+exp(const Expr &expr) {
+return UnaryExpression<exp_fun, Expr>(expr);
+}
+
+template <class Expr>
+typename std::enable_if<Expr::is_expression,
+UnaryExpression<exp2_fun, Expr>>::type
+exp2(const Expr &expr) {
+return UnaryExpression<exp2_fun, Expr>(expr);
+}
+
+template <class Expr>
+typename std::enable_if<Expr::is_expression,
+UnaryExpression<exp10_fun, Expr>>::type
+exp10(const Expr &expr) {
+return UnaryExpression<exp10_fun, Expr>(expr);
+}
+
+template <class Expr>
+typename std::enable_if<Expr::is_expression,
+UnaryExpression<expm1_fun, Expr>>::type
+expm1(const Expr &expr) {
+return UnaryExpression<expm1_fun, Expr>(expr);
+}
+
+template <class Expr>
+typename std::enable_if<Expr::is_expression,
+UnaryExpression<fabs_fun, Expr>>::type
+fabs(const Expr &expr) {
+return UnaryExpression<fabs_fun, Expr>(expr);
+}
+
+template <class Expr>
+typename std::enable_if<Expr::is_expression,
+UnaryExpression<floor_fun, Expr>>::type
+floor(const Expr &expr) {
+return UnaryExpression<floor_fun, Expr>(expr);
+}
+
+template <class Expr>
+typename std::enable_if<Expr::is_expression,
+UnaryExpression<ilogb_fun, Expr>>::type
+ilogb(const Expr &expr) {
+return UnaryExpression<ilogb_fun, Expr>(expr);
+}
+
+template <class Expr>
+typename std::enable_if<Expr::is_expression,
+UnaryExpression<lgamma_fun, Expr>>::type
+lgamma(const Expr &expr) {
+return UnaryExpression<lgamma_fun, Expr>(expr);
+}
+
+template <class Expr>
+typename std::enable_if<Expr::is_expression,
+UnaryExpression<log_fun, Expr>>::type
+log(const Expr &expr) {
+return UnaryExpression<log_fun, Expr>(expr);
+}
+
+template <class Expr>
+typename std::enable_if<Expr::is_expression,
+UnaryExpression<log2_fun, Expr>>::type
+log2(const Expr &expr) {
+return UnaryExpression<log2_fun, Expr>(expr);
+}
+
+template <class Expr>
+typename std::enable_if<Expr::is_expression,
+UnaryExpression<log10_fun, Expr>>::type
+log10(const Expr &expr) {
+return UnaryExpression<log10_fun, Expr>(expr);
+}
+
+template <class Expr>
+typename std::enable_if<Expr::is_expression,
+UnaryExpression<log1p_fun, Expr>>::type
+log1p(const Expr &expr) {
+return UnaryExpression<log1p_fun, Expr>(expr);
+}
+
+template <class Expr>
+typename std::enable_if<Expr::is_expression,
+UnaryExpression<logb_fun, Expr>>::type
+logb(const Expr &expr) {
+return UnaryExpression<logb_fun, Expr>(expr);
+}
+
+template <class Expr>
+typename std::enable_if<Expr::is_expression,
+UnaryExpression<nan_fun, Expr>>::type
+nan(const Expr &expr) {
+return UnaryExpression<nan_fun, Expr>(expr);
+}
+
+template <class Expr>
+typename std::enable_if<Expr::is_expression,
+UnaryExpression<rint_fun, Expr>>::type
+rint(const Expr &expr) {
+return UnaryExpression<rint_fun, Expr>(expr);
+}
+
+template <class Expr>
+typename std::enable_if<Expr::is_expression,
+UnaryExpression<rootn_fun, Expr>>::type
+rootn(const Expr &expr) {
+return UnaryExpression<rootn_fun, Expr>(expr);
+}
+
+template <class Expr>
+typename std::enable_if<Expr::is_expression,
+UnaryExpression<round_fun, Expr>>::type
+round(const Expr &expr) {
+return UnaryExpression<round_fun, Expr>(expr);
+}
+
+template <class Expr>
+typename std::enable_if<Expr::is_expression,
+UnaryExpression<rsqrt_fun, Expr>>::type
+rsqrt(const Expr &expr) {
+return UnaryExpression<rsqrt_fun, Expr>(expr);
+}
+
+template <class Expr>
+typename std::enable_if<Expr::is_expression,
+UnaryExpression<sin_fun, Expr>>::type
+sin(const Expr &expr) {
+return UnaryExpression<sin_fun, Expr>(expr);
+}
+
+template <class Expr>
+typename std::enable_if<Expr::is_expression,
+UnaryExpression<sinh_fun, Expr>>::type
+sinh(const Expr &expr) {
+return UnaryExpression<sinh_fun, Expr>(expr);
+}
+
+template <class Expr>
+typename std::enable_if<Expr::is_expression,
+UnaryExpression<sinpi_fun, Expr>>::type
+sinpi(const Expr &expr) {
+return UnaryExpression<sinpi_fun, Expr>(expr);
+}
+
+template <class Expr>
+typename std::enable_if<Expr::is_expression,
+UnaryExpression<sqrt_fun, Expr>>::type
+sqrt(const Expr &expr) {
+return UnaryExpression<sqrt_fun, Expr>(expr);
+}
+
+template <class Expr>
+typename std::enable_if<Expr::is_expression,
+UnaryExpression<tan_fun, Expr>>::type
+tan(const Expr &expr) {
+return UnaryExpression<tan_fun, Expr>(expr);
+}
+
+template <class Expr>
+typename std::enable_if<Expr::is_expression,
+UnaryExpression<tanh_fun, Expr>>::type
+tanh(const Expr &expr) {
+return UnaryExpression<tanh_fun, Expr>(expr);
+}
+
+template <class Expr>
+typename std::enable_if<Expr::is_expression,
+UnaryExpression<tanpi_fun, Expr>>::type
+tanpi(const Expr &expr) {
+return UnaryExpression<tanpi_fun, Expr>(expr);
+}
+
+template <class Expr>
+typename std::enable_if<Expr::is_expression,
+UnaryExpression<tgamma_fun, Expr>>::type
+tgamma(const Expr &expr) {
+return UnaryExpression<tgamma_fun, Expr>(expr);
+}
+
+template <class Expr>
+typename std::enable_if<Expr::is_expression,
+UnaryExpression<trunc_fun, Expr>>::type
+trunc(const Expr &expr) {
+return UnaryExpression<trunc_fun, Expr>(expr);
+}
+
 
 /// Returns device weight after simple bandwidth test
 double device_vector_perf(

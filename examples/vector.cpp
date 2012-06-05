@@ -49,7 +49,7 @@ int main() {
 	// Fill device vector with constant value...
 	y = 42;
 	// ... or with some expression:
-	z = Sqrt(2 * x) + Cos(y);
+	z = sqrt(2 * x) + cos(y);
 
 	Reductor<double,SUM> sum(queue);
 

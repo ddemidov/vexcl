@@ -218,9 +218,9 @@ int main() {
 		vex::vector<double> z(queue, N);
 		y = 42;
 		z = 67;
-		x = 5 * Sin(y) + z;
+		x = 5 * sin(y) + z;
 		Reductor<double,MAX> max(queue);
-		rc = rc && max(Abs(x - (5 * sin(42) + 67))) < 1e-12;
+		rc = rc && max(fabs(x - (5 * sin(42) + 67))) < 1e-12;
 		return rc;
 		});
 
@@ -336,6 +336,24 @@ int main() {
 		return rc;
 	});
 
+	run_test("Unary function", [&]() {
+		const size_t N = 1024;
+		bool rc = true;
+		std::vector<double> x(N);
+		std::generate(x.begin(), x.end(), [](){ return (double)rand() / RAND_MAX; });
+		vex::vector<double> X(queue, x);
+		Reductor<double,SUM> sum(queue);
+		rc = rc && 1e-8 > fabs(sum(sin(X)) -
+		    std::accumulate(x.begin(), x.end(), 0.0, [](double s, double v) {
+			return s + sin(v);
+			}));
+		rc = rc && 1e-8 > fabs(sum(cos(X)) -
+		    std::accumulate(x.begin(), x.end(), 0.0, [](double s, double v) {
+			return s + cos(v);
+			}));
+		return rc;
+		});
+
 	run_test("Custom function", [&]() {
 		const size_t N = 1024;
 		bool rc = true;
@@ -349,9 +367,6 @@ int main() {
 		rc = rc && sum(chk_if_greater(y, x)) == N;
 		return rc;
 		});
-
-
-
 
     } catch (const cl::Error &err) {
 	std::cerr << "OpenCL error: " << err << std::endl;
