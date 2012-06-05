@@ -881,7 +881,6 @@ typename std::enable_if<
 
 #ifdef VEXCL_VARIADIC_TEMPLATES
 
-
 /// \internal Builtin function call.
 template <const char *func_name, class... Expr>
 class BuiltinFunction : public expression {
@@ -914,7 +913,7 @@ class BuiltinFunction : public expression {
 	    return get_part_size<0>(dev);
 	}
     private:
-	std::tuple<const Expr&...> expr;
+	std::tuple<const KernelGenerator<Expr>...> expr;
 
 	//------------------------------------------------------------
 	template <int num>
@@ -1003,13 +1002,35 @@ class BuiltinFunction : public expression {
 	}
 };
 
+template <class Expr>
+constexpr bool all_expressions_valid() {
+    return valid_expression<Expr>::value;
+}
+
+template <class Head, class... Expr>
+constexpr typename std::enable_if<sizeof...(Expr), bool>::type
+all_expressions_valid() {
+    return valid_expression<Head>::value && all_expressions_valid<Expr...>();
+}
+
+template <class Expr>
+constexpr bool all_expressions_arithmetic() {
+    return std::is_arithmetic<Expr>::value;
+}
+
+template <class Head, class... Expr>
+constexpr typename std::enable_if<sizeof...(Expr), bool>::type
+all_expressions_arithmetic() {
+    return std::is_arithmetic<Head>::value && all_expressions_arithmetic<Expr...>();
+}
+
 #define DEFINE_BUILTIN_FUNCTION(name) \
 extern const char name##_fun[] = #name; \
-template <class Expr> \
-typename std::enable_if<Expr::is_expression, \
-BuiltinFunction<name##_fun, Expr>>::type \
-name(const Expr &expr) { \
-return BuiltinFunction<name##_fun, Expr>(expr); \
+template <class... Expr> \
+typename std::enable_if<all_expressions_valid<Expr...>() && !all_expressions_arithmetic<Expr...>(), \
+BuiltinFunction<name##_fun, Expr...>>::type \
+name(const Expr&... expr) { \
+return BuiltinFunction<name##_fun, Expr...>(expr...); \
 }
 
 DEFINE_BUILTIN_FUNCTION(acos)
@@ -1120,7 +1141,7 @@ struct UserFunctionFamily {
 		return get_part_size<0>(dev);
 	    }
 	private:
-	    std::tuple<const Expr&...> expr;
+	    std::tuple<const KernelGenerator<Expr>...> expr;
 
 	    //------------------------------------------------------------
 	    template <int num>

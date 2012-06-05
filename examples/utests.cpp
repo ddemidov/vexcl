@@ -336,7 +336,7 @@ int main() {
 		return rc;
 	});
 
-	run_test("Unary function", [&]() {
+	run_test("Builtin function with one argument", [&]() {
 		const size_t N = 1024;
 		bool rc = true;
 		std::vector<double> x(N);
@@ -353,6 +353,22 @@ int main() {
 			}));
 		return rc;
 		});
+
+#ifdef VEXCL_VARIADIC_TEMPLATES
+	run_test("Builtin function with two arguments", [&]() {
+		const size_t N = 1024;
+		bool rc = true;
+		std::vector<double> x(N);
+		std::generate(x.begin(), x.end(), [](){ return (double)rand() / RAND_MAX; });
+		vex::vector<double> X(queue, x);
+		Reductor<double,SUM> sum(queue);
+		rc = rc && 1e-8 > fabs(sum(pow(X, 2.0)) -
+		    std::accumulate(x.begin(), x.end(), 0.0, [](double s, double v) {
+			return s + pow(v, 2.0);
+			}));
+		return rc;
+		});
+#endif
 
 	run_test("Custom function", [&]() {
 		const size_t N = 1024;
