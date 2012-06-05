@@ -400,7 +400,7 @@ std::pair<double,double> benchmark_spmv_ccsr(
 
     y -= x;
 
-    Reductor<real,SUM> sum(queue);
+    Reductor<real,SUM> sum(q1);
 
     std::cout << "  res = " << sum(y * y) << std::endl << std::endl;
 #endif
