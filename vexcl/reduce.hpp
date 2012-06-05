@@ -255,8 +255,9 @@ std::string Reductor<real,RDC>::gpu_kernel_source(
 	    break;
     }
 
-    source << standard_kernel_header <<
-	"kernel void " << kernel_name << "(" << type_name<size_t>()<< " n";
+    source << standard_kernel_header;
+    expr.preamble(source, "prm");
+    source << "kernel void " << kernel_name << "(" << type_name<size_t>() << " n";
 
     expr.kernel_prm(source, "prm");
 
@@ -373,8 +374,9 @@ std::string Reductor<real,RDC>::cpu_kernel_source(
 	    break;
     }
 
-    source << standard_kernel_header <<
-	"kernel void " << kernel_name << "(" << type_name<size_t>() << " n";
+    source << standard_kernel_header;
+    expr.preamble(source, "prm");
+    source << "kernel void " << kernel_name << "(" << type_name<size_t>() << " n";
 
     expr.kernel_prm(source, "prm");
 

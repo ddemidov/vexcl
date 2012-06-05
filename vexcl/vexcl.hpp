@@ -197,6 +197,33 @@ void cg_gpu(
 }
 \endcode
 
+\section userfun User-defined functions
+
+Simple arithmetic expressions are sometimes not enough. Imagine that you need
+to count how many elements in vector x are greater that their counterparts in
+vector y. This may be achieved by introduction of custom function. In order
+to build such a function, you need to supply its body, its return type and
+types of its arguments. After that, you can apply the function to any valid
+vector expressions:
+\code
+// Function body has to be defined at global scope, and it has to be of `extern
+// const char[]` type. This allows us to use it as a template parameter.
+extern const char one_greater_than_other[] = "return prm1 > prm2 ? 1 : 0";
+
+size_t count_if_greater(const vex:vector<float> &x, const vex::vector<float> &y) {
+    UserFunction<one_greater_than_other, size_t, float, float> greater;
+
+    Reductor<size_t, SUM> sum(x.queue_list());
+
+    return sum(greater(x, y));
+}
+\endcode
+
+You could also write sum(greater(x + y, 5 * y)), or use any other expressions
+as parameters to the `greater()` call. Note that in the function body
+parameters are always named as prm1, prm2, etc.
+
+
 \section custkern Using custom kernels
 
 Custom kernels are of course possible as well. vector::operator(uint)

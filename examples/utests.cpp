@@ -22,6 +22,8 @@ bool run_test(const std::string &name, std::function<bool()> test) {
     return rc;
 }
 
+extern const char chk_if_gr_body[] = "return prm1 > prm2 ? 1 : 0;";
+
 int main() {
     try {
 	std::vector<cl::Context>      context;
@@ -333,6 +335,23 @@ int main() {
 
 		return rc;
 	});
+
+	run_test("Custom function", [&]() {
+		const size_t N = 1024;
+		bool rc = true;
+		vex::vector<double> x(queue, N);
+		vex::vector<double> y(queue, N);
+		x = 1;
+		y = 2;
+		UserFunction<chk_if_gr_body, size_t, double, double> chk_if_greater;
+		Reductor<size_t,SUM> sum(queue);
+		rc = rc && sum(chk_if_greater(x, y)) == 0;
+		rc = rc && sum(chk_if_greater(y, x)) == N;
+		return rc;
+		});
+
+
+
 
     } catch (const cl::Error &err) {
 	std::cerr << "OpenCL error: " << err << std::endl;

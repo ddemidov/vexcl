@@ -123,7 +123,7 @@ struct expression {
      * \param name Name of current node in an expression tree. Should be used
      *             directly or as a prefix to form parameter name(s).
      */
-    virtual void kernel_expr(std::ostream &os, std::string name) const  = 0;
+    virtual void kernel_expr(std::ostream &os, std::string name) const = 0;
 
     /// Size of vectors forming the expression.
     /**
@@ -874,6 +874,188 @@ typename std::enable_if<
     operator/(const LHS &lhs, const RHS &rhs) {
 	return BinaryExpression<LHS,'/',RHS>(lhs, rhs);
     }
+
+/// \internal Custom user function expression template
+template<class RetType, class... ArgType>
+struct UserFunctionFamily {
+    template <const char *body, class... Expr>
+    class Function : public expression {
+	public:
+	    Function(const Expr&... expr) : expr(expr...) {}
+
+	    void preamble(std::ostream &os, std::string name) const {
+		build_preamble<0>(os, name);
+
+		os << type_name<RetType>() << " " << name << "_fun(";
+
+		build_arg_list<ArgType...>(os, 0);
+
+		os << "\n\t)\n{\n" << body << "\n}\n";
+	    }
+
+	    std::string kernel_name() const {
+		return std::string("uf") + build_kernel_name<0>();
+	    }
+
+	    void kernel_prm(std::ostream &os, std::string name) const {
+		build_kernel_prm<0>(os, name);
+	    }
+
+	    void kernel_args(cl::Kernel &k, uint devnum, uint &pos) const {
+		set_kernel_args<0>(k, devnum, pos);
+	    }
+
+	    void kernel_expr(std::ostream &os, std::string name) const {
+		os << name << "_fun(";
+		build_kernel_expr<0>(os, name);
+		os << ")";
+	    }
+
+	    size_t part_size(uint dev) const {
+		return get_part_size<0>(dev);
+	    }
+	private:
+	    std::tuple<const Expr&...> expr;
+
+	    //------------------------------------------------------------
+	    template <int num>
+	    typename std::enable_if<num == sizeof...(ArgType), std::string>::type
+	    build_kernel_name() const {
+		return "";
+	    }
+
+	    template <int num>
+	    typename std::enable_if<num < sizeof...(ArgType), std::string>::type
+	    build_kernel_name() const {
+		return std::get<num>(expr).kernel_name() + build_kernel_name<num + 1>();
+	    }
+
+	    //------------------------------------------------------------
+	    template <int num>
+	    typename std::enable_if<num == sizeof...(ArgType), void>::type
+	    build_kernel_prm(std::ostream &os, std::string name) const {}
+
+	    template <int num>
+	    typename std::enable_if<num < sizeof...(ArgType), void>::type
+	    build_kernel_prm(std::ostream &os, std::string name) const {
+		std::ostringstream cname;
+		cname << name << num + 1;
+		std::get<num>(expr).kernel_prm(os, cname.str());
+		build_kernel_prm<num + 1>(os, name);
+	    }
+
+	    //------------------------------------------------------------
+	    template <int num>
+	    typename std::enable_if<num == sizeof...(ArgType), void>::type
+	    set_kernel_args(cl::Kernel &k, uint devnum, uint &pos) const {}
+
+	    template <int num>
+	    typename std::enable_if<num < sizeof...(ArgType), void>::type
+	    set_kernel_args(cl::Kernel &k, uint devnum, uint &pos) const {
+		std::get<num>(expr).kernel_args(k, devnum, pos);
+		set_kernel_args<num + 1>(k, devnum, pos);
+	    }
+
+	    //------------------------------------------------------------
+	    template <int num>
+	    typename std::enable_if<num == sizeof...(ArgType), void>::type
+	    build_kernel_expr(std::ostream &os, std::string name) const {}
+
+	    template <int num>
+	    typename std::enable_if<num < sizeof...(ArgType), void>::type
+	    build_kernel_expr(std::ostream &os, std::string name) const {
+		std::ostringstream cname;
+		cname << name << num + 1;
+		std::get<num>(expr).kernel_expr(os, cname.str());
+		if (num + 1 < sizeof...(ArgType)) {
+		    os << ", ";
+		    build_kernel_expr<num + 1>(os, name);
+		}
+	    }
+
+	    //------------------------------------------------------------
+	    template <int num>
+	    typename std::enable_if<num == sizeof...(ArgType), void>::type
+	    build_preamble(std::ostream &os, std::string name) const {}
+
+	    template <int num>
+	    typename std::enable_if<num < sizeof...(ArgType), void>::type
+	    build_preamble(std::ostream &os, std::string name) const {
+		std::ostringstream cname;
+		cname << name << num + 1;
+		std::get<num>(expr).preamble(os, cname.str());
+		build_preamble<num + 1>(os, name);
+	    }
+
+	    //------------------------------------------------------------
+	    template <class T>
+	    void build_arg_list(std::ostream &os, uint num) const {
+		os << "\n\t" << type_name<T>() << " prm" << num + 1;
+	    }
+
+	    template <class T, class... Args>
+	    typename std::enable_if<sizeof...(Args), void>::type
+	    build_arg_list(std::ostream &os, uint num) const {
+		os << "\n\t" << type_name<T>() << " prm" << num + 1 << ",";
+		build_arg_list<Args...>(os, num + 1);
+	    }
+
+	    //------------------------------------------------------------
+	    template <int num>
+	    typename std::enable_if<num == sizeof...(ArgType), size_t>::type
+	    get_part_size(uint dev) const {
+		return 0;
+	    }
+
+	    template <int num>
+	    typename std::enable_if<num < sizeof...(ArgType), size_t>::type
+	    get_part_size(uint dev) const {
+		return std::max(
+			std::get<num>(expr).part_size(dev),
+			get_part_size<num + 1>(dev)
+			);
+	    }
+
+    };
+};
+
+/// Custom user function
+/**
+ * Is used for introduction of custom functions into expressions. For example,
+ * to count how many elements in x vector are greater than their counterparts
+ * in y vector, the following code may be used:
+ * \code
+ * // Body of the function. Has to be extern const char[] in order to be used
+ * // as template parameter.
+ * extern const char one_greater_than_other[] = "return prm1 > prm2 ? 1 : 0;";
+ *
+ * size_t count_if_greater(const vex::vector<float> &x, const vex::vector<float> &y) {
+ *     Reductor<size_t, SUM> sum(x.queue_list());
+ *
+ *     UserFunction<one_greater_than_other, size_t, float, float> greater;
+ *
+ *     return sum(greater(x, y));
+ * }
+ * \endcode
+ * \param body Body of user function. Parameters are named prm1, ..., prm<n>.
+ * \param RetType return type of the function.
+ * \param ArgType types of function arguments.
+ */
+template<const char *body, class RetType, class... ArgType>
+struct UserFunction {
+    /// Apply user function to the list of expressions.
+    /**
+     * Number of expressions in the list has to coincide with number of
+     * ArgTypes
+     */
+    template <class... Expr>
+    typename std::enable_if<sizeof...(ArgType) == sizeof...(Expr),
+    typename UserFunctionFamily<RetType, ArgType...>::template Function<body, Expr...>
+    >::type
+    operator()(const Expr&... expr) const {
+	return typename UserFunctionFamily<RetType, ArgType...>::template Function<body, Expr...>(expr...);
+    }
+};
 
 struct UnaryFunction;
 
