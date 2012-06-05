@@ -1245,6 +1245,9 @@ struct UserFunctionFamily {
     };
 };
 
+template <const char *body, class T>
+struct UserFunction {};
+
 /// Custom user function
 /**
  * Is used for introduction of custom functions into expressions. For example,
@@ -1268,7 +1271,7 @@ struct UserFunctionFamily {
  * \param ArgType types of function arguments.
  */
 template<const char *body, class RetType, class... ArgType>
-struct UserFunction {
+struct UserFunction<body, RetType(ArgType...)> {
     /// Apply user function to the list of expressions.
     /**
      * Number of expressions in the list has to coincide with number of

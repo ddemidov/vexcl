@@ -184,7 +184,7 @@ vector expressions:
 extern const char one_greater_than_other[] = "return prm1 > prm2 ? 1 : 0";
 
 size_t count_if_greater(const vex:vector<float> &x, const vex::vector<float> &y) {
-    UserFunction<one_greater_than_other, size_t, float, float> greater;
+    UserFunction<one_greater_than_other, size_t(float, float)> greater;
 
     Reductor<size_t, SUM> sum(x.queue_list());
 

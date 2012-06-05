@@ -377,7 +377,7 @@ int main() {
 		vex::vector<double> y(queue, N);
 		x = 1;
 		y = 2;
-		UserFunction<chk_if_gr_body, size_t, double, double> chk_if_greater;
+		UserFunction<chk_if_gr_body, size_t(double, double)> chk_if_greater;
 		Reductor<size_t,SUM> sum(queue);
 		rc = rc && sum(chk_if_greater(x, y)) == 0;
 		rc = rc && sum(chk_if_greater(y, x)) == N;
