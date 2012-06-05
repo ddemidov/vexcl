@@ -16,6 +16,8 @@ void cg_gpu(
 	std::vector<real> &x		// In: initial approximation; out: result.
 	)
 {
+    const size_t n = x.size();
+
     // Init OpenCL
     std::vector<cl::Context> context;
     std::vector<cl::CommandQueue> queue;
@@ -25,8 +27,8 @@ void cg_gpu(
 	);
 
     // Move data to GPU(s)
-    size_t n = x.size();
-    vex::SpMat<real>  A(queue, n, row.data(), col.data(), val.data());
+    vex::SpMat_ELL<real> A(queue, n, row.data(), col.data(), val.data());
+
     vex::vector<real> f(queue, rhs, CL_MEM_READ_ONLY);
     vex::vector<real> u(queue, x);
     vex::vector<real> r(queue, n);

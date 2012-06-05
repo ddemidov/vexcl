@@ -55,14 +55,8 @@ THE SOFTWARE.
 /// OpenCL convenience utilities.
 namespace vex {
 
-/// Supported sparse matrix formats.
-enum SpMatFormat {
-    ELL,    ///< ELL format.
-    CCSR    ///< Compressed CSR format.
-};
-
-template<class T, typename column_t, SpMatFormat format> struct SpMV;
-template <class Expr, typename T, typename column_t, SpMatFormat format> struct ExSpMV;
+template<class T, typename column_t> struct SpMV;
+template <class Expr, typename T, typename column_t> struct ExSpMV;
 
 /// Base class for a member of an expression.
 /**
@@ -605,17 +599,17 @@ class vector : public expression {
 	    return *this = *this - expr;
 	}
 
-	template <class Expr, typename column_t, SpMatFormat format>
-	const vector& operator=(const ExSpMV<Expr,T,column_t,format> &xmv);
+	template <class Expr, typename column_t>
+	const vector& operator=(const ExSpMV<Expr,T,column_t> &xmv);
 
-	template <typename column_t, SpMatFormat format>
-	const vector& operator= (const SpMV<T,column_t,format> &spmv);
+	template <typename column_t>
+	const vector& operator= (const SpMV<T,column_t> &spmv);
 
-	template <typename column_t, SpMatFormat format>
-	const vector& operator+=(const SpMV<T,column_t,format> &spmv);
+	template <typename column_t>
+	const vector& operator+=(const SpMV<T,column_t> &spmv);
 
-	template <typename column_t, SpMatFormat format>
-	const vector& operator-=(const SpMV<T,column_t,format> &spmv);
+	template <typename column_t>
+	const vector& operator-=(const SpMV<T,column_t> &spmv);
 	/// @}
 
 	/** \name Service methods used for kernel generation.

@@ -219,7 +219,8 @@ std::pair<double,double> benchmark_spmv(
     size_t nnz = row.back();
 
     // Transfer data to compute devices.
-    vex::SpMat<real,uint>  A(queue, n * n * n, row.data(), col.data(), val.data());
+    vex::SpMat_ELL<real,uint> A(queue, n * n * n, row.data(), col.data(), val.data());
+
     vex::vector<real> x(queue, X);
     vex::vector<real> y(queue, Y);
 

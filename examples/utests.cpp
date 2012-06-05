@@ -303,7 +303,8 @@ int main() {
 		std::vector<double> y(n * n * n);
 		std::generate(x.begin(), x.end(), []() { return (double)rand() / RAND_MAX; });
 
-		vex::SpMat<double>  A(queue, x.size(), row.data(), col.data(), val.data());
+		vex::SpMat_ELL<double> A(queue, x.size(), row.data(), col.data(), val.data());
+
 		vex::vector<double> X(queue, x);
 		vex::vector<double> Y(queue, x.size());
 
