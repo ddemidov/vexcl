@@ -52,7 +52,7 @@ THE SOFTWARE.
 #include <vexcl/util.hpp>
 #include <vexcl/profiler.hpp>
 
-/// OpenCL convenience utilities.
+/// Vector expression template library for OpenCL.
 namespace vex {
 
 template<class T, typename column_t> struct SpMV;

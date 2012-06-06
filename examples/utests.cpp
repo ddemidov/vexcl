@@ -26,13 +26,10 @@ extern const char chk_if_gr_body[] = "return prm1 > prm2 ? 1 : 0;";
 
 int main() {
     try {
-	std::vector<cl::Context>      context;
-	std::vector<cl::CommandQueue> queue;
+	vex::Context ctx(Filter::DoublePrecision && Filter::Env);
+	std::cout << ctx << std::endl;
 
-	std::tie(context, queue) = queue_list(Filter::DoublePrecision() && Filter::Env());
-	std::cout << queue << std::endl;
-
-	if (queue.empty()) {
+	if (ctx.queue().empty()) {
 	    std::cerr << "No OpenCL devices found." << std::endl;
 	    return 1;
 	}
@@ -48,7 +45,7 @@ int main() {
 	run_test("Vector construction from size", [&]() {
 		const size_t N = 1024;
 		bool rc = true;
-		vex::vector<double> x(queue, N);
+		vex::vector<double> x(ctx.queue(), N);
 		rc = rc && (x.size() == N);
 		rc = rc && (x.end() - x.begin() == N);
 		return rc;
@@ -59,7 +56,7 @@ int main() {
 		bool rc = true;
 		std::vector<double> x(N, 42);
 		std::vector<double> y(N);
-		vex::vector<double> X(queue, x);
+		vex::vector<double> X(ctx.queue(), x);
 		rc = rc && (X.size() == x.size());
 		rc = rc && (X.end() - X.begin() == x.size());
 		copy(X, y);
@@ -75,7 +72,7 @@ int main() {
 		bool rc = true;
 		std::vector<double> x(N, 42);
 		std::vector<double> y(N);
-		vex::vector<double> X(queue, N, x.data());
+		vex::vector<double> X(ctx.queue(), N, x.data());
 		rc = rc && (X.size() == x.size());
 		rc = rc && (X.end() - X.begin() == x.size());
 		copy(X, y);
@@ -89,13 +86,13 @@ int main() {
 	run_test("Vector move construction from vex::vector", [&]() {
 		const size_t N = 1024;
 		bool rc = true;
-		vex::vector<double> x(queue, N);
+		vex::vector<double> x(ctx.queue(), N);
 		x = 42;
 		vex::vector<double> y = std::move(x);
 		rc = rc && (y.size() == N);
 		rc = rc && (y.end() - y.begin() == N);
-		Reductor<double,MIN> min(queue);
-		Reductor<double,MAX> max(queue);
+		Reductor<double,MIN> min(ctx.queue());
+		Reductor<double,MAX> max(ctx.queue());
 		rc = rc && min(y) == 42;
 		rc = rc && max(y) == 42;
 		return rc;
@@ -105,11 +102,11 @@ int main() {
 		const size_t N = 1024;
 		bool rc = true;
 		std::vector<double> x(N, 42);
-		vex::vector<double> X(queue, x);
+		vex::vector<double> X(ctx.queue(), x);
 		vex::vector<double> Y = std::move(X);
 		rc = rc && (Y.size() == x.size());
-		Reductor<double,MIN> min(queue);
-		Reductor<double,MAX> max(queue);
+		Reductor<double,MIN> min(ctx.queue());
+		Reductor<double,MAX> max(ctx.queue());
 		rc = rc && min(Y) == x[0];
 		rc = rc && max(Y) == x[0];
 		return rc;
@@ -118,15 +115,15 @@ int main() {
 	run_test("Vector swap", [&]() {
 		const size_t N = 1024;
 		bool rc = true;
-		vex::vector<double> x(queue, N);
-		vex::vector<double> y(queue, N/2);
+		vex::vector<double> x(ctx.queue(), N);
+		vex::vector<double> y(ctx.queue(), N/2);
 		x = 42;
 		y = 67;
 		swap(x, y);
 		rc = rc && (y.size() == N);
 		rc = rc && (x.size() == N/2);
-		Reductor<double,MIN> min(queue);
-		Reductor<double,MAX> max(queue);
+		Reductor<double,MIN> min(ctx.queue());
+		Reductor<double,MAX> max(ctx.queue());
 		rc = rc && min(y) == 42 && max(y) == 42;
 		rc = rc && max(x) == 67 && max(x) == 67;
 		return rc;
@@ -137,10 +134,10 @@ int main() {
 		bool rc = true;
 		std::vector<double> x(N, 42);
 		vex::vector<double> X;
-		X.resize(queue, x);
+		X.resize(ctx.queue(), x);
 		rc = rc && (X.size() == x.size());
-		Reductor<double,MIN> min(queue);
-		Reductor<double,MAX> max(queue);
+		Reductor<double,MIN> min(ctx.queue());
+		Reductor<double,MAX> max(ctx.queue());
 		rc = rc && min(X) == 42 && max(X) == 42;
 		return rc;
 		});
@@ -148,12 +145,12 @@ int main() {
 	run_test("Vector resize vex::vector", [&]() {
 		const size_t N = 1024;
 		bool rc = true;
-		vex::vector<double> x(queue, N);
+		vex::vector<double> x(ctx.queue(), N);
 		x = 42;
 		vex::vector<double> y;
 		y.resize(x);
 		rc = rc && (y.size() == x.size());
-		Reductor<double,MAX> max(queue);
+		Reductor<double,MAX> max(ctx.queue());
 		rc = rc && max((x - y) * (x - y)) == 0;
 		return rc;
 		});
@@ -161,7 +158,7 @@ int main() {
 	run_test("Iterate over vex::vector", [&]() {
 		const size_t N = 1024;
 		bool rc = true;
-		vex::vector<double> x(queue, N);
+		vex::vector<double> x(ctx.queue(), N);
 		x = 42;
 		rc = rc && std::all_of(x.begin(), x.end(),
 		    [](double a) { return a == 42; });
@@ -171,7 +168,7 @@ int main() {
 	run_test("Access vex::vector elements", [&]() {
 		const size_t N = 1024;
 		bool rc = true;
-		vex::vector<double> x(queue, N);
+		vex::vector<double> x(ctx.queue(), N);
 		for(int i = 0; i < N; i++)
 		    x[i] = 42;
 		for(int i = 0; i < N; i++)
@@ -183,7 +180,7 @@ int main() {
 		const size_t N = 1024;
 		bool rc = true;
 		std::vector<double> x(N);
-		vex::vector<double> X(queue, N);
+		vex::vector<double> X(ctx.queue(), N);
 		X = 42;
 		copy(X, x);
 		rc = rc && std::all_of(x.begin(), x.end(),
@@ -199,10 +196,10 @@ int main() {
 		const size_t N = 1024;
 		bool rc = true;
 		std::vector<double> x(N, 42);
-		vex::vector<double> X(queue, N);
+		vex::vector<double> X(ctx.queue(), N);
 		copy(x, X);
-		Reductor<double,MIN> min(queue);
-		Reductor<double,MAX> max(queue);
+		Reductor<double,MIN> min(ctx.queue());
+		Reductor<double,MAX> max(ctx.queue());
 		rc = rc && min(X) == 42 && max(X) == 42;
 		std::fill(x.begin(), x.end(), 67);
 		vex::copy(x.begin(), x.end(), X.begin());
@@ -213,13 +210,13 @@ int main() {
 	run_test("Assign expression to vex::vector", [&]() {
 		const size_t N = 1024;
 		bool rc = true;
-		vex::vector<double> x(queue, N);
-		vex::vector<double> y(queue, N);
-		vex::vector<double> z(queue, N);
+		vex::vector<double> x(ctx.queue(), N);
+		vex::vector<double> y(ctx.queue(), N);
+		vex::vector<double> z(ctx.queue(), N);
 		y = 42;
 		z = 67;
 		x = 5 * sin(y) + z;
-		Reductor<double,MAX> max(queue);
+		Reductor<double,MAX> max(ctx.queue());
 		rc = rc && max(fabs(x - (5 * sin(42) + 67))) < 1e-12;
 		return rc;
 		});
@@ -230,10 +227,10 @@ int main() {
 		bool rc = true;
 		std::vector<double> x(N);
 		std::generate(x.begin(), x.end(), []() { return (double)rand() / RAND_MAX; });
-		vex::vector<double> X(queue, x);
-		Reductor<double,SUM> sum(queue);
-		Reductor<double,MIN> min(queue);
-		Reductor<double,MAX> max(queue);
+		vex::vector<double> X(ctx.queue(), x);
+		Reductor<double,SUM> sum(ctx.queue());
+		Reductor<double,MIN> min(ctx.queue());
+		Reductor<double,MAX> max(ctx.queue());
 		rc = rc && fabs(sum(X) - std::accumulate(x.begin(), x.end(), 0.0)) < 1e-6;
 		rc = rc && fabs(min(X) - *std::min_element(x.begin(), x.end())) < 1e-4;
 		rc = rc && fabs(max(X) - *std::max_element(x.begin(), x.end())) < 1e-4;
@@ -303,9 +300,9 @@ int main() {
 		std::vector<double> y(n * n * n);
 		std::generate(x.begin(), x.end(), []() { return (double)rand() / RAND_MAX; });
 
-		vex::SpMat <double> A(queue, x.size(), row.data(), col.data(), val.data());
-		vex::vector<double> X(queue, x);
-		vex::vector<double> Y(queue, x.size());
+		vex::SpMat <double> A(ctx.queue(), x.size(), row.data(), col.data(), val.data());
+		vex::vector<double> X(ctx.queue(), x);
+		vex::vector<double> Y(ctx.queue(), x.size());
 
 		Y = A * X;
 		copy(Y, y);
@@ -396,9 +393,9 @@ int main() {
 		std::vector<double> y(n * n * n);
 		std::generate(x.begin(), x.end(), []() { return (double)rand() / RAND_MAX; });
 
-		std::vector<cl::CommandQueue> q1(1, queue[0]);
+		std::vector<cl::CommandQueue> q1(1, ctx.queue()[0]);
 
-		vex::SpMatCCSR<double,int> A(queue[0], x.size(), row.size() - 1,
+		vex::SpMatCCSR<double,int> A(q1[0], x.size(), row.size() - 1,
 			idx.data(), row.data(), col.data(), val.data());
 
 		vex::vector<double> X(q1, x);
@@ -438,8 +435,8 @@ int main() {
 		bool rc = true;
 		std::vector<double> x(N);
 		std::generate(x.begin(), x.end(), [](){ return (double)rand() / RAND_MAX; });
-		vex::vector<double> X(queue, x);
-		Reductor<double,SUM> sum(queue);
+		vex::vector<double> X(ctx.queue(), x);
+		Reductor<double,SUM> sum(ctx.queue());
 		rc = rc && 1e-8 > fabs(sum(sin(X)) -
 		    std::accumulate(x.begin(), x.end(), 0.0, [](double s, double v) {
 			return s + sin(v);
@@ -457,8 +454,8 @@ int main() {
 		bool rc = true;
 		std::vector<double> x(N);
 		std::generate(x.begin(), x.end(), [](){ return (double)rand() / RAND_MAX; });
-		vex::vector<double> X(queue, x);
-		Reductor<double,SUM> sum(queue);
+		vex::vector<double> X(ctx.queue(), x);
+		Reductor<double,SUM> sum(ctx.queue());
 		rc = rc && 1e-8 > fabs(sum(pow(X, 2.0)) -
 		    std::accumulate(x.begin(), x.end(), 0.0, [](double s, double v) {
 			return s + pow(v, 2.0);
@@ -470,12 +467,12 @@ int main() {
 	run_test("Custom function", [&]() {
 		const size_t N = 1024;
 		bool rc = true;
-		vex::vector<double> x(queue, N);
-		vex::vector<double> y(queue, N);
+		vex::vector<double> x(ctx.queue(), N);
+		vex::vector<double> y(ctx.queue(), N);
 		x = 1;
 		y = 2;
 		UserFunction<chk_if_gr_body, size_t(double, double)> chk_if_greater;
-		Reductor<size_t,SUM> sum(queue);
+		Reductor<size_t,SUM> sum(ctx.queue());
 		rc = rc && sum(chk_if_greater(x, y)) == 0;
 		rc = rc && sum(chk_if_greater(y, x)) == N;
 		return rc;

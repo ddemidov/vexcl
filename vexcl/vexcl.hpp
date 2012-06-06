@@ -53,7 +53,7 @@ supporting double precision are selected:
 using namespace vex;
 int main() {
     auto device = device_list(
-        Filter::Name("Radeon") && Filter::DoublePrecision()
+        Filter::Name("Radeon") && Filter::DoublePrecision
         );
     std::cout << device << std::endl;
 }
@@ -73,6 +73,12 @@ std::tie(context, queue) = queue_list(
     );
 \endcode
 
+Last operation may be wrapped into single call to a vex::Context constructor:
+\code
+vex::Context ctx(Filter::Env);
+std::cout << ctx << std::endl;
+\endcode
+
 \section vector Memory allocation and vector arithmetic
 
 Once you got queue list, you can allocate OpenCL buffers on the associated
@@ -89,20 +95,18 @@ across devices by different vendors), but should be used with caution: all
 computations will be performed with the speed of the slowest device selected.
 
 In the example below host vector is allocated and initialized, then copied to
-all devices obtained with the queue_list() call. A couple of empty device
-vectors are allocated as well:
+all GPU devices found in the system. A couple of empty device vectors are
+allocated as well:
 \code
 const size_t n = 1 << 20;
 std::vector<double> x(n);
 std::generate(x.begin(), x.end(), [](){ return (double)rand() / RAND_MAX; });
 
-cl::Context context;
-std::vector<cl::CommandQueue> queue;
-std::tie(context, queue) = queue_list(Filter::Type(CL_DEVICE_TYPE_GPU));
+vex::Context ctx(Filter::Type(CL_DEVICE_TYPE_GPU));
 
-vex::vector<double> X(queue, x);
-vex::vector<double> Y(queue, n);
-vex::vector<double> Z(queue, n);
+vex::vector<double> X(ctx.queue(), x);
+vex::vector<double> Y(ctx.queue(), n);
+vex::vector<double> Z(ctx.queue(), n);
 \endcode
 
 You can now use simple vector arithmetic with device vector. For every
@@ -126,7 +130,7 @@ assert(x[42] == Z[42]);
 Another frequently performed operation is reduction of a vector expression to
 single value, such as summation. This can be done with vex::Reductor class:
 \code
-Reductor<double> sum(queue);
+Reductor<double> sum(ctx.queue());
 
 std::cout << sum(Z) << std::endl;
 std::cout << sum(sqrt(2 * X) + cos(Y)) << std::endl;
@@ -151,22 +155,19 @@ void cg_gpu(
 	)
 {
     // Init OpenCL.
-    cl::Context context;
-    std::vector<cl::CommandQueue> queue;
-
-    std::tie(context, queue) = queue_list(Filter::Type(CL_DEVICE_TYPE_GPU));
+    vex::Context ctx(Filter::Type(CL_DEVICE_TYPE_GPU));
 
     // Move data to compute devices.
     size_t n = x.size();
-    vex::SpMat<real>  A(queue, n, row.data(), col.data(), val.data());
-    vex::vector<real> f(queue, rhs);
-    vex::vector<real> u(queue, x);
-    vex::vector<real> r(queue, n);
-    vex::vector<real> p(queue, n);
-    vex::vector<real> q(queue, n);
+    vex::SpMat<real>  A(ctx.queue(), n, row.data(), col.data(), val.data());
+    vex::vector<real> f(ctx.queue(), rhs);
+    vex::vector<real> u(ctx.queue(), x);
+    vex::vector<real> r(ctx.queue(), n);
+    vex::vector<real> p(ctx.queue(), n);
+    vex::vector<real> q(ctx.queue(), n);
 
-    Reductor<real,MAX> max(queue);
-    Reductor<real,SUM> sum(queue);
+    Reductor<real,MAX> max(ctx.queue());
+    Reductor<real,SUM> sum(ctx.queue());
 
     // Solve equation Au = f with conjugate gradients method.
     real rho1, rho2;
@@ -212,9 +213,7 @@ extern const char one_greater_than_other[] = "return prm1 > prm2 ? 1 : 0";
 
 size_t count_if_greater(const vex:vector<float> &x, const vex::vector<float> &y) {
     UserFunction<one_greater_than_other, size_t(float, float)> greater;
-
     Reductor<size_t, SUM> sum(x.queue_list());
-
     return sum(greater(x, y));
 }
 \endcode
@@ -229,12 +228,10 @@ parameters are always named as prm1, prm2, etc.
 Custom kernels are of course possible as well. vector::operator(uint)
 returns cl::Buffer object for a specified device:
 \code
-cl::Context context;
-std::vector<cl::CommandQueue> queue;
-std::tie(context, queue) = queue_list(Filter::Type(CL_DEVICE_TYPE_GPU));
+vex::Context ctx(Filter::Type(CL_DEVICE_TYPE_GPU));
 
 const size_t n = 1 << 20;
-vex::vector<float> x(queue, n);
+vex::vector<float> x(ctx.queue(), n);
 
 auto program = build_sources(context, std::string(
     "kernel void dummy(ulong size, global float *x)\n"
@@ -244,12 +241,12 @@ auto program = build_sources(context, std::string(
     "}\n"
     ));
 
-for(uint d = 0; d < queue.size(); d++) {
-    auto dummy = cl::Kernel(program, "dummy").bind(queue[d], alignup(n, 256), 256);
+for(uint d = 0; d < ctx.size(); d++) {
+    auto dummy = cl::Kernel(program, "dummy").bind(ctx.queue()[d], alignup(n, 256), 256);
     dummy((cl_ulong)x.part_size(d), x(d));
 }
 
-Reductor<float,SUM> sum(queue);
+Reductor<float,SUM> sum(ctx.queue());
 std::cout << sum(x) << std::endl;
 \endcode
 
@@ -261,8 +258,9 @@ were measured by launching big number of test kernels on one, two, or three
 Nvidia Tesla C2070 cards. The results shown are averaged over 20 runs.
 
 The details of the experiments may be found in <a
-href="https://github.com/ddemidov/vexcl/blob/master/examples/profiling.cpp">examples/profiling.cpp</a>
-file.  Basically, performance of the following code was measured:
+href="https://github.com/ddemidov/vexcl/blob/master/examples/benchmark.cpp">
+examples/profiling.cpp</a> file.  Basically, performance of the following code
+was measured:
 
 \code
 // Vector arithmetic

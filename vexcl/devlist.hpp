@@ -49,15 +49,15 @@ namespace vex {
 /// Device filters.
 namespace Filter {
     /// Selects any device.
-    struct All {
+    struct AllFilter {
 	bool operator()(const cl::Device &d) const {
 	    return true;
 	}
-    };
+    } All;
 
     /// Selects devices whose vendor name match given value.
     struct Vendor {
-	Vendor(const std::string &name) : vendor(name) {}
+	explicit Vendor(const std::string &name) : vendor(name) {}
 
 	bool operator()(const cl::Device &d) const {
 	    return d.getInfo<CL_DEVICE_VENDOR>().find(vendor) != std::string::npos;
@@ -69,7 +69,7 @@ namespace Filter {
 
     /// Selects devices whose platform name match given value.
     struct Platform {
-	Platform(const std::string &name) : platform(name) {}
+	explicit Platform(const std::string &name) : platform(name) {}
 
 	bool operator()(const cl::Device &d) const {
 	    return cl::Platform(d.getInfo<CL_DEVICE_PLATFORM>()).getInfo<CL_PLATFORM_NAME>().find(platform) != std::string::npos;
@@ -81,7 +81,7 @@ namespace Filter {
 
     /// Selects devices whose names match given value.
     struct Name {
-	Name(const std::string &name) : devname(name) {}
+	explicit Name(const std::string &name) : devname(name) {}
 
 	bool operator()(const cl::Device &d) const {
 	    return d.getInfo<CL_DEVICE_NAME>().find(devname) != std::string::npos;
@@ -93,7 +93,7 @@ namespace Filter {
 
     /// Selects devices by type.
     struct Type {
-	Type(cl_device_type t) : type(t) {}
+	explicit Type(cl_device_type t) : type(t) {}
 
 	bool operator()(const cl::Device &d) const {
 	    return d.getInfo<CL_DEVICE_TYPE>() == type;
@@ -104,7 +104,7 @@ namespace Filter {
     };
 
     /// Selects devices supporting double precision.
-    struct DoublePrecision {
+    struct DoublePrecisionFilter {
 	bool operator()(const cl::Device &d) const {
 	    if (d.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU)
 		return true;
@@ -116,7 +116,7 @@ namespace Filter {
 		    ext.find("cl_amd_fp64") != std::string::npos
 		   );
 	}
-    };
+    } DoublePrecision;
 
     /// Selects no more than given number of devices.
     /**
@@ -126,7 +126,7 @@ namespace Filter {
      * filter is applied, internal counter is decremented).
      */
     struct Count {
-	Count(int c) : count(c) {}
+	explicit Count(int c) : count(c) {}
 
 	bool operator()(const cl::Device &d) const {
 	    return --count >= 0;
@@ -150,8 +150,8 @@ namespace Filter {
      * last in filter expression. Same reasoning applies as in case of
      * Filter::Count.
      */
-    struct Env {
-	Env()
+    struct EnvFilter {
+	EnvFilter()
 	    : platform(getenv("OCL_PLATFORM")),
 	      vendor  (getenv("OCL_VENDOR")),
 	      name    (getenv("OCL_DEVICE")),
@@ -185,7 +185,7 @@ namespace Filter {
 	    const char *name;
 	    const char *maxdev;
 	    mutable int count;
-    };
+    } Env;
 
     /// \internal Filter join operators.
     enum FilterOp {
@@ -258,16 +258,16 @@ namespace Filter {
  * This example selects any GPU which supports double precision arithmetic:
  * \code
  * auto devices = device_list(
- *	    Filter::Type(CL_DEVICE_TYPE_GPU) && Filter::DoublePrecision()
+ *	    Filter::Type(CL_DEVICE_TYPE_GPU) && Filter::DoublePrecision
  *	    );
  * \endcode
  */
 template<class DevFilter
 #ifndef WIN32
-    = Filter::All
+    = Filter::AllFilter
 #endif
     >
-std::vector<cl::Device> device_list(DevFilter filter = Filter::All())
+std::vector<cl::Device> device_list(DevFilter filter = Filter::All)
 {
     std::vector<cl::Device> device;
 
@@ -299,12 +299,12 @@ std::vector<cl::Device> device_list(DevFilter filter = Filter::All())
  */
 template<class DevFilter
 #ifndef WIN32
-    = Filter::All
+    = Filter::AllFilter
 #endif
     >
 std::pair<std::vector<cl::Context>, std::vector<cl::CommandQueue>>
 queue_list(
-	DevFilter filter = Filter::All(),
+	DevFilter filter = Filter::All,
 	cl_command_queue_properties properties = 0
 	)
 {
@@ -341,6 +341,37 @@ queue_list(
     return std::make_pair(context, queue);
 }
 
+/// VexCL context holder.
+/**
+ * Holds vectors of cl::Contexts and cl::CommandQueues returned by queue_list.
+ */
+class Context {
+    public:
+	template <class DevFilter>
+	explicit Context(
+		DevFilter filter, cl_command_queue_properties properties = 0
+		)
+	{
+	    std::tie(c, q) = queue_list(filter, properties);
+	}
+
+	const std::vector<cl::Context>& context() const {
+	    return c;
+	}
+
+	const std::vector<cl::CommandQueue>& queue() const {
+	    return q;
+	}
+
+	size_t size() const {
+	    return q.size();
+	}
+    private:
+	std::vector<cl::Context>      c;
+	std::vector<cl::CommandQueue> q;
+};
+
+
 std::ostream& operator<<(std::ostream &os, const std::vector<cl::Device> &device) {
     uint p = 1;
 
@@ -359,6 +390,10 @@ std::ostream& operator<<(std::ostream &os, const std::vector<cl::CommandQueue> &
 	   << std::endl;
 
     return os;
+}
+
+std::ostream& operator<<(std::ostream &os, const vex::Context &ctx) {
+    return os << ctx.queue();
 }
 
 } // namespace vex

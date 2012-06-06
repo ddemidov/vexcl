@@ -17,18 +17,15 @@ int main() {
     srand(time(0));
 
     try {
-	std::vector<cl::Context>      context;
-	std::vector<cl::CommandQueue> queue;
-
 	// Select every device supporting double precision.
-	std::tie(context, queue) = queue_list(Filter::DoublePrecision(), true);
+	vex::Context ctx(Filter::All);
 
-	if (queue.empty()) {
+	if (ctx.queue().empty()) {
 	    std::cerr << "No OpenCL devices found." << std::endl;
 	    return 1;
 	}
 
-	std::cout << queue << std::endl;
+	std::cout << ctx << std::endl;
 
 	// Allocate host vector, fill it with random values.
 	const size_t N = 1024 * 1024;
@@ -39,11 +36,11 @@ int main() {
 
 	// Allocate device vector initialized with host vector data.
 	// Device vector will be partitioned between selected devices.
-	vex::vector<double> x(queue, host_vec);
+	vex::vector<double> x(ctx.queue(), host_vec);
 
 	// Allocate uninitialized device vectors.
-	vex::vector<double> y(queue, N);
-	vex::vector<double> z(queue, N);
+	vex::vector<double> y(ctx.queue(), N);
+	vex::vector<double> z(ctx.queue(), N);
 
 	// Appropriate kernels are compiled (once) and called automagically:
 	// Fill device vector with constant value...
@@ -51,7 +48,7 @@ int main() {
 	// ... or with some expression:
 	z = sqrt(2 * x) + cos(y);
 
-	Reductor<double,SUM> sum(queue);
+	Reductor<double,SUM> sum(ctx.queue());
 
 	std::cout << "y * y = " << sum(y * y) << std::endl;
 

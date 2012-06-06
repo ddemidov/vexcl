@@ -16,7 +16,7 @@ typedef double real;
 
 //---------------------------------------------------------------------------
 std::pair<double,double> benchmark_vector(
-	std::vector<cl::CommandQueue> &queue, profiler &prof
+	const std::vector<cl::CommandQueue> &queue, profiler &prof
 	)
 {
     const size_t N = 1024 * 1024;
@@ -86,7 +86,7 @@ std::pair<double,double> benchmark_vector(
 
 //---------------------------------------------------------------------------
 std::pair<double, double> benchmark_reductor(
-	std::vector<cl::CommandQueue> &queue, profiler &prof
+	const std::vector<cl::CommandQueue> &queue, profiler &prof
 	)
 {
     const size_t N = 16 * 1024 * 1024;
@@ -149,7 +149,7 @@ std::pair<double, double> benchmark_reductor(
 
 //---------------------------------------------------------------------------
 std::pair<double,double> benchmark_spmv(
-	std::vector<cl::CommandQueue> &queue, profiler &prof
+	const std::vector<cl::CommandQueue> &queue, profiler &prof
 	)
 {
     // Construct matrix for 3D Poisson problem in cubic domain.
@@ -279,7 +279,7 @@ std::pair<double,double> benchmark_spmv(
 
 //---------------------------------------------------------------------------
 std::pair<double,double> benchmark_spmv_ccsr(
-	std::vector<cl::CommandQueue> &queue, profiler &prof
+	const std::vector<cl::CommandQueue> &queue, profiler &prof
 	)
 {
     // Construct matrix for 3D Poisson problem in cubic domain.
@@ -411,26 +411,24 @@ std::pair<double,double> benchmark_spmv_ccsr(
 //---------------------------------------------------------------------------
 int main() {
     try {
-	std::vector<cl::Context>      context;
-	std::vector<cl::CommandQueue> queue;
+	vex::Context ctx(
+		Filter::DoublePrecision && Filter::Env,
+		CL_QUEUE_PROFILING_ENABLE
+		);
 
-	std::tie(context, queue) = queue_list(
-		Filter::DoublePrecision() && Filter::Env(),
-		CL_QUEUE_PROFILING_ENABLE);
-
-	std::cout << queue << std::endl;
+	std::cout << ctx << std::endl;
 
 	std::ofstream log("profiling.dat", std::ios::app);
 
-	log << queue.size() << " ";
+	log << ctx.size() << " ";
 
 	double gflops, bwidth;
 
-	profiler prof(queue);
+	profiler prof(ctx.queue());
 
 #ifdef BENCHMARK_VECTOR
 	prof.tic_cpu("Vector arithmetic");
-	std::tie(gflops, bwidth) = benchmark_vector(queue, prof);
+	std::tie(gflops, bwidth) = benchmark_vector(ctx.queue(), prof);
 	prof.toc("Vector arithmetic");
 
 	log << gflops << " " << bwidth << " ";
@@ -438,7 +436,7 @@ int main() {
 
 #ifdef BENCHMARK_REDUCTOR
 	prof.tic_cpu("Reduction");
-	std::tie(gflops, bwidth) = benchmark_reductor(queue, prof);
+	std::tie(gflops, bwidth) = benchmark_reductor(ctx.queue(), prof);
 	prof.toc("Reduction");
 
 	log << gflops << " " << bwidth << " ";
@@ -446,13 +444,13 @@ int main() {
 
 #ifdef BENCHMARK_SPMAT
 	prof.tic_cpu("SpMV");
-	std::tie(gflops, bwidth) = benchmark_spmv(queue, prof);
+	std::tie(gflops, bwidth) = benchmark_spmv(ctx.queue(), prof);
 	prof.toc("SpMV");
 
 	log << gflops << " " << bwidth << std::endl;
 
 	prof.tic_cpu("SpMV (CCSR)");
-	std::tie(gflops, bwidth) = benchmark_spmv_ccsr(queue, prof);
+	std::tie(gflops, bwidth) = benchmark_spmv_ccsr(ctx.queue(), prof);
 	prof.toc("SpMV (CCSR)");
 #endif
 

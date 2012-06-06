@@ -19,23 +19,18 @@ void cg_gpu(
     const size_t n = x.size();
 
     // Init OpenCL
-    std::vector<cl::Context> context;
-    std::vector<cl::CommandQueue> queue;
-
-    std::tie(context, queue) = queue_list(
-	Filter::Type(CL_DEVICE_TYPE_GPU) && Filter::DoublePrecision()
-	);
+    vex::Context ctx(Filter::Type(CL_DEVICE_TYPE_GPU) && Filter::DoublePrecision);
 
     // Move data to GPU(s)
-    vex::SpMat <real> A(queue, n, row.data(), col.data(), val.data());
-    vex::vector<real> f(queue, rhs, CL_MEM_READ_ONLY);
-    vex::vector<real> u(queue, x);
-    vex::vector<real> r(queue, n);
-    vex::vector<real> p(queue, n);
-    vex::vector<real> q(queue, n);
+    vex::SpMat <real> A(ctx.queue(), n, row.data(), col.data(), val.data());
+    vex::vector<real> f(ctx.queue(), rhs, CL_MEM_READ_ONLY);
+    vex::vector<real> u(ctx.queue(), x);
+    vex::vector<real> r(ctx.queue(), n);
+    vex::vector<real> p(ctx.queue(), n);
+    vex::vector<real> q(ctx.queue(), n);
 
-    Reductor<real,MAX> max(queue);
-    Reductor<real,SUM> sum(queue);
+    Reductor<real,MAX> max(ctx.queue());
+    Reductor<real,SUM> sum(ctx.queue());
 
     // Solve equation Au = f with conjugate gradients method.
     real rho1, rho2;
