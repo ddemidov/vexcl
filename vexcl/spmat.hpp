@@ -103,14 +103,14 @@ struct ExSpMV {
 
 /// Add an expression and sparse matrix - vector product.
 template <class Expr, typename real, typename column_t>
-typename std::enable_if<Expr::is_expression, ExSpMV<Expr,real,column_t>>::type
+typename std::enable_if<Expr::is_expr, ExSpMV<Expr,real,column_t>>::type
 operator+(const Expr &expr, const SpMV<real,column_t> &spmv) {
     return ExSpMV<Expr,real,column_t>(expr, 1, spmv);
 }
 
 /// Subtruct sparse matrix - vector product from an expression.
 template <class Expr, typename real, typename column_t>
-typename std::enable_if<Expr::is_expression, ExSpMV<Expr,real,column_t>>::type
+typename std::enable_if<Expr::is_expr, ExSpMV<Expr,real,column_t>>::type
 operator-(const Expr &expr, const SpMV<real,column_t> &spmv) {
     return ExSpMV<Expr,real,column_t>(expr, -1, spmv);
 }

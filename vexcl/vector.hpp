@@ -68,7 +68,7 @@ template <class Expr, typename T, typename column_t> struct ExSpMV;
  * expression member should implement.
  */
 struct expression {
-    static const bool is_expression = true;
+    static const bool is_expr = true;
 
     /// Preamble.
     /**
@@ -205,21 +205,6 @@ struct KernelGenerator<T, typename std::enable_if<std::is_arithmetic<T>::value>:
 
     private:
 	const T &value;
-};
-
-template <class T, class Enable = void>
-struct valid_expression {
-    static const bool value = false;
-};
-
-template <typename T>
-struct valid_expression<T, typename std::enable_if<T::is_expression>::type> {
-    static const bool value = true;
-};
-
-template <typename T>
-struct valid_expression<T, typename std::enable_if<std::is_arithmetic<T>::value>::type> {
-    static const bool value = true;
 };
 
 /// Device vector.
@@ -734,14 +719,12 @@ void copy(const std::vector<T> &hv, vex::vector<T> &dv, cl_bool blocking = CL_TR
 }
 
 template<class Iterator, class Enable = void>
-struct stored_on_device {
-    static const bool value = false;
-};
+struct stored_on_device : std::false_type {};
 
 template<class Iterator>
-struct stored_on_device<Iterator, typename std::enable_if<Iterator::device_iterator>::type> {
-    static const bool value = true;
-};
+struct stored_on_device<Iterator,
+    typename std::enable_if<Iterator::device_iterator>::type
+    > : std::true_type {};
 
 /// Copy range from device vector to host vector.
 template<class InputIterator, class OutputIterator>
@@ -837,11 +820,23 @@ struct BinaryExpression : public expression {
     const KernelGenerator<RHS> rhs;
 };
 
+template <class T, class Enable = void>
+struct valid_expr : std::false_type {};
+
+template <typename T>
+struct valid_expr<T,
+    typename std::enable_if<T::is_expr>::type
+    > : std::true_type {};
+
+template <typename T>
+struct valid_expr<T,
+    typename std::enable_if<std::is_arithmetic<T>::value>::type
+    > : std::true_type{};
+
 /// Sum of two expressions.
 template <class LHS, class RHS>
 typename std::enable_if<
-    valid_expression<LHS>::value &&
-    valid_expression<RHS>::value,
+    valid_expr<LHS>::value && valid_expr<RHS>::value,
     BinaryExpression<LHS, '+', RHS>
     >::type
     operator+(const LHS &lhs, const RHS &rhs) {
@@ -851,8 +846,7 @@ typename std::enable_if<
 /// Difference of two expressions.
 template <class LHS, class RHS>
 typename std::enable_if<
-    valid_expression<LHS>::value &&
-    valid_expression<RHS>::value,
+    valid_expr<LHS>::value && valid_expr<RHS>::value,
     BinaryExpression<LHS, '-', RHS>
     >::type
     operator-(const LHS &lhs, const RHS &rhs) {
@@ -862,8 +856,7 @@ typename std::enable_if<
 /// Product of two expressions.
 template <class LHS, class RHS>
 typename std::enable_if<
-    valid_expression<LHS>::value &&
-    valid_expression<RHS>::value,
+    valid_expr<LHS>::value && valid_expr<RHS>::value,
     BinaryExpression<LHS, '*', RHS>
     >::type
     operator*(const LHS &lhs, const RHS &rhs) {
@@ -873,13 +866,52 @@ typename std::enable_if<
 /// Division of two expressions.
 template <class LHS, class RHS>
 typename std::enable_if<
-    valid_expression<LHS>::value &&
-    valid_expression<RHS>::value,
+    valid_expr<LHS>::value && valid_expr<RHS>::value,
     BinaryExpression<LHS, '/', RHS>
     >::type
     operator/(const LHS &lhs, const RHS &rhs) {
 	return BinaryExpression<LHS,'/',RHS>(lhs, rhs);
     }
+
+//---------------------------------------------------------------------------
+// Multivector
+//---------------------------------------------------------------------------
+template <class Expr>
+typename std::enable_if<Expr::is_multiex, const typename Expr::subtype&>::type
+extract_component(const Expr &expr, uint i) {
+    return expr(i);
+}
+
+template <class Expr>
+typename std::enable_if<std::is_arithmetic<Expr>::value, const Expr&>::type
+extract_component(const Expr &expr, uint i) {
+    return expr;
+}
+
+template <class T1, class T2, class Enable = void>
+struct compatible_multiex : std::false_type {};
+
+template <class T1, class T2>
+struct compatible_multiex<T1, T2,
+    typename std::enable_if<
+	T1::is_multiex &&
+	T2::is_multiex &&
+	T1::dim == T2::dim>::type
+	> : std::true_type {};
+
+template <class T1, class T2>
+struct compatible_multiex<T1, T2,
+    typename std::enable_if<
+	T1::is_multiex &&
+	std::is_arithmetic<T2>::value>::type
+	> : std::true_type {};
+
+template <class T1, class T2>
+struct compatible_multiex<T1, T2,
+    typename std::enable_if<
+	std::is_arithmetic<T1>::value &&
+	T2::is_multiex>::type
+	> : std::true_type {};
 
 /// Container for several vex::vectors.
 /**
@@ -889,7 +921,7 @@ typename std::enable_if<
 template <typename T, uint N>
 class multivector {
     public:
-	static const bool is_multiexpression = true;
+	static const bool is_multiex = true;
 	static const uint dim = N;
 
 	typedef vex::vector<T> subtype;
@@ -1085,8 +1117,11 @@ class multivector {
 	 * All operations are delegated to components of the multivector.
 	 */
 	template <class Expr>
-	const multivector& operator=(const Expr& expr) {
-	    for(uint i = 0; i < N; i++) vec[i] = expr(i);
+	typename std::enable_if<compatible_multiex<multivector, Expr>::value,
+	    const multivector&
+	    >::type
+	operator=(const Expr& expr) {
+	    for(uint i = 0; i < N; i++) vec[i] = extract_component(expr, i);
 	}
 
 	template <class Expr>
@@ -1129,176 +1164,14 @@ void copy(const std::vector<T> &hv, multivector<T,N> &mv) {
 		mv(i).begin());
 }
 
-template<class T, class Enable = void>
-struct multiex_traits {};
-
-template<class T>
-struct multiex_traits<T, typename std::enable_if<T::is_multiexpression>::type> {
-    static const uint dim = T::dim;
-    typedef typename T::subtype subtype;
-};
-
-template<class T>
-struct multiex_traits<T, typename std::enable_if<std::is_arithmetic<T>::value>::type> {
-    static const uint dim = 0;
-    typedef T subtype;
-};
-
-template <class Expr>
-typename std::enable_if<Expr::is_multiexpression, const typename Expr::subtype&>::type
-extract_component(const Expr &expr, uint i) {
-    return expr(i);
-}
-
-template <class Expr>
-typename std::enable_if<std::is_arithmetic<Expr>::value, const Expr&>::type
-extract_component(const Expr &expr, uint i) {
-    return expr;
-}
-
-template <class T, class Enable = void>
-struct valid_multiexpression {
-    static const bool value = false;
-};
-
-template <typename T>
-struct valid_multiexpression<T, typename std::enable_if<T::is_multiexpression>::type> {
-    static const bool value = true;
-};
-
-template <typename T>
-struct valid_multiexpression<T, typename std::enable_if<std::is_arithmetic<T>::value>::type> {
-    static const bool value = true;
-};
-
-template <class T1, class T2, class Enable = void>
-struct compatible_multiexpressions {
-    static const bool value = false;
-};
-
-template <class T1, class T2>
-struct compatible_multiexpressions<T1, T2,
-    typename std::enable_if<
-	T1::is_multiexpression &&
-	T2::is_multiexpression &&
-	T1::dim == T2::dim>::type
-	>
-{
-    static const bool value = true;
-};
-
-template <class T1, class T2>
-struct compatible_multiexpressions<T1, T2,
-    typename std::enable_if<
-	T1::is_multiexpression &&
-	std::is_arithmetic<T2>::value>::type
-	>
-{
-    static const bool value = true;
-};
-
-template <class T1, class T2>
-struct compatible_multiexpressions<T1, T2,
-    typename std::enable_if<
-	std::is_arithmetic<T1>::value &&
-	T2::is_multiexpression>::type
-	>
-{
-    static const bool value = true;
-};
-
-template <class Expr>
-constexpr bool all_multiexpressions_valid() {
-    return valid_multiexpression<Expr>::value;
-}
-
-template <class Head, class... Expr>
-constexpr typename std::enable_if<sizeof...(Expr), bool>::type
-all_multiexpressions_valid() {
-    return valid_multiexpression<Head>::value && all_multiexpressions_valid<Expr...>();
-}
-
-template <class Expr>
-constexpr uint multiexpr_dim() {
-    return multiex_traits<Expr>::dim;
-}
-
-template <class Head, class... Expr>
-constexpr typename std::enable_if<sizeof...(Expr), uint>::type
-multiexpr_dim() {
-    return multiex_traits<Head>::dim > multiexpr_dim<Expr...>() ?
-	multiex_traits<Head>::dim : multiexpr_dim<Expr...>();
-}
-
-//---------------------------------------------------------------------------
-// Arithmetic expressions
-//---------------------------------------------------------------------------
-template <class LHS, char OP, class RHS>
-struct BinaryMultiExpression {
-    static const bool is_multiexpression = true;
-    static const uint dim = multiex_traits<LHS>::dim > multiex_traits<RHS>::dim ?
-	multiex_traits<LHS>::dim : multiex_traits<RHS>::dim;
-
-    typedef BinaryExpression<
-			typename multiex_traits<LHS>::subtype,
-			OP,
-			typename multiex_traits<RHS>::subtype
-			> subtype;
-
-    BinaryMultiExpression(const LHS &lhs, const RHS &rhs) {
-	for(uint i = 0; i < dim; i++)
-	    expr[i].reset(new subtype(extract_component(lhs, i), extract_component(rhs, i)));
-    }
-
-    const subtype& operator()(uint i) const {
-	return *expr[i];
-    }
-
-    std::array<std::unique_ptr<subtype>, dim> expr;
-};
-
-template <class LHS, class RHS>
-typename std::enable_if<compatible_multiexpressions<LHS, RHS>::value,
-	 BinaryMultiExpression<LHS, '+', RHS>
-	 >::type
-operator+(const LHS &lhs, const RHS &rhs) {
-    return BinaryMultiExpression<LHS, '+', RHS>(lhs, rhs);
-}
-
-template <class LHS, class RHS>
-typename std::enable_if<compatible_multiexpressions<LHS, RHS>::value,
-	 BinaryMultiExpression<LHS, '-', RHS>
-	 >::type
-operator-(const LHS &lhs, const RHS &rhs) {
-    return BinaryMultiExpression<LHS, '-', RHS>(lhs, rhs);
-}
-
-template <class LHS, class RHS>
-typename std::enable_if<compatible_multiexpressions<LHS, RHS>::value,
-	 BinaryMultiExpression<LHS, '*', RHS>
-	 >::type
-operator*(const LHS &lhs, const RHS &rhs) {
-    return BinaryMultiExpression<LHS, '*', RHS>(lhs, rhs);
-}
-
-template <class LHS, class RHS>
-typename std::enable_if<compatible_multiexpressions<LHS, RHS>::value,
-	 BinaryMultiExpression<LHS, '/', RHS>
-	 >::type
-operator/(const LHS &lhs, const RHS &rhs) {
-    return BinaryMultiExpression<LHS, '/', RHS>(lhs, rhs);
-}
-
-//---------------------------------------------------------------------------
-// Builtin functions
-//---------------------------------------------------------------------------
+/// Multivector expression template
 template <class Expr, uint N>
-struct UnaryMultiExpression {
-    static const bool is_multiexpression = true;
+struct MultiExpression {
+    static const bool is_multiex = true;
     static const uint dim = N;
     typedef Expr subtype;
 
-    UnaryMultiExpression(std::array<std::unique_ptr<subtype>, dim> &ex) {
+    MultiExpression(std::array<std::unique_ptr<subtype>, dim> &ex) {
 	for(uint i = 0; i < dim; i++) expr[i] = std::move(ex[i]);
     }
 
@@ -1309,8 +1182,166 @@ struct UnaryMultiExpression {
     std::array<std::unique_ptr<subtype>, dim> expr;
 };
 
-#ifdef VEXCL_VARIADIC_TEMPLATES
+template<class T, class Enable = void>
+struct multiex_traits {};
 
+template<class T>
+struct multiex_traits<T, typename std::enable_if<T::is_multiex>::type> {
+    static const uint dim = T::dim;
+    typedef typename T::subtype subtype;
+};
+
+template<class T>
+struct multiex_traits<T, typename std::enable_if<std::is_arithmetic<T>::value>::type> {
+    static const uint dim = 0;
+    typedef T subtype;
+};
+
+template <class T, class Enable = void>
+struct valid_multiex : std::false_type {};
+
+template <typename T>
+struct valid_multiex<T,
+    typename std::enable_if<T::is_multiex>::type
+    > : std::true_type {};
+
+template <typename T>
+struct valid_multiex<T,
+    typename std::enable_if<std::is_arithmetic<T>::value>::type
+    > : std::true_type {};
+
+#ifdef VEXCL_VARIADIC_TEMPLATES
+template <class... Expr>
+struct multiex_dim {
+    static const uint dim = 0;
+};
+
+template <class Head, class... Tail>
+struct multiex_dim<Head, Tail...> {
+    static const uint dim =
+	multiex_traits<Head>::dim > multiex_dim<Tail...>::dim ?
+	multiex_traits<Head>::dim : multiex_dim<Tail...>::dim;
+};
+#else
+template <class LHS, class RHS>
+struct multiex_dim {
+    static const uint dim =
+	multiex_traits<LHS>::dim > multiex_traits<RHS>::dim ?
+	multiex_traits<LHS>::dim : multiex_traits<RHS>::dim;
+};
+#endif
+
+//---------------------------------------------------------------------------
+// Arithmetic expressions
+//---------------------------------------------------------------------------
+template <class LHS, class RHS>
+typename std::enable_if<compatible_multiex<LHS, RHS>::value,
+	 MultiExpression<
+	    BinaryExpression<
+		typename multiex_traits<LHS>::subtype,
+		'+',
+		typename multiex_traits<RHS>::subtype
+		>,
+	    multiex_dim<LHS, RHS>::dim
+	    >>::type
+operator+(const LHS &lhs, const RHS &rhs) {
+    typedef BinaryExpression<
+		typename multiex_traits<LHS>::subtype,
+		'+',
+		typename multiex_traits<RHS>::subtype
+		> subtype;
+
+    std::array<std::unique_ptr<subtype>, multiex_dim<LHS, RHS>::dim> ex;
+
+    for(uint i = 0; i < multiex_dim<LHS, RHS>::dim; i++)
+	ex[i].reset(new subtype(
+		    extract_component(lhs, i), extract_component(rhs, i)));
+
+    return MultiExpression<subtype, multiex_dim<LHS, RHS>::dim>(ex);
+}
+
+template <class LHS, class RHS>
+typename std::enable_if<compatible_multiex<LHS, RHS>::value,
+	 MultiExpression<
+	    BinaryExpression<
+		typename multiex_traits<LHS>::subtype,
+		'-',
+		typename multiex_traits<RHS>::subtype
+		>,
+	    multiex_dim<LHS, RHS>::dim
+	    >>::type
+operator-(const LHS &lhs, const RHS &rhs) {
+    typedef BinaryExpression<
+		typename multiex_traits<LHS>::subtype,
+		'-',
+		typename multiex_traits<RHS>::subtype
+		> subtype;
+
+    std::array<std::unique_ptr<subtype>, multiex_dim<LHS, RHS>::dim> ex;
+
+    for(uint i = 0; i < multiex_dim<LHS, RHS>::dim; i++)
+	ex[i].reset(new subtype(
+		    extract_component(lhs, i), extract_component(rhs, i)));
+
+    return MultiExpression<subtype, multiex_dim<LHS, RHS>::dim>(ex);
+}
+
+template <class LHS, class RHS>
+typename std::enable_if<compatible_multiex<LHS, RHS>::value,
+	 MultiExpression<
+	    BinaryExpression<
+		typename multiex_traits<LHS>::subtype,
+		'*',
+		typename multiex_traits<RHS>::subtype
+		>,
+	    multiex_dim<LHS, RHS>::dim
+	    >>::type
+operator*(const LHS &lhs, const RHS &rhs) {
+    typedef BinaryExpression<
+		typename multiex_traits<LHS>::subtype,
+		'*',
+		typename multiex_traits<RHS>::subtype
+		> subtype;
+
+    std::array<std::unique_ptr<subtype>, multiex_dim<LHS, RHS>::dim> ex;
+
+    for(uint i = 0; i < multiex_dim<LHS, RHS>::dim; i++)
+	ex[i].reset(new subtype(
+		    extract_component(lhs, i), extract_component(rhs, i)));
+
+    return MultiExpression<subtype, multiex_dim<LHS, RHS>::dim>(ex);
+}
+
+template <class LHS, class RHS>
+typename std::enable_if<compatible_multiex<LHS, RHS>::value,
+	 MultiExpression<
+	    BinaryExpression<
+		typename multiex_traits<LHS>::subtype,
+		'/',
+		typename multiex_traits<RHS>::subtype
+		>,
+	    multiex_dim<LHS, RHS>::dim
+	    >>::type
+operator/(const LHS &lhs, const RHS &rhs) {
+    typedef BinaryExpression<
+		typename multiex_traits<LHS>::subtype,
+		'/',
+		typename multiex_traits<RHS>::subtype
+		> subtype;
+
+    std::array<std::unique_ptr<subtype>, multiex_dim<LHS, RHS>::dim> ex;
+
+    for(uint i = 0; i < multiex_dim<LHS, RHS>::dim; i++)
+	ex[i].reset(new subtype(
+		    extract_component(lhs, i), extract_component(rhs, i)));
+
+    return MultiExpression<subtype, multiex_dim<LHS, RHS>::dim>(ex);
+}
+
+//---------------------------------------------------------------------------
+// Builtin functions
+//---------------------------------------------------------------------------
+#ifdef VEXCL_VARIADIC_TEMPLATES
 /// \internal Builtin function call.
 template <const char *func_name, class... Expr>
 class BuiltinFunction : public expression {
@@ -1432,54 +1463,44 @@ class BuiltinFunction : public expression {
 	}
 };
 
-template <class Expr>
-constexpr bool all_expressions_valid() {
-    return valid_expression<Expr>::value;
-}
+template <typename T>
+struct Not : std::integral_constant<bool, !T::value> {};
 
-template <class Head, class... Expr>
-constexpr typename std::enable_if<sizeof...(Expr), bool>::type
-all_expressions_valid() {
-    return valid_expression<Head>::value && all_expressions_valid<Expr...>();
-}
+template <typename... T>
+struct All : std::true_type {};
 
-template <class Expr>
-constexpr bool all_expressions_arithmetic() {
-    return std::is_arithmetic<Expr>::value;
-}
-
-template <class Head, class... Expr>
-constexpr typename std::enable_if<sizeof...(Expr), bool>::type
-all_expressions_arithmetic() {
-    return std::is_arithmetic<Head>::value && all_expressions_arithmetic<Expr...>();
-}
+template <typename Head, typename... Tail>
+struct All<Head, Tail...>
+    : std::conditional<Head::value, All<Tail...>, std::false_type>::type
+{};
 
 #define DEFINE_BUILTIN_FUNCTION(name) \
 extern const char name##_fun[] = #name; \
 template <class... Expr> \
-typename std::enable_if<all_expressions_valid<Expr...>() && !all_expressions_arithmetic<Expr...>(), \
-BuiltinFunction<name##_fun, Expr...>>::type \
+typename std::enable_if< \
+  All<All<valid_expr<Expr>...>, Not<All<std::is_arithmetic<Expr>...>>>::value,\
+  BuiltinFunction<name##_fun, Expr...>>::type \
 name(const Expr&... expr) { \
 return BuiltinFunction<name##_fun, Expr...>(expr...); \
 } \
-template <class... MultiExpr> \
+template <class... MultiEx> \
 typename std::enable_if< \
-    all_multiexpressions_valid<MultiExpr...>() && !all_expressions_arithmetic<MultiExpr...>(), \
-    UnaryMultiExpression< \
-	BuiltinFunction<name##_fun, typename multiex_traits<MultiExpr>::subtype...>, multiexpr_dim<MultiExpr...>() \
+  All<valid_multiex<MultiEx>..., Not<All<std::is_arithmetic<MultiEx>...>>>::value, \
+    MultiExpression< \
+	BuiltinFunction<name##_fun, typename multiex_traits<MultiEx>::subtype...>, multiex_dim<MultiEx...>::dim \
 	>>::type \
-name(const MultiExpr&... multiexpr) { \
+name(const MultiEx&... multiexpr) { \
     std::array< \
 	std::unique_ptr< \
-	    BuiltinFunction<name##_fun, typename multiex_traits<MultiExpr>::subtype...> \
+	    BuiltinFunction<name##_fun, typename multiex_traits<MultiEx>::subtype...> \
 	    >, \
-	multiexpr_dim<MultiExpr...>()> ex; \
-    for(uint i = 0; i < multiexpr_dim<MultiExpr...>(); i++) \
+	multiex_dim<MultiEx...>::dim> ex; \
+    for(uint i = 0; i < multiex_dim<MultiEx...>::dim; i++) \
 	ex[i].reset( \
-		new BuiltinFunction<name##_fun, typename multiex_traits<MultiExpr>::subtype...>(extract_component(multiexpr, i)...) \
+		new BuiltinFunction<name##_fun, typename multiex_traits<MultiEx>::subtype...>(extract_component(multiexpr, i)...) \
 		); \
-    return UnaryMultiExpression< \
-	BuiltinFunction<name##_fun, typename multiex_traits<MultiExpr>::subtype...>, multiexpr_dim<MultiExpr...>() \
+    return MultiExpression< \
+	BuiltinFunction<name##_fun, typename multiex_traits<MultiEx>::subtype...>, multiex_dim<MultiEx...>::dim \
 	>(ex); \
 }
 
@@ -1550,7 +1571,117 @@ DEFINE_BUILTIN_FUNCTION(tanh)
 DEFINE_BUILTIN_FUNCTION(tanpi)
 DEFINE_BUILTIN_FUNCTION(tgamma)
 DEFINE_BUILTIN_FUNCTION(trunc)
+#else
 
+/// \internal Builtin function call.
+template <const char *func_name, class Expr>
+struct BuiltinFunction : public expression {
+    BuiltinFunction(const Expr &expr) : expr(expr) {}
+
+    void preamble(std::ostream &os, std::string name) const {
+	expr.preamble(os, name);
+    }
+
+    std::string kernel_name() const {
+	return func_name + expr.kernel_name();
+    }
+
+    void kernel_expr(std::ostream &os, std::string name) const {
+	os << func_name << "(";
+	expr.kernel_expr(os, name);
+	os << ")";
+    }
+
+    void kernel_prm(std::ostream &os, std::string name) const {
+	expr.kernel_prm(os, name);
+    }
+
+    void kernel_args(cl::Kernel &k, uint devnum, uint &pos) const {
+	expr.kernel_args(k, devnum, pos);
+    }
+
+    size_t part_size(uint dev) const {
+	return expr.part_size(dev);
+    }
+
+    private:
+	const Expr &expr;
+};
+
+#define DEFINE_BUILTIN_FUNCTION(name) \
+extern const char name##_fun[] = #name; \
+template <class Expr> \
+typename std::enable_if<Expr::is_expr, \
+BuiltinFunction<name##_fun, Expr>>::type \
+name(const Expr &expr) { \
+return BuiltinFunction<name##_fun, Expr>(expr); \
+} \
+template <class MultiEx> \
+typename std::enable_if<MultiEx::is_multiex, \
+  MultiExpression< \
+    BuiltinFunction<name##_fun, typename MultiEx::subtype>, MultiEx::dim \
+    >>::type \
+name(const MultiEx& multiexpr) { \
+  std::array<std::unique_ptr< \
+    BuiltinFunction<name##_fun, typename MultiEx::subtype>>, MultiEx::dim
+    > ex; \
+  for(uint i = 0; i < MultiEx::dim; i++) \
+    ex[i].reset( \
+	new BuiltinFunction<name##_fun, typename MultiEx::subtype>(multiexpr(i)) \
+	); \
+  return MultiExpression< \
+    BuiltinFunction<name##_fun, typename MultiEx::subtype>, MultiEx::dim>(ex); \
+}
+
+DEFINE_BUILTIN_FUNCTION(acos)
+DEFINE_BUILTIN_FUNCTION(acosh)
+DEFINE_BUILTIN_FUNCTION(acospi)
+DEFINE_BUILTIN_FUNCTION(asin)
+DEFINE_BUILTIN_FUNCTION(asinh)
+DEFINE_BUILTIN_FUNCTION(asinpi)
+DEFINE_BUILTIN_FUNCTION(atan)
+DEFINE_BUILTIN_FUNCTION(atanh)
+DEFINE_BUILTIN_FUNCTION(atanpi)
+DEFINE_BUILTIN_FUNCTION(cbrt)
+DEFINE_BUILTIN_FUNCTION(ceil)
+DEFINE_BUILTIN_FUNCTION(cos)
+DEFINE_BUILTIN_FUNCTION(cosh)
+DEFINE_BUILTIN_FUNCTION(cospi)
+DEFINE_BUILTIN_FUNCTION(erfc)
+DEFINE_BUILTIN_FUNCTION(erf)
+DEFINE_BUILTIN_FUNCTION(exp)
+DEFINE_BUILTIN_FUNCTION(exp2)
+DEFINE_BUILTIN_FUNCTION(exp10)
+DEFINE_BUILTIN_FUNCTION(expm1)
+DEFINE_BUILTIN_FUNCTION(fabs)
+DEFINE_BUILTIN_FUNCTION(floor)
+DEFINE_BUILTIN_FUNCTION(ilogb)
+DEFINE_BUILTIN_FUNCTION(lgamma)
+DEFINE_BUILTIN_FUNCTION(log)
+DEFINE_BUILTIN_FUNCTION(log2)
+DEFINE_BUILTIN_FUNCTION(log10)
+DEFINE_BUILTIN_FUNCTION(log1p)
+DEFINE_BUILTIN_FUNCTION(logb)
+DEFINE_BUILTIN_FUNCTION(nan)
+DEFINE_BUILTIN_FUNCTION(rint)
+DEFINE_BUILTIN_FUNCTION(rootn)
+DEFINE_BUILTIN_FUNCTION(round)
+DEFINE_BUILTIN_FUNCTION(rsqrt)
+DEFINE_BUILTIN_FUNCTION(sin)
+DEFINE_BUILTIN_FUNCTION(sinh)
+DEFINE_BUILTIN_FUNCTION(sinpi)
+DEFINE_BUILTIN_FUNCTION(sqrt)
+DEFINE_BUILTIN_FUNCTION(tan)
+DEFINE_BUILTIN_FUNCTION(tanh)
+DEFINE_BUILTIN_FUNCTION(tanpi)
+DEFINE_BUILTIN_FUNCTION(tgamma)
+DEFINE_BUILTIN_FUNCTION(trunc)
+#endif
+
+#ifdef VEXCL_VARIADIC_TEMPLATES
+//---------------------------------------------------------------------------
+// User-defined functions.
+//---------------------------------------------------------------------------
 /// \internal Custom user function expression template
 template<class RetType, class... ArgType>
 struct UserFunctionFamily {
@@ -1730,8 +1861,7 @@ struct UserFunction<body, RetType(ArgType...)> {
     template <class... Expr>
     typename std::enable_if<
 	sizeof...(ArgType) == sizeof...(Expr) &&
-	all_expressions_valid<Expr...>()      &&
-	!all_expressions_arithmetic<Expr...>(),
+	All<All<valid_expr<Expr>...>, Not<All<std::is_arithmetic<Expr>...>>>::value,
     typename UserFunctionFamily<RetType, ArgType...>::template Function<body, Expr...>
     >::type
     operator()(const Expr&... expr) const {
@@ -1741,140 +1871,27 @@ struct UserFunction<body, RetType(ArgType...)> {
     template <class... Expr>
     typename std::enable_if<
 	sizeof...(ArgType) == sizeof...(Expr) &&
-	all_multiexpressions_valid<Expr...>() &&
-	!all_expressions_arithmetic<Expr...>(),
-	UnaryMultiExpression<
+	All<All<valid_multiex<Expr>...>, Not<All<std::is_arithmetic<Expr>...>>>::value,
+	MultiExpression<
 	    typename UserFunctionFamily<RetType, ArgType...>::template Function<body, typename multiex_traits<Expr>::subtype...>,
-	    multiexpr_dim<Expr...>()
+	    multiex_dim<Expr...>::dim
 	>>::type
     operator()(const Expr&... expr) const {
 	std::array<
 	    std::unique_ptr<
 		typename UserFunctionFamily<RetType, ArgType...>::template Function<body, typename multiex_traits<Expr>::subtype...>
 		>,
-	    multiexpr_dim<Expr...>()> ex;
-	for(uint i = 0; i < multiexpr_dim<Expr...>(); i++)
+	    multiex_dim<Expr...>::dim> ex;
+	for(uint i = 0; i < multiex_dim<Expr...>::dim; i++)
 	    ex[i].reset(
 		    new typename UserFunctionFamily<RetType, ArgType...>::template Function<body, typename multiex_traits<Expr>::subtype...>(extract_component(expr, i)...)
 		    );
-	return UnaryMultiExpression<
+	return MultiExpression<
 		typename UserFunctionFamily<RetType, ArgType...>::template Function<body, typename multiex_traits<Expr>::subtype...>,
-			 multiexpr_dim<Expr...>()
-		 >(ex);
+			 multiex_dim<Expr...>::dim >(ex);
     }
 };
-
-#else
-
-/// \internal Builtin function call.
-template <const char *func_name, class Expr>
-struct BuiltinFunction : public expression {
-    BuiltinFunction(const Expr &expr) : expr(expr) {}
-
-    void preamble(std::ostream &os, std::string name) const {
-	expr.preamble(os, name);
-    }
-
-    std::string kernel_name() const {
-	return func_name + expr.kernel_name();
-    }
-
-    void kernel_expr(std::ostream &os, std::string name) const {
-	os << func_name << "(";
-	expr.kernel_expr(os, name);
-	os << ")";
-    }
-
-    void kernel_prm(std::ostream &os, std::string name) const {
-	expr.kernel_prm(os, name);
-    }
-
-    void kernel_args(cl::Kernel &k, uint devnum, uint &pos) const {
-	expr.kernel_args(k, devnum, pos);
-    }
-
-    size_t part_size(uint dev) const {
-	return expr.part_size(dev);
-    }
-
-    private:
-	const Expr &expr;
-};
-
-#define DEFINE_BUILTIN_FUNCTION(name) \
-extern const char name##_fun[] = #name; \
-template <class Expr> \
-typename std::enable_if<Expr::is_expression, \
-BuiltinFunction<name##_fun, Expr>>::type \
-name(const Expr &expr) { \
-return BuiltinFunction<name##_fun, Expr>(expr); \
-} \
-template <class MultiExpr> \
-typename std::enable_if<MultiExpr::is_multiexpression, \
-    UnaryMultiExpression< \
-	BuiltinFunction<name##_fun, typename MultiExpr::subtype>, MultiExpr::dim \
-	>>::type \
-name(const MultiExpr& multiexpr) { \
-    std::array< \
-	std::unique_ptr< \
-	    BuiltinFunction<name##_fun, typename MultiExpr::subtype> \
-	    >, \
-	MultiExpr::dim> ex; \
-    for(uint i = 0; i < MultiExpr::dim; i++) \
-	ex[i].reset( \
-		new BuiltinFunction<name##_fun, typename MultiExpr::subtype>(multiexpr(i)) \
-		); \
-    return UnaryMultiExpression< \
-	BuiltinFunction<name##_fun, typename MultiExpr::subtype>, MultiExpr::dim \
-	>(ex); \
-}
-
-DEFINE_BUILTIN_FUNCTION(acos)
-DEFINE_BUILTIN_FUNCTION(acosh)
-DEFINE_BUILTIN_FUNCTION(acospi)
-DEFINE_BUILTIN_FUNCTION(asin)
-DEFINE_BUILTIN_FUNCTION(asinh)
-DEFINE_BUILTIN_FUNCTION(asinpi)
-DEFINE_BUILTIN_FUNCTION(atan)
-DEFINE_BUILTIN_FUNCTION(atanh)
-DEFINE_BUILTIN_FUNCTION(atanpi)
-DEFINE_BUILTIN_FUNCTION(cbrt)
-DEFINE_BUILTIN_FUNCTION(ceil)
-DEFINE_BUILTIN_FUNCTION(cos)
-DEFINE_BUILTIN_FUNCTION(cosh)
-DEFINE_BUILTIN_FUNCTION(cospi)
-DEFINE_BUILTIN_FUNCTION(erfc)
-DEFINE_BUILTIN_FUNCTION(erf)
-DEFINE_BUILTIN_FUNCTION(exp)
-DEFINE_BUILTIN_FUNCTION(exp2)
-DEFINE_BUILTIN_FUNCTION(exp10)
-DEFINE_BUILTIN_FUNCTION(expm1)
-DEFINE_BUILTIN_FUNCTION(fabs)
-DEFINE_BUILTIN_FUNCTION(floor)
-DEFINE_BUILTIN_FUNCTION(ilogb)
-DEFINE_BUILTIN_FUNCTION(lgamma)
-DEFINE_BUILTIN_FUNCTION(log)
-DEFINE_BUILTIN_FUNCTION(log2)
-DEFINE_BUILTIN_FUNCTION(log10)
-DEFINE_BUILTIN_FUNCTION(log1p)
-DEFINE_BUILTIN_FUNCTION(logb)
-DEFINE_BUILTIN_FUNCTION(nan)
-DEFINE_BUILTIN_FUNCTION(rint)
-DEFINE_BUILTIN_FUNCTION(rootn)
-DEFINE_BUILTIN_FUNCTION(round)
-DEFINE_BUILTIN_FUNCTION(rsqrt)
-DEFINE_BUILTIN_FUNCTION(sin)
-DEFINE_BUILTIN_FUNCTION(sinh)
-DEFINE_BUILTIN_FUNCTION(sinpi)
-DEFINE_BUILTIN_FUNCTION(sqrt)
-DEFINE_BUILTIN_FUNCTION(tan)
-DEFINE_BUILTIN_FUNCTION(tanh)
-DEFINE_BUILTIN_FUNCTION(tanpi)
-DEFINE_BUILTIN_FUNCTION(tgamma)
-DEFINE_BUILTIN_FUNCTION(trunc)
-
 #endif
-
 
 /// Returns device weight after simple bandwidth test
 double device_vector_perf(
