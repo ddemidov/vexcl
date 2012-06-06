@@ -196,10 +196,12 @@ class multivector {
 			);
 	}
 
+	/// Resize multivector.
 	void resize(const std::vector<cl::CommandQueue> &queue, size_t size) {
 	    for(uint i = 0; i < N; i++) vec[i].resize(queue, size);
 	}
 
+	/// Return size of a multivector (equals size of individual components).
 	size_t size() const {
 	    return vec[0].size();
 	}
@@ -214,18 +216,22 @@ class multivector {
 	    return vec[i];
 	}
 
+	/// Const iterator to beginning.
 	const_iterator begin() const {
 	    return const_iterator(*this, 0);
 	}
 
+	/// Iterator to beginning.
 	iterator begin() {
 	    return iterator(*this, 0);
 	}
 
+	/// Const iterator to end.
 	const_iterator end() const {
 	    return const_iterator(*this, size());
 	}
 
+	/// Iterator to end.
 	iterator end() {
 	    return iterator(*this, size());
 	}
@@ -245,6 +251,10 @@ class multivector {
 	    return vec[0].queue_list();
 	}
 
+	/** \name Expression assignments.
+	 * @{
+	 * All operations are delegated to components of the multivector.
+	 */
 	template <class Expr>
 	const multivector& operator=(const Expr& expr) {
 	    for(uint i = 0; i < N; i++) vec[i] = expr(i);
@@ -269,17 +279,20 @@ class multivector {
 	const multivector& operator-=(const Expr &expr) {
 	    return *this = *this - expr;
 	}
+	/// @}
 
     private:
 	std::array<vex::vector<T>,N> vec;
 };
 
+/// Copy multivector to host vector.
 template <class T, uint N>
 void copy(const multivector<T,N> &mv, std::vector<T> &hv) {
     for(uint i = 0; i < N; i++)
 	vex::copy(mv(i).begin(), mv(i).end(), hv.begin() + i * mv.size());
 }
 
+/// Copy host vector to multivector.
 template <class T, uint N>
 void copy(const std::vector<T> &hv, multivector<T,N> &mv) {
     for(uint i = 0; i < N; i++)

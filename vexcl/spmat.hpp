@@ -1060,9 +1060,9 @@ class SpMatCCSR : public SpMatBase<real, column_t>{
 
 	/// Matrix-vector multiplication.
 	/**
-	 * Matrix vector multiplication (y = alpha Ax or y += alpha Ax) is
-	 * performed in parallel on all registered compute devices. Ghost
-	 * values of x are transfered across GPU boundaries as needed.
+	 * Matrix vector multiplication (y = alpha Ax or y += alpha Ax).
+	 * Vectors x and y should also be single-queued and reside on the same
+	 * device with matrix.
 	 * \param x      input vector.
 	 * \param y      output vector.
 	 * \param alpha  coefficient in front of matrix-vector product

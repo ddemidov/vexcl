@@ -259,7 +259,7 @@ Nvidia Tesla C2070 cards. The results shown are averaged over 20 runs.
 
 The details of the experiments may be found in <a
 href="https://github.com/ddemidov/vexcl/blob/master/examples/benchmark.cpp">
-examples/profiling.cpp</a> file.  Basically, performance of the following code
+examples/benchmark.cpp</a> file.  Basically, performance of the following code
 was measured:
 
 \code
