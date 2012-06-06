@@ -226,7 +226,7 @@ parameters are always named as prm1, prm2, etc.
 \section multivector Multi-component vectors
 
 Class template vex::multivector<T,N> allows to store several equally sized
-device vector and perform computations on all components synchronously.
+device vectors and perform computations on all components synchronously.
 Operations are delegated to the underlying vectors.
 \code
 const size_t n = 1 << 20;

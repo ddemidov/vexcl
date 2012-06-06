@@ -199,7 +199,7 @@ Multi-component vectors
 -----------------------
 
 Class template `vex::multivector` allows to store several equally sized
-device vector and perform computations on all components synchronously.
+device vectors and perform computations on all components synchronously.
 Operations are delegated to the underlying vectors.
 ```C++
 const size_t n = 1 << 20;
