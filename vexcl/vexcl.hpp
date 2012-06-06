@@ -290,6 +290,7 @@ y += A * x;
 #include <vexcl/util.hpp>
 #include <vexcl/devlist.hpp>
 #include <vexcl/vector.hpp>
+#include <vexcl/multivector.hpp>
 #include <vexcl/spmat.hpp>
 #include <vexcl/reduce.hpp>
 #include <vexcl/profiler.hpp>
