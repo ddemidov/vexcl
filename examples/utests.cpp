@@ -478,6 +478,29 @@ int main() {
 		return rc;
 		});
 
+	run_test("Access multivector's elements, copy data", [&]() {
+		bool rc = true;
+		const size_t n = 1024;
+		const size_t m = 4;
+		std::vector<float> host(n * m);
+		std::generate(host.begin(), host.end(),
+		    [](){ return (float)rand() / RAND_MAX; });
+		multivector<float, m> x(ctx.queue(), n);
+		copy(host, x);
+		for(size_t i = 0; i < n; i++) {
+		std::array<float,m> val = x[i];
+		    for(uint j = 0; j < m; j++) {
+			rc = rc && val[j] == host[j * n + i];
+			val[j] = 0;
+		    }
+		    x[i] = val;
+		}
+		copy(x, host);
+		rc = rc && 0 == *std::min_element(host.begin(), host.end());
+		rc = rc && 0 == *std::max_element(host.begin(), host.end());
+		return rc;
+	});
+
 	run_test("Simple arithmetic with multivectors", [&]() {
 		bool rc = true;
 		const size_t n = 1024;
@@ -495,9 +518,9 @@ int main() {
 		Reductor<float,MIN> min(ctx.queue());
 		Reductor<float,MAX> max(ctx.queue());
 		for(uint i = 0; i < m; i++) {
-		    rc = rc && min(x[i]) == *min_element(
+		    rc = rc && min(x(i)) == *min_element(
 			host.begin() + i * n, host.begin() + (i + 1) * n);
-		    rc = rc && max(x[i]) == *max_element(
+		    rc = rc && max(x(i)) == *max_element(
 			host.begin() + i * n, host.begin() + (i + 1) * n);
 		}
 		return rc;

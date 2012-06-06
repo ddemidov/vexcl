@@ -62,7 +62,89 @@ class multivector {
     public:
 	static const bool is_multiexpression = true;
 	static const uint dim = N;
+
 	typedef vex::vector<T> subtype;
+	typedef std::array<T,N> value_type;
+
+	/// Proxy class.
+	class element {
+	    public:
+		operator value_type () const {
+		    value_type val;
+		    for(uint i = 0; i < N; i++) val[i] = vec(i)[index];
+		    return val;
+		}
+
+		value_type operator=(value_type val) {
+		    for(uint i = 0; i < N; i++) vec(i)[index] = val[i];
+		    return val;
+		}
+	    private:
+		element(multivector &vec, size_t index)
+		    : vec(vec), index(index) {}
+
+		multivector &vec;
+		const size_t      index;
+
+		friend class multivector;
+	};
+
+	/// Proxy class.
+	class const_element {
+	    public:
+		operator value_type () const {
+		    value_type val;
+		    for(uint i = 0; i < N; i++) val[i] = vec(i)[index];
+		    return val;
+		}
+	    private:
+		const_element(const multivector &vec, size_t index)
+		    : vec(vec), index(index) {}
+
+		const multivector &vec;
+		const size_t      index;
+
+		friend class multivector;
+	};
+
+	template <class V, class E>
+	class iterator_type {
+	    public:
+		E operator*() const {
+		    return E(vec, pos);
+		}
+
+		iterator_type& operator++() {
+		    pos++;
+		    return *this;
+		}
+
+		iterator_type operator+(ptrdiff_t d) const {
+		    return iterator_type(vec, pos + d);
+		}
+
+		ptrdiff_t operator-(const iterator_type &it) const {
+		    return pos - it.pos;
+		}
+
+		bool operator==(const iterator_type &it) const {
+		    return pos == it.pos;
+		}
+
+		bool operator!=(const iterator_type &it) const {
+		    return pos != it.pos;
+		}
+	    private:
+		iterator_type(V &vec, size_t pos) : vec(vec), pos(pos) {}
+
+		V      &vec;
+		size_t pos;
+
+		friend class multivector;
+	};
+
+	typedef iterator_type<multivector, element> iterator;
+	typedef iterator_type<const multivector, const_element> const_iterator;
 
 	/// Constructor.
 	/**
@@ -114,22 +196,78 @@ class multivector {
 			);
 	}
 
+	void resize(const std::vector<cl::CommandQueue> &queue, size_t size) {
+	    for(uint i = 0; i < N; i++) vec[i].resize(queue, size);
+	}
+
 	size_t size() const {
 	    return vec[0].size();
 	}
 
-	const vex::vector<T>& operator[](uint i) const {
+	/// Returns multivector component.
+	const vex::vector<T>& operator()(uint i) const {
 	    return vec[i];
 	}
 
-	vex::vector<T>& operator[](uint i) {
+	/// Returns multivector component.
+	vex::vector<T>& operator()(uint i) {
 	    return vec[i];
+	}
+
+	const_iterator begin() const {
+	    return const_iterator(*this, 0);
+	}
+
+	iterator begin() {
+	    return iterator(*this, 0);
+	}
+
+	const_iterator end() const {
+	    return const_iterator(*this, size());
+	}
+
+	iterator end() {
+	    return iterator(*this, size());
+	}
+
+	/// Returns elements of all vectors, packed in std::array.
+	const_element operator[](size_t i) const {
+	    return const_element(*this, i);
+	}
+
+	/// Assigns elements of all vectors to a std::array value.
+	element operator[](size_t i) {
+	    return element(*this, i);
+	}
+
+	/// Return reference to multivector's queue list
+	const std::vector<cl::CommandQueue>& queue_list() const {
+	    return vec[0].queue_list();
 	}
 
 	template <class Expr>
 	const multivector& operator=(const Expr& expr) {
-	    for(uint i = 0; i < N; i++)
-		vec[i] = expr[i];
+	    for(uint i = 0; i < N; i++) vec[i] = expr(i);
+	}
+
+	template <class Expr>
+	const multivector& operator+=(const Expr &expr) {
+	    return *this = *this + expr;
+	}
+
+	template <class Expr>
+	const multivector& operator*=(const Expr &expr) {
+	    return *this = *this * expr;
+	}
+
+	template <class Expr>
+	const multivector& operator/=(const Expr &expr) {
+	    return *this = *this / expr;
+	}
+
+	template <class Expr>
+	const multivector& operator-=(const Expr &expr) {
+	    return *this = *this - expr;
 	}
 
     private:
@@ -139,14 +277,14 @@ class multivector {
 template <class T, uint N>
 void copy(const multivector<T,N> &mv, std::vector<T> &hv) {
     for(uint i = 0; i < N; i++)
-	vex::copy(mv[i].begin(), mv[i].end(), hv.begin() + i * mv.size());
+	vex::copy(mv(i).begin(), mv(i).end(), hv.begin() + i * mv.size());
 }
 
 template <class T, uint N>
 void copy(const std::vector<T> &hv, multivector<T,N> &mv) {
     for(uint i = 0; i < N; i++)
 	vex::copy(hv.begin() + i * mv.size(), hv.begin() + (i + 1) * mv.size(),
-		mv[i].begin());
+		mv(i).begin());
 }
 
 template<class T, class Enable = void>
@@ -164,7 +302,7 @@ struct multiex_traits<T, typename std::enable_if<std::is_arithmetic<T>::value>::
 template <class Expr>
 typename std::enable_if<Expr::is_multiexpression, const typename Expr::subtype&>::type
 extract_component(const Expr &expr, uint i) {
-    return expr[i];
+    return expr(i);
 }
 
 template <class Expr>
@@ -241,7 +379,7 @@ struct BinaryMultiExpression {
 	    expr[i].reset(new subtype(extract_component(lhs, i), extract_component(rhs, i)));
     }
 
-    const subtype& operator[](uint i) const {
+    const subtype& operator()(uint i) const {
 	return *expr[i];
     }
 
