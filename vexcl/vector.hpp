@@ -1248,6 +1248,11 @@ struct UserFunctionFamily {
 template <const char *body, class T>
 struct UserFunction {};
 
+/*
+template <class... Expr>
+constexpr bool all_multiexpressions_valid();
+*/
+
 /// Custom user function
 /**
  * Is used for introduction of custom functions into expressions. For example,
@@ -1278,12 +1283,26 @@ struct UserFunction<body, RetType(ArgType...)> {
      * ArgTypes
      */
     template <class... Expr>
-    typename std::enable_if<sizeof...(ArgType) == sizeof...(Expr),
+    typename std::enable_if<
+	sizeof...(ArgType) == sizeof...(Expr) &&
+	all_expressions_valid<Expr...>()      &&
+	!all_expressions_arithmetic<Expr...>(),
     typename UserFunctionFamily<RetType, ArgType...>::template Function<body, Expr...>
     >::type
     operator()(const Expr&... expr) const {
 	return typename UserFunctionFamily<RetType, ArgType...>::template Function<body, Expr...>(expr...);
     }
+
+    /*
+    template <class... Expr>
+    typename std::enable_if<
+	sizeof...(ArgType) == sizeof...(Expr) &&
+	all_multiexpressions_valid<Expr...>() &&
+	!all_expressions_arithmetic<Expr...>(),
+    typename UserFunctionFamily<RetType, ArgType...>::template Function<body, Expr...>
+    >::type
+    operator()(const Expr&... expr) const;
+    */
 };
 
 #else

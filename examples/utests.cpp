@@ -25,6 +25,8 @@ bool run_test(const std::string &name, std::function<bool()> test) {
 extern const char chk_if_gr_body[] = "return prm1 > prm2 ? 1 : 0;";
 
 int main() {
+    srand(time(0));
+
     try {
 	vex::Context ctx(Filter::DoublePrecision && Filter::Env);
 	std::cout << ctx << std::endl;
@@ -488,7 +490,7 @@ int main() {
 		multivector<float, m> x(ctx.queue(), n);
 		copy(host, x);
 		for(size_t i = 0; i < n; i++) {
-		std::array<float,m> val = x[i];
+		    std::array<float,m> val = x[i];
 		    for(uint j = 0; j < m; j++) {
 			rc = rc && val[j] == host[j * n + i];
 			val[j] = 0;
@@ -525,6 +527,45 @@ int main() {
 		}
 		return rc;
 	});
+
+	run_test("One-argument builtin function call for multivector", [&]() {
+		bool rc = true;
+		const size_t n = 1024;
+		const size_t m = 4;
+		std::vector<double> host(n * m);
+		std::generate(host.begin(), host.end(),
+		    [](){ return (double)rand() / RAND_MAX; });
+		multivector<double, m> x(ctx.queue(), n);
+		multivector<double, m> y(ctx.queue(), host);
+		x = cos(y);
+		for(size_t k = 0; k < 10; k++) {
+		    size_t i = rand() % n;
+		    std::array<double,m> val = x[i];
+		    for(uint j = 0; j < m; j++)
+			rc = rc && fabs(val[j] - cos(host[j * n + i])) < 1e-8;
+		}
+		return rc;
+	});
+
+	run_test("Two-arguments builtin function call for multivector", [&]() {
+		bool rc = true;
+		const size_t n = 1024;
+		const size_t m = 4;
+		std::vector<double> host(n * m);
+		std::generate(host.begin(), host.end(),
+		    [](){ return (double)rand() / RAND_MAX; });
+		multivector<double, m> x(ctx.queue(), n);
+		multivector<double, m> y(ctx.queue(), host);
+		x = pow(y, 2.0);
+		for(size_t k = 0; k < 10; k++) {
+		    size_t i = rand() % n;
+		    std::array<double,m> val = x[i];
+		    for(uint j = 0; j < m; j++)
+			rc = rc && fabs(val[j] - pow(host[j * n + i], 2.0)) < 1e-8;
+		}
+		return rc;
+	});
+
 
     } catch (const cl::Error &err) {
 	std::cerr << "OpenCL error: " << err << std::endl;

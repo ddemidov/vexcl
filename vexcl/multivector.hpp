@@ -301,7 +301,10 @@ void copy(const std::vector<T> &hv, multivector<T,N> &mv) {
 }
 
 template<class T, class Enable = void>
-struct multiex_traits {
+struct multiex_traits {};
+
+template<class T>
+struct multiex_traits<T, typename std::enable_if<T::is_multiexpression>::type> {
     static const uint dim = T::dim;
     typedef typename T::subtype subtype;
 };
@@ -375,6 +378,32 @@ struct compatible_multiexpressions<T1, T2,
     static const bool value = true;
 };
 
+template <class Expr>
+constexpr bool all_multiexpressions_valid() {
+    return valid_multiexpression<Expr>::value;
+}
+
+template <class Head, class... Expr>
+constexpr typename std::enable_if<sizeof...(Expr), bool>::type
+all_multiexpressions_valid() {
+    return valid_multiexpression<Head>::value && all_multiexpressions_valid<Expr...>();
+}
+
+template <class Expr>
+constexpr uint multiexpr_dim() {
+    return multiex_traits<Expr>::dim;
+}
+
+template <class Head, class... Expr>
+constexpr typename std::enable_if<sizeof...(Expr), uint>::type
+multiexpr_dim() {
+    return multiex_traits<Head>::dim > multiexpr_dim<Expr...>() ?
+	multiex_traits<Head>::dim : multiexpr_dim<Expr...>();
+}
+
+//---------------------------------------------------------------------------
+// Arithmetic expressions
+//---------------------------------------------------------------------------
 template <class LHS, char OP, class RHS>
 struct BinaryMultiExpression {
     static const bool is_multiexpression = true;
@@ -430,6 +459,205 @@ typename std::enable_if<compatible_multiexpressions<LHS, RHS>::value,
 operator/(const LHS &lhs, const RHS &rhs) {
     return BinaryMultiExpression<LHS, '/', RHS>(lhs, rhs);
 }
+
+//---------------------------------------------------------------------------
+// Builtin functions
+//---------------------------------------------------------------------------
+template <class Expr, uint N>
+struct UnaryMultiExpression {
+    static const bool is_multiexpression = true;
+    static const uint dim = N;
+    typedef Expr subtype;
+
+    UnaryMultiExpression(std::array<std::unique_ptr<subtype>, dim> &ex) {
+	for(uint i = 0; i < dim; i++) expr[i] = std::move(ex[i]);
+    }
+
+    const subtype& operator()(uint i) const {
+	return *expr[i];
+    }
+
+    std::array<std::unique_ptr<subtype>, dim> expr;
+};
+
+#ifdef VEXCL_VARIADIC_TEMPLATES
+
+#define DEFINE_MULTI_BUILTIN(name) \
+template <class... MultiExpr> \
+typename std::enable_if< \
+    all_multiexpressions_valid<MultiExpr...>() && !all_expressions_arithmetic<MultiExpr...>(), \
+    UnaryMultiExpression< \
+	BuiltinFunction<name##_fun, typename multiex_traits<MultiExpr>::subtype...>, multiexpr_dim<MultiExpr...>() \
+	>>::type \
+name(const MultiExpr&... multiexpr) { \
+    std::array< \
+	std::unique_ptr< \
+	    BuiltinFunction<name##_fun, typename multiex_traits<MultiExpr>::subtype...> \
+	    >, \
+	multiexpr_dim<MultiExpr...>()> ex; \
+    for(uint i = 0; i < multiexpr_dim<MultiExpr...>(); i++) \
+	ex[i].reset( \
+		new BuiltinFunction<name##_fun, typename multiex_traits<MultiExpr>::subtype...>(extract_component(multiexpr, i)...) \
+		); \
+    return UnaryMultiExpression< \
+	BuiltinFunction<name##_fun, typename multiex_traits<MultiExpr>::subtype...>, multiexpr_dim<MultiExpr...>() \
+	>(ex); \
+}
+
+DEFINE_MULTI_BUILTIN(acos)
+DEFINE_MULTI_BUILTIN(acosh)
+DEFINE_MULTI_BUILTIN(acospi)
+DEFINE_MULTI_BUILTIN(asin)
+DEFINE_MULTI_BUILTIN(asinh)
+DEFINE_MULTI_BUILTIN(asinpi)
+DEFINE_MULTI_BUILTIN(atan)
+DEFINE_MULTI_BUILTIN(atan2)
+DEFINE_MULTI_BUILTIN(atanh)
+DEFINE_MULTI_BUILTIN(atanpi)
+DEFINE_MULTI_BUILTIN(atan2pi)
+DEFINE_MULTI_BUILTIN(cbrt)
+DEFINE_MULTI_BUILTIN(ceil)
+DEFINE_MULTI_BUILTIN(copysign)
+DEFINE_MULTI_BUILTIN(cos)
+DEFINE_MULTI_BUILTIN(cosh)
+DEFINE_MULTI_BUILTIN(cospi)
+DEFINE_MULTI_BUILTIN(erfc)
+DEFINE_MULTI_BUILTIN(erf)
+DEFINE_MULTI_BUILTIN(exp)
+DEFINE_MULTI_BUILTIN(exp2)
+DEFINE_MULTI_BUILTIN(exp10)
+DEFINE_MULTI_BUILTIN(expm1)
+DEFINE_MULTI_BUILTIN(fabs)
+DEFINE_MULTI_BUILTIN(fdim)
+DEFINE_MULTI_BUILTIN(floor)
+DEFINE_MULTI_BUILTIN(fma)
+DEFINE_MULTI_BUILTIN(fmax)
+DEFINE_MULTI_BUILTIN(fmin)
+DEFINE_MULTI_BUILTIN(fmod)
+DEFINE_MULTI_BUILTIN(fract)
+DEFINE_MULTI_BUILTIN(frexp)
+DEFINE_MULTI_BUILTIN(hypot)
+DEFINE_MULTI_BUILTIN(ilogb)
+DEFINE_MULTI_BUILTIN(ldexp)
+DEFINE_MULTI_BUILTIN(lgamma)
+DEFINE_MULTI_BUILTIN(lgamma_r)
+DEFINE_MULTI_BUILTIN(log)
+DEFINE_MULTI_BUILTIN(log2)
+DEFINE_MULTI_BUILTIN(log10)
+DEFINE_MULTI_BUILTIN(log1p)
+DEFINE_MULTI_BUILTIN(logb)
+DEFINE_MULTI_BUILTIN(mad)
+DEFINE_MULTI_BUILTIN(maxmag)
+DEFINE_MULTI_BUILTIN(minmag)
+DEFINE_MULTI_BUILTIN(modf)
+DEFINE_MULTI_BUILTIN(nan)
+DEFINE_MULTI_BUILTIN(nextafter)
+DEFINE_MULTI_BUILTIN(pow)
+DEFINE_MULTI_BUILTIN(pown)
+DEFINE_MULTI_BUILTIN(powr)
+DEFINE_MULTI_BUILTIN(remainder)
+DEFINE_MULTI_BUILTIN(remquo)
+DEFINE_MULTI_BUILTIN(rint)
+DEFINE_MULTI_BUILTIN(rootn)
+DEFINE_MULTI_BUILTIN(round)
+DEFINE_MULTI_BUILTIN(rsqrt)
+DEFINE_MULTI_BUILTIN(sin)
+DEFINE_MULTI_BUILTIN(sincos)
+DEFINE_MULTI_BUILTIN(sinh)
+DEFINE_MULTI_BUILTIN(sinpi)
+DEFINE_MULTI_BUILTIN(sqrt)
+DEFINE_MULTI_BUILTIN(tan)
+DEFINE_MULTI_BUILTIN(tanh)
+DEFINE_MULTI_BUILTIN(tanpi)
+DEFINE_MULTI_BUILTIN(tgamma)
+DEFINE_MULTI_BUILTIN(trunc)
+#else
+
+#define DEFINE_MULTI_BUILTIN(name) \
+template <class MultiExpr> \
+typename std::enable_if<MultiExpr::is_multiexpression, \
+    UnaryMultiExpression< \
+	BuiltinFunction<name##_fun, typename MultiExpr::subtype>, MultiExpr::dim \
+	>>::type \
+name(const MultiExpr& multiexpr) { \
+    std::array< \
+	std::unique_ptr< \
+	    BuiltinFunction<name##_fun, typename MultiExpr::subtype> \
+	    >, \
+	MultiExpr::dim> ex; \
+    for(uint i = 0; i < MultiExpr::dim; i++) \
+	ex[i].reset( \
+		new BuiltinFunction<name##_fun, typename MultiExpr::subtype>(multiexpr(i)) \
+		); \
+    return UnaryMultiExpression< \
+	BuiltinFunction<name##_fun, typename MultiExpr::subtype>, MultiExpr::dim \
+	>(ex); \
+}
+
+DEFINE_MULTI_BUILTIN(acos)
+DEFINE_MULTI_BUILTIN(acosh)
+DEFINE_MULTI_BUILTIN(acospi)
+DEFINE_MULTI_BUILTIN(asin)
+DEFINE_MULTI_BUILTIN(asinh)
+DEFINE_MULTI_BUILTIN(asinpi)
+DEFINE_MULTI_BUILTIN(atan)
+DEFINE_MULTI_BUILTIN(atanh)
+DEFINE_MULTI_BUILTIN(atanpi)
+DEFINE_MULTI_BUILTIN(cbrt)
+DEFINE_MULTI_BUILTIN(ceil)
+DEFINE_MULTI_BUILTIN(cos)
+DEFINE_MULTI_BUILTIN(cosh)
+DEFINE_MULTI_BUILTIN(cospi)
+DEFINE_MULTI_BUILTIN(erfc)
+DEFINE_MULTI_BUILTIN(erf)
+DEFINE_MULTI_BUILTIN(exp)
+DEFINE_MULTI_BUILTIN(exp2)
+DEFINE_MULTI_BUILTIN(exp10)
+DEFINE_MULTI_BUILTIN(expm1)
+DEFINE_MULTI_BUILTIN(fabs)
+DEFINE_MULTI_BUILTIN(floor)
+DEFINE_MULTI_BUILTIN(ilogb)
+DEFINE_MULTI_BUILTIN(lgamma)
+DEFINE_MULTI_BUILTIN(log)
+DEFINE_MULTI_BUILTIN(log2)
+DEFINE_MULTI_BUILTIN(log10)
+DEFINE_MULTI_BUILTIN(log1p)
+DEFINE_MULTI_BUILTIN(logb)
+DEFINE_MULTI_BUILTIN(nan)
+DEFINE_MULTI_BUILTIN(rint)
+DEFINE_MULTI_BUILTIN(rootn)
+DEFINE_MULTI_BUILTIN(round)
+DEFINE_MULTI_BUILTIN(rsqrt)
+DEFINE_MULTI_BUILTIN(sin)
+DEFINE_MULTI_BUILTIN(sinh)
+DEFINE_MULTI_BUILTIN(sinpi)
+DEFINE_MULTI_BUILTIN(sqrt)
+DEFINE_MULTI_BUILTIN(tan)
+DEFINE_MULTI_BUILTIN(tanh)
+DEFINE_MULTI_BUILTIN(tanpi)
+DEFINE_MULTI_BUILTIN(tgamma)
+DEFINE_MULTI_BUILTIN(trunc)
+#endif
+
+//---------------------------------------------------------------------------
+// User functions
+//---------------------------------------------------------------------------
+#ifdef VEXCL_VARIADIC_TEMPLATES
+/*
+template<const char *body, class RetType, class... ArgType>
+template <class... Expr>
+typename std::enable_if<
+    sizeof...(ArgType) == sizeof...(Expr) &&
+    all_multiexpressions_valid<Expr...>() &&
+    !all_expressions_arithmetic<Expr...>(),
+typename UserFunctionFamily<RetType, ArgType...>::template Function<body, Expr...>
+>::type
+UserFunction<body, RetType(ArgType...)>::operator()(const Expr&... expr) const {
+    //return typename UserFunctionFamily<RetType, ArgType...>::template Function<body, Expr...>(expr...);
+}
+*/
+
+#endif
 
 }
 
