@@ -85,6 +85,19 @@ int main() {
 		return rc;
 		});
 
+	run_test("Vector copy construction", [&]() {
+		const size_t N = 1024;
+		bool rc = true;
+		vex::vector<double> x1;
+		vex::vector<double> x2(x1);
+
+		vex::vector<double> y1(ctx.queue(), N);
+		vex::vector<double> y2(y1);
+		rc = rc && (x1.size() == x2.size() && x1.size() == 0);
+		rc = rc && (y1.size() == y2.size() && y1.size() == N);
+		return rc;
+		});
+
 	run_test("Vector move construction from vex::vector", [&]() {
 		const size_t N = 1024;
 		bool rc = true;

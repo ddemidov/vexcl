@@ -318,7 +318,7 @@ class vector : public expression {
 
 	/// Copy constructor.
 	vector(const vector &v)
-	    : queue(v.queue()), part(v.part),
+	    : queue(v.queue), part(v.part),
 	      buf(queue.size()), event(queue.size())
 	{
 	    if (size()) allocate_buffers(CL_MEM_READ_WRITE, 0);
