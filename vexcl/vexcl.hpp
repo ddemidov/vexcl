@@ -223,6 +223,30 @@ as parameters to the `greater()` call. Note that in the function body
 parameters are always named as prm1, prm2, etc.
 
 
+\section multivector Multi-component vectors
+
+Class template vex::multivector<T,N> allows to store several equally sized
+device vector and perform computations on all components synchronously.
+Operations are delegated to the underlying vectors.
+\code
+const size_t n = 1 << 20;
+std::vector<double> host(n * 3);
+std::generate(host.begin(), host.end(), rand);
+
+vex::multivector<double,3> x(ctx.queue(), host);
+vex::multivector<double,3> y(ctx.queue(), n);
+
+y = 2 * cos(x) - 5;
+
+std::array<double,3> v = y[42];
+assert(fabs(v[1] - (2 * cos(host[n + 42]) - 5)) < 1e-8);
+\endcode
+
+Components of a multivector may be accessed with operator():
+\code
+vex::vector<double> z = y(1);
+\endcode
+
 \section custkern Using custom kernels
 
 Custom kernels are of course possible as well. vector::operator(uint)

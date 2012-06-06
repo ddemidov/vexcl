@@ -195,6 +195,30 @@ You could also write `sum(greater(x + y, 5 * y))`, or use any other expressions
 as parameters to the `greater()` call. Note that in the function body
 parameters are always named as `prm1`, `prm2`, etc.
 
+Multi-component vectors
+-----------------------
+
+Class template `vex::multivector` allows to store several equally sized
+device vector and perform computations on all components synchronously.
+Operations are delegated to the underlying vectors.
+```C++
+const size_t n = 1 << 20;
+std::vector<double> host(n * 3);
+std::generate(host.begin(), host.end(), rand);
+
+vex::multivector<double,3> x(ctx.queue(), host);
+vex::multivector<double,3> y(ctx.queue(), n);
+
+y = 2 * cos(x) - 5;
+
+std::array<double,3> v = y[42];
+assert(fabs(v[1] - (2 * cos(host[n + 42]) - 5)) < 1e-8);
+```
+
+Components of a multivector may be accessed with operator():
+```C++
+vex::vector<double> z = y(1);
+```
 
 Using custom kernels
 --------------------
