@@ -300,6 +300,7 @@ void copy(const std::vector<T> &hv, multivector<T,N> &mv) {
 		mv(i).begin());
 }
 
+/*
 template<class T, class Enable = void>
 struct multiex_traits {};
 
@@ -314,6 +315,7 @@ struct multiex_traits<T, typename std::enable_if<std::is_arithmetic<T>::value>::
     static const uint dim = 0;
     typedef T subtype;
 };
+*/
 
 template <class Expr>
 typename std::enable_if<Expr::is_multiexpression, const typename Expr::subtype&>::type
@@ -327,6 +329,7 @@ extract_component(const Expr &expr, uint i) {
     return expr;
 }
 
+/*
 template <class T, class Enable = void>
 struct valid_multiexpression {
     static const bool value = false;
@@ -341,6 +344,7 @@ template <typename T>
 struct valid_multiexpression<T, typename std::enable_if<std::is_arithmetic<T>::value>::type> {
     static const bool value = true;
 };
+*/
 
 template <class T1, class T2, class Enable = void>
 struct compatible_multiexpressions {
@@ -637,26 +641,6 @@ DEFINE_MULTI_BUILTIN(tanh)
 DEFINE_MULTI_BUILTIN(tanpi)
 DEFINE_MULTI_BUILTIN(tgamma)
 DEFINE_MULTI_BUILTIN(trunc)
-#endif
-
-//---------------------------------------------------------------------------
-// User functions
-//---------------------------------------------------------------------------
-#ifdef VEXCL_VARIADIC_TEMPLATES
-/*
-template<const char *body, class RetType, class... ArgType>
-template <class... Expr>
-typename std::enable_if<
-    sizeof...(ArgType) == sizeof...(Expr) &&
-    all_multiexpressions_valid<Expr...>() &&
-    !all_expressions_arithmetic<Expr...>(),
-typename UserFunctionFamily<RetType, ArgType...>::template Function<body, Expr...>
->::type
-UserFunction<body, RetType(ArgType...)>::operator()(const Expr&... expr) const {
-    //return typename UserFunctionFamily<RetType, ArgType...>::template Function<body, Expr...>(expr...);
-}
-*/
-
 #endif
 
 }

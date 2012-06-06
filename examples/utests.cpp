@@ -566,6 +566,29 @@ int main() {
 		return rc;
 	});
 
+	run_test("Custom function for multivector", [&]() {
+		bool rc = true;
+		const size_t n = 1024;
+		const size_t m = 4;
+		multivector<double, m> x(ctx.queue(), n);
+		multivector<double, m> y(ctx.queue(), n);
+
+		for(uint j = 0; j < m; j++) {
+		    x(j) = 1;
+		    y(j) = 2;
+		}
+		UserFunction<chk_if_gr_body, size_t(double, double)> chk_if_greater;
+		x = chk_if_greater(x, y);
+
+		for(size_t k = 0; k < 10; k++) {
+		    size_t i = rand() % n;
+		    std::array<double,m> val = x[i];
+		    for(uint j = 0; j < m; j++)
+			rc = rc && val[j] == 0;
+		}
+		return rc;
+		});
+
 
     } catch (const cl::Error &err) {
 	std::cerr << "OpenCL error: " << err << std::endl;

@@ -1248,10 +1248,52 @@ struct UserFunctionFamily {
 template <const char *body, class T>
 struct UserFunction {};
 
-/*
-template <class... Expr>
+template<class T, class Enable = void>
+struct multiex_traits {};
+
+template<class T>
+struct multiex_traits<T, typename std::enable_if<T::is_multiexpression>::type> {
+    static const uint dim = T::dim;
+    typedef typename T::subtype subtype;
+};
+
+template<class T>
+struct multiex_traits<T, typename std::enable_if<std::is_arithmetic<T>::value>::type> {
+    static const uint dim = 0;
+    typedef T subtype;
+};
+
+template <class T, class Enable = void>
+struct valid_multiexpression {
+    static const bool value = false;
+};
+
+template <typename T>
+struct valid_multiexpression<T, typename std::enable_if<T::is_multiexpression>::type> {
+    static const bool value = true;
+};
+
+template <typename T>
+struct valid_multiexpression<T, typename std::enable_if<std::is_arithmetic<T>::value>::type> {
+    static const bool value = true;
+};
+
+template <class Expr>
 constexpr bool all_multiexpressions_valid();
-*/
+
+template <class Head, class... Expr>
+constexpr typename std::enable_if<sizeof...(Expr), bool>::type
+all_multiexpressions_valid();
+
+template <class Expr>
+constexpr uint multiexpr_dim();
+
+template <class Head, class... Expr>
+constexpr typename std::enable_if<sizeof...(Expr), uint>::type
+multiexpr_dim();
+
+template <class Expr, uint N>
+struct UnaryMultiExpression;
 
 /// Custom user function
 /**
@@ -1293,16 +1335,30 @@ struct UserFunction<body, RetType(ArgType...)> {
 	return typename UserFunctionFamily<RetType, ArgType...>::template Function<body, Expr...>(expr...);
     }
 
-    /*
     template <class... Expr>
     typename std::enable_if<
 	sizeof...(ArgType) == sizeof...(Expr) &&
 	all_multiexpressions_valid<Expr...>() &&
 	!all_expressions_arithmetic<Expr...>(),
-    typename UserFunctionFamily<RetType, ArgType...>::template Function<body, Expr...>
-    >::type
-    operator()(const Expr&... expr) const;
-    */
+	UnaryMultiExpression<
+	    typename UserFunctionFamily<RetType, ArgType...>::template Function<body, typename multiex_traits<Expr>::subtype...>,
+	    multiexpr_dim<Expr...>()
+	>>::type
+    operator()(const Expr&... expr) const {
+	std::array<
+	    std::unique_ptr<
+		typename UserFunctionFamily<RetType, ArgType...>::template Function<body, typename multiex_traits<Expr>::subtype...>
+		>,
+	    multiexpr_dim<Expr...>()> ex;
+	for(uint i = 0; i < multiexpr_dim<Expr...>(); i++)
+	    ex[i].reset(
+		    new typename UserFunctionFamily<RetType, ArgType...>::template Function<body, typename multiex_traits<Expr>::subtype...>(extract_component(expr, i)...)
+		    );
+	return UnaryMultiExpression<
+		typename UserFunctionFamily<RetType, ArgType...>::template Function<body, typename multiex_traits<Expr>::subtype...>,
+			 multiexpr_dim<Expr...>()
+		 >(ex);
+    }
 };
 
 #else
