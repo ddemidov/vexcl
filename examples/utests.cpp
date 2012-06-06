@@ -478,6 +478,31 @@ int main() {
 		return rc;
 		});
 
+	run_test("Simple arithmetic with multivectors", [&]() {
+		bool rc = true;
+		const size_t n = 1024;
+		const size_t m = 4;
+		std::vector<float> host(n * m);
+		std::generate(host.begin(), host.end(),
+		    [](){ return (float)rand() / RAND_MAX; });
+		multivector<float, m> x(ctx.queue(), n);
+		multivector<float, m> y(ctx.queue(), host);
+		multivector<float, m> z(ctx.queue(), host);
+		x = 2 * y + z;
+		std::transform(host.begin(), host.end(), host.begin(), [](float x) {
+		    return 2 * x + x;
+		    });
+		Reductor<float,MIN> min(ctx.queue());
+		Reductor<float,MAX> max(ctx.queue());
+		for(uint i = 0; i < m; i++) {
+		    rc = rc && min(x[i]) == *min_element(
+			host.begin() + i * n, host.begin() + (i + 1) * n);
+		    rc = rc && max(x[i]) == *max_element(
+			host.begin() + i * n, host.begin() + (i + 1) * n);
+		}
+		return rc;
+	});
+
     } catch (const cl::Error &err) {
 	std::cerr << "OpenCL error: " << err << std::endl;
 	return 1;

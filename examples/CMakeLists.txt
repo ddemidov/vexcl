@@ -16,7 +16,6 @@ set(EXAMPLES
     benchmark
     cg
     devlist
-    multiex
     utests
     vector
     )

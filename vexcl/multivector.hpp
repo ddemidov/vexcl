@@ -45,12 +45,18 @@ THE SOFTWARE.
 #include <array>
 #include <vector>
 #include <type_traits>
+#include <cassert>
 #include <CL/cl.hpp>
 #include <vexcl/util.hpp>
 #include <vexcl/vector.hpp>
 
 namespace vex {
 
+/// Container for several vex::vectors.
+/**
+ * This class allows to synchronously operate on several vex::vectors of the
+ * same type and size.
+ */
 template <typename T, uint N>
 class multivector {
     public:
@@ -58,13 +64,54 @@ class multivector {
 	static const uint dim = N;
 	typedef vex::vector<T> subtype;
 
-	multivector(const std::vector<cl::CommandQueue> &queue, size_t size,
+	/// Constructor.
+	/**
+	 * If host pointer is not NULL, it is copied to the underlying vector
+	 * components of the multivector.
+	 * \param queue queue list to be shared between all components.
+	 * \param host  Host vector that holds data to be copied to
+	 *              the components. Size of host vector should be divisible
+	 *              by N. Components of the created multivector will have
+	 *              size equal to host.size() / N. The data will be
+	 *              partitioned equally between all components.
+	 * \param flags cl::Buffer creation flags.
+	 */
+	multivector(const std::vector<cl::CommandQueue> &queue,
+		const std::vector<T> &host,
 		cl_mem_flags flags = CL_MEM_READ_WRITE)
 	{
 	    static_assert(N > 0, "What's the point?");
 
+	    size_t size = host.size() / N;
+	    assert(N * size == host.size());
+
 	    for(uint i = 0; i < N; i++)
-		vec[i] = vex::vector<T>(queue, size, 0, flags);
+		vec[i] = vex::vector<T>(
+			queue, size, host.data() + i * size, flags
+			);
+	}
+
+	/// Constructor.
+	/**
+	 * If host pointer is not NULL, it is copied to the underlying vector
+	 * components of the multivector.
+	 * \param queue queue list to be shared between all components.
+	 * \param size  Size of each component.
+	 * \param host  Pointer to host buffer that holds data to be copied to
+	 *              the components. Size of the buffer should be equal to
+	 *              N * size. The data will be partitioned equally between
+	 *              all components.
+	 * \param flags cl::Buffer creation flags.
+	 */
+	multivector(const std::vector<cl::CommandQueue> &queue, size_t size,
+		const T *host = 0, cl_mem_flags flags = CL_MEM_READ_WRITE)
+	{
+	    static_assert(N > 0, "What's the point?");
+
+	    for(uint i = 0; i < N; i++)
+		vec[i] = vex::vector<T>(
+			queue, size, host ? host + i * size : 0, flags
+			);
 	}
 
 	size_t size() const {
@@ -88,6 +135,19 @@ class multivector {
     private:
 	std::array<vex::vector<T>,N> vec;
 };
+
+template <class T, uint N>
+void copy(const multivector<T,N> &mv, std::vector<T> &hv) {
+    for(uint i = 0; i < N; i++)
+	vex::copy(mv[i].begin(), mv[i].end(), hv.begin() + i * mv.size());
+}
+
+template <class T, uint N>
+void copy(const std::vector<T> &hv, multivector<T,N> &mv) {
+    for(uint i = 0; i < N; i++)
+	vex::copy(hv.begin() + i * mv.size(), hv.begin() + (i + 1) * mv.size(),
+		mv[i].begin());
+}
 
 template<class T, class Enable = void>
 struct multiex_traits {
