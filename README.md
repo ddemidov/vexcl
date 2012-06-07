@@ -282,6 +282,6 @@ support variadic templates, only one-argument builtin functions are enabled;
 user functions are not available at all.
 
 ----------------------------
-_This work is a joint effort of Supercomputer Center of Russian Academy of
-Sciences (Kazan branch) and Kazan Federal University. It is partially supported
+_This work is a joint effort of [Supercomputer Center of Russian Academy of
+Sciences](http://www.jscc.ru/eng/index.shtml) (Kazan branch) and [Kazan Federal University](http://www.kpfu.ru). It is partially supported
 by RFBR grant No 12-07-0007._
