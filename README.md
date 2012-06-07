@@ -268,6 +268,7 @@ double s = sum(a * b);
 
 // SpMV
 y += A * x;
+```
 
 ![Performance](/ddemidov/vexcl/raw/master/doc/figures/perf.png "Scalability")
 
