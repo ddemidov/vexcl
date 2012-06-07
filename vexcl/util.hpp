@@ -197,7 +197,9 @@ cl::Program build_sources(
     try {
 	program.build(device);
     } catch(const cl::Error&) {
-	std::cerr << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device[0])
+	std::cerr << source
+	          << std::endl
+	          << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device[0])
 	          << std::endl;
 	throw;
     }
