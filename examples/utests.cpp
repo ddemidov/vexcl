@@ -247,8 +247,8 @@ int main() {
 		Reductor<double,MIN> min(ctx.queue());
 		Reductor<double,MAX> max(ctx.queue());
 		rc = rc && fabs(sum(X) - std::accumulate(x.begin(), x.end(), 0.0)) < 1e-6;
-		rc = rc && fabs(min(X) - *std::min_element(x.begin(), x.end())) < 1e-4;
-		rc = rc && fabs(max(X) - *std::max_element(x.begin(), x.end())) < 1e-4;
+		rc = rc && fabs(min(X) - *std::min_element(x.begin(), x.end())) < 1e-6;
+		rc = rc && fabs(max(X) - *std::max_element(x.begin(), x.end())) < 1e-6;
 		return rc;
 		});
 
@@ -594,6 +594,26 @@ int main() {
 		    std::array<double,m> val = x[i];
 		    for(uint j = 0; j < m; j++)
 			rc = rc && val[j] == 0;
+		}
+		return rc;
+		});
+
+
+	run_test("Reduction of multivector", [&]() {
+		bool rc = true;
+		const size_t n = 1024;
+		const size_t m = 4;
+		std::vector<double> host(n * m);
+		std::generate(host.begin(), host.end(),
+		    [](){ return (double)rand() / RAND_MAX; });
+		multivector<double, m> x(ctx.queue(), host);
+		Reductor<double,SUM> sum(ctx.queue());
+		std::array<double,m> s = sum(x);
+		for(uint i = 0; i < m; i++) {
+		    rc = rc && fabs(
+			s[i] - std::accumulate(
+			    host.begin() + i * n, host.begin() + (i + 1) * n, 0.0)
+			) < 1e-6;
 		}
 		return rc;
 		});

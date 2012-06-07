@@ -72,7 +72,12 @@ class Reductor {
 	 * expressions of arbitrary complexity may be reduced.
 	 */
 	template <class Expr>
-	real operator()(const Expr &expr) const;
+	typename std::enable_if<Expr::is_expr, real>::type
+	operator()(const Expr &expr) const;
+
+	template <class Expr>
+	typename std::enable_if<Expr::is_multiex, std::array<real,Expr::dim>>::type
+	operator()(const Expr &expr) const;
     private:
 	const std::vector<cl::CommandQueue> &queue;
 	std::vector<size_t> idx;
@@ -142,7 +147,8 @@ Reductor<real,RDC>::Reductor(const std::vector<cl::CommandQueue> &queue)
 }
 
 template <typename real, ReductionKind RDC> template <class Expr>
-real Reductor<real,RDC>::operator()(const Expr &expr) const {
+typename std::enable_if<Expr::is_expr, real>::type
+Reductor<real,RDC>::operator()(const Expr &expr) const {
     for(auto q = queue.begin(); q != queue.end(); q++) {
 	cl::Context context = q->getInfo<CL_QUEUE_CONTEXT>();
 
@@ -225,6 +231,14 @@ real Reductor<real,RDC>::operator()(const Expr &expr) const {
 	case MIN:
 	    return *std::min_element(hbuf.begin(), hbuf.end());
     }
+}
+
+template <typename real, ReductionKind RDC> template <class Expr>
+typename std::enable_if<Expr::is_multiex, std::array<real,Expr::dim>>::type
+Reductor<real,RDC>::operator()(const Expr &expr) const {
+    std::array<real, Expr::dim> result;
+    for (uint i = 0; i < Expr::dim; i++) result[i] = this->operator()(expr(i));
+    return result;
 }
 
 template <typename real, ReductionKind RDC> template <class Expr>
