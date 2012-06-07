@@ -136,6 +136,22 @@ namespace Filter {
 	    mutable int count;
     };
 
+    /// Selects one device at the given position.
+    /**
+     * Select one device at the given position in the list of devices
+     * satisfying previously applied filters.
+     */
+    struct Position {
+	explicit Position(int p) : pos(p) {}
+
+	bool operator()(const cl::Device &d) const {
+	    return 0 == pos--;
+	}
+
+	private:
+	    mutable int pos;
+    };
+
     /// Environment filter
     /**
      * Selects devices with respect to environment variables. Recognized
