@@ -1,4 +1,4 @@
-vexcl
+VexCL
 =======
 
 VexCL is vector expression template library for OpenCL. It has been created for
