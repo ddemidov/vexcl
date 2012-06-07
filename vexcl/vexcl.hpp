@@ -82,10 +82,10 @@ std::cout << ctx << std::endl;
 \section vector Memory allocation and vector arithmetic
 
 Once you got queue list, you can allocate OpenCL buffers on the associated
-devices. vex::vector constructor accepts std::vector of cl::CommandQueue.
-The contents of the created vector will be equally partitioned between each
-queue (presumably, each of the provided queues is linked with separate device). 
-Size of each partition will be proportional to relative device bandwidth unless
+devices. vex::vector constructor accepts std::vector of cl::CommandQueue.  The
+contents of the created vector will be partitioned between each queue
+(presumably, each of the provided queues is linked with separate device).  Size
+of each partition will be proportional to relative device bandwidth unless
 macro VEXCL_DUMB_PARTITIONING is defined, in which case equal partitioning
 scheme will be applied. Device bandwidth is measured first time it is requested
 by launch of small test kernel.
@@ -299,6 +299,13 @@ y += A * x;
 
 \image html perf.png ""
 
+\section compilers Supported compilers
+
+VexCL makes heavy use of C++11 features, so your compiler has to be modern
+enough. GCC version 4.6 and above is fully supported. Microsoft Visual C++ 2010
+manages to compile the project with some features disabled: since it does not
+support variadic templates, only one-argument builtin functions are enabled;
+user functions are not available at all.
 */
 
 #ifdef WIN32

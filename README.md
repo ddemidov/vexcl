@@ -248,6 +248,29 @@ Reductor<float,SUM> sum(ctx.queue());
 std::cout << sum(x) << std::endl;
 ```
 
+Scalability
+-----------
+
+In the images below, scalability of the library with respect to number of
+compute devices is shown. Effective performance (GFLOPS) and bandwidth (GB/sec)
+were measured by launching big number of test kernels on one, two, or three
+Nvidia Tesla C2070 cards. The results shown are averaged over 20 runs.
+
+The details of the experiments may be found in [benchmark.cpp](https://github.com/ddemidov/vexcl/blob/master/examples/benchmark.cpp).
+Basically, performance of the following code was measured:
+
+```C++
+// Vector arithmetic
+a += b + c * d;
+
+// Reduction
+double s = sum(a * b);
+
+// SpMV
+y += A * x;
+
+![Performance](/ddemidov/vexcl/raw/master/doc/figures/perf.png "Scalability")
+
 Supported compilers
 ----------------------------
 
