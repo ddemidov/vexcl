@@ -247,3 +247,12 @@ for(uint d = 0; d < ctx.size(); d++) {
 Reductor<float,SUM> sum(ctx.queue());
 std::cout << sum(x) << std::endl;
 ```
+
+Supported compilers
+----------------------------
+
+VexCL makes heavy use of C++11 features, so your compiler has to be modern
+enough. GCC version 4.6 and above is fully supported. Microsoft Visual C++ 2010
+manages to compile the project with some features disabled: since it does not
+support variadic templates, only one-argumet builtin functions are enabled;
+user functions are not available at all.
