@@ -1008,6 +1008,8 @@ class multivector {
 	typedef iterator_type<multivector, element> iterator;
 	typedef iterator_type<const multivector, const_element> const_iterator;
 
+	multivector() {};
+
 	/// Constructor.
 	/**
 	 * If host pointer is not NULL, it is copied to the underlying vector
