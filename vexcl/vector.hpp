@@ -1635,7 +1635,7 @@ typename std::enable_if<MultiEx::is_multiex, \
     >>::type \
 name(const MultiEx& multiexpr) { \
   std::array<std::unique_ptr< \
-    BuiltinFunction<name##_fun, typename MultiEx::subtype>>, MultiEx::dim
+    BuiltinFunction<name##_fun, typename MultiEx::subtype>>, MultiEx::dim \
     > ex; \
   for(uint i = 0; i < MultiEx::dim; i++) \
     ex[i].reset( \
