@@ -73,9 +73,19 @@ class SpMatBase {
 	 */
 	virtual void mul(const vex::vector<real> &x, vex::vector<real> &y,
 		 real alpha = 1, bool append = false) const = 0;
+
+	template <uint N>
+	void mul(const vex::multivector<real,N> &x, vex::multivector<real,N> &y,
+		 real alpha = 1, bool append = false) const
+	{
+	    for (uint i = 0; i < N; i++)
+		this->mul(x(i), y(i), alpha, append);
+	}
 };
 
-/// \internal Sparse matrix-vector product.
+//---------------------------------------------------------------------------
+// Sparse matrix-vector product.
+//---------------------------------------------------------------------------
 template <typename real, typename column_t>
 struct SpMV {
     SpMV(const SpMatBase<real, column_t> &A, const vex::vector<real> &x) : A(A), x(x) {}
@@ -90,7 +100,6 @@ SpMV<real,column_t> operator*(const SpMatBase<real, column_t> &A, const vex::vec
     return SpMV<real, column_t>(A, x);
 }
 
-/// \internal Expression with matrix-vector product.
 template <class Expr, typename real, typename column_t>
 struct ExSpMV {
     ExSpMV(const Expr &expr, const real alpha, const SpMV<real, column_t> &spmv)
@@ -139,6 +148,87 @@ const vector<real>& vector<real>::operator=(const ExSpMV<Expr,real,column_t> &xm
     xmv.spmv.A.mul(xmv.spmv.x, *this, xmv.alpha, true);
     return *this;
 }
+
+//---------------------------------------------------------------------------
+// Sparse matrix-multivector product.
+//---------------------------------------------------------------------------
+/// \internal Sparse matrix-vector product.
+template <typename real, typename column_t, uint N>
+struct MultiSpMV {
+    MultiSpMV(const SpMatBase<real, column_t> &A, const vex::multivector<real,N> &x)
+	: A(A), x(x) {}
+
+    const SpMatBase<real,column_t> &A;
+    const vex::multivector<real,N> &x;
+};
+
+/// Multiply sparse matrix and a vector.
+template <typename real, typename column_t, uint N>
+MultiSpMV<real,column_t,N> operator*(
+	const SpMatBase<real, column_t> &A, const vex::multivector<real,N> &x)
+{
+    return MultiSpMV<real, column_t, N>(A, x);
+}
+
+/*
+/// \internal Expression with matrix-vector product.
+template <class Expr, typename real, typename column_t, uint N>
+struct MultiExSpMV {
+    MultiExSpMV(const Expr &expr, const real alpha, const SpMV<real, column_t> &spmv)
+	: expr(expr), alpha(alpha), spmv(spmv) {}
+
+    const Expr &expr;
+    const real alpha;
+    const SpMV<real, column_t> &spmv;
+};
+
+/// Add an expression and sparse matrix - vector product.
+template <class Expr, typename real, typename column_t>
+typename std::enable_if<Expr::is_expr, ExSpMV<Expr,real,column_t>>::type
+operator+(const Expr &expr, const SpMV<real,column_t> &spmv) {
+    return ExSpMV<Expr,real,column_t>(expr, 1, spmv);
+}
+
+/// Subtruct sparse matrix - vector product from an expression.
+template <class Expr, typename real, typename column_t>
+typename std::enable_if<Expr::is_expr, ExSpMV<Expr,real,column_t>>::type
+operator-(const Expr &expr, const SpMV<real,column_t> &spmv) {
+    return ExSpMV<Expr,real,column_t>(expr, -1, spmv);
+}
+*/
+
+template <typename real, uint N> template <typename column_t>
+const multivector<real,N>& multivector<real,N>::operator=(
+	const MultiSpMV<real,column_t,N> &spmv)
+{
+    spmv.A.mul(spmv.x, *this);
+    return *this;
+}
+
+template <typename real, uint N> template <typename column_t>
+const multivector<real,N>& multivector<real,N>::operator+=(
+	const MultiSpMV<real,column_t,N> &spmv)
+{
+    spmv.A.mul(spmv.x, *this, 1, true);
+    return *this;
+}
+
+template <typename real, uint N> template <typename column_t>
+const multivector<real,N>& multivector<real,N>::operator-=(
+    const MultiSpMV<real,column_t,N> &spmv)
+{
+    spmv.A.mul(spmv.x, *this, -1, true);
+    return *this;
+}
+
+/*
+template <typename real> template<class Expr, typename column_t>
+const vector<real>& vector<real>::operator=(const ExSpMV<Expr,real,column_t> &xmv) {
+    *this = xmv.expr;
+    xmv.spmv.A.mul(xmv.spmv.x, *this, xmv.alpha, true);
+    return *this;
+}
+*/
 
 /// Sparse matrix in ELL format.
 template <typename real, typename column_t = size_t>

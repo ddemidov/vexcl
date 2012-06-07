@@ -256,8 +256,8 @@ int main() {
 	run_test("Sparse matrix-vector product", [&]() {
 		bool rc = true;
 		const size_t n   = 32;
-		const double  h   = 1.0 / (n - 1);
-		const double  h2i = (n - 1) * (n - 1);
+		const double h   = 1.0 / (n - 1);
+		const double h2i = (n - 1) * (n - 1);
 
 		std::vector<size_t> row;
 		std::vector<size_t> col;
@@ -617,6 +617,184 @@ int main() {
 		}
 		return rc;
 		});
+
+	run_test("Sparse matrix-multivector product", [&]() {
+		bool rc = true;
+		const size_t n   = 32;
+		const size_t N   = n * n * n;
+		const size_t m   = 2;
+		const double h   = 1.0 / (n - 1);
+		const double h2i = (n - 1) * (n - 1);
+
+		std::vector<size_t> row;
+		std::vector<size_t> col;
+		std::vector<double> val;
+
+		row.reserve(N + 1);
+		col.reserve(6 * (n - 2) * (n - 2) * (n - 2) + N);
+		val.reserve(6 * (n - 2) * (n - 2) * (n - 2) + N);
+
+		row.push_back(0);
+		for(size_t k = 0, idx = 0; k < n; k++) {
+		    double z = k * h;
+		    for(size_t j = 0; j < n; j++) {
+			double y = j * h;
+			for(size_t i = 0; i < n; i++, idx++) {
+			    double x = i * h;
+			    if (
+				i == 0 || i == (n - 1) ||
+				j == 0 || j == (n - 1) ||
+				k == 0 || k == (n - 1)
+			       )
+			    {
+				col.push_back(idx);
+				val.push_back(1);
+				row.push_back(row.back() + 1);
+			    } else {
+				col.push_back(idx - n * n);
+				val.push_back(-h2i);
+
+				col.push_back(idx - n);
+				val.push_back(-h2i);
+
+				col.push_back(idx - 1);
+				val.push_back(-h2i);
+
+				col.push_back(idx);
+				val.push_back(6 * h2i);
+
+				col.push_back(idx + 1);
+				val.push_back(-h2i);
+
+				col.push_back(idx + n);
+				val.push_back(-h2i);
+
+				col.push_back(idx + n * n);
+				val.push_back(-h2i);
+
+				row.push_back(row.back() + 7);
+			    }
+			}
+		    }
+		}
+
+		std::vector<double> x(N * m);
+		std::vector<double> y(N * m);
+		std::generate(x.begin(), x.end(), []() {
+			return (double)rand() / RAND_MAX;
+			});
+
+		vex::SpMat <double> A(ctx.queue(), N,
+			row.data(), col.data(), val.data());
+
+		vex::multivector<double,m> X(ctx.queue(), x);
+		vex::multivector<double,m> Y(ctx.queue(), N);
+
+		Y = A * X;
+		copy(Y, y);
+
+		double res = 0;
+		for(uint k = 0; k < m; k++)
+		    for(size_t i = 0; i < N; i++) {
+			double sum = 0;
+			for(size_t j = row[i]; j < row[i + 1]; j++)
+			    sum += val[j] * x[col[j] + k * N];
+			res = std::max(res, fabs(sum - y[i + k * N]));
+		    }
+
+		rc = rc && res < 1e-8;
+
+		return rc;
+	});
+
+	run_test("Sparse matrix-multivector product (CCSR format)", [&]() {
+		bool rc = true;
+		const uint n     = 32;
+		const uint N     = n * n * n;
+		const uint m     = 2;
+		const double h   = 1.0 / (n - 1);
+		const double h2i = (n - 1) * (n - 1);
+
+		std::vector<size_t> idx;
+		std::vector<size_t> row(3);
+		std::vector<int>    col(8);
+		std::vector<double> val(8);
+
+		idx.reserve(N);
+
+		row[0] = 0;
+		row[1] = 1;
+		row[2] = 8;
+
+		col[0] = 0;
+		val[0] = 1;
+
+		col[1] = -(n * n);
+		col[2] =    -n;
+		col[3] =    -1;
+		col[4] =     0;
+		col[5] =     1;
+		col[6] =     n;
+		col[7] =  (n * n);
+
+		val[1] = -h2i;
+		val[2] = -h2i;
+		val[3] = -h2i;
+		val[4] =  h2i * 6;
+		val[5] = -h2i;
+		val[6] = -h2i;
+		val[7] = -h2i;
+
+		for(size_t k = 0; k < n; k++) {
+		    double z = k * h;
+		    for(size_t j = 0; j < n; j++) {
+			double y = j * h;
+			for(size_t i = 0; i < n; i++) {
+			    double x = i * h;
+			    if (
+				i == 0 || i == (n - 1) ||
+				j == 0 || j == (n - 1) ||
+				k == 0 || k == (n - 1)
+			       )
+			    {
+				idx.push_back(0);
+			    } else {
+				idx.push_back(1);
+			    }
+			}
+		    }
+		}
+
+		std::vector<double> x(N * m);
+		std::vector<double> y(N * m);
+		std::generate(x.begin(), x.end(), []() {
+			return (double)rand() / RAND_MAX;
+			});
+
+		std::vector<cl::CommandQueue> q1(1, ctx.queue()[0]);
+
+		vex::SpMatCCSR<double,int> A(q1[0], N, row.size() - 1,
+			idx.data(), row.data(), col.data(), val.data());
+
+		vex::multivector<double,m> X(q1, x);
+		vex::multivector<double,m> Y(q1, N);
+
+		Y = A * X;
+		copy(Y, y);
+
+		double res = 0;
+		for(uint k = 0; k < m; k++)
+		    for(size_t i = 0; i < N; i++) {
+			double sum = 0;
+			for(size_t j = row[idx[i]]; j < row[idx[i] + 1]; j++)
+			    sum += val[j] * x[i + col[j] + k * N];
+			res = std::max(res, fabs(sum - y[i + k * N]));
+		    }
+
+		rc = rc && res < 1e-8;
+
+		return rc;
+	});
 
 
     } catch (const cl::Error &err) {
