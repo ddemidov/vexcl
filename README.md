@@ -261,7 +261,7 @@ compute devices is shown. Effective performance (GFLOPS) and bandwidth (GB/sec)
 were measured by launching big number of test kernels on one, two, or three
 Nvidia Tesla C2070 cards. The results shown are averaged over 20 runs.
 
-The details of the experiments may be found in [benchmark.cpp](https://github.com/ddemidov/vexcl/blob/master/examples/benchmark.cpp).
+The details of the experiments may be found in [benchmark.cpp][r1].
 Basically, performance of the following code was measured:
 
 ```C++
@@ -275,7 +275,7 @@ double s = sum(a * b);
 y += A * x;
 ```
 
-![Performance](/ddemidov/vexcl/raw/master/doc/figures/perf.png "Scalability")
+![Performance][i1]
 
 Supported compilers
 ----------------------------
@@ -288,5 +288,11 @@ user functions are not available at all.
 
 ----------------------------
 _This work is a joint effort of [Supercomputer Center of Russian Academy of
-Sciences](http://www.jscc.ru/eng/index.shtml) (Kazan branch) and [Kazan Federal University](http://www.kpfu.ru). It is partially supported
-by RFBR grant No 12-07-0007._
+Sciences][r2] (Kazan branch) and [Kazan Federal University][r3]. It is
+partially supported by RFBR grant No 12-07-0007._
+
+[r1]: https://github.com/ddemidov/vexcl/blob/master/examples/benchmark.cpp
+[r2]: http://www.jscc.ru/eng/index.shtml
+[r3]: http://www.kpfu.ru
+
+[i1]: https://github.com/ddemidov/vexcl/raw/master/doc/figures/perf.png
