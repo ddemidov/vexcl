@@ -60,6 +60,7 @@ namespace vex {
 template<class T, typename column_t> struct SpMV;
 template <class Expr, typename T, typename column_t> struct ExSpMV;
 template<class T, typename column_t, uint N> struct MultiSpMV;
+template <class Expr, typename T, typename column_t, uint N> struct MultiExSpMV;
 
 /// Base class for a member of an expression.
 /**
@@ -1178,6 +1179,9 @@ class multivector {
 
 	template <typename column_t>
 	const multivector& operator=(const MultiSpMV<T,column_t,N> &spmv);
+
+	template <class Expr, typename column_t>
+	const multivector& operator=(const MultiExSpMV<Expr,T,column_t,N> &xmv);
 
 	template <typename column_t>
 	const multivector& operator+=(const MultiSpMV<T,column_t,N> &spmv);

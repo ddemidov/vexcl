@@ -170,32 +170,30 @@ MultiSpMV<real,column_t,N> operator*(
     return MultiSpMV<real, column_t, N>(A, x);
 }
 
-/*
-/// \internal Expression with matrix-vector product.
+/// \internal Expression with matrix-multivector product.
 template <class Expr, typename real, typename column_t, uint N>
 struct MultiExSpMV {
-    MultiExSpMV(const Expr &expr, const real alpha, const SpMV<real, column_t> &spmv)
+    MultiExSpMV(const Expr &expr, const real alpha, const MultiSpMV<real, column_t, N> &spmv)
 	: expr(expr), alpha(alpha), spmv(spmv) {}
 
     const Expr &expr;
     const real alpha;
-    const SpMV<real, column_t> &spmv;
+    const MultiSpMV<real, column_t, N> &spmv;
 };
 
-/// Add an expression and sparse matrix - vector product.
-template <class Expr, typename real, typename column_t>
-typename std::enable_if<Expr::is_expr, ExSpMV<Expr,real,column_t>>::type
-operator+(const Expr &expr, const SpMV<real,column_t> &spmv) {
-    return ExSpMV<Expr,real,column_t>(expr, 1, spmv);
+/// Add an expression and sparse matrix - multivector product.
+template <class Expr, typename real, typename column_t, uint N>
+typename std::enable_if<Expr::is_multiex, MultiExSpMV<Expr,real,column_t,N>>::type
+operator+(const Expr &expr, const MultiSpMV<real,column_t,N> &spmv) {
+    return MultiExSpMV<Expr,real,column_t,N>(expr, 1, spmv);
 }
 
-/// Subtruct sparse matrix - vector product from an expression.
-template <class Expr, typename real, typename column_t>
-typename std::enable_if<Expr::is_expr, ExSpMV<Expr,real,column_t>>::type
-operator-(const Expr &expr, const SpMV<real,column_t> &spmv) {
-    return ExSpMV<Expr,real,column_t>(expr, -1, spmv);
+/// Subtruct sparse matrix - multivector product from an expression.
+template <class Expr, typename real, typename column_t, uint N>
+typename std::enable_if<Expr::is_multiex, MultiExSpMV<Expr,real,column_t,N>>::type
+operator-(const Expr &expr, const MultiSpMV<real,column_t,N> &spmv) {
+    return MultiExSpMV<Expr,real,column_t,N>(expr, -1, spmv);
 }
-*/
 
 template <typename real, uint N> template <typename column_t>
 const multivector<real,N>& multivector<real,N>::operator=(
@@ -221,14 +219,12 @@ const multivector<real,N>& multivector<real,N>::operator-=(
     return *this;
 }
 
-/*
-template <typename real> template<class Expr, typename column_t>
-const vector<real>& vector<real>::operator=(const ExSpMV<Expr,real,column_t> &xmv) {
+template <typename real, uint N> template<class Expr, typename column_t>
+const multivector<real,N>& multivector<real,N>::operator=(const MultiExSpMV<Expr,real,column_t,N> &xmv) {
     *this = xmv.expr;
     xmv.spmv.A.mul(xmv.spmv.x, *this, xmv.alpha, true);
     return *this;
 }
-*/
 
 /// Sparse matrix in ELL format.
 template <typename real, typename column_t = size_t>
