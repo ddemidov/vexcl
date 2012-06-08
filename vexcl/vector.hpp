@@ -1149,6 +1149,7 @@ class multivector {
 	    >::type
 	operator=(const Expr& expr) {
 	    for(uint i = 0; i < N; i++) vec[i] = extract_component(expr, i);
+	    return *this;
 	}
 
 	template <class Expr>

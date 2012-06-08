@@ -49,7 +49,7 @@ int main() {
 		bool rc = true;
 		vex::vector<double> x(ctx.queue(), N);
 		rc = rc && (x.size() == N);
-		rc = rc && (x.end() - x.begin() == N);
+		rc = rc && (x.end() == x.begin() + N);
 		return rc;
 		});
 
@@ -60,7 +60,7 @@ int main() {
 		std::vector<double> y(N);
 		vex::vector<double> X(ctx.queue(), x);
 		rc = rc && (X.size() == x.size());
-		rc = rc && (X.end() - X.begin() == x.size());
+		rc = rc && (X.end() == X.begin() + x.size());
 		copy(X, y);
 		std::transform(x.begin(), x.end(), y.begin(), y.begin(),
 		    [](double a, double b) { return a - b; });
@@ -76,7 +76,7 @@ int main() {
 		std::vector<double> y(N);
 		vex::vector<double> X(ctx.queue(), N, x.data());
 		rc = rc && (X.size() == x.size());
-		rc = rc && (X.end() - X.begin() == x.size());
+		rc = rc && (X.end() == X.begin() + x.size());
 		copy(X, y);
 		std::transform(x.begin(), x.end(), y.begin(), y.begin(),
 		    [](double a, double b) { return a - b; });
@@ -105,7 +105,7 @@ int main() {
 		x = 42;
 		vex::vector<double> y = std::move(x);
 		rc = rc && (y.size() == N);
-		rc = rc && (y.end() - y.begin() == N);
+		rc = rc && (y.end() == y.begin() + N);
 		Reductor<double,MIN> min(ctx.queue());
 		Reductor<double,MAX> max(ctx.queue());
 		rc = rc && min(y) == 42;
@@ -184,9 +184,9 @@ int main() {
 		const size_t N = 1024;
 		bool rc = true;
 		vex::vector<double> x(ctx.queue(), N);
-		for(int i = 0; i < N; i++)
+		for(uint i = 0; i < N; i++)
 		    x[i] = 42;
-		for(int i = 0; i < N; i++)
+		for(uint i = 0; i < N; i++)
 		    rc == rc && (x[i] == 42);
 		return rc;
 		});
@@ -256,7 +256,6 @@ int main() {
 	run_test("Sparse matrix-vector product", [&]() {
 		bool rc = true;
 		const size_t n   = 32;
-		const double h   = 1.0 / (n - 1);
 		const double h2i = (n - 1) * (n - 1);
 
 		std::vector<size_t> row;
@@ -269,11 +268,8 @@ int main() {
 
 		row.push_back(0);
 		for(size_t k = 0, idx = 0; k < n; k++) {
-		    double z = k * h;
 		    for(size_t j = 0; j < n; j++) {
-			double y = j * h;
 			for(size_t i = 0; i < n; i++, idx++) {
-			    double x = i * h;
 			    if (
 				i == 0 || i == (n - 1) ||
 				j == 0 || j == (n - 1) ||
@@ -351,7 +347,6 @@ int main() {
 	run_test("Sparse matrix-vector product (CCSR format)", [&]() {
 		bool rc = true;
 		const uint n   = 32;
-		const double h   = 1.0 / (n - 1);
 		const double h2i = (n - 1) * (n - 1);
 
 		std::vector<size_t> idx;
@@ -385,11 +380,8 @@ int main() {
 		val[7] = -h2i;
 
 		for(size_t k = 0; k < n; k++) {
-		    double z = k * h;
 		    for(size_t j = 0; j < n; j++) {
-			double y = j * h;
 			for(size_t i = 0; i < n; i++) {
-			    double x = i * h;
 			    if (
 				i == 0 || i == (n - 1) ||
 				j == 0 || j == (n - 1) ||
@@ -634,7 +626,6 @@ int main() {
 		const size_t n   = 32;
 		const size_t N   = n * n * n;
 		const size_t m   = 2;
-		const double h   = 1.0 / (n - 1);
 		const double h2i = (n - 1) * (n - 1);
 
 		std::vector<size_t> row;
@@ -647,11 +638,8 @@ int main() {
 
 		row.push_back(0);
 		for(size_t k = 0, idx = 0; k < n; k++) {
-		    double z = k * h;
 		    for(size_t j = 0; j < n; j++) {
-			double y = j * h;
 			for(size_t i = 0; i < n; i++, idx++) {
-			    double x = i * h;
 			    if (
 				i == 0 || i == (n - 1) ||
 				j == 0 || j == (n - 1) ||
@@ -737,7 +725,6 @@ int main() {
 		const uint n     = 32;
 		const uint N     = n * n * n;
 		const uint m     = 2;
-		const double h   = 1.0 / (n - 1);
 		const double h2i = (n - 1) * (n - 1);
 
 		std::vector<size_t> idx;
@@ -771,11 +758,8 @@ int main() {
 		val[7] = -h2i;
 
 		for(size_t k = 0; k < n; k++) {
-		    double z = k * h;
 		    for(size_t j = 0; j < n; j++) {
-			double y = j * h;
 			for(size_t i = 0; i < n; i++) {
-			    double x = i * h;
 			    if (
 				i == 0 || i == (n - 1) ||
 				j == 0 || j == (n - 1) ||

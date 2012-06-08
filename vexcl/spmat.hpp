@@ -473,10 +473,6 @@ void SpMat<real,column_t>::mul(const vex::vector<real> &x, vex::vector<real> &y,
 	    cl::Context context = queue[d].getInfo<CL_QUEUE_CONTEXT>();
 
 	    if (exc[d].cols_to_recv.size()) {
-		cl::Device  device  = queue[d].getInfo<CL_QUEUE_DEVICE>();
-		size_t g_size = device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>()
-		    * wgsize[context()] * 4;
-
 		for(size_t i = 0; i < exc[d].cols_to_recv.size(); i++)
 		    exc[d].vals_to_recv[i] = rx[exc[d].cols_to_recv[i]];
 
@@ -1028,8 +1024,6 @@ void SpMat<real,column_t>::SpMatCSR::mul_local(
 {
     cl::Context context = queue.getInfo<CL_QUEUE_CONTEXT>();
 
-    size_t g_size = alignup(n, wgsize[context()]);
-
     if (append) {
 	uint pos = 0;
 	spmv_add[context()].setArg(pos++, n);
@@ -1272,8 +1266,6 @@ void SpMatCCSR<real,column_t>::mul(
 {
     cl::Context context = queue.getInfo<CL_QUEUE_CONTEXT>();
 
-    size_t g_size = alignup(n, wgsize[context()]);
-
     if (append) {
 	uint pos = 0;
 	spmv_add[context()].setArg(pos++, n);
@@ -1320,7 +1312,6 @@ double device_spmv_perf(
 
 	// Construct matrix for 3D Poisson problem in cubic domain.
 	const size_t n   = test_size;
-	const float  h   = 1.0 / (n - 1);
 	const float  h2i = (n - 1) * (n - 1);
 
 	std::vector<size_t> row;
@@ -1333,11 +1324,8 @@ double device_spmv_perf(
 
 	row.push_back(0);
 	for(size_t k = 0, idx = 0; k < n; k++) {
-	    float z = k * h;
 	    for(size_t j = 0; j < n; j++) {
-		float y = j * h;
 		for(size_t i = 0; i < n; i++, idx++) {
-		    float x = i * h;
 		    if (
 			    i == 0 || i == (n - 1) ||
 			    j == 0 || j == (n - 1) ||

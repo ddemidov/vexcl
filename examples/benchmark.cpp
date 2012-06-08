@@ -159,7 +159,6 @@ std::pair<double,double> benchmark_spmv(
 
     double time_elapsed;
 
-    const real h   = 1.0 / (n - 1);
     const real h2i = (n - 1) * (n - 1);
 
     std::vector<size_t> row;
@@ -174,11 +173,8 @@ std::pair<double,double> benchmark_spmv(
 
     row.push_back(0);
     for(size_t k = 0, idx = 0; k < n; k++) {
-	real z = k * h;
 	for(size_t j = 0; j < n; j++) {
-	    real y = j * h;
 	    for(size_t i = 0; i < n; i++, idx++) {
-		real x = i * h;
 		if (
 			i == 0 || i == (n - 1) ||
 			j == 0 || j == (n - 1) ||
@@ -289,7 +285,6 @@ std::pair<double,double> benchmark_spmv_ccsr(
 
     double time_elapsed;
 
-    const real h   = 1.0 / (n - 1);
     const real h2i = (n - 1) * (n - 1);
 
     std::vector<size_t> idx;
@@ -326,11 +321,8 @@ std::pair<double,double> benchmark_spmv_ccsr(
     val[7] = -h2i;
 
     for(size_t k = 0; k < n; k++) {
-	real z = k * h;
 	for(size_t j = 0; j < n; j++) {
-	    real y = j * h;
 	    for(size_t i = 0; i < n; i++) {
-		real x = i * h;
 		if (
 			i == 0 || i == (n - 1) ||
 			j == 0 || j == (n - 1) ||

@@ -33,7 +33,7 @@ void cg_gpu(
     Reductor<real,SUM> sum(ctx.queue());
 
     // Solve equation Au = f with conjugate gradients method.
-    real rho1, rho2;
+    real rho1 = 0, rho2 = 1;
     r = f - A * u;
 
     for(uint iter = 0; max(fabs(r)) > 1e-8 && iter < n; iter++) {
