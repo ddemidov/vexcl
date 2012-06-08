@@ -592,13 +592,7 @@ class vector : public expression {
 	const vector& operator=(const ExSpMV<Expr,T,column_t> &xmv);
 
 	template <typename column_t>
-	const vector& operator= (const SpMV<T,column_t> &spmv);
-
-	template <typename column_t>
-	const vector& operator+=(const SpMV<T,column_t> &spmv);
-
-	template <typename column_t>
-	const vector& operator-=(const SpMV<T,column_t> &spmv);
+	const vector& operator=(const SpMV<T,column_t> &spmv);
 	/// @}
 
 	/** \name Service methods used for kernel generation.
@@ -1182,12 +1176,6 @@ class multivector {
 
 	template <class Expr, typename column_t>
 	const multivector& operator=(const MultiExSpMV<Expr,T,column_t,N> &xmv);
-
-	template <typename column_t>
-	const multivector& operator+=(const MultiSpMV<T,column_t,N> &spmv);
-
-	template <typename column_t>
-	const multivector& operator-=(const MultiSpMV<T,column_t,N> &spmv);
 	/// @}
 
     private:

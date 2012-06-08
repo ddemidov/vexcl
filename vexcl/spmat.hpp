@@ -130,18 +130,6 @@ const vector<real>& vector<real>::operator=(const SpMV<real,column_t> &spmv) {
     return *this;
 }
 
-template <typename real> template <typename column_t>
-const vector<real>& vector<real>::operator+=(const SpMV<real,column_t> &spmv) {
-    spmv.A.mul(spmv.x, *this, 1, true);
-    return *this;
-}
-
-template <typename real> template <typename column_t>
-const vector<real>& vector<real>::operator-=(const SpMV<real,column_t> &spmv) {
-    spmv.A.mul(spmv.x, *this, -1, true);
-    return *this;
-}
-
 template <typename real> template<class Expr, typename column_t>
 const vector<real>& vector<real>::operator=(const ExSpMV<Expr,real,column_t> &xmv) {
     *this = xmv.expr;
@@ -200,22 +188,6 @@ const multivector<real,N>& multivector<real,N>::operator=(
 	const MultiSpMV<real,column_t,N> &spmv)
 {
     spmv.A.mul(spmv.x, *this);
-    return *this;
-}
-
-template <typename real, uint N> template <typename column_t>
-const multivector<real,N>& multivector<real,N>::operator+=(
-	const MultiSpMV<real,column_t,N> &spmv)
-{
-    spmv.A.mul(spmv.x, *this, 1, true);
-    return *this;
-}
-
-template <typename real, uint N> template <typename column_t>
-const multivector<real,N>& multivector<real,N>::operator-=(
-    const MultiSpMV<real,column_t,N> &spmv)
-{
-    spmv.A.mul(spmv.x, *this, -1, true);
     return *this;
 }
 
