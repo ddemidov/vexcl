@@ -526,12 +526,23 @@ int main() {
 		multivector<float, m> x(ctx.queue(), n);
 		multivector<float, m> y(ctx.queue(), host);
 		multivector<float, m> z(ctx.queue(), host);
+		Reductor<float,MIN> min(ctx.queue());
+		Reductor<float,MAX> max(ctx.queue());
+
+		std::array<int, m> v;
+		for(uint i = 0; i < m; i++) v[i] = i;
+		x = v;
+		std::array<float, m> xmin = min(x);
+		std::array<float, m> xmax = max(x);
+		for(uint i = 0; i < m; i++) {
+		    rc = rc && xmin[i] == v[i];
+		    rc = rc && xmax[i] == v[i];
+		}
+
 		x = 2 * y + z;
 		std::transform(host.begin(), host.end(), host.begin(), [](float x) {
 		    return 2 * x + x;
 		    });
-		Reductor<float,MIN> min(ctx.queue());
-		Reductor<float,MAX> max(ctx.queue());
 		for(uint i = 0; i < m; i++) {
 		    rc = rc && min(x(i)) == *min_element(
 			host.begin() + i * n, host.begin() + (i + 1) * n);

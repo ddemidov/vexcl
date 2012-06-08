@@ -889,6 +889,17 @@ extract_component(const Expr &expr, uint i) {
     return expr;
 }
 
+template <class real, size_t N>
+const real& extract_component(const std::array<real,N> &expr, uint i) {
+    return expr[i];
+}
+
+template <class T>
+struct is_std_array : std::false_type {};
+
+template <class real, size_t N>
+struct is_std_array<std::array<real,N>> : std::true_type {};
+
 template <class T1, class T2, class Enable = void>
 struct compatible_multiex : std::false_type {};
 
@@ -912,6 +923,24 @@ struct compatible_multiex<T1, T2,
     typename std::enable_if<
 	std::is_arithmetic<T1>::value &&
 	T2::is_multiex>::type
+	> : std::true_type {};
+
+template <class T1, class T2>
+struct compatible_multiex<T1, T2,
+    typename std::enable_if<
+	T1::is_multiex &&
+	is_std_array<T2>::value &&
+	std::tuple_size<T2>::value == T1::dim
+	>::type
+	> : std::true_type {};
+
+template <class T1, class T2>
+struct compatible_multiex<T1, T2,
+    typename std::enable_if<
+	is_std_array<T1>::value &&
+	std::tuple_size<T1>::value == T2::dim &&
+	T2::is_multiex
+	>::type
 	> : std::true_type {};
 
 /// Container for several vex::vectors.
