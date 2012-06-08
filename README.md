@@ -200,7 +200,10 @@ Multi-component vectors
 
 Class template `vex::multivector` allows to store several equally sized
 device vectors and perform computations on all components synchronously.
-Operations are delegated to the underlying vectors.
+Operations are delegated to the underlying vectors. Expressions may include
+`std::array<T,N>` values, where N is equal to the number of multivector
+components. Each component gets corresponding element of `std::array<>` when
+expression is applied.
 ```C++
 const size_t n = 1 << 20;
 std::vector<double> host(n * 3);
@@ -209,10 +212,12 @@ std::generate(host.begin(), host.end(), rand);
 vex::multivector<double,3> x(ctx.queue(), host);
 vex::multivector<double,3> y(ctx.queue(), n);
 
-y = 2 * cos(x) - 5;
+std::array<int, 3> c = {4, 5, 6};
+
+y = 2 * cos(x) - c;
 
 std::array<double,3> v = y[42];
-assert(fabs(v[1] - (2 * cos(host[n + 42]) - 5)) < 1e-8);
+assert(fabs(v[1] - (2 * cos(host[n + 42]) - c[1])) < 1e-8);
 ```
 
 Components of a multivector may be accessed with operator():
