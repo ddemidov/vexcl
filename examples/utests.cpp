@@ -715,6 +715,20 @@ int main() {
 
 		rc = rc && res < 1e-8;
 
+		Y = X + A * X;
+		copy(Y, y);
+
+		res = 0;
+		for(uint k = 0; k < m; k++)
+		    for(size_t i = 0; i < N; i++) {
+			double sum = 0;
+			for(size_t j = row[i]; j < row[i + 1]; j++)
+			    sum += val[j] * x[col[j] + k * N];
+			res = std::max(res, fabs(sum + x[i + k * N] - y[i + k * N]));
+		    }
+
+		rc = rc && res < 1e-8;
+
 		return rc;
 	});
 
@@ -800,6 +814,20 @@ int main() {
 			for(size_t j = row[idx[i]]; j < row[idx[i] + 1]; j++)
 			    sum += val[j] * x[i + col[j] + k * N];
 			res = std::max(res, fabs(sum - y[i + k * N]));
+		    }
+
+		rc = rc && res < 1e-8;
+
+		Y = X + A * X;
+		copy(Y, y);
+
+		res = 0;
+		for(uint k = 0; k < m; k++)
+		    for(size_t i = 0; i < N; i++) {
+			double sum = 0;
+			for(size_t j = row[idx[i]]; j < row[idx[i] + 1]; j++)
+			    sum += val[j] * x[i + col[j] + k * N];
+			res = std::max(res, fabs(sum + x[i + k * N] - y[i + k * N]));
 		    }
 
 		rc = rc && res < 1e-8;
