@@ -275,7 +275,7 @@ class vector : public expression {
 
 		iterator_type& operator++() {
 		    pos++;
-		    while (pos >= vec.part[part + 1] && part < vec.nparts())
+		    while (part < vec.nparts() && pos >= vec.part[part + 1])
 			part++;
 		    return *this;
 		}
@@ -304,9 +304,11 @@ class vector : public expression {
 		iterator_type(vector_type &vec, size_t pos)
 		    : vec(vec), pos(pos), part(0)
 		{
-		    if (!vec.part.empty())
-			while(pos >= vec.part[part + 1] && part < vec.nparts())
-			    part++;
+		    if (!vec.part.empty()) {
+			part = std::upper_bound(
+				vec.part.begin(), vec.part.end(), pos
+				) - vec.part.begin() - 1;
+		    }
 		}
 
 		friend class vector;
@@ -420,15 +422,15 @@ class vector : public expression {
 
 	/// Access element.
 	const element operator[](size_t index) const {
-	    uint d = 0;
-	    while(index >= part[d + 1] && d < nparts()) d++;
+	    uint d = std::upper_bound(
+		    part.begin(), part.end(), index) - part.begin() - 1;
 	    return element(queue[d], buf[d], index - part[d]);
 	}
 
 	/// Access element.
 	element operator[](size_t index) {
-	    uint d = 0;
-	    while(index >= part[d + 1] && d < nparts()) d++;
+	    uint d = std::upper_bound(
+		    part.begin(), part.end(), index) - part.begin() - 1;
 	    return element(queue[d], buf[d], index - part[d]);
 	}
 
