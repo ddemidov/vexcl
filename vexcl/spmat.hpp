@@ -81,6 +81,8 @@ class SpMatBase {
 	    for (uint i = 0; i < N; i++)
 		this->mul(x(i), y(i), alpha, append);
 	}
+
+	virtual ~SpMatBase() {}
 };
 
 //---------------------------------------------------------------------------
