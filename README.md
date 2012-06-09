@@ -82,7 +82,9 @@ vex::vector<double> Z(ctx.queue(), n);
 
 You can now use simple vector arithmetic with device vectors. For every
 expression you use, appropriate kernel is compiled (first time it is
-encountered in your program) and called automagically.
+encountered in your program) and called automagically. If you want to see
+sources of the generated kernels on the standard output, define
+`VEXCL_SHOW_KERNELS` macro before including VexCL headers.
 
 Vectors are processed in parallel across all devices they were allocated on:
 ```C++
