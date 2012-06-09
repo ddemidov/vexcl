@@ -391,7 +391,7 @@ SpMat<real,column_t>::SpMat(
 		"    if (i < n) vals_to_send[i] = vals[cols_to_send[i]];\n"
 		"}\n";
 
-#ifdef VEX_SHOW_KERNELS
+#ifdef VEXCL_SHOW_KERNELS
 	    std::cout << source.str() << std::endl;
 #endif
 
@@ -724,7 +724,7 @@ void SpMat<real,column_t>::SpMatELL::prepare_kernels(const cl::Context &context)
 	    "    }\n"
 	    "}\n";
 
-#ifdef VEX_SHOW_KERNELS
+#ifdef VEXCL_SHOW_KERNELS
 	std::cout << source.str() << std::endl;
 #endif
 
@@ -998,7 +998,7 @@ void SpMat<real,column_t>::SpMatCSR::prepare_kernels(const cl::Context &context)
 	    "    }\n"
 	    "}\n";
 
-#ifdef VEX_SHOW_KERNELS
+#ifdef VEXCL_SHOW_KERNELS
 	std::cout << source.str() << std::endl;
 #endif
 
@@ -1240,7 +1240,7 @@ void SpMatCCSR<real,column_t>::prepare_kernels(const cl::Context &context) const
 	    "    }\n"
 	    "}\n";
 
-#ifdef VEX_SHOW_KERNELS
+#ifdef VEXCL_SHOW_KERNELS
 	std::cout << source.str() << std::endl;
 #endif
 

@@ -163,7 +163,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
 		cpu_kernel_source(context, expr, kernel_name) :
 		gpu_kernel_source(context, expr, kernel_name) ;
 
-#ifdef VEX_SHOW_KERNELS
+#ifdef VEXCL_SHOW_KERNELS
 	    std::cout << source << std::endl;
 #endif
 

@@ -532,7 +532,7 @@ class vector : public expression {
 				"}" << std::endl;
 			}
 
-#ifdef VEX_SHOW_KERNELS
+#ifdef VEXCL_SHOW_KERNELS
 			std::cout << kernel.str() << std::endl;
 #endif
 

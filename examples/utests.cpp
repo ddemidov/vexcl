@@ -7,7 +7,7 @@
 #include <numeric>
 #include <cmath>
 
-//#define VEX_SHOW_KERNELS
+//#define VEXCL_SHOW_KERNELS
 #include <vexcl/vexcl.hpp>
 
 using namespace vex;
