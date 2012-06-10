@@ -482,6 +482,8 @@ int main() {
 		Reductor<size_t,SUM> sum(ctx.queue());
 		rc = rc && sum(chk_if_greater(x, y)) == 0;
 		rc = rc && sum(chk_if_greater(y, x)) == N;
+		rc = rc && sum(x > y) == 0;
+		rc = rc && sum(x < y) == N;
 		return rc;
 		});
 
