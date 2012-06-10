@@ -120,10 +120,8 @@ int main() {
 		vex::vector<double> X(ctx.queue(), x);
 		vex::vector<double> Y = std::move(X);
 		rc = rc && (Y.size() == x.size());
-		Reductor<double,MIN> min(ctx.queue());
-		Reductor<double,MAX> max(ctx.queue());
-		rc = rc && min(Y) == x[0];
-		rc = rc && max(Y) == x[0];
+		Reductor<size_t,SUM> sum(ctx.queue());
+		rc = rc && sum(Y != x[0]) == 0;
 		return rc;
 		});
 
@@ -137,10 +135,9 @@ int main() {
 		swap(x, y);
 		rc = rc && (y.size() == N);
 		rc = rc && (x.size() == N/2);
-		Reductor<double,MIN> min(ctx.queue());
-		Reductor<double,MAX> max(ctx.queue());
-		rc = rc && min(y) == 42 && max(y) == 42;
-		rc = rc && max(x) == 67 && max(x) == 67;
+		Reductor<size_t,SUM> sum(ctx.queue());
+		rc = rc && sum(y != 42) == 0;
+		rc = rc && sum(x != 67) == 0;
 		return rc;
 		});
 
@@ -151,9 +148,8 @@ int main() {
 		vex::vector<double> X;
 		X.resize(ctx.queue(), x);
 		rc = rc && (X.size() == x.size());
-		Reductor<double,MIN> min(ctx.queue());
-		Reductor<double,MAX> max(ctx.queue());
-		rc = rc && min(X) == 42 && max(X) == 42;
+		Reductor<size_t,SUM> sum(ctx.queue());
+		rc = rc && sum(X != 42) == 0;
 		return rc;
 		});
 
@@ -165,8 +161,8 @@ int main() {
 		vex::vector<double> y;
 		y.resize(x);
 		rc = rc && (y.size() == x.size());
-		Reductor<double,MAX> max(ctx.queue());
-		rc = rc && max((x - y) * (x - y)) == 0;
+		Reductor<size_t,SUM> sum(ctx.queue());
+		rc = rc && sum(x != y) == 0;
 		return rc;
 		});
 
@@ -213,12 +209,11 @@ int main() {
 		std::vector<double> x(N, 42);
 		vex::vector<double> X(ctx.queue(), N);
 		copy(x, X);
-		Reductor<double,MIN> min(ctx.queue());
-		Reductor<double,MAX> max(ctx.queue());
-		rc = rc && min(X) == 42 && max(X) == 42;
+		Reductor<size_t,SUM> sum(ctx.queue());
+		rc = rc && sum(X != 42) == 0;
 		std::fill(x.begin(), x.end(), 67);
 		vex::copy(x.begin(), x.end(), X.begin());
-		rc = rc && min(X) == 67 && max(X) == 67;
+		rc = rc && sum(X != 67) == 0;
 		return rc;
 		});
 
