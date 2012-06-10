@@ -48,36 +48,17 @@ filter, double precision support etc. Filters can be combined with logical
 operators. In the example below all devices with names matching "Radeon" and
 supporting double precision are selected:
 \code
-#include <iostream>
 #include <vexcl/vexcl.hpp>
 using namespace vex;
 int main() {
-    auto device = device_list(
-        Filter::Name("Radeon") && Filter::DoublePrecision
-        );
+    vex::Context ctx(Filter::Name("Radeon") && Filter::DoublePrecision);
     std::cout << device << std::endl;
 }
 \endcode
-
-Often you want not just device list, but initialized OpenCL context with
-command queue on each available device. This may be achieved with queue_list()
-function:
-\code
-cl::Context context;
-std::vector<cl::CommandQueue> queue;
-// Select no more than 2 NVIDIA GPUs:
-std::tie(context, queue) = queue_list(
-    [](const cl::Device &d) {
-        return d.getInfo<CL_DEVICE_VENDOR>() == "NVIDIA Corporation";
-    } && Filter::Count(2)
-    );
-\endcode
-
-Last operation may be wrapped into single call to a vex::Context constructor:
-\code
-vex::Context ctx(Filter::Env);
-std::cout << ctx << std::endl;
-\endcode
+vex::Context object holds list of initialized OpenCL contexts and command
+queues for each filtered device. If you just need list of available devices
+without creating contexts and queues on them, then look for device_list()
+function in documenation.
 
 \section vector Memory allocation and vector arithmetic
 
@@ -113,7 +94,7 @@ You can now use simple vector arithmetic with device vector. For every
 expression you use, appropriate kernel is compiled (first time it is
 encountered in your program) and called automagically. If you want to see
 sources of the generated kernels on the standard output, define
-`VEXCL_SHOW_KERNELS` macro before including VexCL headers.
+VEXCL_SHOW_KERNELS macro before including VexCL headers.
 
 Vectors are processed in parallel across all devices they were allocated on:
 \code
@@ -221,7 +202,7 @@ size_t count_if_greater(const vex:vector<float> &x, const vex::vector<float> &y)
 \endcode
 
 You could also write sum(greater(x + y, 5 * y)), or use any other expressions
-as parameters to the `greater()` call. Note that in the function body
+as parameters to the greater() call. Note that in the function body
 parameters are always named as prm1, prm2, etc.
 
 

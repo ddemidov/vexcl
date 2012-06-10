@@ -16,49 +16,29 @@ filter, double precision support etc. Filters can be combined with logical
 operators. In the example below all devices with names matching "Radeon" and
 supporting double precision are selected:
 ```C++
-#include <iostream>
 #include <vexcl/vexcl.hpp>
 using namespace vex;
 int main() {
-    std::vector<cl::Device> device = device_list(
-        Filter::Name("Radeon") && Filter::DoublePrecision
-        );
+    vex::Context ctx(Filter::Name("Radeon") && Filter::DoublePrecision);
     std::cout << device << std::endl;
 }
 ```
-
-Often you want not just device list, but initialized OpenCL context with
-command queue on each available device. This may be achieved with `queue_list`
-function:
-```C++
-std::vector<cl::Context>      context;
-std::vector<cl::CommandQueue> queue;
-// Select no more than 2 NVIDIA GPUs:
-std::tie(context, queue) = queue_list(
-    [](const cl::Device &d) {
-        return d.getInfo<CL_DEVICE_VENDOR>() == "NVIDIA Corporation";
-    } && Filter::Count(2)
-    );
-std::cout << queue << std::endl;
-```
-
-Last operation may be wrapped into single call to a vex::Context constructor:
-```C++
-vex::Context ctx(Filter::Env);
-std::cout << ctx << std::endl;
-```
+`vex::Context` object holds list of initialized OpenCL contexts and command
+queues for each filtered device. If you just need list of available devices
+without creating contexts and queues on them, then look for `device_list()`
+function in documenation.
 
 Memory allocation and vector arithmetic
 ---------------------------------------
 
-Once you got queue list, you can allocate OpenCL buffers on the associated
-devices. `vex::vector` constructor accepts `std::vector` of `cl::CommandQueue`.
-The contents of the created vector will be partitioned between each queue
-(presumably, each of the provided queues is linked with separate device).
-Size of each partition will be proportional to relative device bandwidth unless
-macro `VEXCL_DUMB_PARTITIONING` is defined, in which case equal partitioning
-scheme will be applied. Device bandwidth is measured first time it is requested
-by launch of small test kernel.
+Once you initialized VexCL context, you can allocate OpenCL buffers on the
+associated devices. `vex::vector` constructor accepts `std::vector` of
+`cl::CommandQueue`.  The contents of the created vector will be partitioned
+between each queue (presumably, each of the provided queues is linked with
+separate device).  Size of each partition will be proportional to relative
+device bandwidth unless macro `VEXCL_DUMB_PARTITIONING` is defined, in which
+case equal partitioning scheme will be applied. Device bandwidth is measured
+first time it is requested by launch of small test kernel.
 
 Multi-platform computation is supported (that is, you
 can spread your vectors across devices by different vendors), but should be
