@@ -57,6 +57,8 @@ THE SOFTWARE.
 /// Vector expression template library for OpenCL.
 namespace vex {
 
+/// \cond INTERNAL
+
 template<class T, typename column_t> struct SpMV;
 template <class Expr, typename T, typename column_t> struct ExSpMV;
 template<class T, typename column_t, uint N> struct MultiSpMV;
@@ -208,6 +210,8 @@ struct KernelGenerator<T, typename std::enable_if<std::is_arithmetic<T>::value>:
     private:
 	const T &value;
 };
+
+/// \endcond
 
 /// Device vector.
 template<class T>
@@ -596,6 +600,8 @@ class vector : public expression {
 	const vector& operator=(const SpMV<T,column_t> &spmv);
 	/// @}
 
+	/// \cond INTERNAL
+
 	/** \name Service methods used for kernel generation.
 	 * @{
 	 */
@@ -669,6 +675,9 @@ class vector : public expression {
 		    if (start < stop) event[d].wait();
 		}
 	}
+
+	/// \endcond
+
     private:
 	template <class Expr>
 	struct exdata {
@@ -715,6 +724,8 @@ void copy(const std::vector<T> &hv, vex::vector<T> &dv, cl_bool blocking = CL_TR
     dv.write_data(0, dv.size(), hv.data(), blocking);
 }
 
+/// \cond INTERNAL
+
 template<class Iterator, class Enable = void>
 struct stored_on_device : std::false_type {};
 
@@ -722,6 +733,8 @@ template<class Iterator>
 struct stored_on_device<Iterator,
     typename std::enable_if<Iterator::device_iterator>::type
     > : std::true_type {};
+
+/// \endcond
 
 /// Copy range from device vector to host vector.
 template<class InputIterator, class OutputIterator>
@@ -765,6 +778,9 @@ void swap(vector<T> &x, vector<T> &y) {
     x.swap(y);
 }
 
+/// \cond INTERNAL
+
+/// Binary operations with their traits.
 namespace binop {
     enum kind {
 	Add,
@@ -813,6 +829,8 @@ namespace binop {
     BOP_TRAITS(LogicalOr,    "||", "LOr_")
     BOP_TRAITS(RightShift,   ">>", "Rsh_")
     BOP_TRAITS(LeftShift,    "<<", "Lsh_")
+
+#undef BOP_TRAITS
 }
 
 /// Expression template.
@@ -936,6 +954,8 @@ struct compatible_multiex<T1, T2,
 	T2::is_multiex
 	>::type
 	> : std::true_type {};
+
+/// \endcond
 
 /// Container for several vex::vectors.
 /**
@@ -1196,6 +1216,8 @@ void copy(const std::vector<T> &hv, multivector<T,N> &mv) {
 		mv(i).begin());
 }
 
+/// \cond INTERNAL
+
 /// Multivector expression template
 template <class Expr, uint N>
 struct MultiExpression {
@@ -1298,6 +1320,12 @@ operator oper(const LHS &lhs, const RHS &rhs) { \
     return MultiExpression<subtype, multiex_dim<LHS, RHS>::dim>(ex); \
 }
 
+/// \endcond
+
+/** \defgroup binop Binary operations
+ * @{
+ * You can use these in vector or multivector expressions.
+ */
 DEFINE_BINARY_OP(binop::Add,          + )
 DEFINE_BINARY_OP(binop::Subtract,     - )
 DEFINE_BINARY_OP(binop::Multiply,     * )
@@ -1317,11 +1345,16 @@ DEFINE_BINARY_OP(binop::LogicalOr,    ||)
 DEFINE_BINARY_OP(binop::RightShift,   >>)
 DEFINE_BINARY_OP(binop::LeftShift,    <<)
 
+#undef DEFINE_BINARY_OP
+/** @} */
 //---------------------------------------------------------------------------
 // Builtin functions
 //---------------------------------------------------------------------------
 #ifdef VEXCL_VARIADIC_TEMPLATES
-/// \internal Builtin function call.
+
+/// \cond INTERNAL
+
+/// Builtin function call.
 template <const char *func_name, class... Expr>
 class BuiltinFunction : public expression {
     public:
@@ -1483,6 +1516,12 @@ name(const MultiEx&... multiexpr) { \
 	>(ex); \
 }
 
+/// \endcond
+
+/** \defgroup builtins Builtin functions
+ * @{
+ * You can use these functions in vector or multivector expressions.
+ */
 DEFINE_BUILTIN_FUNCTION(acos)
 DEFINE_BUILTIN_FUNCTION(acosh)
 DEFINE_BUILTIN_FUNCTION(acospi)
@@ -1550,9 +1589,14 @@ DEFINE_BUILTIN_FUNCTION(tanh)
 DEFINE_BUILTIN_FUNCTION(tanpi)
 DEFINE_BUILTIN_FUNCTION(tgamma)
 DEFINE_BUILTIN_FUNCTION(trunc)
+
+#undef DEFINE_BUILTIN_FUNCTION
+/** @} */
 #else
 
-/// \internal Builtin function call.
+/// \cond INTERNAL
+
+/// Builtin function call.
 template <const char *func_name, class Expr>
 struct BuiltinFunction : public expression {
     BuiltinFunction(const Expr &expr) : expr(expr) {}
@@ -1612,6 +1656,12 @@ name(const MultiEx& multiexpr) { \
     BuiltinFunction<name##_fun, typename MultiEx::subtype>, MultiEx::dim>(ex); \
 }
 
+/// \endcond
+
+/** \defgroup builtins Builtin functions
+ * @{
+ * You can use these functions in vector or multivector expressions.
+ */
 DEFINE_BUILTIN_FUNCTION(acos)
 DEFINE_BUILTIN_FUNCTION(acosh)
 DEFINE_BUILTIN_FUNCTION(acospi)
@@ -1655,13 +1705,18 @@ DEFINE_BUILTIN_FUNCTION(tanh)
 DEFINE_BUILTIN_FUNCTION(tanpi)
 DEFINE_BUILTIN_FUNCTION(tgamma)
 DEFINE_BUILTIN_FUNCTION(trunc)
+
+#undef DEFINE_BUILTIN_FUNCTION
+/** @} */
 #endif
 
-#ifdef VEXCL_VARIADIC_TEMPLATES
 //---------------------------------------------------------------------------
 // User-defined functions.
 //---------------------------------------------------------------------------
-/// \internal Custom user function expression template
+#ifdef VEXCL_VARIADIC_TEMPLATES
+/// \cond INTERNAL
+
+/// Custom user function expression template
 template<class RetType, class... ArgType>
 struct UserFunctionFamily {
     template <const char *body, class... Expr>
@@ -1808,6 +1863,8 @@ struct UserFunctionFamily {
 template <const char *body, class T>
 struct UserFunction {};
 
+/// \endcond
+
 /// Custom user function
 /**
  * Is used for introduction of custom functions into expressions. For example,
@@ -1872,6 +1929,8 @@ struct UserFunction<body, RetType(ArgType...)> {
 };
 #endif
 
+/// \cond INTERNAL
+
 /// Returns device weight after simple bandwidth test
 double device_vector_perf(
 	const cl::Context &context, const cl::Device &device,
@@ -1908,6 +1967,8 @@ double device_vector_perf(
 	return dw->second;
     }
 }
+
+/// \endcond
 
 /// Partitions vector wrt to vector performance of devices.
 /**

@@ -43,7 +43,6 @@ THE SOFTWARE.
 #include <cstdlib>
 #include <CL/cl.hpp>
 
-/// OpenCL convenience utilities.
 namespace vex {
 
 /// Device filters.
@@ -203,12 +202,27 @@ namespace Filter {
 	    mutable int count;
     } Env;
 
-    /// \internal Filter join operators.
+    /// Negation of a filter.
+    template <class Flt>
+	struct NegateFilter {
+	    NegateFilter(const Flt &flt) : flt(flt) {}
+
+	    bool operator()(const cl::Device &d) const {
+		return !flt(d);
+	    }
+
+	    private:
+	    const Flt &flt;
+	};
+
+    /// \cond INTERNAL
+
+    /// Filter join operators.
     enum FilterOp {
 	FilterAnd, FilterOr
     };
 
-    /// \internal Filter join expression template.
+    /// Filter join expression template.
     template <class LeftFilter, class RightFilter, FilterOp op>
 	struct FilterBinaryOp {
 	    FilterBinaryOp(const LeftFilter &l, const RightFilter &r)
@@ -228,6 +242,8 @@ namespace Filter {
 	    const RightFilter &right;
 	};
 
+    /// \endcond
+
     /// Join two filters with AND operator.
     template <class LeftFilter, class RightFilter>
 	FilterBinaryOp<LeftFilter, RightFilter, FilterAnd> operator&&(
@@ -243,19 +259,6 @@ namespace Filter {
 	{
 	    return FilterBinaryOp<LeftFilter, RightFilter, FilterOr>(left, right);
 	}
-
-    /// \internal Negation of a filter.
-    template <class Flt>
-	struct NegateFilter {
-	    NegateFilter(const Flt &flt) : flt(flt) {}
-
-	    bool operator()(const cl::Device &d) const {
-		return !flt(d);
-	    }
-
-	    private:
-	    const Flt &flt;
-	};
 
     /// Negate a filter.
     template <class Flt>
@@ -388,6 +391,7 @@ class Context {
 };
 
 
+/// Output list of devices to stream.
 std::ostream& operator<<(std::ostream &os, const std::vector<cl::Device> &device) {
     uint p = 1;
 
@@ -397,6 +401,7 @@ std::ostream& operator<<(std::ostream &os, const std::vector<cl::Device> &device
     return os;
 }
 
+/// Output list of devices to stream.
 std::ostream& operator<<(std::ostream &os, const std::vector<cl::CommandQueue> &queue) {
     uint p = 1;
 
@@ -408,6 +413,7 @@ std::ostream& operator<<(std::ostream &os, const std::vector<cl::CommandQueue> &
     return os;
 }
 
+/// Output list of devices to stream.
 std::ostream& operator<<(std::ostream &os, const vex::Context &ctx) {
     return os << ctx.queue();
 }

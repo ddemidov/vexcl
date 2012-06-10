@@ -53,8 +53,9 @@ THE SOFTWARE.
 
 #include <cstdlib>
 
-/// OpenCL convenience utilities.
 namespace vex {
+
+/// \cond INTERNAL
 
 /// Return size of std::vector in bytes.
 template <typename T>
@@ -91,9 +92,6 @@ class SpMatBase {
 	virtual ~SpMatBase() {}
 };
 
-//---------------------------------------------------------------------------
-// Sparse matrix-vector product.
-//---------------------------------------------------------------------------
 template <typename real, typename column_t>
 struct SpMV {
     SpMV(const SpMatBase<real, column_t> &A, const vex::vector<real> &x) : A(A), x(x) {}
@@ -102,11 +100,15 @@ struct SpMV {
     const vex::vector<real> &x;
 };
 
-/// Multiply sparse matrix and a vector.
-template <typename real, typename column_t>
-SpMV<real,column_t> operator*(const SpMatBase<real, column_t> &A, const vex::vector<real> &x) {
-    return SpMV<real, column_t>(A, x);
-}
+/// Sparse matrix-vector product.
+template <typename real, typename column_t, uint N>
+struct MultiSpMV {
+    MultiSpMV(const SpMatBase<real, column_t> &A, const vex::multivector<real,N> &x)
+	: A(A), x(x) {}
+
+    const SpMatBase<real,column_t> &A;
+    const vex::multivector<real,N> &x;
+};
 
 template <class Expr, typename real, typename column_t>
 struct ExSpMV {
@@ -117,6 +119,25 @@ struct ExSpMV {
     const real alpha;
     const SpMV<real, column_t> &spmv;
 };
+
+/// Expression with matrix-multivector product.
+template <class Expr, typename real, typename column_t, uint N>
+struct MultiExSpMV {
+    MultiExSpMV(const Expr &expr, const real alpha, const MultiSpMV<real, column_t, N> &spmv)
+	: expr(expr), alpha(alpha), spmv(spmv) {}
+
+    const Expr &expr;
+    const real alpha;
+    const MultiSpMV<real, column_t, N> &spmv;
+};
+
+/// \endcond
+
+/// Multiply sparse matrix and a vector.
+template <typename real, typename column_t>
+SpMV<real,column_t> operator*(const SpMatBase<real, column_t> &A, const vex::vector<real> &x) {
+    return SpMV<real, column_t>(A, x);
+}
 
 /// Add an expression and sparse matrix - vector product.
 template <class Expr, typename real, typename column_t>
@@ -145,19 +166,6 @@ const vector<real>& vector<real>::operator=(const ExSpMV<Expr,real,column_t> &xm
     return *this;
 }
 
-//---------------------------------------------------------------------------
-// Sparse matrix-multivector product.
-//---------------------------------------------------------------------------
-/// \internal Sparse matrix-vector product.
-template <typename real, typename column_t, uint N>
-struct MultiSpMV {
-    MultiSpMV(const SpMatBase<real, column_t> &A, const vex::multivector<real,N> &x)
-	: A(A), x(x) {}
-
-    const SpMatBase<real,column_t> &A;
-    const vex::multivector<real,N> &x;
-};
-
 /// Multiply sparse matrix and a vector.
 template <typename real, typename column_t, uint N>
 MultiSpMV<real,column_t,N> operator*(
@@ -165,17 +173,6 @@ MultiSpMV<real,column_t,N> operator*(
 {
     return MultiSpMV<real, column_t, N>(A, x);
 }
-
-/// \internal Expression with matrix-multivector product.
-template <class Expr, typename real, typename column_t, uint N>
-struct MultiExSpMV {
-    MultiExSpMV(const Expr &expr, const real alpha, const MultiSpMV<real, column_t, N> &spmv)
-	: expr(expr), alpha(alpha), spmv(spmv) {}
-
-    const Expr &expr;
-    const real alpha;
-    const MultiSpMV<real, column_t, N> &spmv;
-};
 
 /// Add an expression and sparse matrix - multivector product.
 template <class Expr, typename real, typename column_t, uint N>
@@ -206,11 +203,11 @@ const multivector<real,N>& multivector<real,N>::operator=(const MultiExSpMV<Expr
     return *this;
 }
 
-/// Sparse matrix in ELL format.
+/// Sparse matrix in hybrid ELL-CSR format.
 template <typename real, typename column_t = size_t>
 class SpMat : public SpMatBase<real, column_t>{
     public:
-	/// Constructor for ELL format.
+	/// Constructor.
 	/**
 	 * Constructs GPU representation of the matrix. Input matrix is in CSR
 	 * format. GPU matrix utilizes ELL format and is split equally across
