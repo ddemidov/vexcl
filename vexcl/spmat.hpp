@@ -1582,7 +1582,6 @@ double device_spmv_perf(
 	prof.tic_cl("");
 	y = A * x;
 	double time = prof.toc("");
-	std::cout << device.getInfo<CL_DEVICE_NAME>() << " - " << time << std::endl;
 	return dev_weights[device()] = 1 / time;
     } else {
 	return dw->second;
