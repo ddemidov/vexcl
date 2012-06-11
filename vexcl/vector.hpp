@@ -32,6 +32,7 @@ THE SOFTWARE.
  */
 
 #ifdef WIN32
+#  pragma warning(push)
 #  pragma warning(disable : 4267 4290)
 #  define NOMINMAX
 #endif
@@ -433,8 +434,9 @@ class vector : public expression {
 
 	/// Access element.
 	element operator[](size_t index) {
-	    uint d = std::upper_bound(
-		    part.begin(), part.end(), index) - part.begin() - 1;
+	    uint d = static_cast<uint>(
+		std::upper_bound(part.begin(), part.end(), index) - part.begin() - 1
+		);
 	    return element(queue[d], buf[d], index - part[d]);
 	}
 
@@ -937,23 +939,17 @@ struct compatible_multiex<T1, T2,
 	T2::is_multiex>::type
 	> : std::true_type {};
 
-template <class T1, class T2>
-struct compatible_multiex<T1, T2,
-    typename std::enable_if<
-	T1::is_multiex &&
-	is_std_array<T2>::value &&
-	std::tuple_size<T2>::value == T1::dim
-	>::type
-	> : std::true_type {};
+template <class T1, class T2, size_t N>
+struct compatible_multiex<
+	T1, std::array<T2,N>,
+	typename std::enable_if<T1::is_multiex && T1::dim == N>::type
+    > : std::true_type {};
 
-template <class T1, class T2>
-struct compatible_multiex<T1, T2,
-    typename std::enable_if<
-	is_std_array<T1>::value &&
-	std::tuple_size<T1>::value == T2::dim &&
-	T2::is_multiex
-	>::type
-	> : std::true_type {};
+template <class T1, size_t N, class T2>
+struct compatible_multiex<
+	std::array<T1,N>, T2,
+	typename std::enable_if<T2::is_multiex && T2::dim == N>::type
+    > : std::true_type {};
 
 /// \endcond
 
@@ -1237,7 +1233,10 @@ struct MultiExpression {
 };
 
 template<class T, class Enable = void>
-struct multiex_traits {};
+struct multiex_traits {
+    static const uint dim = 0;
+    typedef T subtype;
+};
 
 template<class T>
 struct multiex_traits<T, typename std::enable_if<T::is_multiex>::type> {
@@ -1997,7 +1996,8 @@ std::vector<size_t> partition_by_vector_perf(
 			));
 
 	for(uint d = 0; d < queue.size(); d++)
-	    part[d + 1] = std::min(n, alignup(n * cumsum[d + 1] / cumsum.back()));
+	    part[d + 1] = std::min(n, alignup(
+		static_cast<size_t>(n * cumsum[d + 1] / cumsum.back())));
     }
 
     part.back() = n;
@@ -2007,4 +2007,7 @@ std::vector<size_t> partition_by_vector_perf(
 
 } // namespace vex
 
+#ifdef WIN32
+#  pragma warning(pop)
+#endif
 #endif

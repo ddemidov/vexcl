@@ -25,7 +25,7 @@ bool run_test(const std::string &name, std::function<bool()> test) {
 extern const char chk_if_gr_body[] = "return prm1 > prm2 ? 1 : 0;";
 
 int main() {
-    srand(time(0));
+    srand(static_cast<uint>(time(0)));
 
     try {
 	vex::Context ctx(Filter::DoublePrecision && Filter::Env);
@@ -36,7 +36,7 @@ int main() {
 	    return 1;
 	}
 
-	run_test("Empty vector construction", [&]() {
+	run_test("Empty vector construction", [&]() -> bool {
 		bool rc = true;
 		vex::vector<double> x;
 		rc = rc && (x.size() == 0);
@@ -44,7 +44,7 @@ int main() {
 		return rc;
 		});
 
-	run_test("Vector construction from size", [&]() {
+	run_test("Vector construction from size", [&]() -> bool {
 		const size_t N = 1024;
 		bool rc = true;
 		vex::vector<double> x(ctx.queue(), N);
@@ -53,7 +53,7 @@ int main() {
 		return rc;
 		});
 
-	run_test("Vector construction from std::vector", [&]() {
+	run_test("Vector construction from std::vector", [&]() -> bool {
 		const size_t N = 1024;
 		bool rc = true;
 		std::vector<double> x(N, 42);
@@ -69,7 +69,7 @@ int main() {
 		return rc;
 		});
 
-	run_test("Vector construction from size and host pointer", [&]() {
+	run_test("Vector construction from size and host pointer", [&]() -> bool {
 		const size_t N = 1024;
 		bool rc = true;
 		std::vector<double> x(N, 42);
@@ -85,7 +85,7 @@ int main() {
 		return rc;
 		});
 
-	run_test("Vector copy construction", [&]() {
+	run_test("Vector copy construction", [&]() -> bool {
 		const size_t N = 1024;
 		bool rc = true;
 		vex::vector<double> x1;
@@ -98,7 +98,7 @@ int main() {
 		return rc;
 		});
 
-	run_test("Vector move construction from vex::vector", [&]() {
+	run_test("Vector move construction from vex::vector", [&]() -> bool {
 		const size_t N = 1024;
 		bool rc = true;
 		vex::vector<double> x(ctx.queue(), N);
@@ -113,7 +113,7 @@ int main() {
 		return rc;
 		});
 
-	run_test("Vector move assignment", [&]() {
+	run_test("Vector move assignment", [&]() -> bool {
 		const size_t N = 1024;
 		bool rc = true;
 		std::vector<double> x(N, 42);
@@ -125,7 +125,7 @@ int main() {
 		return rc;
 		});
 
-	run_test("Vector swap", [&]() {
+	run_test("Vector swap", [&]() -> bool {
 		const size_t N = 1024;
 		bool rc = true;
 		vex::vector<double> x(ctx.queue(), N);
@@ -141,7 +141,7 @@ int main() {
 		return rc;
 		});
 
-	run_test("Vector resize from std::vector", [&]() {
+	run_test("Vector resize from std::vector", [&]() -> bool {
 		const size_t N = 1024;
 		bool rc = true;
 		std::vector<double> x(N, 42);
@@ -153,7 +153,7 @@ int main() {
 		return rc;
 		});
 
-	run_test("Vector resize vex::vector", [&]() {
+	run_test("Vector resize vex::vector", [&]() -> bool {
 		const size_t N = 1024;
 		bool rc = true;
 		vex::vector<double> x(ctx.queue(), N);
@@ -166,7 +166,7 @@ int main() {
 		return rc;
 		});
 
-	run_test("Iterate over vex::vector", [&]() {
+	run_test("Iterate over vex::vector", [&]() -> bool {
 		const size_t N = 1024;
 		bool rc = true;
 		vex::vector<double> x(ctx.queue(), N);
@@ -176,7 +176,7 @@ int main() {
 		return rc;
 		});
 
-	run_test("Access vex::vector elements", [&]() {
+	run_test("Access vex::vector elements", [&]() -> bool {
 		const size_t N = 1024;
 		bool rc = true;
 		vex::vector<double> x(ctx.queue(), N);
@@ -187,7 +187,7 @@ int main() {
 		return rc;
 		});
 
-	run_test("Copy vex::vector to std::vector", [&]() {
+	run_test("Copy vex::vector to std::vector", [&]() -> bool {
 		const size_t N = 1024;
 		bool rc = true;
 		std::vector<double> x(N);
@@ -203,7 +203,7 @@ int main() {
 		return rc;
 		});
 
-	run_test("Copy std::vector to vex::vector", [&]() {
+	run_test("Copy std::vector to vex::vector", [&]() -> bool {
 		const size_t N = 1024;
 		bool rc = true;
 		std::vector<double> x(N, 42);
@@ -217,7 +217,7 @@ int main() {
 		return rc;
 		});
 
-	run_test("Assign expression to vex::vector", [&]() {
+	run_test("Assign expression to vex::vector", [&]() -> bool {
 		const size_t N = 1024;
 		bool rc = true;
 		vex::vector<double> x(ctx.queue(), N);
@@ -227,12 +227,12 @@ int main() {
 		z = 67;
 		x = 5 * sin(y) + z;
 		Reductor<double,MAX> max(ctx.queue());
-		rc = rc && max(fabs(x - (5 * sin(42) + 67))) < 1e-12;
+		rc = rc && max(fabs(x - (5 * sin(42.0) + 67))) < 1e-12;
 		return rc;
 		});
 
 
-	run_test("Reduction", [&]() {
+	run_test("Reduction", [&]() -> bool {
 		const size_t N = 1024;
 		bool rc = true;
 		std::vector<double> x(N);
@@ -248,7 +248,7 @@ int main() {
 		});
 
 
-	run_test("Sparse matrix-vector product", [&]() {
+	run_test("Sparse matrix-vector product", [&]() -> bool {
 		bool rc = true;
 		const size_t n   = 32;
 		const double h2i = (n - 1) * (n - 1);
@@ -339,7 +339,7 @@ int main() {
 		return rc;
 	});
 
-	run_test("Sparse matrix-vector product (CCSR format)", [&]() {
+	run_test("Sparse matrix-vector product (CCSR format)", [&]() -> bool {
 		bool rc = true;
 		const uint n   = 32;
 		const double h2i = (n - 1) * (n - 1);
@@ -358,8 +358,8 @@ int main() {
 		col[0] = 0;
 		val[0] = 1;
 
-		col[1] = -(n * n);
-		col[2] =    -n;
+		col[1] = -static_cast<int>(n * n);
+		col[2] = -static_cast<int>(n);
 		col[3] =    -1;
 		col[4] =     0;
 		col[5] =     1;
@@ -432,7 +432,7 @@ int main() {
 		return rc;
 	});
 
-	run_test("Builtin function with one argument", [&]() {
+	run_test("Builtin function with one argument", [&]() -> bool {
 		const size_t N = 1024;
 		bool rc = true;
 		std::vector<double> x(N);
@@ -450,39 +450,7 @@ int main() {
 		return rc;
 		});
 
-#ifdef VEXCL_VARIADIC_TEMPLATES
-	run_test("Builtin function with two arguments", [&]() {
-		const size_t N = 1024;
-		bool rc = true;
-		std::vector<double> x(N);
-		std::generate(x.begin(), x.end(), [](){ return (double)rand() / RAND_MAX; });
-		vex::vector<double> X(ctx.queue(), x);
-		Reductor<double,SUM> sum(ctx.queue());
-		rc = rc && 1e-8 > fabs(sum(pow(X, 2.0)) -
-		    std::accumulate(x.begin(), x.end(), 0.0, [](double s, double v) {
-			return s + pow(v, 2.0);
-			}));
-		return rc;
-		});
-#endif
-
-	run_test("Custom function", [&]() {
-		const size_t N = 1024;
-		bool rc = true;
-		vex::vector<double> x(ctx.queue(), N);
-		vex::vector<double> y(ctx.queue(), N);
-		x = 1;
-		y = 2;
-		UserFunction<chk_if_gr_body, size_t(double, double)> chk_if_greater;
-		Reductor<size_t,SUM> sum(ctx.queue());
-		rc = rc && sum(chk_if_greater(x, y)) == 0;
-		rc = rc && sum(chk_if_greater(y, x)) == N;
-		rc = rc && sum(x > y) == 0;
-		rc = rc && sum(x < y) == N;
-		return rc;
-		});
-
-	run_test("Access multivector's elements, copy data", [&]() {
+	run_test("Access multivector's elements, copy data", [&]() -> bool {
 		bool rc = true;
 		const size_t n = 1024;
 		const size_t m = 4;
@@ -505,7 +473,7 @@ int main() {
 		return rc;
 	});
 
-	run_test("Simple arithmetic with multivectors", [&]() {
+	run_test("Simple arithmetic with multivectors", [&]() -> bool {
 		bool rc = true;
 		const size_t n = 1024;
 		const size_t m = 4;
@@ -541,7 +509,7 @@ int main() {
 		return rc;
 	});
 
-	run_test("One-argument builtin function call for multivector", [&]() {
+	run_test("One-argument builtin function call for multivector", [&]() -> bool {
 		bool rc = true;
 		const size_t n = 1024;
 		const size_t m = 4;
@@ -560,46 +528,7 @@ int main() {
 		return rc;
 	});
 
-	run_test("Two-arguments builtin function call for multivector", [&]() {
-		bool rc = true;
-		const size_t n = 1024;
-		const size_t m = 4;
-		std::vector<double> host(n * m);
-		std::generate(host.begin(), host.end(),
-		    [](){ return (double)rand() / RAND_MAX; });
-		multivector<double, m> x(ctx.queue(), n);
-		multivector<double, m> y(ctx.queue(), host);
-		x = pow(y, 2.0);
-		for(size_t k = 0; k < 10; k++) {
-		    size_t i = rand() % n;
-		    std::array<double,m> val = x[i];
-		    for(uint j = 0; j < m; j++)
-			rc = rc && fabs(val[j] - pow(host[j * n + i], 2.0)) < 1e-8;
-		}
-		return rc;
-	});
-
-	run_test("Custom function for multivector", [&]() {
-		bool rc = true;
-		const size_t n = 1024;
-		const size_t m = 4;
-		multivector<double, m> x(ctx.queue(), n);
-		multivector<double, m> y(ctx.queue(), n);
-		x = 1;
-		y = 2;
-		UserFunction<chk_if_gr_body, size_t(double, double)> chk_if_greater;
-		x = chk_if_greater(x, y);
-		for(size_t k = 0; k < 10; k++) {
-		    size_t i = rand() % n;
-		    std::array<double,m> val = x[i];
-		    for(uint j = 0; j < m; j++)
-			rc = rc && val[j] == 0;
-		}
-		return rc;
-		});
-
-
-	run_test("Reduction of multivector", [&]() {
+	run_test("Reduction of multivector", [&]() -> bool {
 		bool rc = true;
 		const size_t n = 1024;
 		const size_t m = 4;
@@ -618,7 +547,7 @@ int main() {
 		return rc;
 		});
 
-	run_test("Sparse matrix-multivector product", [&]() {
+	run_test("Sparse matrix-multivector product", [&]() -> bool {
 		bool rc = true;
 		const size_t n   = 32;
 		const size_t N   = n * n * n;
@@ -717,7 +646,7 @@ int main() {
 		return rc;
 	});
 
-	run_test("Sparse matrix-multivector product (CCSR format)", [&]() {
+	run_test("Sparse matrix-multivector product (CCSR format)", [&]() -> bool {
 		bool rc = true;
 		const uint n     = 32;
 		const uint N     = n * n * n;
@@ -738,8 +667,8 @@ int main() {
 		col[0] = 0;
 		val[0] = 1;
 
-		col[1] = -(n * n);
-		col[2] =    -n;
+		col[1] = -static_cast<int>(n * n);
+		col[2] = -static_cast<int>(n);
 		col[3] =    -1;
 		col[4] =     0;
 		col[5] =     1;
@@ -816,7 +745,75 @@ int main() {
 		return rc;
 	});
 
+#ifdef VEXCL_VARIADIC_TEMPLATES
+	run_test("Builtin function with two arguments", [&]() {
+		const size_t N = 1024;
+		bool rc = true;
+		std::vector<double> x(N);
+		std::generate(x.begin(), x.end(), [](){ return (double)rand() / RAND_MAX; });
+		vex::vector<double> X(ctx.queue(), x);
+		Reductor<double,SUM> sum(ctx.queue());
+		rc = rc && 1e-8 > fabs(sum(pow(X, 2.0)) -
+		    std::accumulate(x.begin(), x.end(), 0.0, [](double s, double v) {
+			return s + pow(v, 2.0);
+			}));
+		return rc;
+		});
 
+	run_test("Custom function", [&]() -> bool {
+		const size_t N = 1024;
+		bool rc = true;
+		vex::vector<double> x(ctx.queue(), N);
+		vex::vector<double> y(ctx.queue(), N);
+		x = 1;
+		y = 2;
+		UserFunction<chk_if_gr_body, size_t(double, double)> chk_if_greater;
+		Reductor<size_t,SUM> sum(ctx.queue());
+		rc = rc && sum(chk_if_greater(x, y)) == 0;
+		rc = rc && sum(chk_if_greater(y, x)) == N;
+		rc = rc && sum(x > y) == 0;
+		rc = rc && sum(x < y) == N;
+		return rc;
+		});
+
+	run_test("Two-arguments builtin function call for multivector", [&]() -> bool {
+		bool rc = true;
+		const size_t n = 1024;
+		const size_t m = 4;
+		std::vector<double> host(n * m);
+		std::generate(host.begin(), host.end(),
+		    [](){ return (double)rand() / RAND_MAX; });
+		multivector<double, m> x(ctx.queue(), n);
+		multivector<double, m> y(ctx.queue(), host);
+		x = pow(y, 2.0);
+		for(size_t k = 0; k < 10; k++) {
+		    size_t i = rand() % n;
+		    std::array<double,m> val = x[i];
+		    for(uint j = 0; j < m; j++)
+			rc = rc && fabs(val[j] - pow(host[j * n + i], 2.0)) < 1e-8;
+		}
+		return rc;
+	});
+
+	run_test("Custom function for multivector", [&]() -> bool {
+		bool rc = true;
+		const size_t n = 1024;
+		const size_t m = 4;
+		multivector<double, m> x(ctx.queue(), n);
+		multivector<double, m> y(ctx.queue(), n);
+		x = 1;
+		y = 2;
+		UserFunction<chk_if_gr_body, size_t(double, double)> chk_if_greater;
+		x = chk_if_greater(x, y);
+		for(size_t k = 0; k < 10; k++) {
+		    size_t i = rand() % n;
+		    std::array<double,m> val = x[i];
+		    for(uint j = 0; j < m; j++)
+			rc = rc && val[j] == 0;
+		}
+		return rc;
+		});
+#endif
     } catch (const cl::Error &err) {
 	std::cerr << "OpenCL error: " << err << std::endl;
 	return 1;

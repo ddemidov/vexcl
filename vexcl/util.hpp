@@ -32,7 +32,8 @@ THE SOFTWARE.
  */
 
 #ifdef WIN32
-#  pragma warning(disable : 4290)
+#  pragma warning(push)
+#  pragma warning(disable : 4267 4290)
 #  define NOMINMAX
 #endif
 
@@ -208,7 +209,7 @@ cl::Program build_sources(
 }
 
 /// Get maximum possible workgroup size for given kernel.
-size_t kernel_workgroup_size(
+uint kernel_workgroup_size(
 	const cl::Kernel &kernel,
 	const std::vector<cl::Device> &device
 	)
@@ -216,7 +217,7 @@ size_t kernel_workgroup_size(
     size_t wgsz = 1024U;
 
     for(auto d = device.begin(); d != device.end(); d++) {
-	size_t dev_wgsz = kernel.getWorkGroupInfo<CL_KERNEL_WORK_GROUP_SIZE>(*d);
+	uint dev_wgsz = kernel.getWorkGroupInfo<CL_KERNEL_WORK_GROUP_SIZE>(*d);
 	while(wgsz > dev_wgsz) wgsz /= 2;
     }
 
@@ -388,4 +389,7 @@ std::ostream& operator<<(std::ostream &os, const cl::Error &e) {
     return os << ")";
 }
 
+#ifdef WIN32
+#  pragma warning(pop)
+#endif
 #endif

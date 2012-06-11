@@ -14,6 +14,10 @@ typedef double real;
 #define BENCHMARK_SPMAT
 #define BENCHMARK_CPU
 
+#ifdef WIN32
+#  pragma warning(disable : 4267)
+#endif
+
 //---------------------------------------------------------------------------
 std::pair<double,double> benchmark_vector(
 	const std::vector<cl::CommandQueue> &queue, profiler &prof
@@ -304,8 +308,8 @@ std::pair<double,double> benchmark_spmv_ccsr(
     col[0] = 0;
     val[0] = 1;
 
-    col[1] = -(n * n);
-    col[2] =    -n;
+    col[1] = -static_cast<int>(n * n);
+    col[2] = -static_cast<int>(n);
     col[3] =    -1;
     col[4] =     0;
     col[5] =     1;

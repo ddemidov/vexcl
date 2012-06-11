@@ -32,7 +32,8 @@ THE SOFTWARE.
  */
 
 #ifdef WIN32
-#  pragma warning(disable : 4290 4715)
+#  pragma warning(push)
+#  pragma warning(disable : 4290 4715 4996)
 #  define NOMINMAX
 #endif
 
@@ -420,4 +421,7 @@ std::ostream& operator<<(std::ostream &os, const vex::Context &ctx) {
 
 } // namespace vex
 
+#ifdef WIN32
+#  pragma warning(pop)
+#endif
 #endif

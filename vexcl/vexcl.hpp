@@ -297,6 +297,7 @@ user functions are not available at all.
 */
 
 #ifdef WIN32
+#  pragma warning(push)
 #  pragma warning(disable : 4290)
 #  define NOMINMAX
 #endif
@@ -313,4 +314,7 @@ user functions are not available at all.
 #include <vexcl/reduce.hpp>
 #include <vexcl/profiler.hpp>
 
+#ifdef WIN32
+#  pragma warning(pop)
+#endif
 #endif

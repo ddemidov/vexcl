@@ -32,7 +32,8 @@ THE SOFTWARE.
  */
 
 #ifdef WIN32
-#  pragma warning(disable : 4290)
+#  pragma warning(push)
+#  pragma warning(disable : 4267 4290)
 #  define NOMINMAX
 #endif
 
@@ -643,7 +644,7 @@ SpMat<real,column_t>::SpMatELL::SpMatELL(
 
 	// Find optimal width for local part.
 	{
-	    for(uint i = 0, nrows = end - beg, rows = nrows; i < loc_ell.w; i++) {
+	    for(size_t i = 0, nrows = end - beg, rows = nrows; i < loc_ell.w; i++) {
 		rows -= loc_hist[i]; // Number of rows wider than i.
 		if (ell_vs_csr * rows < nrows) {
 		    loc_ell.w = i;
@@ -654,7 +655,7 @@ SpMat<real,column_t>::SpMatELL::SpMatELL(
 
 	// Find optimal width for remote part.
 	{
-	    for(uint i = 0, nrows = end - beg, rows = nrows; i < rem_ell.w; i++) {
+	    for(size_t i = 0, nrows = end - beg, rows = nrows; i < rem_ell.w; i++) {
 		rows -= rem_hist[i]; // Number of rows wider than i.
 		if (ell_vs_csr * rows < nrows) {
 		    rem_ell.w = i;
@@ -1517,7 +1518,7 @@ double device_spmv_perf(
 
 	// Construct matrix for 3D Poisson problem in cubic domain.
 	const size_t n   = test_size;
-	const float  h2i = (n - 1) * (n - 1);
+	const float  h2i = (n - 1.0f) * (n - 1.0f);
 
 	std::vector<size_t> row;
 	std::vector<size_t> col;
@@ -1615,7 +1616,8 @@ std::vector<size_t> partition_by_spmv_perf(
 			));
 
 	for(uint d = 0; d < queue.size(); d++)
-	    part[d + 1] = std::min(n, alignup(n * cumsum[d + 1] / cumsum.back()));
+	    part[d + 1] = std::min(n,
+		alignup(static_cast<size_t>(n * cumsum[d + 1] / cumsum.back())));
     }
 
     part.back() = n;
@@ -1625,4 +1627,7 @@ std::vector<size_t> partition_by_spmv_perf(
 
 } // namespace vex
 
+#ifdef WIN32
+#  pragma warning(pop)
+#endif
 #endif

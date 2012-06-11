@@ -32,7 +32,8 @@ THE SOFTWARE.
  */
 
 #ifdef WIN32
-#  pragma warning(disable : 4290 4715)
+#  pragma warning(push)
+#  pragma warning(disable : 4146 4290 4715)
 #  define NOMINMAX
 #endif
 
@@ -98,6 +99,9 @@ class Reductor {
 		case SUM:
 		    return 0;
 		case MAX:
+		    // Strictly speaking, this should fail for unsigned types.
+		    // But negating maximum possible unsigned value gives 0 on
+		    // 2s complement systems, so...
 		    return -std::numeric_limits<real>::max();
 		case MIN:
 		    return std::numeric_limits<real>::max();
@@ -416,4 +420,7 @@ std::string Reductor<real,RDC>::cpu_kernel_source(
 
 } // namespace vex
 
+#ifdef WIN32
+#  pragma warning(pop)
+#endif
 #endif
