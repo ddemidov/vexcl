@@ -20,7 +20,7 @@ supporting double precision are selected:
 using namespace vex;
 int main() {
     vex::Context ctx(Filter::Name("Radeon") && Filter::DoublePrecision);
-    std::cout << device << std::endl;
+    std::cout << ctx << std::endl;
 }
 ```
 `vex::Context` object holds list of initialized OpenCL contexts and command
