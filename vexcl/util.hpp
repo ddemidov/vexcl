@@ -59,6 +59,7 @@ template <> std::string type_name<float>()  { return "float"; }
 template <> std::string type_name<double>() { return "double"; }
 template <> std::string type_name<int>()    { return "int"; }
 template <> std::string type_name<char>()   { return "char"; }
+template <> std::string type_name<bool>()   { return "bool"; }
 template <> std::string type_name<uint>()   { return "unsigned int"; }
 template <> std::string type_name<uchar>()  { return "unsigned char"; }
 
