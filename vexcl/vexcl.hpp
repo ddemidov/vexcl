@@ -193,10 +193,14 @@ vector expressions:
 // Function body has to be defined at global scope, and it has to be of `extern
 // const char[]` type. This allows us to use it as a template parameter.
 extern const char one_greater_than_other[] = "return prm1 > prm2 ? 1 : 0;";
+UserFunction<one_greater_than_other, size_t(float, float)> greater;
 
-size_t count_if_greater(const vex:vector<float> &x, const vex::vector<float> &y) {
-    UserFunction<one_greater_than_other, size_t(float, float)> greater;
-    Reductor<size_t, SUM> sum(x.queue_list());
+size_t count_if_greater(
+    const Reductor<size_t, SUM> &sum,
+    const vex:vector<float> &x,
+    const vex::vector<float> &y
+    )
+{
     return sum(greater(x, y));
 }
 \endcode
