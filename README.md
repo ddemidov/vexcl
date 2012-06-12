@@ -170,7 +170,7 @@ UserFunction<one_greater_than_other, size_t(float, float)> greater;
 
 size_t count_if_greater(
     const Reductor<size_t, SUM> &sum,
-    const vex:vector<float> &x,
+    const vex::vector<float> &x,
     const vex::vector<float> &y
     )
 {
