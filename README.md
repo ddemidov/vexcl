@@ -6,6 +6,17 @@ ease of C++ based OpenCL development.  Multi-device (and multi-platform)
 computations are supported.  See Doxygen-generated documentation at
 http://ddemidov.github.com/vexcl.
 
+Motivation
+----------
+
+Consider classical hello world problem for OpenCL: addition of two vectors.
+[This][hello_cl] is pure OpenCL implementation. Note I used used official C++
+bindings here; C variant would be much more verbose. And [this][hello_vex] is
+the same problem solved with VexCL. I rest my case.
+
+[hello_cl]: https://gist.github.com/2925717
+[hello_vex]: https://gist.github.com/2925718
+
 Selection of compute devices
 ----------------------------
 
@@ -165,8 +176,8 @@ vector expressions:
 ```C++
 // Function body has to be defined at global scope, and it has to be of `extern
 // const char[]` type. This allows us to use it as a template parameter.
-extern const char one_greater_than_other[] = "return prm1 > prm2 ? 1 : 0;";
-UserFunction<one_greater_than_other, size_t(float, float)> greater;
+extern const char greater_body[] = "return prm1 > prm2 ? 1 : 0;";
+UserFunction<greater_body, size_t(float, float)> greater;
 
 size_t count_if_greater(
     const Reductor<size_t, SUM> &sum,
