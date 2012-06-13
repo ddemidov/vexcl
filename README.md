@@ -10,9 +10,9 @@ Motivation
 ----------
 
 Consider classical hello world problem for OpenCL: addition of two vectors.
-[This][hello_cl] is pure OpenCL implementation. Note that I used used official C++
+[This][hello_cl] is pure OpenCL implementation. Note that I used official C++
 bindings here; C variant would be much more verbose. And [this][hello_vex] is
-the same problem solved with VexCL. I rest my case.
+the same problem solved with VexCL. I rest my case :).
 
 [hello_cl]: https://gist.github.com/2925717
 [hello_vex]: https://gist.github.com/2925718
