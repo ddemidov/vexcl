@@ -8,14 +8,18 @@ gflops_vec = 2;
 bwidth_vec = 3;
 gflops_rdc = 4;
 bwidth_rdc = 5;
-gflops_spm = 6;
-bwidth_spm = 7;
+gflops_stc = 6;
+bwidth_stc = 7;
+gflops_spm = 8;
+bwidth_spm = 9;
 
 
 vec_gflops = [];
 vec_bwidth = [];
 rdc_gflops = [];
 rdc_bwidth = [];
+stc_gflops = [];
+stc_bwidth = [];
 spm_gflops = [];
 spm_bwidth = [];
 
@@ -29,6 +33,8 @@ for n = 1:max_cards
     vec_bwidth = [vec_bwidth avg(bwidth_vec)];
     rdc_gflops = [rdc_gflops avg(gflops_rdc)];
     rdc_bwidth = [rdc_bwidth avg(bwidth_rdc)];
+    stc_gflops = [stc_gflops avg(gflops_stc)];
+    stc_bwidth = [stc_bwidth avg(bwidth_stc)];
     spm_gflops = [spm_gflops avg(gflops_spm)];
     spm_bwidth = [spm_bwidth avg(bwidth_spm)];
 end
@@ -41,7 +47,10 @@ plot(1:max_cards, vec_gflops, 'ko-', ...
 hold on
 plot(1:max_cards, rdc_gflops, 'ro-', ...
 		'linewidth', 2, 'markersize', 6, 'markerfacecolor', 'w');
-hold on
+
+plot(1:max_cards, stc_gflops, 'go-', ...
+		'linewidth', 2, 'markersize', 6, 'markerfacecolor', 'w');
+
 plot(1:max_cards, spm_gflops, 'bo-', ...
 		'linewidth', 2, 'markersize', 6, 'markerfacecolor', 'w');
 
@@ -51,7 +60,7 @@ set(gca, 'xtick', [1 2 3]);
 xlabel('Number of devices (Tesla C2070)')
 ylabel('Effective GFLOPS')
 
-legend('Vector arithmetic', 'Reduction', 'SpMV', ...
+legend('Vector arithmetic', 'Reduction', 'Stencil conv', 'SpMV', ...
 		'location', 'northwest');
 legend boxoff
 
@@ -66,7 +75,10 @@ plot(1:max_cards, vec_bwidth, 'ko-', ...
 hold on
 plot(1:max_cards, rdc_bwidth, 'ro-', ...
 		'linewidth', 2, 'markersize', 6, 'markerfacecolor', 'w');
-hold on
+
+plot(1:max_cards, stc_bwidth, 'go-', ...
+		'linewidth', 2, 'markersize', 6, 'markerfacecolor', 'w');
+
 plot(1:max_cards, spm_bwidth, 'bo-', ...
 		'linewidth', 2, 'markersize', 6, 'markerfacecolor', 'w');
 
@@ -76,7 +88,7 @@ set(gca, 'xtick', [1 2 3]);
 xlabel('Number of devices (Tesla C2070)')
 ylabel('Effective bandwidth (GB/sec)')
 
-legend('Vector arithmetic', 'Reduction', 'SpMV', ...
+legend('Vector arithmetic', 'Reduction', 'Stencil conv', 'SpMV', ...
 		'location', 'northwest');
 legend boxoff
 

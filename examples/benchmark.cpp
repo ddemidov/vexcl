@@ -11,6 +11,7 @@ typedef double real;
 
 #define BENCHMARK_VECTOR
 #define BENCHMARK_REDUCTOR
+#define BENCHMARK_STENCIL
 #define BENCHMARK_SPMAT
 #define BENCHMARK_CPU
 
@@ -145,6 +146,76 @@ std::pair<double, double> benchmark_reductor(
     }
 
     std::cout << "  res = " << fabs(sum_cl - sum_cpp)
+	      << std::endl << std::endl;
+#endif
+
+    return std::make_pair(gflops, bwidth);
+}
+
+//---------------------------------------------------------------------------
+std::pair<double, double> benchmark_stencil(
+	const std::vector<cl::CommandQueue> &queue, profiler &prof
+	)
+{
+    const long N = 1024 * 1024;
+    const long M = 1024;
+    double time_elapsed;
+
+    std::vector<real> A(N);
+    std::vector<real> B(N);
+    std::generate(A.begin(), A.end(), [](){ return (real)rand() / RAND_MAX; });
+
+    std::vector<real> S(21, 1.0 / 21);
+    long center = S.size() / 2;
+    vex::stencil<real> s(queue, S, center);
+
+    vex::vector<real> a(queue, A);
+    vex::vector<real> b(queue, N);
+
+    b = a * s;
+
+    prof.tic_cl("OpenCL");
+    for(long i = 0; i < M; i++)
+	b = a * s;
+    time_elapsed = prof.toc("OpenCL");
+
+    double gflops = 2.0 * S.size() * N * M / time_elapsed / 1e9;
+    double bwidth = 2.0 * S.size() * N * M * sizeof(real) / time_elapsed / 1e9;
+
+    std::cout
+	<< "Stencil convolution\n"
+	<< "  OpenCL"
+	<< "\n    GFLOPS:    " << gflops
+	<< "\n    Bandwidth: " << bwidth
+	<< std::endl;
+
+#ifdef BENCHMARK_CPU
+    prof.tic_cpu("C++");
+    for(long j = 0; j < M; j++) {
+	for(long i = 0; i < N; i++) {
+	    real sum = 0;
+	    for(long k = 0; k < (long)S.size(); k++)
+		sum += S[k] * A[std::min<long>(N-1, std::max<long>(0, i + k - center))];
+	    B[i] = sum;
+	}
+    }
+    time_elapsed = prof.toc("C++");
+
+    {
+	double gflops = 2.0 * S.size() * N * M / time_elapsed / 1e9;
+	double bwidth = 2.0 * S.size() * N * M * sizeof(real) / time_elapsed / 1e9;
+
+	std::cout
+	    << "  C++"
+	    << "\n    GFLOPS:    " << gflops
+	    << "\n    Bandwidth: " << bwidth
+	    << std::endl;
+    }
+
+    Reductor<real,MAX> max(queue);
+    copy(B, a);
+
+    std::cout << "  res = " << max(fabs(a - b))
 	      << std::endl << std::endl;
 #endif
 
@@ -434,6 +505,14 @@ int main() {
 	prof.tic_cpu("Reduction");
 	std::tie(gflops, bwidth) = benchmark_reductor(ctx.queue(), prof);
 	prof.toc("Reduction");
+
+	log << gflops << " " << bwidth << " ";
+#endif
+
+#ifdef BENCHMARK_STENCIL
+	prof.tic_cpu("Stencil");
+	std::tie(gflops, bwidth) = benchmark_stencil(ctx.queue(), prof);
+	prof.toc("Stencil");
 
 	log << gflops << " " << bwidth << " ";
 #endif
