@@ -212,20 +212,16 @@ cl::Program build_sources(
 /// Get maximum possible workgroup size for given kernel.
 uint kernel_workgroup_size(
 	const cl::Kernel &kernel,
-	const std::vector<cl::Device> &device
+	const cl::Device &device
 	)
 {
     size_t wgsz = 1024U;
 
-    for(auto d = device.begin(); d != device.end(); d++) {
-	uint dev_wgsz = kernel.getWorkGroupInfo<CL_KERNEL_WORK_GROUP_SIZE>(*d);
-	while(wgsz > dev_wgsz) wgsz /= 2;
-    }
+    uint dev_wgsz = kernel.getWorkGroupInfo<CL_KERNEL_WORK_GROUP_SIZE>(device);
+    while(wgsz > dev_wgsz) wgsz /= 2;
 
     return wgsz;
 }
-
-} // namespace vex
 
 /// Output description of an OpenCL error to a stream.
 std::ostream& operator<<(std::ostream &os, const cl::Error &e) {
@@ -389,6 +385,8 @@ std::ostream& operator<<(std::ostream &os, const cl::Error &e) {
 
     return os << ")";
 }
+
+} // namespace vex
 
 #ifdef WIN32
 #  pragma warning(pop)

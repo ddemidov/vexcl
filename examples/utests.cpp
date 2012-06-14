@@ -814,6 +814,40 @@ int main() {
 		return rc;
 		});
 #endif
+
+	run_test("Stencil convolution", [&]() -> bool {
+		bool rc = true;
+		const int n = 1 << 20;
+
+		std::vector<double> s(rand() % 100);
+		std::generate(s.begin(), s.end(), [](){ return (double)rand() / RAND_MAX; });
+
+		int center = rand() % s.size();
+
+		stencil<double> S(ctx.queue(), s, center);
+
+		std::vector<double> x(n);
+		std::vector<double> y(n);
+		std::generate(x.begin(), x.end(), [](){ return (double)rand() / RAND_MAX; });
+
+		vex::vector<double> X(ctx.queue(), x);
+		vex::vector<double> Y(ctx.queue(), n);
+
+		Y = X * S;
+
+		copy(Y, y);
+
+		double res = 0;
+		for(int i = 0; i < n; i++) {
+		    double sum = 0;
+		    for(int k = -center; k < (int)s.size() - center; k++)
+			sum += s[k + center] * x[std::min(n-1,std::max(0, i + k))];
+		    res = std::max(res, fabs(sum - y[i]));
+		}
+		rc = rc && res < 1e-8;
+		return rc;
+		});
+
     } catch (const cl::Error &err) {
 	std::cerr << "OpenCL error: " << err << std::endl;
 	return 1;

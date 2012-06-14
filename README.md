@@ -101,6 +101,24 @@ std::cout << max(fabs(X) - 0.5) << std::endl;
 std::cout << sum(sqrt(2 * X) + cos(Y)) << std::endl;
 ```
 
+Stencil convolution
+-------------------
+
+Stencil convolution operation comes in handy in many situations. For example,
+it allows us to apply a moving average filter to a device vector. All you need
+is to construct a `vex::stencil` object:
+```C++
+// Moving average with 5-points window.
+std::vector<double> sdata(5, 0.2);
+stencil(ctx.queue(), sdata, sdata.size() / 2);
+
+vex::vector<double> x(ctx.queue(), 1024 * 1024);
+vex::vector<double> y(ctx.queue(), 1024 * 1024);
+
+x = 1;
+y = x * s; // convolve x with s
+```
+
 Sparse matrix-vector multiplication
 -----------------------------------
 

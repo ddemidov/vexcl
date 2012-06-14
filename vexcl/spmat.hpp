@@ -386,6 +386,7 @@ SpMat<real,column_t>::SpMat(
 {
     for(auto q = queue.begin(); q != queue.end(); q++) {
 	cl::Context context = q->getInfo<CL_QUEUE_CONTEXT>();
+	cl::Device  device  = q->getInfo<CL_QUEUE_DEVICE>();
 
 	// Compile kernels.
 	if (!compiled[context()]) {
@@ -413,16 +414,13 @@ SpMat<real,column_t>::SpMat(
 	    gather_vals_to_send[context()] = cl::Kernel(program, "gather_vals_to_send");
 
 	    wgsize[context()] = kernel_workgroup_size(
-		    gather_vals_to_send[context()],
-		    context.getInfo<CL_CONTEXT_DEVICES>()
+		    gather_vals_to_send[context()], device
 		    );
 
 	    compiled[context()] = true;
 	}
 
 	// Create secondary queues.
-	cl::Device device = q->getInfo<CL_QUEUE_DEVICE>();
-
 	squeue.push_back(cl::CommandQueue(context, device));
     }
 
@@ -902,12 +900,12 @@ void SpMat<real,column_t>::SpMatELL::prepare_kernels(const cl::Context &context)
 	std::vector<cl::Device> device = context.getInfo<CL_CONTEXT_DEVICES>();
 
 	wgsize[context()] = std::min(
-		kernel_workgroup_size(spmv_set[context()], device),
-		kernel_workgroup_size(spmv_add[context()], device)
+		kernel_workgroup_size(spmv_set[context()], device[0]),
+		kernel_workgroup_size(spmv_add[context()], device[0])
 		);
 
 	wgsize[context()] = std::min<uint>(wgsize[context()],
-		kernel_workgroup_size(csr_add[context()], device)
+		kernel_workgroup_size(csr_add[context()], device[0])
 		);
 
 	compiled[context()] = true;
@@ -1214,8 +1212,8 @@ void SpMat<real,column_t>::SpMatCSR::prepare_kernels(const cl::Context &context)
 	std::vector<cl::Device> device = context.getInfo<CL_CONTEXT_DEVICES>();
 
 	wgsize[context()] = std::min(
-		kernel_workgroup_size(spmv_set[context()], device),
-		kernel_workgroup_size(spmv_add[context()], device)
+		kernel_workgroup_size(spmv_set[context()], device[0]),
+		kernel_workgroup_size(spmv_add[context()], device[0])
 		);
 
 	compiled[context()] = true;
@@ -1456,8 +1454,8 @@ void SpMatCCSR<real,column_t>::prepare_kernels(const cl::Context &context) const
 	std::vector<cl::Device> device = context.getInfo<CL_CONTEXT_DEVICES>();
 
 	wgsize[context()] = std::min(
-		kernel_workgroup_size(spmv_set[context()], device),
-		kernel_workgroup_size(spmv_add[context()], device)
+		kernel_workgroup_size(spmv_set[context()], device[0]),
+		kernel_workgroup_size(spmv_add[context()], device[0])
 		);
 
 	compiled[context()] = true;

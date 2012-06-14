@@ -64,6 +64,7 @@ template<class T, typename column_t> struct SpMV;
 template <class Expr, typename T, typename column_t> struct ExSpMV;
 template<class T, typename column_t, uint N> struct MultiSpMV;
 template <class Expr, typename T, typename column_t, uint N> struct MultiExSpMV;
+template <class T> struct Conv;
 
 /// Base class for a member of an expression.
 /**
@@ -486,12 +487,12 @@ class vector : public expression {
 
 		for(auto q = queue.begin(); q != queue.end(); q++) {
 		    cl::Context context = q->getInfo<CL_QUEUE_CONTEXT>();
+		    cl::Device  device  = q->getInfo<CL_QUEUE_DEVICE>();
 
 		    if (!exdata<Expr>::compiled[context()]) {
-			std::vector<cl::Device> device = context.getInfo<CL_CONTEXT_DEVICES>();
 
 			bool device_is_cpu = (
-				device[0].getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU
+				device.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU
 				);
 
 			std::ostringstream kernel;
@@ -600,6 +601,8 @@ class vector : public expression {
 
 	template <typename column_t>
 	const vector& operator=(const SpMV<T,column_t> &spmv);
+
+	const vector& operator=(const Conv<T> &cnv);
 	/// @}
 
 	/// \cond INTERNAL
