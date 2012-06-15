@@ -450,6 +450,14 @@ int main() {
 		return rc;
 		});
 
+	run_test("Empty multivector construction", [&]() -> bool {
+		bool rc = true;
+		vex::multivector<double,3> m;
+		rc = rc && m.size() == 0;
+		rc = rc && m.end() == m.begin();
+		return rc;
+	});
+
 	run_test("Access multivector's elements, copy data", [&]() -> bool {
 		bool rc = true;
 		const size_t n = 1024;
