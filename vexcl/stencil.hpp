@@ -75,7 +75,8 @@ class stencil {
 	 */
 	stencil(const std::vector<cl::CommandQueue> &queue,
 		const std::vector<T> &st, uint center
-		) : queue(queue), s(queue.size())
+		) : queue(queue), s(queue.size()),
+	            fast_kernel(queue.size()), wgs(queue.size())
 	{
 	    init(st, center);
 	}
@@ -91,7 +92,8 @@ class stencil {
 	template <class Iterator>
 	stencil(const std::vector<cl::CommandQueue> &queue,
 		Iterator begin, Iterator end, uint center
-		) : queue(queue), s(queue.size())
+		) : queue(queue), s(queue.size()),
+	            fast_kernel(queue.size()), wgs(queue.size())
 	{
 	    std::vector<T> st(begin, end);
 	    init(st, center);
@@ -117,8 +119,12 @@ class stencil {
 
 	void init(const std::vector<T> &data, uint center);
 
+	std::vector<char> fast_kernel;
+	std::vector<uint> wgs;
+
 	static std::map<cl_context, bool>	compiled;
 	static std::map<cl_context, cl::Kernel> conv_local;
+	static std::map<cl_context, cl::Kernel> conv_local_big;
 	static std::map<cl_context, cl::Kernel> conv_remote;
 	static std::map<cl_context, uint>	wgsize;
 };
@@ -128,6 +134,9 @@ std::map<cl_context, bool> stencil<T>::compiled;
 
 template <typename T>
 std::map<cl_context, cl::Kernel> stencil<T>::conv_local;
+
+template <typename T>
+std::map<cl_context, cl::Kernel> stencil<T>::conv_local_big;
 
 template <typename T>
 std::map<cl_context, cl::Kernel> stencil<T>::conv_remote;
@@ -211,6 +220,25 @@ void stencil<T>::init(const std::vector<T> &data, uint center) {
 		"        y[g_id] = sum;\n"
 		"    }\n"
 		"}\n"
+		"kernel void conv_local_big(\n"
+		"    " << type_name<size_t>() << " n,\n"
+		"    int lhalo,\n"
+		"    int rhalo,\n"
+		"    global const real *x,\n"
+		"    global const real *s,\n"
+		"    global real *y\n"
+		"    )\n"
+		"{\n"
+		"    long g_id = get_global_id(0);\n"
+		"    s += lhalo;\n"
+		"    if (g_id < n) {\n"
+		"        real sum = 0;\n"
+		"        for(int k = -lhalo; k <= rhalo; k++)\n"
+		"            if (g_id + k >= 0 && g_id + k < n)\n"
+		"                sum += s[k] * x[g_id + k];\n"
+		"        y[g_id] = sum;\n"
+		"    }\n"
+		"}\n"
 		"kernel void conv_remote(\n"
 		"    " << type_name<size_t>() << " n,\n"
 		"    char has_left,\n"
@@ -249,24 +277,40 @@ void stencil<T>::init(const std::vector<T> &data, uint center) {
 
 	    auto program = build_sources(context, source.str());
 
-	    conv_local [context()] = cl::Kernel(program, "conv_local");
-	    conv_remote[context()] = cl::Kernel(program, "conv_remote");
+	    conv_local    [context()] = cl::Kernel(program, "conv_local");
+	    conv_local_big[context()] = cl::Kernel(program, "conv_local_big");
+	    conv_remote   [context()] = cl::Kernel(program, "conv_remote");
 
 	    wgsize[context()] = std::min(
-		    kernel_workgroup_size(conv_local [context()], device),
-		    kernel_workgroup_size(conv_remote[context()], device)
+		    std::min(
+			kernel_workgroup_size(conv_local [context()], device),
+			kernel_workgroup_size(conv_remote[context()], device)
+			),
+		    kernel_workgroup_size(conv_local_big[context()], device)
 		    );
 
-	    size_t smem = device.getInfo<CL_DEVICE_LOCAL_MEM_SIZE>() -
-		std::max(
-			conv_local [context()].getWorkGroupInfo<CL_KERNEL_LOCAL_MEM_SIZE>(device),
-			conv_remote[context()].getWorkGroupInfo<CL_KERNEL_LOCAL_MEM_SIZE>(device)
-			);
-
-	    while ((wgsize[context()] + lhalo + rhalo) * sizeof(T) > smem)
-		wgsize[context()] /= 2;
-
 	    compiled[context()] = true;
+	}
+
+	/* In order to use fast kernel, following conditions are to be met:
+	 * 1. stencil.size() < work_group.size()
+	 * 2. 2 * stencil.size() + work_group.size() < local_memory.size()
+	 */
+	wgs[d] = wgsize[context()];
+
+	uint smem = (
+		device.getInfo<CL_DEVICE_LOCAL_MEM_SIZE>() -
+		conv_local[context()].getWorkGroupInfo<CL_KERNEL_LOCAL_MEM_SIZE>(device)
+		) / sizeof(T);
+
+	while (wgs[d] >= data.size() && wgs[d] + 2 * data.size() > smem)
+	    wgs[d] /= 2;
+
+	if (wgs[d] < data.size()) {
+	    fast_kernel[d] = false;
+	    wgs[d] = wgsize[context()];
+	} else {
+	    fast_kernel[d] = true;
 	}
 
 	s[d] = cl::Buffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
@@ -312,23 +356,24 @@ void stencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y) const {
     for(uint d = 0; d < queue.size(); d++) {
 	cl::Context context = queue[d].getInfo<CL_QUEUE_CONTEXT>();
 
-	size_t g_size = alignup(x.part_size(d), wgsize[context()]);
+	size_t g_size = alignup(x.part_size(d), wgs[d]);
 
-	auto lmem = cl::__local(
-		(wgsize[context()] + 2 * lhalo + 2 * rhalo + 1) * sizeof(T)
-		);
+	cl::Kernel &kernel = fast_kernel[d] ?
+	    conv_local[context()] : conv_local_big[context()];
 
 	uint pos = 0;
-	conv_local[context()].setArg(pos++, x.part_size(d));
-	conv_local[context()].setArg(pos++, lhalo);
-	conv_local[context()].setArg(pos++, rhalo);
-	conv_local[context()].setArg(pos++, x(d));
-	conv_local[context()].setArg(pos++, s[d]);
-	conv_local[context()].setArg(pos++, y(d));
-	conv_local[context()].setArg(pos++, lmem);
+	kernel.setArg(pos++, x.part_size(d));
+	kernel.setArg(pos++, lhalo);
+	kernel.setArg(pos++, rhalo);
+	kernel.setArg(pos++, x(d));
+	kernel.setArg(pos++, s[d]);
+	kernel.setArg(pos++, y(d));
 
-	queue[d].enqueueNDRangeKernel(conv_local[context()],
-		cl::NullRange, g_size, wgsize[context()]);
+	if (fast_kernel[d])
+	    kernel.setArg(pos++,
+		    cl::__local((wgs[d] + 2 * (lhalo + rhalo) + 1) * sizeof(T)));
+
+	queue[d].enqueueNDRangeKernel(kernel, cl::NullRange, g_size, wgs[d]);
 
     }
 
