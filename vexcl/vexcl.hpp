@@ -288,7 +288,8 @@ std::cout << sum(x) << std::endl;
 In the images below, scalability of the library with respect to number of
 compute devices is shown. Effective performance (GFLOPS) and bandwidth (GB/sec)
 were measured by launching big number of test kernels on one, two, or three
-Nvidia Tesla C2070 cards. The results shown are averaged over 20 runs.
+Nvidia Tesla C2070 cards. Effect of adding fourth, slower, device (Intel Core
+i7) were tested as well. The results shown are averaged over 20 runs.
 
 The details of the experiments may be found in <a
 href="https://github.com/ddemidov/vexcl/blob/master/examples/benchmark.cpp">
@@ -302,11 +303,24 @@ a += b + c * d;
 // Reduction
 double s = sum(a * b);
 
+// Stencil convolution
+y = x * s;
+
 // SpMV
 y += A * x;
 \endcode
 
 \image html perf.png ""
+
+As you can see, performance and bandwidth for stencil convolution operation are
+much higher than for other primitives. This is due to the fact that much faster
+local (shared) memory is used in this algorithm, and formulas for effective
+performance and bandwidth do not take this into account.
+
+Another thing worth noting is overall degradation of performance after Intel
+CPU is added to VexCL context. The only primitive gaining speed from this
+addition is vector arithmetic. This is probably because performance of vector
+arithmetic was used as a basis for problem partitioning.
 
 \section compilers Supported compilers
 

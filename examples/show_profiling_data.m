@@ -55,9 +55,9 @@ plot(1:max_cards, spm_gflops, 'bo-', ...
 		'linewidth', 2, 'markersize', 6, 'markerfacecolor', 'w');
 
 xlim([0.75 max_cards + 0.25]);
-set(gca, 'xtick', [1 2 3]);
+set(gca, 'xtick', 1:max_cards);
 
-xlabel('Number of devices (Tesla C2070)')
+xlabel('#devices (3 Tesla C2070 + Intel Core i7)')
 ylabel('Effective GFLOPS')
 
 legend('Vector arithmetic', 'Reduction', 'Stencil conv', 'SpMV', ...
@@ -83,9 +83,9 @@ plot(1:max_cards, spm_bwidth, 'bo-', ...
 		'linewidth', 2, 'markersize', 6, 'markerfacecolor', 'w');
 
 xlim([0.75 max_cards + 0.25]);
-set(gca, 'xtick', [1 2 3]);
+set(gca, 'xtick', 1:max_cards);
 
-xlabel('Number of devices (Tesla C2070)')
+xlabel('#devices (3 Tesla C2070 + Intel Core i7)')
 ylabel('Effective bandwidth (GB/sec)')
 
 legend('Vector arithmetic', 'Reduction', 'Stencil conv', 'SpMV', ...
