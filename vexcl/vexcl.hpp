@@ -337,7 +337,9 @@ user functions are not available at all.
 #  define NOMINMAX
 #endif
 
-#define __CL_ENABLE_EXCEPTIONS
+#ifndef __CL_ENABLE_EXCEPTIONS
+#  define __CL_ENABLE_EXCEPTIONS
+#endif
 
 #include <CL/cl.hpp>
 #include <iostream>

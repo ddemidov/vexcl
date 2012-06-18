@@ -37,7 +37,9 @@ THE SOFTWARE.
 #  define NOMINMAX
 #endif
 
-#define __CL_ENABLE_EXCEPTIONS
+#ifndef __CL_ENABLE_EXCEPTIONS
+#  define __CL_ENABLE_EXCEPTIONS
+#endif
 
 #include <vector>
 #include <string>
@@ -53,7 +55,9 @@ namespace Filter {
 	bool operator()(const cl::Device &d) const {
 	    return true;
 	}
-    } All;
+    };
+
+    const AllFilter All;
 
     /// Selects devices whose vendor name match given value.
     struct Vendor {
@@ -116,7 +120,9 @@ namespace Filter {
 		    ext.find("cl_amd_fp64") != std::string::npos
 		   );
 	}
-    } DoublePrecision;
+    };
+
+    const DoublePrecisionFilter DoublePrecision;
 
     /// Selects no more than given number of devices.
     /**
@@ -201,7 +207,9 @@ namespace Filter {
 	    const char *name;
 	    const char *maxdev;
 	    mutable int count;
-    } Env;
+    };
+
+    const EnvFilter Env;
 
     /// Negation of a filter.
     template <class Flt>
@@ -393,7 +401,7 @@ class Context {
 
 
 /// Output list of devices to stream.
-std::ostream& operator<<(std::ostream &os, const std::vector<cl::Device> &device) {
+inline std::ostream& operator<<(std::ostream &os, const std::vector<cl::Device> &device) {
     uint p = 1;
 
     for(auto d = device.begin(); d != device.end(); d++)
@@ -403,7 +411,7 @@ std::ostream& operator<<(std::ostream &os, const std::vector<cl::Device> &device
 }
 
 /// Output list of devices to stream.
-std::ostream& operator<<(std::ostream &os, const std::vector<cl::CommandQueue> &queue) {
+inline std::ostream& operator<<(std::ostream &os, const std::vector<cl::CommandQueue> &queue) {
     uint p = 1;
 
     for(auto q = queue.begin(); q != queue.end(); q++)
@@ -415,7 +423,7 @@ std::ostream& operator<<(std::ostream &os, const std::vector<cl::CommandQueue> &
 }
 
 /// Output list of devices to stream.
-std::ostream& operator<<(std::ostream &os, const vex::Context &ctx) {
+inline std::ostream& operator<<(std::ostream &os, const vex::Context &ctx) {
     return os << ctx.queue();
 }
 

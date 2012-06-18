@@ -37,7 +37,9 @@ THE SOFTWARE.
 #  define NOMINMAX
 #endif
 
-#define __CL_ENABLE_EXCEPTIONS
+#ifndef __CL_ENABLE_EXCEPTIONS
+#  define __CL_ENABLE_EXCEPTIONS
+#endif
 
 #include <vector>
 #include <set>
@@ -1500,7 +1502,7 @@ void SpMatCCSR<real,column_t>::mul(
 }
 
 /// Returns device weight after spmv test
-double device_spmv_perf(
+inline double device_spmv_perf(
 	const cl::Context &context, const cl::Device &device,
 	size_t test_size = 64U
 	)
@@ -1596,7 +1598,7 @@ double device_spmv_perf(
  * where a, b and c are device vectors. Each device gets portion of the vector
  * proportional to the performance of this operation.
  */
-std::vector<size_t> partition_by_spmv_perf(
+inline std::vector<size_t> partition_by_spmv_perf(
 	size_t n, const std::vector<cl::CommandQueue> &queue)
 {
 

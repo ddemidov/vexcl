@@ -41,7 +41,9 @@ THE SOFTWARE.
 #  define VEXCL_VARIADIC_TEMPLATES
 #endif
 
-#define __CL_ENABLE_EXCEPTIONS
+#ifndef __CL_ENABLE_EXCEPTIONS
+#  define __CL_ENABLE_EXCEPTIONS
+#endif
 
 #include <array>
 #include <vector>
@@ -1357,7 +1359,7 @@ DEFINE_BINARY_OP(binop::LeftShift,    <<)
 /// \cond INTERNAL
 
 /// Builtin function call.
-template <const char *func_name, class... Expr>
+template <class func_name, class... Expr>
 class BuiltinFunction : public expression {
     public:
 	BuiltinFunction(const Expr&... expr) : expr(expr...) {}
@@ -1367,7 +1369,7 @@ class BuiltinFunction : public expression {
 	}
 
 	std::string kernel_name() const {
-	    return std::string(func_name) + build_kernel_name<0>();
+	    return std::string(func_name::value()) + build_kernel_name<0>();
 	}
 
 	void kernel_prm(std::ostream &os, std::string name) const {
@@ -1379,7 +1381,7 @@ class BuiltinFunction : public expression {
 	}
 
 	void kernel_expr(std::ostream &os, std::string name) const {
-	    os << func_name << "(";
+	    os << func_name::value() << "(";
 	    build_kernel_expr<0>(os, name);
 	    os << ")";
 	}
@@ -1489,32 +1491,36 @@ struct All<Head, Tail...>
 {};
 
 #define DEFINE_BUILTIN_FUNCTION(name) \
-extern const char name##_fun[] = #name; \
+struct name##_name { \
+    static const char* value() { \
+	return #name; \
+    } \
+}; \
 template <class... Expr> \
-typename std::enable_if< \
+inline typename std::enable_if< \
   All<All<valid_expr<Expr>...>, Not<All<std::is_arithmetic<Expr>...>>>::value,\
-  BuiltinFunction<name##_fun, Expr...>>::type \
+  BuiltinFunction<name##_name, Expr...>>::type \
 name(const Expr&... expr) { \
-return BuiltinFunction<name##_fun, Expr...>(expr...); \
+return BuiltinFunction<name##_name, Expr...>(expr...); \
 } \
 template <class... MultiEx> \
-typename std::enable_if< \
+inline typename std::enable_if< \
   All<valid_multiex<MultiEx>..., Not<All<std::is_arithmetic<MultiEx>...>>>::value, \
     MultiExpression< \
-	BuiltinFunction<name##_fun, typename multiex_traits<MultiEx>::subtype...>, multiex_dim<MultiEx...>::dim \
+	BuiltinFunction<name##_name, typename multiex_traits<MultiEx>::subtype...>, multiex_dim<MultiEx...>::dim \
 	>>::type \
 name(const MultiEx&... multiexpr) { \
     std::array< \
 	std::unique_ptr< \
-	    BuiltinFunction<name##_fun, typename multiex_traits<MultiEx>::subtype...> \
+	    BuiltinFunction<name##_name, typename multiex_traits<MultiEx>::subtype...> \
 	    >, \
 	multiex_dim<MultiEx...>::dim> ex; \
     for(uint i = 0; i < multiex_dim<MultiEx...>::dim; i++) \
 	ex[i].reset( \
-		new BuiltinFunction<name##_fun, typename multiex_traits<MultiEx>::subtype...>(extract_component(multiexpr, i)...) \
+		new BuiltinFunction<name##_name, typename multiex_traits<MultiEx>::subtype...>(extract_component(multiexpr, i)...) \
 		); \
     return MultiExpression< \
-	BuiltinFunction<name##_fun, typename multiex_traits<MultiEx>::subtype...>, multiex_dim<MultiEx...>::dim \
+	BuiltinFunction<name##_name, typename multiex_traits<MultiEx>::subtype...>, multiex_dim<MultiEx...>::dim \
 	>(ex); \
 }
 
@@ -1599,7 +1605,7 @@ DEFINE_BUILTIN_FUNCTION(trunc)
 /// \cond INTERNAL
 
 /// Builtin function call.
-template <const char *func_name, class Expr>
+template <class func_name, class Expr>
 struct BuiltinFunction : public expression {
     BuiltinFunction(const Expr &expr) : expr(expr) {}
 
@@ -1608,11 +1614,11 @@ struct BuiltinFunction : public expression {
     }
 
     std::string kernel_name() const {
-	return func_name + expr.kernel_name();
+	return func_name::value() + expr.kernel_name();
     }
 
     void kernel_expr(std::ostream &os, std::string name) const {
-	os << func_name << "(";
+	os << func_name::value() << "(";
 	expr.kernel_expr(os, name);
 	os << ")";
     }
@@ -1634,28 +1640,32 @@ struct BuiltinFunction : public expression {
 };
 
 #define DEFINE_BUILTIN_FUNCTION(name) \
-extern const char name##_fun[] = #name; \
+struct name##_name { \
+    static const char* value() { \
+	return #name; \
+    } \
+}; \
 template <class Expr> \
 typename std::enable_if<Expr::is_expr, \
-BuiltinFunction<name##_fun, Expr>>::type \
+BuiltinFunction<name##_name, Expr>>::type \
 name(const Expr &expr) { \
-return BuiltinFunction<name##_fun, Expr>(expr); \
+return BuiltinFunction<name##_name, Expr>(expr); \
 } \
 template <class MultiEx> \
 typename std::enable_if<MultiEx::is_multiex, \
   MultiExpression< \
-    BuiltinFunction<name##_fun, typename MultiEx::subtype>, MultiEx::dim \
+    BuiltinFunction<name##_name, typename MultiEx::subtype>, MultiEx::dim \
     >>::type \
 name(const MultiEx& multiexpr) { \
   std::array<std::unique_ptr< \
-    BuiltinFunction<name##_fun, typename MultiEx::subtype>>, MultiEx::dim \
+    BuiltinFunction<name##_name, typename MultiEx::subtype>>, MultiEx::dim \
     > ex; \
   for(uint i = 0; i < MultiEx::dim; i++) \
     ex[i].reset( \
-	new BuiltinFunction<name##_fun, typename MultiEx::subtype>(multiexpr(i)) \
+	new BuiltinFunction<name##_name, typename MultiEx::subtype>(multiexpr(i)) \
 	); \
   return MultiExpression< \
-    BuiltinFunction<name##_fun, typename MultiEx::subtype>, MultiEx::dim>(ex); \
+    BuiltinFunction<name##_name, typename MultiEx::subtype>, MultiEx::dim>(ex); \
 }
 
 /// \endcond
@@ -1934,7 +1944,7 @@ struct UserFunction<body, RetType(ArgType...)> {
 /// \cond INTERNAL
 
 /// Returns device weight after simple bandwidth test
-double device_vector_perf(
+inline double device_vector_perf(
 	const cl::Context &context, const cl::Device &device,
 	size_t test_size = 1024U * 1024U
 	)
@@ -1981,7 +1991,7 @@ double device_vector_perf(
  * where a, b and c are device vectors. Each device gets portion of the vector
  * proportional to the performance of this operation.
  */
-std::vector<size_t> partition_by_vector_perf(
+inline std::vector<size_t> partition_by_vector_perf(
 	size_t n, const std::vector<cl::CommandQueue> &queue)
 {
 

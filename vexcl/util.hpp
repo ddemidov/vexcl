@@ -37,7 +37,9 @@ THE SOFTWARE.
 #  define NOMINMAX
 #endif
 
-#define __CL_ENABLE_EXCEPTIONS
+#ifndef __CL_ENABLE_EXCEPTIONS
+#  define __CL_ENABLE_EXCEPTIONS
+#endif
 
 #include <iostream>
 #include <sstream>
@@ -54,28 +56,28 @@ typedef unsigned char uchar;
 namespace vex {
 
 /// Convert typename to string.
-template <class T> std::string type_name()  { return "undefined_type"; }
-template <> std::string type_name<float>()  { return "float"; }
-template <> std::string type_name<double>() { return "double"; }
-template <> std::string type_name<int>()    { return "int"; }
-template <> std::string type_name<char>()   { return "char"; }
-template <> std::string type_name<bool>()   { return "bool"; }
-template <> std::string type_name<uint>()   { return "unsigned int"; }
-template <> std::string type_name<uchar>()  { return "unsigned char"; }
+template <class T> inline std::string type_name()  { return "undefined_type"; }
+template <> inline std::string type_name<float>()  { return "float"; }
+template <> inline std::string type_name<double>() { return "double"; }
+template <> inline std::string type_name<int>()    { return "int"; }
+template <> inline std::string type_name<char>()   { return "char"; }
+template <> inline std::string type_name<bool>()   { return "bool"; }
+template <> inline std::string type_name<uint>()   { return "unsigned int"; }
+template <> inline std::string type_name<uchar>()  { return "unsigned char"; }
 
-template <> std::string type_name<size_t>() {
+template <> inline std::string type_name<size_t>() {
     static_assert(sizeof(size_t) == 4 || sizeof(size_t) == 8,
 	    "Only 32bit or 64bit architectures are supported");
     return sizeof(size_t) == 4 ? "uint" : "ulong";
 }
 
-template <> std::string type_name<ptrdiff_t>() {
+template <> inline std::string type_name<ptrdiff_t>() {
     static_assert(sizeof(size_t) == 4 || sizeof(size_t) == 8,
 	    "Only 32bit or 64bit architectures are supported");
     return sizeof(size_t) == 4 ? "int" : "long";
 }
 
-std::string standard_kernel_header = std::string(
+const std::string standard_kernel_header = std::string(
 	"#if defined(cl_khr_fp64)\n"
 	"#  pragma OPENCL EXTENSION cl_khr_fp64: enable\n"
 	"#elif defined(cl_amd_fp64)\n"
@@ -84,7 +86,7 @@ std::string standard_kernel_header = std::string(
 	);
 
 /// Return next power of 2.
-size_t nextpow2(size_t x) {
+inline size_t nextpow2(size_t x) {
     --x;
     x |= x >> 1U;
     x |= x >> 2U;
@@ -95,7 +97,7 @@ size_t nextpow2(size_t x) {
 }
 
 /// Align n to the next multiple of m.
-size_t alignup(size_t n, size_t m = 16U) {
+inline size_t alignup(size_t n, size_t m = 16U) {
     return n % m ? n - n % m + m : n;
 }
 
@@ -108,7 +110,7 @@ size_t alignup(size_t n, size_t m = 16U) {
  * where a, b and c are device vectors. Each device gets portion of the vector
  * proportional to the performance of this operation.
  */
-std::vector<size_t> partition_by_vector_perf(
+inline std::vector<size_t> partition_by_vector_perf(
 	size_t n, const std::vector<cl::CommandQueue> &queue);
 
 /// Partitions vector wrt to spmv performance of devices.
@@ -121,11 +123,11 @@ std::vector<size_t> partition_by_vector_perf(
  * domain. Each device gets portion of the vector proportional to the
  * performance of this operation.
  */
-std::vector<size_t> partition_by_spmv_perf(
+inline std::vector<size_t> partition_by_spmv_perf(
 	size_t n, const std::vector<cl::CommandQueue> &queue);
 
 /// Partitions vector equally.
-std::vector<size_t> partition_equally(
+inline static std::vector<size_t> partition_equally(
 	size_t n, const std::vector<cl::CommandQueue> &queue)
 {
     size_t m = queue.size();
@@ -150,6 +152,7 @@ std::vector<size_t> partition_equally(
  * Otherwise default parttioning function (partition_by_vector_perf) is
  * selected.
  */
+template <bool dummy = true>
 struct partitioning_scheme {
     typedef std::function<
 	std::vector<size_t>(size_t, const std::vector<cl::CommandQueue>&)
@@ -167,8 +170,8 @@ struct partitioning_scheme {
 	}
     }
 
-    std::vector<size_t> operator()(size_t n,
-	    const std::vector<cl::CommandQueue> &queue) const
+    static std::vector<size_t> get(size_t n,
+	    const std::vector<cl::CommandQueue> &queue)
     {
 	if (!is_set) {
 	    pfun = partition_by_vector_perf;
@@ -180,13 +183,22 @@ struct partitioning_scheme {
     private:
 	static bool is_set;
 	static function_type pfun;
-} partition;
+};
 
-bool partitioning_scheme::is_set = false;
-partitioning_scheme::function_type partitioning_scheme::pfun;
+template <bool dummy>
+bool partitioning_scheme<dummy>::is_set = false;
+
+template <bool dummy>
+typename partitioning_scheme<dummy>::function_type partitioning_scheme<dummy>::pfun;
+
+inline std::vector<size_t> partition(size_t n,
+	    const std::vector<cl::CommandQueue> &queue)
+{
+    return partitioning_scheme<true>::get(n, queue);
+}
 
 /// Create and build a program from source string.
-cl::Program build_sources(
+inline cl::Program build_sources(
 	const cl::Context &context, const std::string &source
 	)
 {
@@ -210,7 +222,7 @@ cl::Program build_sources(
 }
 
 /// Get maximum possible workgroup size for given kernel.
-uint kernel_workgroup_size(
+inline uint kernel_workgroup_size(
 	const cl::Kernel &kernel,
 	const cl::Device &device
 	)
@@ -224,7 +236,7 @@ uint kernel_workgroup_size(
 }
 
 /// Output description of an OpenCL error to a stream.
-std::ostream& operator<<(std::ostream &os, const cl::Error &e) {
+inline std::ostream& operator<<(std::ostream &os, const cl::Error &e) {
     os << e.what() << "(";
 
     switch (e.err()) {

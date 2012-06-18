@@ -37,7 +37,9 @@ THE SOFTWARE.
 #  define NOMINMAX
 #endif
 
-#define __CL_ENABLE_EXCEPTIONS
+#ifndef __CL_ENABLE_EXCEPTIONS
+#  define __CL_ENABLE_EXCEPTIONS
+#endif
 
 #include <iostream>
 #include <iomanip>
@@ -290,7 +292,7 @@ class profiler {
 
 };
 
-std::ostream& operator<<(std::ostream &os, profiler &prof) {
+inline std::ostream& operator<<(std::ostream &os, profiler &prof) {
     prof.print(os);
     return os;
 }
