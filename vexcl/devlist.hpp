@@ -43,6 +43,7 @@ THE SOFTWARE.
 
 #include <vector>
 #include <string>
+#include <tuple>
 #include <cstdlib>
 #include <CL/cl.hpp>
 

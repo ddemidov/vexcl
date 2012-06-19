@@ -53,9 +53,6 @@ THE SOFTWARE.
 
 #ifdef WIN32
 #  include <sys/timeb.h>
-inline double operator-(const timeb &a, const timeb &b) {
-    return a.time - b.time + 1e-3 * (a.millitm - b.millitm);
-}
 #else
 #  include <chrono>
 #endif
@@ -142,7 +139,7 @@ class profiler {
 #ifdef WIN32
 		    timeb now;
 		    ftime(&now);
-		    double delta = now - start;
+		    double delta = now.time - start.time + 1e-3 * (now.millitm - start.millitm);
 #else
 		    double delta = std::chrono::duration<double>(
 			    std::chrono::high_resolution_clock::now() - start).count();
