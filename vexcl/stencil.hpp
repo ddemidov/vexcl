@@ -102,6 +102,24 @@ class stencil {
 	    init(st, center);
 	}
 
+#ifndef WIN32
+	/// Costructor.
+	/**
+	 * \param queue  vector of queues. Each queue represents one
+	 *               compute device.
+	 * \param st     intializer list holding stencil values.
+	 * \param center center of the stencil.
+	 */
+	stencil(const std::vector<cl::CommandQueue> &queue,
+		std::initializer_list<T> list, uint center
+		) : queue(queue), s(queue.size()),
+	            fast_kernel(queue.size()), wgs(queue.size())
+	{
+	    std::vector<T> st(list);
+	    init(st, center);
+	}
+#endif
+
 	/// Convolve stencil with a vector.
 	/**
 	 * \param x input vector.
