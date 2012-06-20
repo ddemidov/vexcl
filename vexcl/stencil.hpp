@@ -41,6 +41,10 @@ THE SOFTWARE.
 #  define __CL_ENABLE_EXCEPTIONS
 #endif
 
+#ifndef WIN32
+#  define INITIALIZER_LISTS_AVAILABLE
+#endif
+
 #include <vector>
 #include <map>
 #include <sstream>
@@ -102,7 +106,7 @@ class stencil {
 	    init(st, center);
 	}
 
-#ifndef WIN32
+#ifdef INITIALIZER_LISTS_AVAILABLE
 	/// Costructor.
 	/**
 	 * \param queue  vector of queues. Each queue represents one
@@ -435,6 +439,155 @@ void stencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y) const {
 		    cl::NullRange, g_size, cl::NullRange);
 	}
     }
+}
+
+/// Generalized stencil.
+/**
+ * This is generalized stencil class. Basically, this is a small dense matrix.
+ * Generalized stencil may be used in combination with standard functions, as
+ * in
+ * \code
+ * vex::gstencil<double> S(ctx.queue(), 2, 3, 1, {
+ *     1, -1,  0,
+ *     0,  1, -1
+ * });
+ * y = x * sin(S);
+ * \endcode
+ * This admittedly unintuitive notation corresponds to
+ * \f$y_i = \sum_k sin(\sum_j S_{kj} * x_{i+j-c})\f$, where c is center of the
+ * stencil.  Please see github wiki for further examples of this class usage.
+ */
+template <typename T>
+class gstencil {
+    public:
+	/// Constructor.
+	/**
+	 * \param queue  vector of queues. Each queue represents one
+	 *               compute device.
+	 * \param rows   number of rows in stencil matrix.
+	 * \param cols   number of cols in stencil matrix.
+	 * \param center center of the stencil. This corresponds to the center
+	 *		 of a row of the stencil.
+	 * \param data   values of stencil matrix in row-major order.
+	 */
+	gstencil(const std::vector<cl::CommandQueue> &queue,
+		 uint rows, uint cols, uint center,
+		 const std::vector<T> &data);
+
+	/// Constructor.
+	/**
+	 * \param queue  vector of queues. Each queue represents one
+	 *               compute device.
+	 * \param rows   number of rows in stencil matrix.
+	 * \param cols   number of cols in stencil matrix.
+	 * \param center center of the stencil. This corresponds to the center
+	 *		 of a row of the stencil.
+	 * \param begin  iterator to begin of sequence holding stencil data.
+	 * \param end    iterator to end of sequence holding stencil data.
+	 */
+	template <class Iterator>
+	gstencil(const std::vector<cl::CommandQueue> &queue,
+		 uint rows, uint cols, uint center,
+		 Iterator begin, Iterator end);
+
+#ifdef INITIALIZER_LISTS_AVAILABLE
+	/// Costructor.
+	/**
+	 * \param queue  vector of queues. Each queue represents one
+	 *               compute device.
+	 * \param rows   number of rows in stencil matrix.
+	 * \param cols   number of cols in stencil matrix.
+	 * \param center center of the stencil. This corresponds to the center
+	 *		 of a row of the stencil.
+	 * \param data   values of stencil matrix in row-major order.
+	 */
+	gstencil(const std::vector<cl::CommandQueue> &queue,
+		 uint rows, uint cols, uint center,
+		 const std::initializer_list<T> &data);
+#endif
+
+	template <class func_name>
+	void convolve(const vex::vector<T> &x, vex::vector<T> &y) const;
+};
+
+template <class f, typename T>
+struct FStencil {
+    FStencil(const gstencil<T> &s) : s(s) {}
+    const gstencil<T> &s;
+};
+
+#define OVERLOAD_BUILTIN_FOR_GSTENCIL(name) \
+template <typename T> \
+FStencil<name##_name,T> name(const gstencil<T> &s) { \
+    return FStencil<name##_name, T>(s); \
+}
+
+OVERLOAD_BUILTIN_FOR_GSTENCIL(acos)
+OVERLOAD_BUILTIN_FOR_GSTENCIL(acosh)
+OVERLOAD_BUILTIN_FOR_GSTENCIL(acospi)
+OVERLOAD_BUILTIN_FOR_GSTENCIL(asin)
+OVERLOAD_BUILTIN_FOR_GSTENCIL(asinh)
+OVERLOAD_BUILTIN_FOR_GSTENCIL(asinpi)
+OVERLOAD_BUILTIN_FOR_GSTENCIL(atan)
+OVERLOAD_BUILTIN_FOR_GSTENCIL(atanh)
+OVERLOAD_BUILTIN_FOR_GSTENCIL(atanpi)
+OVERLOAD_BUILTIN_FOR_GSTENCIL(cbrt)
+OVERLOAD_BUILTIN_FOR_GSTENCIL(ceil)
+OVERLOAD_BUILTIN_FOR_GSTENCIL(cos)
+OVERLOAD_BUILTIN_FOR_GSTENCIL(cosh)
+OVERLOAD_BUILTIN_FOR_GSTENCIL(cospi)
+OVERLOAD_BUILTIN_FOR_GSTENCIL(erfc)
+OVERLOAD_BUILTIN_FOR_GSTENCIL(erf)
+OVERLOAD_BUILTIN_FOR_GSTENCIL(exp)
+OVERLOAD_BUILTIN_FOR_GSTENCIL(exp2)
+OVERLOAD_BUILTIN_FOR_GSTENCIL(exp10)
+OVERLOAD_BUILTIN_FOR_GSTENCIL(expm1)
+OVERLOAD_BUILTIN_FOR_GSTENCIL(fabs)
+OVERLOAD_BUILTIN_FOR_GSTENCIL(floor)
+OVERLOAD_BUILTIN_FOR_GSTENCIL(ilogb)
+OVERLOAD_BUILTIN_FOR_GSTENCIL(lgamma)
+OVERLOAD_BUILTIN_FOR_GSTENCIL(log)
+OVERLOAD_BUILTIN_FOR_GSTENCIL(log2)
+OVERLOAD_BUILTIN_FOR_GSTENCIL(log10)
+OVERLOAD_BUILTIN_FOR_GSTENCIL(log1p)
+OVERLOAD_BUILTIN_FOR_GSTENCIL(logb)
+OVERLOAD_BUILTIN_FOR_GSTENCIL(nan)
+OVERLOAD_BUILTIN_FOR_GSTENCIL(rint)
+OVERLOAD_BUILTIN_FOR_GSTENCIL(rootn)
+OVERLOAD_BUILTIN_FOR_GSTENCIL(round)
+OVERLOAD_BUILTIN_FOR_GSTENCIL(rsqrt)
+OVERLOAD_BUILTIN_FOR_GSTENCIL(sin)
+OVERLOAD_BUILTIN_FOR_GSTENCIL(sinh)
+OVERLOAD_BUILTIN_FOR_GSTENCIL(sinpi)
+OVERLOAD_BUILTIN_FOR_GSTENCIL(sqrt)
+OVERLOAD_BUILTIN_FOR_GSTENCIL(tan)
+OVERLOAD_BUILTIN_FOR_GSTENCIL(tanh)
+OVERLOAD_BUILTIN_FOR_GSTENCIL(tanpi)
+OVERLOAD_BUILTIN_FOR_GSTENCIL(tgamma)
+OVERLOAD_BUILTIN_FOR_GSTENCIL(trunc)
+
+template <class f, typename T>
+struct GConv {
+    GConv(const vex::vector<T> &x, const gstencil<T> &s) : x(x), s(s) {}
+
+    const vex::vector<T> &x;
+    const gstencil<T> &s;
+};
+
+template <class f, typename T>
+GConv<f, T> operator*(const vex::vector<T> &x, const gstencil<T> &s) {
+    return GConv<f, T>(x, s);
+}
+
+template <class f, typename T>
+GConv<f, T> operator*(const gstencil<T> &s, const vex::vector<T> &x) {
+    return x * s;
+}
+
+template <typename T> template <class func>
+const vex::vector<T>& vex::vector<T>::operator=(const GConv<func, T> &cnv) {
+    cnv.s.template convolve<func>(cnv.x, *this);
+    return *this;
 }
 
 } // namespace vex

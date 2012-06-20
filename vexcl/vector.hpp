@@ -67,6 +67,7 @@ template <class Expr, typename T, typename column_t> struct ExSpMV;
 template<class T, typename column_t, uint N> struct MultiSpMV;
 template <class Expr, typename T, typename column_t, uint N> struct MultiExSpMV;
 template <class T> struct Conv;
+template <class f, class T> struct GConv;
 
 /// Base class for a member of an expression.
 /**
@@ -605,6 +606,9 @@ class vector : public expression {
 	const vector& operator=(const SpMV<T,column_t> &spmv);
 
 	const vector& operator=(const Conv<T> &cnv);
+
+	template <class f>
+	const vector& operator=(const GConv<f,T> &cnv);
 	/// @}
 
 	/// \cond INTERNAL
