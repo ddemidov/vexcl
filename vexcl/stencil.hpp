@@ -501,7 +501,7 @@ void stencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y,
  *     1, -1,  0,
  *     0,  1, -1
  * });
- * y = x * sin(S);
+ * y = sin(x * S);
  * \endcode
  * This admittedly unintuitive notation corresponds to
  * \f$y_i = \sum_k sin(\sum_j S_{kj} * x_{i+j-c})\f$, where c is center of the
@@ -618,16 +618,35 @@ std::map<cl_context, cl::Kernel> gstencil<T>::exdata<func>::conv_remote;
 template <typename T> template<class func>
 std::map<cl_context, uint> gstencil<T>::exdata<func>::wgsize;
 
+template <typename T>
+struct GStencilProd {
+    GStencilProd(const vex::vector<T> &x, const gstencil<T> &s) : x(x), s(s) {}
+    const vex::vector<T> &x;
+    const gstencil<T> &s;
+};
+
+template <class T>
+GStencilProd<T> operator*(const vex::vector<T> &x, const gstencil<T> &s) {
+    return GStencilProd<T>(x, s);
+}
+
+template <class T>
+GStencilProd<T> operator*(const gstencil<T> &s, const vex::vector<T> &x) {
+    return x * s;
+}
+
 template <class f, typename T>
-struct FStencil {
-    FStencil(const gstencil<T> &s) : s(s) {}
+struct GConv {
+    GConv(const GStencilProd<T> &sp) : x(sp.x), s(sp.s) {}
+
+    const vex::vector<T> &x;
     const gstencil<T> &s;
 };
 
 #define OVERLOAD_BUILTIN_FOR_GSTENCIL(name) \
 template <typename T> \
-FStencil<name##_name,T> name(const gstencil<T> &s) { \
-    return FStencil<name##_name, T>(s); \
+GConv<name##_name,T> name(const GStencilProd<T> &s) { \
+    return GConv<name##_name, T>(s); \
 }
 
 OVERLOAD_BUILTIN_FOR_GSTENCIL(acos)
@@ -673,24 +692,6 @@ OVERLOAD_BUILTIN_FOR_GSTENCIL(tanh)
 OVERLOAD_BUILTIN_FOR_GSTENCIL(tanpi)
 OVERLOAD_BUILTIN_FOR_GSTENCIL(tgamma)
 OVERLOAD_BUILTIN_FOR_GSTENCIL(trunc)
-
-template <class f, typename T>
-struct GConv {
-    GConv(const vex::vector<T> &x, const FStencil<f, T> &s) : x(x), s(s.s) {}
-
-    const vex::vector<T> &x;
-    const gstencil<T> &s;
-};
-
-template <class f, typename T>
-GConv<f, T> operator*(const vex::vector<T> &x, const FStencil<f, T> &s) {
-    return GConv<f, T>(x, s);
-}
-
-template <class f, typename T>
-GConv<f, T> operator*(const FStencil<f, T> &s, const vex::vector<T> &x) {
-    return x * s;
-}
 
 template <typename T> template <class func>
 const vex::vector<T>& vex::vector<T>::operator=(const GConv<func, T> &cnv) {

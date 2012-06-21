@@ -906,7 +906,7 @@ int main() {
 		vex::vector<double> X(ctx.queue(), x);
 		vex::vector<double> Y(ctx.queue(), y);
 
-		Y += X * sin(S);
+		Y += sin(X * S);
 
 		copy(Y, y);
 
