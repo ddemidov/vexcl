@@ -698,14 +698,11 @@ void gstencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y) const {
 		"{\n"
 		"    local real *S = loc_buf;\n"
 		"    local real *xbuf = loc_buf + rows * cols + lhalo;\n"
-		"\n"
 		"    size_t block_size = get_local_size(0);\n"
 		"    long   g_id       = get_global_id(0);\n"
 		"    int    l_id       = get_local_id(0);\n"
-		"\n"
 		"    if (l_id < rows * cols)\n"
 		"        S[l_id] = s[l_id];\n"
-		"    S += lhalo;\n"
 		"    if (g_id < n) {\n"
 		"        xbuf[l_id] = x[g_id];\n"
 		"        if (l_id < lhalo && g_id >= lhalo)\n"
@@ -719,10 +716,60 @@ void gstencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y) const {
 		"        for(int k = 0; k < rows; k++) {\n"
 		"            real scol = 0;\n"
 		"            for(int j = -lhalo; j <= rhalo; j++)\n"
-		"                scol += S[j + k * cols] * xbuf[l_id + j];\n"
+		"                scol += S[lhalo + j + k * cols] * xbuf[l_id + j];\n"
 		"            srow += " << func::value() << "(scol);\n"
 		"        }\n"
 		"        y[g_id] = srow;\n"
+		"    }\n"
+		"}\n"
+		"kernel void conv_remote(\n"
+		"    " << type_name<size_t>() << " n,\n"
+		"    char has_left,\n"
+		"    char has_right,\n"
+		"    uint rows, uint cols,\n"
+		"    int lhalo, int rhalo,\n"
+		"    global const real *xloc,\n"
+		"    global const real *xrem,\n"
+		"    global const real *s,\n"
+		"    global real *y,\n"
+		"    local real *xbuf\n"
+		"    )\n"
+		"{\n"
+		"    long g_id = get_global_id(0);\n"
+		"    xbuf += lhalo;\n"
+		"    xrem += lhalo;\n"
+		"    if (g_id < lhalo) {\n"
+		"        xbuf[g_id] = xloc[g_id];\n"
+		"        xbuf[g_id + rhalo] = xloc[g_id + rhalo];\n"
+		"        xbuf[g_id - lhalo] = has_left ? xrem[g_id - lhalo] : xloc[0];\n"
+		"    }\n"
+		"    barrier(CLK_LOCAL_MEM_FENCE);\n"
+		"    if (g_id < lhalo) {\n"
+		"        real srow = 0;\n"
+		"        for(int k = 0; k < rows; k++) {\n"
+		"            real scol = 0;\n"
+		"            for(int j = -lhalo; j <= rhalo; j++)\n"
+		"                scol += s[lhalo + j + k * cols] * xbuf[g_id + j];\n"
+		"            srow += " << func::value() << "(scol);\n"
+		"        }\n"
+		"        y[g_id] = srow;\n"
+		"    }\n"
+		"    barrier(CLK_LOCAL_MEM_FENCE);\n"
+		"    if (g_id < rhalo) {\n"
+		"        xbuf[g_id] = xloc[n - rhalo + g_id];\n"
+		"        xbuf[g_id - lhalo] = xloc[n - rhalo + g_id - lhalo];\n"
+		"        xbuf[g_id + rhalo] = has_right ? xrem[g_id] : xloc[n - 1];\n"
+		"    }\n"
+		"    barrier(CLK_LOCAL_MEM_FENCE);\n"
+		"    if (g_id < rhalo) {\n"
+		"        real srow = 0;\n"
+		"        for(int k = 0; k < rows; k++) {\n"
+		"            real scol = 0;\n"
+		"            for(int j = -lhalo; j <= rhalo; j++)\n"
+		"                scol += s[lhalo + j + k * cols] * xbuf[g_id + j];\n"
+		"            srow += sin(scol);\n"
+		"        }\n"
+		"        y[n - rhalo + g_id] = srow;\n"
 		"    }\n"
 		"}\n";
 
@@ -733,7 +780,7 @@ void gstencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y) const {
 	    auto program = build_sources(context, source.str());
 
 	    exdata<func>::conv_local [context()] = cl::Kernel(program, "conv_local");
-	    exdata<func>::conv_remote[context()] = cl::Kernel(program, "conv_local");
+	    exdata<func>::conv_remote[context()] = cl::Kernel(program, "conv_remote");
 	    exdata<func>::wgsize[context()] = std::min(
 		    kernel_workgroup_size(exdata<func>::conv_local [context()], device),
 		    kernel_workgroup_size(exdata<func>::conv_remote[context()], device)
@@ -774,7 +821,8 @@ void gstencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y) const {
 	cl::Device  device  = queue[d].getInfo<CL_QUEUE_DEVICE>();
 	assert(l_mem_size <= 
 		device.getInfo<CL_DEVICE_LOCAL_MEM_SIZE>() -
-		exdata<func>::conv_local[context()].getWorkGroupInfo<CL_KERNEL_LOCAL_MEM_SIZE>(device)
+		static_cast<cl::Kernel>(exdata<func>::conv_local[context()]
+		    ).getWorkGroupInfo<CL_KERNEL_LOCAL_MEM_SIZE>(device)
 	      );
 #endif
 
@@ -815,23 +863,25 @@ void gstencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y) const {
 			&hbuf[(d + 1) * (rhalo + lhalo)]);
 	    }
 
-	    /* TODO
 	    size_t g_size = std::max(lhalo, rhalo);
+	    auto lmem = cl::__local(sizeof(T) * (exdata<func>::wgsize[context()] + lhalo + rhalo));
 
 	    uint prm = 0;
 	    exdata<func>::conv_remote[context()].setArg(prm++, x.part_size(d));
 	    exdata<func>::conv_remote[context()].setArg(prm++, d > 0);
 	    exdata<func>::conv_remote[context()].setArg(prm++, d + 1 < queue.size());
+	    exdata<func>::conv_remote[context()].setArg(prm++, rows);
+	    exdata<func>::conv_remote[context()].setArg(prm++, cols);
 	    exdata<func>::conv_remote[context()].setArg(prm++, lhalo);
 	    exdata<func>::conv_remote[context()].setArg(prm++, rhalo);
 	    exdata<func>::conv_remote[context()].setArg(prm++, x(d));
 	    exdata<func>::conv_remote[context()].setArg(prm++, dbuf[d]);
-	    exdata<func>::conv_remote[context()].setArg(prm++, s[d]);
+	    exdata<func>::conv_remote[context()].setArg(prm++, S[d]);
 	    exdata<func>::conv_remote[context()].setArg(prm++, y(d));
+	    exdata<func>::conv_remote[context()].setArg(prm++, lmem);
 
 	    queue[d].enqueueNDRangeKernel(exdata<func>::conv_remote[context()],
 		    cl::NullRange, g_size, cl::NullRange);
-	    */
 	}
     }
 }
