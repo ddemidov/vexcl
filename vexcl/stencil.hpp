@@ -82,8 +82,10 @@ class stencil {
 	 */
 	stencil(const std::vector<cl::CommandQueue> &queue,
 		const std::vector<T> &st, uint center
-		) : queue(queue), s(queue.size()),
-	            fast_kernel(queue.size()), wgs(queue.size())
+		)
+	    : queue(queue), squeue(queue.size()), dbuf(queue.size()),
+	      s(queue.size()), event(queue.size()),
+	      fast_kernel(queue.size()), wgs(queue.size())
 	{
 	    init(st, center);
 	}
@@ -99,8 +101,10 @@ class stencil {
 	template <class Iterator>
 	stencil(const std::vector<cl::CommandQueue> &queue,
 		Iterator begin, Iterator end, uint center
-		) : queue(queue), s(queue.size()),
-	            fast_kernel(queue.size()), wgs(queue.size())
+		)
+	    : queue(queue), squeue(queue.size()), dbuf(queue.size()),
+	      s(queue.size()), event(queue.size()),
+	      fast_kernel(queue.size()), wgs(queue.size())
 	{
 	    std::vector<T> st(begin, end);
 	    init(st, center);
@@ -116,8 +120,10 @@ class stencil {
 	 */
 	stencil(const std::vector<cl::CommandQueue> &queue,
 		std::initializer_list<T> list, uint center
-		) : queue(queue), s(queue.size()),
-	            fast_kernel(queue.size()), wgs(queue.size())
+		)
+	    : queue(queue), squeue(queue.size()), dbuf(queue.size()),
+	      s(queue.size()), event(queue.size()),
+	      fast_kernel(queue.size()), wgs(queue.size())
 	{
 	    std::vector<T> st(list);
 	    init(st, center);
@@ -343,9 +349,6 @@ void stencil<T>::init(const std::vector<T> &data, uint center) {
     }
 
     hbuf.resize(queue.size() * (lhalo + rhalo));
-    dbuf.resize(queue.size());
-    event.resize(queue.size());
-    squeue.resize(queue.size());
 
     if (lhalo + rhalo > 0) {
 	for(uint d = 0; d < queue.size(); d++) {
@@ -361,15 +364,15 @@ void stencil<T>::init(const std::vector<T> &data, uint center) {
 
 template <typename T>
 void stencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y) const {
-    if ((queue.size() > 1) && (lhalo + rhalo)) {
+    if ((queue.size() > 1) && (lhalo + rhalo > 0)) {
 	for(uint d = 0; d < queue.size(); d++) {
-	    if (d > 0 && rhalo) {
+	    if (d > 0 && rhalo > 0) {
 		squeue[d].enqueueReadBuffer(
 			x(d), CL_FALSE, 0, rhalo * sizeof(T),
 			&hbuf[d * (rhalo + lhalo)], 0, &event[d]);
 	    }
 
-	    if (d + 1 < queue.size() && lhalo) {
+	    if (d + 1 < queue.size() && lhalo > 0) {
 		squeue[d].enqueueReadBuffer(
 			x(d), CL_FALSE, (x.part_size(d) - lhalo) * sizeof(T),
 			lhalo * sizeof(T), &hbuf[d * (rhalo + lhalo) + rhalo],
@@ -402,21 +405,21 @@ void stencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y) const {
 
     }
 
-    if (lhalo + rhalo) {
+    if (lhalo + rhalo > 0) {
 	if (queue.size() > 1)
 	    for(uint d = 0; d < queue.size(); d++)
-		if ((d > 0 && rhalo) || (d + 1 < queue.size() && lhalo))
+		if ((d > 0 && rhalo > 0) || (d + 1 < queue.size() && lhalo > 0))
 		    event[d].wait();
 
 	for(uint d = 0; d < queue.size(); d++) {
 	    cl::Context context = queue[d].getInfo<CL_QUEUE_CONTEXT>();
 
-	    if (d > 0 && lhalo) {
+	    if (d > 0 && lhalo > 0) {
 		queue[d].enqueueWriteBuffer(dbuf[d], CL_FALSE, 0, lhalo * sizeof(T),
 			&hbuf[(d - 1) * (rhalo + lhalo) + rhalo]);
 	    }
 
-	    if (d + 1 < queue.size() && rhalo) {
+	    if (d + 1 < queue.size() && rhalo > 0) {
 		queue[d].enqueueWriteBuffer(dbuf[d], CL_FALSE,
 			lhalo * sizeof(T), rhalo * sizeof(T),
 			&hbuf[(d + 1) * (rhalo + lhalo)]);
@@ -472,7 +475,12 @@ class gstencil {
 	 */
 	gstencil(const std::vector<cl::CommandQueue> &queue,
 		 uint rows, uint cols, uint center,
-		 const std::vector<T> &data);
+		 const std::vector<T> &data)
+	    : queue(queue), squeue(queue.size), dbuf(queue.size()),
+	      S(queue.size()), event(queue.size()), rows(rows), cols(cols)
+	{
+	    init(center, data);
+	}
 
 	/// Constructor.
 	/**
@@ -488,7 +496,13 @@ class gstencil {
 	template <class Iterator>
 	gstencil(const std::vector<cl::CommandQueue> &queue,
 		 uint rows, uint cols, uint center,
-		 Iterator begin, Iterator end);
+		 Iterator begin, Iterator end)
+	    : queue(queue), squeue(queue.size()), dbuf(queue.size()),
+	      S(queue.size()), event(queue.size()), rows(rows), cols(cols)
+	{
+	    std::vector<T> v(begin, end);
+	    init(center, v);
+	}
 
 #ifdef INITIALIZER_LISTS_AVAILABLE
 	/// Costructor.
@@ -503,12 +517,58 @@ class gstencil {
 	 */
 	gstencil(const std::vector<cl::CommandQueue> &queue,
 		 uint rows, uint cols, uint center,
-		 const std::initializer_list<T> &data);
+		 const std::initializer_list<T> &data)
+	    : queue(queue), squeue(queue.size), dbuf(queue.size()),
+	      S(queue.size()), event(queue.size()), rows(rows), cols(cols)
+	{
+	    std::vector<T> v(data);
+	    init(center, v);
+	}
 #endif
 
+	/// Convolve stencil with a vector.
+	/**
+	 * \param x input vector.
+	 * \param y output vector.
+	 */
 	template <class func_name>
 	void convolve(const vex::vector<T> &x, vex::vector<T> &y) const;
+    private:
+	const std::vector<cl::CommandQueue> &queue;
+	std::vector<cl::CommandQueue> squeue;
+
+	mutable std::vector<T>	hbuf;
+	std::vector<cl::Buffer> dbuf;
+	std::vector<cl::Buffer> S;
+	mutable std::vector<cl::Event>  event;
+
+	int lhalo;
+	int rhalo;
+	uint rows;
+	uint cols;
+
+	void init(uint center, const std::vector<T> &data);
+
+	template <class func>
+	struct exdata {
+	    static std::map<cl_context, bool>	    compiled;
+	    static std::map<cl_context, cl::Kernel> conv_local;
+	    static std::map<cl_context, cl::Kernel> conv_remote;
+	    static std::map<cl_context, uint>	    wgsize;
+	};
 };
+
+template <typename T> template<class func>
+std::map<cl_context, bool> gstencil<T>::exdata<func>::compiled;
+
+template <typename T> template<class func>
+std::map<cl_context, cl::Kernel> gstencil<T>::exdata<func>::conv_local;
+
+template <typename T> template<class func>
+std::map<cl_context, cl::Kernel> gstencil<T>::exdata<func>::conv_remote;
+
+template <typename T> template<class func>
+std::map<cl_context, uint> gstencil<T>::exdata<func>::wgsize;
 
 template <class f, typename T>
 struct FStencil {
@@ -568,26 +628,212 @@ OVERLOAD_BUILTIN_FOR_GSTENCIL(trunc)
 
 template <class f, typename T>
 struct GConv {
-    GConv(const vex::vector<T> &x, const gstencil<T> &s) : x(x), s(s) {}
+    GConv(const vex::vector<T> &x, const FStencil<f, T> &s) : x(x), s(s) {}
 
     const vex::vector<T> &x;
-    const gstencil<T> &s;
+    const FStencil<f, T> &s;
 };
 
 template <class f, typename T>
-GConv<f, T> operator*(const vex::vector<T> &x, const gstencil<T> &s) {
+GConv<f, T> operator*(const vex::vector<T> &x, const FStencil<f, T> &s) {
     return GConv<f, T>(x, s);
 }
 
 template <class f, typename T>
-GConv<f, T> operator*(const gstencil<T> &s, const vex::vector<T> &x) {
+GConv<f, T> operator*(const FStencil<f, T> &s, const vex::vector<T> &x) {
     return x * s;
 }
 
 template <typename T> template <class func>
 const vex::vector<T>& vex::vector<T>::operator=(const GConv<func, T> &cnv) {
-    cnv.s.template convolve<func>(cnv.x, *this);
+    cnv.s.s.template convolve<func>(cnv.x, *this);
     return *this;
+}
+
+template <class T>
+void gstencil<T>::init(uint center, const std::vector<T> &data) {
+    assert(rows && cols);
+    assert(rows * cols == data.size());
+    assert(center < cols);
+
+    lhalo = center;
+    rhalo = cols - center - 1;
+
+    hbuf.resize(queue.size() * (lhalo + rhalo));
+
+    for (uint d = 0; d < queue.size(); d++) {
+	cl::Context context = queue[d].getInfo<CL_QUEUE_CONTEXT>();
+	cl::Device  device  = queue[d].getInfo<CL_QUEUE_DEVICE>();
+
+	S[d] = cl::Buffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+		data.size() * sizeof(T), const_cast<T*>(data.data()));
+
+	if (lhalo + rhalo > 0) {
+	    squeue[d] = cl::CommandQueue(context, device);
+	    dbuf[d]   = cl::Buffer(context, CL_MEM_READ_WRITE, (lhalo + rhalo) * sizeof(T));
+	}
+    }
+}
+
+template <class T> template <class func>
+void gstencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y) const {
+    for (uint d = 0; d < queue.size(); d++) {
+	cl::Context context = queue[d].getInfo<CL_QUEUE_CONTEXT>();
+	cl::Device  device  = queue[d].getInfo<CL_QUEUE_DEVICE>();
+
+	if (!exdata<func>::compiled[context()]) {
+	    std::ostringstream source;
+
+	    source << standard_kernel_header <<
+		"typedef " << type_name<T>() << " real;\n"
+		"kernel void conv_local(\n"
+		"    " << type_name<size_t>() << " n,\n"
+		"    uint rows, uint cols,\n"
+		"    int lhalo, int rhalo,\n"
+		"    global const real *x,\n"
+		"    global const real *s,\n"
+		"    global real *y,\n"
+		"    local real *loc_buf\n"
+		"    )\n"
+		"{\n"
+		"    local real *S = loc_buf;\n"
+		"    local real *xbuf = loc_buf + rows * cols + lhalo;\n"
+		"\n"
+		"    size_t block_size = get_local_size(0);\n"
+		"    long   g_id       = get_global_id(0);\n"
+		"    int    l_id       = get_local_id(0);\n"
+		"\n"
+		"    if (l_id < rows * cols)\n"
+		"        S[l_id] = s[l_id];\n"
+		"    S += lhalo;\n"
+		"    if (g_id < n) {\n"
+		"        xbuf[l_id] = x[g_id];\n"
+		"        if (l_id < lhalo && g_id >= lhalo)\n"
+		"            xbuf[l_id - lhalo] = x[g_id - lhalo];\n"
+		"        if (l_id + rhalo < block_size || g_id + rhalo < n)\n"
+		"            xbuf[l_id + rhalo] = x[g_id + rhalo];\n"
+		"    }\n"
+		"    barrier(CLK_LOCAL_MEM_FENCE);\n"
+		"    if (g_id >= lhalo && g_id + rhalo < n) {\n"
+		"        real srow = 0;\n"
+		"        for(int k = 0; k < rows; k++) {\n"
+		"            real scol = 0;\n"
+		"            for(int j = -lhalo; j <= rhalo; j++)\n"
+		"                scol += S[j + k * cols] * xbuf[l_id + j];\n"
+		"            srow += " << func::value() << "(scol);\n"
+		"        }\n"
+		"        y[g_id] = srow;\n"
+		"    }\n"
+		"}\n";
+
+#ifdef VEXCL_SHOW_KERNELS
+	    std::cout << source.str() << std::endl;
+#endif
+
+	    auto program = build_sources(context, source.str());
+
+	    exdata<func>::conv_local [context()] = cl::Kernel(program, "conv_local");
+	    exdata<func>::conv_remote[context()] = cl::Kernel(program, "conv_local");
+	    exdata<func>::wgsize[context()] = std::min(
+		    kernel_workgroup_size(exdata<func>::conv_local [context()], device),
+		    kernel_workgroup_size(exdata<func>::conv_remote[context()], device)
+		    );
+
+	    exdata<func>::compiled[context()] = true;
+	}
+    }
+
+    // Start reading halos.
+    if ((queue.size() > 1) && (lhalo + rhalo > 0)) {
+	for(uint d = 0; d < queue.size(); d++) {
+	    if (d > 0 && rhalo > 0) {
+		squeue[d].enqueueReadBuffer(
+			x(d), CL_FALSE, 0, rhalo * sizeof(T),
+			&hbuf[d * (rhalo + lhalo)], 0, &event[d]);
+	    }
+
+	    if (d + 1 < queue.size() && lhalo > 0) {
+		squeue[d].enqueueReadBuffer(
+			x(d), CL_FALSE, (x.part_size(d) - lhalo) * sizeof(T),
+			lhalo * sizeof(T), &hbuf[d * (rhalo + lhalo) + rhalo],
+			0, &event[d]);
+	    }
+	}
+    }
+
+    // Apply local kernel.
+    for(uint d = 0; d < queue.size(); d++) {
+	cl::Context context = queue[d].getInfo<CL_QUEUE_CONTEXT>();
+
+	size_t g_size = alignup(x.part_size(d), exdata<func>::wgsize[context()]);
+	size_t l_mem_size = sizeof(T) * (
+		exdata<func>::wgsize[context()] + lhalo + rhalo + rows * cols
+		);
+
+#ifndef NDEBUG
+	cl::Device  device  = queue[d].getInfo<CL_QUEUE_DEVICE>();
+	assert(l_mem_size <= 
+		device.getInfo<CL_DEVICE_LOCAL_MEM_SIZE>() -
+		exdata<func>::conv_local[context()].getWorkGroupInfo<CL_KERNEL_LOCAL_MEM_SIZE>(device)
+	      );
+#endif
+
+	uint pos = 0;
+	exdata<func>::conv_local[context()].setArg(pos++, x.part_size(d));
+	exdata<func>::conv_local[context()].setArg(pos++, rows);
+	exdata<func>::conv_local[context()].setArg(pos++, cols);
+	exdata<func>::conv_local[context()].setArg(pos++, lhalo);
+	exdata<func>::conv_local[context()].setArg(pos++, rhalo);
+	exdata<func>::conv_local[context()].setArg(pos++, x(d));
+	exdata<func>::conv_local[context()].setArg(pos++, S[d]);
+	exdata<func>::conv_local[context()].setArg(pos++, y(d));
+	exdata<func>::conv_local[context()].setArg(pos++, cl::__local(l_mem_size));
+
+	queue[d].enqueueNDRangeKernel(exdata<func>::conv_local[context()],
+		cl::NullRange, g_size, exdata<func>::wgsize[context()]);
+
+    }
+
+    // Finish reading halos and apply remote kernel.
+    if (lhalo + rhalo > 0) {
+	if (queue.size() > 1)
+	    for(uint d = 0; d < queue.size(); d++)
+		if ((d > 0 && rhalo > 0) || (d + 1 < queue.size() && lhalo > 0))
+		    event[d].wait();
+
+	for(uint d = 0; d < queue.size(); d++) {
+	    cl::Context context = queue[d].getInfo<CL_QUEUE_CONTEXT>();
+
+	    if (d > 0 && lhalo > 0) {
+		queue[d].enqueueWriteBuffer(dbuf[d], CL_FALSE, 0, lhalo * sizeof(T),
+			&hbuf[(d - 1) * (rhalo + lhalo) + rhalo]);
+	    }
+
+	    if (d + 1 < queue.size() && rhalo > 0) {
+		queue[d].enqueueWriteBuffer(dbuf[d], CL_FALSE,
+			lhalo * sizeof(T), rhalo * sizeof(T),
+			&hbuf[(d + 1) * (rhalo + lhalo)]);
+	    }
+
+	    /* TODO
+	    size_t g_size = std::max(lhalo, rhalo);
+
+	    uint prm = 0;
+	    exdata<func>::conv_remote[context()].setArg(prm++, x.part_size(d));
+	    exdata<func>::conv_remote[context()].setArg(prm++, d > 0);
+	    exdata<func>::conv_remote[context()].setArg(prm++, d + 1 < queue.size());
+	    exdata<func>::conv_remote[context()].setArg(prm++, lhalo);
+	    exdata<func>::conv_remote[context()].setArg(prm++, rhalo);
+	    exdata<func>::conv_remote[context()].setArg(prm++, x(d));
+	    exdata<func>::conv_remote[context()].setArg(prm++, dbuf[d]);
+	    exdata<func>::conv_remote[context()].setArg(prm++, s[d]);
+	    exdata<func>::conv_remote[context()].setArg(prm++, y(d));
+
+	    queue[d].enqueueNDRangeKernel(exdata<func>::conv_remote[context()],
+		    cl::NullRange, g_size, cl::NullRange);
+	    */
+	}
+    }
 }
 
 } // namespace vex
