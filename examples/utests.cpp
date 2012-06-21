@@ -858,7 +858,7 @@ int main() {
 
 	run_test("Big stencil convolution", [&]() -> bool {
 		bool rc = true;
-		const int n = 1 << 20;
+		const int n = 1 << 16;
 
 		std::vector<double> s(2048);
 		std::generate(s.begin(), s.end(), [](){ return (double)rand() / RAND_MAX; });
