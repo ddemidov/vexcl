@@ -889,6 +889,39 @@ int main() {
 		return rc;
 		});
 
+	run_test("Generalized stencil convolution", [&]() -> bool {
+		bool rc = true;
+		const int n = 1 << 20;
+
+		double sdata[] = {
+		    1, -1,  0,
+		    0,  1, -1
+		    };
+		gstencil<double> S(ctx.queue(), 2, 3, 1, sdata, sdata + 6);
+
+		std::vector<double> x(n);
+		std::vector<double> y(n);
+		std::generate(x.begin(), x.end(), [](){ return (double)rand() / RAND_MAX; });
+
+		vex::vector<double> X(ctx.queue(), x);
+		vex::vector<double> Y(ctx.queue(), n);
+
+		Y = X * sin(S);
+
+		copy(Y, y);
+
+		double res = 0;
+		for(int i = 0; i < n; i++) {
+		    int left  = std::max(0, i - 1);
+		    int right = std::min(n - 1, i + 1);
+
+		    double sum = sin(x[left] - x[i]) + sin(x[i] - x[right]);
+		    res = std::max(res, fabs(sum - y[i]));
+		}
+		rc = rc && res < 1e-8;
+		return rc;
+		});
+
     } catch (const cl::Error &err) {
 	std::cerr << "OpenCL error: " << err << std::endl;
 	return 1;
