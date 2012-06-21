@@ -835,19 +835,19 @@ int main() {
 		stencil<double> S(ctx.queue(), s, center);
 
 		std::vector<double> x(n);
-		std::vector<double> y(n);
+		std::vector<double> y(n, 1);
 		std::generate(x.begin(), x.end(), [](){ return (double)rand() / RAND_MAX; });
 
 		vex::vector<double> X(ctx.queue(), x);
-		vex::vector<double> Y(ctx.queue(), n);
+		vex::vector<double> Y(ctx.queue(), y);
 
-		Y = X * S;
+		Y += X * S;
 
 		copy(Y, y);
 
 		double res = 0;
 		for(int i = 0; i < n; i++) {
-		    double sum = 0;
+		    double sum = 1;
 		    for(int k = -center; k < (int)s.size() - center; k++)
 			sum += s[k + center] * x[std::min(n-1,std::max(0, i + k))];
 		    res = std::max(res, fabs(sum - y[i]));
@@ -900,13 +900,13 @@ int main() {
 		gstencil<double> S(ctx.queue(), 2, 3, 1, sdata, sdata + 6);
 
 		std::vector<double> x(n);
-		std::vector<double> y(n);
+		std::vector<double> y(n, 1);
 		std::generate(x.begin(), x.end(), [](){ return (double)rand() / RAND_MAX; });
 
 		vex::vector<double> X(ctx.queue(), x);
-		vex::vector<double> Y(ctx.queue(), n);
+		vex::vector<double> Y(ctx.queue(), y);
 
-		Y = X * sin(S);
+		Y += X * sin(S);
 
 		copy(Y, y);
 
@@ -915,7 +915,7 @@ int main() {
 		    int left  = std::max(0, i - 1);
 		    int right = std::min(n - 1, i + 1);
 
-		    double sum = sin(x[left] - x[i]) + sin(x[i] - x[right]);
+		    double sum = 1 + sin(x[left] - x[i]) + sin(x[i] - x[right]);
 		    res = std::max(res, fabs(sum - y[i]));
 		}
 		rc = rc && res < 1e-8;

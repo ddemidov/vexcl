@@ -132,10 +132,12 @@ class stencil {
 
 	/// Convolve stencil with a vector.
 	/**
+	 * y = alpha * y + beta * conv(x);
 	 * \param x input vector.
 	 * \param y output vector.
 	 */
-	void convolve(const vex::vector<T> &x, vex::vector<T> &y) const;
+	void convolve(const vex::vector<T> &x, vex::vector<T> &y,
+		T alpha = 0, T beta = 1) const;
     private:
 	const std::vector<cl::CommandQueue> &queue;
 	std::vector<cl::CommandQueue> squeue;
@@ -199,6 +201,36 @@ const vex::vector<T>& vex::vector<T>::operator=(const Conv<T> &cnv) {
     return *this;
 }
 
+template <class Expr, typename T>
+struct ExConv {
+    ExConv(const Expr &expr, const Conv<T> &cnv, T p)
+	: expr(expr), cnv(cnv), p(p) {}
+
+    const Expr    &expr;
+    const Conv<T> &cnv;
+    T p;
+};
+
+template <class Expr, typename T>
+typename std::enable_if<Expr::is_expr, ExConv<Expr,T>>::type
+operator+(const Expr &expr, const Conv<T> &cnv) {
+    return ExConv<Expr,T>(expr, cnv, 1);
+}
+
+template <class Expr, typename T>
+typename std::enable_if<Expr::is_expr, ExConv<Expr,T>>::type
+operator-(const Expr &expr, const Conv<T> &cnv) {
+    return ExConv<Expr,T>(expr, cnv, -1);
+}
+
+template <typename T> template <class Expr>
+const vex::vector<T>& vex::vector<T>::operator=(const ExConv<Expr,T> &xc) {
+    *this = xc.expr;
+    xc.cnv.s.convolve(xc.cnv.x, *this, 1, xc.p);
+    return *this;
+}
+
+
 template <typename T>
 void stencil<T>::init(const std::vector<T> &data, uint center) {
     assert(queue.size());
@@ -224,6 +256,7 @@ void stencil<T>::init(const std::vector<T> &data, uint center) {
 		"    global const real *x,\n"
 		"    global const real *s,\n"
 		"    global real *y,\n"
+		"    real alpha, real beta,\n"
 		"    local real *loc_buf\n"
 		"    )\n"
 		"{\n"
@@ -248,7 +281,10 @@ void stencil<T>::init(const std::vector<T> &data, uint center) {
 		"        for(int k = -lhalo; k <= rhalo; k++)\n"
 		"            if (g_id + k >= 0 && g_id + k < n)\n"
 		"                sum += stencil[k] * xbuf[l_id + k];\n"
-		"        y[g_id] = sum;\n"
+		"        if (alpha)\n"
+		"            y[g_id] = alpha * y[g_id] + beta * sum;\n"
+		"        else\n"
+		"            y[g_id] = beta * sum;\n"
 		"    }\n"
 		"}\n"
 		"kernel void conv_local_big(\n"
@@ -257,7 +293,8 @@ void stencil<T>::init(const std::vector<T> &data, uint center) {
 		"    int rhalo,\n"
 		"    global const real *x,\n"
 		"    global const real *s,\n"
-		"    global real *y\n"
+		"    global real *y,\n"
+		"    real alpha, real beta\n"
 		"    )\n"
 		"{\n"
 		"    long g_id = get_global_id(0);\n"
@@ -267,7 +304,10 @@ void stencil<T>::init(const std::vector<T> &data, uint center) {
 		"        for(int k = -lhalo; k <= rhalo; k++)\n"
 		"            if (g_id + k >= 0 && g_id + k < n)\n"
 		"                sum += s[k] * x[g_id + k];\n"
-		"        y[g_id] = sum;\n"
+		"        if (alpha)\n"
+		"            y[g_id] = alpha * y[g_id] + beta * sum;\n"
+		"        else\n"
+		"            y[g_id] = beta * sum;\n"
 		"    }\n"
 		"}\n"
 		"kernel void conv_remote(\n"
@@ -279,7 +319,8 @@ void stencil<T>::init(const std::vector<T> &data, uint center) {
 		"    global const real *x,\n"
 		"    global const real *h,\n"
 		"    global const real *s,\n"
-		"    global real *y\n"
+		"    global real *y,\n"
+		"    real beta\n"
 		"    )\n"
 		"{\n"
 		"    long g_id = get_global_id(0);\n"
@@ -291,14 +332,14 @@ void stencil<T>::init(const std::vector<T> &data, uint center) {
 		"        for(int k = -lhalo; k < 0; k++)\n"
 		"            if (g_id + k < 0)\n"
 		"                sum += s[k] * (has_left ? xl[g_id + k] : x[0]);\n"
-		"        y[g_id] += sum;\n"
+		"        y[g_id] += beta * sum;\n"
 		"    }\n"
 		"    if (g_id < rhalo) {\n"
 		"        real sum = 0;\n"
 		"        for(int k = 1; k <= rhalo; k++)\n"
 		"            if (g_id + k - rhalo >= 0)\n"
 		"                sum += s[k] * (has_right ? xr[g_id + k - rhalo] : x[n - 1]);\n"
-		"        y[n - rhalo + g_id] += sum;\n"
+		"        y[n - rhalo + g_id] += beta * sum;\n"
 		"    }\n"
 		"}\n";
 
@@ -363,7 +404,10 @@ void stencil<T>::init(const std::vector<T> &data, uint center) {
 }
 
 template <typename T>
-void stencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y) const {
+void stencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y,
+	T alpha, T beta
+	) const
+{
     if ((queue.size() > 1) && (lhalo + rhalo > 0)) {
 	for(uint d = 0; d < queue.size(); d++) {
 	    if (d > 0 && rhalo > 0) {
@@ -396,6 +440,8 @@ void stencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y) const {
 	kernel.setArg(pos++, x(d));
 	kernel.setArg(pos++, s[d]);
 	kernel.setArg(pos++, y(d));
+	kernel.setArg(pos++, alpha);
+	kernel.setArg(pos++, beta);
 
 	if (fast_kernel[d])
 	    kernel.setArg(pos++,
@@ -437,6 +483,7 @@ void stencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y) const {
 	    conv_remote[context()].setArg(prm++, dbuf[d]);
 	    conv_remote[context()].setArg(prm++, s[d]);
 	    conv_remote[context()].setArg(prm++, y(d));
+	    conv_remote[context()].setArg(prm++, beta);
 
 	    queue[d].enqueueNDRangeKernel(conv_remote[context()],
 		    cl::NullRange, g_size, cl::NullRange);
@@ -532,7 +579,8 @@ class gstencil {
 	 * \param y output vector.
 	 */
 	template <class func_name>
-	void convolve(const vex::vector<T> &x, vex::vector<T> &y) const;
+	void convolve(const vex::vector<T> &x, vex::vector<T> &y,
+		T alpha = 0, T beta = 1) const;
     private:
 	const std::vector<cl::CommandQueue> &queue;
 	std::vector<cl::CommandQueue> squeue;
@@ -628,10 +676,10 @@ OVERLOAD_BUILTIN_FOR_GSTENCIL(trunc)
 
 template <class f, typename T>
 struct GConv {
-    GConv(const vex::vector<T> &x, const FStencil<f, T> &s) : x(x), s(s) {}
+    GConv(const vex::vector<T> &x, const FStencil<f, T> &s) : x(x), s(s.s) {}
 
     const vex::vector<T> &x;
-    const FStencil<f, T> &s;
+    const gstencil<T> &s;
 };
 
 template <class f, typename T>
@@ -646,7 +694,36 @@ GConv<f, T> operator*(const FStencil<f, T> &s, const vex::vector<T> &x) {
 
 template <typename T> template <class func>
 const vex::vector<T>& vex::vector<T>::operator=(const GConv<func, T> &cnv) {
-    cnv.s.s.template convolve<func>(cnv.x, *this);
+    cnv.s.template convolve<func>(cnv.x, *this);
+    return *this;
+}
+
+template <class Expr, class func, typename T>
+struct ExGConv {
+    ExGConv(const Expr &expr, const GConv<func,T> &cnv, T p)
+	: expr(expr), cnv(cnv), p(p) {}
+
+    const Expr &expr;
+    const GConv<func,T> &cnv;
+    T p;
+};
+
+template <class Expr, class func, typename T>
+typename std::enable_if<Expr::is_expr, ExGConv<Expr,func,T>>::type
+operator+(const Expr &expr, const GConv<func,T> &cnv) {
+    return ExGConv<Expr,func,T>(expr, cnv, 1);
+}
+
+template <class Expr, class func, typename T>
+typename std::enable_if<Expr::is_expr, ExGConv<Expr,func,T>>::type
+operator-(const Expr &expr, const GConv<func,T> &cnv) {
+    return ExGConv<Expr,func,T>(expr, cnv, -1);
+}
+
+template <typename T> template <class Expr, class func>
+const vex::vector<T>& vex::vector<T>::operator=(const ExGConv<Expr,func,T> &xc) {
+    *this = xc.expr;
+    xc.cnv.s.template convolve<func>(xc.cnv.x, *this, 1, xc.p);
     return *this;
 }
 
@@ -676,7 +753,9 @@ void gstencil<T>::init(uint center, const std::vector<T> &data) {
 }
 
 template <class T> template <class func>
-void gstencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y) const {
+void gstencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y,
+	T alpha, T beta) const
+{
     for (uint d = 0; d < queue.size(); d++) {
 	cl::Context context = queue[d].getInfo<CL_QUEUE_CONTEXT>();
 	cl::Device  device  = queue[d].getInfo<CL_QUEUE_DEVICE>();
@@ -693,6 +772,7 @@ void gstencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y) const {
 		"    global const real *x,\n"
 		"    global const real *s,\n"
 		"    global real *y,\n"
+		"    real alpha, real beta,\n"
 		"    local real *loc_buf\n"
 		"    )\n"
 		"{\n"
@@ -719,7 +799,10 @@ void gstencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y) const {
 		"                scol += S[lhalo + j + k * cols] * xbuf[l_id + j];\n"
 		"            srow += " << func::value() << "(scol);\n"
 		"        }\n"
-		"        y[g_id] = srow;\n"
+		"        if (alpha)\n"
+		"            y[g_id] = alpha * y[g_id] + beta * srow;\n"
+		"        else\n"
+		"            y[g_id] = beta * srow;\n"
 		"    }\n"
 		"}\n"
 		"kernel void conv_remote(\n"
@@ -732,6 +815,7 @@ void gstencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y) const {
 		"    global const real *xrem,\n"
 		"    global const real *s,\n"
 		"    global real *y,\n"
+		"    real alpha, real beta,\n"
 		"    local real *xbuf\n"
 		"    )\n"
 		"{\n"
@@ -752,7 +836,10 @@ void gstencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y) const {
 		"                scol += s[lhalo + j + k * cols] * xbuf[g_id + j];\n"
 		"            srow += " << func::value() << "(scol);\n"
 		"        }\n"
-		"        y[g_id] = srow;\n"
+		"        if (alpha)\n"
+		"            y[g_id] = alpha * y[g_id] + beta * srow;\n"
+		"        else\n"
+		"            y[g_id] = beta * srow;\n"
 		"    }\n"
 		"    barrier(CLK_LOCAL_MEM_FENCE);\n"
 		"    if (g_id < rhalo) {\n"
@@ -769,7 +856,10 @@ void gstencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y) const {
 		"                scol += s[lhalo + j + k * cols] * xbuf[g_id + j];\n"
 		"            srow += sin(scol);\n"
 		"        }\n"
-		"        y[n - rhalo + g_id] = srow;\n"
+		"        if (alpha)\n"
+		"            y[n - rhalo + g_id] = alpha * y[n - rhalo + g_id] + beta * srow;\n"
+		"        else\n"
+		"            y[n - rhalo + g_id] = beta * srow;\n"
 		"    }\n"
 		"}\n";
 
@@ -835,6 +925,8 @@ void gstencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y) const {
 	exdata<func>::conv_local[context()].setArg(pos++, x(d));
 	exdata<func>::conv_local[context()].setArg(pos++, S[d]);
 	exdata<func>::conv_local[context()].setArg(pos++, y(d));
+	exdata<func>::conv_local[context()].setArg(pos++, alpha);
+	exdata<func>::conv_local[context()].setArg(pos++, beta);
 	exdata<func>::conv_local[context()].setArg(pos++, cl::__local(l_mem_size));
 
 	queue[d].enqueueNDRangeKernel(exdata<func>::conv_local[context()],
@@ -878,6 +970,8 @@ void gstencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y) const {
 	    exdata<func>::conv_remote[context()].setArg(prm++, dbuf[d]);
 	    exdata<func>::conv_remote[context()].setArg(prm++, S[d]);
 	    exdata<func>::conv_remote[context()].setArg(prm++, y(d));
+	    exdata<func>::conv_remote[context()].setArg(prm++, alpha);
+	    exdata<func>::conv_remote[context()].setArg(prm++, beta);
 	    exdata<func>::conv_remote[context()].setArg(prm++, lmem);
 
 	    queue[d].enqueueNDRangeKernel(exdata<func>::conv_remote[context()],
