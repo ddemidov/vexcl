@@ -84,14 +84,6 @@ class SpMatBase {
 	virtual void mul(const vex::vector<real> &x, vex::vector<real> &y,
 		 real alpha = 1, bool append = false) const = 0;
 
-	template <uint N>
-	void mul(const vex::multivector<real,N> &x, vex::multivector<real,N> &y,
-		 real alpha = 1, bool append = false) const
-	{
-	    for (uint i = 0; i < N; i++)
-		this->mul(x(i), y(i), alpha, append);
-	}
-
 	virtual ~SpMatBase() {}
 };
 
@@ -195,14 +187,16 @@ template <typename real, uint N> template <typename column_t>
 const multivector<real,N>& multivector<real,N>::operator=(
 	const MultiSpMV<real,column_t,N> &spmv)
 {
-    spmv.A.mul(spmv.x, *this);
+    for(uint i = 0; i < N; i++)
+	spmv.A.mul(spmv.x(i), (*this)(i));
     return *this;
 }
 
 template <typename real, uint N> template<class Expr, typename column_t>
 const multivector<real,N>& multivector<real,N>::operator=(const MultiExSpMV<Expr,real,column_t,N> &xmv) {
     *this = xmv.expr;
-    xmv.spmv.A.mul(xmv.spmv.x, *this, xmv.alpha, true);
+    for(uint i = 0; i < N; i++)
+	xmv.spmv.A.mul(xmv.spmv.x(i), (*this)(i), xmv.alpha, true);
     return *this;
 }
 

@@ -230,6 +230,64 @@ const vex::vector<T>& vex::vector<T>::operator=(const ExConv<Expr,T> &xc) {
     return *this;
 }
 
+template <typename T, uint N>
+struct MultiConv {
+    MultiConv(const multivector<T,N> &x, const stencil<T> &s) : x(x), s(s) {}
+
+    const multivector<T,N> &x;
+    const stencil<T>       &s;
+};
+
+template <typename T, uint N>
+MultiConv<T,N> operator*(const multivector<T,N> &x, const stencil<T> &s) {
+    return MultiConv<T,N>(x, s);
+}
+
+template <typename T, uint N>
+MultiConv<T,N> operator*(const stencil<T> &s, const multivector<T,N> &x) {
+    return x * s;
+}
+
+template <typename T, uint N>
+const vex::multivector<T,N>& vex::multivector<T,N>::operator=(
+	const MultiConv<T,N> &cnv)
+{
+    for(uint i = 0; i < N; i++)
+	cnv.s.convolve(cnv.x(i), (*this)(i));
+    return *this;
+}
+
+template <class Expr, typename T, uint N>
+struct MultiExConv {
+    MultiExConv(const Expr &expr, const MultiConv<T,N> &cnv, T p)
+	: expr(expr), cnv(cnv), p(p) {}
+
+    const Expr           &expr;
+    const MultiConv<T,N> &cnv;
+    T p;
+};
+
+template <class Expr, typename T, uint N>
+typename std::enable_if<Expr::is_multiex, MultiExConv<Expr,T,N>>::type
+operator+(const Expr &expr, const MultiConv<T,N> &cnv) {
+    return MultiExConv<Expr,T,N>(expr, cnv, 1);
+}
+
+template <class Expr, typename T, uint N>
+typename std::enable_if<Expr::is_multiex, MultiExConv<Expr,T,N>>::type
+operator-(const Expr &expr, const MultiConv<T,N> &cnv) {
+    return MultiExConv<Expr,T,N>(expr, cnv, -1);
+}
+
+template <typename T, uint N> template <class Expr>
+const vex::multivector<T,N>& vex::multivector<T,N>::operator=(
+	const MultiExConv<Expr,T,N> &xc)
+{
+    *this = xc.expr;
+    for(uint i = 0; i < N; i++)
+	xc.cnv.s.convolve(xc.cnv.x(i), (*this)(i), 1, xc.p);
+    return *this;
+}
 
 template <typename T>
 void stencil<T>::init(const std::vector<T> &data, uint center) {
@@ -267,7 +325,6 @@ void stencil<T>::init(const std::vector<T> &data, uint center) {
 		"    int    l_id = get_local_id(0);\n"
 		"    if (l_id < lhalo + rhalo + 1)\n"
 		"        stencil[l_id] = s[l_id];\n"
-		"    stencil += lhalo;\n"
 		"    if (g_id < n) {\n"
 		"        xbuf[l_id] = x[g_id];\n"
 		"        if (l_id < lhalo && g_id >= lhalo)\n"
@@ -280,7 +337,7 @@ void stencil<T>::init(const std::vector<T> &data, uint center) {
 		"        real sum = 0;\n"
 		"        for(int k = -lhalo; k <= rhalo; k++)\n"
 		"            if (g_id + k >= 0 && g_id + k < n)\n"
-		"                sum += stencil[k] * xbuf[l_id + k];\n"
+		"                sum += stencil[k + lhalo] * xbuf[l_id + k];\n"
 		"        if (alpha)\n"
 		"            y[g_id] = alpha * y[g_id] + beta * sum;\n"
 		"        else\n"
@@ -298,12 +355,11 @@ void stencil<T>::init(const std::vector<T> &data, uint center) {
 		"    )\n"
 		"{\n"
 		"    long g_id = get_global_id(0);\n"
-		"    s += lhalo;\n"
 		"    if (g_id < n) {\n"
 		"        real sum = 0;\n"
 		"        for(int k = -lhalo; k <= rhalo; k++)\n"
 		"            if (g_id + k >= 0 && g_id + k < n)\n"
-		"                sum += s[k] * x[g_id + k];\n"
+		"                sum += s[k + lhalo] * x[g_id + k];\n"
 		"        if (alpha)\n"
 		"            y[g_id] = alpha * y[g_id] + beta * sum;\n"
 		"        else\n"
@@ -326,19 +382,18 @@ void stencil<T>::init(const std::vector<T> &data, uint center) {
 		"    long g_id = get_global_id(0);\n"
 		"    global const real *xl = h + lhalo;\n"
 		"    global const real *xr = h + lhalo;\n"
-		"    s += lhalo;\n"
 		"    if (g_id < lhalo) {\n"
 		"        real sum = 0;\n"
 		"        for(int k = -lhalo; k < 0; k++)\n"
 		"            if (g_id + k < 0)\n"
-		"                sum += s[k] * (has_left ? xl[g_id + k] : x[0]);\n"
+		"                sum += s[k + lhalo] * (has_left ? xl[g_id + k] : x[0]);\n"
 		"        y[g_id] += beta * sum;\n"
 		"    }\n"
 		"    if (g_id < rhalo) {\n"
 		"        real sum = 0;\n"
 		"        for(int k = 1; k <= rhalo; k++)\n"
 		"            if (g_id + k - rhalo >= 0)\n"
-		"                sum += s[k] * (has_right ? xr[g_id + k - rhalo] : x[n - 1]);\n"
+		"                sum += s[k + lhalo] * (has_right ? xr[g_id + k - rhalo] : x[n - 1]);\n"
 		"        y[n - rhalo + g_id] += beta * sum;\n"
 		"    }\n"
 		"}\n";
@@ -385,8 +440,8 @@ void stencil<T>::init(const std::vector<T> &data, uint center) {
 	    fast_kernel[d] = true;
 	}
 
-	s[d] = cl::Buffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-		data.size() * sizeof(T), const_cast<T*>(data.data()));
+	s[d] = cl::Buffer(context, CL_MEM_READ_ONLY, data.size() * sizeof(T));
+	queue[d].enqueueWriteBuffer(s[d], CL_TRUE, 0, data.size() * sizeof(T), data.data());
     }
 
     hbuf.resize(queue.size() * (lhalo + rhalo));
@@ -448,7 +503,6 @@ void stencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y,
 		    cl::__local((wgs[d] + 2 * (lhalo + rhalo) + 1) * sizeof(T)));
 
 	queue[d].enqueueNDRangeKernel(kernel, cl::NullRange, g_size, wgs[d]);
-
     }
 
     if (lhalo + rhalo > 0) {

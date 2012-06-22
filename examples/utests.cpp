@@ -827,7 +827,7 @@ int main() {
 		bool rc = true;
 		const int n = 1 << 20;
 
-		std::vector<double> s(rand() % 100);
+		std::vector<double> s(rand() % 64 + 1);
 		std::generate(s.begin(), s.end(), [](){ return (double)rand() / RAND_MAX; });
 
 		int center = rand() % s.size();
@@ -919,6 +919,42 @@ int main() {
 		    res = std::max(res, fabs(sum - y[i]));
 		}
 		rc = rc && res < 1e-8;
+		return rc;
+		});
+
+	run_test("Stencil convolution with multivector", [&]() -> bool {
+		bool rc = true;
+		const int n = 1 << 16;
+		const int m = 2;
+
+		std::vector<double> s(rand() % 64 + 1);
+		std::generate(s.begin(), s.end(), [](){ return (double)rand() / RAND_MAX; });
+
+		int center = rand() % s.size();
+
+		stencil<double> S(ctx.queue(), s.begin(), s.end(), center);
+
+		std::vector<double> x(m * n);
+		std::vector<double> y(m * n, 1);
+		std::generate(x.begin(), x.end(), [](){ return (double)rand() / RAND_MAX; });
+
+		vex::multivector<double,m> X(ctx.queue(), x);
+		vex::multivector<double,m> Y(ctx.queue(), y);
+
+		Y += X * S;
+
+		copy(Y, y);
+
+		for(int c = 0; c < m; c++) {
+		    double res = 0;
+		    for(int i = 0; i < n; i++) {
+			double sum = 1;
+			for(int k = -center; k < (int)s.size() - center; k++)
+			    sum += s[k + center] * x[c * n + std::min(n-1,std::max(0, i + k))];
+			res = std::max(res, fabs(sum - y[i + c * n]));
+		    }
+		    rc = rc && res < 1e-8;
+		}
 		return rc;
 		});
 

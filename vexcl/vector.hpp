@@ -70,6 +70,8 @@ template <class T> struct Conv;
 template <class f, class T> struct GConv;
 template <class Expr, class T> struct ExConv;
 template <class Expr, class f, class T> struct ExGConv;
+template <class T, uint N> struct MultiConv;
+template <class Expr, class T, uint N> struct MultiExConv;
 
 /// Base class for a member of an expression.
 /**
@@ -1208,6 +1210,11 @@ class multivector {
 
 	template <class Expr, typename column_t>
 	const multivector& operator=(const MultiExSpMV<Expr,T,column_t,N> &xmv);
+
+	const multivector& operator=(const MultiConv<T,N> &cnv);
+
+	template <class Expr>
+	const multivector& operator=(const MultiExConv<Expr,T,N> &cnv);
 	/// @}
 
     private:
