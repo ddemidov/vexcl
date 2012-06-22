@@ -145,7 +145,7 @@ class stencil {
 	mutable std::vector<T>	hbuf;
 	std::vector<cl::Buffer> dbuf;
 	std::vector<cl::Buffer> s;
-	mutable std::vector<cl::Event>  event;
+	mutable std::vector<cl::Event> event;
 
 	int lhalo;
 	int rhalo;
@@ -442,6 +442,7 @@ void stencil<T>::init(const std::vector<T> &data, uint center) {
 
 	s[d] = cl::Buffer(context, CL_MEM_READ_ONLY, data.size() * sizeof(T));
 	queue[d].enqueueWriteBuffer(s[d], CL_TRUE, 0, data.size() * sizeof(T), data.data());
+	queue[d].enqueueMarker(&event[d]);
     }
 
     hbuf.resize(queue.size() * (lhalo + rhalo));
@@ -464,6 +465,9 @@ void stencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y,
 	) const
 {
     if ((queue.size() > 1) && (lhalo + rhalo > 0)) {
+	for(uint d = 0; d < queue.size(); d++)
+	    event[d].wait();
+
 	for(uint d = 0; d < queue.size(); d++) {
 	    if (d > 0 && rhalo > 0) {
 		squeue[d].enqueueReadBuffer(
@@ -540,7 +544,7 @@ void stencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y,
 	    conv_remote[context()].setArg(prm++, beta);
 
 	    queue[d].enqueueNDRangeKernel(conv_remote[context()],
-		    cl::NullRange, g_size, cl::NullRange);
+		    cl::NullRange, g_size, cl::NullRange, 0, &event[d]);
 	}
     }
 }
@@ -804,6 +808,8 @@ void gstencil<T>::init(uint center, const std::vector<T> &data) {
 	    squeue[d] = cl::CommandQueue(context, device);
 	    dbuf[d]   = cl::Buffer(context, CL_MEM_READ_WRITE, (lhalo + rhalo) * sizeof(T));
 	}
+
+	queue[d].enqueueMarker(&event[d]);
     }
 }
 
@@ -937,6 +943,9 @@ void gstencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y,
 
     // Start reading halos.
     if ((queue.size() > 1) && (lhalo + rhalo > 0)) {
+	for(uint d = 0; d < queue.size(); d++)
+	    event[d].wait();
+
 	for(uint d = 0; d < queue.size(); d++) {
 	    if (d > 0 && rhalo > 0) {
 		squeue[d].enqueueReadBuffer(
@@ -1030,7 +1039,7 @@ void gstencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y,
 	    exdata<func>::conv_remote[context()].setArg(prm++, lmem);
 
 	    queue[d].enqueueNDRangeKernel(exdata<func>::conv_remote[context()],
-		    cl::NullRange, g_size, cl::NullRange);
+		    cl::NullRange, g_size, cl::NullRange, 0, &event[d]);
 	}
     }
 }
