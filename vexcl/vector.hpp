@@ -72,6 +72,8 @@ template <class Expr, class T> struct ExConv;
 template <class Expr, class f, class T> struct ExGConv;
 template <class T, uint N> struct MultiConv;
 template <class Expr, class T, uint N> struct MultiExConv;
+template <class func, class T, uint N> struct MultiGConv;
+template <class Expr, class func, class T, uint N> struct MultiExGConv;
 
 /// Base class for a member of an expression.
 /**
@@ -1215,6 +1217,12 @@ class multivector {
 
 	template <class Expr>
 	const multivector& operator=(const MultiExConv<Expr,T,N> &cnv);
+
+	template <class func>
+	const multivector& operator=(const MultiGConv<func,T,N> &cnv);
+
+	template <class Expr, class func>
+	const multivector& operator=(const MultiExGConv<Expr,func,T,N> &cnv);
 	/// @}
 
     private:

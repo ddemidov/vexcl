@@ -701,10 +701,39 @@ struct GConv {
     const gstencil<T> &s;
 };
 
+template <typename T, uint N>
+struct MultiGStencilProd {
+    MultiGStencilProd(const vex::multivector<T,N> &x, const gstencil<T> &s) : x(x), s(s) {}
+    const vex::multivector<T,N> &x;
+    const gstencil<T> &s;
+};
+
+template <class T, uint N>
+MultiGStencilProd<T,N> operator*(const multivector<T,N> &x, const gstencil<T> &s) {
+    return MultiGStencilProd<T,N>(x, s);
+}
+
+template <class T, uint N>
+MultiGStencilProd<T,N> operator*(const gstencil<T> &s, const multivector<T,N> &x) {
+    return x * s;
+}
+
+template <class f, typename T, uint N>
+struct MultiGConv {
+    MultiGConv(const MultiGStencilProd<T,N> &sp) : x(sp.x), s(sp.s) {}
+
+    const multivector<T,N> &x;
+    const gstencil<T> &s;
+};
+
 #define OVERLOAD_BUILTIN_FOR_GSTENCIL(name) \
 template <typename T> \
 GConv<name##_name,T> name(const GStencilProd<T> &s) { \
     return GConv<name##_name, T>(s); \
+} \
+template <typename T, uint N> \
+MultiGConv<name##_name,T,N> name(const MultiGStencilProd<T,N> &s) { \
+    return MultiGConv<name##_name, T, N>(s); \
 }
 
 OVERLOAD_BUILTIN_FOR_GSTENCIL(acos)
@@ -757,6 +786,13 @@ const vex::vector<T>& vex::vector<T>::operator=(const GConv<func, T> &cnv) {
     return *this;
 }
 
+template <typename T, uint N> template <class func>
+const vex::multivector<T,N>& vex::multivector<T,N>::operator=(const MultiGConv<func, T, N> &cnv) {
+    for(uint i = 0; i < N; i++)
+	cnv.s.template convolve<func>(cnv.x(i), (*this)(i));
+    return *this;
+}
+
 template <class Expr, class func, typename T>
 struct ExGConv {
     ExGConv(const Expr &expr, const GConv<func,T> &cnv, T p)
@@ -783,6 +819,38 @@ template <typename T> template <class Expr, class func>
 const vex::vector<T>& vex::vector<T>::operator=(const ExGConv<Expr,func,T> &xc) {
     *this = xc.expr;
     xc.cnv.s.template convolve<func>(xc.cnv.x, *this, 1, xc.p);
+    return *this;
+}
+
+template <class Expr, class func, typename T, uint N>
+struct MultiExGConv {
+    MultiExGConv(const Expr &expr, const MultiGConv<func,T,N> &cnv, T p)
+	: expr(expr), cnv(cnv), p(p) {}
+
+    const Expr &expr;
+    const MultiGConv<func,T,N> &cnv;
+    T p;
+};
+
+template <class Expr, class func, typename T, uint N>
+typename std::enable_if<Expr::is_multiex, MultiExGConv<Expr,func,T,N>>::type
+operator+(const Expr &expr, const MultiGConv<func,T,N> &cnv) {
+    return MultiExGConv<Expr,func,T,N>(expr, cnv, 1);
+}
+
+template <class Expr, class func, typename T, uint N>
+typename std::enable_if<Expr::is_multiex, MultiExGConv<Expr,func,T,N>>::type
+operator-(const Expr &expr, const MultiGConv<func,T,N> &cnv) {
+    return MultiExGConv<Expr,func,T,N>(expr, cnv, -1);
+}
+
+template <typename T, uint N> template <class Expr, class func>
+const vex::multivector<T,N>& vex::multivector<T,N>::operator=(
+	const MultiExGConv<Expr,func,T,N> &xc)
+{
+    *this = xc.expr;
+    for(uint i = 0; i < N; i++)
+	xc.cnv.s.template convolve<func>(xc.cnv.x(i), (*this)(i), 1, xc.p);
     return *this;
 }
 

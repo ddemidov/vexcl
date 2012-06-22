@@ -958,6 +958,42 @@ int main() {
 		return rc;
 		});
 
+	run_test("Generalized stencil convolution for multivector", [&]() -> bool {
+		bool rc = true;
+		const int n = 1 << 16;
+		const int m = 3;
+
+		double sdata[] = {
+		    1, -1,  0,
+		    0,  1, -1
+		    };
+		gstencil<double> S(ctx.queue(), 2, 3, 1, sdata, sdata + 6);
+
+		std::vector<double> x(m * n);
+		std::vector<double> y(m * n, 1);
+		std::generate(x.begin(), x.end(), [](){ return (double)rand() / RAND_MAX; });
+
+		vex::multivector<double,m> X(ctx.queue(), x);
+		vex::multivector<double,m> Y(ctx.queue(), y);
+
+		Y += sin(X * S);
+
+		copy(Y, y);
+
+		for(int c = 0; c < m; c++) {
+		    double res = 0;
+		    for(int i = 0; i < n; i++) {
+			int left  = std::max(0, i - 1);
+			int right = std::min(n - 1, i + 1);
+
+			double sum = 1 + sin(x[c * n + left] - x[c * n + i]) + sin(x[c * n + i] - x[c * n + right]);
+			res = std::max(res, fabs(sum - y[c * n + i]));
+		    }
+		    rc = rc && res < 1e-8;
+		}
+		return rc;
+		});
+
     } catch (const cl::Error &err) {
 	std::cerr << "OpenCL error: " << err << std::endl;
 	return 1;
