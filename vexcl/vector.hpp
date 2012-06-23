@@ -465,6 +465,11 @@ class vector : public expression {
 	    return part[d + 1] - part[d];
 	}
 
+	/// Return part start for a given device.
+	size_t part_start(uint d) const {
+	    return part[d];
+	}
+
 	/// Return reference to vector's queue list
 	const std::vector<cl::CommandQueue>& queue_list() const {
 	    return queue;
@@ -646,8 +651,12 @@ class vector : public expression {
 	/// @}
 
 	/// Copy data from host buffer to device(s).
-	void write_data(size_t offset, size_t size, const T *hostptr, cl_bool blocking) {
+	void write_data(size_t offset, size_t size, const T *hostptr, cl_bool blocking,
+		std::vector<cl::Event> *uevent = 0)
+	{
 	    if (!size) return;
+
+	    std::vector<cl::Event> &ev = uevent ? *uevent : event;
 
 	    for(uint d = 0; d < queue.size(); d++) {
 		size_t start = std::max(offset,        part[d]);
@@ -659,7 +668,7 @@ class vector : public expression {
 			sizeof(T) * (start - part[d]),
 			sizeof(T) * (stop - start),
 			hostptr + start - offset,
-			0, &event[d]
+			0, &ev[d]
 			);
 	    }
 
@@ -668,13 +677,17 @@ class vector : public expression {
 		    size_t start = std::max(offset,        part[d]);
 		    size_t stop  = std::min(offset + size, part[d + 1]);
 
-		    if (start < stop) event[d].wait();
+		    if (start < stop) ev[d].wait();
 		}
 	}
 
 	/// Copy data from device(s) to host buffer .
-	void read_data(size_t offset, size_t size, T *hostptr, cl_bool blocking) const {
+	void read_data(size_t offset, size_t size, T *hostptr, cl_bool blocking,
+		std::vector<cl::Event> *uevent = 0) const
+	{
 	    if (!size) return;
+
+	    std::vector<cl::Event> &ev = uevent ? *uevent : event;
 
 	    for(uint d = 0; d < queue.size(); d++) {
 		size_t start = std::max(offset,        part[d]);
@@ -686,7 +699,7 @@ class vector : public expression {
 			sizeof(T) * (start - part[d]),
 			sizeof(T) * (stop - start),
 			hostptr + start - offset,
-			0, &event[d]
+			0, &ev[d]
 			);
 	    }
 
@@ -695,7 +708,7 @@ class vector : public expression {
 		    size_t start = std::max(offset,        part[d]);
 		    size_t stop  = std::min(offset + size, part[d + 1]);
 
-		    if (start < stop) event[d].wait();
+		    if (start < stop) ev[d].wait();
 		}
 	}
 

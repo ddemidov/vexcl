@@ -12,20 +12,25 @@
 
 using namespace vex;
 
+static bool all_passed = true;
+
 bool run_test(const std::string &name, std::function<bool()> test) {
     char fc = std::cout.fill('.');
     std::cout << name << ": " << std::setw(62 - name.size()) << "." << std::flush;
     std::cout.fill(fc);
 
     bool rc = test();
+    all_passed = all_passed && rc;
     std::cout << (rc ? " success." : " failed.") << std::endl;
     return rc;
 }
 
 extern const char chk_if_gr_body[] = "return prm1 > prm2 ? 1 : 0;";
 
-int main() {
-    srand(static_cast<uint>(time(0)));
+int main(int argc, char *argv[]) {
+    uint seed = argc > 1 ? atoi(argv[1]) : static_cast<uint>(time(0));
+    std::cout << "seed: " << seed << std::endl;
+    srand(seed);
 
     try {
 	vex::Context ctx(Filter::DoublePrecision && Filter::Env);
@@ -1005,5 +1010,5 @@ int main() {
 	return 1;
     }
 
-    return 0;
+    return !all_passed;
 }

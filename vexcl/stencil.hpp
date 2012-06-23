@@ -103,44 +103,64 @@ stencil_base<T>::stencil_base(
 	queue[d].enqueueWriteBuffer(s[d], CL_FALSE, 0,
 		(end - begin) * sizeof(T), &begin[0], 0, &event[d]);
 
-	squeue[d] = cl::CommandQueue(context, device);
+	if (queue.size() > 1 && width > 1) {
+	    squeue[d] = cl::CommandQueue(context, device);
 
-	dbuf[d] = cl::Buffer(context, CL_MEM_READ_WRITE,
-		(width - 1) * sizeof(T));
-
+	    dbuf[d] = cl::Buffer(context, CL_MEM_READ_WRITE,
+		    (width - 1) * sizeof(T));
+	}
     }
 
-    for(uint d = 0; d < queue.size(); d++) event[d].wait();
+    if (queue.size() > 1 && width > 1)
+	for(uint d = 0; d < queue.size(); d++) event[d].wait();
 }
 
 template <typename T>
 void stencil_base<T>::exchange_halos(const vex::vector<T> &x) const {
-    if ((queue.size() <= 1) || (lhalo + rhalo <= 0)) return;
-
     int width = lhalo + rhalo;
+
+    if ((queue.size() <= 1) || (width <= 0)) return;
 
     for(uint d = 0; d < queue.size(); d++)
 	event[d].wait();
 
     for(uint d = 0; d < queue.size(); d++) {
 	if (d > 0 && rhalo > 0) {
-	    squeue[d].enqueueReadBuffer(
-		    x(d), CL_FALSE, 0, rhalo * sizeof(T),
-		    &hbuf[d * width], 0, &event[d]);
+	    x.read_data(x.part_start(d), rhalo, &hbuf[d * width],
+		    CL_FALSE, &event);
 	}
 
 	if (d + 1 < queue.size() && lhalo > 0) {
-	    squeue[d].enqueueReadBuffer(
-		    x(d), CL_FALSE, (x.part_size(d) - lhalo) * sizeof(T),
-		    lhalo * sizeof(T), &hbuf[d * width + rhalo],
-		    0, &event[d]);
+	    size_t start = x.part_start(d + 1) >= static_cast<uint>(lhalo) ?
+		x.part_start(d + 1) - lhalo : 0;
+	    size_t size = x.part_start(d + 1) >= static_cast<uint>(lhalo) ?
+		lhalo : x.part_start(d + 1);
+	    x.read_data(start, size, &hbuf[(d + 1) * width - size],
+		    CL_FALSE, &event);
 	}
     }
 
-    for(uint d = 0; d < queue.size(); d++)
-	if ((d > 0 && rhalo > 0) || (d + 1 < queue.size() && lhalo > 0))
-	    event[d].wait();
+    for(uint d = 0; d < queue.size(); d++) event[d].wait();
 
+    for(uint d = 0; d < queue.size(); d++) {
+	if (d > 0 && rhalo > 0) {
+	    if (x.part_start(d) + rhalo > x.size()) {
+		size_t elems_written = x.size() - x.part_start(d);
+		T* chunk = &hbuf[d * width];
+		std::fill(chunk + elems_written, chunk + rhalo,
+			elems_written ? chunk[elems_written - 1] : x[x.size() - 1]);
+	    }
+	}
+
+	if (d + 1 < queue.size() && lhalo > 0) {
+	    size_t size = x.part_start(d + 1);
+	    if (size < static_cast<uint>(lhalo)) {
+		size_t end = (d + 1) * width;
+		std::fill(&hbuf[end - lhalo], &hbuf[end - size],
+			size ? hbuf[end - size] : x[0]);
+	    }
+	}
+    }
     for(uint d = 0; d < queue.size(); d++) {
 	if (d > 0 && lhalo > 0) {
 	    queue[d].enqueueWriteBuffer(dbuf[d], CL_FALSE, 0, lhalo * sizeof(T),
