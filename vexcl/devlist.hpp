@@ -376,12 +376,23 @@ queue_list(
  */
 class Context {
     public:
+	/// Initialize context from a device filter.
 	template <class DevFilter>
 	explicit Context(
 		DevFilter filter, cl_command_queue_properties properties = 0
 		)
 	{
 	    std::tie(c, q) = queue_list(filter, properties);
+	}
+
+	/// Initializes context from user-supplied list of cl::Contexts and cl::CommandQueues.
+	Context(const std::vector<std::pair<cl::Context, cl::CommandQueue>> &user_ctx) {
+	    c.reserve(user_ctx.size());
+	    q.reserve(user_ctx.size());
+	    for(auto u = user_ctx.begin(); u != user_ctx.end(); u++) {
+		c.push_back(u->first);
+		q.push_back(u->second);
+	    }
 	}
 
 	const std::vector<cl::Context>& context() const {
