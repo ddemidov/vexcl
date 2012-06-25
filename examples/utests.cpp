@@ -861,6 +861,75 @@ int main(int argc, char *argv[]) {
 		return rc;
 		});
 
+	run_test("Stencil convolution with small vector", [&]() -> bool {
+		bool rc = true;
+		const int n = 1 << 7;
+
+		std::vector<double> s(rand() % 64 + 1);
+		std::generate(s.begin(), s.end(), [](){ return (double)rand() / RAND_MAX; });
+
+		int center = rand() % s.size();
+
+		stencil<double> S(ctx.queue(), s, center);
+
+		std::vector<double> x(n);
+		std::vector<double> y(n, 1);
+		std::generate(x.begin(), x.end(), [](){ return (double)rand() / RAND_MAX; });
+
+		vex::vector<double> X(ctx.queue(), x);
+		vex::vector<double> Y(ctx.queue(), y);
+
+		Y += X * S;
+
+		copy(Y, y);
+
+		double res = 0;
+		for(int i = 0; i < n; i++) {
+		    double sum = 1;
+		    for(int k = -center; k < (int)s.size() - center; k++)
+			sum += s[k + center] * x[std::min(n-1,std::max(0, i + k))];
+		    res = std::max(res, fabs(sum - y[i]));
+		}
+		rc = rc && res < 1e-8;
+		return rc;
+		});
+
+	run_test("Stencil convolution with multivector", [&]() -> bool {
+		bool rc = true;
+		const int n = 1 << 16;
+		const int m = 20;
+
+		std::vector<double> s(rand() % 64 + 1);
+		std::generate(s.begin(), s.end(), [](){ return (double)rand() / RAND_MAX; });
+
+		int center = rand() % s.size();
+
+		stencil<double> S(ctx.queue(), s.begin(), s.end(), center);
+
+		std::vector<double> x(m * n);
+		std::vector<double> y(m * n, 1);
+		std::generate(x.begin(), x.end(), [](){ return (double)rand() / RAND_MAX; });
+
+		vex::multivector<double,m> X(ctx.queue(), x);
+		vex::multivector<double,m> Y(ctx.queue(), y);
+
+		Y += X * S;
+
+		copy(Y, y);
+
+		for(int c = 0; c < m; c++) {
+		    double res = 0;
+		    for(int i = 0; i < n; i++) {
+			double sum = 1;
+			for(int k = -center; k < (int)s.size() - center; k++)
+			    sum += s[k + center] * x[c * n + std::min(n-1,std::max(0, i + k))];
+			res = std::max(res, fabs(sum - y[i + c * n]));
+		    }
+		    rc = rc && res < 1e-8;
+		}
+		return rc;
+		});
+
 	run_test("Big stencil convolution", [&]() -> bool {
 		bool rc = true;
 		const int n = 1 << 16;
@@ -927,46 +996,43 @@ int main(int argc, char *argv[]) {
 		return rc;
 		});
 
-	run_test("Stencil convolution with multivector", [&]() -> bool {
+	run_test("Generalized stencil convolution with small vector", [&]() -> bool {
 		bool rc = true;
-		const int n = 1 << 16;
-		const int m = 2;
+		const int n = 1 << 7;
 
-		std::vector<double> s(rand() % 64 + 1);
-		std::generate(s.begin(), s.end(), [](){ return (double)rand() / RAND_MAX; });
+		double sdata[] = {
+		    1, -1,  0,
+		    0,  1, -1
+		    };
+		gstencil<double> S(ctx.queue(), 2, 3, 1, sdata, sdata + 6);
 
-		int center = rand() % s.size();
-
-		stencil<double> S(ctx.queue(), s.begin(), s.end(), center);
-
-		std::vector<double> x(m * n);
-		std::vector<double> y(m * n, 1);
+		std::vector<double> x(n);
+		std::vector<double> y(n, 1);
 		std::generate(x.begin(), x.end(), [](){ return (double)rand() / RAND_MAX; });
 
-		vex::multivector<double,m> X(ctx.queue(), x);
-		vex::multivector<double,m> Y(ctx.queue(), y);
+		vex::vector<double> X(ctx.queue(), x);
+		vex::vector<double> Y(ctx.queue(), y);
 
-		Y += X * S;
+		Y += sin(X * S);
 
 		copy(Y, y);
 
-		for(int c = 0; c < m; c++) {
-		    double res = 0;
-		    for(int i = 0; i < n; i++) {
-			double sum = 1;
-			for(int k = -center; k < (int)s.size() - center; k++)
-			    sum += s[k + center] * x[c * n + std::min(n-1,std::max(0, i + k))];
-			res = std::max(res, fabs(sum - y[i + c * n]));
-		    }
-		    rc = rc && res < 1e-8;
+		double res = 0;
+		for(int i = 0; i < n; i++) {
+		    int left  = std::max(0, i - 1);
+		    int right = std::min(n - 1, i + 1);
+
+		    double sum = 1 + sin(x[left] - x[i]) + sin(x[i] - x[right]);
+		    res = std::max(res, fabs(sum - y[i]));
 		}
+		rc = rc && res < 1e-8;
 		return rc;
 		});
 
 	run_test("Generalized stencil convolution for multivector", [&]() -> bool {
 		bool rc = true;
 		const int n = 1 << 16;
-		const int m = 3;
+		const int m = 20;
 
 		double sdata[] = {
 		    1, -1,  0,
