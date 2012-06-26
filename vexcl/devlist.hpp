@@ -53,6 +53,8 @@ namespace vex {
 namespace Filter {
     /// Selects any device.
     struct AllFilter {
+	AllFilter() {}
+
 	bool operator()(const cl::Device &d) const {
 	    return true;
 	}
@@ -110,6 +112,8 @@ namespace Filter {
 
     /// Selects devices supporting double precision.
     struct DoublePrecisionFilter {
+	DoublePrecisionFilter() {}
+
 	bool operator()(const cl::Device &d) const {
 	    if (d.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU)
 		return true;
