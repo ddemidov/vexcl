@@ -232,7 +232,7 @@ class stencil : private stencil_base<T> {
 	/**
 	 * \param queue  vector of queues. Each queue represents one
 	 *               compute device.
-	 * \param st     intializer list holding stencil values.
+	 * \param list   intializer list holding stencil values.
 	 * \param center center of the stencil.
 	 */
 	stencil(const std::vector<cl::CommandQueue> &queue,
@@ -571,8 +571,8 @@ void stencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y,
 /// Generalized stencil.
 /**
  * This is generalized stencil class. Basically, this is a small dense matrix.
- * Generalized stencil may be used in combination with standard functions, as
- * in
+ * Generalized stencil may be used in combination with builtin or user
+ * functions of one argument, as in
  * \code
  * vex::gstencil<double> S(ctx.queue(), 2, 3, 1, {
  *     1, -1,  0,
@@ -580,7 +580,7 @@ void stencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y,
  * });
  * y = sin(x * S);
  * \endcode
- * This admittedly unintuitive notation corresponds to
+ * This notation corresponds to
  * \f$y_i = \sum_k sin(\sum_j S_{kj} * x_{i+j-c})\f$, where c is center of the
  * stencil.  Please see github wiki for further examples of this class usage.
  */
