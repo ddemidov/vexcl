@@ -25,13 +25,13 @@ bool run_test(const std::string &name, std::function<bool()> test) {
     return rc;
 }
 
-extern const char chk_if_gr_body[] = "return prm1 > prm2 ? 1 : 0;";
+extern const char greater_body[] = "return prm1 > prm2 ? 1 : 0;";
+UserFunction<greater_body, size_t(double, double)> greater;
+
+extern const char pow3_body[] = "return pow(prm1, 3);";
+UserFunction<pow3_body, double(double)> pow3;
 
 int main(int argc, char *argv[]) {
-    uint seed = argc > 1 ? atoi(argv[1]) : static_cast<uint>(time(0));
-    std::cout << "seed: " << seed << std::endl;
-    srand(seed);
-
     try {
 	vex::Context ctx(Filter::DoublePrecision && Filter::Env);
 	std::cout << ctx << std::endl;
@@ -40,6 +40,10 @@ int main(int argc, char *argv[]) {
 	    std::cerr << "No OpenCL devices found." << std::endl;
 	    return 1;
 	}
+
+	uint seed = argc > 1 ? atoi(argv[1]) : static_cast<uint>(time(0));
+	std::cout << "seed: " << seed << std::endl << std::endl;
+	srand(seed);
 
 	run_test("Empty vector construction", [&]() -> bool {
 		bool rc = true;
@@ -780,10 +784,9 @@ int main(int argc, char *argv[]) {
 		vex::vector<double> y(ctx.queue(), N);
 		x = 1;
 		y = 2;
-		UserFunction<chk_if_gr_body, size_t(double, double)> chk_if_greater;
 		Reductor<size_t,SUM> sum(ctx.queue());
-		rc = rc && sum(chk_if_greater(x, y)) == 0;
-		rc = rc && sum(chk_if_greater(y, x)) == N;
+		rc = rc && sum(greater(x, y)) == 0;
+		rc = rc && sum(greater(y, x)) == N;
 		rc = rc && sum(x > y) == 0;
 		rc = rc && sum(x < y) == N;
 		return rc;
@@ -816,8 +819,7 @@ int main(int argc, char *argv[]) {
 		multivector<double, m> y(ctx.queue(), n);
 		x = 1;
 		y = 2;
-		UserFunction<chk_if_gr_body, size_t(double, double)> chk_if_greater;
-		x = chk_if_greater(x, y);
+		x = greater(x, y);
 		for(size_t k = 0; k < 10; k++) {
 		    size_t i = rand() % n;
 		    std::array<double,m> val = x[i];
@@ -1064,6 +1066,38 @@ int main(int argc, char *argv[]) {
 		}
 		return rc;
 		});
+
+#ifdef VEXCL_VARIADIC_TEMPLATES
+	run_test("Generalized stencil with user function convolution", [&]() -> bool {
+		bool rc = true;
+		const int n = 1 << 20;
+
+		double sdata[] = {1, 0, 1};
+		gstencil<double> S(ctx.queue(), 1, 3, 1, sdata, sdata + 3);
+
+		std::vector<double> x(n);
+		std::vector<double> y(n);
+		std::generate(x.begin(), x.end(), [](){ return (double)rand() / RAND_MAX; });
+
+		vex::vector<double> X(ctx.queue(), x);
+		vex::vector<double> Y(ctx.queue(), n);
+
+		Y = X + pow3(X * S);
+
+		copy(Y, y);
+
+		double res = 0;
+		for(int i = 0; i < n; i++) {
+		    int left  = std::max(0, i - 1);
+		    int right = std::min(n - 1, i + 1);
+
+		    double sum = x[i] + pow(x[left] + x[right], 3);
+		    res = std::max(res, fabs(sum - y[i]));
+		}
+		rc = rc && res < 1e-8;
+		return rc;
+		});
+#endif
 
     } catch (const cl::Error &err) {
 	std::cerr << "OpenCL error: " << err << std::endl;

@@ -74,6 +74,8 @@ template <class T, uint N> struct MultiConv;
 template <class Expr, class T, uint N> struct MultiExConv;
 template <class func, class T, uint N> struct MultiGConv;
 template <class Expr, class func, class T, uint N> struct MultiExGConv;
+template <class T> struct GStencilProd;
+template <class T, uint N> struct MultiGStencilProd;
 
 /// Base class for a member of an expression.
 /**
@@ -1532,6 +1534,8 @@ struct All<Head, Tail...>
 
 #define DEFINE_BUILTIN_FUNCTION(name) \
 struct name##_name { \
+    static const bool is_builtin = true; \
+    static const bool is_userfun = false; \
     static const char* value() { \
 	return #name; \
     } \
@@ -1681,6 +1685,8 @@ struct BuiltinFunction : public expression {
 
 #define DEFINE_BUILTIN_FUNCTION(name) \
 struct name##_name { \
+    static const bool is_builtin = true; \
+    static const bool is_userfun = false; \
     static const char* value() { \
 	return #name; \
     } \
@@ -1765,8 +1771,22 @@ DEFINE_BUILTIN_FUNCTION(trunc)
 //---------------------------------------------------------------------------
 // User-defined functions.
 //---------------------------------------------------------------------------
+template <class T>
+struct UserFunctionDeclaration {
+    static std::string get() { return ""; }
+};
+
 #ifdef VEXCL_VARIADIC_TEMPLATES
 /// \cond INTERNAL
+
+template <const char *body, class T>
+struct UserFunction {};
+
+template<const char *body, class RetType, class... ArgType>
+struct UserFunction<body, RetType(ArgType...)>;
+
+template <const char *body, class RetType, class... ArgType>
+struct UserFunctionDeclaration<UserFunction<body, RetType(ArgType...)>>;
 
 /// Custom user function expression template
 template<class RetType, class... ArgType>
@@ -1779,11 +1799,9 @@ struct UserFunctionFamily {
 	    void preamble(std::ostream &os, std::string name) const {
 		build_preamble<0>(os, name);
 
-		os << type_name<RetType>() << " " << name << "_fun(";
-
-		build_arg_list<ArgType...>(os, 0);
-
-		os << "\n\t)\n{\n" << body << "\n}\n";
+		os << UserFunctionDeclaration<
+		    UserFunction<body, RetType(ArgType...)>
+		    >::get(name);
 	    }
 
 	    std::string kernel_name() const {
@@ -1881,19 +1899,6 @@ struct UserFunctionFamily {
 	    }
 
 	    //------------------------------------------------------------
-	    template <class T>
-	    void build_arg_list(std::ostream &os, uint num) const {
-		os << "\n\t" << type_name<T>() << " prm" << num + 1;
-	    }
-
-	    template <class T, class... Args>
-	    typename std::enable_if<sizeof...(Args), void>::type
-	    build_arg_list(std::ostream &os, uint num) const {
-		os << "\n\t" << type_name<T>() << " prm" << num + 1 << ",";
-		build_arg_list<Args...>(os, num + 1);
-	    }
-
-	    //------------------------------------------------------------
 	    template <int num>
 	    typename std::enable_if<num == sizeof...(Expr), size_t>::type
 	    get_part_size(uint dev) const {
@@ -1911,9 +1916,6 @@ struct UserFunctionFamily {
 
     };
 };
-
-template <const char *body, class T>
-struct UserFunction {};
 
 /// \endcond
 
@@ -1941,6 +1943,9 @@ struct UserFunction {};
  */
 template<const char *body, class RetType, class... ArgType>
 struct UserFunction<body, RetType(ArgType...)> {
+    static const bool is_builtin = false; \
+    static const bool is_userfun = true;
+
     /// Apply user function to the list of expressions.
     /**
      * Number of expressions in the list has to coincide with number of
@@ -1977,6 +1982,43 @@ struct UserFunction<body, RetType(ArgType...)> {
 	return MultiExpression<
 		typename UserFunctionFamily<RetType, ArgType...>::template Function<body, typename multiex_traits<Expr>::subtype...>,
 			 multiex_dim<Expr...>::dim >(ex);
+    }
+
+    template <class T>
+    GConv<UserFunction,T> operator()(const GStencilProd<T> &s) const {
+	return GConv<UserFunction, T>(s);
+    }
+
+    template <class T, uint N>
+    MultiGConv<UserFunction,T,N> operator()(const MultiGStencilProd<T,N> &s) const {
+	return MultiGConv<UserFunction, T, N>(s);
+    }
+
+    static const char* value() {
+	return "user_fun";
+    }
+};
+
+template <const char *body, class RetType, class... ArgType>
+struct UserFunctionDeclaration<UserFunction<body, RetType(ArgType...)>> {
+    static std::string get(const std::string &name = "user") {
+	std::ostringstream decl;
+	decl << type_name<RetType>() << " " << name << "_fun(";
+	build_arg_list<ArgType...>(decl, 0);
+	decl << "\n\t)\n{\n" << body << "\n}\n";
+	return decl.str();
+    }
+
+    template <class T>
+    static void build_arg_list(std::ostream &os, uint num) {
+	os << "\n\t" << type_name<T>() << " prm" << num + 1;
+    }
+
+    template <class T, class... Args>
+    static typename std::enable_if<sizeof...(Args), void>::type
+    build_arg_list(std::ostream &os, uint num) {
+	os << "\n\t" << type_name<T>() << " prm" << num + 1 << ",";
+	build_arg_list<Args...>(os, num + 1);
     }
 };
 #endif

@@ -887,6 +887,7 @@ void gstencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y,
 
 	    source << standard_kernel_header <<
 		"typedef " << type_name<T>() << " real;\n"
+		<< UserFunctionDeclaration<func>::get() <<
 		"real read_x(\n"
 		"    long g_id,\n"
 		"    " << type_name<size_t>() << " n,\n"
