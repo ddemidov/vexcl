@@ -29,7 +29,7 @@ bool run_test(const std::string &name, std::function<bool()> test) {
 extern const char greater_body[] = "return prm1 > prm2 ? 1 : 0;";
 UserFunction<greater_body, size_t(double, double)> greater;
 
-extern const char pow3_body[] = "return pow(prm1, 3);";
+extern const char pow3_body[] = "return pow(prm1, 3.0);";
 UserFunction<pow3_body, double(double)> pow3;
 #endif
 
