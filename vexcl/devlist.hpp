@@ -403,8 +403,16 @@ class Context {
 	    return c;
 	}
 
+	const cl::Context& context(uint d) const {
+	    return c[d];
+	}
+
 	const std::vector<cl::CommandQueue>& queue() const {
 	    return q;
+	}
+
+	const cl::CommandQueue& queue(uint d) const {
+	    return q[d];
 	}
 
 	size_t size() const {
