@@ -2027,78 +2027,34 @@ struct UserFunctionDeclaration<UserFunction<body, RetType(ArgType...)>> {
 
 /// Returns device weight after simple bandwidth test
 inline double device_vector_perf(
-	const cl::Context &context, const cl::Device &device,
-	size_t test_size = 1024U * 1024U
+	const cl::Context &context, const cl::Device &device
 	)
 {
-    static std::map<cl_device_id, double> dev_weights;
+    static const size_t test_size = 1024U * 1024U;
+    std::vector<cl::CommandQueue> queue(1,
+	    cl::CommandQueue(context, device, CL_QUEUE_PROFILING_ENABLE)
+	    );
 
-    auto dw = dev_weights.find(device());
+    // Allocate test vectors on current device and measure execution
+    // time of a simple kernel.
+    vex::vector<float> a(queue, test_size);
+    vex::vector<float> b(queue, test_size);
+    vex::vector<float> c(queue, test_size);
 
-    if (dw == dev_weights.end()) {
-	std::vector<cl::CommandQueue> queue(1,
-		cl::CommandQueue(context, device, CL_QUEUE_PROFILING_ENABLE)
-		);
+    b = 1;
+    c = 2;
 
-	// Allocate test vectors on current device and measure execution
-	// time of a simple kernel.
-	vex::vector<float> a(queue, test_size);
-	vex::vector<float> b(queue, test_size);
-	vex::vector<float> c(queue, test_size);
+    // Skip the first run.
+    a = b + c;
 
-	b = 1;
-	c = 2;
-
-	// Skip the first run.
-	a = b + c;
-
-	// Measure the second run.
-	profiler prof(queue);
-	prof.tic_cl("");
-	a = b + c;
-	return dev_weights[device()] = 1 / prof.toc("");
-    } else {
-	return dw->second;
-    }
+    // Measure the second run.
+    profiler prof(queue);
+    prof.tic_cl("");
+    a = b + c;
+    return 1.0 / prof.toc("");
 }
 
 /// \endcond
-
-/// Partitions vector wrt to vector performance of devices.
-/**
- * Launches the following kernel on each device:
- * \code
- * a = b + c;
- * \endcode
- * where a, b and c are device vectors. Each device gets portion of the vector
- * proportional to the performance of this operation.
- */
-inline std::vector<size_t> partition_by_vector_perf(
-	size_t n, const std::vector<cl::CommandQueue> &queue)
-{
-
-    std::vector<size_t> part(queue.size() + 1, 0);
-
-    if (queue.size() > 1) {
-	std::vector<double> cumsum;
-	cumsum.reserve(queue.size() + 1);
-	cumsum.push_back(0);
-
-	for(auto q = queue.begin(); q != queue.end(); q++)
-	    cumsum.push_back(cumsum.back() + device_vector_perf(
-			q->getInfo<CL_QUEUE_CONTEXT>(),
-			q->getInfo<CL_QUEUE_DEVICE>()
-			));
-
-	for(uint d = 0; d < queue.size(); d++)
-	    part[d + 1] = std::min(n, alignup(
-		static_cast<size_t>(n * cumsum[d + 1] / cumsum.back())));
-    }
-
-    part.back() = n;
-
-    return part;
-}
 
 } // namespace vex
 

@@ -1497,126 +1497,83 @@ void SpMatCCSR<real,column_t>::mul(
 
 /// Returns device weight after spmv test
 inline double device_spmv_perf(
-	const cl::Context &context, const cl::Device &device,
-	size_t test_size = 64U
+	const cl::Context &context, const cl::Device &device
 	)
 {
-    static std::map<cl_device_id, double> dev_weights;
+    static const size_t test_size = 64U;
 
-    auto dw = dev_weights.find(device());
+    std::vector<cl::CommandQueue> queue(1,
+	    cl::CommandQueue(context, device, CL_QUEUE_PROFILING_ENABLE)
+	    );
 
-    if (dw == dev_weights.end()) {
-	std::vector<cl::CommandQueue> queue(1,
-		cl::CommandQueue(context, device, CL_QUEUE_PROFILING_ENABLE)
-		);
+    // Construct matrix for 3D Poisson problem in cubic domain.
+    const size_t n   = test_size;
+    const float  h2i = (n - 1.0f) * (n - 1.0f);
 
-	// Construct matrix for 3D Poisson problem in cubic domain.
-	const size_t n   = test_size;
-	const float  h2i = (n - 1.0f) * (n - 1.0f);
+    std::vector<size_t> row;
+    std::vector<size_t> col;
+    std::vector<float>  val;
 
-	std::vector<size_t> row;
-	std::vector<size_t> col;
-	std::vector<float>  val;
+    row.reserve(n * n * n + 1);
+    col.reserve(6 * (n - 2) * (n - 2) * (n - 2) + n * n * n);
+    val.reserve(6 * (n - 2) * (n - 2) * (n - 2) + n * n * n);
 
-	row.reserve(n * n * n + 1);
-	col.reserve(6 * (n - 2) * (n - 2) * (n - 2) + n * n * n);
-	val.reserve(6 * (n - 2) * (n - 2) * (n - 2) + n * n * n);
+    row.push_back(0);
+    for(size_t k = 0, idx = 0; k < n; k++) {
+	for(size_t j = 0; j < n; j++) {
+	    for(size_t i = 0; i < n; i++, idx++) {
+		if (
+			i == 0 || i == (n - 1) ||
+			j == 0 || j == (n - 1) ||
+			k == 0 || k == (n - 1)
+		   )
+		{
+		    col.push_back(idx);
+		    val.push_back(1);
+		    row.push_back(row.back() + 1);
+		} else {
+		    col.push_back(idx - n * n);
+		    val.push_back(-h2i);
 
-	row.push_back(0);
-	for(size_t k = 0, idx = 0; k < n; k++) {
-	    for(size_t j = 0; j < n; j++) {
-		for(size_t i = 0; i < n; i++, idx++) {
-		    if (
-			    i == 0 || i == (n - 1) ||
-			    j == 0 || j == (n - 1) ||
-			    k == 0 || k == (n - 1)
-		       )
-		    {
-			col.push_back(idx);
-			val.push_back(1);
-			row.push_back(row.back() + 1);
-		    } else {
-			col.push_back(idx - n * n);
-			val.push_back(-h2i);
+		    col.push_back(idx - n);
+		    val.push_back(-h2i);
 
-			col.push_back(idx - n);
-			val.push_back(-h2i);
+		    col.push_back(idx - 1);
+		    val.push_back(-h2i);
 
-			col.push_back(idx - 1);
-			val.push_back(-h2i);
+		    col.push_back(idx);
+		    val.push_back(6 * h2i);
 
-			col.push_back(idx);
-			val.push_back(6 * h2i);
+		    col.push_back(idx + 1);
+		    val.push_back(-h2i);
 
-			col.push_back(idx + 1);
-			val.push_back(-h2i);
+		    col.push_back(idx + n);
+		    val.push_back(-h2i);
 
-			col.push_back(idx + n);
-			val.push_back(-h2i);
+		    col.push_back(idx + n * n);
+		    val.push_back(-h2i);
 
-			col.push_back(idx + n * n);
-			val.push_back(-h2i);
-
-			row.push_back(row.back() + 7);
-		    }
+		    row.push_back(row.back() + 7);
 		}
 	    }
 	}
-
-	// Create device vectors and copy of the matrix.
-	vex::SpMat<float>  A(queue, n * n * n, row.data(), col.data(), val.data());
-	vex::vector<float> x(queue, n * n * n);
-	vex::vector<float> y(queue, n * n * n);
-
-	// Warming run.
-	x = 1;
-	y = A * x;
-
-	// Measure performance.
-	profiler prof(queue);
-	prof.tic_cl("");
-	y = A * x;
-	double time = prof.toc("");
-	return dev_weights[device()] = 1 / time;
-    } else {
-	return dw->second;
-    }
-}
-
-/// Partitions vector wrt to vector performance of devices.
-/**
- * Launches the following kernel on each device:
- * \code
- * a = b + c;
- * \endcode
- * where a, b and c are device vectors. Each device gets portion of the vector
- * proportional to the performance of this operation.
- */
-inline std::vector<size_t> partition_by_spmv_perf(
-	size_t n, const std::vector<cl::CommandQueue> &queue)
-{
-
-    std::vector<size_t> part(queue.size() + 1, 0);
-
-    if (queue.size() > 1) {
-	std::vector<double> cumsum;
-	cumsum.reserve(queue.size() + 1);
-	cumsum.push_back(0);
-
-	for(auto q = queue.begin(); q != queue.end(); q++)
-	    cumsum.push_back(cumsum.back() + device_spmv_perf(
-			q->getInfo<CL_QUEUE_CONTEXT>(),
-			q->getInfo<CL_QUEUE_DEVICE>()
-			));
-
-	for(uint d = 0; d < queue.size(); d++)
-	    part[d + 1] = std::min(n,
-		alignup(static_cast<size_t>(n * cumsum[d + 1] / cumsum.back())));
     }
 
-    part.back() = n;
+    // Create device vectors and copy of the matrix.
+    vex::SpMat<float>  A(queue, n * n * n, row.data(), col.data(), val.data());
+    vex::vector<float> x(queue, n * n * n);
+    vex::vector<float> y(queue, n * n * n);
 
-    return part;
+    // Warming run.
+    x = 1;
+    y = A * x;
+
+    // Measure performance.
+    profiler prof(queue);
+    prof.tic_cl("");
+    y = A * x;
+    double time = prof.toc("");
+    return 1.0 / time;
 }
 
 } // namespace vex
