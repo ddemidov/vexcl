@@ -325,13 +325,13 @@ struct ExConv {
 };
 
 template <class Expr, typename T>
-typename std::enable_if<Expr::is_expr, ExConv<Expr,T>>::type
+ExConv<Expr,T>
 operator+(const Expr &expr, const Conv<T> &cnv) {
     return ExConv<Expr,T>(expr, cnv, 1);
 }
 
 template <class Expr, typename T>
-typename std::enable_if<Expr::is_expr, ExConv<Expr,T>>::type
+ExConv<Expr,T>
 operator-(const Expr &expr, const Conv<T> &cnv) {
     return ExConv<Expr,T>(expr, cnv, -1);
 }
@@ -381,13 +381,13 @@ struct MultiExConv {
 };
 
 template <class Expr, typename T, uint N>
-typename std::enable_if<Expr::is_multiex, MultiExConv<Expr,T,N>>::type
+MultiExConv<Expr,T,N>
 operator+(const Expr &expr, const MultiConv<T,N> &cnv) {
     return MultiExConv<Expr,T,N>(expr, cnv, 1);
 }
 
 template <class Expr, typename T, uint N>
-typename std::enable_if<Expr::is_multiex, MultiExConv<Expr,T,N>>::type
+MultiExConv<Expr,T,N>
 operator-(const Expr &expr, const MultiConv<T,N> &cnv) {
     return MultiExConv<Expr,T,N>(expr, cnv, -1);
 }
@@ -824,13 +824,13 @@ struct ExGConv {
 };
 
 template <class Expr, class func, typename T>
-typename std::enable_if<Expr::is_expr, ExGConv<Expr,func,T>>::type
+ExGConv<Expr,func,T>
 operator+(const Expr &expr, const GConv<func,T> &cnv) {
     return ExGConv<Expr,func,T>(expr, cnv, 1);
 }
 
 template <class Expr, class func, typename T>
-typename std::enable_if<Expr::is_expr, ExGConv<Expr,func,T>>::type
+ExGConv<Expr,func,T>
 operator-(const Expr &expr, const GConv<func,T> &cnv) {
     return ExGConv<Expr,func,T>(expr, cnv, -1);
 }
@@ -853,13 +853,13 @@ struct MultiExGConv {
 };
 
 template <class Expr, class func, typename T, uint N>
-typename std::enable_if<Expr::is_multiex, MultiExGConv<Expr,func,T,N>>::type
+MultiExGConv<Expr,func,T,N>
 operator+(const Expr &expr, const MultiGConv<func,T,N> &cnv) {
     return MultiExGConv<Expr,func,T,N>(expr, cnv, 1);
 }
 
 template <class Expr, class func, typename T, uint N>
-typename std::enable_if<Expr::is_multiex, MultiExGConv<Expr,func,T,N>>::type
+MultiExGConv<Expr,func,T,N>
 operator-(const Expr &expr, const MultiGConv<func,T,N> &cnv) {
     return MultiExGConv<Expr,func,T,N>(expr, cnv, -1);
 }

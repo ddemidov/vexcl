@@ -136,14 +136,14 @@ SpMV<real,column_t> operator*(const SpMatBase<real, column_t> &A, const vex::vec
 
 /// Add an expression and sparse matrix - vector product.
 template <class Expr, typename real, typename column_t>
-typename std::enable_if<Expr::is_expr, ExSpMV<Expr,real,column_t>>::type
+ExSpMV<Expr,real,column_t>
 operator+(const Expr &expr, const SpMV<real,column_t> &spmv) {
     return ExSpMV<Expr,real,column_t>(expr, 1, spmv);
 }
 
 /// Subtract sparse matrix - vector product from an expression.
 template <class Expr, typename real, typename column_t>
-typename std::enable_if<Expr::is_expr, ExSpMV<Expr,real,column_t>>::type
+ExSpMV<Expr,real,column_t>
 operator-(const Expr &expr, const SpMV<real,column_t> &spmv) {
     return ExSpMV<Expr,real,column_t>(expr, -1, spmv);
 }
@@ -171,14 +171,14 @@ MultiSpMV<real,column_t,N> operator*(
 
 /// Add an expression and sparse matrix - multivector product.
 template <class Expr, typename real, typename column_t, uint N>
-typename std::enable_if<Expr::is_multiex, MultiExSpMV<Expr,real,column_t,N>>::type
+MultiExSpMV<Expr,real,column_t,N>
 operator+(const Expr &expr, const MultiSpMV<real,column_t,N> &spmv) {
     return MultiExSpMV<Expr,real,column_t,N>(expr, 1, spmv);
 }
 
-/// Subtruct sparse matrix - multivector product from an expression.
+/// Subtract sparse matrix - multivector product from an expression.
 template <class Expr, typename real, typename column_t, uint N>
-typename std::enable_if<Expr::is_multiex, MultiExSpMV<Expr,real,column_t,N>>::type
+MultiExSpMV<Expr,real,column_t,N>
 operator-(const Expr &expr, const MultiSpMV<real,column_t,N> &spmv) {
     return MultiExSpMV<Expr,real,column_t,N>(expr, -1, spmv);
 }
