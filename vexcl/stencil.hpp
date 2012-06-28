@@ -450,8 +450,8 @@ void stencil<T>::init(uint width) {
 		"    local real *loc_x\n"
 		"    )\n"
 		"{\n"
-		"    long g_id = get_global_id(0);\n"
-		"    if (g_id < n) {\n"
+		"    size_t grid_size = get_num_groups(0) * get_local_size(0);\n"
+		"    for(long g_id = get_global_id(0); g_id < n; g_id += grid_size) {\n"
 		"        real sum = 0;\n"
 		"        for(int j = -lhalo; j <= rhalo; j++)\n"
 		"            sum += s[lhalo + j] * read_x(g_id + j, n, has_left, has_right, lhalo, rhalo, xloc, xrem);\n"
@@ -475,22 +475,25 @@ void stencil<T>::init(uint width) {
 		"    local real *X\n"
 		"    )\n"
 		"{\n"
-		"    long g_id      = get_global_id(0);\n"
+		"    size_t grid_size = get_num_groups(0) * get_local_size(0);\n"
 		"    int l_id       = get_local_id(0);\n"
 		"    int block_size = get_local_size(0);\n"
 		"    for(int i = l_id; i < lhalo + rhalo + 1; i += block_size)\n"
 		"        S[i] = s[i];\n"
-		"    for(int i = l_id, j = g_id - lhalo; i < block_size + lhalo + rhalo; i += block_size, j += block_size)\n"
-		"        X[i] = read_x(j, n, has_left, has_right, lhalo, rhalo, xloc, xrem);\n"
-		"    barrier(CLK_LOCAL_MEM_FENCE);\n"
-		"    if (g_id < n) {\n"
-		"        real sum = 0;\n"
-		"        for(int j = -lhalo; j <= rhalo; j++)\n"
-		"            sum += S[lhalo + j] * X[lhalo + l_id + j];\n"
-		"        if (alpha)\n"
-		"            y[g_id] = alpha * y[g_id] + beta * sum;\n"
-		"        else\n"
-		"            y[g_id] = beta * sum;\n"
+		"    for(long g_id = get_global_id(0), pos = 0; pos < n; g_id += grid_size, pos += grid_size) {\n"
+		"        for(int i = l_id, j = g_id - lhalo; i < block_size + lhalo + rhalo; i += block_size, j += block_size)\n"
+		"            X[i] = read_x(j, n, has_left, has_right, lhalo, rhalo, xloc, xrem);\n"
+		"        barrier(CLK_LOCAL_MEM_FENCE);\n"
+		"        if (g_id < n) {\n"
+		"            real sum = 0;\n"
+		"            for(int j = -lhalo; j <= rhalo; j++)\n"
+		"                sum += S[lhalo + j] * X[lhalo + l_id + j];\n"
+		"            if (alpha)\n"
+		"                y[g_id] = alpha * y[g_id] + beta * sum;\n"
+		"            else\n"
+		"                y[g_id] = beta * sum;\n"
+		"        }\n"
+		"        barrier(CLK_LOCAL_MEM_FENCE);\n"
 		"    }\n"
 		"}\n";
 
@@ -542,8 +545,9 @@ void stencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y,
     for(uint d = 0; d < queue.size(); d++) {
 	if (size_t psize = x.part_size(d)) {
 	    cl::Context context = static_cast<cl::CommandQueue>(queue[d]).getInfo<CL_QUEUE_CONTEXT>();
+	    cl::Device  device  = static_cast<cl::CommandQueue>(queue[d]).getInfo<CL_QUEUE_DEVICE>();
 
-	    size_t g_size = alignup(psize, wgs[d]);
+	    size_t g_size = device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() * wgs[d] * 4;
 
 	    uint pos = 0;
 	    char has_left  = d > 0;
@@ -926,8 +930,8 @@ void gstencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y,
 		"    local real *loc_x\n"
 		"    )\n"
 		"{\n"
-		"    long g_id = get_global_id(0);\n"
-		"    if (g_id < n) {\n"
+		"    size_t grid_size = get_num_groups(0) * get_local_size(0);\n"
+		"    for(long g_id = get_global_id(0); g_id < n; g_id += grid_size) {\n"
 		"        real srow = 0;\n"
 		"        for(int k = 0; k < rows; k++) {\n"
 		"            real scol = 0;\n"
@@ -956,26 +960,29 @@ void gstencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y,
 		"    local real *X\n"
 		"    )\n"
 		"{\n"
-		"    long g_id      = get_global_id(0);\n"
+		"    size_t grid_size = get_num_groups(0) * get_local_size(0);\n"
 		"    int l_id       = get_local_id(0);\n"
 		"    int block_size = get_local_size(0);\n"
 		"    for(int i = l_id; i < rows * cols; i += block_size)\n"
 		"        S[i] = s[i];\n"
-		"    for(int i = l_id, j = g_id - lhalo; i < block_size + lhalo + rhalo; i += block_size, j += block_size)\n"
-		"        X[i] = read_x(j, n, has_left, has_right, lhalo, rhalo, xloc, xrem);\n"
-		"    barrier(CLK_LOCAL_MEM_FENCE);\n"
-		"    if (g_id < n) {\n"
-		"        real srow = 0;\n"
-		"        for(int k = 0; k < rows; k++) {\n"
-		"            real scol = 0;\n"
-		"            for(int j = -lhalo; j <= rhalo; j++)\n"
-		"                scol += S[lhalo + j + k * cols] * X[lhalo + l_id + j];\n"
-		"            srow += " << func::value() << "(scol);\n"
+		"    for(long g_id = get_global_id(0), pos = 0; pos < n; g_id += grid_size, pos += grid_size) {\n"
+		"        for(int i = l_id, j = g_id - lhalo; i < block_size + lhalo + rhalo; i += block_size, j += block_size)\n"
+		"            X[i] = read_x(j, n, has_left, has_right, lhalo, rhalo, xloc, xrem);\n"
+		"        barrier(CLK_LOCAL_MEM_FENCE);\n"
+		"        if (g_id < n) {\n"
+		"            real srow = 0;\n"
+		"            for(int k = 0; k < rows; k++) {\n"
+		"                real scol = 0;\n"
+		"                for(int j = -lhalo; j <= rhalo; j++)\n"
+		"                    scol += S[lhalo + j + k * cols] * X[lhalo + l_id + j];\n"
+		"                srow += " << func::value() << "(scol);\n"
+		"            }\n"
+		"            if (alpha)\n"
+		"                y[g_id] = alpha * y[g_id] + beta * srow;\n"
+		"            else\n"
+		"                y[g_id] = beta * srow;\n"
 		"        }\n"
-		"        if (alpha)\n"
-		"            y[g_id] = alpha * y[g_id] + beta * srow;\n"
-		"        else\n"
-		"            y[g_id] = beta * srow;\n"
+		"        barrier(CLK_LOCAL_MEM_FENCE);\n"
 		"    }\n"
 		"}\n";
 
@@ -1028,7 +1035,7 @@ void gstencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y,
 		loc_x = cl::__local(sizeof(T) * (wgs + lhalo + rhalo));
 	    }
 
-	    size_t g_size = alignup(psize, wgs);
+	    size_t g_size = device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() * wgs * 4;
 
 	    uint pos = 0;
 	    char has_left  = d > 0;
