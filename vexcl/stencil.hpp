@@ -514,11 +514,13 @@ void stencil<T>::init(uint width) {
 	    compiled[context()] = true;
 	}
 
+	bool device_is_cpu = device.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU;
+
 	size_t available_lmem = (device.getInfo<CL_DEVICE_LOCAL_MEM_SIZE>() -
 		fast_conv[context()].getWorkGroupInfo<CL_KERNEL_LOCAL_MEM_SIZE>(device)
 		) / sizeof(T);
 
-	if (available_lmem < width + 64 + lhalo + rhalo) {
+	if (device_is_cpu || available_lmem < width + 64 + lhalo + rhalo) {
 	    conv[d]  = slow_conv[context()];
 	    wgs[d]   = wgsize[context()];
 	    loc_s[d] = cl::__local(1);
@@ -1011,6 +1013,8 @@ void gstencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y,
 	    cl::Context context = static_cast<cl::CommandQueue>(queue[d]).getInfo<CL_QUEUE_CONTEXT>();
 	    cl::Device  device  = static_cast<cl::CommandQueue>(queue[d]).getInfo<CL_QUEUE_DEVICE>();
 
+	    bool device_is_cpu = device.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU;
+
 	    size_t available_lmem = (device.getInfo<CL_DEVICE_LOCAL_MEM_SIZE>() -
 		    static_cast<cl::Kernel>(exdata<func>::fast_conv[context()]
 			).getWorkGroupInfo<CL_KERNEL_LOCAL_MEM_SIZE>(device)
@@ -1021,7 +1025,7 @@ void gstencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y,
 	    cl::LocalSpaceArg loc_s;
 	    cl::LocalSpaceArg loc_x;
 
-	    if (available_lmem < rows * cols + 64 + lhalo + rhalo) {
+	    if (device_is_cpu || available_lmem < rows * cols + 64 + lhalo + rhalo) {
 		conv  = exdata<func>::slow_conv[context()];
 		wgs   = exdata<func>::wgsize[context()];
 		loc_s = cl::__local(1);
