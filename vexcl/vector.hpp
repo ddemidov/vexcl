@@ -76,6 +76,11 @@ template <class func, class T, uint N> struct MultiGConv;
 template <class Expr, class func, class T, uint N> struct MultiExGConv;
 template <class T> struct GStencilProd;
 template <class T, uint N> struct MultiGStencilProd;
+template <typename T, uint width, uint center, const char *body> struct OperConv;
+template <typename T, uint N, uint width, uint center, const char *body> struct MultiOperConv;
+template <class Expr, typename T, uint width, uint center, const char *body> struct ExOperConv;
+template <class Expr, typename T, uint N, uint width, uint center, const char *body> struct MultiExOperConv;
+
 
 /// Base class for a member of an expression.
 /**
@@ -623,11 +628,17 @@ class vector : public expression {
 	template <class f>
 	const vector& operator=(const GConv<f,T> &cnv);
 
+	template <uint width, uint center, const char *body>
+	const vector& operator=(const OperConv<T, width, center, body> &cnv);
+
 	template <class Expr>
 	const vector& operator=(const ExConv<Expr, T> &xc);
 
 	template <class Expr, class f>
 	const vector& operator=(const ExGConv<Expr,f,T> &xc);
+
+	template <class Expr, uint width, uint center, const char *body>
+	const vector& operator=(const ExOperConv<Expr, T, width, center, body> &xc);
 	/// @}
 
 	/// \cond INTERNAL
@@ -1238,6 +1249,12 @@ class multivector {
 
 	template <class Expr, class func>
 	const multivector& operator=(const MultiExGConv<Expr,func,T,N> &cnv);
+
+	template<uint width, uint center, const char *body>
+	const multivector& operator=(const MultiOperConv<T, N, width, center, body> &cnv);
+
+	template <class Expr, uint width, uint center, const char *body>
+	const multivector& operator=(const MultiExOperConv<Expr, T, N, width, center, body> &xc);
 	/// @}
 
     private:

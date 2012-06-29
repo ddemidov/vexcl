@@ -33,6 +33,8 @@ extern const char pow3_body[] = "return pow(prm1, 3.0);";
 UserFunction<pow3_body, double(double)> pow3;
 #endif
 
+extern const char pow3_oper_body[] = "return X[0] + pow(X[-1] + X[1], 3);";
+
 int main(int argc, char *argv[]) {
     try {
 	vex::Context ctx(Filter::DoublePrecision && Filter::Env);
@@ -1100,6 +1102,35 @@ int main(int argc, char *argv[]) {
 		return rc;
 		});
 #endif
+
+	run_test("User-defined stencil operator", [&]() -> bool {
+		bool rc = true;
+		const int n = 1 << 20;
+
+		StencilOperator<double, 3, 1, pow3_oper_body> pow3_op(ctx.queue());
+
+		std::vector<double> x(n);
+		std::vector<double> y(n);
+		std::generate(x.begin(), x.end(), [](){ return (double)rand() / RAND_MAX; });
+
+		vex::vector<double> X(ctx.queue(), x);
+		vex::vector<double> Y(ctx.queue(), n);
+
+		Y = pow3_op(X);
+
+		copy(Y, y);
+
+		double res = 0;
+		for(int i = 0; i < n; i++) {
+		    int left  = std::max(0, i - 1);
+		    int right = std::min(n - 1, i + 1);
+
+		    double sum = x[i] + pow(x[left] + x[right], 3);
+		    res = std::max(res, fabs(sum - y[i]));
+		}
+		rc = rc && res < 1e-8;
+		return rc;
+		});
 
     } catch (const cl::Error &err) {
 	std::cerr << "OpenCL error: " << err << std::endl;

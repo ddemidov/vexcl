@@ -91,16 +91,19 @@ stencil_base<T>::stencil_base(
     assert(rhalo >= 0);
     assert(width);
     assert(center < width);
-    assert(begin != end);
 
     for(uint d = 0; d < queue.size(); d++) {
 	cl::Context context = queue[d].getInfo<CL_QUEUE_CONTEXT>();
 	cl::Device  device  = queue[d].getInfo<CL_QUEUE_DEVICE>();
 
-	s[d] = cl::Buffer(context, CL_MEM_READ_ONLY, (end - begin) * sizeof(T));
+	if (begin != end) {
+	    s[d] = cl::Buffer(context, CL_MEM_READ_ONLY, (end - begin) * sizeof(T));
 
-	queue[d].enqueueWriteBuffer(s[d], CL_FALSE, 0,
-		(end - begin) * sizeof(T), &begin[0], 0, &event[d]);
+	    queue[d].enqueueWriteBuffer(s[d], CL_FALSE, 0,
+		    (end - begin) * sizeof(T), &begin[0], 0, &event[d]);
+	} else {
+	    queue[d].enqueueMarker(&event[d]);
+	}
 
 	// Allocate one element more than needed, to be sure size is nonzero.
 	dbuf[d] = cl::Buffer(context, CL_MEM_READ_WRITE, width * sizeof(T));
@@ -1062,6 +1065,303 @@ void gstencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y,
 	    conv.setArg(pos++, loc_x);
 
 	    queue[d].enqueueNDRangeKernel(conv, cl::NullRange, g_size, wgs);
+	}
+    }
+}
+
+template <typename T, uint width, uint center, const char *body>
+struct OperConv;
+
+template <typename T, uint N, uint width, uint center, const char *body>
+struct MultiOperConv;
+
+/// User-defined stencil operator
+/**
+ * Is used to define custom stencil operator. For example, to implement the
+ * following nonlinear operator:
+ * \code
+ * y[i] = x[i] + pow3(x[i-1] + x[i+1]);
+ * \endcode
+ * one has to write:
+ * \code
+ * extern const char pow3_oper_body[] = "return X[0] + pow(X[-1] + X[1], 3);";
+ * StencilOperator<double, 3, 1, pow3_oper_body> pow3_oper(ctx.queue());
+ * 
+ * y = pow3_oper(x);
+ * \endcode
+ */
+template <typename T, uint width, uint center, const char *body>
+class StencilOperator : public stencil_base<T> {
+    public:
+	StencilOperator(const std::vector<cl::CommandQueue> &queue);
+
+	OperConv<T, width, center, body> operator()(const vex::vector<T> &x) const;
+
+	template <uint N>
+	MultiOperConv<T, N, width, center, body> operator()(const vex::multivector<T, N> &x) const;
+
+	void convolve(const vex::vector<T> &x, vex::vector<T> &y,
+		T alpha = 0, T beta = 1) const;
+    private:
+	typedef stencil_base<T> Base;
+
+	using Base::queue;
+	using Base::hbuf;
+	using Base::dbuf;
+	using Base::event;
+	using Base::lhalo;
+	using Base::rhalo;
+
+	static std::map<cl_context, bool>	       compiled;
+	static std::map<cl_context, cl::Kernel>        kernel;
+	static std::map<cl_context, uint>	       wgsize;
+	static std::map<cl_context, cl::LocalSpaceArg> lmem;
+};
+
+template <typename T, uint width, uint center, const char *body>
+struct OperConv {
+    OperConv(const StencilOperator<T, width, center, body> &op, const vex::vector<T> &x)
+	: op(op), x(x) {}
+
+    const StencilOperator<T, width, center, body> &op;
+    const vex::vector<T> &x;
+};
+
+template <typename T, uint N, uint width, uint center, const char *body>
+struct MultiOperConv {
+    MultiOperConv(const multivector<T,N> &x, const StencilOperator<T, width, center, body> &s)
+	: op(op), x(x) {}
+
+    const StencilOperator<T, width, center, body> &op;
+    const multivector<T,N> &x;
+};
+
+template <typename T, uint width, uint center, const char *body>
+std::map<cl_context, bool> StencilOperator<T, width, center, body>::compiled;
+
+template <typename T, uint width, uint center, const char *body>
+std::map<cl_context, cl::Kernel> StencilOperator<T, width, center, body>::kernel;
+
+template <typename T, uint width, uint center, const char *body>
+std::map<cl_context, uint> StencilOperator<T, width, center, body>::wgsize;
+
+template <typename T, uint width, uint center, const char *body>
+std::map<cl_context, cl::LocalSpaceArg> StencilOperator<T, width, center, body>::lmem;
+
+template <typename T> template <uint width, uint center, const char *body>
+const vex::vector<T>& vex::vector<T>::operator=(const OperConv<T, width, center, body> &cnv) {
+    cnv.op.convolve(cnv.x, *this);
+    return *this;
+}
+
+template <class Expr, typename T, uint width, uint center, const char *body>
+struct ExOperConv {
+    ExOperConv(const Expr &expr, const OperConv<T, width, center, body> &cnv, T p)
+	: expr(expr), cnv(cnv), p(p) {}
+
+    const Expr    &expr;
+    const OperConv<T, width, center, body> &cnv;
+    T p;
+};
+
+template <class Expr, typename T, uint width, uint center, const char *body>
+ExOperConv<Expr, T, width, center, body>
+operator+(const Expr &expr, const OperConv<T, width, center, body> &cnv) {
+    return ExOperConv<Expr, T, width, center, body>(expr, cnv, 1);
+}
+
+template <class Expr, typename T, uint width, uint center, const char *body>
+ExOperConv<Expr, T, width, center, body>
+operator-(const Expr &expr, const OperConv<T, width, center, body> &cnv) {
+    return ExOperConv<Expr, T, width, center, body>(expr, cnv, -1);
+}
+
+template <typename T> template <class Expr, uint width, uint center, const char *body>
+const vex::vector<T>& vex::vector<T>::operator=(const ExOperConv<Expr, T, width, center, body> &xc) {
+    *this = xc.expr;
+    xc.cnv.op.convolve(xc.cnv.x, *this, 1, xc.p);
+    return *this;
+}
+
+template <typename T, uint N> template<uint width, uint center, const char *body>
+const vex::multivector<T,N>& vex::multivector<T,N>::operator=(
+	const MultiOperConv<T, N, width, center, body> &cnv)
+{
+    for(uint i = 0; i < N; i++) cnv.op.convolve(cnv.x(i), (*this)(i));
+    return *this;
+}
+
+template <class Expr, typename T, uint N, uint width, uint center, const char *body>
+struct MultiExOperConv {
+    MultiExOperConv(const Expr &expr, const MultiOperConv<T, N, width, center, body> &cnv, T p)
+	: expr(expr), cnv(cnv), p(p) {}
+
+    const Expr &expr;
+    const MultiOperConv<T, N, width, center, body> &cnv;
+    T p;
+};
+
+template <class Expr, typename T, uint N, uint width, uint center, const char *body>
+MultiExOperConv<Expr, T, N, width, center, body>
+operator+(const Expr &expr, const MultiOperConv<T, N, width, center, body> &cnv) {
+    return MultiExOperConv<Expr, T, N, width, center, body>(expr, cnv, 1);
+}
+
+template <class Expr, typename T, uint N, uint width, uint center, const char *body>
+MultiExOperConv<Expr, T, N, width, center, body>
+operator-(const Expr &expr, const MultiOperConv<T, N, width, center, body> &cnv) {
+    return MultiExOperConv<Expr, T, N, width, center, body>(expr, cnv, -1);
+}
+
+template <typename T, uint N> template <class Expr, uint width, uint center, const char *body>
+const vex::multivector<T,N>& vex::multivector<T,N>::operator=(
+	const MultiExOperConv<Expr, T, N, width, center, body> &xc)
+{
+    *this = xc.expr;
+    for(uint i = 0; i < N; i++)
+	xc.cnv.op.convolve(xc.cnv.x(i), (*this)(i), 1, xc.p);
+    return *this;
+}
+
+template <typename T, uint width, uint center, const char *body>
+StencilOperator<T, width, center, body>::StencilOperator(
+	const std::vector<cl::CommandQueue> &queue)
+    : Base(queue, width, center, static_cast<T*>(0), static_cast<T*>(0))
+{
+    for (uint d = 0; d < queue.size(); d++) {
+	cl::Context context = static_cast<cl::CommandQueue>(queue[d]).getInfo<CL_QUEUE_CONTEXT>();
+	cl::Device  device  = static_cast<cl::CommandQueue>(queue[d]).getInfo<CL_QUEUE_DEVICE>();
+
+	if (!compiled[context()]) {
+	    std::ostringstream source;
+
+	    source << standard_kernel_header <<
+		"typedef " << type_name<T>() << " real;\n"
+		"real read_x(\n"
+		"    long g_id,\n"
+		"    " << type_name<size_t>() << " n,\n"
+		"    char has_left, char has_right,\n"
+		"    int lhalo, int rhalo,\n"
+		"    global const real *xloc,\n"
+		"    global const real *xrem\n"
+		"    )\n"
+		"{\n"
+		"    if (g_id >= 0 && g_id < n) {\n"
+		"        return xloc[g_id];\n"
+		"    } else if (g_id < 0) {\n"
+		"        if (has_left)\n"
+		"            return (lhalo + g_id >= 0) ? xrem[lhalo + g_id] : 0;\n"
+		"        else\n"
+		"            return xloc[0];\n"
+		"    } else {\n"
+		"        if (has_right)\n"
+		"            return (g_id < n + rhalo) ? xrem[lhalo + g_id - n] : 0;\n"
+		"        else\n"
+		"            return xloc[n - 1];\n"
+		"    }\n"
+		"}\n"
+		"real stencil_oper(local real *X) {\n"
+		<< body <<
+		"}\n"
+		"kernel void convolve(\n"
+		"    " << type_name<size_t>() << " n,\n"
+		"    char has_left,\n"
+		"    char has_right,\n"
+		"    int lhalo, int rhalo,\n"
+		"    global const real *xloc,\n"
+		"    global const real *xrem,\n"
+		"    global real *y,\n"
+		"    real alpha, real beta,\n"
+		"    local real *X\n"
+		"    )\n"
+		"{\n"
+		"    size_t grid_size = get_num_groups(0) * get_local_size(0);\n"
+		"    int l_id         = get_local_id(0);\n"
+		"    int block_size   = get_local_size(0);\n"
+		"    for(long g_id = get_global_id(0), pos = 0; pos < n; g_id += grid_size, pos += grid_size) {\n"
+		"        for(int i = l_id, j = g_id - lhalo; i < block_size + lhalo + rhalo; i += block_size, j += block_size)\n"
+		"            X[i] = read_x(j, n, has_left, has_right, lhalo, rhalo, xloc, xrem);\n"
+		"        barrier(CLK_LOCAL_MEM_FENCE);\n"
+		"        if (g_id < n) {\n"
+		"            real sum = stencil_oper(X + lhalo + l_id);\n"
+		"            if (alpha)\n"
+		"                y[g_id] = alpha * y[g_id] + beta * sum;\n"
+		"            else\n"
+		"                y[g_id] = beta * sum;\n"
+		"        }\n"
+		"        barrier(CLK_LOCAL_MEM_FENCE);\n"
+		"    }\n"
+		"}\n";
+
+#ifdef VEXCL_SHOW_KERNELS
+	    std::cout << source.str() << std::endl;
+#endif
+
+	    auto program = build_sources(context, source.str());
+
+	    kernel[context()]   = cl::Kernel(program, "convolve");
+	    wgsize[context()]   = kernel_workgroup_size(kernel[context()], device);
+	    compiled[context()] = true;
+
+	    size_t available_lmem = (device.getInfo<CL_DEVICE_LOCAL_MEM_SIZE>() -
+		    kernel[context()].getWorkGroupInfo<CL_KERNEL_LOCAL_MEM_SIZE>(device)
+		    ) / sizeof(T);
+
+	    assert(available_lmem >= width + 64);
+
+	    while(available_lmem < width + wgsize[context()])
+		wgsize[context()] /= 2;
+
+	    lmem[context()] = cl::__local(sizeof(T) * (wgsize[context()] + width - 1));
+	}
+
+    }
+}
+
+template <typename T, uint width, uint center, const char *body>
+OperConv<T, width, center, body> StencilOperator<T, width, center, body>::operator()(
+	const vex::vector<T> &x) const
+{
+    return OperConv<T, width, center, body>(*this, x);
+}
+
+template <typename T, uint width, uint center, const char *body> template <uint N>
+MultiOperConv<T, N, width, center, body> StencilOperator<T, width, center, body>::operator()(
+	const vex::multivector<T, N> &x) const
+{
+    return MultiOperConv<T, N, width, center, body>(*this, x);
+}
+
+template <typename T, uint width, uint center, const char *body>
+void StencilOperator<T, width, center, body>::convolve(
+	const vex::vector<T> &x, vex::vector<T> &y, T alpha, T beta) const
+{
+    Base::exchange_halos(x);
+
+    for(uint d = 0; d < queue.size(); d++) {
+	if (size_t psize = x.part_size(d)) {
+	    cl::Context context = static_cast<cl::CommandQueue>(queue[d]).getInfo<CL_QUEUE_CONTEXT>();
+	    cl::Device  device  = static_cast<cl::CommandQueue>(queue[d]).getInfo<CL_QUEUE_DEVICE>();
+
+	    size_t g_size = device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() * wgsize[context()] * 4;
+
+	    uint pos = 0;
+	    char has_left  = d > 0;
+	    char has_right = d + 1 < queue.size();
+
+	    kernel[context()].setArg(pos++, psize);
+	    kernel[context()].setArg(pos++, has_left);
+	    kernel[context()].setArg(pos++, has_right);
+	    kernel[context()].setArg(pos++, lhalo);
+	    kernel[context()].setArg(pos++, rhalo);
+	    kernel[context()].setArg(pos++, x(d));
+	    kernel[context()].setArg(pos++, dbuf[d]);
+	    kernel[context()].setArg(pos++, y(d));
+	    kernel[context()].setArg(pos++, alpha);
+	    kernel[context()].setArg(pos++, beta);
+	    kernel[context()].setArg(pos++, lmem[context()]);
+
+	    queue[d].enqueueNDRangeKernel(kernel[context()], cl::NullRange, g_size, wgsize[context()]);
 	}
     }
 }
