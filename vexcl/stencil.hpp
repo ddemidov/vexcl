@@ -1304,11 +1304,10 @@ StencilOperator<T, width, center, body>::StencilOperator(
 		"    int l_id       = get_local_id(0);\n"
 		"    int block_size = get_local_size(0);\n"
 		"    long g_id      = get_global_id(0);\n"
-		"    for(int i = l_id, j = g_id - lhalo; i < block_size + lhalo + rhalo; i += block_size, j += block_size)\n"
-		"        X[i] = read_x(j, n, has_left, has_right, lhalo, rhalo, xloc, xrem);\n"
-		"    barrier(CLK_LOCAL_MEM_FENCE);\n"
 		"    if (g_id < n) {\n"
-		"        real sum = stencil_oper(X + lhalo + l_id);\n"
+		"        for(int i = 0, j = g_id - lhalo; i < 1 + lhalo + rhalo; i++, j++)\n"
+		"            X[i] = read_x(j, n, has_left, has_right, lhalo, rhalo, xloc, xrem);\n"
+		"        real sum = stencil_oper(X + lhalo);\n"
 		"        if (alpha)\n"
 		"            y[g_id] = alpha * y[g_id] + beta * sum;\n"
 		"        else\n"
@@ -1354,7 +1353,8 @@ StencilOperator<T, width, center, body>::StencilOperator(
 	    while(available_lmem < width + wgsize[context()])
 		wgsize[context()] /= 2;
 
-	    lmem[context()] = cl::__local(sizeof(T) * (wgsize[context()] + width - 1));
+	    lmem[context()] = device_is_cpu ? cl::__local(width)
+		: cl::__local(sizeof(T) * (wgsize[context()] + width - 1));
 	}
 
     }
