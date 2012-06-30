@@ -33,7 +33,7 @@ extern const char pow3_body[] = "return pow(prm1, 3.0);";
 UserFunction<pow3_body, double(double)> pow3;
 #endif
 
-extern const char pow3_oper_body[] = "return X[0] + pow(X[-1] + X[1], 3);";
+extern const char pow3_oper_body[] = "return X[0] + pow(X[-1] + X[1], 3.0);";
 
 int main(int argc, char *argv[]) {
     try {

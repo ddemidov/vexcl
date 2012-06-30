@@ -411,6 +411,8 @@ void stencil<T>::init(uint width) {
 	cl::Context context = static_cast<cl::CommandQueue>(queue[d]).getInfo<CL_QUEUE_CONTEXT>();
 	cl::Device  device  = static_cast<cl::CommandQueue>(queue[d]).getInfo<CL_QUEUE_DEVICE>();
 
+	bool device_is_cpu = device.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU;
+
 	if (!compiled[context()]) {
 	    std::ostringstream source;
 
@@ -452,9 +454,16 @@ void stencil<T>::init(uint width) {
 		"    local real *loc_s,\n"
 		"    local real *loc_x\n"
 		"    )\n"
-		"{\n"
+		"{\n";
+	    if (device_is_cpu)
+		source <<
+		"    long g_id = get_global_id(0);\n"
+		"    if (g_id < n) {\n";
+	    else
+		source <<
 		"    size_t grid_size = get_num_groups(0) * get_local_size(0);\n"
-		"    for(long g_id = get_global_id(0); g_id < n; g_id += grid_size) {\n"
+		"    for(long g_id = get_global_id(0); g_id < n; g_id += grid_size) {\n";
+	    source <<
 		"        real sum = 0;\n"
 		"        for(int j = -lhalo; j <= rhalo; j++)\n"
 		"            sum += s[lhalo + j] * read_x(g_id + j, n, has_left, has_right, lhalo, rhalo, xloc, xrem);\n"
@@ -517,8 +526,6 @@ void stencil<T>::init(uint width) {
 	    compiled[context()] = true;
 	}
 
-	bool device_is_cpu = device.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU;
-
 	size_t available_lmem = (device.getInfo<CL_DEVICE_LOCAL_MEM_SIZE>() -
 		fast_conv[context()].getWorkGroupInfo<CL_KERNEL_LOCAL_MEM_SIZE>(device)
 		) / sizeof(T);
@@ -552,11 +559,15 @@ void stencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y,
 	    cl::Context context = static_cast<cl::CommandQueue>(queue[d]).getInfo<CL_QUEUE_CONTEXT>();
 	    cl::Device  device  = static_cast<cl::CommandQueue>(queue[d]).getInfo<CL_QUEUE_DEVICE>();
 
-	    size_t g_size = device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() * wgs[d] * 4;
+	    bool device_is_cpu = device.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU;
 
-	    uint pos = 0;
 	    char has_left  = d > 0;
 	    char has_right = d + 1 < queue.size();
+
+	    size_t g_size = device_is_cpu ? alignup(psize, wgs[d])
+		: device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() * wgs[d] * 4;
+
+	    uint pos = 0;
 
 	    conv[d].setArg(pos++, psize);
 	    conv[d].setArg(pos++, has_left);
@@ -891,6 +902,8 @@ void gstencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y,
 	cl::Context context = static_cast<cl::CommandQueue>(queue[d]).getInfo<CL_QUEUE_CONTEXT>();
 	cl::Device  device  = static_cast<cl::CommandQueue>(queue[d]).getInfo<CL_QUEUE_DEVICE>();
 
+	bool device_is_cpu = device.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU;
+
 	if (!exdata<func>::compiled[context()]) {
 	    std::ostringstream source;
 
@@ -934,9 +947,16 @@ void gstencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y,
 		"    local real *loc_s,\n"
 		"    local real *loc_x\n"
 		"    )\n"
-		"{\n"
+		"{\n";
+	    if (device_is_cpu)
+		source <<
+		"    long g_id = get_global_id(0);\n"
+		"    if (g_id < n) {\n";
+	    else
+		source <<
 		"    size_t grid_size = get_num_groups(0) * get_local_size(0);\n"
-		"    for(long g_id = get_global_id(0); g_id < n; g_id += grid_size) {\n"
+		"    for(long g_id = get_global_id(0); g_id < n; g_id += grid_size) {\n";
+	    source <<
 		"        real srow = 0;\n"
 		"        for(int k = 0; k < rows; k++) {\n"
 		"            real scol = 0;\n"
@@ -1042,11 +1062,13 @@ void gstencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y,
 		loc_x = cl::__local(sizeof(T) * (wgs + lhalo + rhalo));
 	    }
 
-	    size_t g_size = device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() * wgs * 4;
-
-	    uint pos = 0;
 	    char has_left  = d > 0;
 	    char has_right = d + 1 < queue.size();
+
+	    size_t g_size = device_is_cpu ? alignup(psize, wgs)
+		: device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() * wgs * 4;
+
+	    uint pos = 0;
 
 	    conv.setArg(pos++, psize);
 	    conv.setArg(pos++, has_left);
@@ -1233,6 +1255,8 @@ StencilOperator<T, width, center, body>::StencilOperator(
 	cl::Device  device  = static_cast<cl::CommandQueue>(queue[d]).getInfo<CL_QUEUE_DEVICE>();
 
 	if (!compiled[context()]) {
+	    bool device_is_cpu = device.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU;
+
 	    std::ostringstream source;
 
 	    source << standard_kernel_header <<
@@ -1274,7 +1298,25 @@ StencilOperator<T, width, center, body>::StencilOperator(
 		"    real alpha, real beta,\n"
 		"    local real *X\n"
 		"    )\n"
-		"{\n"
+		"{\n";
+	    if (device_is_cpu)
+		source <<
+		"    int l_id       = get_local_id(0);\n"
+		"    int block_size = get_local_size(0);\n"
+		"    long g_id      = get_global_id(0);\n"
+		"    for(int i = l_id, j = g_id - lhalo; i < block_size + lhalo + rhalo; i += block_size, j += block_size)\n"
+		"        X[i] = read_x(j, n, has_left, has_right, lhalo, rhalo, xloc, xrem);\n"
+		"    barrier(CLK_LOCAL_MEM_FENCE);\n"
+		"    if (g_id < n) {\n"
+		"        real sum = stencil_oper(X + lhalo + l_id);\n"
+		"        if (alpha)\n"
+		"            y[g_id] = alpha * y[g_id] + beta * sum;\n"
+		"        else\n"
+		"            y[g_id] = beta * sum;\n"
+		"    }\n"
+		"}\n";
+	    else
+		source <<
 		"    size_t grid_size = get_num_groups(0) * get_local_size(0);\n"
 		"    int l_id         = get_local_id(0);\n"
 		"    int block_size   = get_local_size(0);\n"
@@ -1343,11 +1385,15 @@ void StencilOperator<T, width, center, body>::convolve(
 	    cl::Context context = static_cast<cl::CommandQueue>(queue[d]).getInfo<CL_QUEUE_CONTEXT>();
 	    cl::Device  device  = static_cast<cl::CommandQueue>(queue[d]).getInfo<CL_QUEUE_DEVICE>();
 
-	    size_t g_size = device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() * wgsize[context()] * 4;
+	    bool device_is_cpu = device.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU;
 
-	    uint pos = 0;
+	    size_t g_size = device_is_cpu ? alignup(psize, wgsize[context()]) :
+		device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() * wgsize[context()] * 4;
+
 	    char has_left  = d > 0;
 	    char has_right = d + 1 < queue.size();
+
+	    uint pos = 0;
 
 	    kernel[context()].setArg(pos++, psize);
 	    kernel[context()].setArg(pos++, has_left);
