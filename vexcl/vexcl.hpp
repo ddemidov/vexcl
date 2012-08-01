@@ -158,7 +158,7 @@ void cg_gpu(
 
     // Move data to compute devices.
     size_t n = x.size();
-    vex::SpMat<real>  A(ctx.queue(), n, row.data(), col.data(), val.data());
+    vex::SpMat<real>  A(ctx.queue(), n, n, row.data(), col.data(), val.data());
     vex::vector<real> f(ctx.queue(), rhs);
     vex::vector<real> u(ctx.queue(), x);
     vex::vector<real> r(ctx.queue(), n);
