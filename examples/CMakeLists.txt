@@ -23,5 +23,11 @@ set(EXAMPLES
 foreach(example ${EXAMPLES})
     add_executable(${example} ${example}.cpp)
     target_link_libraries(${example} ${OPENCL_LIBRARY})
+
+    if (NOT WIN32)
+	set_target_properties(${example} PROPERTIES
+	    COMPILE_FLAGS -std=c++0x
+	    )
+    endif (NOT WIN32)
 endforeach(example)
 
