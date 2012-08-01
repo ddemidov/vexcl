@@ -66,10 +66,9 @@ Once you got queue list, you can allocate OpenCL buffers on the associated
 devices. vex::vector constructor accepts std::vector of cl::CommandQueue.  The
 contents of the created vector will be partitioned between each queue
 (presumably, each of the provided queues is linked with separate device).  Size
-of each partition will be proportional to relative device bandwidth unless
-macro VEXCL_DUMB_PARTITIONING is defined, in which case equal partitioning
-scheme will be applied. Device bandwidth is measured first time it is requested
-by launch of small test kernel.
+of each partition will be proportional to relative device bandwidth. Device
+bandwidth is measured first time it is requested by launch of small test
+kernel.
 
 Multi-platform computation is supported (that is, you can spread your vectors
 across devices by different vendors), but should be used with caution: all
