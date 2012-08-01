@@ -319,7 +319,7 @@ int main(int argc, char *argv[]) {
 		std::vector<double> y(n * n * n);
 		std::generate(x.begin(), x.end(), []() { return (double)rand() / RAND_MAX; });
 
-		vex::SpMat <double> A(ctx.queue(), x.size(), row.data(), col.data(), val.data());
+		vex::SpMat <double> A(ctx.queue(), x.size(), x.size(), row.data(), col.data(), val.data());
 		vex::vector<double> X(ctx.queue(), x);
 		vex::vector<double> Y(ctx.queue(), x.size());
 
@@ -630,7 +630,7 @@ int main(int argc, char *argv[]) {
 			return (double)rand() / RAND_MAX;
 			});
 
-		vex::SpMat <double> A(ctx.queue(), N,
+		vex::SpMat <double> A(ctx.queue(), N, N,
 			row.data(), col.data(), val.data());
 
 		vex::multivector<double,m> X(ctx.queue(), x);

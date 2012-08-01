@@ -22,7 +22,7 @@ void cg_gpu(
     vex::Context ctx(Filter::Type(CL_DEVICE_TYPE_GPU) && Filter::DoublePrecision);
 
     // Move data to GPU(s)
-    vex::SpMat <real> A(ctx.queue(), n, row.data(), col.data(), val.data());
+    vex::SpMat <real> A(ctx.queue(), n, n, row.data(), col.data(), val.data());
     vex::vector<real> f(ctx.queue(), rhs, CL_MEM_READ_ONLY);
     vex::vector<real> u(ctx.queue(), x);
     vex::vector<real> r(ctx.queue(), n);

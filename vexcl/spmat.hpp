@@ -214,12 +214,13 @@ class SpMat : public SpMatBase<real, column_t>{
 	 * \param queue vector of queues. Each queue represents one
 	 *            compute device.
 	 * \param n   number of rows in the matrix.
+	 * \param m   number of cols in the matrix.
 	 * \param row row index into col and val vectors.
 	 * \param col column numbers of nonzero elements of the matrix.
 	 * \param val values of nonzero elements of the matrix.
 	 */
 	SpMat(const std::vector<cl::CommandQueue> &queue,
-	      size_t n, const size_t *row, const column_t *col, const real *val
+	      size_t n, size_t m, const size_t *row, const column_t *col, const real *val
 	      );
 
 	/// Matrix-vector multiplication.
@@ -254,7 +255,8 @@ class SpMat : public SpMatBase<real, column_t>{
 	    static const column_t ncol = -1;
 
 	    SpMatELL(
-		    const cl::CommandQueue &queue, size_t beg, size_t end,
+		    const cl::CommandQueue &queue,
+		    size_t beg, size_t end, size_t xbeg, size_t xend,
 		    const size_t *row, const column_t *col, const real *val,
 		    const std::set<column_t> &remote_cols
 		    );
@@ -298,7 +300,8 @@ class SpMat : public SpMatBase<real, column_t>{
 
 	struct SpMatCSR : public sparse_matrix {
 	    SpMatCSR(
-		    const cl::CommandQueue &queue, size_t beg, size_t end,
+		    const cl::CommandQueue &queue,
+		    size_t beg, size_t end, size_t xbeg, size_t xend,
 		    const size_t *row, const column_t *col, const real *val,
 		    const std::set<column_t> &remote_cols
 		    );
@@ -358,7 +361,9 @@ class SpMat : public SpMatBase<real, column_t>{
 	static std::map<cl_context, uint>       wgsize;
 
 	std::vector<std::set<column_t>> setup_exchange(
-		size_t n, const size_t *row, const column_t *col, const real *val);
+		size_t n, const std::vector<size_t> &xpart,
+		const size_t *row, const column_t *col, const real *val
+		);
 };
 
 template <typename real, typename column_t>
@@ -373,13 +378,15 @@ std::map<cl_context, uint> SpMat<real,column_t>::wgsize;
 template <typename real, typename column_t>
 SpMat<real,column_t>::SpMat(
 	const std::vector<cl::CommandQueue> &queue,
-	size_t n, const size_t *row, const column_t *col, const real *val
+	size_t n, size_t m, const size_t *row, const column_t *col, const real *val
 	)
     : queue(queue), part(partition(n, queue)),
       event1(queue.size(), std::vector<cl::Event>(1)),
       event2(queue.size(), std::vector<cl::Event>(1)),
       mtx(queue.size()), exc(queue.size())
 {
+    auto xpart = partition(m, queue);
+
     for(auto q = queue.begin(); q != queue.end(); q++) {
 	cl::Context context = q->getInfo<CL_QUEUE_CONTEXT>();
 	cl::Device  device  = q->getInfo<CL_QUEUE_DEVICE>();
@@ -420,7 +427,7 @@ SpMat<real,column_t>::SpMat(
 	squeue.push_back(cl::CommandQueue(context, device));
     }
 
-    std::vector<std::set<column_t>> remote_cols = setup_exchange(n, row, col, val);
+    std::vector<std::set<column_t>> remote_cols = setup_exchange(n, xpart, row, col, val);
 
     // Each device get it's own strip of the matrix.
     for(uint d = 0; d < queue.size(); d++) {
@@ -429,12 +436,16 @@ SpMat<real,column_t>::SpMat(
 
 	    if (device.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU)
 		mtx[d].reset(
-			new SpMatCSR(queue[d], part[d], part[d + 1],
+			new SpMatCSR(queue[d],
+			    part[d], part[d + 1],
+			    xpart[d], xpart[d + 1],
 			    row, col, val, remote_cols[d])
 			);
 	    else
 		mtx[d].reset(
-			new SpMatELL(queue[d], part[d], part[d + 1],
+			new SpMatELL(queue[d],
+			    part[d], part[d + 1],
+			    xpart[d], xpart[d + 1],
 			    row, col, val, remote_cols[d])
 			);
 	}
@@ -498,7 +509,8 @@ void SpMat<real,column_t>::mul(const vex::vector<real> &x, vex::vector<real> &y,
 
 template <typename real, typename column_t>
 std::vector<std::set<column_t>> SpMat<real,column_t>::setup_exchange(
-	size_t n, const size_t *row, const column_t *col, const real *val
+	size_t n, const std::vector<size_t> &xpart,
+	const size_t *row, const column_t *col, const real *val
 	)
 {
     std::vector<std::set<column_t>> remote_cols(queue.size());
@@ -507,7 +519,7 @@ std::vector<std::set<column_t>> SpMat<real,column_t>::setup_exchange(
     for(uint d = 0; d < queue.size(); d++) {
 	for(size_t i = part[d]; i < part[d + 1]; i++) {
 	    for(size_t j = row[i]; j < row[i + 1]; j++) {
-		if (col[j] < part[d] || col[j] >= part[d + 1]) {
+		if (col[j] < xpart[d] || col[j] >= xpart[d + 1]) {
 		    remote_cols[d].insert(col[j]);
 		}
 	    }
@@ -546,7 +558,7 @@ std::vector<std::set<column_t>> SpMat<real,column_t>::setup_exchange(
 	    auto beg = cols_to_send.begin();
 	    auto end = cols_to_send.end();
 	    for(uint d = 0; d <= queue.size(); d++) {
-		cidx[d] = std::lower_bound(beg, end, part[d]) - cols_to_send.begin();
+		cidx[d] = std::lower_bound(beg, end, xpart[d]) - cols_to_send.begin();
 		beg = cols_to_send.begin() + cidx[d];
 	    }
 	}
@@ -562,7 +574,7 @@ std::vector<std::set<column_t>> SpMat<real,column_t>::setup_exchange(
 			context, CL_MEM_READ_WRITE, ncols * sizeof(real));
 
 		for(size_t i = cidx[d]; i < cidx[d + 1]; i++)
-		    cols_to_send[i] -= part[d];
+		    cols_to_send[i] -= xpart[d];
 
 		queue[d].enqueueWriteBuffer(
 			exc[d].cols_to_send, CL_TRUE, 0, ncols * sizeof(column_t),
@@ -597,7 +609,8 @@ std::map<cl_context, uint> SpMat<real,column_t>::SpMatELL::wgsize;
 
 template <typename real, typename column_t>
 SpMat<real,column_t>::SpMatELL::SpMatELL(
-	const cl::CommandQueue &queue, size_t beg, size_t end,
+	const cl::CommandQueue &queue,
+	size_t beg, size_t end, size_t xbeg, size_t xend,
 	const size_t *row, const column_t *col, const real *val,
 	const std::set<column_t> &remote_cols
 	)
@@ -617,7 +630,7 @@ SpMat<real,column_t>::SpMatELL::SpMatELL(
 	for(size_t i = beg; i < end; i++) {
 	    uint w = 0;
 	    for(size_t j = row[i]; j < row[i + 1]; j++)
-		if (col[j] >= beg && col[j] < end) w++;
+		if (col[j] >= xbeg && col[j] < xend) w++;
 
 	    loc_ell.w = std::max(loc_ell.w, w);
 	    rem_ell.w = std::max<uint>(rem_ell.w, row[i + 1] - row[i] - w);
@@ -630,7 +643,7 @@ SpMat<real,column_t>::SpMatELL::SpMatELL(
 	for(size_t i = beg; i < end; i++) {
 	    uint w = 0;
 	    for(size_t j = row[i]; j < row[i + 1]; j++)
-		if (col[j] >= beg && col[j] < end) w++;
+		if (col[j] >= xbeg && col[j] < xend) w++;
 
 	    loc_hist[w]++;
 	    rem_hist[row[i + 1] - row[i] - w]++;
@@ -665,7 +678,7 @@ SpMat<real,column_t>::SpMatELL::SpMatELL(
     for(size_t i = beg; i < end; i++) {
 	uint w = 0;
 	for(size_t j = row[i]; j < row[i + 1]; j++)
-	    if (col[j] >= beg && col[j] < end) w++;
+	    if (col[j] >= xbeg && col[j] < xend) w++;
 
 	if (w > loc_ell.w) {
 	    loc_csr.n++;
@@ -716,13 +729,13 @@ SpMat<real,column_t>::SpMatELL::SpMatELL(
 
     for(size_t i = beg, k = 0; i < end; i++, k++) {
 	for(size_t j = row[i], lc = 0, rc = 0; j < row[i + 1]; j++) {
-	    if (col[j] >= beg && col[j] < end) {
+	    if (col[j] >= xbeg && col[j] < xend) {
 		if (lc < loc_ell.w) {
-		    lell_col[k + pitch * lc] = col[j] - beg;
+		    lell_col[k + pitch * lc] = col[j] - xbeg;
 		    lell_val[k + pitch * lc] = val[j];
 		    lc++;
 		} else {
-		    lcsr_col.push_back(col[j] - beg);
+		    lcsr_col.push_back(col[j] - xbeg);
 		    lcsr_val.push_back(val[j]);
 		}
 	    } else {
@@ -1026,7 +1039,8 @@ std::map<cl_context, uint> SpMat<real,column_t>::SpMatCSR::wgsize;
 
 template <typename real, typename column_t>
 SpMat<real,column_t>::SpMatCSR::SpMatCSR(
-	const cl::CommandQueue &queue, size_t beg, size_t end,
+	const cl::CommandQueue &queue,
+	size_t beg, size_t end, size_t xbeg, size_t xend,
 	const size_t *row, const column_t *col, const real *val,
 	const std::set<column_t> &remote_cols
 	)
@@ -1086,8 +1100,8 @@ SpMat<real,column_t>::SpMatCSR::SpMatCSR(
 
 	for(size_t i = beg; i < end; i++) {
 	    for(size_t j = row[i]; j < row[i + 1]; j++) {
-		if (col[j] >= beg && col[j] < end) {
-		    lcol.push_back(col[j] - beg);
+		if (col[j] >= xbeg && col[j] < xend) {
+		    lcol.push_back(col[j] - xbeg);
 		    lval.push_back(val[j]);
 		} else {
 		    assert(r2l.count(col[j]));
@@ -1560,9 +1574,10 @@ inline double device_spmv_perf(
     }
 
     // Create device vectors and copy of the matrix.
-    vex::SpMat<float>  A(queue, n * n * n, row.data(), col.data(), val.data());
-    vex::vector<float> x(queue, n * n * n);
-    vex::vector<float> y(queue, n * n * n);
+    size_t n3 = n * n * n;
+    vex::SpMat<float>  A(queue, n3, n3, row.data(), col.data(), val.data());
+    vex::vector<float> x(queue, n3);
+    vex::vector<float> y(queue, n3);
 
     // Warming run.
     x = 1;
