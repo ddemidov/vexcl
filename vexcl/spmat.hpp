@@ -292,6 +292,7 @@ class SpMat : public SpMatBase<real, column_t>{
 	    } loc_csr, rem_csr;
 
 	    static std::map<cl_context, bool>       compiled;
+	    static std::map<cl_context, cl::Kernel> zero;
 	    static std::map<cl_context, cl::Kernel> spmv_set;
 	    static std::map<cl_context, cl::Kernel> spmv_add;
 	    static std::map<cl_context, cl::Kernel> csr_add;
@@ -322,6 +323,9 @@ class SpMat : public SpMatBase<real, column_t>{
 
 	    size_t n;
 
+	    bool has_loc;
+	    bool has_rem;
+
 	    struct {
 		cl::Buffer row;
 		cl::Buffer col;
@@ -329,6 +333,7 @@ class SpMat : public SpMatBase<real, column_t>{
 	    } loc, rem;
 
 	    static std::map<cl_context, bool>       compiled;
+	    static std::map<cl_context, cl::Kernel> zero;
 	    static std::map<cl_context, cl::Kernel> spmv_set;
 	    static std::map<cl_context, cl::Kernel> spmv_add;
 	    static std::map<cl_context, uint>       wgsize;
@@ -596,6 +601,9 @@ template <typename real, typename column_t>
 std::map<cl_context, bool> SpMat<real,column_t>::SpMatELL::compiled;
 
 template <typename real, typename column_t>
+std::map<cl_context, cl::Kernel> SpMat<real,column_t>::SpMatELL::zero;
+
+template <typename real, typename column_t>
 std::map<cl_context, cl::Kernel> SpMat<real,column_t>::SpMatELL::spmv_set;
 
 template <typename real, typename column_t>
@@ -836,6 +844,15 @@ void SpMat<real,column_t>::SpMatELL::prepare_kernels(const cl::Context &context)
 	source << standard_kernel_header <<
 	    "typedef " << type_name<real>() << " real;\n"
 	    "#define NCOL ((" << type_name<column_t>() << ")(-1))\n"
+	    "kernel void zero(\n"
+	    "    " << type_name<size_t>() << " n,\n"
+	    "    global real *y\n"
+	    "    )\n"
+	    "{\n"
+	    "    size_t grid_size = get_num_groups(0) * get_local_size(0);\n"
+	    "    for (size_t row = get_global_id(0); row < n; row += grid_size)\n"
+	    "        y[row] = 0;\n"
+	    "}\n"
 	    "kernel void spmv_set(\n"
 	    "    " << type_name<size_t>() << " n, uint w, " << type_name<size_t>() << " pitch,\n"
 	    "    global const " << type_name<column_t>() << " *col,\n"
@@ -902,6 +919,7 @@ void SpMat<real,column_t>::SpMatELL::prepare_kernels(const cl::Context &context)
 
 	auto program = build_sources(context, source.str());
 
+	zero[context()]     = cl::Kernel(program, "zero");
 	spmv_set[context()] = cl::Kernel(program, "spmv_set");
 	spmv_add[context()] = cl::Kernel(program, "spmv_add");
 	csr_add[context()]  = cl::Kernel(program, "csr_add");
@@ -933,48 +951,57 @@ void SpMat<real,column_t>::SpMatELL::mul_local(
     size_t g_size = device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>()
 	* wgsize[context()] * 4;
 
-    if (loc_ell.w) {
-	if (append) {
-	    uint pos = 0;
-	    spmv_add[context()].setArg(pos++, n);
-	    spmv_add[context()].setArg(pos++, loc_ell.w);
-	    spmv_add[context()].setArg(pos++, pitch);
-	    spmv_add[context()].setArg(pos++, loc_ell.col);
-	    spmv_add[context()].setArg(pos++, loc_ell.val);
-	    spmv_add[context()].setArg(pos++, x);
-	    spmv_add[context()].setArg(pos++, y);
-	    spmv_add[context()].setArg(pos++, alpha);
+    if (loc_ell.w + loc_csr.n) {
+	if (loc_ell.w) {
+	    if (append) {
+		uint pos = 0;
+		spmv_add[context()].setArg(pos++, n);
+		spmv_add[context()].setArg(pos++, loc_ell.w);
+		spmv_add[context()].setArg(pos++, pitch);
+		spmv_add[context()].setArg(pos++, loc_ell.col);
+		spmv_add[context()].setArg(pos++, loc_ell.val);
+		spmv_add[context()].setArg(pos++, x);
+		spmv_add[context()].setArg(pos++, y);
+		spmv_add[context()].setArg(pos++, alpha);
 
-	    queue.enqueueNDRangeKernel(spmv_add[context()],
-		    cl::NullRange, g_size, wgsize[context()]);
-	} else {
-	    uint pos = 0;
-	    spmv_set[context()].setArg(pos++, n);
-	    spmv_set[context()].setArg(pos++, loc_ell.w);
-	    spmv_set[context()].setArg(pos++, pitch);
-	    spmv_set[context()].setArg(pos++, loc_ell.col);
-	    spmv_set[context()].setArg(pos++, loc_ell.val);
-	    spmv_set[context()].setArg(pos++, x);
-	    spmv_set[context()].setArg(pos++, y);
-	    spmv_set[context()].setArg(pos++, alpha);
+		queue.enqueueNDRangeKernel(spmv_add[context()],
+			cl::NullRange, g_size, wgsize[context()]);
+	    } else {
+		uint pos = 0;
+		spmv_set[context()].setArg(pos++, n);
+		spmv_set[context()].setArg(pos++, loc_ell.w);
+		spmv_set[context()].setArg(pos++, pitch);
+		spmv_set[context()].setArg(pos++, loc_ell.col);
+		spmv_set[context()].setArg(pos++, loc_ell.val);
+		spmv_set[context()].setArg(pos++, x);
+		spmv_set[context()].setArg(pos++, y);
+		spmv_set[context()].setArg(pos++, alpha);
 
-	    queue.enqueueNDRangeKernel(spmv_set[context()],
+		queue.enqueueNDRangeKernel(spmv_set[context()],
+			cl::NullRange, g_size, wgsize[context()]);
+	    }
+	}
+
+	if (loc_csr.n) {
+	    uint pos = 0;
+	    csr_add[context()].setArg(pos++, loc_csr.n);
+	    csr_add[context()].setArg(pos++, loc_csr.idx);
+	    csr_add[context()].setArg(pos++, loc_csr.row);
+	    csr_add[context()].setArg(pos++, loc_csr.col);
+	    csr_add[context()].setArg(pos++, loc_csr.val);
+	    csr_add[context()].setArg(pos++, x);
+	    csr_add[context()].setArg(pos++, y);
+	    csr_add[context()].setArg(pos++, alpha);
+
+	    queue.enqueueNDRangeKernel(csr_add[context()],
 		    cl::NullRange, g_size, wgsize[context()]);
 	}
-    }
-
-    if (loc_csr.n) {
+    } else if (!append) {
 	uint pos = 0;
-	csr_add[context()].setArg(pos++, loc_csr.n);
-	csr_add[context()].setArg(pos++, loc_csr.idx);
-	csr_add[context()].setArg(pos++, loc_csr.row);
-	csr_add[context()].setArg(pos++, loc_csr.col);
-	csr_add[context()].setArg(pos++, loc_csr.val);
-	csr_add[context()].setArg(pos++, x);
-	csr_add[context()].setArg(pos++, y);
-	csr_add[context()].setArg(pos++, alpha);
+	zero[context()].setArg(pos++, n);
+	zero[context()].setArg(pos++, y);
 
-	queue.enqueueNDRangeKernel(csr_add[context()],
+	queue.enqueueNDRangeKernel(zero[context()],
 		cl::NullRange, g_size, wgsize[context()]);
     }
 }
@@ -1029,6 +1056,9 @@ template <typename real, typename column_t>
 std::map<cl_context, bool> SpMat<real,column_t>::SpMatCSR::compiled;
 
 template <typename real, typename column_t>
+std::map<cl_context, cl::Kernel> SpMat<real,column_t>::SpMatCSR::zero;
+
+template <typename real, typename column_t>
 std::map<cl_context, cl::Kernel> SpMat<real,column_t>::SpMatCSR::spmv_set;
 
 template <typename real, typename column_t>
@@ -1044,30 +1074,35 @@ SpMat<real,column_t>::SpMatCSR::SpMatCSR(
 	const size_t *row, const column_t *col, const real *val,
 	const std::set<column_t> &remote_cols
 	)
-    : queue(queue), n(end - beg)
+    : queue(queue), n(end - beg), has_loc(false), has_rem(false)
 {
     cl::Context context = queue.getInfo<CL_QUEUE_CONTEXT>();
 
     prepare_kernels(context);
 
     if (beg == 0 && remote_cols.empty()) {
-	loc.row = cl::Buffer(
-		context, CL_MEM_READ_ONLY, (n + 1) * sizeof(size_t));
+	if (row[n]) {
+	    loc.row = cl::Buffer(
+		    context, CL_MEM_READ_ONLY, (n + 1) * sizeof(size_t));
 
-	loc.col = cl::Buffer(
-		context, CL_MEM_READ_ONLY, row[n] * sizeof(column_t));
+	    loc.col = cl::Buffer(
+		    context, CL_MEM_READ_ONLY, row[n] * sizeof(column_t));
 
-	loc.val = cl::Buffer(
-		context, CL_MEM_READ_ONLY, row[n] * sizeof(real));
+	    loc.val = cl::Buffer(
+		    context, CL_MEM_READ_ONLY, row[n] * sizeof(real));
 
-	queue.enqueueWriteBuffer(
-		loc.row, CL_FALSE, 0, (n + 1) * sizeof(size_t), row);
+	    queue.enqueueWriteBuffer(
+		    loc.row, CL_FALSE, 0, (n + 1) * sizeof(size_t), row);
 
-	queue.enqueueWriteBuffer(
-		loc.col, CL_FALSE, 0, row[n] * sizeof(column_t), col);
+	    queue.enqueueWriteBuffer(
+		    loc.col, CL_FALSE, 0, row[n] * sizeof(column_t), col);
 
-	queue.enqueueWriteBuffer(
-		loc.val, CL_TRUE, 0, row[n] * sizeof(real), val);
+	    queue.enqueueWriteBuffer(
+		    loc.val, CL_TRUE, 0, row[n] * sizeof(real), val);
+	}
+
+	has_loc = row[n];
+	has_rem = false;
     } else {
 	std::vector<size_t>   lrow;
 	std::vector<column_t> lcol;
@@ -1117,24 +1152,26 @@ SpMat<real,column_t>::SpMatCSR::SpMatCSR(
 	cl::Event event;
 
 	// Copy local part to the device.
-	loc.row = cl::Buffer(
-		context, CL_MEM_READ_ONLY, lrow.size() * sizeof(size_t));
+	if (lrow.back()) {
+	    loc.row = cl::Buffer(
+		    context, CL_MEM_READ_ONLY, lrow.size() * sizeof(size_t));
 
-	loc.col = cl::Buffer(
-		context, CL_MEM_READ_ONLY, lcol.size() * sizeof(column_t));
+	    queue.enqueueWriteBuffer(
+		    loc.row, CL_FALSE, 0, lrow.size() * sizeof(size_t), lrow.data());
 
-	loc.val = cl::Buffer(
-		context, CL_MEM_READ_ONLY, lval.size() * sizeof(real));
+	    loc.col = cl::Buffer(
+		    context, CL_MEM_READ_ONLY, lcol.size() * sizeof(column_t));
 
-	queue.enqueueWriteBuffer(
-		loc.row, CL_FALSE, 0, lrow.size() * sizeof(size_t), lrow.data());
+	    loc.val = cl::Buffer(
+		    context, CL_MEM_READ_ONLY, lval.size() * sizeof(real));
 
-	queue.enqueueWriteBuffer(
-		loc.col, CL_FALSE, 0, lcol.size() * sizeof(column_t), lcol.data());
+	    queue.enqueueWriteBuffer(
+		    loc.col, CL_FALSE, 0, lcol.size() * sizeof(column_t), lcol.data());
 
-	queue.enqueueWriteBuffer(
-		loc.val, CL_FALSE, 0, lval.size() * sizeof(real), lval.data(),
-		0, &event);
+	    queue.enqueueWriteBuffer(
+		    loc.val, CL_FALSE, 0, lval.size() * sizeof(real), lval.data(),
+		    0, &event);
+	}
 
 	// Copy remote part to the device.
 	if (!remote_cols.empty()) {
@@ -1159,6 +1196,9 @@ SpMat<real,column_t>::SpMatCSR::SpMatCSR(
 	}
 
 	event.wait();
+
+	has_loc = lrow.back();
+	has_rem = !remote_cols.empty();
     }
 }
 
@@ -1169,6 +1209,14 @@ void SpMat<real,column_t>::SpMatCSR::prepare_kernels(const cl::Context &context)
 
 	source << standard_kernel_header <<
 	    "typedef " << type_name<real>() << " real;\n"
+	    "kernel void zero(\n"
+	    "    " << type_name<size_t>() << " n,\n"
+	    "    global real *y\n"
+	    "    )\n"
+	    "{\n"
+	    "    size_t i = get_global_id(0);\n"
+	    "    if (i < n) y[i] = 0;\n"
+	    "}\n"
 	    "kernel void spmv_set(\n"
 	    "    " << type_name<size_t>() << " n,\n"
 	    "    global const " << type_name<size_t>() << " *row,\n"
@@ -1216,6 +1264,7 @@ void SpMat<real,column_t>::SpMatCSR::prepare_kernels(const cl::Context &context)
 
 	auto program = build_sources(context, source.str());
 
+	zero[context()]     = cl::Kernel(program, "zero");
 	spmv_set[context()] = cl::Kernel(program, "spmv_set");
 	spmv_add[context()] = cl::Kernel(program, "spmv_add");
 
@@ -1238,29 +1287,38 @@ void SpMat<real,column_t>::SpMatCSR::mul_local(
 {
     cl::Context context = queue.getInfo<CL_QUEUE_CONTEXT>();
 
-    if (append) {
-	uint pos = 0;
-	spmv_add[context()].setArg(pos++, n);
-	spmv_add[context()].setArg(pos++, loc.row);
-	spmv_add[context()].setArg(pos++, loc.col);
-	spmv_add[context()].setArg(pos++, loc.val);
-	spmv_add[context()].setArg(pos++, x);
-	spmv_add[context()].setArg(pos++, y);
-	spmv_add[context()].setArg(pos++, alpha);
+    if (has_loc) {
+	if (append) {
+	    uint pos = 0;
+	    spmv_add[context()].setArg(pos++, n);
+	    spmv_add[context()].setArg(pos++, loc.row);
+	    spmv_add[context()].setArg(pos++, loc.col);
+	    spmv_add[context()].setArg(pos++, loc.val);
+	    spmv_add[context()].setArg(pos++, x);
+	    spmv_add[context()].setArg(pos++, y);
+	    spmv_add[context()].setArg(pos++, alpha);
 
-	queue.enqueueNDRangeKernel(spmv_add[context()],
-		cl::NullRange, n, cl::NullRange);
-    } else {
-	uint pos = 0;
-	spmv_set[context()].setArg(pos++, n);
-	spmv_set[context()].setArg(pos++, loc.row);
-	spmv_set[context()].setArg(pos++, loc.col);
-	spmv_set[context()].setArg(pos++, loc.val);
-	spmv_set[context()].setArg(pos++, x);
-	spmv_set[context()].setArg(pos++, y);
-	spmv_set[context()].setArg(pos++, alpha);
+	    queue.enqueueNDRangeKernel(spmv_add[context()],
+		    cl::NullRange, n, cl::NullRange);
+	} else {
+	    uint pos = 0;
+	    spmv_set[context()].setArg(pos++, n);
+	    spmv_set[context()].setArg(pos++, loc.row);
+	    spmv_set[context()].setArg(pos++, loc.col);
+	    spmv_set[context()].setArg(pos++, loc.val);
+	    spmv_set[context()].setArg(pos++, x);
+	    spmv_set[context()].setArg(pos++, y);
+	    spmv_set[context()].setArg(pos++, alpha);
 
-	queue.enqueueNDRangeKernel(spmv_set[context()],
+	    queue.enqueueNDRangeKernel(spmv_set[context()],
+		    cl::NullRange, n, cl::NullRange);
+	}
+    } else if (!append) {
+	uint pos = 0;
+	zero[context()].setArg(pos++, n);
+	zero[context()].setArg(pos++, y);
+
+	queue.enqueueNDRangeKernel(zero[context()],
 		cl::NullRange, n, cl::NullRange);
     }
 }
@@ -1271,6 +1329,8 @@ void SpMat<real,column_t>::SpMatCSR::mul_remote(
 	real alpha, const std::vector<cl::Event> &event
 	) const
 {
+    if (!has_rem) return;
+
     cl::Context context = queue.getInfo<CL_QUEUE_CONTEXT>();
 
     uint pos = 0;
