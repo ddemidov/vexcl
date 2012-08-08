@@ -833,7 +833,7 @@ SpMat<real,column_t>::SpMatELL::SpMatELL(
     }
 
     // Wait for data to be copied before it gets deallocated.
-    event.wait();
+    if (loc_ell.w || loc_csr.n || rem_ell.w || rem_csr.n) event.wait();
 }
 
 template <typename real, typename column_t>
@@ -951,49 +951,32 @@ void SpMat<real,column_t>::SpMatELL::mul_local(
     size_t g_size = device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>()
 	* wgsize[context()] * 4;
 
-    if (loc_ell.w + loc_csr.n) {
-	if (loc_ell.w) {
-	    if (append) {
-		uint pos = 0;
-		spmv_add[context()].setArg(pos++, n);
-		spmv_add[context()].setArg(pos++, loc_ell.w);
-		spmv_add[context()].setArg(pos++, pitch);
-		spmv_add[context()].setArg(pos++, loc_ell.col);
-		spmv_add[context()].setArg(pos++, loc_ell.val);
-		spmv_add[context()].setArg(pos++, x);
-		spmv_add[context()].setArg(pos++, y);
-		spmv_add[context()].setArg(pos++, alpha);
-
-		queue.enqueueNDRangeKernel(spmv_add[context()],
-			cl::NullRange, g_size, wgsize[context()]);
-	    } else {
-		uint pos = 0;
-		spmv_set[context()].setArg(pos++, n);
-		spmv_set[context()].setArg(pos++, loc_ell.w);
-		spmv_set[context()].setArg(pos++, pitch);
-		spmv_set[context()].setArg(pos++, loc_ell.col);
-		spmv_set[context()].setArg(pos++, loc_ell.val);
-		spmv_set[context()].setArg(pos++, x);
-		spmv_set[context()].setArg(pos++, y);
-		spmv_set[context()].setArg(pos++, alpha);
-
-		queue.enqueueNDRangeKernel(spmv_set[context()],
-			cl::NullRange, g_size, wgsize[context()]);
-	    }
-	}
-
-	if (loc_csr.n) {
+    if (loc_ell.w) {
+	if (append) {
 	    uint pos = 0;
-	    csr_add[context()].setArg(pos++, loc_csr.n);
-	    csr_add[context()].setArg(pos++, loc_csr.idx);
-	    csr_add[context()].setArg(pos++, loc_csr.row);
-	    csr_add[context()].setArg(pos++, loc_csr.col);
-	    csr_add[context()].setArg(pos++, loc_csr.val);
-	    csr_add[context()].setArg(pos++, x);
-	    csr_add[context()].setArg(pos++, y);
-	    csr_add[context()].setArg(pos++, alpha);
+	    spmv_add[context()].setArg(pos++, n);
+	    spmv_add[context()].setArg(pos++, loc_ell.w);
+	    spmv_add[context()].setArg(pos++, pitch);
+	    spmv_add[context()].setArg(pos++, loc_ell.col);
+	    spmv_add[context()].setArg(pos++, loc_ell.val);
+	    spmv_add[context()].setArg(pos++, x);
+	    spmv_add[context()].setArg(pos++, y);
+	    spmv_add[context()].setArg(pos++, alpha);
 
-	    queue.enqueueNDRangeKernel(csr_add[context()],
+	    queue.enqueueNDRangeKernel(spmv_add[context()],
+		    cl::NullRange, g_size, wgsize[context()]);
+	} else {
+	    uint pos = 0;
+	    spmv_set[context()].setArg(pos++, n);
+	    spmv_set[context()].setArg(pos++, loc_ell.w);
+	    spmv_set[context()].setArg(pos++, pitch);
+	    spmv_set[context()].setArg(pos++, loc_ell.col);
+	    spmv_set[context()].setArg(pos++, loc_ell.val);
+	    spmv_set[context()].setArg(pos++, x);
+	    spmv_set[context()].setArg(pos++, y);
+	    spmv_set[context()].setArg(pos++, alpha);
+
+	    queue.enqueueNDRangeKernel(spmv_set[context()],
 		    cl::NullRange, g_size, wgsize[context()]);
 	}
     } else if (!append) {
@@ -1002,6 +985,21 @@ void SpMat<real,column_t>::SpMatELL::mul_local(
 	zero[context()].setArg(pos++, y);
 
 	queue.enqueueNDRangeKernel(zero[context()],
+		cl::NullRange, g_size, wgsize[context()]);
+    }
+
+    if (loc_csr.n) {
+	uint pos = 0;
+	csr_add[context()].setArg(pos++, loc_csr.n);
+	csr_add[context()].setArg(pos++, loc_csr.idx);
+	csr_add[context()].setArg(pos++, loc_csr.row);
+	csr_add[context()].setArg(pos++, loc_csr.col);
+	csr_add[context()].setArg(pos++, loc_csr.val);
+	csr_add[context()].setArg(pos++, x);
+	csr_add[context()].setArg(pos++, y);
+	csr_add[context()].setArg(pos++, alpha);
+
+	queue.enqueueNDRangeKernel(csr_add[context()],
 		cl::NullRange, g_size, wgsize[context()]);
     }
 }
@@ -1195,7 +1193,7 @@ SpMat<real,column_t>::SpMatCSR::SpMatCSR(
 		    0, &event);
 	}
 
-	event.wait();
+	if (lrow.back() || !remote_cols.empty()) event.wait();
 
 	has_loc = lrow.back();
 	has_rem = !remote_cols.empty();
