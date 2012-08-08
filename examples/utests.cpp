@@ -405,6 +405,64 @@ int main(int argc, char *argv[]) {
 		return rc;
 	});
 
+	run_test("Sparse matrix-vector product for empty-row matrix", [&]() -> bool {
+		bool rc = true;
+		const size_t n = 1 << 20;
+		const size_t m = 1 << 10;
+		const size_t nnz_per_row = 2;
+    const size_t start_empty_row = 1 << 8;
+
+		std::vector<size_t> row;
+		std::vector<size_t> col;
+		std::vector<double> val;
+
+		row.reserve(n + 1);
+		col.reserve(start_empty_row * nnz_per_row);
+		val.reserve(start_empty_row * nnz_per_row);
+
+		row.push_back(0);
+		for(size_t k = 0; k < n; k++) {
+      if (k > start_empty_row) {
+        row.push_back(col.size());
+        continue;
+      }
+		  std::set<size_t> cs;
+		  while(cs.size() < nnz_per_row)
+			  cs.insert(rand() % m);
+
+		  for(auto c = cs.begin(); c != cs.end(); c++) {
+			  col.push_back(*c);
+			  val.push_back(static_cast<double>(rand()) / RAND_MAX);
+		  }
+
+		  row.push_back(col.size());
+		}
+
+		std::vector<double> x(m);
+		std::vector<double> y(n);
+		std::generate(x.begin(), x.end(), []() { return (double)rand() / RAND_MAX; });
+
+		vex::SpMat <double> A(ctx.queue(), y.size(), x.size(), row.data(), col.data(), val.data());
+		vex::vector<double> X(ctx.queue(), x.size());
+		vex::vector<double> Y(ctx.queue(), y.size());
+
+    X.resize(ctx.queue(), x);
+    Y = A * X;
+		copy(Y, y);
+
+		double res = 0;
+		for(size_t i = 0; i < y.size(); i++) {
+		    double sum = 0;
+		    for(size_t j = row[i]; j < row[i + 1]; j++)
+			sum += val[j] * x[col[j]];
+		    res = std::max(res, fabs(sum - y[i]));
+		}
+
+		rc = rc && res < 1e-8;
+
+		return rc;
+	});
+
 	run_test("Sparse matrix-vector product (CCSR format)", [&]() -> bool {
 		bool rc = true;
 		const uint n   = 32;
