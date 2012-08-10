@@ -371,6 +371,16 @@ class vector : public expression {
 	    if (!host.empty()) allocate_buffers(flags, host.data());
 	}
 
+	/// Copy host data to the new buffer, with a specific part.
+	vector(const std::vector<cl::CommandQueue> &queue,
+		const std::vector<T> &host, const std::vector<size_t> &part,
+		cl_mem_flags flags = CL_MEM_READ_WRITE
+	      ) : queue(queue), part(part),
+		  buf(queue.size()), event(queue.size())
+	{
+	    if (!host.empty()) allocate_buffers(flags, host.data());
+	}
+
 	/// Move constructor
 	vector(vector &&v)
 	    : queue(std::move(v.queue)), part(std::move(v.part)),
