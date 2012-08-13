@@ -62,10 +62,10 @@ namespace vex {
 
 /// \cond INTERNAL
 
-template<class T, typename column_t> struct SpMV;
-template <class Expr, typename T, typename column_t> struct ExSpMV;
-template<class T, typename column_t, uint N> struct MultiSpMV;
-template <class Expr, typename T, typename column_t, uint N> struct MultiExSpMV;
+template<class T, typename column_t, typename idx_t> struct SpMV;
+template <class Expr, typename T, typename column_t, typename idx_t> struct ExSpMV;
+template<class T, typename column_t, typename idx_t, uint N> struct MultiSpMV;
+template <class Expr, typename T, typename column_t, typename idx_t, uint N> struct MultiExSpMV;
 template <class T> struct Conv;
 template <class f, class T> struct GConv;
 template <class Expr, class T> struct ExConv;
@@ -617,11 +617,11 @@ class vector : public expression {
 
 #undef COMPOUND_ASSIGNMENT
 
-	template <class Expr, typename column_t>
-	const vector& operator=(const ExSpMV<Expr,T,column_t> &xmv);
+	template <class Expr, typename column_t, typename idx_t>
+	const vector& operator=(const ExSpMV<Expr,T,column_t,idx_t> &xmv);
 
-	template <typename column_t>
-	const vector& operator=(const SpMV<T,column_t> &spmv);
+	template <typename column_t, typename idx_t>
+	const vector& operator=(const SpMV<T,column_t,idx_t> &spmv);
 
 	const vector& operator=(const Conv<T> &cnv);
 
@@ -1233,11 +1233,11 @@ class multivector {
 
 #undef COMPOUND_ASSIGNMENT
 
-	template <typename column_t>
-	const multivector& operator=(const MultiSpMV<T,column_t,N> &spmv);
+	template <typename column_t, typename idx_t>
+	const multivector& operator=(const MultiSpMV<T,column_t,idx_t,N> &spmv);
 
-	template <class Expr, typename column_t>
-	const multivector& operator=(const MultiExSpMV<Expr,T,column_t,N> &xmv);
+	template <class Expr, typename column_t, typename idx_t>
+	const multivector& operator=(const MultiExSpMV<Expr,T,column_t,idx_t,N> &xmv);
 
 	const multivector& operator=(const MultiConv<T,N> &cnv);
 

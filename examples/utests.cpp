@@ -405,6 +405,57 @@ int main(int argc, char *argv[]) {
 		return rc;
 	});
 
+	run_test("Sparse matrix-vector product with nondefault types", [&]() -> bool {
+		bool rc = true;
+		const size_t n = 1 << 10;
+		const size_t nnz_per_row = 16;
+
+		std::vector<unsigned int> row;
+		std::vector<unsigned int> col;
+		std::vector<double> val;
+
+		row.reserve(n + 1);
+		col.reserve(n * nnz_per_row);
+		val.reserve(n * nnz_per_row);
+
+		row.push_back(0);
+		for(size_t k = 0; k < n; k++) {
+		    std::set<unsigned int> cs;
+		    while(cs.size() < nnz_per_row)
+			cs.insert(rand() % n);
+
+		    for(auto c = cs.begin(); c != cs.end(); c++) {
+			col.push_back(*c);
+			val.push_back(static_cast<double>(rand()) / RAND_MAX);
+		    }
+
+		    row.push_back(col.size());
+		}
+
+		std::vector<double> x(n);
+		std::vector<double> y(n);
+		std::generate(x.begin(), x.end(), []() { return (double)rand() / RAND_MAX; });
+
+		vex::SpMat <double,unsigned int, unsigned int> A(ctx.queue(), y.size(), x.size(), row.data(), col.data(), val.data());
+		vex::vector<double> X(ctx.queue(), x);
+		vex::vector<double> Y(ctx.queue(), y.size());
+
+		Y = A * X;
+		copy(Y, y);
+
+		double res = 0;
+		for(size_t i = 0; i < y.size(); i++) {
+		    double sum = 0;
+		    for(size_t j = row[i]; j < row[i + 1]; j++)
+			sum += val[j] * x[col[j]];
+		    res = std::max(res, fabs(sum - y[i]));
+		}
+
+		rc = rc && res < 1e-8;
+
+		return rc;
+	});
+
 	run_test("Sparse matrix-vector product for empty-row matrix", [&]() -> bool {
 		bool rc = true;
 		const size_t n = 1 << 20;
