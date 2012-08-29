@@ -1228,8 +1228,9 @@ class multivector {
 	    const multivector&
 	    >::type
 	operator=(const Expr& expr) {
-	    //for(uint i = 0; i < N; i++) vec[i] = extract_component(expr, i);
-
+#ifdef VEXCL_SPLIT_MULTIVECTOR_OPERATIONS
+	    for(uint i = 0; i < N; i++) vec[i] = extract_component(expr, i);
+#else
 	    auto kgen0 = get_generator(expr, 0U);
 	    const std::vector<cl::CommandQueue> &queue = vec[0].queue_list();
 
@@ -1333,6 +1334,7 @@ class multivector {
 			    );
 		}
 	    }
+#endif
 
 	    return *this;
 	}
@@ -1383,14 +1385,17 @@ class multivector {
     private:
 	std::array<vex::vector<T>,N> vec;
 
+#ifndef VEXCL_SPLIT_MULTIVECTOR_OPERATIONS
 	template <class Expr>
 	struct exdata {
 	    static std::map<cl_context,bool>       compiled;
 	    static std::map<cl_context,cl::Kernel> kernel;
 	    static std::map<cl_context,size_t>     wgsize;
 	};
+#endif
 };
 
+#ifndef VEXCL_SPLIT_MULTIVECTOR_OPERATIONS
 template <class T, uint N> template <class Expr>
 std::map<cl_context,bool> multivector<T,N>::exdata<Expr>::compiled;
 
@@ -1399,6 +1404,7 @@ std::map<cl_context,cl::Kernel> multivector<T,N>::exdata<Expr>::kernel;
 
 template <class T, uint N> template <class Expr>
 std::map<cl_context,size_t> multivector<T,N>::exdata<Expr>::wgsize;
+#endif
 
 /// Copy multivector to host vector.
 template <class T, uint N>
