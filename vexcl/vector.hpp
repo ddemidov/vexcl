@@ -955,6 +955,24 @@ const real& extract_component(const std::array<real,N> &expr, uint i) {
     return expr[i];
 }
 
+template <class Expr>
+typename std::enable_if<Expr::is_multiex, KernelGenerator<typename Expr::subtype>>::type
+get_generator(const Expr &expr, uint i) {
+    return KernelGenerator<typename Expr::subtype>(expr(i));
+}
+
+template <class Expr>
+typename std::enable_if<std::is_arithmetic<Expr>::value, KernelGenerator<Expr>>::type
+get_generator(const Expr &expr, uint i) {
+    return KernelGenerator<Expr>(expr);
+}
+
+template <class real, size_t N>
+KernelGenerator<real>
+get_generator(const std::array<real,N> &expr, uint i) {
+    return KernelGenerator<real>(expr[i]);
+}
+
 template <class T>
 struct is_std_array : std::false_type {};
 
@@ -1210,7 +1228,112 @@ class multivector {
 	    const multivector&
 	    >::type
 	operator=(const Expr& expr) {
-	    for(uint i = 0; i < N; i++) vec[i] = extract_component(expr, i);
+	    //for(uint i = 0; i < N; i++) vec[i] = extract_component(expr, i);
+
+	    auto kgen0 = get_generator(expr, 0U);
+	    const std::vector<cl::CommandQueue> &queue = vec[0].queue_list();
+
+	    for(auto q = queue.begin(); q != queue.end(); q++) {
+		cl::Context context = q->getInfo<CL_QUEUE_CONTEXT>();
+		cl::Device  device  = q->getInfo<CL_QUEUE_DEVICE>();
+
+		if (!exdata<Expr>::compiled[context()]) {
+		    bool device_is_cpu = (
+			    device.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU
+			    );
+
+		    std::ostringstream kernel;
+
+		    std::array<std::ostringstream,N> prefix;
+		    for(uint i = 0; i < N; i++)
+			prefix[i] << "c" << i << "_prm";
+
+		    std::string kernel_name = std::string("multi_") + kgen0.kernel_name();
+
+		    kernel << standard_kernel_header;
+
+		    for(uint i = 0; i < N; i++)
+			get_generator(expr, i).preamble(kernel, prefix[i].str());
+
+		    kernel <<
+			"kernel void " << kernel_name << "(\n"
+			"\t" << type_name<size_t>() << " n";
+
+		    for(uint i = 0; i < N; i++)
+			kernel << ",\n\tglobal " << type_name<T>() << " *res" << i;
+
+		    for(uint i = 0; i < N; i++)
+			get_generator(expr, i).kernel_prm(kernel, prefix[i].str());
+
+		    kernel <<
+			"\n\t)\n{\n"
+			"\tsize_t i = get_global_id(0);\n";
+
+		    if (device_is_cpu) {
+			kernel << "\tif (i < n) {\n";
+		    } else {
+			kernel <<
+			    "\tsize_t grid_size = get_num_groups(0) * get_local_size(0);\n"
+			    "\twhile (i < n) {\n";
+		    }
+
+		    for(uint i = 0; i < N; i++) {
+			kernel << "\t\tres" << i << "[i] = ";
+			get_generator(expr, i).kernel_expr(kernel, prefix[i].str());
+			kernel << ";\n";
+		    }
+
+		    if (device_is_cpu) {
+			kernel <<
+			    "\t}\n"
+			    "}" << std::endl;
+		    } else {
+			kernel <<
+			    "\t\ti += grid_size;\n"
+			    "\t}\n"
+			    "}" << std::endl;
+		    }
+
+#ifdef VEXCL_SHOW_KERNELS
+		    std::cout << kernel.str() << std::endl;
+#endif
+
+		    auto program = build_sources(context, kernel.str());
+
+		    exdata<Expr>::kernel[context()]   = cl::Kernel(program, kernel_name.c_str());
+		    exdata<Expr>::compiled[context()] = true;
+		    exdata<Expr>::wgsize[context()]   = kernel_workgroup_size(
+			    exdata<Expr>::kernel[context()], device);
+
+		}
+	    }
+
+	    for(uint d = 0; d < queue.size(); d++) {
+		if (size_t psize = vec[0].part_size(d)) {
+		    cl::Context context = queue[d].getInfo<CL_QUEUE_CONTEXT>();
+		    cl::Device  device  = queue[d].getInfo<CL_QUEUE_DEVICE>();
+
+		    size_t g_size = device.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU ?
+			alignup(psize, exdata<Expr>::wgsize[context()]) :
+			device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() * exdata<Expr>::wgsize[context()] * 4;
+
+		    uint pos = 0;
+		    exdata<Expr>::kernel[context()].setArg(pos++, psize);
+
+		    for(uint i = 0; i < N; i++)
+			exdata<Expr>::kernel[context()].setArg(pos++, vec[i](d));
+
+		    for(uint i = 0; i < N; i++)
+			get_generator(expr, i).kernel_args(exdata<Expr>::kernel[context()], d, pos);
+
+		    queue[d].enqueueNDRangeKernel(
+			    exdata<Expr>::kernel[context()],
+			    cl::NullRange,
+			    g_size, exdata<Expr>::wgsize[context()]
+			    );
+		}
+	    }
+
 	    return *this;
 	}
 
@@ -1259,7 +1382,23 @@ class multivector {
 
     private:
 	std::array<vex::vector<T>,N> vec;
+
+	template <class Expr>
+	struct exdata {
+	    static std::map<cl_context,bool>       compiled;
+	    static std::map<cl_context,cl::Kernel> kernel;
+	    static std::map<cl_context,size_t>     wgsize;
+	};
 };
+
+template <class T, uint N> template <class Expr>
+std::map<cl_context,bool> multivector<T,N>::exdata<Expr>::compiled;
+
+template <class T, uint N> template <class Expr>
+std::map<cl_context,cl::Kernel> multivector<T,N>::exdata<Expr>::kernel;
+
+template <class T, uint N> template <class Expr>
+std::map<cl_context,size_t> multivector<T,N>::exdata<Expr>::wgsize;
 
 /// Copy multivector to host vector.
 template <class T, uint N>
