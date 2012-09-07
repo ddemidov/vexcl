@@ -45,6 +45,9 @@ THE SOFTWARE.
 #include <string>
 #include <tuple>
 #include <cstdlib>
+#include <fstream>
+#include <memory>
+#include <boost/interprocess/sync/file_lock.hpp>
 #include <CL/cl.hpp>
 
 namespace vex {

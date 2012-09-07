@@ -18,6 +18,7 @@ set(EXAMPLES
     devlist
     utests
     vector
+    exclusive
     )
 
 foreach(example ${EXAMPLES})
