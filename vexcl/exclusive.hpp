@@ -53,6 +53,7 @@ namespace Filter {
     /// Allows exclusive access to given number of devices across several processes.
     /**
      * \note This filter should be the last in filter expression.
+     * \note Depends on boost::interprocess library.
      */
     class Exclusive {
 	private:
