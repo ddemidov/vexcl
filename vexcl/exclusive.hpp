@@ -84,16 +84,28 @@ namespace Filter {
 	    }
 
 	    struct locker {
-		locker(std::string fname)
-		    : file(fname), flock(fname.c_str())
-		{}
+		locker(std::string fname) : file(fname)
+		{
+		    if (!file.is_open() || file.fail()) {
+			std::cout
+			    << "WARNING: failed to open file \"" << fname << "\"\n"
+			    << "  Check that target directory is exists and is writable.\n"
+			    << "  Exclusive mode is off.\n"
+			    << std::endl;
+		    } else {
+			flock.reset(new boost::interprocess::file_lock(fname.c_str()));
+		    }
+		}
 
 		bool try_lock() {
-		    return flock.try_lock();
+		    if (flock)
+			return flock->try_lock();
+		    else
+			return true;
 		}
 
 		std::ofstream file;
-		boost::interprocess::file_lock flock;
+		std::unique_ptr<boost::interprocess::file_lock> flock;
 	    };
 
 	    mutable int count;
@@ -112,7 +124,9 @@ namespace Filter {
 			    count--;
 			    return true;
 			}
-		    } catch (...) {}
+		    } catch (const std::exception &e) {
+			std::cout << e.what() << std::endl;
+		    }
 		}
 
 		return false;
