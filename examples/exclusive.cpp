@@ -3,8 +3,8 @@
 using namespace vex;
 
 int main() {
-    // Get exclusive access to single compute device.
-    Context ctx(Filter::Exclusive(1));
+    // Get exclusive access to compute devices.
+    Context ctx( Filter::Exclusive(Filter::Env) );
 
     if (ctx.size()) {
 	std::cout

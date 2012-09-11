@@ -42,6 +42,7 @@ THE SOFTWARE.
 #include <string>
 #include <fstream>
 #include <memory>
+#include <cstdlib>
 #include <boost/interprocess/sync/file_lock.hpp>
 #include <CL/cl.hpp>
 
@@ -50,18 +51,19 @@ namespace vex {
 /// Device filters.
 namespace Filter {
 
-    /// Allows exclusive access to given number of devices across several processes.
-    /**
-     * \note This filter should be the last in filter expression.
-     * \note Depends on boost::interprocess library.
-     */
-    class Exclusive {
+    /// \internal Exclusive access to selected devices.
+    template <class Filter>
+    class ExclusiveFilter {
 	private:
+	    const Filter &filter;
+
 	    static std::map<cl_device_id, std::string> get_uids() {
 		std::map<cl_device_id, std::string> uids;
 
 		std::vector<cl::Platform> platform;
 		cl::Platform::get(&platform);
+
+		const char *lock_dir = getenv("VEXCL_LOCK_DIR");
 
 		for(size_t p_id = 0; p_id < platform.size(); p_id++) {
 		    std::vector<cl::Device> device;
@@ -71,11 +73,11 @@ namespace Filter {
 		    for(size_t d_id = 0; d_id < device.size(); d_id++) {
 			std::ostringstream id;
 #ifdef WIN32
-			id << getenv("TMPDIR") << "\\vexcl_device_";
+			id << (lock_dir ? lock_dir : getenv("TMPDIR")) << "\\";
 #else
-			id << "/var/lock/vexcl/device_";
+			id << (lock_dir ? lock_dir : "/tmp") << "/";
 #endif
-			id << p_id << "_" << d_id << ".lock";
+			id << "vexcl_device_" << p_id << "_" << d_id << ".lock";
 
 			uids[device[d_id]()] = id.str();
 		    }
@@ -88,7 +90,7 @@ namespace Filter {
 		locker(std::string fname) : file(fname)
 		{
 		    if (!file.is_open() || file.fail()) {
-			std::cout
+			std::cerr
 			    << "WARNING: failed to open file \"" << fname << "\"\n"
 			    << "  Check that target directory is exists and is writable.\n"
 			    << "  Exclusive mode is off.\n"
@@ -108,32 +110,44 @@ namespace Filter {
 		std::ofstream file;
 		std::unique_ptr<boost::interprocess::file_lock> flock;
 	    };
-
-	    mutable int count;
 	public:
-	    Exclusive(int count) : count(count) {}
+	    ExclusiveFilter(const Filter &filter) : filter(filter) {}
 
 	    bool operator()(const cl::Device &d) const {
 		static std::map<cl_device_id, std::string> dev_uids = get_uids();
 		static std::vector<std::unique_ptr<locker>> locks;
 
-		if (count > 0) {
-		    try {
-			std::unique_ptr<locker> lck(new locker(dev_uids[d()]));
-			if (lck->try_lock()) {
-			    locks.push_back(std::move(lck));
-			    count--;
-			    return true;
-			}
-		    } catch (const std::exception &e) {
-			std::cout << e.what() << std::endl;
-		    }
+		if (!filter(d)) return false;
+
+		std::unique_ptr<locker> lck(new locker(dev_uids[d()]));
+		if (lck->try_lock()) {
+		    locks.push_back(std::move(lck));
+		    return true;
 		}
 
 		return false;
 	    }
 
     };
+
+    /// Allows exclusive access to compute devices across several processes.
+    /**
+     * Returns devices that pass through provided device filter and are not
+     * locked.
+     *
+     * \param filter Compute device filter
+     *
+     * \note Depends on boost::interprocess library.
+     *
+     * lock files are created in directory specified in VEXCL_LOCK_DIR
+     * environment variable. If the variable does not exist, /tmp is
+     * used on Linux and %TMPDIR% on Windows. The lock directory should exist
+     * and be writable by the running user.
+     */
+    template <class Filter>
+    ExclusiveFilter<Filter> Exclusive(const Filter &filter) {
+	return ExclusiveFilter<Filter>(filter);
+    }
 }
 
 }
