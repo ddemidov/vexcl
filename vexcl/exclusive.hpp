@@ -107,10 +107,6 @@ namespace Filter {
 			return true;
 		}
 
-		void unlock() {
-		    flock->unlock();
-		}
-
 		std::ofstream file;
 		std::unique_ptr<boost::interprocess::file_lock> flock;
 	    };
@@ -122,14 +118,10 @@ namespace Filter {
 		static std::vector<std::unique_ptr<locker>> locks;
 
 		std::unique_ptr<locker> lck(new locker(dev_uids[d()]));
-		if (lck->try_lock()) {
-		    if (filter(d)) {
-			locks.push_back(std::move(lck));
-			return true;
-		    } else {
-			lck->unlock();
-			return false;
-		    }
+
+		if (lck->try_lock() && filter(d)) {
+		    locks.push_back(std::move(lck));
+		    return true;
 		}
 
 		return false;
