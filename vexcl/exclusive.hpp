@@ -107,6 +107,10 @@ namespace Filter {
 			return true;
 		}
 
+		void unlock() {
+		    flock->unlock();
+		}
+
 		std::ofstream file;
 		std::unique_ptr<boost::interprocess::file_lock> flock;
 	    };
@@ -117,12 +121,15 @@ namespace Filter {
 		static std::map<cl_device_id, std::string> dev_uids = get_uids();
 		static std::vector<std::unique_ptr<locker>> locks;
 
-		if (!filter(d)) return false;
-
 		std::unique_ptr<locker> lck(new locker(dev_uids[d()]));
 		if (lck->try_lock()) {
-		    locks.push_back(std::move(lck));
-		    return true;
+		    if (filter(d)) {
+			locks.push_back(std::move(lck));
+			return true;
+		    } else {
+			lck->unlock();
+			return false;
+		    }
 		}
 
 		return false;
