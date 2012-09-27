@@ -81,6 +81,20 @@ template <typename T, uint N, uint width, uint center, const char *body> struct 
 template <class Expr, typename T, uint width, uint center, const char *body> struct ExOperConv;
 template <class Expr, typename T, uint N, uint width, uint center, const char *body> struct MultiExOperConv;
 
+#ifdef VEXCL_VARIADIC_TEMPLATES
+template <uint pos = 0, class Function, class... T>
+typename std::enable_if<(pos == sizeof...(T)), void>::type
+for_each(const std::tuple<T...> &t, Function &f)
+{ }
+
+template <uint pos = 0, class Function, class... T>
+typename std::enable_if<(pos < sizeof...(T)), void>::type
+for_each(const std::tuple<T...> &t, Function &f)
+{
+    f( std::get<pos>(t), pos );
+    for_each<pos+1, Function, T...>(t, f);
+}
+#endif
 
 /// Base class for a member of an expression.
 /**
@@ -1339,6 +1353,131 @@ class multivector {
 	    return *this;
 	}
 
+#ifdef VEXCL_VARIADIC_TEMPLATES
+	/// Multi-expression assignments.
+	template <class... Expr>
+	typename std::enable_if<N == sizeof...(Expr), const multivector& >::type
+	operator=(const std::tuple<Expr...> &expr) {
+	    typedef std::tuple<Expr...> MultiExpr;
+
+	    const std::vector<cl::CommandQueue> &queue = vec[0].queue_list();
+
+	    for(auto q = queue.begin(); q != queue.end(); q++) {
+		cl::Context context = q->getInfo<CL_QUEUE_CONTEXT>();
+		cl::Device  device  = q->getInfo<CL_QUEUE_DEVICE>();
+
+		if (!exdata<MultiExpr>::compiled[context()]) {
+		    bool device_is_cpu = (
+			    device.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU
+			    );
+
+		    std::ostringstream kernel;
+
+		    std::array<std::ostringstream,N> prefix;
+		    for(uint i = 0; i < N; i++)
+			prefix[i] << "c" << i << "_prm";
+
+		    std::ostringstream kernel_name;
+		    kernel_name << "multi_";
+
+		    {
+			get_name f(kernel_name);
+			for_each(expr, f);
+		    }
+
+		    kernel << standard_kernel_header;
+
+		    {
+			get_preamble f(kernel, prefix);
+			for_each(expr, f);
+		    }
+
+		    kernel <<
+			"kernel void " << kernel_name.str() << "(\n"
+			"\t" << type_name<size_t>() << " n";
+
+		    for(uint i = 0; i < N; i++)
+			kernel << ",\n\tglobal " << type_name<T>() << " *res" << i;
+
+		    {
+			get_prm_decl f(kernel, prefix);
+			for_each(expr, f);
+		    }
+
+		    kernel <<
+			"\n\t)\n{\n"
+			"\tsize_t i = get_global_id(0);\n";
+
+		    if (device_is_cpu) {
+			kernel << "\tif (i < n) {\n";
+		    } else {
+			kernel <<
+			    "\tsize_t grid_size = get_num_groups(0) * get_local_size(0);\n"
+			    "\twhile (i < n) {\n";
+		    }
+
+		    {
+			get_expr_str f(kernel, prefix);
+			for_each(expr, f);
+		    }
+
+		    if (device_is_cpu) {
+			kernel <<
+			    "\t}\n"
+			    "}" << std::endl;
+		    } else {
+			kernel <<
+			    "\t\ti += grid_size;\n"
+			    "\t}\n"
+			    "}" << std::endl;
+		    }
+
+#ifdef VEXCL_SHOW_KERNELS
+		    std::cout << kernel.str() << std::endl;
+#endif
+
+		    auto program = build_sources(context, kernel.str());
+
+		    exdata<MultiExpr>::kernel[context()]   = cl::Kernel(program, kernel_name.str().c_str());
+		    exdata<MultiExpr>::compiled[context()] = true;
+		    exdata<MultiExpr>::wgsize[context()]   = kernel_workgroup_size(
+			    exdata<MultiExpr>::kernel[context()], device);
+
+		}
+	    }
+
+	    for(uint d = 0; d < queue.size(); d++) {
+		if (size_t psize = vec[0].part_size(d)) {
+		    cl::Context context = queue[d].getInfo<CL_QUEUE_CONTEXT>();
+		    cl::Device  device  = queue[d].getInfo<CL_QUEUE_DEVICE>();
+
+		    size_t g_size = device.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU ?
+			alignup(psize, exdata<MultiExpr>::wgsize[context()]) :
+			device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() * exdata<MultiExpr>::wgsize[context()] * 4;
+
+		    uint pos = 0;
+		    exdata<MultiExpr>::kernel[context()].setArg(pos++, psize);
+
+		    for(uint i = 0; i < N; i++)
+			exdata<MultiExpr>::kernel[context()].setArg(pos++, vec[i](d));
+
+		    {
+			set_params f(exdata<MultiExpr>::kernel[context()], d, pos);
+			for_each(expr, f);
+		    }
+
+		    queue[d].enqueueNDRangeKernel(
+			    exdata<MultiExpr>::kernel[context()],
+			    cl::NullRange,
+			    g_size, exdata<MultiExpr>::wgsize[context()]
+			    );
+		}
+	    }
+
+	    return *this;
+	}
+#endif
+
 #define COMPOUND_ASSIGNMENT(cop, op) \
 	template <class Expr> \
 	const multivector& operator cop(const Expr &expr) { \
@@ -1383,6 +1522,76 @@ class multivector {
 	/// @}
 
     private:
+	struct get_name {
+	    std::ostringstream &os;
+	    get_name(std::ostringstream &os) : os(os) {}
+
+	    template <class Expr>
+		void operator()(const Expr &expr, uint pos) {
+		    KernelGenerator<Expr> kgen(expr);
+		    os << "_" << kgen.kernel_name();
+		}
+	};
+
+	struct get_preamble {
+	    std::ostringstream &os;
+	    const std::array<std::ostringstream, N> &prefix;
+	    get_preamble(std::ostringstream &os,
+		    const std::array<std::ostringstream, N> &prefix)
+		: os(os), prefix(prefix) {}
+
+	    template <class Expr>
+		void operator()(const Expr &expr, uint pos) {
+		    KernelGenerator<Expr> kgen(expr);
+		    kgen.preamble(os, prefix[pos].str());
+		}
+	};
+
+	struct get_prm_decl {
+	    std::ostringstream &os;
+	    const std::array<std::ostringstream, N> &prefix;
+	    get_prm_decl(std::ostringstream &os,
+		    const std::array<std::ostringstream, N> &prefix)
+		: os(os), prefix(prefix) {}
+
+	    template <class Expr>
+		void operator()(const Expr &expr, uint pos) {
+		    KernelGenerator<Expr> kgen(expr);
+		    kgen.kernel_prm(os, prefix[pos].str());
+		}
+	};
+
+	struct get_expr_str {
+	    std::ostringstream &os;
+	    const std::array<std::ostringstream, N> &prefix;
+	    get_expr_str(std::ostringstream &os,
+		    const std::array<std::ostringstream, N> &prefix)
+		: os(os), prefix(prefix) {}
+
+	    template <class Expr>
+		void operator()(const Expr &expr, uint pos) {
+		    KernelGenerator<Expr> kgen(expr);
+		    os << "\t\tres" << pos << "[i] = ";
+		    kgen.kernel_expr(os, prefix[pos].str());
+		    os << ";\n";
+		}
+	};
+
+	struct set_params {
+	    cl::Kernel &kernel;
+	    uint d;
+	    uint &pos;
+
+	    set_params(cl::Kernel &kernel, uint d, uint &pos)
+		: kernel(kernel), d(d), pos(pos) {}
+
+	    template <class Expr>
+		void operator()(const Expr &expr, uint) {
+		    KernelGenerator<Expr> kgen(expr);
+		    kgen.kernel_args(kernel, d, pos);
+		}
+	};
+
 	std::array<vex::vector<T>,N> vec;
 
 #ifndef VEXCL_SPLIT_MULTIVECTOR_OPERATIONS

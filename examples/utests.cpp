@@ -691,6 +691,48 @@ int main(int argc, char *argv[]) {
 		return rc;
 	});
 
+	run_test("Multiexpressions with multivectors", [&]() -> bool {
+		bool rc = true;
+		const size_t n = 1024;
+		const size_t m = 4;
+		std::vector<float> host(n * m);
+		std::generate(host.begin(), host.end(),
+		    [](){ return (float)rand() / RAND_MAX; });
+		multivector<float, m> x(ctx.queue(), n);
+		multivector<float, m> y(ctx.queue(), host);
+		multivector<float, m> z(ctx.queue(), host);
+		Reductor<float,MIN> min(ctx.queue());
+		Reductor<float,MAX> max(ctx.queue());
+
+		std::array<int, m> v;
+		for(uint i = 0; i < m; i++) v[i] = i;
+		x = v;
+		std::array<float, m> xmin = min(x);
+		std::array<float, m> xmax = max(x);
+		for(uint i = 0; i < m; i++) {
+		    rc = rc && xmin[i] == v[i];
+		    rc = rc && xmax[i] == v[i];
+		}
+
+		x = std::make_tuple(
+			2 * y(0) + z(0),
+			2 * y(1) + z(1),
+			2 * y(2) + z(2),
+			2 * y(3) + z(3)
+			);
+
+		std::transform(host.begin(), host.end(), host.begin(), [](float x) {
+		    return 2 * x + x;
+		    });
+		for(uint i = 0; i < m; i++) {
+		    rc = rc && min(x(i)) == *min_element(
+			host.begin() + i * n, host.begin() + (i + 1) * n);
+		    rc = rc && max(x(i)) == *max_element(
+			host.begin() + i * n, host.begin() + (i + 1) * n);
+		}
+		return rc;
+	});
+
 	run_test("One-argument builtin function call for multivector", [&]() -> bool {
 		bool rc = true;
 		const size_t n = 1024;
