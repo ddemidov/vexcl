@@ -81,21 +81,6 @@ template <typename T, uint N, uint width, uint center, const char *body> struct 
 template <class Expr, typename T, uint width, uint center, const char *body> struct ExOperConv;
 template <class Expr, typename T, uint N, uint width, uint center, const char *body> struct MultiExOperConv;
 
-#ifdef VEXCL_VARIADIC_TEMPLATES
-template <uint pos = 0, class Function, class... T>
-typename std::enable_if<(pos == sizeof...(T)), void>::type
-for_each(const std::tuple<T...> &t, Function &f)
-{ }
-
-template <uint pos = 0, class Function, class... T>
-typename std::enable_if<(pos < sizeof...(T)), void>::type
-for_each(const std::tuple<T...> &t, Function &f)
-{
-    f( std::get<pos>(t), pos );
-    for_each<pos+1, Function, T...>(t, f);
-}
-#endif
-
 /// Base class for a member of an expression.
 /**
  * Each vector expression results in a single kernel. Name of the kernel,
@@ -1522,6 +1507,20 @@ class multivector {
 	/// @}
 
     private:
+#ifdef VEXCL_VARIADIC_TEMPLATES
+	template <uint pos = 0, class Function, class... V>
+	typename std::enable_if<(pos == sizeof...(V)), void>::type
+	for_each(const std::tuple<V...> &v, Function &f)
+	{ }
+
+	template <uint pos = 0, class Function, class... V>
+	typename std::enable_if<(pos < sizeof...(V)), void>::type
+	for_each(const std::tuple<V...> &v, Function &f)
+	{
+	    f( std::get<pos>(v), pos );
+	    for_each<pos+1, Function, V...>(v, f);
+	}
+
 	struct get_name {
 	    std::ostringstream &os;
 	    get_name(std::ostringstream &os) : os(os) {}
@@ -1591,6 +1590,7 @@ class multivector {
 		    kgen.kernel_args(kernel, d, pos);
 		}
 	};
+#endif
 
 	std::array<vex::vector<T>,N> vec;
 
