@@ -1183,6 +1183,12 @@ class multivector {
 			) );
 	}
 
+	/// Copy constructor.
+	multivector(const multivector &mv) {
+	    for(uint i = 0; i < N; i++)
+		vec[i].reset(new vex::vector<T>(mv(i)));
+	}
+
 	/// Constructor.
 	/**
 	 * Copies references to component vectors.
