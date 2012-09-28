@@ -346,58 +346,58 @@ const vex::vector<T>& vex::vector<T>::operator=(const ExConv<Expr,T> &xc) {
     return *this;
 }
 
-template <typename T, uint N>
+template <typename T, uint N, bool own>
 struct MultiConv {
-    MultiConv(const multivector<T,N> &x, const stencil<T> &s) : x(x), s(s) {}
+    MultiConv(const multivector<T,N,own> &x, const stencil<T> &s) : x(x), s(s) {}
 
-    const multivector<T,N> &x;
+    const multivector<T,N,own> &x;
     const stencil<T>       &s;
 };
 
-template <typename T, uint N>
-MultiConv<T,N> operator*(const multivector<T,N> &x, const stencil<T> &s) {
-    return MultiConv<T,N>(x, s);
+template <typename T, uint N, bool own>
+MultiConv<T,N,own> operator*(const multivector<T,N,own> &x, const stencil<T> &s) {
+    return MultiConv<T,N,own>(x, s);
 }
 
-template <typename T, uint N>
-MultiConv<T,N> operator*(const stencil<T> &s, const multivector<T,N> &x) {
+template <typename T, uint N, bool own>
+MultiConv<T,N,own> operator*(const stencil<T> &s, const multivector<T,N,own> &x) {
     return x * s;
 }
 
-template <typename T, uint N>
-const vex::multivector<T,N>& vex::multivector<T,N>::operator=(
-	const MultiConv<T,N> &cnv)
+template <typename T, uint N, bool own>
+const vex::multivector<T,N,own>& vex::multivector<T,N,own>::operator=(
+	const MultiConv<T,N,own> &cnv)
 {
     for(uint i = 0; i < N; i++)
 	cnv.s.convolve(cnv.x(i), (*this)(i));
     return *this;
 }
 
-template <class Expr, typename T, uint N>
+template <class Expr, typename T, uint N, bool own>
 struct MultiExConv {
-    MultiExConv(const Expr &expr, const MultiConv<T,N> &cnv, T p)
+    MultiExConv(const Expr &expr, const MultiConv<T,N,own> &cnv, T p)
 	: expr(expr), cnv(cnv), p(p) {}
 
     const Expr           &expr;
-    const MultiConv<T,N> &cnv;
+    const MultiConv<T,N,own> &cnv;
     T p;
 };
 
-template <class Expr, typename T, uint N>
-MultiExConv<Expr,T,N>
-operator+(const Expr &expr, const MultiConv<T,N> &cnv) {
-    return MultiExConv<Expr,T,N>(expr, cnv, 1);
+template <class Expr, typename T, uint N, bool own>
+MultiExConv<Expr,T,N,own>
+operator+(const Expr &expr, const MultiConv<T,N,own> &cnv) {
+    return MultiExConv<Expr,T,N,own>(expr, cnv, 1);
 }
 
-template <class Expr, typename T, uint N>
-MultiExConv<Expr,T,N>
-operator-(const Expr &expr, const MultiConv<T,N> &cnv) {
-    return MultiExConv<Expr,T,N>(expr, cnv, -1);
+template <class Expr, typename T, uint N, bool own>
+MultiExConv<Expr,T,N,own>
+operator-(const Expr &expr, const MultiConv<T,N,own> &cnv) {
+    return MultiExConv<Expr,T,N,own>(expr, cnv, -1);
 }
 
-template <typename T, uint N> template <class Expr>
-const vex::multivector<T,N>& vex::multivector<T,N>::operator=(
-	const MultiExConv<Expr,T,N> &xc)
+template <typename T, uint N, bool own> template <class Expr>
+const vex::multivector<T,N,own>& vex::multivector<T,N,own>::operator=(
+	const MultiExConv<Expr,T,N,own> &xc)
 {
     *this = xc.expr;
     for(uint i = 0; i < N; i++)
@@ -741,28 +741,28 @@ struct GConv {
     const gstencil<T> &s;
 };
 
-template <typename T, uint N>
+template <typename T, uint N, bool own>
 struct MultiGStencilProd {
-    MultiGStencilProd(const vex::multivector<T,N> &x, const gstencil<T> &s) : x(x), s(s) {}
-    const vex::multivector<T,N> &x;
+    MultiGStencilProd(const vex::multivector<T,N,own> &x, const gstencil<T> &s) : x(x), s(s) {}
+    const vex::multivector<T,N,own> &x;
     const gstencil<T> &s;
 };
 
-template <class T, uint N>
-MultiGStencilProd<T,N> operator*(const multivector<T,N> &x, const gstencil<T> &s) {
-    return MultiGStencilProd<T,N>(x, s);
+template <class T, uint N, bool own>
+MultiGStencilProd<T,N,own> operator*(const multivector<T,N,own> &x, const gstencil<T> &s) {
+    return MultiGStencilProd<T,N,own>(x, s);
 }
 
-template <class T, uint N>
-MultiGStencilProd<T,N> operator*(const gstencil<T> &s, const multivector<T,N> &x) {
+template <class T, uint N, bool own>
+MultiGStencilProd<T,N,own> operator*(const gstencil<T> &s, const multivector<T,N,own> &x) {
     return x * s;
 }
 
-template <class f, typename T, uint N>
+template <class f, typename T, uint N, bool own>
 struct MultiGConv {
-    MultiGConv(const MultiGStencilProd<T,N> &sp) : x(sp.x), s(sp.s) {}
+    MultiGConv(const MultiGStencilProd<T,N,own> &sp) : x(sp.x), s(sp.s) {}
 
-    const multivector<T,N> &x;
+    const multivector<T,N,own> &x;
     const gstencil<T> &s;
 };
 
@@ -771,9 +771,9 @@ template <typename T> \
 GConv<name##_name,T> name(const GStencilProd<T> &s) { \
     return GConv<name##_name, T>(s); \
 } \
-template <typename T, uint N> \
-MultiGConv<name##_name,T,N> name(const MultiGStencilProd<T,N> &s) { \
-    return MultiGConv<name##_name, T, N>(s); \
+template <typename T, uint N, bool own> \
+MultiGConv<name##_name,T,N,own> name(const MultiGStencilProd<T,N,own> &s) { \
+    return MultiGConv<name##_name, T, N,own>(s); \
 }
 
 OVERLOAD_BUILTIN_FOR_GSTENCIL(acos)
@@ -826,8 +826,8 @@ const vex::vector<T>& vex::vector<T>::operator=(const GConv<func, T> &cnv) {
     return *this;
 }
 
-template <typename T, uint N> template <class func>
-const vex::multivector<T,N>& vex::multivector<T,N>::operator=(const MultiGConv<func, T, N> &cnv) {
+template <typename T, uint N, bool own> template <class func>
+const vex::multivector<T,N,own>& vex::multivector<T,N,own>::operator=(const MultiGConv<func, T, N,own> &cnv) {
     for(uint i = 0; i < N; i++)
 	cnv.s.template convolve<func>(cnv.x(i), (*this)(i));
     return *this;
@@ -862,31 +862,31 @@ const vex::vector<T>& vex::vector<T>::operator=(const ExGConv<Expr,func,T> &xc) 
     return *this;
 }
 
-template <class Expr, class func, typename T, uint N>
+template <class Expr, class func, typename T, uint N, bool own>
 struct MultiExGConv {
-    MultiExGConv(const Expr &expr, const MultiGConv<func,T,N> &cnv, T p)
+    MultiExGConv(const Expr &expr, const MultiGConv<func,T,N,own> &cnv, T p)
 	: expr(expr), cnv(cnv), p(p) {}
 
     const Expr &expr;
-    const MultiGConv<func,T,N> &cnv;
+    const MultiGConv<func,T,N,own> &cnv;
     T p;
 };
 
-template <class Expr, class func, typename T, uint N>
-MultiExGConv<Expr,func,T,N>
-operator+(const Expr &expr, const MultiGConv<func,T,N> &cnv) {
-    return MultiExGConv<Expr,func,T,N>(expr, cnv, 1);
+template <class Expr, class func, typename T, uint N, bool own>
+MultiExGConv<Expr,func,T,N,own>
+operator+(const Expr &expr, const MultiGConv<func,T,N,own> &cnv) {
+    return MultiExGConv<Expr,func,T,N,own>(expr, cnv, 1);
 }
 
-template <class Expr, class func, typename T, uint N>
-MultiExGConv<Expr,func,T,N>
-operator-(const Expr &expr, const MultiGConv<func,T,N> &cnv) {
-    return MultiExGConv<Expr,func,T,N>(expr, cnv, -1);
+template <class Expr, class func, typename T, uint N, bool own>
+MultiExGConv<Expr,func,T,N,own>
+operator-(const Expr &expr, const MultiGConv<func,T,N,own> &cnv) {
+    return MultiExGConv<Expr,func,T,N,own>(expr, cnv, -1);
 }
 
-template <typename T, uint N> template <class Expr, class func>
-const vex::multivector<T,N>& vex::multivector<T,N>::operator=(
-	const MultiExGConv<Expr,func,T,N> &xc)
+template <typename T, uint N, bool own> template <class Expr, class func>
+const vex::multivector<T,N,own>& vex::multivector<T,N,own>::operator=(
+	const MultiExGConv<Expr,func,T,N,own> &xc)
 {
     *this = xc.expr;
     for(uint i = 0; i < N; i++)
@@ -1094,7 +1094,7 @@ void gstencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y,
 template <typename T, uint width, uint center, const char *body>
 struct OperConv;
 
-template <typename T, uint N, uint width, uint center, const char *body>
+template <typename T, uint N, bool own, uint width, uint center, const char *body>
 struct MultiOperConv;
 
 /// User-defined stencil operator
@@ -1119,8 +1119,8 @@ class StencilOperator : public stencil_base<T> {
 
 	OperConv<T, width, center, body> operator()(const vex::vector<T> &x) const;
 
-	template <uint N>
-	MultiOperConv<T, N, width, center, body> operator()(const vex::multivector<T, N> &x) const;
+	template <uint N, bool own>
+	MultiOperConv<T, N,own, width, center, body> operator()(const vex::multivector<T, N,own> &x) const;
 
 	void convolve(const vex::vector<T> &x, vex::vector<T> &y,
 		T alpha = 0, T beta = 1) const;
@@ -1149,13 +1149,13 @@ struct OperConv {
     const vex::vector<T> &x;
 };
 
-template <typename T, uint N, uint width, uint center, const char *body>
+template <typename T, uint N, bool own, uint width, uint center, const char *body>
 struct MultiOperConv {
-    MultiOperConv(const multivector<T,N> &x, const StencilOperator<T, width, center, body> &s)
+    MultiOperConv(const multivector<T,N,own> &x, const StencilOperator<T, width, center, body> &s)
 	: op(op), x(x) {}
 
     const StencilOperator<T, width, center, body> &op;
-    const multivector<T,N> &x;
+    const multivector<T,N,own> &x;
 };
 
 template <typename T, uint width, uint center, const char *body>
@@ -1205,39 +1205,39 @@ const vex::vector<T>& vex::vector<T>::operator=(const ExOperConv<Expr, T, width,
     return *this;
 }
 
-template <typename T, uint N> template<uint width, uint center, const char *body>
-const vex::multivector<T,N>& vex::multivector<T,N>::operator=(
-	const MultiOperConv<T, N, width, center, body> &cnv)
+template <typename T, uint N, bool own> template<uint width, uint center, const char *body>
+const vex::multivector<T,N,own>& vex::multivector<T,N,own>::operator=(
+	const MultiOperConv<T, N,own, width, center, body> &cnv)
 {
     for(uint i = 0; i < N; i++) cnv.op.convolve(cnv.x(i), (*this)(i));
     return *this;
 }
 
-template <class Expr, typename T, uint N, uint width, uint center, const char *body>
+template <class Expr, typename T, uint N, bool own, uint width, uint center, const char *body>
 struct MultiExOperConv {
-    MultiExOperConv(const Expr &expr, const MultiOperConv<T, N, width, center, body> &cnv, T p)
+    MultiExOperConv(const Expr &expr, const MultiOperConv<T, N,own, width, center, body> &cnv, T p)
 	: expr(expr), cnv(cnv), p(p) {}
 
     const Expr &expr;
-    const MultiOperConv<T, N, width, center, body> &cnv;
+    const MultiOperConv<T, N,own, width, center, body> &cnv;
     T p;
 };
 
-template <class Expr, typename T, uint N, uint width, uint center, const char *body>
-MultiExOperConv<Expr, T, N, width, center, body>
-operator+(const Expr &expr, const MultiOperConv<T, N, width, center, body> &cnv) {
-    return MultiExOperConv<Expr, T, N, width, center, body>(expr, cnv, 1);
+template <class Expr, typename T, uint N, bool own, uint width, uint center, const char *body>
+MultiExOperConv<Expr, T, N,own, width, center, body>
+operator+(const Expr &expr, const MultiOperConv<T, N,own, width, center, body> &cnv) {
+    return MultiExOperConv<Expr, T, N,own, width, center, body>(expr, cnv, 1);
 }
 
-template <class Expr, typename T, uint N, uint width, uint center, const char *body>
-MultiExOperConv<Expr, T, N, width, center, body>
-operator-(const Expr &expr, const MultiOperConv<T, N, width, center, body> &cnv) {
-    return MultiExOperConv<Expr, T, N, width, center, body>(expr, cnv, -1);
+template <class Expr, typename T, uint N, bool own, uint width, uint center, const char *body>
+MultiExOperConv<Expr, T, N,own, width, center, body>
+operator-(const Expr &expr, const MultiOperConv<T, N,own, width, center, body> &cnv) {
+    return MultiExOperConv<Expr, T, N,own, width, center, body>(expr, cnv, -1);
 }
 
-template <typename T, uint N> template <class Expr, uint width, uint center, const char *body>
-const vex::multivector<T,N>& vex::multivector<T,N>::operator=(
-	const MultiExOperConv<Expr, T, N, width, center, body> &xc)
+template <typename T, uint N, bool own> template <class Expr, uint width, uint center, const char *body>
+const vex::multivector<T,N,own>& vex::multivector<T,N,own>::operator=(
+	const MultiExOperConv<Expr, T, N,own, width, center, body> &xc)
 {
     *this = xc.expr;
     for(uint i = 0; i < N; i++)
@@ -1367,11 +1367,11 @@ OperConv<T, width, center, body> StencilOperator<T, width, center, body>::operat
     return OperConv<T, width, center, body>(*this, x);
 }
 
-template <typename T, uint width, uint center, const char *body> template <uint N>
-MultiOperConv<T, N, width, center, body> StencilOperator<T, width, center, body>::operator()(
-	const vex::multivector<T, N> &x) const
+template <typename T, uint width, uint center, const char *body> template <uint N, bool own>
+MultiOperConv<T, N,own, width, center, body> StencilOperator<T, width, center, body>::operator()(
+	const vex::multivector<T, N,own> &x) const
 {
-    return MultiOperConv<T, N, width, center, body>(*this, x);
+    return MultiOperConv<T, N,own, width, center, body>(*this, x);
 }
 
 template <typename T, uint width, uint center, const char *body>

@@ -733,6 +733,39 @@ int main(int argc, char *argv[]) {
 		return rc;
 	});
 
+	run_test("Tie vectors into a multivector", [&]() -> bool {
+		bool rc = true;
+		const size_t n = 1024;
+		std::vector<double> host(n);
+		std::generate(host.begin(), host.end(),
+		    [](){ return (double)rand() / RAND_MAX; });
+
+		vex::vector<double> x(ctx.queue(), host);
+		vex::vector<double> y(ctx.queue(), host);
+
+		vex::vector<double> a(ctx.queue(), n);
+		vex::vector<double> b(ctx.queue(), n);
+
+		vex::tie(a, b) = std::make_tuple(x + y, x - y);
+
+		std::vector<double> A(n);
+		std::vector<double> B(n);
+
+		vex::copy(a, A);
+		vex::copy(b, B);
+
+		double res = 0;
+
+		for(uint i = 0; i < n; i++) {
+		    res = std::max(res, fabs(A[i] - (host[i] + host[i])));
+		    res = std::max(res, fabs(B[i] - (host[i] - host[i])));
+		}
+
+		rc = rc && (res < 1e-8);
+
+		return rc;
+	});
+
 	run_test("One-argument builtin function call for multivector", [&]() -> bool {
 		bool rc = true;
 		const size_t n = 1024;

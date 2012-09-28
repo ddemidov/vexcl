@@ -96,13 +96,13 @@ struct SpMV {
 };
 
 /// Sparse matrix-vector product.
-template <typename real, typename column_t, typename idx_t, uint N>
+template <typename real, typename column_t, typename idx_t, uint N, bool own>
 struct MultiSpMV {
-    MultiSpMV(const SpMatBase<real, column_t, idx_t> &A, const vex::multivector<real,N> &x)
+    MultiSpMV(const SpMatBase<real, column_t, idx_t> &A, const vex::multivector<real,N,own> &x)
 	: A(A), x(x) {}
 
     const SpMatBase<real,column_t,idx_t> &A;
-    const vex::multivector<real,N> &x;
+    const vex::multivector<real,N,own> &x;
 };
 
 template <class Expr, typename real, typename column_t, typename idx_t>
@@ -116,14 +116,14 @@ struct ExSpMV {
 };
 
 /// Expression with matrix-multivector product.
-template <class Expr, typename real, typename column_t, typename idx_t, uint N>
+template <class Expr, typename real, typename column_t, typename idx_t, uint N, bool own>
 struct MultiExSpMV {
-    MultiExSpMV(const Expr &expr, const real alpha, const MultiSpMV<real, column_t, idx_t, N> &spmv)
+    MultiExSpMV(const Expr &expr, const real alpha, const MultiSpMV<real, column_t, idx_t, N, own> &spmv)
 	: expr(expr), alpha(alpha), spmv(spmv) {}
 
     const Expr &expr;
     const real alpha;
-    const MultiSpMV<real, column_t, idx_t, N> &spmv;
+    const MultiSpMV<real, column_t, idx_t, N, own> &spmv;
 };
 
 /// \endcond
@@ -162,38 +162,38 @@ const vector<real>& vector<real>::operator=(const ExSpMV<Expr,real,column_t,idx_
 }
 
 /// Multiply sparse matrix and a vector.
-template <typename real, typename column_t, typename idx_t, uint N>
-MultiSpMV<real,column_t,idx_t,N> operator*(
-	const SpMatBase<real, column_t, idx_t> &A, const vex::multivector<real,N> &x)
+template <typename real, typename column_t, typename idx_t, uint N, bool own>
+MultiSpMV<real,column_t,idx_t,N,own> operator*(
+	const SpMatBase<real, column_t, idx_t> &A, const vex::multivector<real,N,own> &x)
 {
-    return MultiSpMV<real, column_t, idx_t, N>(A, x);
+    return MultiSpMV<real, column_t, idx_t, N, own>(A, x);
 }
 
 /// Add an expression and sparse matrix - multivector product.
-template <class Expr, typename real, typename column_t, typename idx_t, uint N>
-MultiExSpMV<Expr,real,column_t,idx_t,N>
-operator+(const Expr &expr, const MultiSpMV<real,column_t,idx_t,N> &spmv) {
-    return MultiExSpMV<Expr,real,column_t,idx_t,N>(expr, 1, spmv);
+template <class Expr, typename real, typename column_t, typename idx_t, uint N, bool own>
+MultiExSpMV<Expr,real,column_t,idx_t,N,own>
+operator+(const Expr &expr, const MultiSpMV<real,column_t,idx_t,N,own> &spmv) {
+    return MultiExSpMV<Expr,real,column_t,idx_t,N,own>(expr, 1, spmv);
 }
 
 /// Subtract sparse matrix - multivector product from an expression.
-template <class Expr, typename real, typename column_t, typename idx_t, uint N>
-MultiExSpMV<Expr,real,column_t,idx_t,N>
-operator-(const Expr &expr, const MultiSpMV<real,column_t,idx_t,N> &spmv) {
-    return MultiExSpMV<Expr,real,column_t,idx_t,N>(expr, -1, spmv);
+template <class Expr, typename real, typename column_t, typename idx_t, uint N, bool own>
+MultiExSpMV<Expr,real,column_t,idx_t,N,own>
+operator-(const Expr &expr, const MultiSpMV<real,column_t,idx_t,N,own> &spmv) {
+    return MultiExSpMV<Expr,real,column_t,idx_t,N,own>(expr, -1, spmv);
 }
 
-template <typename real, uint N> template <typename column_t, typename idx_t>
-const multivector<real,N>& multivector<real,N>::operator=(
-	const MultiSpMV<real,column_t,idx_t,N> &spmv)
+template <typename real, uint N, bool own> template <typename column_t, typename idx_t>
+const multivector<real,N,own>& multivector<real,N,own>::operator=(
+	const MultiSpMV<real,column_t,idx_t,N,own> &spmv)
 {
     for(uint i = 0; i < N; i++)
 	spmv.A.mul(spmv.x(i), (*this)(i));
     return *this;
 }
 
-template <typename real, uint N> template<class Expr, typename column_t, typename idx_t>
-const multivector<real,N>& multivector<real,N>::operator=(const MultiExSpMV<Expr,real,column_t,idx_t,N> &xmv) {
+template <typename real, uint N, bool own> template<class Expr, typename column_t, typename idx_t>
+const multivector<real,N,own>& multivector<real,N,own>::operator=(const MultiExSpMV<Expr,real,column_t,idx_t,N,own> &xmv) {
     *this = xmv.expr;
     for(uint i = 0; i < N; i++)
 	xmv.spmv.A.mul(xmv.spmv.x(i), (*this)(i), xmv.alpha, true);

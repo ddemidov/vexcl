@@ -52,6 +52,7 @@ THE SOFTWARE.
 #include <sstream>
 #include <string>
 #include <type_traits>
+#include <functional>
 #include <cassert>
 #include <CL/cl.hpp>
 #include <vexcl/util.hpp>
@@ -64,22 +65,22 @@ namespace vex {
 
 template<class T, typename column_t, typename idx_t> struct SpMV;
 template <class Expr, typename T, typename column_t, typename idx_t> struct ExSpMV;
-template<class T, typename column_t, typename idx_t, uint N> struct MultiSpMV;
-template <class Expr, typename T, typename column_t, typename idx_t, uint N> struct MultiExSpMV;
+template<class T, typename column_t, typename idx_t, uint N, bool own> struct MultiSpMV;
+template <class Expr, typename T, typename column_t, typename idx_t, uint N, bool own> struct MultiExSpMV;
 template <class T> struct Conv;
 template <class f, class T> struct GConv;
 template <class Expr, class T> struct ExConv;
 template <class Expr, class f, class T> struct ExGConv;
-template <class T, uint N> struct MultiConv;
-template <class Expr, class T, uint N> struct MultiExConv;
-template <class func, class T, uint N> struct MultiGConv;
-template <class Expr, class func, class T, uint N> struct MultiExGConv;
+template <class T, uint N, bool own> struct MultiConv;
+template <class Expr, class T, uint N, bool own> struct MultiExConv;
+template <class func, class T, uint N, bool own> struct MultiGConv;
+template <class Expr, class func, class T, uint N, bool own> struct MultiExGConv;
 template <class T> struct GStencilProd;
-template <class T, uint N> struct MultiGStencilProd;
+template <class T, uint N, bool own> struct MultiGStencilProd;
 template <typename T, uint width, uint center, const char *body> struct OperConv;
-template <typename T, uint N, uint width, uint center, const char *body> struct MultiOperConv;
+template <typename T, uint N, bool own, uint width, uint center, const char *body> struct MultiOperConv;
 template <class Expr, typename T, uint width, uint center, const char *body> struct ExOperConv;
-template <class Expr, typename T, uint N, uint width, uint center, const char *body> struct MultiExOperConv;
+template <class Expr, typename T, uint N, bool own, uint width, uint center, const char *body> struct MultiExOperConv;
 
 /// Base class for a member of an expression.
 /**
@@ -1017,12 +1018,25 @@ struct compatible_multiex<
 
 /// \endcond
 
+template <typename T, bool own>
+struct multivector_subtype { };
+
+template <typename T>
+struct multivector_subtype<T, true> {
+    typedef std::unique_ptr<vex::vector<T>> storage;
+};
+
+template <typename T>
+struct multivector_subtype<T, false> {
+    typedef vex::vector<T>* storage;
+};
+
 /// Container for several vex::vectors.
 /**
  * This class allows to synchronously operate on several vex::vectors of the
  * same type and size.
  */
-template <typename T, uint N>
+template <typename T, uint N, bool own = true>
 class multivector {
     public:
 	static const bool is_multiex = true;
@@ -1111,7 +1125,11 @@ class multivector {
 	typedef iterator_type<multivector, element> iterator;
 	typedef iterator_type<const multivector, const_element> const_iterator;
 
-	multivector() {};
+	multivector() {
+	    static_assert(own, "Empty constructor unavailable for referenced-type multivector");
+
+	    for(uint i = 0; i < N; i++) vec[i].reset(new vex::vector<T>());
+	};
 
 	/// Constructor.
 	/**
@@ -1129,15 +1147,16 @@ class multivector {
 		const std::vector<T> &host,
 		cl_mem_flags flags = CL_MEM_READ_WRITE)
 	{
+	    static_assert(own, "Wrong constructor for referenced-type multivector");
 	    static_assert(N > 0, "What's the point?");
 
 	    size_t size = host.size() / N;
 	    assert(N * size == host.size());
 
 	    for(uint i = 0; i < N; i++)
-		vec[i] = vex::vector<T>(
+		vec[i].reset(new vex::vector<T>(
 			queue, size, host.data() + i * size, flags
-			);
+			) );
 	}
 
 	/// Constructor.
@@ -1155,32 +1174,43 @@ class multivector {
 	multivector(const std::vector<cl::CommandQueue> &queue, size_t size,
 		const T *host = 0, cl_mem_flags flags = CL_MEM_READ_WRITE)
 	{
+	    static_assert(own, "Wrong constructor for referenced-type multivector");
 	    static_assert(N > 0, "What's the point?");
 
 	    for(uint i = 0; i < N; i++)
-		vec[i] = vex::vector<T>(
+		vec[i].reset(new vex::vector<T>(
 			queue, size, host ? host + i * size : 0, flags
-			);
+			) );
+	}
+
+	/// Constructor.
+	/**
+	 * Copies references to component vectors.
+	 */
+	multivector(std::array<vex::vector<T>*,N> components)
+	    : vec(components)
+	{
+	    static_assert(!own, "Wrong constructor");
 	}
 
 	/// Resize multivector.
 	void resize(const std::vector<cl::CommandQueue> &queue, size_t size) {
-	    for(uint i = 0; i < N; i++) vec[i].resize(queue, size);
+	    for(uint i = 0; i < N; i++) vec[i]->resize(queue, size);
 	}
 
 	/// Return size of a multivector (equals size of individual components).
 	size_t size() const {
-	    return vec[0].size();
+	    return vec[0]->size();
 	}
 
 	/// Returns multivector component.
 	const vex::vector<T>& operator()(uint i) const {
-	    return vec[i];
+	    return *vec[i];
 	}
 
 	/// Returns multivector component.
 	vex::vector<T>& operator()(uint i) {
-	    return vec[i];
+	    return *vec[i];
 	}
 
 	/// Const iterator to beginning.
@@ -1215,7 +1245,16 @@ class multivector {
 
 	/// Return reference to multivector's queue list
 	const std::vector<cl::CommandQueue>& queue_list() const {
-	    return vec[0].queue_list();
+	    return vec[0]->queue_list();
+	}
+
+	/// Assignment to a multivector.
+	const multivector& operator=(const multivector &mv) {
+	    if (this != &mv) {
+		for(uint i = 0; i < N; i++)
+		    *vec[i] = mv(i);
+	    }
+	    return *this;
 	}
 
 	/** \name Expression assignments.
@@ -1228,10 +1267,10 @@ class multivector {
 	    >::type
 	operator=(const Expr& expr) {
 #ifdef VEXCL_SPLIT_MULTIVECTOR_OPERATIONS
-	    for(uint i = 0; i < N; i++) vec[i] = extract_component(expr, i);
+	    for(uint i = 0; i < N; i++) (*vec[i]) = extract_component(expr, i);
 #else
 	    auto kgen0 = get_generator(expr, 0U);
-	    const std::vector<cl::CommandQueue> &queue = vec[0].queue_list();
+	    const std::vector<cl::CommandQueue> &queue = vec[0]->queue_list();
 
 	    for(auto q = queue.begin(); q != queue.end(); q++) {
 		cl::Context context = q->getInfo<CL_QUEUE_CONTEXT>();
@@ -1309,7 +1348,7 @@ class multivector {
 	    }
 
 	    for(uint d = 0; d < queue.size(); d++) {
-		if (size_t psize = vec[0].part_size(d)) {
+		if (size_t psize = vec[0]->part_size(d)) {
 		    cl::Context context = queue[d].getInfo<CL_QUEUE_CONTEXT>();
 		    cl::Device  device  = queue[d].getInfo<CL_QUEUE_DEVICE>();
 
@@ -1321,7 +1360,7 @@ class multivector {
 		    exdata<Expr>::kernel[context()].setArg(pos++, psize);
 
 		    for(uint i = 0; i < N; i++)
-			exdata<Expr>::kernel[context()].setArg(pos++, vec[i](d));
+			exdata<Expr>::kernel[context()].setArg(pos++, vec[i]->operator()(d));
 
 		    for(uint i = 0; i < N; i++)
 			get_generator(expr, i).kernel_args(exdata<Expr>::kernel[context()], d, pos);
@@ -1345,7 +1384,7 @@ class multivector {
 	operator=(const std::tuple<Expr...> &expr) {
 	    typedef std::tuple<Expr...> MultiExpr;
 
-	    const std::vector<cl::CommandQueue> &queue = vec[0].queue_list();
+	    const std::vector<cl::CommandQueue> &queue = vec[0]->queue_list();
 
 	    for(auto q = queue.begin(); q != queue.end(); q++) {
 		cl::Context context = q->getInfo<CL_QUEUE_CONTEXT>();
@@ -1405,6 +1444,9 @@ class multivector {
 			get_expr_str f(kernel, prefix);
 			for_each(expr, f);
 		    }
+		    for(uint i = 0; i < N; i++) {
+			kernel << "\t\tres" << i << "[i] = buf_res" << i << ";\n";
+		    }
 
 		    if (device_is_cpu) {
 			kernel <<
@@ -1432,7 +1474,7 @@ class multivector {
 	    }
 
 	    for(uint d = 0; d < queue.size(); d++) {
-		if (size_t psize = vec[0].part_size(d)) {
+		if (size_t psize = vec[0]->part_size(d)) {
 		    cl::Context context = queue[d].getInfo<CL_QUEUE_CONTEXT>();
 		    cl::Device  device  = queue[d].getInfo<CL_QUEUE_DEVICE>();
 
@@ -1444,7 +1486,7 @@ class multivector {
 		    exdata<MultiExpr>::kernel[context()].setArg(pos++, psize);
 
 		    for(uint i = 0; i < N; i++)
-			exdata<MultiExpr>::kernel[context()].setArg(pos++, vec[i](d));
+			exdata<MultiExpr>::kernel[context()].setArg(pos++, vec[i]->operator()(d));
 
 		    {
 			set_params f(exdata<MultiExpr>::kernel[context()], d, pos);
@@ -1483,27 +1525,27 @@ class multivector {
 #undef COMPOUND_ASSIGNMENT
 
 	template <typename column_t, typename idx_t>
-	const multivector& operator=(const MultiSpMV<T,column_t,idx_t,N> &spmv);
+	const multivector& operator=(const MultiSpMV<T,column_t,idx_t,N,own> &spmv);
 
 	template <class Expr, typename column_t, typename idx_t>
-	const multivector& operator=(const MultiExSpMV<Expr,T,column_t,idx_t,N> &xmv);
+	const multivector& operator=(const MultiExSpMV<Expr,T,column_t,idx_t,N,own> &xmv);
 
-	const multivector& operator=(const MultiConv<T,N> &cnv);
+	const multivector& operator=(const MultiConv<T,N,own> &cnv);
 
 	template <class Expr>
-	const multivector& operator=(const MultiExConv<Expr,T,N> &cnv);
+	const multivector& operator=(const MultiExConv<Expr,T,N,own> &cnv);
 
 	template <class func>
-	const multivector& operator=(const MultiGConv<func,T,N> &cnv);
+	const multivector& operator=(const MultiGConv<func,T,N,own> &cnv);
 
 	template <class Expr, class func>
-	const multivector& operator=(const MultiExGConv<Expr,func,T,N> &cnv);
+	const multivector& operator=(const MultiExGConv<Expr,func,T,N,own> &cnv);
 
 	template<uint width, uint center, const char *body>
-	const multivector& operator=(const MultiOperConv<T, N, width, center, body> &cnv);
+	const multivector& operator=(const MultiOperConv<T, N,own, width, center, body> &cnv);
 
 	template <class Expr, uint width, uint center, const char *body>
-	const multivector& operator=(const MultiExOperConv<Expr, T, N, width, center, body> &xc);
+	const multivector& operator=(const MultiExOperConv<Expr, T, N,own, width, center, body> &xc);
 	/// @}
 
     private:
@@ -1570,7 +1612,7 @@ class multivector {
 	    template <class Expr>
 		void operator()(const Expr &expr, uint pos) {
 		    KernelGenerator<Expr> kgen(expr);
-		    os << "\t\tres" << pos << "[i] = ";
+		    os << "\t\t" << type_name<T>() << " buf_res" << pos << " = ";
 		    kgen.kernel_expr(os, prefix[pos].str());
 		    os << ";\n";
 		}
@@ -1592,7 +1634,7 @@ class multivector {
 	};
 #endif
 
-	std::array<vex::vector<T>,N> vec;
+	std::array<typename multivector_subtype<T,own>::storage,N> vec;
 
 #ifndef VEXCL_SPLIT_MULTIVECTOR_OPERATIONS
 	template <class Expr>
@@ -1604,27 +1646,72 @@ class multivector {
 #endif
 };
 
+#ifdef VEXCL_VARIADIC_TEMPLATES
+template <typename T>
+struct Not : std::integral_constant<bool, !T::value> {};
+
+template <typename... T>
+struct All : std::true_type {};
+
+template <typename Head, typename... Tail>
+struct All<Head, Tail...>
+    : std::conditional<Head::value, All<Tail...>, std::false_type>::type
+{};
+
+/// Ties several vex::vectors into a multivector.
+/**
+ * The following example results in a single kernel:
+ * \code
+ * vex::vector<double> x(ctx.queue(), 1024);
+ * vex::vector<double> y(ctx.queue(), 1024);
+ *
+ * vex::tie(x,y) = std::make_tuple(
+ *			x + y,
+ *			y - x
+ *			);
+ * \endcode
+ * This is functionally equivalent to
+ * \code
+ * tmp_x = x + y;
+ * tmp_y = y - x;
+ * x = tmp_x;
+ * y = tmp_y;
+ * \endcode
+ * but does not use temporaries and is more efficient.
+ */
+template<typename T, class... Tail>
+typename std::enable_if<
+    All<std::is_same<vex::vector<T>,Tail>...>::value,
+    multivector<T, sizeof...(Tail) + 1, false>
+    >::type
+tie(vex::vector<T> &head, Tail&... tail) {
+    std::array<vex::vector<T>*, sizeof...(Tail) + 1> ptr = {&head, (&tail)...};
+
+    return multivector<T, sizeof...(Tail) + 1, false>(ptr);
+}
+#endif
+
 #ifndef VEXCL_SPLIT_MULTIVECTOR_OPERATIONS
-template <class T, uint N> template <class Expr>
-std::map<cl_context,bool> multivector<T,N>::exdata<Expr>::compiled;
+template <class T, uint N, bool own> template <class Expr>
+std::map<cl_context,bool> multivector<T,N,own>::exdata<Expr>::compiled;
 
-template <class T, uint N> template <class Expr>
-std::map<cl_context,cl::Kernel> multivector<T,N>::exdata<Expr>::kernel;
+template <class T, uint N, bool own> template <class Expr>
+std::map<cl_context,cl::Kernel> multivector<T,N,own>::exdata<Expr>::kernel;
 
-template <class T, uint N> template <class Expr>
-std::map<cl_context,size_t> multivector<T,N>::exdata<Expr>::wgsize;
+template <class T, uint N, bool own> template <class Expr>
+std::map<cl_context,size_t> multivector<T,N,own>::exdata<Expr>::wgsize;
 #endif
 
 /// Copy multivector to host vector.
-template <class T, uint N>
-void copy(const multivector<T,N> &mv, std::vector<T> &hv) {
+template <class T, uint N, bool own>
+void copy(const multivector<T,N,own> &mv, std::vector<T> &hv) {
     for(uint i = 0; i < N; i++)
 	vex::copy(mv(i).begin(), mv(i).end(), hv.begin() + i * mv.size());
 }
 
 /// Copy host vector to multivector.
-template <class T, uint N>
-void copy(const std::vector<T> &hv, multivector<T,N> &mv) {
+template <class T, uint N, bool own>
+void copy(const std::vector<T> &hv, multivector<T,N,own> &mv) {
     for(uint i = 0; i < N; i++)
 	vex::copy(hv.begin() + i * mv.size(), hv.begin() + (i + 1) * mv.size(),
 		mv(i).begin());
@@ -1891,17 +1978,6 @@ class BuiltinFunction : public expression {
 		    );
 	}
 };
-
-template <typename T>
-struct Not : std::integral_constant<bool, !T::value> {};
-
-template <typename... T>
-struct All : std::true_type {};
-
-template <typename Head, typename... Tail>
-struct All<Head, Tail...>
-    : std::conditional<Head::value, All<Tail...>, std::false_type>::type
-{};
 
 #define DEFINE_BUILTIN_FUNCTION(name) \
 struct name##_name { \
@@ -2360,9 +2436,9 @@ struct UserFunction<body, RetType(ArgType...)> {
 	return GConv<UserFunction, T>(s);
     }
 
-    template <class T, uint N>
-    MultiGConv<UserFunction,T,N> operator()(const MultiGStencilProd<T,N> &s) const {
-	return MultiGConv<UserFunction, T, N>(s);
+    template <class T, uint N, bool own>
+    MultiGConv<UserFunction,T,N,own> operator()(const MultiGStencilProd<T,N,own> &s) const {
+	return MultiGConv<UserFunction, T, N, own>(s);
     }
 
     static const char* value() {
