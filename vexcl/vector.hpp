@@ -1185,8 +1185,7 @@ class multivector {
 
 	/// Copy constructor.
 	multivector(const multivector &mv) {
-	    for(uint i = 0; i < N; i++)
-		vec[i].reset(new vex::vector<T>(mv(i)));
+	    copy_components<own>(mv);
 	}
 
 	/// Constructor.
@@ -1639,6 +1638,20 @@ class multivector {
 		}
 	};
 #endif
+
+	template <bool own_components>
+	typename std::enable_if<own_components,void>::type
+	copy_components(const multivector &mv) {
+	    for(uint i = 0; i < N; i++)
+		vec[i].reset(new vex::vector<T>(mv(i)));
+	}
+
+	template <bool own_components>
+	typename std::enable_if<!own_components,void>::type
+	copy_components(const multivector &mv) {
+	    for(uint i = 0; i < N; i++)
+		vec[i] = mv.vec[i];
+	}
 
 	std::array<typename multivector_subtype<T,own>::storage,N> vec;
 
