@@ -249,6 +249,34 @@ Components of a multivector may be accessed with operator():
 vex::vector<double> z = y(1);
 ```
 
+Sometimes operations with multicomponent vector cannot be expressed in simple
+erithmetic expressions. Imagine that you need to solve the following system of
+ordinary differential equations:
+```
+dx/dt = x + y;
+dy/dx = x - y;
+```
+
+If the system state is represented as `vex::multivector<double,2>`, then the
+system function for this ODE could be implemented as
+```C++
+// vex::multivector<double,2> dxdt, x;
+dxdt(0) = x(0) + x(1);
+dxdt(1) = x(0) - x(1);
+```
+
+This results in two kernel launches. Instead, you can use the following form:
+```C++
+dxdt = std::make_tuple(x(0) + x(1), x(0) - x(1));
+```
+This expression would generate and launch single combined kernel, which would
+be more effective. Multi-expressions like these may also be used with ordinary
+`vex::vectors` with help of `vex::tie()` function:
+```C++
+// vex::vector<double> dx, dy, x, y;
+vex::tie(dx,dy) = std::make_tuple(x + y, x - y);
+```
+
 Using custom kernels
 --------------------
 
