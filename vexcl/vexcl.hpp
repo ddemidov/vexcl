@@ -268,10 +268,10 @@ vex::vector<double> z = y(1);
 Sometimes operations with multicomponent vector cannot be expressed in simple
 erithmetic expressions. Imagine that you need to solve the following system of
 ordinary differential equations:
-\code
-dx/dt = x + y;
-dy/dx = x - y;
-\endcode
+\f[
+\frac{dx}{dt} = x + y, \quad 
+\frac{dy}{dt} = x - y.
+\f]
 
 If the system state is represented as vex::multivector<double,2>, then the
 system function for this ODE could be implemented as
