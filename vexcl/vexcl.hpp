@@ -265,8 +265,8 @@ Components of a multivector may be accessed with operator():
 vex::vector<double> z = y(1);
 \endcode
 
-Sometimes operations with multicomponent vector cannot be expressed in simple
-erithmetic expressions. Imagine that you need to solve the following system of
+Sometimes operations with multicomponent vector cannot be expressed with simple
+arithmetic expressions. Imagine that you need to solve the following system of
 ordinary differential equations:
 \f[
 \frac{dx}{dt} = x + y, \quad 
