@@ -632,6 +632,26 @@ int main(int argc, char *argv[]) {
 		return rc;
 	});
 
+	run_test("Multivector construction from a copy", [&]() -> bool {
+		bool rc = true;
+		const size_t n = 1024;
+		vex::multivector<double,3> m(ctx.queue(), n);
+
+		m(0) = 1;
+		m(1) = 2;
+		m(2) = 3;
+
+		vex::multivector<double,3> c(m);
+
+		c -= m;
+
+		Reductor<double,SUM> sum(ctx.queue());
+
+		rc = rc && m.size() == c.size();
+		rc = rc && fabs(sum(c(1))) < 1e-8;
+		return rc;
+	});
+
 	run_test("Access multivector's elements, copy data", [&]() -> bool {
 		bool rc = true;
 		const size_t n = 1024;

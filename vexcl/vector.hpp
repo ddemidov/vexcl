@@ -1704,7 +1704,7 @@ typename std::enable_if<
     multivector<T, sizeof...(Tail) + 1, false>
     >::type
 tie(vex::vector<T> &head, Tail&... tail) {
-    std::array<vex::vector<T>*, sizeof...(Tail) + 1> ptr = {&head, (&tail)...};
+    std::array<vex::vector<T>*, sizeof...(Tail) + 1> ptr = {{&head, (&tail)...}};
 
     return multivector<T, sizeof...(Tail) + 1, false>(ptr);
 }
