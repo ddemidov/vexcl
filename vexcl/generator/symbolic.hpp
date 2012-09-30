@@ -60,6 +60,14 @@ class symbolic {
 	    return *this;
 	}
 
+	const symbolic& operator=(const symbolic &s) {
+	    get_string(*os);
+	    (*os) << " = ";
+	    s.get_string(*os);
+	    (*os) << ";\n";
+	    return *this;
+	}
+
 	static void set_output(std::ostream &s) {
 	    os = &s;
 	}
