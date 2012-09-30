@@ -32,7 +32,7 @@ struct same_size_impl< state_type , state_type >
 } } }
 
 void sys_func(const state_type &x, state_type &dxdt, value_type t) {
-    dxdt = x;
+    dxdt = 42 * x;
 }
 
 int main() {
