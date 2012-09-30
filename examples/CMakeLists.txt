@@ -19,7 +19,10 @@ set(EXAMPLES
     utests
     vector
     exclusive
+    symbolic
     )
+
+include_directories(/home/demidov/work/karsten/odeint-v2)
 
 foreach(example ${EXAMPLES})
     add_executable(${example} ${example}.cpp)

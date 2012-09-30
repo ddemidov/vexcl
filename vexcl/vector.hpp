@@ -827,61 +827,6 @@ void swap(vector<T> &x, vector<T> &y) {
     x.swap(y);
 }
 
-/// \cond INTERNAL
-
-/// Binary operations with their traits.
-namespace binop {
-    enum kind {
-	Add,
-	Subtract,
-	Multiply,
-	Divide,
-	Remainder,
-	Greater,
-	Less,
-	GreaterEqual,
-	LessEqual,
-	Equal,
-	NotEqual,
-	BitwiseAnd,
-	BitwiseOr,
-	BitwiseXor,
-	LogicalAnd,
-	LogicalOr,
-	RightShift,
-	LeftShift
-    };
-
-    template <kind> struct traits {};
-
-#define BOP_TRAITS(kind, op, nm)   \
-    template <> struct traits<kind> {  \
-	static std::string oper() { return op; } \
-	static std::string name() { return nm; } \
-    };
-
-    BOP_TRAITS(Add,          "+",  "Add_")
-    BOP_TRAITS(Subtract,     "-",  "Sub_")
-    BOP_TRAITS(Multiply,     "*",  "Mul_")
-    BOP_TRAITS(Divide,       "/",  "Div_")
-    BOP_TRAITS(Remainder,    "%",  "Mod_")
-    BOP_TRAITS(Greater,      ">",  "Gtr_")
-    BOP_TRAITS(Less,         "<",  "Lss_")
-    BOP_TRAITS(GreaterEqual, ">=", "Geq_")
-    BOP_TRAITS(LessEqual,    "<=", "Leq_")
-    BOP_TRAITS(Equal,        "==", "Equ_")
-    BOP_TRAITS(NotEqual,     "!=", "Neq_")
-    BOP_TRAITS(BitwiseAnd,   "&",  "BAnd_")
-    BOP_TRAITS(BitwiseOr,    "|",  "BOr_")
-    BOP_TRAITS(BitwiseXor,   "^",  "BXor_")
-    BOP_TRAITS(LogicalAnd,   "&&", "LAnd_")
-    BOP_TRAITS(LogicalOr,    "||", "LOr_")
-    BOP_TRAITS(RightShift,   ">>", "Rsh_")
-    BOP_TRAITS(LeftShift,    "<<", "Lsh_")
-
-#undef BOP_TRAITS
-}
-
 /// Expression template.
 template <class LHS, binop::kind OP, class RHS>
 struct BinaryExpression : public expression {
