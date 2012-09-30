@@ -415,6 +415,10 @@ class Context {
 	    return q[d];
 	}
 
+        cl::Device device(uint d) const {
+            return q[d].getInfo<CL_QUEUE_DEVICE>();
+        }
+
 	size_t size() const {
 	    return q.size();
 	}
