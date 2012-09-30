@@ -540,7 +540,7 @@ class vector : public expression {
 				"\t\tres[i] = ";
 			} else {
 			    kernel <<
-				"\tsize_t grid_size = get_num_groups(0) * get_local_size(0);\n"
+				"\tsize_t grid_size = get_global_size(0);\n"
 				"\twhile (i < n) {\n"
 				"\t\tres[i] = ";
 			}
@@ -1317,7 +1317,7 @@ class multivector {
 			kernel << "\tif (i < n) {\n";
 		    } else {
 			kernel <<
-			    "\tsize_t grid_size = get_num_groups(0) * get_local_size(0);\n"
+			    "\tsize_t grid_size = get_global_size(0);\n"
 			    "\twhile (i < n) {\n";
 		    }
 
@@ -1441,7 +1441,7 @@ class multivector {
 			kernel << "\tif (i < n) {\n";
 		    } else {
 			kernel <<
-			    "\tsize_t grid_size = get_num_groups(0) * get_local_size(0);\n"
+			    "\tsize_t grid_size = get_global_size(0);\n"
 			    "\twhile (i < n) {\n";
 		    }
 

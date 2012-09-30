@@ -461,7 +461,7 @@ void stencil<T>::init(uint width) {
 		"    if (g_id < n) {\n";
 	    else
 		source <<
-		"    size_t grid_size = get_num_groups(0) * get_local_size(0);\n"
+		"    size_t grid_size = get_global_size(0);\n"
 		"    for(long g_id = get_global_id(0); g_id < n; g_id += grid_size) {\n";
 	    source <<
 		"        real sum = 0;\n"
@@ -487,7 +487,7 @@ void stencil<T>::init(uint width) {
 		"    local real *X\n"
 		"    )\n"
 		"{\n"
-		"    size_t grid_size = get_num_groups(0) * get_local_size(0);\n"
+		"    size_t grid_size = get_global_size(0);\n"
 		"    int l_id       = get_local_id(0);\n"
 		"    int block_size = get_local_size(0);\n"
 		"    for(int i = l_id; i < lhalo + rhalo + 1; i += block_size)\n"
@@ -954,7 +954,7 @@ void gstencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y,
 		"    if (g_id < n) {\n";
 	    else
 		source <<
-		"    size_t grid_size = get_num_groups(0) * get_local_size(0);\n"
+		"    size_t grid_size = get_global_size(0);\n"
 		"    for(long g_id = get_global_id(0); g_id < n; g_id += grid_size) {\n";
 	    source <<
 		"        real srow = 0;\n"
@@ -985,7 +985,7 @@ void gstencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y,
 		"    local real *X\n"
 		"    )\n"
 		"{\n"
-		"    size_t grid_size = get_num_groups(0) * get_local_size(0);\n"
+		"    size_t grid_size = get_global_size(0);\n"
 		"    int l_id       = get_local_id(0);\n"
 		"    int block_size = get_local_size(0);\n"
 		"    for(int i = l_id; i < rows * cols; i += block_size)\n"
@@ -1316,7 +1316,7 @@ StencilOperator<T, width, center, body>::StencilOperator(
 		"}\n";
 	    else
 		source <<
-		"    size_t grid_size = get_num_groups(0) * get_local_size(0);\n"
+		"    size_t grid_size = get_global_size(0);\n"
 		"    int l_id         = get_local_id(0);\n"
 		"    int block_size   = get_local_size(0);\n"
 		"    for(long g_id = get_global_id(0), pos = 0; pos < n; g_id += grid_size, pos += grid_size) {\n"

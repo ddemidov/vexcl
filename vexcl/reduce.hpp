@@ -400,7 +400,7 @@ std::string Reductor<real,RDC>::cpu_kernel_source(
 	"\tlocal  " << type_name<real>() << " *sdata\n"
 	"\t)\n"
 	"{\n"
-	"    size_t grid_size  = get_num_groups(0) * get_local_size(0);\n"
+	"    size_t grid_size  = get_global_size(0);\n"
 	"    size_t chunk_size = (n + grid_size - 1) / grid_size;\n"
 	"    size_t chunk_id   = get_global_id(0);\n"
 	"    size_t start      = min(n, chunk_size * chunk_id);\n"
