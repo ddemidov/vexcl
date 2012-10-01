@@ -30,7 +30,6 @@ class symbolic {
 
 	symbolic(bool need_declaration = true) : num(index++)
 	{
-	    (*os) << "default constructor" << std::endl;
 	    if (need_declaration) {
 		(*os) << type_name<T>() << " ";
 		get_string(*os);
@@ -39,7 +38,6 @@ class symbolic {
 	}
 
 	symbolic(const symbolic &s) : num(index++) {
-	    (*os) << "copy constructor" << std::endl;
 	    (*os) << type_name<T>() << " ";
 	    get_string(*os);
 	    (*os) << " = ";
