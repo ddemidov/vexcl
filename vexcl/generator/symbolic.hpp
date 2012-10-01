@@ -382,6 +382,30 @@ Kernel<Args...> build_kernel(
     return Kernel<Args...>(queue, name, body, args...);
 }
 
+template <class func_name, class Expr>
+class symbolic_builtin {
+    public:
+	static const bool is_symbolic = true;
+
+	symbolic_builtin(const Expr &expr) : expr(expr) {}
+
+	std::string get_string() const {
+	    std::ostringstream s;
+	    s << func_name::value() << "(" << expr.get_string() << ")";
+	    return s.str();
+	}
+    private:
+	const Expr &expr;
+};
+
+template <class Expr>
+typename std::enable_if<valid_symb<Expr>::value,
+	 symbolic_builtin<cos_name, Expr>
+	 >::type
+cos(const Expr &expr) {
+    return symbolic_builtin<cos_name, Expr>(expr);
+}
+
 } // namespace generator;
 
 } // namespace vex;
