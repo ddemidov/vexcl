@@ -19,10 +19,13 @@ set(EXAMPLES
     utests
     vector
     exclusive
-    symbolic
     )
 
-include_directories(/home/demidov/work/karsten/odeint-v2)
+find_path(ODEINT boost/numeric/odeint.hpp)
+if (ODEINT)
+    include_directories(${ODEINT})
+    set(EXAMPLES ${EXAMPLES} symbolic)
+endif (ODEINT)
 
 foreach(example ${EXAMPLES})
     add_executable(${example} ${example}.cpp)
