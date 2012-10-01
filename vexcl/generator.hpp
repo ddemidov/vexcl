@@ -382,29 +382,127 @@ Kernel<Args...> build_kernel(
     return Kernel<Args...>(queue, name, body, args...);
 }
 
-template <class func_name, class Expr>
+template <class func_name, class... Expr>
 class symbolic_builtin {
     public:
 	static const bool is_symbolic = true;
 
-	symbolic_builtin(const Expr &expr) : expr(expr) {}
+	symbolic_builtin(const Expr&... expr) : expr(expr...) {}
 
 	std::string get_string() const {
 	    std::ostringstream s;
-	    s << func_name::value() << "(" << expr.get_string() << ")";
+	    s << func_name::value() << "(";
+	    output_names out(s);
+	    for_each(out);
+	    s << ")";
 	    return s.str();
 	}
     private:
-	const Expr &expr;
+	const std::tuple<Expr...> expr;
+
+	template <uint pos = 0, class Function>
+	typename std::enable_if<(pos == sizeof...(Expr)), void>::type
+	for_each(Function &f) const
+	{ }
+
+	template <uint pos = 0, class Function>
+	typename std::enable_if<(pos < sizeof...(Expr)), void>::type
+	for_each(Function &f) const
+	{
+	    f( std::get<pos>(expr) );
+	    for_each<pos+1, Function>(f);
+	}
+
+	struct output_names {
+	    std::ostringstream &s;
+	    output_names(std::ostringstream &s) : s(s) {}
+
+	    template <class E>
+	    void operator()(const E &e) const {
+		s << terminal<E>::get(e);
+	    }
+
+	};
 };
 
-template <class Expr>
-typename std::enable_if<valid_symb<Expr>::value,
-	 symbolic_builtin<cos_name, Expr>
-	 >::type
-cos(const Expr &expr) {
-    return symbolic_builtin<cos_name, Expr>(expr);
+#define DEFINE_BUILTIN_FUNCTION(name) \
+template <class Expr> \
+typename std::enable_if<valid_symb<Expr>::value, \
+	 symbolic_builtin<name##_name, Expr> \
+	 >::type \
+name(const Expr &expr) { \
+    return symbolic_builtin<name##_name, Expr>(expr); \
 }
+
+DEFINE_BUILTIN_FUNCTION(acos)
+DEFINE_BUILTIN_FUNCTION(acosh)
+DEFINE_BUILTIN_FUNCTION(acospi)
+DEFINE_BUILTIN_FUNCTION(asin)
+DEFINE_BUILTIN_FUNCTION(asinh)
+DEFINE_BUILTIN_FUNCTION(asinpi)
+DEFINE_BUILTIN_FUNCTION(atan)
+DEFINE_BUILTIN_FUNCTION(atan2)
+DEFINE_BUILTIN_FUNCTION(atanh)
+DEFINE_BUILTIN_FUNCTION(atanpi)
+DEFINE_BUILTIN_FUNCTION(atan2pi)
+DEFINE_BUILTIN_FUNCTION(cbrt)
+DEFINE_BUILTIN_FUNCTION(ceil)
+DEFINE_BUILTIN_FUNCTION(copysign)
+DEFINE_BUILTIN_FUNCTION(cos)
+DEFINE_BUILTIN_FUNCTION(cosh)
+DEFINE_BUILTIN_FUNCTION(cospi)
+DEFINE_BUILTIN_FUNCTION(erfc)
+DEFINE_BUILTIN_FUNCTION(erf)
+DEFINE_BUILTIN_FUNCTION(exp)
+DEFINE_BUILTIN_FUNCTION(exp2)
+DEFINE_BUILTIN_FUNCTION(exp10)
+DEFINE_BUILTIN_FUNCTION(expm1)
+DEFINE_BUILTIN_FUNCTION(fabs)
+DEFINE_BUILTIN_FUNCTION(fdim)
+DEFINE_BUILTIN_FUNCTION(floor)
+DEFINE_BUILTIN_FUNCTION(fma)
+DEFINE_BUILTIN_FUNCTION(fmax)
+DEFINE_BUILTIN_FUNCTION(fmin)
+DEFINE_BUILTIN_FUNCTION(fmod)
+DEFINE_BUILTIN_FUNCTION(fract)
+DEFINE_BUILTIN_FUNCTION(frexp)
+DEFINE_BUILTIN_FUNCTION(hypot)
+DEFINE_BUILTIN_FUNCTION(ilogb)
+DEFINE_BUILTIN_FUNCTION(ldexp)
+DEFINE_BUILTIN_FUNCTION(lgamma)
+DEFINE_BUILTIN_FUNCTION(lgamma_r)
+DEFINE_BUILTIN_FUNCTION(log)
+DEFINE_BUILTIN_FUNCTION(log2)
+DEFINE_BUILTIN_FUNCTION(log10)
+DEFINE_BUILTIN_FUNCTION(log1p)
+DEFINE_BUILTIN_FUNCTION(logb)
+DEFINE_BUILTIN_FUNCTION(mad)
+DEFINE_BUILTIN_FUNCTION(maxmag)
+DEFINE_BUILTIN_FUNCTION(minmag)
+DEFINE_BUILTIN_FUNCTION(modf)
+DEFINE_BUILTIN_FUNCTION(nan)
+DEFINE_BUILTIN_FUNCTION(nextafter)
+DEFINE_BUILTIN_FUNCTION(pow)
+DEFINE_BUILTIN_FUNCTION(pown)
+DEFINE_BUILTIN_FUNCTION(powr)
+DEFINE_BUILTIN_FUNCTION(remainder)
+DEFINE_BUILTIN_FUNCTION(remquo)
+DEFINE_BUILTIN_FUNCTION(rint)
+DEFINE_BUILTIN_FUNCTION(rootn)
+DEFINE_BUILTIN_FUNCTION(round)
+DEFINE_BUILTIN_FUNCTION(rsqrt)
+DEFINE_BUILTIN_FUNCTION(sin)
+DEFINE_BUILTIN_FUNCTION(sincos)
+DEFINE_BUILTIN_FUNCTION(sinh)
+DEFINE_BUILTIN_FUNCTION(sinpi)
+DEFINE_BUILTIN_FUNCTION(sqrt)
+DEFINE_BUILTIN_FUNCTION(tan)
+DEFINE_BUILTIN_FUNCTION(tanh)
+DEFINE_BUILTIN_FUNCTION(tanpi)
+DEFINE_BUILTIN_FUNCTION(tgamma)
+DEFINE_BUILTIN_FUNCTION(trunc)
+
+#undef DEFINE_BUILTIN_FUNCTION
 
 } // namespace generator;
 

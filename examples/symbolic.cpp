@@ -5,7 +5,7 @@
 
 //#define VEXCL_SHOW_KERNELS
 #include <vexcl/vexcl.hpp>
-#include <vexcl/generator/symbolic.hpp>
+#include <vexcl/generator.hpp>
 
 #include <boost/numeric/odeint.hpp>
 #include <boost/numeric/odeint/algebra/vector_space_algebra.hpp>
