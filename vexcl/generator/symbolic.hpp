@@ -169,9 +169,9 @@ class symbolic {
 	    s << type_name<T>();
 
 	    if (dimension == Vector)
-		s << "* ";
+		s << "*";
 
-	    s << "p_" << get_string();
+	    s << " p_" << get_string();
 
 	    return s.str();
 	}
