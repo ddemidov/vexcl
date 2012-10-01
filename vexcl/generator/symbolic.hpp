@@ -78,7 +78,7 @@ class symbolic {
 	symbolic(
 		scope_type scope = LocalVar,
 		dimension_type dimension = Vector,
-		constness_type constness = Const
+		constness_type constness = NonConst
 		)
 	    : num(index++), scope(scope), dimension(dimension), constness(constness)
 	{
