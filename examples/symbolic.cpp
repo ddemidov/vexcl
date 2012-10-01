@@ -1,49 +1,76 @@
 #include <iostream>
-#include <boost/numeric/odeint.hpp>
+#include <iomanip>
+#include <string>
+#include <sstream>
+
+#define VEXCL_SHOW_KERNELS
+#include <vexcl/vexcl.hpp>
 #include <vexcl/generator/symbolic.hpp>
+
+#include <boost/numeric/odeint.hpp>
+#include <boost/numeric/odeint/algebra/vector_space_algebra.hpp>
+#include <boost/numeric/odeint/external/vexcl/vexcl_resize.hpp>
 
 namespace odeint = boost::numeric::odeint;
 
 typedef double value_type;
-typedef vex::generator::symbolic<value_type> state_type;
+typedef vex::generator::symbolic<value_type> symbolic_state;
+typedef vex::vector<value_type> real_state;
 
-namespace boost { namespace numeric { namespace odeint {
-
-template<>
-struct is_resizeable< state_type > : boost::true_type { };
-
-template<>
-struct resize_impl< state_type , state_type >
-{
-    static void resize( state_type &x1 , const state_type &x2 )
-    {
-    }
-};
-
-template<>
-struct same_size_impl< state_type , state_type >
-{
-    static bool same_size( const state_type &x1 , const state_type &x2 )
-    {
-        return true;
-    }
-};
-
-} } }
-
+template <class state_type>
 void sys_func(const state_type &x, state_type &dxdt, value_type t) {
-    dxdt = 42 * x;
+    dxdt = 0.042 * x;
 }
 
 int main() {
-    state_type::set_output(std::cout);
+    const size_t n  = 1024;
+    const double dt = 0.01;
+    const double t_max = 1.0;
 
-    state_type x(false);
+    vex::Context ctx( vex::Filter::Env );
+    std::cout << ctx;
 
+    // Custom kernel body will be recorded here:
+    std::ostringstream body;
+    vex::generator::set_recorder(body);
+
+    // This state type is used for kernel recording.
+    symbolic_state sym_x(false);
+
+    // Construct arbitrary stepper with symbolic state type...
     odeint::runge_kutta4<
-	    state_type , value_type , state_type , value_type ,
+	    symbolic_state , value_type , symbolic_state , value_type ,
+	    odeint::vector_space_algebra, odeint::default_operations
+	    > sym_stepper;
+
+    // ... record one step to a kernel body, ...
+    sym_stepper.do_step(sys_func<symbolic_state>, sym_x, 0, dt);
+
+    // ... and construct custom kernel:
+    auto kernel = vex::generator::build_kernel(ctx.queue(), "test", body.str(),
+	    sym_x);
+
+    // Construct and init real state vector:
+    real_state x(ctx.queue(), n);
+    x = 1.0;
+
+    // Do integration loop:
+    for(value_type t = 0; t < t_max; t += dt)
+	kernel(x);
+
+    // Show result:
+    std::cout << "Custom kernel: " << x[0] << std::endl;
+
+    //------------------------------------------------------------
+    // Compare result with normal odeint solution.
+    odeint::runge_kutta4<
+	    real_state , value_type , real_state , value_type ,
 	    odeint::vector_space_algebra, odeint::default_operations
 	    > stepper;
 
-    odeint::integrate_const( stepper, sys_func, x , 0.0 , 0.1 , 0.1 );
+    x = 1.0;
+    for(value_type t = 0; t < t_max; t += dt)
+	stepper.do_step(sys_func<real_state>, x, t, dt);
+
+    std::cout << "odeint: " << x[0] << std::endl;
 }
