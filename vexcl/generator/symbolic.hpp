@@ -55,19 +55,34 @@ struct terminal< T, typename std::enable_if<T::is_symbolic>::type > {
     }
 };
 
-enum symbolic_kind {
-    VECTOR,
-    SCALAR
-};
-
-template <typename T, symbolic_kind kind = VECTOR, bool is_const = false>
+template <typename T>
 class symbolic {
     public:
+	enum scope_type {
+	    LocalVar  = 0,
+	    Parameter = 1
+	};
+
+	enum dimension_type {
+	    Scalar = 0,
+	    Vector = 1
+	};
+
+	enum constness_type {
+	    NonConst = 0,
+	    Const = 1
+	};
+
 	static const bool is_symbolic = true;
 
-	symbolic(bool need_declaration = true) : num(index++)
+	symbolic(
+		scope_type scope = LocalVar,
+		dimension_type dimension = Vector,
+		constness_type constness = Const
+		)
+	    : num(index++), scope(scope), dimension(dimension), constness(constness)
 	{
-	    if (need_declaration) {
+	    if (scope == LocalVar) {
 		get_recorder()
 		    << type_name<T>() << " " << get_string() << ";\n";
 	    }
@@ -121,11 +136,11 @@ class symbolic {
 	    std::ostringstream s;
 	    s << type_name<T>() << " " << get_string() << " = p_" << get_string();
 
-	    switch (kind) {
-		case VECTOR:
+	    switch (dimension) {
+		case Vector:
 		    s << "[idx];\n";
 		    break;
-		case SCALAR:
+		case Scalar:
 		    s << ";\n";
 		    break;
 	    }
@@ -136,7 +151,7 @@ class symbolic {
 	std::string write() const {
 	    std::ostringstream s;
 
-	    if (kind == VECTOR && !is_const)
+	    if (dimension == Vector && constness == NonConst)
 		s << "p_" << get_string() << "[idx] = " << get_string() << ";\n";
 
 	    return s.str();
@@ -145,15 +160,15 @@ class symbolic {
 	std::string prmdecl() const {
 	    std::ostringstream s;
 
-	    if (kind == VECTOR)
+	    if (dimension == Vector)
 		s << "global ";
 
-	    if (is_const)
+	    if (constness == Const)
 		s << "const ";
 
 	    s << type_name<T>();
 
-	    if (kind == VECTOR)
+	    if (dimension == Vector)
 		s << "* ";
 
 	    s << "p_" << get_string();
@@ -163,10 +178,14 @@ class symbolic {
     private:
 	static size_t index;
 	size_t num;
+
+	scope_type     scope;
+	dimension_type dimension;
+	constness_type constness;
 };
 
-template <typename T, symbolic_kind kind, bool is_const>
-size_t symbolic<T, kind, is_const>::index = 0;
+template <typename T>
+size_t symbolic<T>::index = 0;
 
 template <class LHS, binop::kind OP, class RHS>
 struct symbolic_expression {

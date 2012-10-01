@@ -37,7 +37,7 @@ int main() {
     vex::generator::set_recorder(body);
 
     // This state type is used for kernel recording.
-    symbolic_state sym_x(false);
+    symbolic_state sym_x(symbolic_state::Parameter);
 
     // Construct arbitrary stepper with symbolic state type...
     odeint::runge_kutta4<
