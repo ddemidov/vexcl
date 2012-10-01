@@ -3,7 +3,7 @@
 #include <string>
 #include <sstream>
 
-#define VEXCL_SHOW_KERNELS
+//#define VEXCL_SHOW_KERNELS
 #include <vexcl/vexcl.hpp>
 #include <vexcl/generator/symbolic.hpp>
 
@@ -23,11 +23,13 @@ void sys_func(const state_type &x, state_type &dxdt, value_type t) {
 }
 
 int main() {
-    const size_t n  = 1024;
+    const size_t n  = 1024 * 1024;
     const double dt = 0.01;
-    const double t_max = 1.0;
+    const double t_max = 100.0;
 
-    vex::Context ctx( vex::Filter::Env );
+    vex::Context ctx( vex::Filter::Env,
+	    CL_QUEUE_PROFILING_ENABLE
+	    );
     std::cout << ctx;
 
     // Custom kernel body will be recorded here:
@@ -54,9 +56,13 @@ int main() {
     real_state x(ctx.queue(), n);
     x = 1.0;
 
+    vex::profiler prof(ctx.queue());
+
     // Do integration loop:
+    prof.tic_cl("Custom");
     for(value_type t = 0; t < t_max; t += dt)
 	kernel(x);
+    prof.toc("Custom");
 
     // Show result:
     std::cout << "Custom kernel: " << x[0] << std::endl;
@@ -69,8 +75,12 @@ int main() {
 	    > stepper;
 
     x = 1.0;
+    prof.tic_cl("odeint");
     for(value_type t = 0; t < t_max; t += dt)
 	stepper.do_step(sys_func<real_state>, x, t, dt);
+    prof.toc("odeint");
 
     std::cout << "odeint: " << x[0] << std::endl;
+
+    std::cout << prof;
 }
