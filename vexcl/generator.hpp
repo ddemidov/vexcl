@@ -152,7 +152,7 @@ class symbolic {
 
 	/// Expression constructor. Results in local variable initialized by expression.
 	template <class Expr>
-	symbolic(const Expr &expr)
+	explicit symbolic(const Expr &expr)
 	    : num(index++),
 	      scope(LocalVar), constness(NonConst)
 	{
