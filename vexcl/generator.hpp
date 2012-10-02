@@ -474,7 +474,7 @@ class symbolic_builtin {
     public:
 	static const bool is_symbolic = true;
 
-	symbolic_builtin(const Expr&... expr) : expr(expr...) {}
+	symbolic_builtin(const Expr&... expr) : expr(std::ref(expr)...) {}
 
 	std::string get_string() const {
 	    std::ostringstream s;
@@ -485,7 +485,7 @@ class symbolic_builtin {
 	    return s.str();
 	}
     private:
-	const std::tuple<Expr...> expr;
+	const std::tuple<std::reference_wrapper<const Expr>...> expr;
 
 	template <uint pos = 0, class Function>
 	typename std::enable_if<(pos == sizeof...(Expr)), void>::type
@@ -496,7 +496,7 @@ class symbolic_builtin {
 	typename std::enable_if<(pos < sizeof...(Expr)), void>::type
 	for_each(Function &f) const
 	{
-	    f( std::get<pos>(expr) );
+	    f( std::get<pos>(expr).get() );
 	    for_each<pos+1, Function>(f);
 	}
 

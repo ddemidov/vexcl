@@ -10,6 +10,10 @@
 //#define VEXCL_SHOW_KERNELS
 #include <vexcl/vexcl.hpp>
 
+#ifdef VEXCL_VARIADIC_TEMPLATES
+#  include <vexcl/generator.hpp>
+#endif
+
 using namespace vex;
 
 static bool all_passed = true;
@@ -31,6 +35,29 @@ UserFunction<greater_body, size_t(double, double)> greater;
 
 extern const char pow3_body[] = "return pow(prm1, 3.0);";
 UserFunction<pow3_body, double(double)> pow3;
+
+template <class state_type>
+void sys_func(const state_type &x, state_type &dx, double dt) {
+    dx = dt * sin(x);
+}
+
+template <class state_type, class SysFunction>
+void runge_kutta_4(SysFunction sys, state_type &x, double dt) {
+    state_type xtmp, k1, k2, k3, k4;
+
+    sys(x, k1, dt);
+
+    xtmp = x + 0.5 * k1;
+    sys(xtmp, k2, dt);
+
+    xtmp = x + 0.5 * k2;
+    sys(xtmp, k3, dt);
+
+    xtmp = x + k3;
+    sys(xtmp, k4, dt);
+
+    x += (k1 + 2 * k2 + 2 * k3 + k4) / 6;
+}
 #endif
 
 extern const char pow3_oper_body[] = "return X[0] + pow(X[-1] + X[1], 3.0);";
@@ -1387,6 +1414,45 @@ int main(int argc, char *argv[]) {
 		rc = rc && res < 1e-8;
 		return rc;
 		});
+
+#ifdef VEXCL_VARIADIC_TEMPLATES
+	run_test("Kernel auto-generation", [&]() -> bool {
+		bool rc = true;
+		const int n = 1 << 20;
+
+		std::ostringstream body;
+		generator::set_recorder(body);
+
+		typedef generator::symbolic<double> sym_state;
+
+		double dt = 0.01;
+		sym_state sym_x(sym_state::VectorParameter);
+
+		// Record expression sequience.
+		runge_kutta_4(sys_func<sym_state>, sym_x, dt); 
+
+		// Build kernel.
+		auto kernel = generator::build_kernel(ctx.queue(),
+		    "rk4_stepper", body.str(), sym_x);
+
+		std::vector<double> x(n);
+		std::generate(x.begin(), x.end(), [](){ return (double)rand() / RAND_MAX; });
+
+		vex::vector<double> X(ctx.queue(), x);
+
+		// Make 100 iterations on CPU with x[0].
+		for(int i = 0; i < 100; i++)
+		    runge_kutta_4(sys_func<double>, x[0], dt);
+
+		// Make 100 iterations on GPU with full X vector.
+		for(int i = 0; i < 100; i++)
+		    kernel(X);
+
+		// Compare results.
+		rc = rc && fabs(x[0] - X[0]) < 1e-8;
+		return rc;
+		});
+#endif
 
     } catch (const cl::Error &err) {
 	std::cerr << "OpenCL error: " << err << std::endl;

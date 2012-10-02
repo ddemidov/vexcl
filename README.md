@@ -277,6 +277,96 @@ be more effective. Multi-expressions like these may also be used with ordinary
 vex::tie(dx,dy) = std::make_tuple(x + y, x - y);
 ```
 
+Converting existing algorithms to kernels
+-----------------------------------------------
+
+VexCL kernel generator allows to transparently convert existing CPU algorithm
+to an OpenCL kernel. In order to do this you need to record sequence of
+arithmetic expressions made by an algorithm and convert the recorded sequence
+to a kernel. The recording part is done with help of
+`vex::generator::symbolic<T>` class. The class supports arithmetic expression
+templates and simply outputs to provided stream any expressions it is being
+subjected to.
+
+To illustrate this, imagine that you have generic algorithm for a 4th order
+Runge-Kutta ODE stepper:
+
+```C++
+template <class state_type, class SysFunction>
+void runge_kutta_4(SysFunction sys, state_type &x, double dt) {
+    state_type xtmp, k1, k2, k3, k4;
+
+    sys(x, k1, dt);
+
+    xtmp = x + 0.5 * k1;
+    sys(xtmp, k2, dt);
+
+    xtmp = x + 0.5 * k2;
+    sys(xtmp, k3, dt);
+
+    xtmp = x + k3;
+    sys(xtmp, k4, dt);
+
+    x += (k1 + 2 * k2 + 2 * k3 + k4) / 6;
+}
+```
+To model equation `dx/dt = sin(x)` we also provide the following system function:
+```C++
+template <class state_type>
+void sys_func(const state_type &x, state_type &dx, double dt) {
+    dx = dt * sin(x);
+}
+```
+Now, to make a hundred of RK4 iterations for a `double` value on CPU, all that
+we need to do is
+```C++
+double x  = 1;
+double dt = 0.01;
+for(int i = 0; i < 100; i++)
+    runge_kutta_4(sys_func<double>, x, dt);
+```
+Let us now generate the kernel for single RK4 step and apply the kernel to a
+`vex::vector<double>` (by doing this we essentially simpultaneously solve big
+number of same ODEs with different initial conditions).
+```C++
+// Set recorder for expression sequence.
+std::ostringstream body;
+vex::generator::set_recorder(body);
+
+// Create symbolic variable.
+typedef vex::generator::symbolic<double> sym_state;
+sym_state sym_x(sym_state::VectorParameter);
+
+// Record expression sequience.
+double dt = 0.01;
+runge_kutta_4(sys_func<sym_state>, sym_x, dt);
+
+// Build kernel.
+auto kernel = vex::generator::build_kernel(ctx.queue(),
+    "rk4_stepper", body.str(), sym_x);
+
+// Create and initialize vector of states.
+std::vector<double> xinit(n);
+std::generate(xinit.begin(), xinit.end(), [](){
+    return (double)rand() / RAND_MAX;
+    });
+vex::vector<double> x(ctx.queue(), n);
+vex::copy(xinit, x);
+
+// Make 100 rk4 steps.
+for(int i = 0; i < 100; i++) kernel(x);
+```
+This is much more effective than (for this to work correctly we would need to
+slightly change sys_func):
+```C++
+for(int i = 0; i < 100; i++)
+    runge_kutta_4(sys_func<vex::vector<double>>, x, dt);
+```
+The generated kernel is more effective because temporary values used in
+sys_func are now represented not as full-blown vex::vectors, but as fast
+register variables inside the kernel body. We have seen upto tenfold
+performance improvement with this technique.
+
 Using custom kernels
 --------------------
 
