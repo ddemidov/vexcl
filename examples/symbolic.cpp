@@ -57,14 +57,23 @@ int main( int argc , char **argv )
 
     // State types that would become kernel parameters:
     sym_state sym_S = {{
-	sym_value::Parameter,
-	sym_value::Parameter,
-	sym_value::Parameter
+	sym_value::VectorParameter,
+	sym_value::VectorParameter,
+	sym_value::VectorParameter
     }};
 
     // Const kernel parameter.
-    sym_value sym_R(sym_value::Parameter, sym_value::Vector, sym_value::Const);
+    sym_value sym_R(sym_value::VectorParameter, sym_value::Const);
 
+    /* Odeint is modern C++ library for ODE solution. We can use its collection
+     * of ODE steppers to generate effective kernel which would compute one
+     * iteration of a 4th order Runge-Kutta method. For that, we instantiate
+     * appropriate odeint stepper with vex::symbolic<double> as a value type.
+     * One iteration of the stepper would provide us with sequence of
+     * expressions suitable for generation of requiered kernel.  This technique
+     * may be used with any generic algorithms for generation of customized and
+     * effective kernels.
+     */
     // Symbolic stepper:
     odeint::runge_kutta4<
 	    sym_state , value_type , sym_state , value_type ,
