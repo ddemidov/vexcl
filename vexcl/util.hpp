@@ -50,6 +50,7 @@ THE SOFTWARE.
 #include <type_traits>
 #include <functional>
 #include <CL/cl.hpp>
+#include <climits>
 
 typedef unsigned int  uint;
 typedef unsigned char uchar;
@@ -66,17 +67,10 @@ template <> inline std::string type_name<bool>()   { return "bool"; }
 template <> inline std::string type_name<uint>()   { return "unsigned int"; }
 template <> inline std::string type_name<uchar>()  { return "unsigned char"; }
 
-template <> inline
-typename std::enable_if<sizeof(size_t) == 8, std::string>::type
-type_name<size_t>() {
-    return sizeof(size_t) == 4 ? "uint" : "ulong";
-}
-
-template <> inline
-typename std::enable_if<sizeof(size_t) == 8, std::string>::type
-type_name<ptrdiff_t>() {
-    return sizeof(size_t) == 4 ? "int" : "long";
-}
+#if (  __WORDSIZE == 64)
+template <> inline std::string type_name<size_t>()    { return "ulong"; }
+template <> inline std::string type_name<ptrdiff_t>() { return "long"; }
+#endif
 
 const std::string standard_kernel_header = std::string(
 	"#if defined(cl_khr_fp64)\n"
