@@ -66,15 +66,15 @@ template <> inline std::string type_name<bool>()   { return "bool"; }
 template <> inline std::string type_name<uint>()   { return "unsigned int"; }
 template <> inline std::string type_name<uchar>()  { return "unsigned char"; }
 
-template <> inline std::string type_name<size_t>() {
-    static_assert(sizeof(size_t) == 4 || sizeof(size_t) == 8,
-	    "Only 32bit or 64bit architectures are supported");
+template <> inline
+typename std::enable_if<sizeof(size_t) == 8, std::string>::type
+type_name<size_t>() {
     return sizeof(size_t) == 4 ? "uint" : "ulong";
 }
 
-template <> inline std::string type_name<ptrdiff_t>() {
-    static_assert(sizeof(size_t) == 4 || sizeof(size_t) == 8,
-	    "Only 32bit or 64bit architectures are supported");
+template <> inline
+typename std::enable_if<sizeof(size_t) == 8, std::string>::type
+type_name<ptrdiff_t>() {
     return sizeof(size_t) == 4 ? "int" : "long";
 }
 

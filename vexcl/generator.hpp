@@ -50,6 +50,7 @@ THE SOFTWARE.
 #include <sstream>
 #include <map>
 #include <exception>
+#include <stdexcept>
 #include <type_traits>
 #include <vexcl/util.hpp>
 
