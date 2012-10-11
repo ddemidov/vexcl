@@ -428,6 +428,8 @@ class Context {
 };
 
 
+} // namespace vex
+
 /// Output list of devices to stream.
 inline std::ostream& operator<<(std::ostream &os, const std::vector<cl::Device> &device) {
     uint p = 1;
@@ -454,8 +456,6 @@ inline std::ostream& operator<<(std::ostream &os, const std::vector<cl::CommandQ
 inline std::ostream& operator<<(std::ostream &os, const vex::Context &ctx) {
     return os << ctx.queue();
 }
-
-} // namespace vex
 
 #ifdef WIN32
 #  pragma warning(pop)

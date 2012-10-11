@@ -318,6 +318,8 @@ inline uint kernel_workgroup_size(
     return wgsz;
 }
 
+} // namespace vex
+
 /// Output description of an OpenCL error to a stream.
 inline std::ostream& operator<<(std::ostream &os, const cl::Error &e) {
     os << e.what() << "(";
@@ -480,8 +482,6 @@ inline std::ostream& operator<<(std::ostream &os, const cl::Error &e) {
 
     return os << ")";
 }
-
-} // namespace vex
 
 #ifdef WIN32
 #  pragma warning(pop)

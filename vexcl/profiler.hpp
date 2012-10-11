@@ -269,12 +269,7 @@ class profiler {
 	    return delta;
 	}
 
-    private:
-	std::string name;
-	const std::vector<cl::CommandQueue> &queue;
-	cpu_profile_unit root;
-	std::stack<profile_unit*> stack;
-
+	/// Outputs profile to the provided stream.
 	void print(std::ostream &out) {
 	    if (stack.top() != &root)
 		out << "Warning! Profile is incomplete." << std::endl;
@@ -285,16 +280,19 @@ class profiler {
 	    root.print(out, name, 0, length, root.max_line_width(name, 0));
 	}
 
-	friend std::ostream& operator<<(std::ostream &out, profiler &prof);
-
+    private:
+	std::string name;
+	const std::vector<cl::CommandQueue> &queue;
+	cpu_profile_unit root;
+	std::stack<profile_unit*> stack;
 };
 
-inline std::ostream& operator<<(std::ostream &os, profiler &prof) {
+} // namespace vex
+
+inline std::ostream& operator<<(std::ostream &os, vex::profiler &prof) {
     prof.print(os);
     return os;
 }
-
-} // namespace vex
 
 #ifdef WIN32
 #  pragma warning(pop)
