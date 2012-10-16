@@ -738,6 +738,7 @@ int main(int argc, char *argv[]) {
 		return rc;
 	});
 
+#ifdef VEXCL_VARIADIC_TEMPLATES
 	run_test("Multiexpressions with multivectors", [&]() -> bool {
 		bool rc = true;
 		const size_t n = 1024;
@@ -812,6 +813,7 @@ int main(int argc, char *argv[]) {
 
 		return rc;
 	});
+#endif
 
 	run_test("One-argument builtin function call for multivector", [&]() -> bool {
 		bool rc = true;

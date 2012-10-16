@@ -67,7 +67,7 @@ template <> inline std::string type_name<bool>()   { return "bool"; }
 template <> inline std::string type_name<uint>()   { return "unsigned int"; }
 template <> inline std::string type_name<uchar>()  { return "unsigned char"; }
 
-#if (  __WORDSIZE == 64)
+#if (__WORDSIZE == 64) || defined(_WIN64)
 template <> inline std::string type_name<size_t>()    { return "ulong"; }
 template <> inline std::string type_name<ptrdiff_t>() { return "long"; }
 #endif

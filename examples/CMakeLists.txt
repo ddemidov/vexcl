@@ -1,3 +1,11 @@
+set(EXAMPLES
+    benchmark
+    cg
+    devlist
+    utests
+    vector
+    )
+
 if (WIN32)
     find_library(OPENCL_LIBRARY OpenCL
 	"c:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v4.0/lib/x64"
@@ -6,20 +14,19 @@ if (WIN32)
 	"c:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v4.0/include"
 	)
     include_directories(${OPENCL_INCLUDE})
+
+    set(Boost_USE_STATIC_LIBS ON)
+    find_package(Boost COMPONENTS date_time QUIET)
+    if (Boost_FOUND)
+	include_directories(${Boost_INCLUDE_DIRS})
+	set(EXAMPLES ${EXAMPLES} exclusive)
+    endif (Boost_FOUND)
 else (WIN32)
     find_library(OPENCL_LIBRARY OpenCL)
+    set(EXAMPLES ${EXAMPLES} exclusive)
 endif (WIN32)
 
 include_directories(${CMAKE_SOURCE_DIR})
-
-set(EXAMPLES
-    benchmark
-    cg
-    devlist
-    utests
-    vector
-    exclusive
-    )
 
 find_path(ODEINT boost/numeric/odeint.hpp)
 if (ODEINT)
@@ -38,5 +45,8 @@ foreach(example ${EXAMPLES})
     if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -stdlib=libc++")
     endif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-endforeach(example)
 
+    if (WIN32 AND "${example}" STREQUAL "exclusive")
+	target_link_libraries(${example} ${Boost_DATE_TIME_LIBRARY})
+    endif(WIN32 AND "${example}" STREQUAL "exclusive")
+endforeach(example)
