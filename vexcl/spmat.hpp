@@ -393,8 +393,8 @@ SpMat<real,column_t,idx_t>::SpMat(
     auto xpart = partition(m, queue);
 
     for(auto q = queue.begin(); q != queue.end(); q++) {
-	cl::Context context = q->getInfo<CL_QUEUE_CONTEXT>();
-	cl::Device  device  = q->getInfo<CL_QUEUE_DEVICE>();
+	cl::Context context = qctx(*q);
+	cl::Device  device  = qdev(*q);
 
 	// Compile kernels.
 	if (!compiled[context()]) {
@@ -437,7 +437,7 @@ SpMat<real,column_t,idx_t>::SpMat(
     // Each device get it's own strip of the matrix.
     for(uint d = 0; d < queue.size(); d++) {
 	if (part[d + 1] > part[d]) {
-	    cl::Device device = queue[d].getInfo<CL_QUEUE_DEVICE>();
+	    cl::Device device = qdev(queue[d]);
 
 	    if (device.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU)
 		mtx[d].reset(
@@ -623,7 +623,7 @@ SpMat<real,column_t,idx_t>::SpMatELL::SpMatELL(
 	)
     : queue(queue), n(end - beg), pitch(alignup(n, 16U))
 {
-    cl::Context context = queue.getInfo<CL_QUEUE_CONTEXT>();
+    cl::Context context = qctx(queue);
 
     prepare_kernels(context);
 
@@ -944,8 +944,8 @@ void SpMat<real,column_t,idx_t>::SpMatELL::mul_local(
 	real alpha, bool append
 	) const
 {
-    cl::Context context = queue.getInfo<CL_QUEUE_CONTEXT>();
-    cl::Device  device  = queue.getInfo<CL_QUEUE_DEVICE>();
+    cl::Context context = qctx(queue);
+    cl::Device  device  = qdev(queue);
 
     size_t g_size = device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>()
 	* wgsize[context()] * 4;
@@ -1008,8 +1008,8 @@ void SpMat<real,column_t,idx_t>::SpMatELL::mul_remote(
 	real alpha, const std::vector<cl::Event> &event
 	) const
 {
-    cl::Context context = queue.getInfo<CL_QUEUE_CONTEXT>();
-    cl::Device  device  = queue.getInfo<CL_QUEUE_DEVICE>();
+    cl::Context context = qctx(queue);
+    cl::Device  device  = qdev(queue);
 
     size_t g_size = device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>()
 	* wgsize[context()] * 4;
@@ -1073,7 +1073,7 @@ SpMat<real,column_t,idx_t>::SpMatCSR::SpMatCSR(
 	)
     : queue(queue), n(end - beg), has_loc(false), has_rem(false)
 {
-    cl::Context context = queue.getInfo<CL_QUEUE_CONTEXT>();
+    cl::Context context = qctx(queue);
 
     prepare_kernels(context);
 

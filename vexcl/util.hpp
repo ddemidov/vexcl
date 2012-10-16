@@ -318,12 +318,14 @@ inline uint kernel_workgroup_size(
     return wgsz;
 }
 
+/// Shortcut for q.getInfo<CL_QUEUE_CONTEXT>()
 inline cl::Context qctx(const cl::CommandQueue& q) {
     cl::Context ctx;
     q.getInfo(CL_QUEUE_CONTEXT, &ctx);
     return ctx;
 }
 
+/// Shortcut for q.getInfo<CL_QUEUE_DEVICE>()
 inline cl::Device qdev(const cl::CommandQueue& q) {
     cl::Device dev;
     q.getInfo(CL_QUEUE_DEVICE, &dev);

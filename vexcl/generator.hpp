@@ -395,8 +395,8 @@ class Kernel {
 #endif
 
 	    for(auto q = queue.begin(); q != queue.end(); q++) {
-		cl::Context context = q->getInfo<CL_QUEUE_CONTEXT>();
-		cl::Device  device  = q->getInfo<CL_QUEUE_DEVICE>();
+		cl::Context context = qctx(*q);
+		cl::Device  device  = qdev(*q);
 
 		auto program = build_sources(context, source.str());
 

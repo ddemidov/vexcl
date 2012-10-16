@@ -416,7 +416,7 @@ class Context {
 	}
 
         cl::Device device(uint d) const {
-            return q[d].getInfo<CL_QUEUE_DEVICE>();
+            return qdev(q[d]);
         }
 
 	size_t size() const {
@@ -445,9 +445,7 @@ inline std::ostream& operator<<(std::ostream &os, const std::vector<cl::CommandQ
     uint p = 1;
 
     for(auto q = queue.begin(); q != queue.end(); q++)
-	os << p++ << ". "
-	   << q->getInfo<CL_QUEUE_DEVICE>().getInfo<CL_DEVICE_NAME>()
-	   << std::endl;
+	os << p++ << ". " << vex::qdev(*q).getInfo<CL_DEVICE_NAME>() << std::endl;
 
     return os;
 }

@@ -140,10 +140,10 @@ Reductor<real,RDC>::Reductor(const std::vector<cl::CommandQueue> &queue)
     idx.push_back(0);
 
     for(auto q = queue.begin(); q != queue.end(); q++) {
-	cl::Context context = q->getInfo<CL_QUEUE_CONTEXT>();
-	cl::Device d = q->getInfo<CL_QUEUE_DEVICE>();
+	cl::Context context = qctx(*q);
+	cl::Device  device  = qdev(*q);
 
-	size_t bufsize = d.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() * 2U;
+	size_t bufsize = device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() * 2U;
 	idx.push_back(idx.back() + bufsize);
 
 	dbuf.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, bufsize * sizeof(real)));

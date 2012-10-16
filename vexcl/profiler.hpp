@@ -165,8 +165,7 @@ class profiler {
 		      dbuf(queue.size()), hbuf(queue.size())
 		{
 		    for(uint d = 0; d < queue.size(); d++) {
-			cl::Context context = queue[d].getInfo<CL_QUEUE_CONTEXT>();
-			dbuf[d] = cl::Buffer(context, CL_MEM_READ_WRITE, 1);
+			dbuf[d] = cl::Buffer(qctx(queue[d]), CL_MEM_READ_WRITE, 1);
 		    }
 		}
 
