@@ -1,4 +1,5 @@
 build
+.clang_complete
 .*.swp
 *.mat
 *.dat
