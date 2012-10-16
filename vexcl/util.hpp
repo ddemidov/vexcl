@@ -135,6 +135,8 @@ namespace binop {
 #undef BOP_TRAITS
 }
 
+/// \endcond
+
 /// Return next power of 2.
 inline size_t nextpow2(size_t x) {
     --x;
