@@ -31,10 +31,12 @@ foreach(example ${EXAMPLES})
     add_executable(${example} ${example}.cpp)
     target_link_libraries(${example} ${OPENCL_LIBRARY})
 
-    if (NOT WIN32)
-	set_target_properties(${example} PROPERTIES
-	    COMPILE_FLAGS -std=c++0x
-	    )
-    endif (NOT WIN32)
+    if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
+    endif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+
+    if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -stdlib=libc++")
+    endif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
 endforeach(example)
 
