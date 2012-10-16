@@ -223,7 +223,7 @@ int main(int argc, char *argv[]) {
 		for(uint i = 0; i < N; i++)
 		    x[i] = 42;
 		for(uint i = 0; i < N; i++)
-		    rc == rc && (x[i] == 42);
+		    rc = rc && (x[i] == 42);
 		return rc;
 		});
 
@@ -1050,7 +1050,7 @@ int main(int argc, char *argv[]) {
 	});
 
 #ifdef VEXCL_VARIADIC_TEMPLATES
-	run_test("Builtin function with two arguments", [&]() {
+	run_test("Builtin function with two arguments", [&]() -> bool {
 		const size_t N = 1024;
 		bool rc = true;
 		std::vector<double> x(N);

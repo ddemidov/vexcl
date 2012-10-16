@@ -318,6 +318,18 @@ inline uint kernel_workgroup_size(
     return wgsz;
 }
 
+inline cl::Context qctx(const cl::CommandQueue& q) {
+    cl::Context ctx;
+    q.getInfo(CL_QUEUE_CONTEXT, &ctx);
+    return ctx;
+}
+
+inline cl::Device qdev(const cl::CommandQueue& q) {
+    cl::Device dev;
+    q.getInfo(CL_QUEUE_DEVICE, &dev);
+    return dev;
+}
+
 } // namespace vex
 
 /// Output description of an OpenCL error to a stream.

@@ -156,8 +156,8 @@ template <typename real, ReductionKind RDC> template <class Expr>
 typename std::enable_if<Expr::is_expr, real>::type
 Reductor<real,RDC>::operator()(const Expr &expr) const {
     for(auto q = queue.begin(); q != queue.end(); q++) {
-	cl::Context context = q->getInfo<CL_QUEUE_CONTEXT>();
-	cl::Device  device  = q->getInfo<CL_QUEUE_DEVICE>();
+	cl::Context context = qctx(*q);
+	cl::Device  device  = qdev(*q);
 
 	if (!exdata<Expr>::compiled[context()]) {
 
@@ -197,7 +197,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
 
     for(uint d = 0; d < queue.size(); d++) {
 	if (size_t psize = expr.part_size(d)) {
-	    cl::Context context = queue[d].getInfo<CL_QUEUE_CONTEXT>();
+	    cl::Context context = qctx(queue[d]);
 
 	    size_t g_size = (idx[d + 1] - idx[d]) * exdata<Expr>::wgsize[context()];
 	    auto lmem = cl::__local(exdata<Expr>::wgsize[context()] * sizeof(real));

@@ -507,8 +507,8 @@ class vector : public expression {
 		KernelGenerator<Expr> kgen(expr);
 
 		for(auto q = queue.begin(); q != queue.end(); q++) {
-		    cl::Context context = q->getInfo<CL_QUEUE_CONTEXT>();
-		    cl::Device  device  = q->getInfo<CL_QUEUE_DEVICE>();
+		    cl::Context context = qctx(*q);
+		    cl::Device  device  = qdev(*q);
 
 		    if (!exdata<Expr>::compiled[context()]) {
 
@@ -575,8 +575,8 @@ class vector : public expression {
 
 		for(uint d = 0; d < queue.size(); d++) {
 		    if (size_t psize = part[d + 1] - part[d]) {
-			cl::Context context = queue[d].getInfo<CL_QUEUE_CONTEXT>();
-			cl::Device  device  = queue[d].getInfo<CL_QUEUE_DEVICE>();
+			cl::Context context = qctx(queue[d]);
+			cl::Device  device  = qdev(queue[d]);
 
 			size_t g_size = device.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU ?
 			    alignup(psize, exdata<Expr>::wgsize[context()]) :
@@ -743,7 +743,7 @@ class vector : public expression {
 	void allocate_buffers(cl_mem_flags flags, const T *hostptr) {
 	    for(uint d = 0; d < queue.size(); d++) {
 		if (size_t psize = part[d + 1] - part[d]) {
-		    cl::Context context = queue[d].getInfo<CL_QUEUE_CONTEXT>();
+		    cl::Context context = qctx(queue[d]);
 
 		    buf[d] = cl::Buffer(context, flags, psize * sizeof(T));
 		}

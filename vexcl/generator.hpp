@@ -338,7 +338,7 @@ class Kernel {
 
 	    for(uint d = 0; d < queue.size(); d++) {
 		if (size_t psize = prm_size(d, param...)) {
-		    cl::Context context = queue[d].getInfo<CL_QUEUE_CONTEXT>();
+		    cl::Context context = qctx(queue[d]);
 
 		    uint pos = 0;
 		    krn[context()].setArg(pos++, psize);

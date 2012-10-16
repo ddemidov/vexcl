@@ -464,7 +464,7 @@ void SpMat<real,column_t,idx_t>::mul(const vex::vector<real> &x, vex::vector<rea
     if (rx.size()) {
 	// Transfer remote parts of the input vector.
 	for(uint d = 0; d < queue.size(); d++) {
-	    cl::Context context = queue[d].getInfo<CL_QUEUE_CONTEXT>();
+	    cl::Context context = qctx(queue[d]);
 
 	    if (size_t ncols = cidx[d + 1] - cidx[d]) {
 		size_t g_size = alignup(ncols, wgsize[context()]);
@@ -495,7 +495,7 @@ void SpMat<real,column_t,idx_t>::mul(const vex::vector<real> &x, vex::vector<rea
 	    if (cidx[d + 1] > cidx[d]) event2[d][0].wait();
 
 	for(uint d = 0; d < queue.size(); d++) {
-	    cl::Context context = queue[d].getInfo<CL_QUEUE_CONTEXT>();
+	    cl::Context context = qctx(queue[d]);
 
 	    if (exc[d].cols_to_recv.size()) {
 		for(size_t i = 0; i < exc[d].cols_to_recv.size(); i++)
@@ -548,8 +548,7 @@ std::vector<std::set<column_t>> SpMat<real,column_t,idx_t>::setup_exchange(
 		exc[d].cols_to_recv.resize(rcols);
 		exc[d].vals_to_recv.resize(rcols);
 
-		exc[d].rx = cl::Buffer(queue[d].getInfo<CL_QUEUE_CONTEXT>(),
-			CL_MEM_READ_ONLY, rcols * sizeof(real));
+		exc[d].rx = cl::Buffer(qctx(queue[d]), CL_MEM_READ_ONLY, rcols * sizeof(real));
 
 		for(size_t i = 0, j = 0; i < cols_to_send.size(); i++)
 		    if (remote_cols[d].count(cols_to_send[i])) exc[d].cols_to_recv[j++] = i;
@@ -570,7 +569,7 @@ std::vector<std::set<column_t>> SpMat<real,column_t,idx_t>::setup_exchange(
 
 	for(uint d = 0; d < queue.size(); d++) {
 	    if (size_t ncols = cidx[d + 1] - cidx[d]) {
-		cl::Context context = queue[d].getInfo<CL_QUEUE_CONTEXT>();
+		cl::Context context = qctx(queue[d]);
 
 		exc[d].cols_to_send = cl::Buffer(
 			context, CL_MEM_READ_ONLY, ncols * sizeof(column_t));

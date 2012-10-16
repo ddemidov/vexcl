@@ -1152,7 +1152,7 @@ struct OperConv {
 template <typename T, uint N, bool own, uint width, uint center, const char *body>
 struct MultiOperConv {
     MultiOperConv(const multivector<T,N,own> &x, const StencilOperator<T, width, center, body> &s)
-	: op(op), x(x) {}
+	: op(s), x(x) {}
 
     const StencilOperator<T, width, center, body> &op;
     const multivector<T,N,own> &x;
