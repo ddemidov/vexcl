@@ -46,6 +46,7 @@ THE SOFTWARE.
 #include <tuple>
 #include <cstdlib>
 #include <CL/cl.hpp>
+#include <vexcl/util.hpp>
 
 namespace vex {
 
