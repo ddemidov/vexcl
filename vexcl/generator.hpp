@@ -1,5 +1,5 @@
-#ifndef VEXCL_SYMBOLIC_HPP
-#define VEXCL_SYMBOLIC_HPP
+#ifndef VEXCL_GENERATOR_HPP
+#define VEXCL_GENERATOR_HPP
 
 /*
 The MIT License
@@ -37,21 +37,10 @@ THE SOFTWARE.
 #  define NOMINMAX
 #endif
 
-#ifndef _MSC_VER
-#  define VEXCL_VARIADIC_TEMPLATES
-#endif
-
-#ifndef __CL_ENABLE_EXCEPTIONS
-#  define __CL_ENABLE_EXCEPTIONS
-#endif
-
 #include <iostream>
-#include <string>
 #include <sstream>
-#include <map>
-#include <exception>
-#include <stdexcept>
-#include <type_traits>
+#include <string>
+#include <boost/proto/proto.hpp>
 #include <vexcl/util.hpp>
 
 /// Vector expression template library for OpenCL.
@@ -59,6 +48,11 @@ namespace vex {
 
 /// Kernel generation interface.
 namespace generator {
+
+//---------------------------------------------------------------------------
+// The recorder class. Holds static output stream for kernel recording and
+// static variable index (used in variable names).
+//---------------------------------------------------------------------------
 
 /// \cond INTERNAL
 template <bool dummy = true>
@@ -72,53 +66,348 @@ class recorder {
 	    return os ? *os : std::cout;
 	}
 
+	static size_t var_id() {
+	    return ++index;
+	}
     private:
+	static size_t index;
 	static std::ostream *os;
 };
 
 template <bool dummy>
-std::ostream* recorder<dummy>::os = 0;
+size_t recorder<dummy>::index = 0;
+
+template <bool dummy>
+std::ostream *recorder<dummy>::os = 0;
+
+inline size_t var_id() {
+    return recorder<>::var_id();
+}
 
 inline std::ostream& get_recorder() {
     return recorder<>::get();
 }
 
-/// \endcond
 
 /// Set output stream for kernel recorder.
 inline void set_recorder(std::ostream &os) {
     recorder<>::set(os);
 }
 
-/// \cond INTERNAL
-template <class T, class Enable = void>
-struct terminal {
-    static std::string get(const T &v) {
-	std::ostringstream s;
-	s << std::scientific << std::setprecision(18) << v;
-	return s.str();
-    }
+//---------------------------------------------------------------------------
+// Setting up boost::proto.
+//---------------------------------------------------------------------------
+
+namespace proto = boost::proto;
+using proto::_;
+
+struct variable {};
+
+// --- The grammar ----------------------------------------------------------
+
+struct symbolic_grammar
+    : proto::or_<
+	  proto::or_<
+	      proto::terminal< variable >,
+	      proto::and_<
+	          proto::terminal< _ >,
+		  proto::if_< boost::is_arithmetic< proto::_value >() >
+	      >
+          >,
+	  proto::or_<
+	      proto::plus          < symbolic_grammar, symbolic_grammar >,
+	      proto::minus         < symbolic_grammar, symbolic_grammar >,
+	      proto::multiplies    < symbolic_grammar, symbolic_grammar >,
+	      proto::divides       < symbolic_grammar, symbolic_grammar >,
+	      proto::modulus       < symbolic_grammar, symbolic_grammar >,
+	      proto::shift_left    < symbolic_grammar, symbolic_grammar >,
+	      proto::shift_right   < symbolic_grammar, symbolic_grammar >
+	  >,
+	  proto::or_<
+	      proto::less          < symbolic_grammar, symbolic_grammar >,
+	      proto::greater       < symbolic_grammar, symbolic_grammar >,
+	      proto::less_equal    < symbolic_grammar, symbolic_grammar >,
+	      proto::greater_equal < symbolic_grammar, symbolic_grammar >,
+	      proto::equal_to      < symbolic_grammar, symbolic_grammar >,
+	      proto::not_equal_to  < symbolic_grammar, symbolic_grammar >
+	  >,
+	  proto::or_<
+	      proto::logical_and   < symbolic_grammar, symbolic_grammar >,
+	      proto::logical_or    < symbolic_grammar, symbolic_grammar >
+	  >,
+	  proto::or_<
+	      proto::bitwise_and   < symbolic_grammar, symbolic_grammar >,
+	      proto::bitwise_or    < symbolic_grammar, symbolic_grammar >,
+	      proto::bitwise_xor   < symbolic_grammar, symbolic_grammar >
+	  >,
+	  proto::function< _ , proto::vararg< symbolic_grammar > >
+      >
+{};
+
+template <class Expr>
+struct symbolic_expr;
+
+struct symbolic_domain
+    : proto::domain< proto::generator< symbolic_expr >, symbolic_grammar >
+{};
+
+template <class Expr>
+struct symbolic_expr
+    : proto::extends< Expr, symbolic_expr< Expr >, symbolic_domain >
+{
+    typedef proto::extends< Expr, symbolic_expr< Expr >, symbolic_domain > base_type;
+
+    symbolic_expr(const Expr &expr = Expr()) : base_type(expr) {}
 };
 
-template <class T>
-struct terminal< T, typename std::enable_if<T::is_symbolic>::type > {
-    static std::string get(const T &v) {
-	return v.get_string();
+template <typename T>
+struct symbolic;
+
+template <typename T>
+std::ostream& operator<<(std::ostream &os, const symbolic<T> &sym);
+
+struct symbolic_context {
+    template <typename Expr, typename Tag = typename Expr::proto_tag>
+    struct eval {};
+
+#define BINARY_OPERATION(bin_tag, bin_op) \
+    template <typename Expr> \
+    struct eval<Expr, proto::tag::bin_tag> { \
+	typedef void result_type; \
+	void operator()(const Expr &expr, symbolic_context &ctx) const { \
+	    get_recorder() << "( "; \
+	    proto::eval(proto::left(expr), ctx); \
+	    get_recorder() << " " #bin_op " "; \
+	    proto::eval(proto::right(expr), ctx); \
+	    get_recorder() << " )"; \
+	} \
     }
+
+    BINARY_OPERATION(plus,          +);
+    BINARY_OPERATION(minus,         -);
+    BINARY_OPERATION(multiplies,    *);
+    BINARY_OPERATION(divides,       /);
+    BINARY_OPERATION(modulus,       %);
+    BINARY_OPERATION(shift_left,   <<);
+    BINARY_OPERATION(shift_right,  >>);
+    BINARY_OPERATION(less,          <);
+    BINARY_OPERATION(greater,       >);
+    BINARY_OPERATION(less_equal,   <=);
+    BINARY_OPERATION(greater_equal,>=);
+    BINARY_OPERATION(equal_to,     ==);
+    BINARY_OPERATION(not_equal_to, !=);
+    BINARY_OPERATION(logical_and,  &&);
+    BINARY_OPERATION(logical_or,   ||);
+    BINARY_OPERATION(bitwise_and,   &);
+    BINARY_OPERATION(bitwise_or,    |);
+    BINARY_OPERATION(bitwise_xor,   ^);
+
+#undef BINARY_OPERATION
+
+    template <class Expr>
+    struct eval<Expr, proto::tag::function> {
+	typedef void result_type;
+
+	struct display {
+	    mutable int pos;
+	    symbolic_context &ctx;
+
+	    display(symbolic_context &ctx) : pos(0), ctx(ctx) {}
+
+	    template <class Arg>
+	    void operator()(const Arg &arg) const {
+		if (pos++) get_recorder() << ", ";
+		proto::eval(arg, ctx);
+	    }
+	};
+
+	void operator()(const Expr &expr, symbolic_context &ctx) const {
+	    get_recorder() << proto::value(proto::child_c<0>(expr)).name() << "( ";
+
+	    boost::fusion::for_each(
+		    boost::fusion::pop_front(expr),
+		    display(ctx)
+		    );
+
+	    get_recorder() << " )";
+	}
+    };
+
+    template <typename Expr>
+    struct eval<Expr, proto::tag::terminal> {
+	typedef void result_type;
+
+	template <typename Term>
+	void operator()(const Term &term, symbolic_context &ctx) const {
+	    get_recorder() << std::scientific << std::setprecision(12)
+		<< proto::value(term);
+	}
+
+	template <typename T>
+	void operator()(const symbolic<T> &v, symbolic_context &ctx) const {
+	    get_recorder() << v;
+	}
+    };
 };
+
+
+//---------------------------------------------------------------------------
+// Builtin functions.
+//---------------------------------------------------------------------------
+
+#define BUILTIN_FUNCTION_1(func) \
+struct func##_func { \
+    static const char* name() { \
+	return #func; \
+    } \
+}; \
+template <typename Arg> \
+typename proto::result_of::make_expr< \
+    proto::tag::function, \
+    func##_func, \
+    const Arg& \
+>::type const \
+func(const Arg &arg) { \
+    return proto::make_expr<proto::tag::function>( \
+	    func##_func(), \
+	    boost::ref(arg) \
+	    ); \
+}
+
+#define BUILTIN_FUNCTION_2(func) \
+struct func##_func { \
+    static const char* name() { \
+	return #func; \
+    } \
+}; \
+template <typename Arg1, typename Arg2> \
+typename proto::result_of::make_expr< \
+    proto::tag::function, \
+    func##_func, \
+    const Arg1&, \
+    const Arg2& \
+>::type const \
+func(const Arg1 &arg1, const Arg2 &arg2) { \
+    return proto::make_expr<proto::tag::function>( \
+	    func##_func(), \
+	    boost::ref(arg1), \
+	    boost::ref(arg2) \
+	    ); \
+}
+
+#define BUILTIN_FUNCTION_3(func) \
+struct func##_func { \
+    static const char* name() { \
+	return #func; \
+    } \
+}; \
+template <typename Arg1, typename Arg2, typename Arg3> \
+typename proto::result_of::make_expr< \
+    proto::tag::function, \
+    func##_func, \
+    const Arg1&, \
+    const Arg2&, \
+    const Arg3& \
+>::type const \
+func(const Arg1 &arg1, const Arg2 &arg2, const Arg3 &arg3) { \
+    return proto::make_expr<proto::tag::function>( \
+	    func##_func(), \
+	    boost::ref(arg1), \
+	    boost::ref(arg2), \
+	    boost::ref(arg3) \
+	    ); \
+}
+
+BUILTIN_FUNCTION_1(acos);
+BUILTIN_FUNCTION_1(acosh);
+BUILTIN_FUNCTION_1(acospi);
+BUILTIN_FUNCTION_1(asin);
+BUILTIN_FUNCTION_1(asinh);
+BUILTIN_FUNCTION_1(asinpi);
+BUILTIN_FUNCTION_1(atan);
+BUILTIN_FUNCTION_2(atan2);
+BUILTIN_FUNCTION_1(atanh);
+BUILTIN_FUNCTION_1(atanpi);
+BUILTIN_FUNCTION_2(atan2pi);
+BUILTIN_FUNCTION_1(cbrt);
+BUILTIN_FUNCTION_1(ceil);
+BUILTIN_FUNCTION_2(copysign);
+BUILTIN_FUNCTION_1(cos);
+BUILTIN_FUNCTION_1(cosh);
+BUILTIN_FUNCTION_1(cospi);
+BUILTIN_FUNCTION_1(erfc);
+BUILTIN_FUNCTION_1(erf);
+BUILTIN_FUNCTION_1(exp);
+BUILTIN_FUNCTION_1(exp2);
+BUILTIN_FUNCTION_1(exp10);
+BUILTIN_FUNCTION_1(expm1);
+BUILTIN_FUNCTION_1(fabs);
+BUILTIN_FUNCTION_2(fdim);
+BUILTIN_FUNCTION_1(floor);
+BUILTIN_FUNCTION_3(fma);
+BUILTIN_FUNCTION_2(fmax);
+BUILTIN_FUNCTION_2(fmin);
+BUILTIN_FUNCTION_2(fmod);
+BUILTIN_FUNCTION_2(fract);
+BUILTIN_FUNCTION_2(frexp);
+BUILTIN_FUNCTION_2(hypot);
+BUILTIN_FUNCTION_1(ilogb);
+BUILTIN_FUNCTION_2(ldexp);
+BUILTIN_FUNCTION_1(lgamma);
+BUILTIN_FUNCTION_2(lgamma_r);
+BUILTIN_FUNCTION_1(log);
+BUILTIN_FUNCTION_1(log2);
+BUILTIN_FUNCTION_1(log10);
+BUILTIN_FUNCTION_1(log1p);
+BUILTIN_FUNCTION_1(logb);
+BUILTIN_FUNCTION_3(mad);
+BUILTIN_FUNCTION_2(maxmag);
+BUILTIN_FUNCTION_2(minmag);
+BUILTIN_FUNCTION_2(modf);
+BUILTIN_FUNCTION_1(nan);
+BUILTIN_FUNCTION_2(nextafter);
+BUILTIN_FUNCTION_2(pow);
+BUILTIN_FUNCTION_2(pown);
+BUILTIN_FUNCTION_2(powr);
+BUILTIN_FUNCTION_2(remainder);
+BUILTIN_FUNCTION_3(remquo);
+BUILTIN_FUNCTION_1(rint);
+BUILTIN_FUNCTION_2(rootn);
+BUILTIN_FUNCTION_1(round);
+BUILTIN_FUNCTION_1(rsqrt);
+BUILTIN_FUNCTION_1(sin);
+BUILTIN_FUNCTION_2(sincos);
+BUILTIN_FUNCTION_1(sinh);
+BUILTIN_FUNCTION_1(sinpi);
+BUILTIN_FUNCTION_1(sqrt);
+BUILTIN_FUNCTION_1(tan);
+BUILTIN_FUNCTION_1(tanh);
+BUILTIN_FUNCTION_1(tanpi);
+BUILTIN_FUNCTION_1(tgamma);
+BUILTIN_FUNCTION_1(trunc);
+
+#undef BUILTIN_FUNCTION_1
+#undef BUILTIN_FUNCTION_2
+#undef BUILTIN_FUNCTION_3
+
+template <class Expr>
+void record(const Expr &expr) {
+    symbolic_context ctx;
+    proto::eval(proto::as_expr(expr), ctx);
+}
 /// \endcond
 
-/// Symbolic value.
-/**
- * This class is used for recording of expression sequence which would later
- * become single autogenerated kernel. See examples/symbolic.cpp for the usage
- * example.
- */
-template <typename T>
-class symbolic {
-    public:
-	static const bool is_symbolic = true;
+//---------------------------------------------------------------------------
+// The symbolic class.
+//---------------------------------------------------------------------------
 
+template <typename T>
+class symbolic
+    : public symbolic_expr< proto::terminal< variable >::type >
+{
+    typedef symbolic_expr< proto::terminal< variable >::type > base_type;
+
+    public:
 	/// Scope/Type of the symbolic variable.
 	enum scope_type {
 	    LocalVar        = 0, ///< Local variable.
@@ -134,53 +423,29 @@ class symbolic {
 
 	/// Default constructor. Results in local kernel variable.
 	symbolic(scope_type scope = LocalVar, constness_type constness = NonConst)
-	    : num(index++), scope(scope), constness(constness)
+	    : base_type(), num(var_id()), scope(scope), constness(constness)
 	{
 	    if (scope == LocalVar) {
-		get_recorder()
-		    << type_name<T>() << " " << get_string() << ";\n";
+		get_recorder() << type_name<T>() << " " << *this << ";\n";
 	    }
-	}
-
-	/// Copy constructor. Results in local variable initialized by give value.
-	symbolic(const symbolic &s)
-	    : num(index++), scope(LocalVar), constness(NonConst)
-	{
-	    get_recorder()
-		<< type_name<T>() << " " << get_string() << " = "
-		<< s.get_string() << ";\n";
 	}
 
 	/// Expression constructor. Results in local variable initialized by expression.
 	template <class Expr>
 	explicit symbolic(const Expr &expr)
-	    : num(index++),
-	      scope(LocalVar), constness(NonConst)
+	    : base_type(), num(var_id()), scope(LocalVar), constness(NonConst)
 	{
-	    get_recorder()
-		<< type_name<T>() << " " << get_string() << " = "
-		<< terminal<Expr>::get(expr) << ";\n";
-	}
-
-	/// Returns variable name.
-	std::string get_string() const {
-	    std::ostringstream s;
-	    s << "var" << num;
-	    return s.str();
-	}
-
-	/// Assignment operator. Results in assignment written to recorder.
-	const symbolic& operator=(const symbolic &s) {
-	    get_recorder()
-		<< get_string() << " = " << s.get_string() << ";\n";
-	    return *this;
+	    get_recorder() << type_name<T>() << " " << *this << " = ";
+	    record(expr);
+	    get_recorder() << ";\n";
 	}
 
 	/// Assignment operator. Results in assignment written to recorder.
 	template <class Expr>
 	const symbolic& operator=(const Expr &expr) const {
-	    get_recorder()
-		<< get_string() << " = " << terminal<Expr>::get(expr) << ";\n";
+	    get_recorder() << *this << " = ";
+	    record(expr);
+	    get_recorder() << ";\n";
 	    return *this;
 	}
 
@@ -203,20 +468,27 @@ class symbolic {
 
 #undef COMPOUND_ASSIGNMENT
 
-	/// Read parameter value to local variable at kernel enter.
-	std::string read() const {
-	    std::ostringstream s;
-	    s << type_name<T>() << " " << get_string() << " = p_" << get_string();
+	size_t id() const {
+	    return num;
+	}
 
-	    switch (scope) {
-		case VectorParameter:
-		    s << "[idx];\n";
-		    break;
-		case ScalarParameter:
-		    s << ";\n";
-		    break;
-		case LocalVar:
-		    break;
+	/// Initialize local variable at kernel enter.
+	std::string init() const {
+	    std::ostringstream s;
+
+	    if (scope != LocalVar) {
+		s << type_name<T>() << " " << *this << " = p_" << *this;
+
+		switch (scope) {
+		    case VectorParameter:
+			s << "[idx];\n";
+			break;
+		    case ScalarParameter:
+			s << ";\n";
+			break;
+		    default:
+			break;
+		}
 	    }
 
 	    return s.str();
@@ -227,7 +499,7 @@ class symbolic {
 	    std::ostringstream s;
 
 	    if (scope == VectorParameter && constness == NonConst)
-		s << "p_" << get_string() << "[idx] = " << get_string() << ";\n";
+		s << "p_" << *this << "[idx] = " << *this << ";\n";
 
 	    return s.str();
 	}
@@ -247,82 +519,20 @@ class symbolic {
 	    if (scope == VectorParameter)
 		s << "*";
 
-	    s << " p_" << get_string();
+	    s << " p_" << *this;
 
 	    return s.str();
 	}
     private:
-	static size_t index;
-	size_t num;
-
+	size_t         num;
 	scope_type     scope;
 	constness_type constness;
 };
 
 template <typename T>
-size_t symbolic<T>::index = 0;
-
-/// Symbolic expression template.
-template <class LHS, binop::kind OP, class RHS>
-struct symbolic_expression {
-    static const bool is_symbolic = true;
-
-    symbolic_expression(const LHS &lhs, const RHS &rhs) : lhs(lhs), rhs(rhs) {}
-
-    const LHS &lhs;
-    const RHS &rhs;
-
-    std::string get_string() const {
-	std::ostringstream s;
-	s << "(" << terminal<LHS>::get(lhs) << " " << binop::traits<OP>::oper()
-	  << " " << terminal<RHS>::get(rhs) << ")";
-	return s.str();
-    }
-};
-
-/// \cond INTERNAL
-template <class T, class Enable = void>
-struct valid_symb
-    : public std::false_type {};
-
-template <class T>
-struct valid_symb<T, typename std::enable_if<std::is_arithmetic<T>::value>::type>
-    : std::true_type {};
-
-template <class T>
-struct valid_symb<T, typename std::enable_if<T::is_symbolic>::type>
-    : std::true_type {};
-/// \endcond
-
-#define DEFINE_BINARY_OP(kind, oper) \
-template <class LHS, class RHS> \
-typename std::enable_if<valid_symb<LHS>::value && valid_symb<RHS>::value, \
-symbolic_expression<LHS, kind, RHS> \
->::type \
-operator oper(const LHS &lhs, const RHS &rhs) { \
-    return symbolic_expression<LHS, kind, RHS>(lhs, rhs); \
+std::ostream& operator<<(std::ostream &os, const symbolic<T> &sym) {
+    return os << "var" << sym.id();
 }
-
-DEFINE_BINARY_OP(binop::Add,          + )
-DEFINE_BINARY_OP(binop::Subtract,     - )
-DEFINE_BINARY_OP(binop::Multiply,     * )
-DEFINE_BINARY_OP(binop::Divide,       / )
-DEFINE_BINARY_OP(binop::Remainder,    % )
-DEFINE_BINARY_OP(binop::Greater,      > )
-DEFINE_BINARY_OP(binop::Less,         < )
-DEFINE_BINARY_OP(binop::GreaterEqual, >=)
-DEFINE_BINARY_OP(binop::LessEqual,    <=)
-DEFINE_BINARY_OP(binop::Equal,        ==)
-DEFINE_BINARY_OP(binop::NotEqual,     !=)
-DEFINE_BINARY_OP(binop::BitwiseAnd,   & )
-DEFINE_BINARY_OP(binop::BitwiseOr,    | )
-DEFINE_BINARY_OP(binop::BitwiseXor,   ^ )
-DEFINE_BINARY_OP(binop::LogicalAnd,   &&)
-DEFINE_BINARY_OP(binop::LogicalOr,    ||)
-DEFINE_BINARY_OP(binop::RightShift,   >>)
-DEFINE_BINARY_OP(binop::LeftShift,    <<)
-
-#undef DEFINE_BINARY_OP
 
 /// Autogenerated kernel.
 template <class... Args>
@@ -356,11 +566,11 @@ class Kernel {
 	}
 
     private:
-	    template <class... SymPrm> friend
-	    Kernel<SymPrm...> build_kernel(
-		    const std::vector<cl::CommandQueue> &queue,
-		    const std::string &name, const std::string& body, const SymPrm&... args
-		    );
+	template <class... SymPrm> friend
+	Kernel<SymPrm...> build_kernel(
+		const std::vector<cl::CommandQueue> &queue,
+		const std::string &name, const std::string& body, const SymPrm&... args
+		);
 
 	Kernel(
 		const std::vector<cl::CommandQueue> &queue,
@@ -422,7 +632,7 @@ class Kernel {
 
 	template <class Head, class... Tail>
 	void read_params(std::ostream &os, const Head &head, const Tail&... tail) {
-	    os << head.read();
+	    os << head.init();
 	    read_params(os, tail...);
 	}
 
@@ -468,130 +678,6 @@ Kernel<Args...> build_kernel(
 {
     return Kernel<Args...>(queue, name, body, args...);
 }
-
-/// \cond INTERNAL
-template <class func_name, class... Expr>
-class symbolic_builtin {
-    public:
-	static const bool is_symbolic = true;
-
-	symbolic_builtin(const Expr&... expr) : expr(std::ref(expr)...) {}
-
-	std::string get_string() const {
-	    std::ostringstream s;
-	    s << func_name::value() << "(";
-	    output_names out(s);
-	    for_each(out);
-	    s << ")";
-	    return s.str();
-	}
-    private:
-	const std::tuple<std::reference_wrapper<const Expr>...> expr;
-
-	template <uint pos = 0, class Function>
-	typename std::enable_if<(pos == sizeof...(Expr)), void>::type
-	for_each(Function &f) const
-	{ }
-
-	template <uint pos = 0, class Function>
-	typename std::enable_if<(pos < sizeof...(Expr)), void>::type
-	for_each(Function &f) const
-	{
-	    f( std::get<pos>(expr).get() );
-	    for_each<pos+1, Function>(f);
-	}
-
-	struct output_names {
-	    std::ostringstream &s;
-	    output_names(std::ostringstream &s) : s(s) {}
-
-	    template <class E>
-	    void operator()(const E &e) const {
-		s << terminal<E>::get(e);
-	    }
-
-	};
-};
-/// \endcond
-
-#define DEFINE_BUILTIN_FUNCTION(name) \
-template <class Expr> \
-typename std::enable_if<valid_symb<Expr>::value, \
-	 symbolic_builtin<name##_name, Expr> \
-	 >::type \
-name(const Expr &expr) { \
-    return symbolic_builtin<name##_name, Expr>(expr); \
-}
-
-DEFINE_BUILTIN_FUNCTION(acos)
-DEFINE_BUILTIN_FUNCTION(acosh)
-DEFINE_BUILTIN_FUNCTION(acospi)
-DEFINE_BUILTIN_FUNCTION(asin)
-DEFINE_BUILTIN_FUNCTION(asinh)
-DEFINE_BUILTIN_FUNCTION(asinpi)
-DEFINE_BUILTIN_FUNCTION(atan)
-DEFINE_BUILTIN_FUNCTION(atan2)
-DEFINE_BUILTIN_FUNCTION(atanh)
-DEFINE_BUILTIN_FUNCTION(atanpi)
-DEFINE_BUILTIN_FUNCTION(atan2pi)
-DEFINE_BUILTIN_FUNCTION(cbrt)
-DEFINE_BUILTIN_FUNCTION(ceil)
-DEFINE_BUILTIN_FUNCTION(copysign)
-DEFINE_BUILTIN_FUNCTION(cos)
-DEFINE_BUILTIN_FUNCTION(cosh)
-DEFINE_BUILTIN_FUNCTION(cospi)
-DEFINE_BUILTIN_FUNCTION(erfc)
-DEFINE_BUILTIN_FUNCTION(erf)
-DEFINE_BUILTIN_FUNCTION(exp)
-DEFINE_BUILTIN_FUNCTION(exp2)
-DEFINE_BUILTIN_FUNCTION(exp10)
-DEFINE_BUILTIN_FUNCTION(expm1)
-DEFINE_BUILTIN_FUNCTION(fabs)
-DEFINE_BUILTIN_FUNCTION(fdim)
-DEFINE_BUILTIN_FUNCTION(floor)
-DEFINE_BUILTIN_FUNCTION(fma)
-DEFINE_BUILTIN_FUNCTION(fmax)
-DEFINE_BUILTIN_FUNCTION(fmin)
-DEFINE_BUILTIN_FUNCTION(fmod)
-DEFINE_BUILTIN_FUNCTION(fract)
-DEFINE_BUILTIN_FUNCTION(frexp)
-DEFINE_BUILTIN_FUNCTION(hypot)
-DEFINE_BUILTIN_FUNCTION(ilogb)
-DEFINE_BUILTIN_FUNCTION(ldexp)
-DEFINE_BUILTIN_FUNCTION(lgamma)
-DEFINE_BUILTIN_FUNCTION(lgamma_r)
-DEFINE_BUILTIN_FUNCTION(log)
-DEFINE_BUILTIN_FUNCTION(log2)
-DEFINE_BUILTIN_FUNCTION(log10)
-DEFINE_BUILTIN_FUNCTION(log1p)
-DEFINE_BUILTIN_FUNCTION(logb)
-DEFINE_BUILTIN_FUNCTION(mad)
-DEFINE_BUILTIN_FUNCTION(maxmag)
-DEFINE_BUILTIN_FUNCTION(minmag)
-DEFINE_BUILTIN_FUNCTION(modf)
-DEFINE_BUILTIN_FUNCTION(nan)
-DEFINE_BUILTIN_FUNCTION(nextafter)
-DEFINE_BUILTIN_FUNCTION(pow)
-DEFINE_BUILTIN_FUNCTION(pown)
-DEFINE_BUILTIN_FUNCTION(powr)
-DEFINE_BUILTIN_FUNCTION(remainder)
-DEFINE_BUILTIN_FUNCTION(remquo)
-DEFINE_BUILTIN_FUNCTION(rint)
-DEFINE_BUILTIN_FUNCTION(rootn)
-DEFINE_BUILTIN_FUNCTION(round)
-DEFINE_BUILTIN_FUNCTION(rsqrt)
-DEFINE_BUILTIN_FUNCTION(sin)
-DEFINE_BUILTIN_FUNCTION(sincos)
-DEFINE_BUILTIN_FUNCTION(sinh)
-DEFINE_BUILTIN_FUNCTION(sinpi)
-DEFINE_BUILTIN_FUNCTION(sqrt)
-DEFINE_BUILTIN_FUNCTION(tan)
-DEFINE_BUILTIN_FUNCTION(tanh)
-DEFINE_BUILTIN_FUNCTION(tanpi)
-DEFINE_BUILTIN_FUNCTION(tgamma)
-DEFINE_BUILTIN_FUNCTION(trunc)
-
-#undef DEFINE_BUILTIN_FUNCTION
 
 } // namespace generator;
 
