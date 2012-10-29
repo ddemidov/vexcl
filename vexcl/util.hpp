@@ -59,13 +59,19 @@ namespace vex {
 
 /// Convert typename to string.
 template <class T> inline std::string type_name()  { return "undefined_type"; }
-template <> inline std::string type_name<float>()  { return "float"; }
-template <> inline std::string type_name<double>() { return "double"; }
-template <> inline std::string type_name<int>()    { return "int"; }
-template <> inline std::string type_name<char>()   { return "char"; }
-template <> inline std::string type_name<bool>()   { return "bool"; }
-template <> inline std::string type_name<uint>()   { return "unsigned int"; }
-template <> inline std::string type_name<uchar>()  { return "unsigned char"; }
+
+#define STRINGIFY(type) \
+template <> inline std::string type_name<type>()  { return #type; }
+
+STRINGIFY(float);
+STRINGIFY(double);
+STRINGIFY(int);
+STRINGIFY(char);
+STRINGIFY(bool);
+STRINGIFY(uint);
+STRINGIFY(uchar);
+
+#undef STRINGIFY
 
 #if (__WORDSIZE == 64) || defined(_WIN64)
 template <> inline std::string type_name<size_t>()    { return "ulong"; }
