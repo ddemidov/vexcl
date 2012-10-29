@@ -271,8 +271,6 @@ template <typename T>
 class symbolic
     : public symbolic_expr< proto::terminal< variable >::type >
 {
-    typedef symbolic_expr< proto::terminal< variable >::type > base_type;
-
     public:
 	/// Scope/Type of the symbolic variable.
 	enum scope_type {
@@ -289,7 +287,7 @@ class symbolic
 
 	/// Default constructor. Results in local kernel variable.
 	symbolic(scope_type scope = LocalVar, constness_type constness = NonConst)
-	    : base_type(), num(var_id()), scope(scope), constness(constness)
+	    : num(var_id()), scope(scope), constness(constness)
 	{
 	    if (scope == LocalVar) {
 		get_recorder() << type_name<T>() << " " << *this << ";\n";
@@ -299,7 +297,7 @@ class symbolic
 	/// Expression constructor. Results in local variable initialized by expression.
 	template <class Expr>
 	explicit symbolic(const Expr &expr)
-	    : base_type(), num(var_id()), scope(LocalVar), constness(NonConst)
+	    : num(var_id()), scope(LocalVar), constness(NonConst)
 	{
 	    get_recorder() << type_name<T>() << " " << *this << " = ";
 	    record(expr);
