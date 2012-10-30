@@ -56,7 +56,7 @@ THE SOFTWARE.
 #include <boost/proto/proto.hpp>
 #include <CL/cl.hpp>
 #include <vexcl/util.hpp>
-#include <vexcl/builtins.hpp>
+#include <vexcl/operations.hpp>
 #include <vexcl/vector_proto.hpp>
 
 /// Vector expression template library for OpenCL.
@@ -125,7 +125,7 @@ struct multivector_expr_grammar
 		  proto::if_< is_multiscalar< proto::_value >() >
 	      >
           >,
-	  VEX_OPERATIONS(multivector_expr_grammar)
+	  VEXCL_OPERATIONS(multivector_expr_grammar)
       >
 {};
 

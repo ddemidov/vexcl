@@ -56,7 +56,7 @@ THE SOFTWARE.
 #include <boost/proto/proto.hpp>
 #include <vexcl/util.hpp>
 #include <vexcl/profiler.hpp>
-#include <vexcl/builtins.hpp>
+#include <vexcl/operations.hpp>
 
 /// Vector expression template library for OpenCL.
 namespace vex {
@@ -68,48 +68,9 @@ using proto::_;
 /// \cond INTERNAL
 
 struct vector_terminal {};
-struct user_function {};
 
 // TODO compare compilation speed with proto::switch_
 //--- Grammar ---------------------------------------------------------------
-#define VEX_OPERATIONS(grammar) \
-proto::or_< \
-  proto::plus          < grammar, grammar >, \
-  proto::minus         < grammar, grammar >, \
-  proto::multiplies    < grammar, grammar >, \
-  proto::divides       < grammar, grammar >, \
-  proto::modulus       < grammar, grammar >, \
-  proto::shift_left    < grammar, grammar >, \
-  proto::shift_right   < grammar, grammar > \
->, \
-proto::or_< \
-  proto::less          < grammar, grammar >, \
-  proto::greater       < grammar, grammar >, \
-  proto::less_equal    < grammar, grammar >, \
-  proto::greater_equal < grammar, grammar >, \
-  proto::equal_to      < grammar, grammar >, \
-  proto::not_equal_to  < grammar, grammar > \
->, \
-proto::or_< \
-  proto::logical_and   < grammar, grammar >, \
-  proto::logical_or    < grammar, grammar > \
->, \
-proto::or_< \
-  proto::bitwise_and   < grammar, grammar >, \
-  proto::bitwise_or    < grammar, grammar >, \
-  proto::bitwise_xor   < grammar, grammar > \
->, \
-proto::or_< \
-  proto::function< \
-      proto::terminal< proto::convertible_to<builtin_function> >, \
-      proto::vararg<grammar> \
-  >, \
-  proto::function< \
-      proto::terminal< proto::convertible_to<user_function> >, \
-      proto::vararg<grammar> \
-  > \
->
-
 struct vector_expr_grammar
     : proto::or_<
 	  proto::or_<
@@ -119,7 +80,7 @@ struct vector_expr_grammar
 		  proto::if_< std::is_arithmetic< proto::_value >() >
 	      >
           >,
-	  VEX_OPERATIONS(vector_expr_grammar)
+	  VEXCL_OPERATIONS(vector_expr_grammar)
       >
 {};
 
@@ -136,47 +97,6 @@ struct vector_expression
 {
     typedef proto::extends< Expr, vector_expression<Expr>, vector_domain> base_type;
     vector_expression(const Expr &expr = Expr()) : base_type(expr) {}
-};
-
-//--- User Function ---------------------------------------------------------
-template <const char *body, class T>
-struct UserFunction {};
-
-template<const char *body, class RetType, class... ArgType>
-struct UserFunction<body, RetType(ArgType...)> : user_function
-{
-    template <class... Arg>
-    typename proto::result_of::make_expr<
-	proto::tag::function,
-	UserFunction,
-	const Arg&...
-    >::type const
-    operator()(const Arg&... arg) {
-	return proto::make_expr<proto::tag::function>(
-		UserFunction(), boost::ref(arg)...
-		);
-    }
-    
-    static void define(std::ostream &os, const std::string &name) {
-	os << type_name<RetType>() << " " << name << "(";
-	show_arg<ArgType...>(os, 1);
-	os << "\n)\n{\n" << body << "\n}\n\n";
-    }
-
-    template <class Head>
-    static void show_arg(std::ostream &os, uint pos) {
-	if (pos > 1) os << ",";
-	os << "\n\t" << type_name<Head>() << " prm" << pos;
-    }
-
-    template <class Head, class... Tail>
-    static typename std::enable_if<sizeof...(Tail), void>::type
-    show_arg(std::ostream &os, uint pos) {
-	if (pos > 1) os << ",";
-	show_arg<Tail...>(
-		os << "\n\t" << type_name<Head>() << " prm" << pos, pos + 1
-		);
-    }
 };
 
 template <typename T> struct vector;

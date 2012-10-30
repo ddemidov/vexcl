@@ -1,5 +1,5 @@
-#ifndef VEXCL_BUILTINS_HPP
-#define VEXCL_BUILTINS_HPP
+#ifndef VEXCL_OPERATIONS_HPP
+#define VEXCL_OPERATIONS_HPP
 
 /*
 The MIT License
@@ -26,9 +26,9 @@ THE SOFTWARE.
 */
 
 /**
- * \file   builtins.hpp
+ * \file   operations.hpp
  * \author Denis Demidov <ddemidov@ksu.ru>
- * \brief  OpenCL builtin functions for use in vector expressions.
+ * \brief  Set of operations to be used in vector expressions.
  */
 
 #ifdef WIN32
@@ -45,6 +45,52 @@ namespace vex {
 /// \cond INTERNAL
 
 struct builtin_function {};
+struct user_function {};
+
+//--- Standard grammar (no terminals) ---------------------------------------
+#define VEXCL_OPERATIONS(grammar) \
+    boost::proto::or_< \
+	boost::proto::plus          < grammar, grammar >, \
+	boost::proto::minus         < grammar, grammar >, \
+	boost::proto::multiplies    < grammar, grammar >, \
+	boost::proto::divides       < grammar, grammar >, \
+	boost::proto::modulus       < grammar, grammar >, \
+	boost::proto::shift_left    < grammar, grammar >, \
+	boost::proto::shift_right   < grammar, grammar > \
+    >, \
+    boost::proto::or_< \
+	boost::proto::less          < grammar, grammar >, \
+	boost::proto::greater       < grammar, grammar >, \
+	boost::proto::less_equal    < grammar, grammar >, \
+	boost::proto::greater_equal < grammar, grammar >, \
+	boost::proto::equal_to      < grammar, grammar >, \
+	boost::proto::not_equal_to  < grammar, grammar > \
+    >, \
+    boost::proto::or_< \
+	boost::proto::logical_and   < grammar, grammar >, \
+	boost::proto::logical_or    < grammar, grammar > \
+    >, \
+    boost::proto::or_< \
+	boost::proto::bitwise_and   < grammar, grammar >, \
+	boost::proto::bitwise_or    < grammar, grammar >, \
+	boost::proto::bitwise_xor   < grammar, grammar > \
+    >, \
+    boost::proto::or_< \
+	boost::proto::function< \
+	    boost::proto::terminal< \
+		boost::proto::convertible_to<builtin_function> \
+	    >, \
+	    boost::proto::vararg<grammar> \
+        >, \
+	boost::proto::function< \
+            boost::proto::terminal< \
+                boost::proto::convertible_to<user_function> \
+	    >, \
+	    boost::proto::vararg<grammar> \
+        > \
+    >
+
+//--- Builtin function ------------------------------------------------------
 
 #define BUILTIN_FUNCTION_1(func) \
 struct func##_func : builtin_function { \
@@ -180,6 +226,47 @@ BUILTIN_FUNCTION_1(trunc);
 #undef BUILTIN_FUNCTION_1
 #undef BUILTIN_FUNCTION_2
 #undef BUILTIN_FUNCTION_3
+
+//--- User Function ---------------------------------------------------------
+template <const char *body, class T>
+struct UserFunction {};
+
+template<const char *body, class RetType, class... ArgType>
+struct UserFunction<body, RetType(ArgType...)> : user_function
+{
+    template <class... Arg>
+    typename boost::proto::result_of::make_expr<
+	boost::proto::tag::function,
+	UserFunction,
+	const Arg&...
+    >::type const
+    operator()(const Arg&... arg) {
+	return boost::proto::make_expr<boost::proto::tag::function>(
+		UserFunction(), boost::ref(arg)...
+		);
+    }
+    
+    static void define(std::ostream &os, const std::string &name) {
+	os << type_name<RetType>() << " " << name << "(";
+	show_arg<ArgType...>(os, 1);
+	os << "\n)\n{\n" << body << "\n}\n\n";
+    }
+
+    template <class Head>
+    static void show_arg(std::ostream &os, uint pos) {
+	if (pos > 1) os << ",";
+	os << "\n\t" << type_name<Head>() << " prm" << pos;
+    }
+
+    template <class Head, class... Tail>
+    static typename std::enable_if<sizeof...(Tail), void>::type
+    show_arg(std::ostream &os, uint pos) {
+	if (pos > 1) os << ",";
+	show_arg<Tail...>(
+		os << "\n\t" << type_name<Head>() << " prm" << pos, pos + 1
+		);
+    }
+};
 
 /// \endcond
 
