@@ -36,11 +36,14 @@ THE SOFTWARE.
 #  define NOMINMAX
 #endif
 
+#ifndef _MSC_VER
+#  define VEXCL_VARIADIC_TEMPLATES
+#endif
+
 #include <boost/proto/proto.hpp>
 
 /// Vector expression template library for OpenCL.
 namespace vex {
-
 
 /// \cond INTERNAL
 
@@ -227,6 +230,8 @@ BUILTIN_FUNCTION_1(trunc);
 #undef BUILTIN_FUNCTION_2
 #undef BUILTIN_FUNCTION_3
 
+#ifndef VEXCL_VARIADIC_TEMPLATES
+
 //--- User Function ---------------------------------------------------------
 template <const char *body, class T>
 struct UserFunction {};
@@ -267,6 +272,121 @@ struct UserFunction<body, RetType(ArgType...)> : user_function
 		);
     }
 };
+
+#else
+
+//--- User Function ---------------------------------------------------------
+template <const char *body, class T>
+struct UserFunction {};
+
+template<const char *body, class RetType, class Arg1Type>
+struct UserFunction<body, RetType(Arg1Type)> : user_function
+{
+    template <class Arg1>
+    typename boost::proto::result_of::make_expr<
+	boost::proto::tag::function,
+	UserFunction,
+	const Arg1&
+    >::type const
+    operator()(const Arg1& arg1) {
+	return boost::proto::make_expr<boost::proto::tag::function>(
+		UserFunction(), boost::ref(arg1)
+		);
+    }
+    
+    static void define(std::ostream &os, const std::string &name) {
+	os << type_name<RetType>() << " " << name << "("
+	   << "\n\t" << type_name<Arg1Type>() << " prm1"
+	   << "\n)\n{\n" << body << "\n}\n\n";
+    }
+};
+
+template<const char *body, class RetType,
+    class Arg1Type,
+    class Arg2Type
+    >
+struct UserFunction<body, RetType(
+	Arg1Type,
+	Arg2Type
+	)> : user_function
+{
+    template <
+	class Arg1,
+	class Arg2
+	>
+    typename boost::proto::result_of::make_expr<
+	boost::proto::tag::function,
+	UserFunction,
+	const Arg1&,
+	const Arg2&
+    >::type const
+    operator()(
+	    const Arg1& arg1,
+	    const Arg2& arg2
+	    )
+    {
+	return boost::proto::make_expr<boost::proto::tag::function>(
+		UserFunction(),
+		boost::ref(arg1),
+		boost::ref(arg2)
+		);
+    }
+    
+    static void define(std::ostream &os, const std::string &name) {
+	os << type_name<RetType>() << " " << name << "("
+	   << "\n\t" << type_name<Arg1Type>() << " prm1,"
+	   << "\n\t" << type_name<Arg2Type>() << " prm2"
+	   << "\n)\n{\n" << body << "\n}\n\n";
+    }
+};
+
+template<const char *body, class RetType,
+    class Arg1Type,
+    class Arg2Type,
+    class Arg3Type
+    >
+struct UserFunction<body, RetType(
+	Arg1Type,
+	Arg2Type,
+	Arg3Type
+	)> : user_function
+{
+    template <
+	class Arg1,
+	class Arg2,
+	class Arg3
+	>
+    typename boost::proto::result_of::make_expr<
+	boost::proto::tag::function,
+	UserFunction,
+	const Arg1&,
+	const Arg2&,
+	const Arg3&
+    >::type const
+    operator()(
+	    const Arg1& arg1,
+	    const Arg2& arg2,
+	    const Arg3& arg3
+	    )
+    {
+	return boost::proto::make_expr<boost::proto::tag::function>(
+		UserFunction(),
+		boost::ref(arg1),
+		boost::ref(arg2),
+		boost::ref(arg3)
+		);
+    }
+    
+    static void define(std::ostream &os, const std::string &name) {
+	os << type_name<RetType>() << " " << name << "("
+	   << "\n\t" << type_name<Arg1Type>() << " prm1,"
+	   << "\n\t" << type_name<Arg2Type>() << " prm2,"
+	   << "\n\t" << type_name<Arg3Type>() << " prm3"
+	   << "\n)\n{\n" << body << "\n}\n\n";
+    }
+};
+
+#endif
 
 /// \endcond
 
