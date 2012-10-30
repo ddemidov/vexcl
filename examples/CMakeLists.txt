@@ -4,6 +4,7 @@ set(EXAMPLES
     devlist
     utests
     vector
+    proto_test
     )
 
 if (WIN32)
