@@ -527,9 +527,9 @@ struct vector_expr_context {
 // Sets kernel arguments from a vector expression.
 struct vector_args_context {
     cl::Kernel &krn;
-    uint dev, pos;
+    uint dev, &pos;
 
-    vector_args_context(cl::Kernel &krn, uint dev, uint pos)
+    vector_args_context(cl::Kernel &krn, uint dev, uint &pos)
 	: krn(krn), dev(dev), pos(pos) {}
 
     struct do_eval {
@@ -582,7 +582,74 @@ struct vector_args_context {
     };
 };
 
-// TODO: Context for queue list and vector size?
+// Gets properties for one of participating vectors
+struct vector_prop_context {
+    bool done;
+    std::vector<cl::CommandQueue> const* queue;
+    std::vector<size_t> const* part;
+    size_t size;
+
+    vector_prop_context() : done(false) {}
+
+    size_t part_size(uint d) const {
+	return done ?
+	    part->operator[](d + 1) - part->operator[](d) :
+	    0;
+    }
+
+    struct do_eval {
+	vector_prop_context &ctx;
+
+	do_eval(vector_prop_context &ctx) : ctx(ctx) {}
+
+	template <class Child>
+	void operator()(const Child &child) const {
+	    if (!ctx.done) proto::eval(child, ctx);
+	}
+    };
+
+    // Any expression except function or terminal is only interesting for
+    // its children:
+    template <typename Expr, typename Tag = typename Expr::proto_tag>
+    struct eval {
+	typedef void result_type;
+
+	void operator()(const Expr &expr, vector_prop_context &ctx) const {
+	    if (!ctx.done)
+		boost::fusion::for_each(expr, do_eval(ctx));
+	}
+    };
+
+    // We only need to look at parameters of a function:
+    template <typename Expr>
+    struct eval<Expr, proto::tag::function> {
+	typedef void result_type;
+
+	void operator()(const Expr &expr, vector_prop_context &ctx) const {
+	    if (!ctx.done)
+		boost::fusion::for_each(
+			boost::fusion::pop_front(expr), do_eval(ctx)
+			);
+	}
+    };
+
+    template <typename Expr>
+    struct eval<Expr, proto::tag::terminal> {
+	typedef void result_type;
+
+	template <typename T>
+	void operator()(const vector<T> &term, vector_prop_context &ctx) const {
+	    ctx.queue = &( term.queue_list() );
+	    ctx.part  = &( term.partition() );
+	    ctx.size  = term.size();
+	    ctx.done  = true;
+	}
+
+	template <typename Term>
+	void operator()(const Term &term, vector_prop_context &ctx) const { }
+    };
+};
+
 
 //--- Vector Type -----------------------------------------------------------
 /// Device vector.
@@ -837,6 +904,24 @@ struct vector
 	/// Return reference to vector's queue list
 	const std::vector<cl::CommandQueue>& queue_list() const {
 	    return queue;
+	}
+
+	/// Return reference to vector's partition.
+	const std::vector<size_t>& partition() const {
+	    return part;
+	}
+
+	/// Copies data from device vector.
+	const vector& operator=(const vector &x) {
+	    if (&x != this) {
+		for(uint d = 0; d < queue.size(); d++)
+		    if (size_t psize = part[d + 1] - part[d]) {
+			queue[d].enqueueCopyBuffer(x.buf[d], buf[d], 0, 0,
+				psize * sizeof(T));
+		    }
+	    }
+
+	    return *this;
 	}
 
 	/** \name Expression assignments.
