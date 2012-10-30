@@ -3,7 +3,9 @@
 
 //#define VEXCL_SHOW_KERNELS
 #include <vexcl/devlist.hpp>
+#include <vexcl/vector_proto.hpp>
 #include <vexcl/reduce_proto.hpp>
+#include <vexcl/multivector.hpp>
 
 extern const char greater_body[] = "return prm1 < prm2;";
 vex::UserFunction<greater_body, bool(double, double)> greater;
@@ -29,4 +31,10 @@ int main() {
 
     std::cout << sum(a) / n << std::endl;
     std::cout << max(sin(M_PI/4 * a) + b) << std::endl;
+
+    std::array<float, 5> arr = {0};
+    std::tuple<int, float, char, int, double> tup;
+
+    vex::multivector<double, 5> ma, mb, mc;
+    vex::proto::display_expr(sin(ma) + mb * mc + tup * ma + arr * mb);
 }

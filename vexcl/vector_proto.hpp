@@ -45,7 +45,6 @@ THE SOFTWARE.
 #  define __CL_ENABLE_EXCEPTIONS
 #endif
 
-#include <array>
 #include <vector>
 #include <map>
 #include <iostream>
@@ -53,8 +52,8 @@ THE SOFTWARE.
 #include <string>
 #include <type_traits>
 #include <functional>
-#include <cassert>
 #include <CL/cl.hpp>
+#include <boost/proto/proto.hpp>
 #include <vexcl/util.hpp>
 #include <vexcl/profiler.hpp>
 #include <vexcl/builtins.hpp>
@@ -73,51 +72,54 @@ struct user_function {};
 
 // TODO compare compilation speed with proto::switch_
 //--- Grammar ---------------------------------------------------------------
+#define VEX_OPERATIONS(grammar) \
+proto::or_< \
+  proto::plus          < grammar, grammar >, \
+  proto::minus         < grammar, grammar >, \
+  proto::multiplies    < grammar, grammar >, \
+  proto::divides       < grammar, grammar >, \
+  proto::modulus       < grammar, grammar >, \
+  proto::shift_left    < grammar, grammar >, \
+  proto::shift_right   < grammar, grammar > \
+>, \
+proto::or_< \
+  proto::less          < grammar, grammar >, \
+  proto::greater       < grammar, grammar >, \
+  proto::less_equal    < grammar, grammar >, \
+  proto::greater_equal < grammar, grammar >, \
+  proto::equal_to      < grammar, grammar >, \
+  proto::not_equal_to  < grammar, grammar > \
+>, \
+proto::or_< \
+  proto::logical_and   < grammar, grammar >, \
+  proto::logical_or    < grammar, grammar > \
+>, \
+proto::or_< \
+  proto::bitwise_and   < grammar, grammar >, \
+  proto::bitwise_or    < grammar, grammar >, \
+  proto::bitwise_xor   < grammar, grammar > \
+>, \
+proto::or_< \
+  proto::function< \
+      proto::terminal< proto::convertible_to<builtin_function> >, \
+      proto::vararg<grammar> \
+  >, \
+  proto::function< \
+      proto::terminal< proto::convertible_to<user_function> >, \
+      proto::vararg<grammar> \
+  > \
+>
+
 struct vector_expr_grammar
     : proto::or_<
 	  proto::or_<
 	      proto::terminal< vector_terminal >,
 	      proto::and_<
 	          proto::terminal< _ >,
-		  proto::if_< boost::is_arithmetic< proto::_value >() >
+		  proto::if_< std::is_arithmetic< proto::_value >() >
 	      >
           >,
-	  proto::or_<
-	      proto::plus          < vector_expr_grammar, vector_expr_grammar >,
-	      proto::minus         < vector_expr_grammar, vector_expr_grammar >,
-	      proto::multiplies    < vector_expr_grammar, vector_expr_grammar >,
-	      proto::divides       < vector_expr_grammar, vector_expr_grammar >,
-	      proto::modulus       < vector_expr_grammar, vector_expr_grammar >,
-	      proto::shift_left    < vector_expr_grammar, vector_expr_grammar >,
-	      proto::shift_right   < vector_expr_grammar, vector_expr_grammar >
-	  >,
-	  proto::or_<
-	      proto::less          < vector_expr_grammar, vector_expr_grammar >,
-	      proto::greater       < vector_expr_grammar, vector_expr_grammar >,
-	      proto::less_equal    < vector_expr_grammar, vector_expr_grammar >,
-	      proto::greater_equal < vector_expr_grammar, vector_expr_grammar >,
-	      proto::equal_to      < vector_expr_grammar, vector_expr_grammar >,
-	      proto::not_equal_to  < vector_expr_grammar, vector_expr_grammar >
-	  >,
-	  proto::or_<
-	      proto::logical_and   < vector_expr_grammar, vector_expr_grammar >,
-	      proto::logical_or    < vector_expr_grammar, vector_expr_grammar >
-	  >,
-	  proto::or_<
-	      proto::bitwise_and   < vector_expr_grammar, vector_expr_grammar >,
-	      proto::bitwise_or    < vector_expr_grammar, vector_expr_grammar >,
-	      proto::bitwise_xor   < vector_expr_grammar, vector_expr_grammar >
-	  >,
-	  proto::or_<
-	      proto::function<
-	          proto::terminal< proto::convertible_to<builtin_function> >,
-		  proto::vararg<vector_expr_grammar>
-	      >,
-	      proto::function<
-	          proto::terminal< proto::convertible_to<user_function> >,
-		  proto::vararg<vector_expr_grammar>
-	      >
-	  >
+	  VEX_OPERATIONS(vector_expr_grammar)
       >
 {};
 
