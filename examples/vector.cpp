@@ -3,6 +3,7 @@
 #include <vector>
 #include <tuple>
 #include <algorithm>
+#include <cmath>
 
 //#define VEXCL_SHOW_KERNELS
 #include <vexcl/vexcl.hpp>
@@ -58,7 +59,7 @@ int main() {
 	// You can read or write device vector elements with [] notation (very
 	// ineffective but sometimes convenient).
 	std::cout << y[pos] << std::endl;
-	std::cout << "res = " << z[pos] - sqrt(2 * x[pos]) - cos(y[pos]) << std::endl;
+	std::cout << "res = " << static_cast<double>(z[pos]) - sqrt(2 * static_cast<double>(x[pos])) - cos(static_cast<double>(y[pos])) << std::endl;
 
 	// Or you can read the entire vector to host:
 	copy(z, host_vec);
