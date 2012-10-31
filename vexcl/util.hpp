@@ -41,6 +41,10 @@ THE SOFTWARE.
 #  define __CL_ENABLE_EXCEPTIONS
 #endif
 
+#ifndef _MSC_VER
+#  define VEXCL_VARIADIC_TEMPLATES
+#endif
+
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -159,6 +163,25 @@ inline size_t alignup(size_t n, size_t m = 16U) {
     return n % m ? n - n % m + m : n;
 }
 
+#ifdef VEXCL_VARIADIC_TEMPLATES
+
+/// Iterate over tuple elements.
+template <size_t I = 0, class Function, class... V>
+typename std::enable_if<(I == sizeof...(V)), void>::type
+for_each(const std::tuple<V...> &v, Function &f)
+{ }
+
+/// Iterate over tuple elements.
+template <size_t I = 0, class Function, class... V>
+typename std::enable_if<(I < sizeof...(V)), void>::type
+for_each(const std::tuple<V...> &v, Function &f)
+{
+    f( std::get<I>(v) );
+
+    for_each<I + 1>(v, f);
+}
+
+#endif
 /// Weights device wrt to vector performance.
 /**
  * Launches the following kernel on each device:

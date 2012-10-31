@@ -286,7 +286,8 @@ std::string Reductor<real,RDC>::gpu_kernel_source(
 
     proto::eval(expr, head_ctx);
 
-    source << "kernel void " << kernel_name << "(" << type_name<size_t>() << " n";
+    source << "kernel void " << kernel_name << "(\n\t"
+	   << type_name<size_t>() << " n";
 
     proto::eval(expr, parm_ctx);
 

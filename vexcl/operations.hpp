@@ -53,30 +53,41 @@ struct user_function {};
 //--- Standard grammar (no terminals) ---------------------------------------
 #define VEXCL_OPERATIONS(grammar) \
     boost::proto::or_< \
-	boost::proto::plus          < grammar, grammar >, \
-	boost::proto::minus         < grammar, grammar >, \
-	boost::proto::multiplies    < grammar, grammar >, \
-	boost::proto::divides       < grammar, grammar >, \
-	boost::proto::modulus       < grammar, grammar >, \
-	boost::proto::shift_left    < grammar, grammar >, \
-	boost::proto::shift_right   < grammar, grammar > \
+	boost::proto::unary_plus< grammar >, \
+	boost::proto::negate< grammar >, \
+	boost::proto::logical_not< grammar >, \
+	boost::proto::pre_inc< grammar >, \
+	boost::proto::pre_dec< grammar >, \
+	boost::proto::post_inc< grammar >, \
+	boost::proto::post_dec< grammar > \
     >, \
     boost::proto::or_< \
-	boost::proto::less          < grammar, grammar >, \
-	boost::proto::greater       < grammar, grammar >, \
-	boost::proto::less_equal    < grammar, grammar >, \
-	boost::proto::greater_equal < grammar, grammar >, \
-	boost::proto::equal_to      < grammar, grammar >, \
-	boost::proto::not_equal_to  < grammar, grammar > \
-    >, \
-    boost::proto::or_< \
-	boost::proto::logical_and   < grammar, grammar >, \
-	boost::proto::logical_or    < grammar, grammar > \
-    >, \
-    boost::proto::or_< \
-	boost::proto::bitwise_and   < grammar, grammar >, \
-	boost::proto::bitwise_or    < grammar, grammar >, \
-	boost::proto::bitwise_xor   < grammar, grammar > \
+	boost::proto::or_< \
+	    boost::proto::plus          < grammar, grammar >, \
+	    boost::proto::minus         < grammar, grammar >, \
+	    boost::proto::multiplies    < grammar, grammar >, \
+	    boost::proto::divides       < grammar, grammar >, \
+	    boost::proto::modulus       < grammar, grammar >, \
+	    boost::proto::shift_left    < grammar, grammar >, \
+	    boost::proto::shift_right   < grammar, grammar > \
+	>, \
+	boost::proto::or_< \
+	    boost::proto::less          < grammar, grammar >, \
+	    boost::proto::greater       < grammar, grammar >, \
+	    boost::proto::less_equal    < grammar, grammar >, \
+	    boost::proto::greater_equal < grammar, grammar >, \
+	    boost::proto::equal_to      < grammar, grammar >, \
+	    boost::proto::not_equal_to  < grammar, grammar > \
+	>, \
+	boost::proto::or_< \
+	    boost::proto::logical_and   < grammar, grammar >, \
+	    boost::proto::logical_or    < grammar, grammar > \
+	>, \
+	boost::proto::or_< \
+	    boost::proto::bitwise_and   < grammar, grammar >, \
+	    boost::proto::bitwise_or    < grammar, grammar >, \
+	    boost::proto::bitwise_xor   < grammar, grammar > \
+	> \
     >, \
     boost::proto::or_< \
 	boost::proto::function< \

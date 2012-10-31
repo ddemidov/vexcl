@@ -2,7 +2,7 @@ set(EXAMPLES
     benchmark
     cg
     devlist
-    utests
+    #utests
     vector
     proto_test
     )
