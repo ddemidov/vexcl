@@ -8,6 +8,7 @@
 #include <vexcl/reduce_proto.hpp>
 #include <vexcl/multivector.hpp>
 */
+#include <boost/fusion/include/is_sequence.hpp>
 #include <vexcl/vexcl.hpp>
 
 extern const char greater_body[] = "return prm1 < prm2;";
@@ -23,6 +24,8 @@ int main() {
 	vex::vector<double> a(ctx.queue(), n);
 	vex::vector<double> b(ctx.queue(), n);
 	vex::vector<double> c(ctx.queue(), n);
+
+	std::cout << "fusion? " << boost::fusion::traits::is_sequence< vex::multivector<double,3> >::type::value << std::endl;
 
 	a = 1;
 	b = 2;

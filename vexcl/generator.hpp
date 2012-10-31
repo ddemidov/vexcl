@@ -40,6 +40,7 @@ THE SOFTWARE.
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <stdexcept>
 #include <boost/proto/proto.hpp>
 #include <vexcl/util.hpp>
 #include <vexcl/operations.hpp>
@@ -154,7 +155,7 @@ struct symbolic_grammar
 	  >,
 	  boost::proto::function<
 	      boost::proto::terminal<
-	  	boost::proto::convertible_to<builtin_function>
+	          boost::proto::convertible_to<builtin_function>
 	      >,
 	      boost::proto::vararg<symbolic_grammar>
           >
