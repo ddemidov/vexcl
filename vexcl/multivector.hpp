@@ -57,7 +57,7 @@ THE SOFTWARE.
 #include <CL/cl.hpp>
 #include <vexcl/util.hpp>
 #include <vexcl/operations.hpp>
-#include <vexcl/vector_proto.hpp>
+#include <vexcl/vector.hpp>
 
 /// Vector expression template library for OpenCL.
 namespace vex {
@@ -1174,6 +1174,21 @@ std::map<cl_context,cl::Kernel> multivector<T,N,own>::exdata<Expr>::kernel;
 
 template <class T, size_t N, bool own> template <class Expr>
 std::map<cl_context,size_t> multivector<T,N,own>::exdata<Expr>::wgsize;
+
+/// Copy multivector to host vector.
+template <class T, size_t N, bool own>
+void copy(const multivector<T,N,own> &mv, std::vector<T> &hv) {
+    for(uint i = 0; i < N; i++)
+	vex::copy(mv(i).begin(), mv(i).end(), hv.begin() + i * mv.size());
+}
+
+/// Copy host vector to multivector.
+template <class T, size_t N, bool own>
+void copy(const std::vector<T> &hv, multivector<T,N,own> &mv) {
+    for(uint i = 0; i < N; i++)
+	vex::copy(hv.begin() + i * mv.size(), hv.begin() + (i + 1) * mv.size(),
+		mv(i).begin());
+}
 
 
 } // namespace vex

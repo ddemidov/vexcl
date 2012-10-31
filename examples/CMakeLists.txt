@@ -1,9 +1,9 @@
 set(EXAMPLES
-    benchmark
-    cg
-    devlist
-    #utests
-    vector
+    #benchmark
+    #cg
+    #devlist
+    utests
+    #vector
     proto_test
     )
 

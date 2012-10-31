@@ -75,11 +75,10 @@ class Reductor {
 	 * expressions of arbitrary complexity may be reduced.
 	 */
 	template <class Expr>
-	typename std::enable_if<Expr::is_expr, real>::type
-	operator()(const Expr &expr) const;
-
-	template <class Expr>
-	typename std::enable_if<Expr::is_multiex, std::array<real,Expr::dim>>::type
+	typename std::enable_if<
+	    proto::matches<Expr, vector_expr_grammar>::value,
+	    real
+	>::type
 	operator()(const Expr &expr) const;
     private:
 	const std::vector<cl::CommandQueue> &queue;
@@ -153,7 +152,10 @@ Reductor<real,RDC>::Reductor(const std::vector<cl::CommandQueue> &queue)
 }
 
 template <typename real, ReductionKind RDC> template <class Expr>
-typename std::enable_if<Expr::is_expr, real>::type
+typename std::enable_if<
+    proto::matches<Expr, vector_expr_grammar>::value,
+    real
+>::type
 Reductor<real,RDC>::operator()(const Expr &expr) const {
     for(auto q = queue.begin(); q != queue.end(); q++) {
 	cl::Context context = qctx(*q);
@@ -163,11 +165,15 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
 
 	    bool device_is_cpu = device.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU;
 
-	    std::string kernel_name = std::string("reduce_") + expr.kernel_name();
+	    std::ostringstream kernel_name;
+	    vector_name_context name_ctx(kernel_name);
+
+	    kernel_name << "reduce_";
+	    proto::eval(expr, name_ctx);
 
 	    std::string source = device_is_cpu ?
-		cpu_kernel_source(context, expr, kernel_name) :
-		gpu_kernel_source(context, expr, kernel_name) ;
+		cpu_kernel_source(context, expr, kernel_name.str()) :
+		gpu_kernel_source(context, expr, kernel_name.str()) ;
 
 #ifdef VEXCL_SHOW_KERNELS
 	    std::cout << source << std::endl;
@@ -175,7 +181,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
 
 	    auto program = build_sources(context, source);
 
-	    exdata<Expr>::kernel[context()]   = cl::Kernel(program, kernel_name.c_str());
+	    exdata<Expr>::kernel[context()]   = cl::Kernel(program, kernel_name.str().c_str());
 	    exdata<Expr>::compiled[context()] = true;
 
 	    if (device_is_cpu) {
@@ -195,8 +201,11 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
     }
 
 
+    vector_prop_context prop_ctx;
+    proto::eval(expr, prop_ctx);
+
     for(uint d = 0; d < queue.size(); d++) {
-	if (size_t psize = expr.part_size(d)) {
+	if (size_t psize = prop_ctx.part_size(d)) {
 	    cl::Context context = qctx(queue[d]);
 
 	    size_t g_size = (idx[d + 1] - idx[d]) * exdata<Expr>::wgsize[context()];
@@ -204,7 +213,12 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
 
 	    uint pos = 0;
 	    exdata<Expr>::kernel[context()].setArg(pos++, psize);
-	    expr.kernel_args(exdata<Expr>::kernel[context()], d, pos);
+
+	    vector_args_context args_ctx(
+		    exdata<Expr>::kernel[context()], d, pos
+		    );
+	    proto::eval(expr, args_ctx);
+
 	    exdata<Expr>::kernel[context()].setArg(pos++, dbuf[d]);
 	    exdata<Expr>::kernel[context()].setArg(pos++, lmem);
 
@@ -216,13 +230,13 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
     std::fill(hbuf.begin(), hbuf.end(), initial_value());
 
     for(uint d = 0; d < queue.size(); d++) {
-	if (expr.part_size(d))
+	if (prop_ctx.part_size(d))
 	    queue[d].enqueueReadBuffer(dbuf[d], CL_FALSE,
 		    0, sizeof(real) * (idx[d + 1] - idx[d]), &hbuf[idx[d]], 0, &event[d]);
     }
 
     for(uint d = 0; d < queue.size(); d++)
-	if (expr.part_size(d)) event[d].wait();
+	if (prop_ctx.part_size(d)) event[d].wait();
 
     switch(RDC) {
 	case SUM:
@@ -236,14 +250,6 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
 }
 
 template <typename real, ReductionKind RDC> template <class Expr>
-typename std::enable_if<Expr::is_multiex, std::array<real,Expr::dim>>::type
-Reductor<real,RDC>::operator()(const Expr &expr) const {
-    std::array<real, Expr::dim> result;
-    for (uint i = 0; i < Expr::dim; i++) result[i] = this->operator()(expr(i));
-    return result;
-}
-
-template <typename real, ReductionKind RDC> template <class Expr>
 std::string Reductor<real,RDC>::gpu_kernel_source(
 	const cl::Context &context, const Expr &expr,
 	const std::string &kernel_name) const
@@ -253,29 +259,37 @@ std::string Reductor<real,RDC>::gpu_kernel_source(
     std::ostringstream source;
 
     std::ostringstream increment_line;
+    vector_expr_context expr_ctx(increment_line);
+
     switch (RDC) {
 	case SUM:
 	    increment_line << "mySum += ";
-	    expr.kernel_expr(increment_line, "prm");
+	    proto::eval(expr, expr_ctx);
 	    increment_line << ";\n";
 	    break;
 	case MAX:
 	    increment_line << "mySum = max(mySum, ";
-	    expr.kernel_expr(increment_line, "prm");
+	    proto::eval(expr, expr_ctx);
 	    increment_line << ");\n";
 	    break;
 	case MIN:
 	    increment_line << "mySum = min(mySum, ";
-	    expr.kernel_expr(increment_line, "prm");
+	    proto::eval(expr, expr_ctx);
 	    increment_line << ");\n";
 	    break;
     }
 
     source << standard_kernel_header;
-    expr.preamble(source, "prm");
-    source << "kernel void " << kernel_name << "(" << type_name<size_t>() << " n";
 
-    expr.kernel_prm(source, "prm");
+    vector_head_context head_ctx(source);
+    vector_parm_context parm_ctx(source);
+
+    proto::eval(expr, head_ctx);
+
+    source << "kernel void " << kernel_name << "(\n\t"
+	   << type_name<size_t>() << " n";
+
+    proto::eval(expr, parm_ctx);
 
     source << ",\n\tglobal " << type_name<real>() << " *g_odata,\n"
 	"\tlocal  " << type_name<real>() << " *sdata\n"
@@ -285,13 +299,13 @@ std::string Reductor<real,RDC>::gpu_kernel_source(
 	"    size_t block_size = get_local_size(0);\n"
 	"    size_t p          = get_group_id(0) * block_size * 2 + tid;\n"
 	"    size_t gridSize   = get_num_groups(0) * block_size * 2;\n"
-	"    size_t i;\n"
+	"    size_t idx;\n"
 	"    " << type_name<real>() << " mySum = " << initial_value() << ";\n"
 	"    while (p < n) {\n"
-	"        i = p;\n"
+	"        idx = p;\n"
 	"        " << increment_line.str() <<
-	"        i = p + block_size;\n"
-	"        if (i < n)\n"
+	"        idx = p + block_size;\n"
+	"        if (idx < n)\n"
 	"            " << increment_line.str() <<
 	"        p += gridSize;\n"
 	"    }\n"
@@ -372,29 +386,36 @@ std::string Reductor<real,RDC>::cpu_kernel_source(
     std::ostringstream source;
 
     std::ostringstream increment_line;
+    vector_expr_context expr_ctx(increment_line);
+
     switch (RDC) {
 	case SUM:
 	    increment_line << "mySum += ";
-	    expr.kernel_expr(increment_line, "prm");
+	    proto::eval(expr, expr_ctx);
 	    increment_line << ";\n";
 	    break;
 	case MAX:
 	    increment_line << "mySum = max(mySum, ";
-	    expr.kernel_expr(increment_line, "prm");
+	    proto::eval(expr, expr_ctx);
 	    increment_line << ");\n";
 	    break;
 	case MIN:
 	    increment_line << "mySum = min(mySum, ";
-	    expr.kernel_expr(increment_line, "prm");
+	    proto::eval(expr, expr_ctx);
 	    increment_line << ");\n";
 	    break;
     }
 
     source << standard_kernel_header;
-    expr.preamble(source, "prm");
+
+    vector_head_context head_ctx(source);
+    vector_parm_context parm_ctx(source);
+
+    proto::eval(expr, head_ctx);
+
     source << "kernel void " << kernel_name << "(" << type_name<size_t>() << " n";
 
-    expr.kernel_prm(source, "prm");
+    proto::eval(expr, parm_ctx);
 
     source << ",\n\tglobal " << type_name<real>() << " *g_odata,\n"
 	"\tlocal  " << type_name<real>() << " *sdata\n"
@@ -406,7 +427,7 @@ std::string Reductor<real,RDC>::cpu_kernel_source(
 	"    size_t start      = min(n, chunk_size * chunk_id);\n"
 	"    size_t stop       = min(n, chunk_size * (chunk_id + 1));\n"
 	"    " << type_name<real>() << " mySum = " << initial_value() << ";\n"
-	"    for (size_t i = start; i < stop; i++) {\n"
+	"    for (size_t idx = start; idx < stop; idx++) {\n"
 	"        " << increment_line.str() <<
 	"    }\n"
 	"\n"

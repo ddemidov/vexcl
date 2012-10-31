@@ -42,7 +42,7 @@ THE SOFTWARE.
 #include <string>
 #include <boost/proto/proto.hpp>
 #include <vexcl/util.hpp>
-#include <vexcl/builtins.hpp>
+#include <vexcl/operations.hpp>
 
 /// Vector expression template library for OpenCL.
 namespace vex {
@@ -115,33 +115,49 @@ struct symbolic_grammar
 		  proto::if_< boost::is_arithmetic< proto::_value >() >
 	      >
           >,
-	  proto::or_<
-	      proto::plus          < symbolic_grammar, symbolic_grammar >,
-	      proto::minus         < symbolic_grammar, symbolic_grammar >,
-	      proto::multiplies    < symbolic_grammar, symbolic_grammar >,
-	      proto::divides       < symbolic_grammar, symbolic_grammar >,
-	      proto::modulus       < symbolic_grammar, symbolic_grammar >,
-	      proto::shift_left    < symbolic_grammar, symbolic_grammar >,
-	      proto::shift_right   < symbolic_grammar, symbolic_grammar >
+	  boost::proto::or_<
+	      boost::proto::unary_plus< symbolic_grammar >,
+	      boost::proto::negate< symbolic_grammar >,
+	      boost::proto::logical_not< symbolic_grammar >,
+	      boost::proto::pre_inc< symbolic_grammar >,
+	      boost::proto::pre_dec< symbolic_grammar >,
+	      boost::proto::post_inc< symbolic_grammar >,
+	      boost::proto::post_dec< symbolic_grammar >
 	  >,
-	  proto::or_<
-	      proto::less          < symbolic_grammar, symbolic_grammar >,
-	      proto::greater       < symbolic_grammar, symbolic_grammar >,
-	      proto::less_equal    < symbolic_grammar, symbolic_grammar >,
-	      proto::greater_equal < symbolic_grammar, symbolic_grammar >,
-	      proto::equal_to      < symbolic_grammar, symbolic_grammar >,
-	      proto::not_equal_to  < symbolic_grammar, symbolic_grammar >
+	  boost::proto::or_<
+	      boost::proto::or_<
+	          boost::proto::plus          < symbolic_grammar, symbolic_grammar >,
+	          boost::proto::minus         < symbolic_grammar, symbolic_grammar >,
+	          boost::proto::multiplies    < symbolic_grammar, symbolic_grammar >,
+	          boost::proto::divides       < symbolic_grammar, symbolic_grammar >,
+	          boost::proto::modulus       < symbolic_grammar, symbolic_grammar >,
+	          boost::proto::shift_left    < symbolic_grammar, symbolic_grammar >,
+	          boost::proto::shift_right   < symbolic_grammar, symbolic_grammar >
+	      >,
+	      boost::proto::or_<
+	          boost::proto::less          < symbolic_grammar, symbolic_grammar >,
+	          boost::proto::greater       < symbolic_grammar, symbolic_grammar >,
+	          boost::proto::less_equal    < symbolic_grammar, symbolic_grammar >,
+	          boost::proto::greater_equal < symbolic_grammar, symbolic_grammar >,
+	          boost::proto::equal_to      < symbolic_grammar, symbolic_grammar >,
+	          boost::proto::not_equal_to  < symbolic_grammar, symbolic_grammar >
+	      >,
+	      boost::proto::or_<
+	          boost::proto::logical_and   < symbolic_grammar, symbolic_grammar >,
+	          boost::proto::logical_or    < symbolic_grammar, symbolic_grammar >
+	      >,
+	      boost::proto::or_<
+	          boost::proto::bitwise_and   < symbolic_grammar, symbolic_grammar >,
+	          boost::proto::bitwise_or    < symbolic_grammar, symbolic_grammar >,
+	          boost::proto::bitwise_xor   < symbolic_grammar, symbolic_grammar >
+	      >
 	  >,
-	  proto::or_<
-	      proto::logical_and   < symbolic_grammar, symbolic_grammar >,
-	      proto::logical_or    < symbolic_grammar, symbolic_grammar >
-	  >,
-	  proto::or_<
-	      proto::bitwise_and   < symbolic_grammar, symbolic_grammar >,
-	      proto::bitwise_or    < symbolic_grammar, symbolic_grammar >,
-	      proto::bitwise_xor   < symbolic_grammar, symbolic_grammar >
-	  >,
-	  proto::function< _ , proto::vararg< symbolic_grammar > >
+	  boost::proto::function<
+	      boost::proto::terminal<
+	  	boost::proto::convertible_to<builtin_function>
+	      >,
+	      boost::proto::vararg<symbolic_grammar>
+          >
       >
 {};
 
@@ -204,6 +220,41 @@ struct symbolic_context {
     BINARY_OPERATION(bitwise_xor,   ^);
 
 #undef BINARY_OPERATION
+
+#define UNARY_PRE_OPERATION(the_tag, the_op) \
+    template <typename Expr> \
+    struct eval<Expr, proto::tag::the_tag> { \
+	typedef void result_type; \
+	void operator()(const Expr &expr, symbolic_context &ctx) const { \
+	    get_recorder() << "( " #the_op "( "; \
+	    proto::eval(proto::child(expr), ctx); \
+	    get_recorder() << " ) )"; \
+	} \
+    }
+
+    UNARY_PRE_OPERATION(unary_plus,   +);
+    UNARY_PRE_OPERATION(negate,       -);
+    UNARY_PRE_OPERATION(logical_not,  !);
+    UNARY_PRE_OPERATION(pre_inc,     ++);
+    UNARY_PRE_OPERATION(pre_dec,     --);
+
+#undef UNARY_PRE_OPERATION
+
+#define UNARY_POST_OPERATION(the_tag, the_op) \
+    template <typename Expr> \
+    struct eval<Expr, proto::tag::the_tag> { \
+	typedef void result_type; \
+	void operator()(const Expr &expr, symbolic_context &ctx) const { \
+	    get_recorder() << "( ( "; \
+	    proto::eval(proto::child(expr), ctx); \
+	    get_recorder() << " )" #the_op " )"; \
+	} \
+    }
+
+    UNARY_POST_OPERATION(post_inc, ++);
+    UNARY_POST_OPERATION(post_dec, --);
+
+#undef UNARY_POST_OPERATION
 
     template <class Expr>
     struct eval<Expr, proto::tag::function> {
@@ -413,17 +464,20 @@ class Kernel {
 	    for(uint d = 0; d < queue.size(); d++) {
 		if (size_t psize = prm_size(d, param...)) {
 		    cl::Context context = qctx(queue[d]);
+		    cl::Device  device  = qdev(queue[d]);
 
 		    uint pos = 0;
 		    krn[context()].setArg(pos++, psize);
 
-		    set_params(krn[context()], d, pos, param...);
+		    set_params setprm(krn[context()], d, pos);
+		    for_each(std::tie(param...), setprm);
 
-		    queue[d].enqueueNDRangeKernel(
-			    krn[context()],
-			    cl::NullRange,
-			    alignup(psize, wgs[context()]),
-			    wgs[context()]
+		    size_t g_size = device.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU ?
+			alignup(psize, wgs[context()]) :
+			device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() * wgs[context()] * 4;
+
+		    queue[d].enqueueNDRangeKernel(krn[context()],
+			    cl::NullRange, g_size, wgs[context()]
 			    );
 		}
 	    }
@@ -449,20 +503,23 @@ class Kernel {
 		<< "kernel void " << name << "(\n"
 		<< "\t" << type_name<size_t>() << " n";
 
-	    declare_params(source, args...);
+	    declare_params declprm(source);
+	    for_each(std::tie(args...), declprm);
 
-	    source
-		<< "\n\t)\n{\n"
-		<< "size_t idx = get_global_id(0);\n"
-		<< "if (idx < n) {\n";
+	    source <<
+		"\n)\n{\n\t"
+		"for(size_t idx = get_global_id(0); idx < n; "
+		"idx += get_global_size(0)) {\n";
 
-	    read_params(source, args...);
+	    read_params readprm(source);
+	    for_each(std::tie(args...), readprm);
 
 	    source << body;
 	    
-	    write_params(source, args...);
+	    write_params writeprm(source);
+	    for_each(std::tie(args...), writeprm);
 
-	    source << "}\n}\n";
+	    source << "\t}\n}\n";
 
 #ifdef VEXCL_SHOW_KERNELS
 	    std::cout << source.str() << std::endl;
@@ -479,34 +536,60 @@ class Kernel {
 	    }
 	}
 
+	struct declare_params {
+	    std::ostream &os;
+
+	    declare_params(std::ostream &os) : os(os) {}
+
+	    template <class T>
+	    void operator()(const T &v) const {
+		os << ",\n\t" << v.prmdecl();
+	    }
+	};
+
+	struct read_params {
+	    std::ostream &os;
+
+	    read_params(std::ostream &os) : os(os) {}
+
+	    template <class T>
+	    void operator()(const T &v) const {
+		os << v.init();
+	    }
+	};
+
+	struct write_params {
+	    std::ostream &os;
+
+	    write_params(std::ostream &os) : os(os) {}
+
+	    template <class T>
+	    void operator()(const T &v) const {
+		os << v.write();
+	    }
+	};
+
+	struct set_params {
+	    cl::Kernel &krn;
+	    uint d, &pos;
+
+	    set_params(cl::Kernel &krn, uint d, uint &pos)
+		: krn(krn), d(d), pos(pos) {};
+
+	    template <class T>
+	    void operator()(const T &v) const {
+		krn.setArg(pos++, v);
+	    }
+	    template <class T>
+	    void operator()(const vector<T> &v) const {
+		krn.setArg(pos++, v(d));
+	    }
+	};
+
 	std::vector<cl::CommandQueue> queue;
 
 	std::map<cl_context, cl::Kernel> krn;
 	std::map<cl_context, uint> wgs;
-
-	void declare_params(std::ostream &os) const {}
-
-	template <class Head, class... Tail>
-	void declare_params(std::ostream &os, const Head &head, const Tail&... tail) {
-	    os << ",\n\t" << head.prmdecl();
-	    declare_params(os, tail...);
-	}
-
-	void read_params(std::ostream &os) const {}
-
-	template <class Head, class... Tail>
-	void read_params(std::ostream &os, const Head &head, const Tail&... tail) {
-	    os << head.init();
-	    read_params(os, tail...);
-	}
-
-	void write_params(std::ostream &os) const {}
-
-	template <class Head, class... Tail>
-	void write_params(std::ostream &os, const Head &head, const Tail&... tail) {
-	    os << head.write();
-	    write_params(os, tail...);
-	}
 
 	size_t prm_size(uint d) const {
 	    throw std::logic_error(
@@ -515,21 +598,13 @@ class Kernel {
 	}
 
 	template <class Head, class... Tail>
-	size_t prm_size(uint d, const Head &head, const Tail&... tail) const {
-	    if (std::is_arithmetic<Head>::value)
-		return prm_size(d, tail...);
-	    else 
-		return KernelGenerator<Head>(head).part_size(d);
+	size_t prm_size(uint d, const vector<Head> &head, const Tail&... tail) const {
+	    return head.part_size(d);
 	}
 
-	void set_params(cl::Kernel &k, uint d, uint &p) const {}
-
 	template <class Head, class... Tail>
-	void set_params(cl::Kernel &k, uint d, uint &p, const Head &head,
-		const Tail&... tail) const
-	{
-	    KernelGenerator<Head>(head).kernel_args(k, d, p);
-	    set_params(k, d, p, tail...);
+	size_t prm_size(uint d, const Head &head, const Tail&... tail) const {
+	    return prm_size(d, tail...);
 	}
 };
 
