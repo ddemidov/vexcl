@@ -80,6 +80,15 @@ class Reductor {
 	    real
 	>::type
 	operator()(const Expr &expr) const;
+
+#ifdef VEXCL_MULTIVECTOR_HPP
+	template <class Expr>
+	typename std::enable_if<
+	    proto::matches<Expr, multivector_expr_grammar>::value,
+	    std::array<real, boost::result_of<mutltiex_dimension(Expr)>::type::value>
+	>::type
+	operator()(const Expr &expr) const;
+#endif
     private:
 	const std::vector<cl::CommandQueue> &queue;
 	std::vector<size_t> idx;
@@ -248,6 +257,21 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
 	    return *std::min_element(hbuf.begin(), hbuf.end());
     }
 }
+
+#ifdef VEXCL_MULTIVECTOR_HPP
+template <typename real, ReductionKind RDC> template <class Expr>
+typename std::enable_if<
+    proto::matches<Expr, multivector_expr_grammar>::value,
+    std::array<real, boost::result_of<mutltiex_dimension(Expr)>::type::value>
+>::type
+Reductor<real,RDC>::operator()(const Expr &expr) const {
+    const size_t dim = boost::result_of<mutltiex_dimension(Expr)>::type::value;
+    std::array<real, dim> result;
+
+    for (uint i = 0; i < dim; i++) result[i] = 0;
+    return result;
+}
+#endif
 
 template <typename real, ReductionKind RDC> template <class Expr>
 std::string Reductor<real,RDC>::gpu_kernel_source(

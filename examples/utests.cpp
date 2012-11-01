@@ -752,7 +752,7 @@ int main(int argc, char *argv[]) {
 	});
 #endif
 
-#if 0
+#if 1
 	run_test("Simple arithmetic with multivectors", [&]() -> bool {
 		bool rc = true;
 		const size_t n = 1024;
@@ -815,7 +815,7 @@ int main(int argc, char *argv[]) {
 		    rc = rc && xmax[i] == v[i];
 		}
 
-		x = std::make_tuple(
+		x = std::tie(
 			2 * y(0) + z(0),
 			2 * y(1) + z(1),
 			2 * y(2) + z(2),
@@ -849,7 +849,7 @@ int main(int argc, char *argv[]) {
 		vex::vector<double> a(ctx.queue(), n);
 		vex::vector<double> b(ctx.queue(), n);
 
-		vex::tie(a, b) = std::make_tuple(x + y, x - y);
+		vex::tie(a, b) = std::tie(x + y, x - y);
 
 		std::vector<double> A(n);
 		std::vector<double> B(n);

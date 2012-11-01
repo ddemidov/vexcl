@@ -8,11 +8,32 @@
 #include <vexcl/reduce_proto.hpp>
 #include <vexcl/multivector.hpp>
 */
+#include <boost/mpl/max.hpp>
 #include <boost/fusion/include/is_sequence.hpp>
 #include <vexcl/vexcl.hpp>
 
 extern const char greater_body[] = "return prm1 < prm2;";
 vex::UserFunction<greater_body, bool(double, double)> greater;
+
+using boost::proto::_;
+namespace proto = boost::proto;
+namespace mpl = boost::mpl;
+
+template <class T> struct mvsize : boost::mpl::int_<0> {};
+template <class T, size_t N, bool own> struct mvsize<vex::multivector<T,N,own>> : boost::mpl::int_<N> {};
+
+struct mutltiex_dimension
+        : proto::or_ <
+            proto::when <
+		proto::terminal< _ >,
+		mvsize<_>()
+	    > ,
+	    proto::when <
+		proto::nary_expr<_, proto::vararg<_> >,
+		proto::fold<_, mpl::int_<0>(), mpl::max<mutltiex_dimension, proto::_state>()>()
+	    >
+        >
+{};
 
 struct show {
     template <class Expr>
@@ -21,45 +42,11 @@ struct show {
     }
 };
 
-struct process_terminal
-    : boost::proto::transform < process_terminal >
-{
-    template<typename Expr, typename Unused1, typename Unused2>
-    struct impl : boost::proto::transform_impl<Expr, Unused1, Unused2>
-    {
-	typedef typename impl::expr_param result_type;
-
-        result_type operator ()(
-              typename impl::expr_param term
-            , typename impl::state_param process
-            , typename impl::data_param) const
-        {
-	    process(term);
-	    return term;
-        }
-    };
-};
-
-struct extract_functions
-        : boost::proto::or_ <
-	    boost::proto::terminal<boost::proto::_>,
-            boost::proto::when <
-		boost::proto::function<
-		    boost::proto::terminal <
-			boost::proto::convertible_to<vex::user_function>
-		    >,
-		    boost::proto::vararg< extract_functions >
-		>,
-		process_terminal(boost::proto::_child0)
-	    > ,
-            boost::proto::when <
-		boost::proto::nary_expr<
-		    boost::proto::_,
-		    boost::proto::vararg< extract_functions >
-		>
-	    >
-        >
-{};
+template <class Expr>
+void dim(const Expr &expr) {
+    size_t d = boost::result_of<mutltiex_dimension(Expr)>::type::value;
+    std::cout << "dim = " << d << std::endl;
+}
 
 int main() {
     try {
@@ -112,11 +99,9 @@ int main() {
 	std::cout << sin(arr[0] * 1) + (2 < std::get<0>(tup) + 3)
 		  << " = " << ma(0)[0] << std::endl;
 
+	auto ex = sin(1 * cos(mb) + 5 * 10);
 
-
-	auto ex = sin(a + b) + cos(greater(a, b));
-
-	extract_functions()(ex, show());
+	dim(ex);
 
     } catch (const cl::Error &e) {
 	std::cout << e << std::endl;

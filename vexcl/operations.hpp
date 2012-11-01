@@ -431,43 +431,43 @@ struct process_terminal
 };
 
 struct extract_terminals
-        : boost::proto::or_ <
-            boost::proto::when <
-		boost::proto::terminal<boost::proto::_>,
-		process_terminal
-	    > ,
-            boost::proto::function<
+    : boost::proto::or_ <
+	boost::proto::when <
+	    boost::proto::terminal<boost::proto::_>,
+	    process_terminal
+	> ,
+	boost::proto::function<
+	    boost::proto::_,
+	    boost::proto::vararg< extract_terminals >
+	> ,
+	boost::proto::when <
+	    boost::proto::nary_expr<
 		boost::proto::_,
 		boost::proto::vararg< extract_terminals >
-	    > ,
-            boost::proto::when <
-		boost::proto::nary_expr<
-		    boost::proto::_,
-		    boost::proto::vararg< extract_terminals >
-		>
 	    >
-        >
+	>
+    >
 {};
 
 struct extract_user_functions
-        : boost::proto::or_ <
-	    boost::proto::terminal<boost::proto::_>,
-            boost::proto::when <
-		boost::proto::function<
-		    boost::proto::terminal <
-			boost::proto::convertible_to<vex::user_function>
-		    >,
-		    boost::proto::vararg< extract_user_functions >
+    : boost::proto::or_ <
+	boost::proto::terminal<boost::proto::_>,
+	boost::proto::when <
+	    boost::proto::function<
+		boost::proto::terminal <
+		    boost::proto::convertible_to<vex::user_function>
 		>,
-		process_terminal(boost::proto::_child0)
-	    > ,
-            boost::proto::when <
-		boost::proto::nary_expr<
-		    boost::proto::_,
-		    boost::proto::vararg< extract_user_functions >
-		>
+		boost::proto::vararg< extract_user_functions >
+	    >,
+	    process_terminal(boost::proto::_child0)
+	> ,
+	boost::proto::when <
+	    boost::proto::nary_expr<
+		boost::proto::_,
+		boost::proto::vararg< extract_user_functions >
 	    >
-        >
+	>
+    >
 {};
 
 /// \endcond

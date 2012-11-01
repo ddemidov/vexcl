@@ -54,6 +54,7 @@ THE SOFTWARE.
 #include <type_traits>
 #include <functional>
 #include <boost/proto/proto.hpp>
+#include <boost/mpl/max.hpp>
 #include <CL/cl.hpp>
 #include <vexcl/util.hpp>
 #include <vexcl/operations.hpp>
@@ -73,7 +74,7 @@ struct is_multiscalar : std::false_type
 {};
 
 template <class T>
-struct number_of_components : std::integral_constant<size_t, 1>
+struct number_of_components : boost::mpl::size_t<1>
 {};
 
 template <size_t I, class T>
@@ -100,7 +101,7 @@ struct is_multiscalar<std::tuple<Args...>,
 
 template <class... Args>
 struct number_of_components< std::tuple<Args...> >
-    : std::integral_constant<size_t, sizeof...(Args)>
+    : boost::mpl::size_t<sizeof...(Args)>
 {};
 
 template <size_t I, class... Args>
@@ -120,7 +121,7 @@ struct is_multiscalar< std::array<T, N>,
 
 template <class T, size_t N>
 struct number_of_components< std::array<T, N> >
-    : std::integral_constant<size_t, N>
+    : boost::mpl::size_t<N>
 {};
 
 template <size_t I, class T, size_t N>
@@ -137,7 +138,7 @@ struct is_multiscalar< T[N],
 
 template <class T, size_t N>
 struct number_of_components< T[N] >
-    : std::integral_constant<size_t, N>
+    : boost::mpl::size_t<N>
 {};
 
 template <size_t I, class T, size_t N>
@@ -167,6 +168,26 @@ struct multivector_terminal {};
 
 template <typename T, size_t N, bool own = true>
 struct multivector;
+
+template <typename T, size_t N, bool own>
+struct number_of_components< multivector<T, N, own> >
+    : boost::mpl::size_t<N>
+{};
+
+struct mutltiex_dimension
+        : proto::or_ <
+            proto::when <
+		proto::terminal< _ >,
+		number_of_components<_>()
+	    > ,
+	    proto::when <
+		proto::nary_expr<_, proto::vararg<_> >,
+		proto::fold<_,
+		    boost::mpl::size_t<0>(),
+		    boost::mpl::max<mutltiex_dimension, proto::_state>()>()
+	    >
+        >
+{};
 
 struct multivector_expr_grammar
     : proto::or_<
@@ -539,7 +560,7 @@ struct multivector
       >
 {
     public:
-	static const size_t dim = N;
+	typedef std::integral_constant<size_t, N> dim;
 
 	typedef vex::vector<T>  subtype;
 	typedef std::array<T,N> value_type;

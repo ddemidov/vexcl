@@ -267,14 +267,14 @@ dxdt(1) = x(0) - x(1);
 
 This results in two kernel launches. Instead, you can use the following form:
 ```C++
-dxdt = std::make_tuple(x(0) + x(1), x(0) - x(1));
+dxdt = std::tie(x(0) + x(1), x(0) - x(1));
 ```
 This expression would generate and launch single combined kernel, which would
 be more effective. Multi-expressions like these may also be used with ordinary
 `vex::vectors` with help of `vex::tie()` function:
 ```C++
 // vex::vector<double> dx, dy, x, y;
-vex::tie(dx,dy) = std::make_tuple(x + y, x - y);
+vex::tie(dx,dy) = std::tie(x + y, x - y);
 ```
 
 Converting existing algorithms to kernels
