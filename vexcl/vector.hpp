@@ -128,17 +128,6 @@ struct vector_head_context {
     vector_head_context(std::ostream &os, int cmp_idx = 1)
 	: os(os), cmp_idx(cmp_idx), fun_idx(0) {}
 
-    struct do_eval {
-	vector_head_context &ctx;
-
-	do_eval(vector_head_context &ctx) : ctx(ctx) {}
-
-	template <class Child>
-	void operator()(const Child &child) const {
-	    proto::eval(child, ctx);
-	}
-    };
-
     // Any expression except user function or terminal is only interesting for its
     // children:
     template <typename Expr, typename Tag = typename Expr::proto_tag>
@@ -146,7 +135,8 @@ struct vector_head_context {
 	typedef void result_type;
 
 	void operator()(const Expr &expr, vector_head_context &ctx) const {
-	    boost::fusion::for_each(expr, do_eval(ctx));
+	    boost::fusion::for_each( expr,
+		    do_eval<vector_head_context>(ctx));
 	}
     };
 
@@ -167,7 +157,8 @@ struct vector_head_context {
 	>::type
 	operator()(const FunCall &expr, vector_head_context &ctx) const {
 	    boost::fusion::for_each(
-		    boost::fusion::pop_front(expr), do_eval(ctx)
+		    boost::fusion::pop_front(expr),
+		    do_eval<vector_head_context>(ctx)
 		    );
 	}
 
@@ -191,7 +182,8 @@ struct vector_head_context {
 	    >::type::define(ctx.os, name.str());
 
 	    boost::fusion::for_each(
-		    boost::fusion::pop_front(expr), do_eval(ctx)
+		    boost::fusion::pop_front(expr),
+		    do_eval<vector_head_context>(ctx)
 		    );
 	}
     };
@@ -211,17 +203,6 @@ struct vector_name_context {
 
     vector_name_context(std::ostream &os) : os(os) {}
 
-    struct do_eval {
-	vector_name_context &ctx;
-
-	do_eval(vector_name_context &ctx) : ctx(ctx) {}
-
-	template <class Child>
-	void operator()(const Child &child) const {
-	    proto::eval(child, ctx);
-	}
-    };
-
     // Any expression except function or terminal is only interesting for its
     // children:
     template <typename Expr, typename Tag = typename Expr::proto_tag>
@@ -230,7 +211,7 @@ struct vector_name_context {
 
 	void operator()(const Expr &expr, vector_name_context &ctx) const {
 	    ctx.os << Tag() << "_";
-	    boost::fusion::for_each(expr, do_eval(ctx));
+	    boost::fusion::for_each(expr, do_eval<vector_name_context>(ctx));
 	}
     };
 
@@ -253,7 +234,7 @@ struct vector_name_context {
 	    ctx.os << proto::value(proto::child_c<0>(expr)).name() << "_";
 	    boost::fusion::for_each(
 		    boost::fusion::pop_front(expr),
-		    do_eval(ctx)
+		    do_eval<vector_name_context>(ctx)
 		    );
 	}
 
@@ -271,7 +252,7 @@ struct vector_name_context {
 	    ctx.os << "func" << boost::fusion::size(expr) - 1 <<  "_";
 	    boost::fusion::for_each(
 		    boost::fusion::pop_front(expr),
-		    do_eval(ctx)
+		    do_eval<vector_name_context>(ctx)
 		    );
 	}
     };
@@ -295,17 +276,6 @@ struct vector_parm_context {
     vector_parm_context(std::ostream &os, int cmp_idx = 1)
 	: os(os), cmp_idx(cmp_idx), prm_idx(0) {}
 
-    struct do_eval {
-	vector_parm_context &ctx;
-
-	do_eval(vector_parm_context &ctx) : ctx(ctx) {}
-
-	template <class Child>
-	void operator()(const Child &child) const {
-	    proto::eval(child, ctx);
-	}
-    };
-
     // Any expression except function or terminal is only interesting for its
     // children:
     template <typename Expr, typename Tag = typename Expr::proto_tag>
@@ -313,7 +283,7 @@ struct vector_parm_context {
 	typedef void result_type;
 
 	void operator()(const Expr &expr, vector_parm_context &ctx) const {
-	    boost::fusion::for_each(expr, do_eval(ctx));
+	    boost::fusion::for_each(expr, do_eval<vector_parm_context>(ctx));
 	}
     };
 
@@ -324,7 +294,8 @@ struct vector_parm_context {
 
 	void operator()(const Expr &expr, vector_parm_context &ctx) const {
 	    boost::fusion::for_each(
-		    boost::fusion::pop_front(expr), do_eval(ctx)
+		    boost::fusion::pop_front(expr),
+		    do_eval<vector_parm_context>(ctx)
 		    );
 	}
     };
@@ -460,8 +431,7 @@ struct vector_expr_context {
 	operator()(const FunCall &expr, vector_expr_context &ctx) const {
 	    ctx.os << proto::value(proto::child_c<0>(expr)).name() << "( ";
 	    boost::fusion::for_each(
-		    boost::fusion::pop_front(expr),
-		    do_eval(ctx)
+		    boost::fusion::pop_front(expr), do_eval(ctx)
 		    );
 	    ctx.os << " )";
 	}
@@ -479,8 +449,7 @@ struct vector_expr_context {
 	operator()(const FunCall &expr, vector_expr_context &ctx) const {
 	    ctx.os << "func_" << ctx.cmp_idx << "_" << ++ctx.fun_idx << "( ";
 	    boost::fusion::for_each(
-		    boost::fusion::pop_front(expr),
-		    do_eval(ctx)
+		    boost::fusion::pop_front(expr), do_eval(ctx)
 		    );
 	    ctx.os << " )";
 	}
@@ -510,17 +479,6 @@ struct vector_args_context {
     vector_args_context(cl::Kernel &krn, uint dev, uint &pos)
 	: krn(krn), dev(dev), pos(pos) {}
 
-    struct do_eval {
-	vector_args_context &ctx;
-
-	do_eval(vector_args_context &ctx) : ctx(ctx) {}
-
-	template <class Child>
-	void operator()(const Child &child) const {
-	    proto::eval(child, ctx);
-	}
-    };
-
     // Any expression except function or terminal is only interesting for its
     // children:
     template <typename Expr, typename Tag = typename Expr::proto_tag>
@@ -528,7 +486,8 @@ struct vector_args_context {
 	typedef void result_type;
 
 	void operator()(const Expr &expr, vector_args_context &ctx) const {
-	    boost::fusion::for_each(expr, do_eval(ctx));
+	    boost::fusion::for_each(expr,
+		    do_eval<vector_args_context>(ctx));
 	}
     };
 
@@ -539,7 +498,8 @@ struct vector_args_context {
 
 	void operator()(const Expr &expr, vector_args_context &ctx) const {
 	    boost::fusion::for_each(
-		    boost::fusion::pop_front(expr), do_eval(ctx)
+		    boost::fusion::pop_front(expr),
+		    do_eval<vector_args_context>(ctx)
 		    );
 	}
     };

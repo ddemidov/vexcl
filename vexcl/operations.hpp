@@ -399,6 +399,18 @@ struct UserFunction<body, RetType(
 
 #endif
 
+template <class Context>
+struct do_eval {
+    Context &ctx;
+
+    do_eval(Context &ctx) : ctx(ctx) {}
+
+    template <class Expr>
+    void operator()(const Expr &expr) const {
+	boost::proto::eval(expr, ctx);
+    }
+};
+
 /// \endcond
 
 } // namespace vex;

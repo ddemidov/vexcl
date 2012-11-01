@@ -227,17 +227,6 @@ struct multivector_parm_context {
 	: os(os), prm_idx(0)
     { }
 
-    struct do_eval {
-	multivector_parm_context &ctx;
-
-	do_eval(multivector_parm_context &ctx) : ctx(ctx) {}
-
-	template <class Child>
-	void operator()(const Child &child) const {
-	    proto::eval(child, ctx);
-	}
-    };
-
     // Any expression except function or terminal is only interesting for its
     // children:
     template <typename Expr, typename Tag = typename Expr::proto_tag>
@@ -245,7 +234,8 @@ struct multivector_parm_context {
 	typedef void result_type;
 
 	void operator()(const Expr &expr, multivector_parm_context &ctx) const {
-	    boost::fusion::for_each(expr, do_eval(ctx));
+	    boost::fusion::for_each(expr,
+		    do_eval<multivector_parm_context>(ctx));
 	}
     };
 
@@ -256,7 +246,8 @@ struct multivector_parm_context {
 
 	void operator()(const Expr &expr, multivector_parm_context &ctx) const {
 	    boost::fusion::for_each(
-		    boost::fusion::pop_front(expr), do_eval(ctx)
+		    boost::fusion::pop_front(expr),
+		    do_eval<multivector_parm_context>(ctx)
 		    );
 	}
     };
@@ -509,17 +500,6 @@ struct multivector_args_context {
     multivector_args_context(cl::Kernel &krn, uint dev, uint &pos)
 	: krn(krn), dev(dev), pos(pos) {}
 
-    struct do_eval {
-	multivector_args_context &ctx;
-
-	do_eval(multivector_args_context &ctx) : ctx(ctx) {}
-
-	template <class Child>
-	void operator()(const Child &child) const {
-	    proto::eval(child, ctx);
-	}
-    };
-
     // Any expression except function or terminal is only interesting for its
     // children:
     template <typename Expr, typename Tag = typename Expr::proto_tag>
@@ -527,7 +507,8 @@ struct multivector_args_context {
 	typedef void result_type;
 
 	void operator()(const Expr &expr, multivector_args_context &ctx) const {
-	    boost::fusion::for_each(expr, do_eval(ctx));
+	    boost::fusion::for_each(expr,
+		    do_eval<multivector_args_context>(ctx));
 	}
     };
 
@@ -538,7 +519,8 @@ struct multivector_args_context {
 
 	void operator()(const Expr &expr, multivector_args_context &ctx) const {
 	    boost::fusion::for_each(
-		    boost::fusion::pop_front(expr), do_eval(ctx)
+		    boost::fusion::pop_front(expr),
+		    do_eval<multivector_args_context>(ctx)
 		    );
 	}
     };
