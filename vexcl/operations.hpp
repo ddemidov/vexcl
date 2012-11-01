@@ -411,6 +411,65 @@ struct do_eval {
     }
 };
 
+struct process_terminal
+    : boost::proto::transform < process_terminal >
+{
+    template<typename Expr, typename Unused1, typename Unused2>
+    struct impl : boost::proto::transform_impl<Expr, Unused1, Unused2>
+    {
+	typedef typename impl::expr_param result_type;
+
+        result_type operator ()(
+              typename impl::expr_param term
+            , typename impl::state_param process
+            , typename impl::data_param) const
+        {
+	    process(term);
+	    return term;
+        }
+    };
+};
+
+struct extract_terminals
+        : boost::proto::or_ <
+            boost::proto::when <
+		boost::proto::terminal<boost::proto::_>,
+		process_terminal
+	    > ,
+            boost::proto::function<
+		boost::proto::_,
+		boost::proto::vararg< extract_terminals >
+	    > ,
+            boost::proto::when <
+		boost::proto::nary_expr<
+		    boost::proto::_,
+		    boost::proto::vararg< extract_terminals >
+		>
+	    >
+        >
+{};
+
+struct extract_user_functions
+        : boost::proto::or_ <
+	    boost::proto::terminal<boost::proto::_>,
+            boost::proto::when <
+		boost::proto::function<
+		    boost::proto::terminal <
+			boost::proto::convertible_to<vex::user_function>
+		    >,
+		    boost::proto::vararg< extract_user_functions >
+		>,
+		process_terminal(boost::proto::_child0)
+	    > ,
+            boost::proto::when <
+		boost::proto::nary_expr<
+		    boost::proto::_,
+		    boost::proto::vararg< extract_user_functions >
+		>
+	    >
+        >
+{};
+
 /// \endcond
 
 } // namespace vex;

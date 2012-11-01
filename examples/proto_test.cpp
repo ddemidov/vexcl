@@ -14,6 +14,53 @@
 extern const char greater_body[] = "return prm1 < prm2;";
 vex::UserFunction<greater_body, bool(double, double)> greater;
 
+struct show {
+    template <class Expr>
+    void operator()(const Expr &expr) const {
+	boost::proto::display_expr(expr);
+    }
+};
+
+struct process_terminal
+    : boost::proto::transform < process_terminal >
+{
+    template<typename Expr, typename Unused1, typename Unused2>
+    struct impl : boost::proto::transform_impl<Expr, Unused1, Unused2>
+    {
+	typedef typename impl::expr_param result_type;
+
+        result_type operator ()(
+              typename impl::expr_param term
+            , typename impl::state_param process
+            , typename impl::data_param) const
+        {
+	    process(term);
+	    return term;
+        }
+    };
+};
+
+struct extract_functions
+        : boost::proto::or_ <
+	    boost::proto::terminal<boost::proto::_>,
+            boost::proto::when <
+		boost::proto::function<
+		    boost::proto::terminal <
+			boost::proto::convertible_to<vex::user_function>
+		    >,
+		    boost::proto::vararg< extract_functions >
+		>,
+		process_terminal(boost::proto::_child0)
+	    > ,
+            boost::proto::when <
+		boost::proto::nary_expr<
+		    boost::proto::_,
+		    boost::proto::vararg< extract_functions >
+		>
+	    >
+        >
+{};
+
 int main() {
     try {
 	vex::Context ctx( vex::Filter::Env );
@@ -64,6 +111,13 @@ int main() {
 
 	std::cout << sin(arr[0] * 1) + (2 < std::get<0>(tup) + 3)
 		  << " = " << ma(0)[0] << std::endl;
+
+
+
+	auto ex = sin(a + b) + cos(greater(a, b));
+
+	extract_functions()(ex, show());
+
     } catch (const cl::Error &e) {
 	std::cout << e << std::endl;
     }

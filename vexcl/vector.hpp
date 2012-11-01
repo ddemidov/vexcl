@@ -120,83 +120,6 @@ struct vector_expression
 // Vector Contexts
 //---------------------------------------------------------------------------
 
-// Builds header (if needed) for a vector expression.
-struct vector_head_context {
-    std::ostream &os;
-    int cmp_idx, fun_idx;
-
-    vector_head_context(std::ostream &os, int cmp_idx = 1)
-	: os(os), cmp_idx(cmp_idx), fun_idx(0) {}
-
-    // Any expression except user function or terminal is only interesting for its
-    // children:
-    template <typename Expr, typename Tag = typename Expr::proto_tag>
-    struct eval {
-	typedef void result_type;
-
-	void operator()(const Expr &expr, vector_head_context &ctx) const {
-	    boost::fusion::for_each( expr,
-		    do_eval<vector_head_context>(ctx));
-	}
-    };
-
-    // Function is either builtin (not interesting) or user-defined:
-    template <typename Expr>
-    struct eval<Expr, proto::tag::function> {
-	typedef void result_type;
-
-	template <class FunCall>
-	typename std::enable_if<
-	    std::is_base_of<
-		builtin_function,
-		typename proto::result_of::value<
-		    typename proto::result_of::child_c<FunCall,0>::type
-		>::type
-	    >::value,
-	void
-	>::type
-	operator()(const FunCall &expr, vector_head_context &ctx) const {
-	    boost::fusion::for_each(
-		    boost::fusion::pop_front(expr),
-		    do_eval<vector_head_context>(ctx)
-		    );
-	}
-
-	template <class FunCall>
-	typename std::enable_if<
-	    std::is_base_of<
-		user_function,
-		typename proto::result_of::value<
-		    typename proto::result_of::child_c<FunCall,0>::type
-		>::type
-	    >::value,
-	void
-	>::type
-	operator()(const FunCall &expr, vector_head_context &ctx) const {
-	    std::ostringstream name;
-	    name << "func_" << ctx.cmp_idx << "_" << ++ctx.fun_idx;
-
-	    // Output function definition and continue with parameters.
-	    proto::result_of::value<
-		typename proto::result_of::child_c<FunCall,0>::type
-	    >::type::define(ctx.os, name.str());
-
-	    boost::fusion::for_each(
-		    boost::fusion::pop_front(expr),
-		    do_eval<vector_head_context>(ctx)
-		    );
-	}
-    };
-
-    // Terminals are not interesting at all.
-    template <typename Expr>
-    struct eval<Expr, proto::tag::terminal> {
-	typedef void result_type;
-	void operator()(const Expr &expr, vector_head_context &ctx) const {
-	}
-    };
-};
-
 // Builds kernel name for a vector expression.
 struct vector_name_context {
     std::ostream &os;
@@ -267,59 +190,6 @@ struct vector_name_context {
     };
 };
 
-
-// Builds parameter list for a vector expression.
-struct vector_parm_context {
-    std::ostream &os;
-    int cmp_idx, prm_idx;
-
-    vector_parm_context(std::ostream &os, int cmp_idx = 1)
-	: os(os), cmp_idx(cmp_idx), prm_idx(0) {}
-
-    // Any expression except function or terminal is only interesting for its
-    // children:
-    template <typename Expr, typename Tag = typename Expr::proto_tag>
-    struct eval {
-	typedef void result_type;
-
-	void operator()(const Expr &expr, vector_parm_context &ctx) const {
-	    boost::fusion::for_each(expr, do_eval<vector_parm_context>(ctx));
-	}
-    };
-
-    // We only need to look at parameters of a function:
-    template <typename Expr>
-    struct eval<Expr, proto::tag::function> {
-	typedef void result_type;
-
-	void operator()(const Expr &expr, vector_parm_context &ctx) const {
-	    boost::fusion::for_each(
-		    boost::fusion::pop_front(expr),
-		    do_eval<vector_parm_context>(ctx)
-		    );
-	}
-    };
-
-    template <typename Expr>
-    struct eval<Expr, proto::tag::terminal> {
-	typedef void result_type;
-
-	template <typename T>
-	void operator()(const vector<T> &term, vector_parm_context &ctx) const {
-	    ctx.os
-		<< ",\n\tglobal " << type_name<T>() << " *prm_"
-		<< ctx.cmp_idx << "_" << ++ctx.prm_idx;
-	}
-
-	template <typename Term>
-	void operator()(const Term &term, vector_parm_context &ctx) const {
-	    ctx.os
-		<< ",\n\t"
-		<< type_name< typename proto::result_of::value<Term>::type >()
-		<< " prm_" << ctx.cmp_idx << "_" << ++ctx.prm_idx;
-	}
-    };
-};
 
 // Builds textual representation for a vector expression.
 struct vector_expr_context {
@@ -471,121 +341,88 @@ struct vector_expr_context {
     };
 };
 
-// Sets kernel arguments from a vector expression.
-struct vector_args_context {
+struct declare_user_function {
+    std::ostream &os;
+    int cmp_idx;
+    mutable int fun_idx;
+
+    declare_user_function(std::ostream &os, int cmp_idx = 1)
+	: os(os), cmp_idx(cmp_idx), fun_idx(0) {}
+
+	template <class FunCall>
+	void operator()(const FunCall &expr) const {
+	    std::ostringstream name;
+	    name << "func_" << cmp_idx << "_" << ++fun_idx;
+
+	    // Output function definition and continue with parameters.
+	    proto::value(expr).define(os, name.str());
+	}
+};
+
+struct declare_expression_parameter {
+    std::ostream &os;
+    int cmp_idx;
+    mutable int prm_idx;
+
+    declare_expression_parameter(std::ostream &os, int cmp_idx = 1)
+    : os(os), cmp_idx(cmp_idx), prm_idx(0) {}
+
+    template <typename T>
+    void operator()(const vector<T> &term) const {
+	os << ",\n\tglobal " << type_name<T>() << " *prm_"
+	   << cmp_idx << "_" << ++prm_idx;
+    }
+
+    template <typename Term>
+    void operator()(const Term &term) const {
+	os << ",\n\t"
+	   << type_name< typename proto::result_of::value<Term>::type >()
+	   << " prm_" << cmp_idx << "_" << ++prm_idx;
+    }
+};
+
+struct set_expression_argument {
     cl::Kernel &krn;
     uint dev, &pos;
 
-    vector_args_context(cl::Kernel &krn, uint dev, uint &pos)
+    set_expression_argument(cl::Kernel &krn, uint dev, uint &pos)
 	: krn(krn), dev(dev), pos(pos) {}
 
-    // Any expression except function or terminal is only interesting for its
-    // children:
-    template <typename Expr, typename Tag = typename Expr::proto_tag>
-    struct eval {
-	typedef void result_type;
+    template <typename T>
+    void operator()(const vector<T> &term) const {
+	krn.setArg(pos++, term(dev));
+    }
 
-	void operator()(const Expr &expr, vector_args_context &ctx) const {
-	    boost::fusion::for_each(expr,
-		    do_eval<vector_args_context>(ctx));
-	}
-    };
-
-    // We only need to look at parameters of a function:
-    template <typename Expr>
-    struct eval<Expr, proto::tag::function> {
-	typedef void result_type;
-
-	void operator()(const Expr &expr, vector_args_context &ctx) const {
-	    boost::fusion::for_each(
-		    boost::fusion::pop_front(expr),
-		    do_eval<vector_args_context>(ctx)
-		    );
-	}
-    };
-
-    template <typename Expr>
-    struct eval<Expr, proto::tag::terminal> {
-	typedef void result_type;
-
-	template <typename T>
-	void operator()(const vector<T> &term, vector_args_context &ctx) const {
-	    ctx.krn.setArg(ctx.pos++, term(ctx.dev));
-	}
-
-	template <typename Term>
-	void operator()(const Term &term, vector_args_context &ctx) const {
-	    ctx.krn.setArg(ctx.pos++, proto::value(term));
-	}
-    };
+    template <typename Term>
+    void operator()(const Term &term) const {
+	krn.setArg(pos++, proto::value(term));
+    }
 };
 
-// Gets properties for one of participating vectors
-struct vector_prop_context {
-    bool done;
-    std::vector<cl::CommandQueue> const* queue;
-    std::vector<size_t> const* part;
-    size_t size;
+struct get_expression_properties {
+    mutable std::vector<cl::CommandQueue> const* queue;
+    mutable std::vector<size_t> const* part;
+    mutable size_t size;
 
-    vector_prop_context() : done(false) {}
+    get_expression_properties() : queue(0), part(0), size(0) {}
 
     size_t part_size(uint d) const {
-	return done ?
+	return part ?
 	    part->operator[](d + 1) - part->operator[](d) :
 	    0;
     }
 
-    struct do_eval {
-	vector_prop_context &ctx;
-
-	do_eval(vector_prop_context &ctx) : ctx(ctx) {}
-
-	template <class Child>
-	void operator()(const Child &child) const {
-	    if (!ctx.done) proto::eval(child, ctx);
+    template <typename T>
+    void operator()(const vector<T> &term) const {
+	if (!queue) {
+	    queue = &( term.queue_list() );
+	    part  = &( term.partition() );
+	    size  = term.size();
 	}
-    };
+    }
 
-    // Any expression except function or terminal is only interesting for
-    // its children:
-    template <typename Expr, typename Tag = typename Expr::proto_tag>
-    struct eval {
-	typedef void result_type;
-
-	void operator()(const Expr &expr, vector_prop_context &ctx) const {
-	    if (!ctx.done)
-		boost::fusion::for_each(expr, do_eval(ctx));
-	}
-    };
-
-    // We only need to look at parameters of a function:
-    template <typename Expr>
-    struct eval<Expr, proto::tag::function> {
-	typedef void result_type;
-
-	void operator()(const Expr &expr, vector_prop_context &ctx) const {
-	    if (!ctx.done)
-		boost::fusion::for_each(
-			boost::fusion::pop_front(expr), do_eval(ctx)
-			);
-	}
-    };
-
-    template <typename Expr>
-    struct eval<Expr, proto::tag::terminal> {
-	typedef void result_type;
-
-	template <typename T>
-	void operator()(const vector<T> &term, vector_prop_context &ctx) const {
-	    ctx.queue = &( term.queue_list() );
-	    ctx.part  = &( term.partition() );
-	    ctx.size  = term.size();
-	    ctx.done  = true;
-	}
-
-	template <typename Term>
-	void operator()(const Term &term, vector_prop_context &ctx) const { }
-    };
+    template <typename Term>
+    void operator()(const Term &term) const { }
 };
 
 
@@ -878,8 +715,6 @@ struct vector
 		if (!exdata<Expr>::compiled[context()]) {
 		    std::ostringstream kernel;
 
-		    vector_head_context head_ctx(kernel);
-		    vector_parm_context parm_ctx(kernel);
 		    vector_expr_context expr_ctx(kernel);
 
 		    std::ostringstream kernel_name;
@@ -888,11 +723,19 @@ struct vector
 
 		    kernel << standard_kernel_header;
 
-		    proto::eval(proto::as_child(expr), head_ctx);
+		    extract_user_functions()(
+			    proto::as_child(expr),
+			    declare_user_function(kernel)
+			    );
+
 		    kernel << "kernel void " << kernel_name.str()
 		           << "(\n\t" << type_name<size_t>()
 			   << " n,\n\tglobal " << type_name<T>() << " *res";
-		    proto::eval(proto::as_child(expr), parm_ctx);
+
+		    extract_terminals()(
+			    proto::as_child(expr),
+			    declare_expression_parameter(kernel)
+			    );
 
 		    kernel <<
 			"\n)\n{\n\t"
@@ -929,11 +772,10 @@ struct vector
 		    exdata<Expr>::kernel[context()].setArg(pos++, psize);
 		    exdata<Expr>::kernel[context()].setArg(pos++, buf[d]);
 
-		    vector_args_context args_ctx(
-			    exdata<Expr>::kernel[context()], d, pos
+		    extract_terminals()(
+			    proto::as_child(expr),
+			    set_expression_argument(exdata<Expr>::kernel[context()], d, pos)
 			    );
-
-		    proto::eval(proto::as_child(expr), args_ctx);
 
 		    queue[d].enqueueNDRangeKernel(
 			    exdata<Expr>::kernel[context()],

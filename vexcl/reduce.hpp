@@ -201,11 +201,11 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
     }
 
 
-    vector_prop_context prop_ctx;
-    proto::eval(expr, prop_ctx);
+    get_expression_properties prop;
+    extract_terminals()(expr, prop);
 
     for(uint d = 0; d < queue.size(); d++) {
-	if (size_t psize = prop_ctx.part_size(d)) {
+	if (size_t psize = prop.part_size(d)) {
 	    cl::Context context = qctx(queue[d]);
 
 	    size_t g_size = (idx[d + 1] - idx[d]) * exdata<Expr>::wgsize[context()];
@@ -214,10 +214,10 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
 	    uint pos = 0;
 	    exdata<Expr>::kernel[context()].setArg(pos++, psize);
 
-	    vector_args_context args_ctx(
-		    exdata<Expr>::kernel[context()], d, pos
+	    extract_terminals()(
+		    expr,
+		    set_expression_argument(exdata<Expr>::kernel[context()], d, pos)
 		    );
-	    proto::eval(expr, args_ctx);
 
 	    exdata<Expr>::kernel[context()].setArg(pos++, dbuf[d]);
 	    exdata<Expr>::kernel[context()].setArg(pos++, lmem);
@@ -230,13 +230,13 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
     std::fill(hbuf.begin(), hbuf.end(), initial_value());
 
     for(uint d = 0; d < queue.size(); d++) {
-	if (prop_ctx.part_size(d))
+	if (prop.part_size(d))
 	    queue[d].enqueueReadBuffer(dbuf[d], CL_FALSE,
 		    0, sizeof(real) * (idx[d + 1] - idx[d]), &hbuf[idx[d]], 0, &event[d]);
     }
 
     for(uint d = 0; d < queue.size(); d++)
-	if (prop_ctx.part_size(d)) event[d].wait();
+	if (prop.part_size(d)) event[d].wait();
 
     switch(RDC) {
 	case SUM:
@@ -281,15 +281,12 @@ std::string Reductor<real,RDC>::gpu_kernel_source(
 
     source << standard_kernel_header;
 
-    vector_head_context head_ctx(source);
-    vector_parm_context parm_ctx(source);
-
-    proto::eval(expr, head_ctx);
+    extract_user_functions()( expr, declare_user_function(source) );
 
     source << "kernel void " << kernel_name << "(\n\t"
 	   << type_name<size_t>() << " n";
 
-    proto::eval(expr, parm_ctx);
+    extract_terminals()( expr, declare_expression_parameter(source) );
 
     source << ",\n\tglobal " << type_name<real>() << " *g_odata,\n"
 	"\tlocal  " << type_name<real>() << " *sdata\n"
@@ -408,14 +405,11 @@ std::string Reductor<real,RDC>::cpu_kernel_source(
 
     source << standard_kernel_header;
 
-    vector_head_context head_ctx(source);
-    vector_parm_context parm_ctx(source);
-
-    proto::eval(expr, head_ctx);
+    extract_user_functions()( expr, declare_user_function(source) );
 
     source << "kernel void " << kernel_name << "(" << type_name<size_t>() << " n";
 
-    proto::eval(expr, parm_ctx);
+    extract_terminals()( expr, declare_expression_parameter(source) );
 
     source << ",\n\tglobal " << type_name<real>() << " *g_odata,\n"
 	"\tlocal  " << type_name<real>() << " *sdata\n"

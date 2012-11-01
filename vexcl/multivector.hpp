@@ -216,112 +216,6 @@ struct multivector_expression
 // Multivector contexts
 //---------------------------------------------------------------------------
 
-// Builds parameter list for a multivector expression.
-
-template <size_t N, size_t C>
-struct multivector_parm_context {
-    std::ostream &os;
-    int prm_idx;
-
-    multivector_parm_context(std::ostream &os)
-	: os(os), prm_idx(0)
-    { }
-
-    // Any expression except function or terminal is only interesting for its
-    // children:
-    template <typename Expr, typename Tag = typename Expr::proto_tag>
-    struct eval {
-	typedef void result_type;
-
-	void operator()(const Expr &expr, multivector_parm_context &ctx) const {
-	    boost::fusion::for_each(expr,
-		    do_eval<multivector_parm_context>(ctx));
-	}
-    };
-
-    // We only need to look at parameters of a function:
-    template <typename Expr>
-    struct eval<Expr, proto::tag::function> {
-	typedef void result_type;
-
-	void operator()(const Expr &expr, multivector_parm_context &ctx) const {
-	    boost::fusion::for_each(
-		    boost::fusion::pop_front(expr),
-		    do_eval<multivector_parm_context>(ctx)
-		    );
-	}
-    };
-
-    template <typename Expr>
-    struct eval<Expr, proto::tag::terminal> {
-	typedef void result_type;
-
-	template <typename T, size_t M, bool own>
-	void operator()(const multivector<T,M,own> &term, multivector_parm_context &ctx) const {
-	    static_assert(M == N, "Wrong number of components in a multivector");
-
-	    ctx.os
-		<< ",\n\tglobal " << type_name<T>() << " *prm_"
-		<< C + 1 << "_" << ++ctx.prm_idx;
-	}
-
-	template <typename Term>
-	void operator()(const Term &term, multivector_parm_context &ctx) const {
-	    typedef typename proto::result_of::value<Term>::type term_type;
-
-	    typedef
-		typename component<
-		    C, typename proto::result_of::value<Term>::type
-		    >::type
-		component_type;
-
-	    static_assert(
-		    number_of_components<term_type>::value == 1 ||
-		    number_of_components<term_type>::value == N,
-		    "Wrong number of components in a multiscalar"
-		    );
-
-	    ctx.prm_idx++;
-
-	    if (number_of_components<term_type>::value > 1) {
-		ctx.os
-		    << ",\n\t"
-		    << type_name< component_type >()
-		    << " prm_" << C + 1 << "_" << ctx.prm_idx;
-	    } else if (C == 0) {
-		ctx.os
-		    << ",\n\t"
-		    << type_name< component_type >()
-		    << " prm_1_" << ctx.prm_idx;
-	    }
-	}
-    };
-};
-
-template <size_t I, size_t N, class Expr>
-typename std::enable_if<I + 1 == N>::type
-mv_param_list_loop(const Expr &expr, std::ostream &os) {
-    multivector_parm_context<N, I> ctx(os);
-    proto::eval(expr, ctx);
-}
-
-template <size_t I, size_t N, class Expr>
-typename std::enable_if<I + 1 < N>::type
-mv_param_list_loop(const Expr &expr, std::ostream &os) {
-    multivector_parm_context<N, I> ctx(os);
-    proto::eval(expr, ctx);
-
-    mv_param_list_loop<I+1, N, Expr>(expr, os);
-}
-
-template <size_t N, class Expr>
-void build_param_list(const Expr &expr, std::ostream &os) {
-    mv_param_list_loop<0, N, Expr>(expr, os);
-}
-
-
-
-
 // Builds textual representation for a vector expression.
 template <size_t N, size_t C>
 struct multivector_expr_context {
@@ -491,79 +385,120 @@ struct multivector_expr_context {
 };
 
 
-// Sets kernel arguments from a multivector expression.
 template <size_t N, size_t C>
-struct multivector_args_context {
+struct declare_multiex_parameter {
+    std::ostream &os;
+    mutable int prm_idx;
+
+    declare_multiex_parameter(std::ostream &os) : os(os), prm_idx(0) { }
+
+    template <typename T, size_t M, bool own>
+    void operator()(const multivector<T, M, own> &term) const {
+	static_assert(M == N, "Wrong number of components in a multivector");
+
+	os << ",\n\tglobal " << type_name<T>() << " *prm_"
+	   << C + 1 << "_" << ++prm_idx;
+    }
+
+    template <typename Term>
+    void operator()(const Term &term) const {
+	typedef typename proto::result_of::value<Term>::type term_type;
+
+	typedef
+	    typename component<
+		C, typename proto::result_of::value<Term>::type
+		>::type
+	    component_type;
+
+	static_assert(
+		number_of_components<term_type>::value == 1 ||
+		number_of_components<term_type>::value == N,
+		"Wrong number of components in a multiscalar"
+		);
+
+	prm_idx++;
+
+	if (number_of_components<term_type>::value > 1) {
+	    os << ",\n\t"
+	       << type_name< component_type >()
+	       << " prm_" << C + 1 << "_" << prm_idx;
+	} else if (C == 0) {
+	    os << ",\n\t"
+	       << type_name< component_type >()
+	       << " prm_1_" << prm_idx;
+	}
+    }
+};
+
+template <size_t I, size_t N, class Expr>
+typename std::enable_if<I + 1 == N>::type
+mv_param_list_loop(const Expr &expr, std::ostream &os) {
+    extract_terminals()( expr,
+	    declare_multiex_parameter<N, I>(os)
+	    );
+}
+
+template <size_t I, size_t N, class Expr>
+typename std::enable_if<I + 1 < N>::type
+mv_param_list_loop(const Expr &expr, std::ostream &os) {
+    extract_terminals()( expr,
+	    declare_multiex_parameter<N, I>(os)
+	    );
+
+    mv_param_list_loop<I+1, N, Expr>(expr, os);
+}
+
+template <size_t N, class Expr>
+void build_param_list(const Expr &expr, std::ostream &os) {
+    mv_param_list_loop<0, N, Expr>(expr, os);
+}
+
+
+
+
+template <size_t N, size_t C>
+struct set_multiex_argument {
     cl::Kernel &krn;
     uint dev, &pos;
 
-    multivector_args_context(cl::Kernel &krn, uint dev, uint &pos)
+    set_multiex_argument(cl::Kernel &krn, uint dev, uint &pos)
 	: krn(krn), dev(dev), pos(pos) {}
 
-    // Any expression except function or terminal is only interesting for its
-    // children:
-    template <typename Expr, typename Tag = typename Expr::proto_tag>
-    struct eval {
-	typedef void result_type;
+    template <typename T, size_t M, bool own>
+    void operator()(const multivector<T, M, own> &term) const {
+	static_assert(M == N, "Wrong number of components in a multivector");
+	krn.setArg(pos++, term(C)(dev));
+    }
 
-	void operator()(const Expr &expr, multivector_args_context &ctx) const {
-	    boost::fusion::for_each(expr,
-		    do_eval<multivector_args_context>(ctx));
-	}
-    };
+    template <typename Term>
+    void operator()(const Term &term) const {
+	typedef typename proto::result_of::value<Term>::type term_type;
 
-    // We only need to look at parameters of a function:
-    template <typename Expr>
-    struct eval<Expr, proto::tag::function> {
-	typedef void result_type;
+	static_assert(
+		number_of_components<term_type>::value == 1 ||
+		number_of_components<term_type>::value == N,
+		"Wrong number of components in a multiscalar"
+		);
 
-	void operator()(const Expr &expr, multivector_args_context &ctx) const {
-	    boost::fusion::for_each(
-		    boost::fusion::pop_front(expr),
-		    do_eval<multivector_args_context>(ctx)
-		    );
-	}
-    };
-
-    template <typename Expr>
-    struct eval<Expr, proto::tag::terminal> {
-	typedef void result_type;
-
-	template <typename T, size_t M, bool own>
-	void operator()(const multivector<T, M, own> &term, multivector_args_context &ctx) const {
-	    static_assert(M == N, "Wrong number of components in a multivector");
-	    ctx.krn.setArg(ctx.pos++, term(C)(ctx.dev));
-	}
-
-	template <typename Term>
-	void operator()(const Term &term, multivector_args_context &ctx) const {
-	    typedef typename proto::result_of::value<Term>::type term_type;
-
-	    static_assert(
-		    number_of_components<term_type>::value == 1 ||
-		    number_of_components<term_type>::value == N,
-		    "Wrong number of components in a multiscalar"
-		    );
-
-	    if ((number_of_components<term_type>::value > 1) || (C == 0))
-		ctx.krn.setArg(ctx.pos++, get<C>(proto::value(term)));
-	}
-    };
+	if ((number_of_components<term_type>::value > 1) || (C == 0))
+	    krn.setArg(pos++, get<C>(proto::value(term)));
+    }
 };
-
 
 template <size_t I, size_t N, class Expr>
 typename std::enable_if<I + 1 == N>::type
 mv_kernel_args_loop(const Expr &expr, cl::Kernel &krn, uint d, uint &pos) {
-    multivector_args_context<N, I> ctx(krn, d, pos);
-    proto::eval(expr, ctx);
+    extract_terminals()( expr,
+	    set_multiex_argument<N, I>(krn, d, pos)
+	    );
 }
 
 template <size_t I, size_t N, class Expr>
 typename std::enable_if<I + 1 < N>::type
 mv_kernel_args_loop(const Expr &expr, cl::Kernel &krn, uint d, uint &pos) {
-    multivector_args_context<N, I> ctx(krn, d, pos);
-    proto::eval(expr, ctx);
+    extract_terminals()( expr,
+	    set_multiex_argument<N, I>(krn, d, pos)
+	    );
 
     mv_kernel_args_loop<I+1, N, Expr>(expr, krn, d, pos);
 }
@@ -849,8 +784,10 @@ struct multivector
 		    std::ostringstream kernel;
 		    kernel << standard_kernel_header;
 
-		    vector_head_context head_ctx(kernel);
-		    proto::eval(proto::as_child(expr), head_ctx);
+		    extract_user_functions()(
+			    proto::as_child(expr),
+			    declare_user_function(kernel)
+			    );
 
 		    kernel << "kernel void " << kernel_name.str()
 		           << "(\n\t" << type_name<size_t>() << " n";
@@ -1003,8 +940,9 @@ struct multivector
 			exdata<MultiExpr>::kernel[context()].setArg(pos++, vec[i]->operator()(d));
 
 		    {
-			set_arguments f(exdata<MultiExpr>::kernel[context()], d, pos);
-			for_each(expr, f);
+			set_expression_argument arg_setter(
+				exdata<MultiExpr>::kernel[context()], d, pos);
+			for_each(expr, arg_setter);
 		    }
 
 		    queue[d].enqueueNDRangeKernel(
@@ -1090,8 +1028,10 @@ struct multivector
 
 	    template <class Expr>
 	    void operator()(const Expr &expr) const {
-		vector_head_context ctx(os, ++cmp_idx);
-		proto::eval(proto::as_child(expr), ctx);
+		extract_user_functions()(
+			proto::as_expr(expr),
+			declare_user_function(os, ++cmp_idx)
+			);
 	    }
 	};
 
@@ -1103,8 +1043,10 @@ struct multivector
 
 	    template <class Expr>
 	    void operator()(const Expr &expr) const {
-		vector_parm_context ctx(os, ++cmp_idx);
-		proto::eval(proto::as_child(expr), ctx);
+		extract_terminals()(
+			proto::as_child(expr),
+			declare_expression_parameter(os, ++cmp_idx)
+			);
 	    }
 	};
 
@@ -1123,19 +1065,6 @@ struct multivector
 	    }
 	};
 
-	struct set_arguments {
-	    cl::Kernel &krn;
-	    uint d, &pos;
-
-	    set_arguments(cl::Kernel &krn, uint d, uint &pos)
-		: krn(krn), d(d), pos(pos) {}
-
-	    template <class Expr>
-	    void operator()(const Expr &expr) const {
-		vector_args_context ctx(krn, d, pos);
-		proto::eval(proto::as_child(expr), ctx);
-	    }
-	};
 #endif
 
 	std::array<typename multivector_storage<T, own>::type,N> vec;
@@ -1174,5 +1103,11 @@ void copy(const std::vector<T> &hv, multivector<T,N,own> &mv) {
 
 
 } // namespace vex
+
+namespace boost { namespace fusion { namespace traits {
+template <class T, size_t N, bool own>
+struct is_sequence< vex::multivector<T, N, own> > : std::false_type
+{};
+} } }
 
 #endif

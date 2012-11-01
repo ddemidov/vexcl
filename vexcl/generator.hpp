@@ -100,20 +100,17 @@ inline void set_recorder(std::ostream &os) {
 // Setting up boost::proto.
 //---------------------------------------------------------------------------
 
-namespace proto = boost::proto;
-using proto::_;
-
 struct variable {};
 
 // --- The grammar ----------------------------------------------------------
 
 struct symbolic_grammar
-    : proto::or_<
-	  proto::or_<
-	      proto::terminal< variable >,
-	      proto::and_<
-	          proto::terminal< _ >,
-		  proto::if_< boost::is_arithmetic< proto::_value >() >
+    : boost::proto::or_<
+	  boost::proto::or_<
+	      boost::proto::terminal< variable >,
+	      boost::proto::and_<
+	          boost::proto::terminal< boost::proto::_ >,
+		  boost::proto::if_< boost::is_arithmetic< boost::proto::_value >() >
 	      >
           >,
 	  boost::proto::or_<
@@ -166,14 +163,14 @@ template <class Expr>
 struct symbolic_expr;
 
 struct symbolic_domain
-    : proto::domain< proto::generator< symbolic_expr >, symbolic_grammar >
+    : boost::proto::domain< boost::proto::generator< symbolic_expr >, symbolic_grammar >
 {};
 
 template <class Expr>
 struct symbolic_expr
-    : proto::extends< Expr, symbolic_expr< Expr >, symbolic_domain >
+    : boost::proto::extends< Expr, symbolic_expr< Expr >, symbolic_domain >
 {
-    typedef proto::extends< Expr, symbolic_expr< Expr >, symbolic_domain > base_type;
+    typedef boost::proto::extends< Expr, symbolic_expr< Expr >, symbolic_domain > base_type;
 
     symbolic_expr(const Expr &expr = Expr()) : base_type(expr) {}
 };
@@ -190,13 +187,13 @@ struct symbolic_context {
 
 #define BINARY_OPERATION(bin_tag, bin_op) \
     template <typename Expr> \
-    struct eval<Expr, proto::tag::bin_tag> { \
+    struct eval<Expr, boost::proto::tag::bin_tag> { \
 	typedef void result_type; \
 	void operator()(const Expr &expr, symbolic_context &ctx) const { \
 	    get_recorder() << "( "; \
-	    proto::eval(proto::left(expr), ctx); \
+	    boost::proto::eval(boost::proto::left(expr), ctx); \
 	    get_recorder() << " " #bin_op " "; \
-	    proto::eval(proto::right(expr), ctx); \
+	    boost::proto::eval(boost::proto::right(expr), ctx); \
 	    get_recorder() << " )"; \
 	} \
     }
@@ -224,11 +221,11 @@ struct symbolic_context {
 
 #define UNARY_PRE_OPERATION(the_tag, the_op) \
     template <typename Expr> \
-    struct eval<Expr, proto::tag::the_tag> { \
+    struct eval<Expr, boost::proto::tag::the_tag> { \
 	typedef void result_type; \
 	void operator()(const Expr &expr, symbolic_context &ctx) const { \
 	    get_recorder() << "( " #the_op "( "; \
-	    proto::eval(proto::child(expr), ctx); \
+	    boost::proto::eval(boost::proto::child(expr), ctx); \
 	    get_recorder() << " ) )"; \
 	} \
     }
@@ -243,11 +240,11 @@ struct symbolic_context {
 
 #define UNARY_POST_OPERATION(the_tag, the_op) \
     template <typename Expr> \
-    struct eval<Expr, proto::tag::the_tag> { \
+    struct eval<Expr, boost::proto::tag::the_tag> { \
 	typedef void result_type; \
 	void operator()(const Expr &expr, symbolic_context &ctx) const { \
 	    get_recorder() << "( ( "; \
-	    proto::eval(proto::child(expr), ctx); \
+	    boost::proto::eval(boost::proto::child(expr), ctx); \
 	    get_recorder() << " )" #the_op " )"; \
 	} \
     }
@@ -258,7 +255,7 @@ struct symbolic_context {
 #undef UNARY_POST_OPERATION
 
     template <class Expr>
-    struct eval<Expr, proto::tag::function> {
+    struct eval<Expr, boost::proto::tag::function> {
 	typedef void result_type;
 
 	struct display {
@@ -270,12 +267,12 @@ struct symbolic_context {
 	    template <class Arg>
 	    void operator()(const Arg &arg) const {
 		if (pos++) get_recorder() << ", ";
-		proto::eval(arg, ctx);
+		boost::proto::eval(arg, ctx);
 	    }
 	};
 
 	void operator()(const Expr &expr, symbolic_context &ctx) const {
-	    get_recorder() << proto::value(proto::child_c<0>(expr)).name() << "( ";
+	    get_recorder() << boost::proto::value(boost::proto::child_c<0>(expr)).name() << "( ";
 
 	    boost::fusion::for_each(
 		    boost::fusion::pop_front(expr),
@@ -287,13 +284,13 @@ struct symbolic_context {
     };
 
     template <typename Expr>
-    struct eval<Expr, proto::tag::terminal> {
+    struct eval<Expr, boost::proto::tag::terminal> {
 	typedef void result_type;
 
 	template <typename Term>
 	void operator()(const Term &term, symbolic_context &ctx) const {
 	    get_recorder() << std::scientific << std::setprecision(12)
-		<< proto::value(term);
+		<< boost::proto::value(term);
 	}
 
 	template <typename T>
@@ -311,7 +308,7 @@ struct symbolic_context {
 template <class Expr>
 void record(const Expr &expr) {
     symbolic_context ctx;
-    proto::eval(proto::as_expr(expr), ctx);
+    boost::proto::eval(boost::proto::as_expr(expr), ctx);
 }
 /// \endcond
 
@@ -321,7 +318,7 @@ void record(const Expr &expr) {
 
 template <typename T>
 class symbolic
-    : public symbolic_expr< proto::terminal< variable >::type >
+    : public symbolic_expr< boost::proto::terminal< variable >::type >
 {
     public:
 	/// Scope/Type of the symbolic variable.
