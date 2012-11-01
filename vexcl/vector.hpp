@@ -86,7 +86,8 @@ struct vector_expr_grammar
 		  proto::if_< std::is_arithmetic< proto::_value >() >
 	      >
           >,
-	  VEXCL_OPERATIONS(vector_expr_grammar)
+	  BUILTIN_OPERATIONS(vector_expr_grammar),
+	  USER_FUNCTIONS(vector_expr_grammar)
       >
 {};
 

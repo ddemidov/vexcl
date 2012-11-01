@@ -269,6 +269,13 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
     std::array<real, dim> result;
 
     for (uint i = 0; i < dim; i++) result[i] = 0;
+    /*
+    result[0] = (*this)(extract_subexpression<0>()(expr));
+    result[1] = (*this)(extract_subexpression<1>()(expr));
+    result[2] = (*this)(extract_subexpression<2>()(expr));
+    result[3] = (*this)(extract_subexpression<3>()(expr));
+    */
+    proto::display_expr(extract_subexpression<3>()(expr));
     return result;
 }
 #endif

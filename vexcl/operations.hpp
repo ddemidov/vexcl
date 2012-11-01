@@ -51,7 +51,7 @@ struct builtin_function {};
 struct user_function {};
 
 //--- Standard grammar (no terminals) ---------------------------------------
-#define VEXCL_OPERATIONS(grammar) \
+#define BUILTIN_OPERATIONS(grammar) \
     boost::proto::or_< \
 	boost::proto::unary_plus< grammar >, \
 	boost::proto::negate< grammar >, \
@@ -89,19 +89,19 @@ struct user_function {};
 	    boost::proto::bitwise_xor   < grammar, grammar > \
 	> \
     >, \
-    boost::proto::or_< \
-	boost::proto::function< \
-	    boost::proto::terminal< \
-		boost::proto::convertible_to<builtin_function> \
-	    >, \
-	    boost::proto::vararg<grammar> \
-        >, \
-	boost::proto::function< \
-            boost::proto::terminal< \
-                boost::proto::convertible_to<user_function> \
-	    >, \
-	    boost::proto::vararg<grammar> \
-        > \
+    boost::proto::function< \
+	boost::proto::terminal< \
+	    boost::proto::convertible_to<builtin_function> \
+	>, \
+	boost::proto::vararg<grammar> \
+    >
+
+#define USER_FUNCTIONS(grammar) \
+    boost::proto::function< \
+	boost::proto::terminal< \
+	    boost::proto::convertible_to<user_function> \
+	>, \
+	boost::proto::vararg<grammar> \
     >
 
 //--- Builtin function ------------------------------------------------------

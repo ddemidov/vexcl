@@ -768,7 +768,7 @@ int main(int argc, char *argv[]) {
 
 		std::array<int, m> v;
 		for(uint i = 0; i < m; i++) v[i] = i;
-		x = v;
+		//x = v;
 		std::array<float, m> xmin = min(x);
 		std::array<float, m> xmax = max(x);
 		for(uint i = 0; i < m; i++) {

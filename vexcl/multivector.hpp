@@ -73,6 +73,14 @@ template <class T, class Enable = void>
 struct is_multiscalar : std::false_type
 {};
 
+// Arithmetic scalars
+
+template <class T>
+struct is_multiscalar< T, 
+    typename std::enable_if< std::is_arithmetic<T>::value >::type >
+    : std::true_type
+{};
+
 template <class T>
 struct number_of_components : boost::mpl::size_t<1>
 {};
@@ -81,6 +89,16 @@ template <size_t I, class T>
 struct component {
     typedef T type;
 };
+
+template <size_t I, typename T>
+inline const T& get(const T &t) {
+    return t;
+}
+
+template <size_t I, typename T>
+inline T& get(T &t) {
+    return t;
+}
 
 #ifdef VEXCL_VARIADIC_TEMPLATES
 
@@ -146,21 +164,15 @@ struct component< I, T[N] > {
     typedef T type;
 };
 
-// Arithmetic scalars
-
-template <class T>
-struct is_multiscalar< T, 
-    typename std::enable_if< std::is_arithmetic<T>::value >::type >
-    : std::true_type
-{};
-
-template <size_t I, typename T>
-inline T get(const T &t) {
-    return t;
+template <size_t I, typename T, size_t N>
+inline const T& get(const T t[N]) {
+    static_assert(I < N, "Component number out of bounds");
+    return t[I];
 }
 
-template <size_t I, typename T>
-inline T get(const T t[]) {
+template <size_t I, typename T, size_t N>
+inline T& get(T t[N]) {
+    static_assert(I < N, "Component number out of bounds");
     return t[I];
 }
 
@@ -174,6 +186,26 @@ struct number_of_components< multivector<T, N, own> >
     : boost::mpl::size_t<N>
 {};
 
+template <size_t I, typename T, size_t N, bool own>
+struct component< I, multivector<T, N, own> > {
+    typedef vector<T> type;
+};
+
+template <size_t I, typename T, size_t N, bool own>
+const vector<T>& get(const multivector<T, N, own> &mv) {
+    static_assert(I < N, "Component number out of bounds");
+
+    return mv(I);
+}
+
+template <size_t I, typename T, size_t N, bool own>
+vector<T>& get(multivector<T, N, own> &mv) {
+    static_assert(I < N, "Component number out of bounds");
+
+    return mv(I);
+}
+
+template 
 struct mutltiex_dimension
         : proto::or_ <
             proto::when <
@@ -198,7 +230,8 @@ struct multivector_expr_grammar
 		  proto::if_< is_multiscalar< proto::_value >() >
 	      >
           >,
-	  VEXCL_OPERATIONS(multivector_expr_grammar)
+	  BUILTIN_OPERATIONS(multivector_expr_grammar),
+	  USER_FUNCTIONS(multivector_expr_grammar)
       >
 {};
 
@@ -531,6 +564,84 @@ void set_kernel_args(const Expr &expr, cl::Kernel &krn, uint d, uint &pos) {
 
 
 
+template <size_t C>
+struct extract_component
+    : boost::proto::transform < extract_component<C> >
+{
+    template<typename Expr, typename Unused1, typename Unused2, class Enable = void>
+    struct impl {};
+
+    template<typename Expr, typename Unused1, typename Unused2>
+    struct impl<Expr, Unused1, Unused2,
+	typename std::enable_if< std::is_same<
+		vex::multivector_terminal,
+		typename boost::proto::result_of::value<typename boost::remove_reference<Expr>::type>::type
+		>::value >::type>
+	    : boost::proto::transform_impl<Expr, Unused1, Unused2>
+    {
+	typedef typename boost::proto::result_of::as_child<
+	    typename vex::component<C, typename impl::expr>::type
+	    >::type result_type;
+
+	result_type operator ()(
+              typename impl::expr_param term
+            , typename impl::state_param
+            , typename impl::data_param) const
+        {
+	    using namespace vex;
+	    using namespace std;
+
+	    return boost::proto::as_child(get<C>(term));
+        }
+
+    };
+
+    template<typename Expr, typename Unused1, typename Unused2>
+    struct impl<Expr, Unused1, Unused2,
+	typename std::enable_if< !std::is_same<
+		vex::multivector_terminal,
+		typename boost::proto::result_of::value<typename boost::remove_reference<Expr>::type>::type
+		>::value >::type>
+	    : boost::proto::transform_impl<Expr, Unused1, Unused2>
+    {
+	typedef typename boost::proto::result_of::as_expr<
+	    typename vex::component<C,
+		typename boost::proto::result_of::value<typename impl::expr>::type>::type
+	    >::type result_type;
+
+	result_type operator ()(
+              typename impl::expr_param term
+            , typename impl::state_param
+            , typename impl::data_param) const
+        {
+	    using namespace vex;
+	    using namespace std;
+
+	    return boost::proto::as_expr(get<C>(boost::proto::value(term)));
+        }
+    };
+};
+
+template <size_t C>
+struct extract_subexpression
+    : boost::proto::or_ <
+	boost::proto::when <
+	    boost::proto::terminal<boost::proto::_>,
+	    extract_component<C>
+	> ,
+	boost::proto::function<
+	    boost::proto::_,
+	    boost::proto::vararg< extract_subexpression<C> >
+	> ,
+	boost::proto::when <
+	    boost::proto::nary_expr<
+		boost::proto::_,
+		boost::proto::vararg< extract_subexpression<C> >
+	    >
+	>
+    >
+{};
+
 
 
 
@@ -706,6 +817,7 @@ struct multivector
 
 	/// Copy constructor.
 	multivector(const multivector &mv) {
+	    std::cout << "Multivector copy!" << std::endl;
 	    copy_components<own>(mv);
 	}
 

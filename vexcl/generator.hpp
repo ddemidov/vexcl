@@ -113,49 +113,7 @@ struct symbolic_grammar
 		  boost::proto::if_< boost::is_arithmetic< boost::proto::_value >() >
 	      >
           >,
-	  boost::proto::or_<
-	      boost::proto::unary_plus< symbolic_grammar >,
-	      boost::proto::negate< symbolic_grammar >,
-	      boost::proto::logical_not< symbolic_grammar >,
-	      boost::proto::pre_inc< symbolic_grammar >,
-	      boost::proto::pre_dec< symbolic_grammar >,
-	      boost::proto::post_inc< symbolic_grammar >,
-	      boost::proto::post_dec< symbolic_grammar >
-	  >,
-	  boost::proto::or_<
-	      boost::proto::or_<
-	          boost::proto::plus          < symbolic_grammar, symbolic_grammar >,
-	          boost::proto::minus         < symbolic_grammar, symbolic_grammar >,
-	          boost::proto::multiplies    < symbolic_grammar, symbolic_grammar >,
-	          boost::proto::divides       < symbolic_grammar, symbolic_grammar >,
-	          boost::proto::modulus       < symbolic_grammar, symbolic_grammar >,
-	          boost::proto::shift_left    < symbolic_grammar, symbolic_grammar >,
-	          boost::proto::shift_right   < symbolic_grammar, symbolic_grammar >
-	      >,
-	      boost::proto::or_<
-	          boost::proto::less          < symbolic_grammar, symbolic_grammar >,
-	          boost::proto::greater       < symbolic_grammar, symbolic_grammar >,
-	          boost::proto::less_equal    < symbolic_grammar, symbolic_grammar >,
-	          boost::proto::greater_equal < symbolic_grammar, symbolic_grammar >,
-	          boost::proto::equal_to      < symbolic_grammar, symbolic_grammar >,
-	          boost::proto::not_equal_to  < symbolic_grammar, symbolic_grammar >
-	      >,
-	      boost::proto::or_<
-	          boost::proto::logical_and   < symbolic_grammar, symbolic_grammar >,
-	          boost::proto::logical_or    < symbolic_grammar, symbolic_grammar >
-	      >,
-	      boost::proto::or_<
-	          boost::proto::bitwise_and   < symbolic_grammar, symbolic_grammar >,
-	          boost::proto::bitwise_or    < symbolic_grammar, symbolic_grammar >,
-	          boost::proto::bitwise_xor   < symbolic_grammar, symbolic_grammar >
-	      >
-	  >,
-	  boost::proto::function<
-	      boost::proto::terminal<
-	          boost::proto::convertible_to<builtin_function>
-	      >,
-	      boost::proto::vararg<symbolic_grammar>
-          >
+	  BUILTIN_OPERATIONS(symbolic_grammar)
       >
 {};
 

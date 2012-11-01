@@ -19,34 +19,12 @@ using boost::proto::_;
 namespace proto = boost::proto;
 namespace mpl = boost::mpl;
 
-template <class T> struct mvsize : boost::mpl::int_<0> {};
-template <class T, size_t N, bool own> struct mvsize<vex::multivector<T,N,own>> : boost::mpl::int_<N> {};
-
-struct mutltiex_dimension
-        : proto::or_ <
-            proto::when <
-		proto::terminal< _ >,
-		mvsize<_>()
-	    > ,
-	    proto::when <
-		proto::nary_expr<_, proto::vararg<_> >,
-		proto::fold<_, mpl::int_<0>(), mpl::max<mutltiex_dimension, proto::_state>()>()
-	    >
-        >
-{};
-
 struct show {
     template <class Expr>
     void operator()(const Expr &expr) const {
 	boost::proto::display_expr(expr);
     }
 };
-
-template <class Expr>
-void dim(const Expr &expr) {
-    size_t d = boost::result_of<mutltiex_dimension(Expr)>::type::value;
-    std::cout << "dim = " << d << std::endl;
-}
 
 int main() {
     try {
@@ -99,9 +77,11 @@ int main() {
 	std::cout << sin(arr[0] * 1) + (2 < std::get<0>(tup) + 3)
 		  << " = " << ma(0)[0] << std::endl;
 
-	auto ex = sin(1 * cos(mb) + 5 * 10);
+	auto ex = tup * ma + arr * mb;
 
-	dim(ex);
+	proto::display_expr(vex::extract_subexpression<0>()(ex));
+	proto::display_expr(vex::extract_subexpression<1>()(ex));
+	proto::display_expr(vex::extract_subexpression<2>()(ex));
 
     } catch (const cl::Error &e) {
 	std::cout << e << std::endl;
