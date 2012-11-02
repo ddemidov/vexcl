@@ -85,15 +85,10 @@ template <class T>
 struct number_of_components : boost::mpl::size_t<1>
 {};
 
-template <size_t I, class T>
+template <size_t I, class T, class Enable = void>
 struct component {
     typedef T type;
 };
-
-template <size_t I, typename T>
-inline const T& get(const T &t) {
-    return t;
-}
 
 template <size_t I, typename T>
 inline T& get(T &t) {
@@ -264,6 +259,41 @@ struct multivector_expression
 
     multivector_expression(const Expr &expr = Expr()) : base_type(expr) {}
 };
+
+template <size_t I, class T>
+struct component< I, T,
+    typename std::enable_if<
+	!is_multiscalar<T>::value &&
+	is_multiscalar<
+	    typename proto::result_of::value<
+		typename proto::result_of::as_expr<T>::type
+	    >::type
+	>::value >::type
+    >
+{
+    typedef typename proto::result_of::value<
+		typename proto::result_of::as_expr<T>::type
+	    >::type value_type;
+
+    typedef typename proto::result_of::as_child<
+	typename component<I, value_type>::type
+	>::type type;
+};
+
+template <size_t I, typename T>
+inline const
+typename std::enable_if<
+    !is_multiscalar<T>::value &&
+    is_multiscalar<
+	typename proto::result_of::value<
+	    typename proto::result_of::as_expr<T>::type
+	>::type
+    >::value,
+    typename component<I, T>::type
+>::type
+get(const T &t) {
+    return proto::as_child(get<I>(proto::value(t)));
+}
 
 
 //---------------------------------------------------------------------------
@@ -485,15 +515,11 @@ struct declare_multiex_parameter {
 };
 
 template <size_t I, size_t N, class Expr>
-typename std::enable_if<I + 1 == N>::type
-mv_param_list_loop(const Expr &expr, std::ostream &os) {
-    extract_terminals()( expr,
-	    declare_multiex_parameter<N, I>(os)
-	    );
-}
+typename std::enable_if<I == N>::type
+mv_param_list_loop(const Expr &expr, std::ostream &os) { }
 
 template <size_t I, size_t N, class Expr>
-typename std::enable_if<I + 1 < N>::type
+typename std::enable_if<I < N>::type
 mv_param_list_loop(const Expr &expr, std::ostream &os) {
     extract_terminals()( expr,
 	    declare_multiex_parameter<N, I>(os)
@@ -540,15 +566,11 @@ struct set_multiex_argument {
 };
 
 template <size_t I, size_t N, class Expr>
-typename std::enable_if<I + 1 == N>::type
-mv_kernel_args_loop(const Expr &expr, cl::Kernel &krn, uint d, uint &pos) {
-    extract_terminals()( expr,
-	    set_multiex_argument<N, I>(krn, d, pos)
-	    );
-}
+typename std::enable_if<I == N>::type
+mv_kernel_args_loop(const Expr &expr, cl::Kernel &krn, uint d, uint &pos) { }
 
 template <size_t I, size_t N, class Expr>
-typename std::enable_if<I + 1 < N>::type
+typename std::enable_if<I < N>::type
 mv_kernel_args_loop(const Expr &expr, cl::Kernel &krn, uint d, uint &pos) {
     extract_terminals()( expr,
 	    set_multiex_argument<N, I>(krn, d, pos)
@@ -568,45 +590,16 @@ template <size_t C>
 struct extract_component
     : boost::proto::transform < extract_component<C> >
 {
-    template<typename Expr, typename Unused1, typename Unused2, class Enable = void>
-    struct impl {};
-
     template<typename Expr, typename Unused1, typename Unused2>
-    struct impl<Expr, Unused1, Unused2,
-	typename std::enable_if< std::is_same<
-		vex::multivector_terminal,
-		typename boost::proto::result_of::value<typename boost::remove_reference<Expr>::type>::type
-		>::value >::type>
-	    : boost::proto::transform_impl<Expr, Unused1, Unused2>
+    struct impl : boost::proto::transform_impl<Expr, Unused1, Unused2>
     {
-	typedef typename boost::proto::result_of::as_child<
-	    typename vex::component<C, typename impl::expr>::type
-	    >::type result_type;
-
-	result_type operator ()(
-              typename impl::expr_param term
-            , typename impl::state_param
-            , typename impl::data_param) const
-        {
-	    using namespace vex;
-	    using namespace std;
-
-	    return boost::proto::as_child(get<C>(term));
-        }
-
-    };
-
-    template<typename Expr, typename Unused1, typename Unused2>
-    struct impl<Expr, Unused1, Unused2,
-	typename std::enable_if< !std::is_same<
-		vex::multivector_terminal,
-		typename boost::proto::result_of::value<typename boost::remove_reference<Expr>::type>::type
-		>::value >::type>
-	    : boost::proto::transform_impl<Expr, Unused1, Unused2>
-    {
-	typedef typename boost::proto::result_of::as_expr<
+	typedef
 	    typename vex::component<C,
-		typename boost::proto::result_of::value<typename impl::expr>::type>::type
+		typename boost::remove_const<
+		    typename boost::remove_reference<
+			typename impl::expr
+		    >::type
+		>::type
 	    >::type result_type;
 
 	result_type operator ()(
@@ -617,8 +610,9 @@ struct extract_component
 	    using namespace vex;
 	    using namespace std;
 
-	    return boost::proto::as_expr(get<C>(boost::proto::value(term)));
+	    return get<C>(term);
         }
+
     };
 };
 
@@ -817,7 +811,6 @@ struct multivector
 
 	/// Copy constructor.
 	multivector(const multivector &mv) {
-	    std::cout << "Multivector copy!" << std::endl;
 	    copy_components<own>(mv);
 	}
 
@@ -1113,16 +1106,11 @@ struct multivector
 	/** @} */
     private:
 	template <size_t I, class Expr>
-	    typename std::enable_if<I + 1 == N>::type
-	    expr_list_loop(const Expr &expr, std::ostream &os) {
-		multivector_expr_context<N, I> ctx(os);
-		os << "\t\tres_" << I + 1 << "[idx] = ";
-		proto::eval(expr, ctx);
-		os << ";\n";
-	    }
+	    typename std::enable_if<I == N>::type
+	    expr_list_loop(const Expr &expr, std::ostream &os) { }
 
 	template <size_t I, class Expr>
-	    typename std::enable_if<I + 1 < N>::type
+	    typename std::enable_if<I < N>::type
 	    expr_list_loop(const Expr &expr, std::ostream &os) {
 		multivector_expr_context<N, I> ctx(os);
 		os << "\t\tres_" << I + 1 << "[idx] = ";

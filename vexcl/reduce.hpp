@@ -129,6 +129,20 @@ class Reductor {
 		const cl::Context &context, const Expr &expr,
 		const std::string &kernel_name
 		) const;
+
+	template <size_t I, size_t N, class Expr>
+	typename std::enable_if<I == N, void>::type
+	assign_subexpressions(std::array<real, N> &result, const Expr &expr) const
+	{ }
+
+	template <size_t I, size_t N, class Expr>
+	typename std::enable_if<I < N, void>::type
+	assign_subexpressions(std::array<real, N> &result, const Expr &expr) const
+	{
+	    result[I] = (*this)(extract_subexpression<I>()(expr));
+
+	    assign_subexpressions<I + 1, N, Expr>(result, expr);
+	}
 };
 
 template <typename real, ReductionKind RDC> template <class Expr>
@@ -268,14 +282,8 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
     const size_t dim = boost::result_of<mutltiex_dimension(Expr)>::type::value;
     std::array<real, dim> result;
 
-    for (uint i = 0; i < dim; i++) result[i] = 0;
-    /*
-    result[0] = (*this)(extract_subexpression<0>()(expr));
-    result[1] = (*this)(extract_subexpression<1>()(expr));
-    result[2] = (*this)(extract_subexpression<2>()(expr));
-    result[3] = (*this)(extract_subexpression<3>()(expr));
-    */
-    proto::display_expr(extract_subexpression<3>()(expr));
+    assign_subexpressions<0, dim, Expr>(result, expr);
+
     return result;
 }
 #endif
