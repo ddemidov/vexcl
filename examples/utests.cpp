@@ -320,7 +320,7 @@ int main(int argc, char *argv[]) {
 #endif
 
 
-#if 0
+#if 1
 	run_test("Sparse matrix-vector product", [&]() -> bool {
 		bool rc = true;
 		const size_t n   = 32;
@@ -383,7 +383,8 @@ int main(int argc, char *argv[]) {
 		vex::vector<double> X(ctx.queue(), x);
 		vex::vector<double> Y(ctx.queue(), x.size());
 
-		Y = A * X;
+		//Y = A * X;
+		A.mul(X, Y);
 		copy(Y, y);
 
 		double res = 0;
@@ -396,6 +397,7 @@ int main(int argc, char *argv[]) {
 
 		rc = rc && res < 1e-8;
 
+		/*
 		Y = X + A * X;
 		copy(Y, y);
 
@@ -408,6 +410,7 @@ int main(int argc, char *argv[]) {
 		}
 
 		rc = rc && res < 1e-8;
+		*/
 
 		return rc;
 	});

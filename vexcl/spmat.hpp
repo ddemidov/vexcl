@@ -66,143 +66,9 @@ size_t bytes(const std::vector<T> &x) {
     return x.size() * sizeof(T);
 }
 
-/// Base class for sparse matrix.
-template <typename real, typename column_t, typename idx_t>
-class SpMatBase {
-    public:
-	/// Matrix-vector multiplication.
-	/**
-	 * Matrix vector multiplication (y = alpha Ax or y += alpha Ax) is
-	 * performed in parallel on all registered compute devices. Ghost
-	 * values of x are transfered across GPU boundaries as needed.
-	 * \param x      input vector.
-	 * \param y      output vector.
-	 * \param alpha  coefficient in front of matrix-vector product
-	 * \param append if set, matrix-vector product is appended to y.
-	 *               Otherwise, y is replaced with matrix-vector product.
-	 */
-	virtual void mul(const vex::vector<real> &x, vex::vector<real> &y,
-		 real alpha = 1, bool append = false) const = 0;
-
-	virtual ~SpMatBase() {}
-};
-
-template <typename real, typename column_t, typename idx_t>
-struct SpMV {
-    SpMV(const SpMatBase<real, column_t, idx_t> &A, const vex::vector<real> &x) : A(A), x(x) {}
-
-    const SpMatBase<real,column_t,idx_t> &A;
-    const vex::vector<real> &x;
-};
-
-/// Sparse matrix-vector product.
-template <typename real, typename column_t, typename idx_t, uint N, bool own>
-struct MultiSpMV {
-    MultiSpMV(const SpMatBase<real, column_t, idx_t> &A, const vex::multivector<real,N,own> &x)
-	: A(A), x(x) {}
-
-    const SpMatBase<real,column_t,idx_t> &A;
-    const vex::multivector<real,N,own> &x;
-};
-
-template <class Expr, typename real, typename column_t, typename idx_t>
-struct ExSpMV {
-    ExSpMV(const Expr &expr, const real alpha, const SpMV<real, column_t, idx_t> &spmv)
-	: expr(expr), alpha(alpha), spmv(spmv) {}
-
-    const Expr &expr;
-    const real alpha;
-    const SpMV<real, column_t, idx_t> &spmv;
-};
-
-/// Expression with matrix-multivector product.
-template <class Expr, typename real, typename column_t, typename idx_t, uint N, bool own>
-struct MultiExSpMV {
-    MultiExSpMV(const Expr &expr, const real alpha, const MultiSpMV<real, column_t, idx_t, N, own> &spmv)
-	: expr(expr), alpha(alpha), spmv(spmv) {}
-
-    const Expr &expr;
-    const real alpha;
-    const MultiSpMV<real, column_t, idx_t, N, own> &spmv;
-};
-
-/// \endcond
-
-/// Multiply sparse matrix and a vector.
-template <typename real, typename column_t, typename idx_t>
-SpMV<real,column_t,idx_t> operator*(const SpMatBase<real, column_t, idx_t> &A, const vex::vector<real> &x) {
-    return SpMV<real, column_t, idx_t>(A, x);
-}
-
-/// Add an expression and sparse matrix - vector product.
-template <class Expr, typename real, typename column_t, typename idx_t>
-ExSpMV<Expr,real,column_t,idx_t>
-operator+(const Expr &expr, const SpMV<real,column_t,idx_t> &spmv) {
-    return ExSpMV<Expr,real,column_t,idx_t>(expr, 1, spmv);
-}
-
-/// Subtract sparse matrix - vector product from an expression.
-template <class Expr, typename real, typename column_t, typename idx_t>
-ExSpMV<Expr,real,column_t,idx_t>
-operator-(const Expr &expr, const SpMV<real,column_t,idx_t> &spmv) {
-    return ExSpMV<Expr,real,column_t,idx_t>(expr, -1, spmv);
-}
-
-template <typename real> template <typename column_t, typename idx_t>
-const vector<real>& vector<real>::operator=(const SpMV<real,column_t,idx_t> &spmv) {
-    spmv.A.mul(spmv.x, *this);
-    return *this;
-}
-
-template <typename real> template<class Expr, typename column_t, typename idx_t>
-const vector<real>& vector<real>::operator=(const ExSpMV<Expr,real,column_t,idx_t> &xmv) {
-    *this = xmv.expr;
-    xmv.spmv.A.mul(xmv.spmv.x, *this, xmv.alpha, true);
-    return *this;
-}
-
-/// Multiply sparse matrix and a vector.
-template <typename real, typename column_t, typename idx_t, uint N, bool own>
-MultiSpMV<real,column_t,idx_t,N,own> operator*(
-	const SpMatBase<real, column_t, idx_t> &A, const vex::multivector<real,N,own> &x)
-{
-    return MultiSpMV<real, column_t, idx_t, N, own>(A, x);
-}
-
-/// Add an expression and sparse matrix - multivector product.
-template <class Expr, typename real, typename column_t, typename idx_t, uint N, bool own>
-MultiExSpMV<Expr,real,column_t,idx_t,N,own>
-operator+(const Expr &expr, const MultiSpMV<real,column_t,idx_t,N,own> &spmv) {
-    return MultiExSpMV<Expr,real,column_t,idx_t,N,own>(expr, 1, spmv);
-}
-
-/// Subtract sparse matrix - multivector product from an expression.
-template <class Expr, typename real, typename column_t, typename idx_t, uint N, bool own>
-MultiExSpMV<Expr,real,column_t,idx_t,N,own>
-operator-(const Expr &expr, const MultiSpMV<real,column_t,idx_t,N,own> &spmv) {
-    return MultiExSpMV<Expr,real,column_t,idx_t,N,own>(expr, -1, spmv);
-}
-
-template <typename real, uint N, bool own> template <typename column_t, typename idx_t>
-const multivector<real,N,own>& multivector<real,N,own>::operator=(
-	const MultiSpMV<real,column_t,idx_t,N,own> &spmv)
-{
-    for(uint i = 0; i < N; i++)
-	spmv.A.mul(spmv.x(i), (*this)(i));
-    return *this;
-}
-
-template <typename real, uint N, bool own> template<class Expr, typename column_t, typename idx_t>
-const multivector<real,N,own>& multivector<real,N,own>::operator=(const MultiExSpMV<Expr,real,column_t,idx_t,N,own> &xmv) {
-    *this = xmv.expr;
-    for(uint i = 0; i < N; i++)
-	xmv.spmv.A.mul(xmv.spmv.x(i), (*this)(i), xmv.alpha, true);
-    return *this;
-}
-
 /// Sparse matrix in hybrid ELL-CSR format.
 template <typename real, typename column_t = size_t, typename idx_t = size_t>
-class SpMat : public SpMatBase<real, column_t, idx_t>{
+class SpMat : matrix_terminal {
     public:
 	/// Constructor.
 	/**
@@ -1363,7 +1229,7 @@ void SpMat<real,column_t,idx_t>::SpMatCSR::mul_remote(
  * reside on the same device with matrix.
  */
 template <typename real, typename column_t = ptrdiff_t, typename idx_t = size_t>
-class SpMatCCSR : public SpMatBase<real, column_t, idx_t>{
+class SpMatCCSR : matrix_terminal {
     public:
 	/// Constructor for CCSR format.
 	/**
@@ -1638,12 +1504,12 @@ inline double device_spmv_perf(
 
     // Warming run.
     x = 1;
-    y = A * x;
+    A.mul(x, y);
 
     // Measure performance.
     profiler prof(queue);
     prof.tic_cl("");
-    y = A * x;
+    A.mul(x, y);
     double time = prof.toc("");
     return 1.0 / time;
 }

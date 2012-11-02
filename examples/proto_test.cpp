@@ -24,45 +24,72 @@ int main() {
 	vex::Context ctx( vex::Filter::Env );
 	std::cout << ctx << std::endl;
 
-	const size_t n = 1024 * 1024;
+	const size_t n = 16;
 
-	vex::vector<double> a(ctx.queue(), n);
-	vex::vector<double> b(ctx.queue(), n);
-	vex::vector<double> c(ctx.queue(), n);
+	const double h2i = (n - 1) * (n - 1);
 
-	a = 1;
-	b = 2;
-	c = sin(M_PI/4 * a) + b;
+	std::vector<size_t> row;
+	std::vector<size_t> col;
+	std::vector<double> val;
 
-	std::cout << c[42] << std::endl;
+	row.reserve(n * n * n + 1);
+	col.reserve(6 * (n - 2) * (n - 2) * (n - 2) + n * n * n);
+	val.reserve(6 * (n - 2) * (n - 2) * (n - 2) + n * n * n);
 
-	vex::Reductor<double, vex::SUM> sum(ctx.queue());
-	vex::Reductor<double, vex::MAX> max(ctx.queue());
+	row.push_back(0);
+	for(size_t k = 0, idx = 0; k < n; k++) {
+	    for(size_t j = 0; j < n; j++) {
+		for(size_t i = 0; i < n; i++, idx++) {
+		    if (
+			    i == 0 || i == (n - 1) ||
+			    j == 0 || j == (n - 1) ||
+			    k == 0 || k == (n - 1)
+		       )
+		    {
+			col.push_back(idx);
+			val.push_back(1);
+			row.push_back(row.back() + 1);
+		    } else {
+			col.push_back(idx - n * n);
+			val.push_back(-h2i);
 
-	std::cout << sum(a) / n << std::endl;
-	std::cout << max(sin(M_PI/4 * a) + b) << std::endl;
+			col.push_back(idx - n);
+			val.push_back(-h2i);
 
-	std::array<float, 3> arr = {1, 2, 3};
-	auto tup = std::make_tuple(10, 20.0, 30.0f);
+			col.push_back(idx - 1);
+			val.push_back(-h2i);
 
-	vex::multivector<double, 3> ma(ctx.queue(), n);
-	vex::multivector<double, 3> mb(ctx.queue(), n);
-	vex::multivector<double, 3> mc(ctx.queue(), n);
+			col.push_back(idx);
+			val.push_back(6 * h2i);
 
-	ma = 1;
-	mb = 2;
-	mc = 3;
+			col.push_back(idx + 1);
+			val.push_back(-h2i);
 
-	std::array<double,3> t = ma[0];
-	std::cout << t[0] << " " << t[1] << " " << t[2] << " " << c[0] << std::endl;
+			col.push_back(idx + n);
+			val.push_back(-h2i);
 
-	ma = sin(arr * ma) + greater(mb, tup + mc);
+			col.push_back(idx + n * n);
+			val.push_back(-h2i);
 
-	std::cout << sin(arr[0] * 1) + (2 > std::get<0>(tup) + 3)
-		  << " = " << ma(0)[0] << std::endl;
+			row.push_back(row.back() + 7);
+		    }
+		}
+	    }
+	}
 
-	ma = std::tie(2 * a, b, c);
+	std::vector<double> x(n * n * n);
+	std::vector<double> y(n * n * n, 0);
+	std::generate(x.begin(), x.end(), []() { return (double)rand() / RAND_MAX; });
 
+	vex::vector<double> X(ctx.queue(), x);
+	vex::vector<double> Y(ctx.queue(), y);
+
+	vex::SpMat <double> A(ctx.queue(), x.size(), x.size(), row.data(), col.data(), val.data());
+
+	Y = X;
+	Y = A * X;
+	Y = X + A * X;
+	Y = X * Y + A * X;
     } catch (const cl::Error &e) {
 	std::cout << e << std::endl;
     }

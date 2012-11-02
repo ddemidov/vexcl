@@ -61,377 +61,13 @@ THE SOFTWARE.
 /// Vector expression template library for OpenCL.
 namespace vex {
 
-// TODO: remove this
-namespace proto = boost::proto;
-using proto::_;
-
 /// \cond INTERNAL
-
-struct vector_terminal {};
-
-template <typename T>
-struct vector;
-
-// TODO compare compilation speed with proto::switch_
-
-//---------------------------------------------------------------------------
-// Vector Grammar
-//---------------------------------------------------------------------------
-struct vector_expr_grammar
-    : proto::or_<
-	  proto::or_<
-	      proto::terminal< vector_terminal >,
-	      proto::and_<
-	          proto::terminal< _ >,
-		  proto::if_< std::is_arithmetic< proto::_value >() >
-	      >
-          >,
-	  BUILTIN_OPERATIONS(vector_expr_grammar),
-	  USER_FUNCTIONS(vector_expr_grammar)
-      >
-{};
-
-template <class Expr>
-struct vector_expression;
-
-struct vector_domain
-    : proto::domain<
-	proto::generator<vector_expression>,
-	vector_expr_grammar
-	>
-{
-    template <class T>
-    struct as_child
-	: proto_base_domain::as_child<T> {};
-
-    template <class T>
-    struct as_child< typename std::enable_if< std::is_arithmetic<T>::value, T > >
-	: proto_base_domain::as_expr<T> {};
-};
-
-template <class Expr>
-struct vector_expression
-    : proto::extends< Expr, vector_expression<Expr>, vector_domain>
-{
-    typedef proto::extends< Expr, vector_expression<Expr>, vector_domain> base_type;
-    vector_expression(const Expr &expr = Expr()) : base_type(expr) {}
-};
-
-//---------------------------------------------------------------------------
-// Vector Contexts
-//---------------------------------------------------------------------------
-
-// Builds kernel name for a vector expression.
-struct vector_name_context {
-    std::ostream &os;
-
-    vector_name_context(std::ostream &os) : os(os) {}
-
-    // Any expression except function or terminal is only interesting for its
-    // children:
-    template <typename Expr, typename Tag = typename Expr::proto_tag>
-    struct eval {
-	typedef void result_type;
-
-	void operator()(const Expr &expr, vector_name_context &ctx) const {
-	    ctx.os << Tag() << "_";
-	    boost::fusion::for_each(expr, do_eval<vector_name_context>(ctx));
-	}
-    };
-
-    // We only need to look at parameters of a function:
-    template <typename Expr>
-    struct eval<Expr, proto::tag::function> {
-	typedef void result_type;
-
-	template <class FunCall>
-	typename std::enable_if<
-	    std::is_base_of<
-		builtin_function,
-		typename proto::result_of::value<
-		    typename proto::result_of::child_c<FunCall,0>::type
-		>::type
-	    >::value,
-	void
-	>::type
-	operator()(const FunCall &expr, vector_name_context &ctx) const {
-	    ctx.os << proto::value(proto::child_c<0>(expr)).name() << "_";
-	    boost::fusion::for_each(
-		    boost::fusion::pop_front(expr),
-		    do_eval<vector_name_context>(ctx)
-		    );
-	}
-
-	template <class FunCall>
-	typename std::enable_if<
-	    std::is_base_of<
-		user_function,
-		typename proto::result_of::value<
-		    typename proto::result_of::child_c<FunCall,0>::type
-		>::type
-	    >::value,
-	void
-	>::type
-	operator()(const FunCall &expr, vector_name_context &ctx) const {
-	    ctx.os << "func" << boost::fusion::size(expr) - 1 <<  "_";
-	    boost::fusion::for_each(
-		    boost::fusion::pop_front(expr),
-		    do_eval<vector_name_context>(ctx)
-		    );
-	}
-    };
-
-    template <typename Expr>
-    struct eval<Expr, proto::tag::terminal> {
-	typedef void result_type;
-
-	void operator()(const Expr &expr, vector_name_context &ctx) const {
-	    ctx.os << "term_";
-	}
-    };
-};
-
-
-// Builds textual representation for a vector expression.
-struct vector_expr_context {
-    std::ostream &os;
-    int cmp_idx, prm_idx, fun_idx;
-
-    vector_expr_context(std::ostream &os, int cmp_idx = 1)
-	: os(os), cmp_idx(cmp_idx), prm_idx(0), fun_idx(0) {}
-
-    template <typename Expr, typename Tag = typename Expr::proto_tag>
-    struct eval {};
-
-#define BINARY_OPERATION(the_tag, the_op) \
-    template <typename Expr> \
-    struct eval<Expr, proto::tag::the_tag> { \
-	typedef void result_type; \
-	void operator()(const Expr &expr, vector_expr_context &ctx) const { \
-	    ctx.os << "( "; \
-	    proto::eval(proto::left(expr), ctx); \
-	    ctx.os << " " #the_op " "; \
-	    proto::eval(proto::right(expr), ctx); \
-	    ctx.os << " )"; \
-	} \
-    }
-
-    BINARY_OPERATION(plus,          +);
-    BINARY_OPERATION(minus,         -);
-    BINARY_OPERATION(multiplies,    *);
-    BINARY_OPERATION(divides,       /);
-    BINARY_OPERATION(modulus,       %);
-    BINARY_OPERATION(shift_left,   <<);
-    BINARY_OPERATION(shift_right,  >>);
-    BINARY_OPERATION(less,          <);
-    BINARY_OPERATION(greater,       >);
-    BINARY_OPERATION(less_equal,   <=);
-    BINARY_OPERATION(greater_equal,>=);
-    BINARY_OPERATION(equal_to,     ==);
-    BINARY_OPERATION(not_equal_to, !=);
-    BINARY_OPERATION(logical_and,  &&);
-    BINARY_OPERATION(logical_or,   ||);
-    BINARY_OPERATION(bitwise_and,   &);
-    BINARY_OPERATION(bitwise_or,    |);
-    BINARY_OPERATION(bitwise_xor,   ^);
-
-#undef BINARY_OPERATION
-
-#define UNARY_PRE_OPERATION(the_tag, the_op) \
-    template <typename Expr> \
-    struct eval<Expr, proto::tag::the_tag> { \
-	typedef void result_type; \
-	void operator()(const Expr &expr, vector_expr_context &ctx) const { \
-	    ctx.os << "( " #the_op "( "; \
-	    proto::eval(proto::child(expr), ctx); \
-	    ctx.os << " ) )"; \
-	} \
-    }
-
-    UNARY_PRE_OPERATION(unary_plus,   +);
-    UNARY_PRE_OPERATION(negate,       -);
-    UNARY_PRE_OPERATION(logical_not,  !);
-    UNARY_PRE_OPERATION(pre_inc,     ++);
-    UNARY_PRE_OPERATION(pre_dec,     --);
-
-#undef UNARY_PRE_OPERATION
-
-#define UNARY_POST_OPERATION(the_tag, the_op) \
-    template <typename Expr> \
-    struct eval<Expr, proto::tag::the_tag> { \
-	typedef void result_type; \
-	void operator()(const Expr &expr, vector_expr_context &ctx) const { \
-	    ctx.os << "( ( "; \
-	    proto::eval(proto::child(expr), ctx); \
-	    ctx.os << " )" #the_op " )"; \
-	} \
-    }
-
-    UNARY_POST_OPERATION(post_inc, ++);
-    UNARY_POST_OPERATION(post_dec, --);
-
-#undef UNARY_POST_OPERATION
-
-    template <typename Expr>
-    struct eval<Expr, proto::tag::function> {
-	typedef void result_type;
-
-	struct do_eval {
-	    mutable int pos;
-	    vector_expr_context &ctx;
-
-	    do_eval(vector_expr_context &ctx) : pos(0), ctx(ctx) {}
-
-	    template <typename Arg>
-	    void operator()(const Arg &arg) const {
-		if (pos++) ctx.os << ", ";
-		proto::eval(arg, ctx);
-	    }
-	};
-
-	template <class FunCall>
-	typename std::enable_if<
-	    std::is_base_of<
-		builtin_function,
-		typename proto::result_of::value<
-		    typename proto::result_of::child_c<FunCall,0>::type
-		>::type
-	    >::value,
-	void
-	>::type
-	operator()(const FunCall &expr, vector_expr_context &ctx) const {
-	    ctx.os << proto::value(proto::child_c<0>(expr)).name() << "( ";
-	    boost::fusion::for_each(
-		    boost::fusion::pop_front(expr), do_eval(ctx)
-		    );
-	    ctx.os << " )";
-	}
-
-	template <class FunCall>
-	typename std::enable_if<
-	    std::is_base_of<
-		user_function,
-		typename proto::result_of::value<
-		    typename proto::result_of::child_c<FunCall,0>::type
-		>::type
-	    >::value,
-	void
-	>::type
-	operator()(const FunCall &expr, vector_expr_context &ctx) const {
-	    ctx.os << "func_" << ctx.cmp_idx << "_" << ++ctx.fun_idx << "( ";
-	    boost::fusion::for_each(
-		    boost::fusion::pop_front(expr), do_eval(ctx)
-		    );
-	    ctx.os << " )";
-	}
-    };
-
-    template <typename Expr>
-    struct eval<Expr, proto::tag::terminal> {
-	typedef void result_type;
-
-	template <typename T>
-	void operator()(const vector<T> &term, vector_expr_context &ctx) const {
-	    ctx.os << "prm_" << ctx.cmp_idx << "_" << ++ctx.prm_idx << "[idx]";
-	}
-
-	template <typename Term>
-	void operator()(const Term &term, vector_expr_context &ctx) const {
-	    ctx.os << "prm_" << ctx.cmp_idx << "_" << ++ctx.prm_idx;
-	}
-    };
-};
-
-struct declare_user_function {
-    std::ostream &os;
-    int cmp_idx;
-    mutable int fun_idx;
-
-    declare_user_function(std::ostream &os, int cmp_idx = 1)
-	: os(os), cmp_idx(cmp_idx), fun_idx(0) {}
-
-	template <class FunCall>
-	void operator()(const FunCall &expr) const {
-	    std::ostringstream name;
-	    name << "func_" << cmp_idx << "_" << ++fun_idx;
-
-	    // Output function definition and continue with parameters.
-	    proto::value(expr).define(os, name.str());
-	}
-};
-
-struct declare_expression_parameter {
-    std::ostream &os;
-    int cmp_idx;
-    mutable int prm_idx;
-
-    declare_expression_parameter(std::ostream &os, int cmp_idx = 1)
-    : os(os), cmp_idx(cmp_idx), prm_idx(0) {}
-
-    template <typename T>
-    void operator()(const vector<T> &term) const {
-	os << ",\n\tglobal " << type_name<T>() << " *prm_"
-	   << cmp_idx << "_" << ++prm_idx;
-    }
-
-    template <typename Term>
-    void operator()(const Term &term) const {
-	os << ",\n\t"
-	   << type_name< typename proto::result_of::value<Term>::type >()
-	   << " prm_" << cmp_idx << "_" << ++prm_idx;
-    }
-};
-
-struct set_expression_argument {
-    cl::Kernel &krn;
-    uint dev, &pos;
-
-    set_expression_argument(cl::Kernel &krn, uint dev, uint &pos)
-	: krn(krn), dev(dev), pos(pos) {}
-
-    template <typename T>
-    void operator()(const vector<T> &term) const {
-	krn.setArg(pos++, term(dev));
-    }
-
-    template <typename Term>
-    void operator()(const Term &term) const {
-	krn.setArg(pos++, proto::value(term));
-    }
-};
-
-struct get_expression_properties {
-    mutable std::vector<cl::CommandQueue> const* queue;
-    mutable std::vector<size_t> const* part;
-    mutable size_t size;
-
-    get_expression_properties() : queue(0), part(0), size(0) {}
-
-    size_t part_size(uint d) const {
-	return part ?
-	    part->operator[](d + 1) - part->operator[](d) :
-	    0;
-    }
-
-    template <typename T>
-    void operator()(const vector<T> &term) const {
-	if (!queue) {
-	    queue = &( term.queue_list() );
-	    part  = &( term.partition() );
-	    size  = term.size();
-	}
-    }
-
-    template <typename Term>
-    void operator()(const Term &term) const { }
-};
-
 
 //--- Vector Type -----------------------------------------------------------
 /// Device vector.
 template <typename T>
 struct vector
-    : vector_expression< typename proto::terminal< vector_terminal >::type >
+    : vector_expression< typename boost::proto::terminal< vector_terminal >::type >
 {
     public:
 	/// Proxy class.
@@ -708,7 +344,14 @@ struct vector
 	 * compute devices.
 	 */
 	template <class Expr>
-	const vector& operator=(const Expr &expr) {
+	typename std::enable_if<
+	    boost::proto::matches<
+		typename boost::proto::result_of::as_expr<Expr>::type,
+		vector_expr_grammar
+	    >::value,
+	    const vector&
+	>::type
+	operator=(const Expr &expr) {
 	    for(auto q = queue.begin(); q != queue.end(); q++) {
 		cl::Context context = qctx(*q);
 		cl::Device  device  = qdev(*q);
@@ -720,12 +363,12 @@ struct vector
 
 		    std::ostringstream kernel_name;
 		    vector_name_context name_ctx(kernel_name);
-		    proto::eval(proto::as_child(expr), name_ctx);
+		    boost::proto::eval(boost::proto::as_child(expr), name_ctx);
 
 		    kernel << standard_kernel_header;
 
 		    extract_user_functions()(
-			    proto::as_child(expr),
+			    boost::proto::as_child(expr),
 			    declare_user_function(kernel)
 			    );
 
@@ -734,7 +377,7 @@ struct vector
 			   << " n,\n\tglobal " << type_name<T>() << " *res";
 
 		    extract_terminals()(
-			    proto::as_child(expr),
+			    boost::proto::as_child(expr),
 			    declare_expression_parameter(kernel)
 			    );
 
@@ -743,7 +386,7 @@ struct vector
 			"for(size_t idx = get_global_id(0); idx < n; idx += get_global_size(0)) {\n"
 			"\t\tres[idx] = ";
 
-		    proto::eval(proto::as_child(expr), expr_ctx);
+		    boost::proto::eval(boost::proto::as_child(expr), expr_ctx);
 
 		    kernel << ";\n\t}\n}\n";
 
@@ -774,7 +417,7 @@ struct vector
 		    exdata<Expr>::kernel[context()].setArg(pos++, buf[d]);
 
 		    extract_terminals()(
-			    proto::as_child(expr),
+			    boost::proto::as_child(expr),
 			    set_expression_argument(exdata<Expr>::kernel[context()], d, pos)
 			    );
 
@@ -785,6 +428,14 @@ struct vector
 			    );
 		}
 	    }
+
+	    return *this;
+	}
+
+	template <class Expr>
+	const vector& operator=(const spmv_expression<Expr> &expr) {
+	    assign_spmv_context assign(*this);
+	    boost::proto::eval(expr, assign);
 
 	    return *this;
 	}
@@ -895,6 +546,42 @@ struct vector
 	    }
 	    if (hostptr) write_data(0, size(), hostptr, CL_TRUE);
 	}
+
+	struct assign_spmv_context {
+	    vector &v;
+
+	    assign_spmv_context(vector &v) : v(v) {}
+
+	    template <typename Expr, typename Tag = typename Expr::proto_tag>
+	    struct eval {};
+
+	    template <typename Expr>
+	    struct eval<Expr, boost::proto::tag::plus> {
+		typedef void result_type;
+
+		template <typename Term>
+		void operator()(const Term &term, assign_spmv_context &ctx) const {
+		    std::cout << "left: " << sizeof(term) << " ";
+		    boost::proto::display_expr(boost::proto::left(term));
+		    std::cout << "right: " << sizeof(term) << " ";
+		    boost::proto::display_expr(boost::proto::right(term));
+		    ctx.v = boost::proto::left(term);
+		    boost::proto::right(term).mul(ctx.v);
+		}
+	    };
+
+	    template <typename Expr>
+	    struct eval<Expr, boost::proto::tag::terminal> {
+		typedef void result_type;
+
+		template <class Term>
+		void operator()(const Term &term, assign_spmv_context &ctx) const {
+		    std::cout << "spmv: " << sizeof(term) << " ";
+		    boost::proto::display_expr(term);
+		    //spmv.mul(ctx.v);
+		}
+	    };
+	};
 };
 
 template <class T> template <class Expr>

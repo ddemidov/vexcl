@@ -76,7 +76,7 @@ class Reductor {
 	 */
 	template <class Expr>
 	typename std::enable_if<
-	    proto::matches<Expr, vector_expr_grammar>::value,
+	    boost::proto::matches<Expr, vector_expr_grammar>::value,
 	    real
 	>::type
 	operator()(const Expr &expr) const;
@@ -84,7 +84,7 @@ class Reductor {
 #ifdef VEXCL_MULTIVECTOR_HPP
 	template <class Expr>
 	typename std::enable_if<
-	    proto::matches<Expr, multivector_expr_grammar>::value,
+	    boost::proto::matches<Expr, multivector_expr_grammar>::value,
 	    std::array<real, boost::result_of<mutltiex_dimension(Expr)>::type::value>
 	>::type
 	operator()(const Expr &expr) const;
@@ -176,7 +176,7 @@ Reductor<real,RDC>::Reductor(const std::vector<cl::CommandQueue> &queue)
 
 template <typename real, ReductionKind RDC> template <class Expr>
 typename std::enable_if<
-    proto::matches<Expr, vector_expr_grammar>::value,
+    boost::proto::matches<Expr, vector_expr_grammar>::value,
     real
 >::type
 Reductor<real,RDC>::operator()(const Expr &expr) const {
@@ -192,7 +192,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
 	    vector_name_context name_ctx(kernel_name);
 
 	    kernel_name << "reduce_";
-	    proto::eval(expr, name_ctx);
+	    boost::proto::eval(expr, name_ctx);
 
 	    std::string source = device_is_cpu ?
 		cpu_kernel_source(context, expr, kernel_name.str()) :
@@ -275,7 +275,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
 #ifdef VEXCL_MULTIVECTOR_HPP
 template <typename real, ReductionKind RDC> template <class Expr>
 typename std::enable_if<
-    proto::matches<Expr, multivector_expr_grammar>::value,
+    boost::proto::matches<Expr, multivector_expr_grammar>::value,
     std::array<real, boost::result_of<mutltiex_dimension(Expr)>::type::value>
 >::type
 Reductor<real,RDC>::operator()(const Expr &expr) const {
@@ -303,17 +303,17 @@ std::string Reductor<real,RDC>::gpu_kernel_source(
     switch (RDC) {
 	case SUM:
 	    increment_line << "mySum += ";
-	    proto::eval(expr, expr_ctx);
+	    boost::proto::eval(expr, expr_ctx);
 	    increment_line << ";\n";
 	    break;
 	case MAX:
 	    increment_line << "mySum = max(mySum, ";
-	    proto::eval(expr, expr_ctx);
+	    boost::proto::eval(expr, expr_ctx);
 	    increment_line << ");\n";
 	    break;
 	case MIN:
 	    increment_line << "mySum = min(mySum, ";
-	    proto::eval(expr, expr_ctx);
+	    boost::proto::eval(expr, expr_ctx);
 	    increment_line << ");\n";
 	    break;
     }
@@ -427,17 +427,17 @@ std::string Reductor<real,RDC>::cpu_kernel_source(
     switch (RDC) {
 	case SUM:
 	    increment_line << "mySum += ";
-	    proto::eval(expr, expr_ctx);
+	    boost::proto::eval(expr, expr_ctx);
 	    increment_line << ";\n";
 	    break;
 	case MAX:
 	    increment_line << "mySum = max(mySum, ";
-	    proto::eval(expr, expr_ctx);
+	    boost::proto::eval(expr, expr_ctx);
 	    increment_line << ");\n";
 	    break;
 	case MIN:
 	    increment_line << "mySum = min(mySum, ";
-	    proto::eval(expr, expr_ctx);
+	    boost::proto::eval(expr, expr_ctx);
 	    increment_line << ");\n";
 	    break;
     }

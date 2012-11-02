@@ -41,6 +41,7 @@ THE SOFTWARE.
 #endif
 
 #include <boost/proto/proto.hpp>
+#include <boost/mpl/max.hpp>
 
 /// Vector expression template library for OpenCL.
 namespace vex {
@@ -49,6 +50,8 @@ namespace vex {
 
 struct builtin_function {};
 struct user_function {};
+
+// TODO compare compilation speed with boost::proto::switch_
 
 //--- Standard grammar (no terminals) ---------------------------------------
 #define BUILTIN_OPERATIONS(grammar) \
@@ -399,6 +402,9 @@ struct UserFunction<body, RetType(
 
 #endif
 
+//---------------------------------------------------------------------------
+// Expression Transforms
+//---------------------------------------------------------------------------
 template <class Context>
 struct do_eval {
     Context &ctx;
@@ -469,6 +475,1010 @@ struct extract_user_functions
 	>
     >
 {};
+
+
+//---------------------------------------------------------------------------
+// Elementwise vector operations
+//---------------------------------------------------------------------------
+
+struct vector_terminal {};
+template <typename T> struct vector;
+
+//--- Vector grammar --------------------------------------------------------
+struct vector_expr_grammar
+    : boost::proto::or_<
+	  boost::proto::or_<
+	      boost::proto::terminal< vector_terminal >,
+	      boost::proto::and_<
+	          boost::proto::terminal< boost::proto::_ >,
+		  boost::proto::if_< std::is_arithmetic< boost::proto::_value >() >
+	      >
+          >,
+	  BUILTIN_OPERATIONS(vector_expr_grammar),
+	  USER_FUNCTIONS(vector_expr_grammar)
+      >
+{};
+
+template <class Expr>
+struct vector_expression;
+
+struct vector_domain
+    : boost::proto::domain<
+	boost::proto::generator<vector_expression>,
+	vector_expr_grammar
+	>
+{ };
+
+template <class Expr>
+struct vector_expression
+    : boost::proto::extends< Expr, vector_expression<Expr>, vector_domain>
+{
+    vector_expression(const Expr &expr = Expr())
+	: boost::proto::extends< Expr, vector_expression<Expr>, vector_domain>(expr) {}
+};
+
+//--- Vector contexts and transform helpers ---------------------------------
+
+// Builds kernel name for a vector expression.
+struct vector_name_context {
+    std::ostream &os;
+
+    vector_name_context(std::ostream &os) : os(os) {}
+
+    // Any expression except function or terminal is only interesting for its
+    // children:
+    template <typename Expr, typename Tag = typename Expr::proto_tag>
+    struct eval {
+	typedef void result_type;
+
+	void operator()(const Expr &expr, vector_name_context &ctx) const {
+	    ctx.os << Tag() << "_";
+	    boost::fusion::for_each(expr, do_eval<vector_name_context>(ctx));
+	}
+    };
+
+    // We only need to look at parameters of a function:
+    template <typename Expr>
+    struct eval<Expr, boost::proto::tag::function> {
+	typedef void result_type;
+
+	template <class FunCall>
+	typename std::enable_if<
+	    std::is_base_of<
+		builtin_function,
+		typename boost::proto::result_of::value<
+		    typename boost::proto::result_of::child_c<FunCall,0>::type
+		>::type
+	    >::value,
+	void
+	>::type
+	operator()(const FunCall &expr, vector_name_context &ctx) const {
+	    ctx.os << boost::proto::value(boost::proto::child_c<0>(expr)).name() << "_";
+	    boost::fusion::for_each(
+		    boost::fusion::pop_front(expr),
+		    do_eval<vector_name_context>(ctx)
+		    );
+	}
+
+	template <class FunCall>
+	typename std::enable_if<
+	    std::is_base_of<
+		user_function,
+		typename boost::proto::result_of::value<
+		    typename boost::proto::result_of::child_c<FunCall,0>::type
+		>::type
+	    >::value,
+	void
+	>::type
+	operator()(const FunCall &expr, vector_name_context &ctx) const {
+	    ctx.os << "func" << boost::fusion::size(expr) - 1 <<  "_";
+	    boost::fusion::for_each(
+		    boost::fusion::pop_front(expr),
+		    do_eval<vector_name_context>(ctx)
+		    );
+	}
+    };
+
+    template <typename Expr>
+    struct eval<Expr, boost::proto::tag::terminal> {
+	typedef void result_type;
+
+	void operator()(const Expr &expr, vector_name_context &ctx) const {
+	    ctx.os << "term_";
+	}
+    };
+};
+
+
+// Builds textual representation for a vector expression.
+struct vector_expr_context {
+    std::ostream &os;
+    int cmp_idx, prm_idx, fun_idx;
+
+    vector_expr_context(std::ostream &os, int cmp_idx = 1)
+	: os(os), cmp_idx(cmp_idx), prm_idx(0), fun_idx(0) {}
+
+    template <typename Expr, typename Tag = typename Expr::proto_tag>
+    struct eval {};
+
+#define BINARY_OPERATION(the_tag, the_op) \
+    template <typename Expr> \
+    struct eval<Expr, boost::proto::tag::the_tag> { \
+	typedef void result_type; \
+	void operator()(const Expr &expr, vector_expr_context &ctx) const { \
+	    ctx.os << "( "; \
+	    boost::proto::eval(boost::proto::left(expr), ctx); \
+	    ctx.os << " " #the_op " "; \
+	    boost::proto::eval(boost::proto::right(expr), ctx); \
+	    ctx.os << " )"; \
+	} \
+    }
+
+    BINARY_OPERATION(plus,          +);
+    BINARY_OPERATION(minus,         -);
+    BINARY_OPERATION(multiplies,    *);
+    BINARY_OPERATION(divides,       /);
+    BINARY_OPERATION(modulus,       %);
+    BINARY_OPERATION(shift_left,   <<);
+    BINARY_OPERATION(shift_right,  >>);
+    BINARY_OPERATION(less,          <);
+    BINARY_OPERATION(greater,       >);
+    BINARY_OPERATION(less_equal,   <=);
+    BINARY_OPERATION(greater_equal,>=);
+    BINARY_OPERATION(equal_to,     ==);
+    BINARY_OPERATION(not_equal_to, !=);
+    BINARY_OPERATION(logical_and,  &&);
+    BINARY_OPERATION(logical_or,   ||);
+    BINARY_OPERATION(bitwise_and,   &);
+    BINARY_OPERATION(bitwise_or,    |);
+    BINARY_OPERATION(bitwise_xor,   ^);
+
+#undef BINARY_OPERATION
+
+#define UNARY_PRE_OPERATION(the_tag, the_op) \
+    template <typename Expr> \
+    struct eval<Expr, boost::proto::tag::the_tag> { \
+	typedef void result_type; \
+	void operator()(const Expr &expr, vector_expr_context &ctx) const { \
+	    ctx.os << "( " #the_op "( "; \
+	    boost::proto::eval(boost::proto::child(expr), ctx); \
+	    ctx.os << " ) )"; \
+	} \
+    }
+
+    UNARY_PRE_OPERATION(unary_plus,   +);
+    UNARY_PRE_OPERATION(negate,       -);
+    UNARY_PRE_OPERATION(logical_not,  !);
+    UNARY_PRE_OPERATION(pre_inc,     ++);
+    UNARY_PRE_OPERATION(pre_dec,     --);
+
+#undef UNARY_PRE_OPERATION
+
+#define UNARY_POST_OPERATION(the_tag, the_op) \
+    template <typename Expr> \
+    struct eval<Expr, boost::proto::tag::the_tag> { \
+	typedef void result_type; \
+	void operator()(const Expr &expr, vector_expr_context &ctx) const { \
+	    ctx.os << "( ( "; \
+	    boost::proto::eval(boost::proto::child(expr), ctx); \
+	    ctx.os << " )" #the_op " )"; \
+	} \
+    }
+
+    UNARY_POST_OPERATION(post_inc, ++);
+    UNARY_POST_OPERATION(post_dec, --);
+
+#undef UNARY_POST_OPERATION
+
+    template <typename Expr>
+    struct eval<Expr, boost::proto::tag::function> {
+	typedef void result_type;
+
+	struct do_eval {
+	    mutable int pos;
+	    vector_expr_context &ctx;
+
+	    do_eval(vector_expr_context &ctx) : pos(0), ctx(ctx) {}
+
+	    template <typename Arg>
+	    void operator()(const Arg &arg) const {
+		if (pos++) ctx.os << ", ";
+		boost::proto::eval(arg, ctx);
+	    }
+	};
+
+	template <class FunCall>
+	typename std::enable_if<
+	    std::is_base_of<
+		builtin_function,
+		typename boost::proto::result_of::value<
+		    typename boost::proto::result_of::child_c<FunCall,0>::type
+		>::type
+	    >::value,
+	void
+	>::type
+	operator()(const FunCall &expr, vector_expr_context &ctx) const {
+	    ctx.os << boost::proto::value(boost::proto::child_c<0>(expr)).name() << "( ";
+	    boost::fusion::for_each(
+		    boost::fusion::pop_front(expr), do_eval(ctx)
+		    );
+	    ctx.os << " )";
+	}
+
+	template <class FunCall>
+	typename std::enable_if<
+	    std::is_base_of<
+		user_function,
+		typename boost::proto::result_of::value<
+		    typename boost::proto::result_of::child_c<FunCall,0>::type
+		>::type
+	    >::value,
+	void
+	>::type
+	operator()(const FunCall &expr, vector_expr_context &ctx) const {
+	    ctx.os << "func_" << ctx.cmp_idx << "_" << ++ctx.fun_idx << "( ";
+	    boost::fusion::for_each(
+		    boost::fusion::pop_front(expr), do_eval(ctx)
+		    );
+	    ctx.os << " )";
+	}
+    };
+
+    template <typename Expr>
+    struct eval<Expr, boost::proto::tag::terminal> {
+	typedef void result_type;
+
+	template <typename T>
+	void operator()(const vector<T> &term, vector_expr_context &ctx) const {
+	    ctx.os << "prm_" << ctx.cmp_idx << "_" << ++ctx.prm_idx << "[idx]";
+	}
+
+	template <typename Term>
+	void operator()(const Term &term, vector_expr_context &ctx) const {
+	    ctx.os << "prm_" << ctx.cmp_idx << "_" << ++ctx.prm_idx;
+	}
+    };
+};
+
+struct declare_user_function {
+    std::ostream &os;
+    int cmp_idx;
+    mutable int fun_idx;
+
+    declare_user_function(std::ostream &os, int cmp_idx = 1)
+	: os(os), cmp_idx(cmp_idx), fun_idx(0) {}
+
+	template <class FunCall>
+	void operator()(const FunCall &expr) const {
+	    std::ostringstream name;
+	    name << "func_" << cmp_idx << "_" << ++fun_idx;
+
+	    // Output function definition and continue with parameters.
+	    boost::proto::value(expr).define(os, name.str());
+	}
+};
+
+struct declare_expression_parameter {
+    std::ostream &os;
+    int cmp_idx;
+    mutable int prm_idx;
+
+    declare_expression_parameter(std::ostream &os, int cmp_idx = 1)
+    : os(os), cmp_idx(cmp_idx), prm_idx(0) {}
+
+    template <typename T>
+    void operator()(const vector<T> &term) const {
+	os << ",\n\tglobal " << type_name<T>() << " *prm_"
+	   << cmp_idx << "_" << ++prm_idx;
+    }
+
+    template <typename Term>
+    void operator()(const Term &term) const {
+	os << ",\n\t"
+	   << type_name< typename boost::proto::result_of::value<Term>::type >()
+	   << " prm_" << cmp_idx << "_" << ++prm_idx;
+    }
+};
+
+struct set_expression_argument {
+    cl::Kernel &krn;
+    uint dev, &pos;
+
+    set_expression_argument(cl::Kernel &krn, uint dev, uint &pos)
+	: krn(krn), dev(dev), pos(pos) {}
+
+    template <typename T>
+    void operator()(const vector<T> &term) const {
+	krn.setArg(pos++, term(dev));
+    }
+
+    template <typename Term>
+    void operator()(const Term &term) const {
+	krn.setArg(pos++, boost::proto::value(term));
+    }
+};
+
+struct get_expression_properties {
+    mutable std::vector<cl::CommandQueue> const* queue;
+    mutable std::vector<size_t> const* part;
+    mutable size_t size;
+
+    get_expression_properties() : queue(0), part(0), size(0) {}
+
+    size_t part_size(uint d) const {
+	return part ?
+	    part->operator[](d + 1) - part->operator[](d) :
+	    0;
+    }
+
+    template <typename T>
+    void operator()(const vector<T> &term) const {
+	if (!queue) {
+	    queue = &( term.queue_list() );
+	    part  = &( term.partition() );
+	    size  = term.size();
+	}
+    }
+
+    template <typename Term>
+    void operator()(const Term &term) const { }
+};
+
+//---------------------------------------------------------------------------
+// Elementwise multi-vector operations
+//---------------------------------------------------------------------------
+
+//--- Scalars and helper types/functions used in multivector expressions ----
+template <class T, class Enable = void>
+struct is_multiscalar : std::false_type
+{};
+
+// Arithmetic scalars
+
+template <class T>
+struct is_multiscalar< T, 
+    typename std::enable_if< std::is_arithmetic<T>::value >::type >
+    : std::true_type
+{};
+
+template <class T>
+struct number_of_components : boost::mpl::size_t<1>
+{};
+
+template <size_t I, class T, class Enable = void>
+struct component {
+    typedef T type;
+};
+
+template <size_t I, typename T>
+inline T& get(T &t) {
+    return t;
+}
+
+#ifdef VEXCL_VARIADIC_TEMPLATES
+
+// std::tuple<...>
+template <typename... T>
+struct And : std::true_type {};
+
+template <typename Head, typename... Tail>
+struct And<Head, Tail...>
+    : std::conditional<Head::value, And<Tail...>, std::false_type>::type
+{};
+
+template <class... Args>
+struct is_multiscalar<std::tuple<Args...>,
+    typename std::enable_if<And< std::is_arithmetic<Args>... >::type::value >::type >
+    : std::true_type
+{};
+
+template <class... Args>
+struct number_of_components< std::tuple<Args...> >
+    : boost::mpl::size_t<sizeof...(Args)>
+{};
+
+template <size_t I, class... Args>
+struct component< I, std::tuple<Args...> >
+    : std::tuple_element< I, std::tuple<Args...> >
+{};
+
+#endif
+
+// std::array<T,N>
+
+template <class T, size_t N>
+struct is_multiscalar< std::array<T, N>, 
+    typename std::enable_if< std::is_arithmetic<T>::value >::type >
+    : std::true_type
+{};
+
+template <class T, size_t N>
+struct number_of_components< std::array<T, N> >
+    : boost::mpl::size_t<N>
+{};
+
+template <size_t I, class T, size_t N>
+struct component< I, std::array<T, N> > {
+    typedef T type;
+};
+
+// C-style arrays
+template <class T, size_t N>
+struct is_multiscalar< T[N], 
+    typename std::enable_if< std::is_arithmetic<T>::value >::type >
+    : std::true_type
+{};
+
+template <class T, size_t N>
+struct number_of_components< T[N] >
+    : boost::mpl::size_t<N>
+{};
+
+template <size_t I, class T, size_t N>
+struct component< I, T[N] > {
+    typedef T type;
+};
+
+template <size_t I, typename T, size_t N>
+inline const T& get(const T t[N]) {
+    static_assert(I < N, "Component number out of bounds");
+    return t[I];
+}
+
+template <size_t I, typename T, size_t N>
+inline T& get(T t[N]) {
+    static_assert(I < N, "Component number out of bounds");
+    return t[I];
+}
+
+struct multivector_terminal {};
+
+template <typename T, size_t N, bool own = true>
+struct multivector;
+
+template <typename T, size_t N, bool own>
+struct number_of_components< multivector<T, N, own> >
+    : boost::mpl::size_t<N>
+{};
+
+template <size_t I, typename T, size_t N, bool own>
+struct component< I, multivector<T, N, own> > {
+    typedef vector<T> type;
+};
+
+template <size_t I, typename T, size_t N, bool own>
+const vector<T>& get(const multivector<T, N, own> &mv) {
+    static_assert(I < N, "Component number out of bounds");
+
+    return mv(I);
+}
+
+template <size_t I, typename T, size_t N, bool own>
+vector<T>& get(multivector<T, N, own> &mv) {
+    static_assert(I < N, "Component number out of bounds");
+
+    return mv(I);
+}
+
+struct mutltiex_dimension
+        : boost::proto::or_ <
+            boost::proto::when <
+		boost::proto::terminal< boost::proto::_ >,
+		number_of_components<boost::proto::_>()
+	    > ,
+	    boost::proto::when <
+		boost::proto::nary_expr<boost::proto::_, boost::proto::vararg<boost::proto::_> >,
+		boost::proto::fold<boost::proto::_,
+		    boost::mpl::size_t<0>(),
+		    boost::mpl::max<mutltiex_dimension, boost::proto::_state>()>()
+	    >
+        >
+{};
+
+template <size_t I, class T>
+struct component< I, T,
+    typename std::enable_if<
+	!is_multiscalar<T>::value &&
+	is_multiscalar<
+	    typename boost::proto::result_of::value<
+		typename boost::proto::result_of::as_expr<T>::type
+	    >::type
+	>::value >::type
+    >
+{
+    typedef typename boost::proto::result_of::value<
+		typename boost::proto::result_of::as_expr<T>::type
+	    >::type value_type;
+
+    typedef typename boost::proto::result_of::as_child<
+	typename component<I, value_type>::type
+	>::type type;
+};
+
+template <size_t I, typename T>
+inline const
+typename std::enable_if<
+    !is_multiscalar<T>::value &&
+    is_multiscalar<
+	typename boost::proto::result_of::value<
+	    typename boost::proto::result_of::as_expr<T>::type
+	>::type
+    >::value,
+    typename component<I, T>::type
+>::type
+get(const T &t) {
+    return boost::proto::as_child(get<I>(boost::proto::value(t)));
+}
+
+//--- Multivector grammar ---------------------------------------------------
+
+struct multivector_expr_grammar
+    : boost::proto::or_<
+	  boost::proto::or_<
+	      boost::proto::terminal< multivector_terminal >,
+	      boost::proto::and_<
+	          boost::proto::terminal< boost::proto::_ >,
+		  boost::proto::if_< is_multiscalar< boost::proto::_value >() >
+	      >
+          >,
+	  BUILTIN_OPERATIONS(multivector_expr_grammar),
+	  USER_FUNCTIONS(multivector_expr_grammar)
+      >
+{};
+
+template <class Expr>
+struct multivector_expression;
+
+struct multivector_domain
+    : boost::proto::domain<
+	boost::proto::generator<multivector_expression>,
+	multivector_expr_grammar
+      >
+{ };
+
+template <class Expr>
+struct multivector_expression
+    : boost::proto::extends< Expr, multivector_expression<Expr>, multivector_domain>
+{
+    multivector_expression(const Expr &expr = Expr())
+	: boost::proto::extends< Expr, multivector_expression<Expr>, multivector_domain>(expr) {}
+};
+
+//--- Multivector contexts and transform helpers ----------------------------
+
+// Builds textual representation for a multi-vector expression.
+template <size_t N, size_t C>
+struct multivector_expr_context {
+    std::ostream &os;
+    int prm_idx, fun_idx;
+
+    multivector_expr_context(std::ostream &os) : os(os), prm_idx(0), fun_idx(0) {}
+
+    template <typename Expr, typename Tag = typename Expr::proto_tag>
+    struct eval {};
+
+#define BINARY_OPERATION(the_tag, the_op) \
+    template <typename Expr> \
+    struct eval<Expr, boost::proto::tag::the_tag> { \
+	typedef void result_type; \
+	void operator()(const Expr &expr, multivector_expr_context &ctx) const { \
+	    ctx.os << "( "; \
+	    boost::proto::eval(boost::proto::left(expr), ctx); \
+	    ctx.os << " " #the_op " "; \
+	    boost::proto::eval(boost::proto::right(expr), ctx); \
+	    ctx.os << " )"; \
+	} \
+    }
+
+    BINARY_OPERATION(plus,          +);
+    BINARY_OPERATION(minus,         -);
+    BINARY_OPERATION(multiplies,    *);
+    BINARY_OPERATION(divides,       /);
+    BINARY_OPERATION(modulus,       %);
+    BINARY_OPERATION(shift_left,   <<);
+    BINARY_OPERATION(shift_right,  >>);
+    BINARY_OPERATION(less,          <);
+    BINARY_OPERATION(greater,       >);
+    BINARY_OPERATION(less_equal,   <=);
+    BINARY_OPERATION(greater_equal,>=);
+    BINARY_OPERATION(equal_to,     ==);
+    BINARY_OPERATION(not_equal_to, !=);
+    BINARY_OPERATION(logical_and,  &&);
+    BINARY_OPERATION(logical_or,   ||);
+    BINARY_OPERATION(bitwise_and,   &);
+    BINARY_OPERATION(bitwise_or,    |);
+    BINARY_OPERATION(bitwise_xor,   ^);
+
+#undef BINARY_OPERATION
+
+#define UNARY_PRE_OPERATION(the_tag, the_op) \
+    template <typename Expr> \
+    struct eval<Expr, boost::proto::tag::the_tag> { \
+	typedef void result_type; \
+	void operator()(const Expr &expr, multivector_expr_context &ctx) const { \
+	    ctx.os << "( " #the_op "( "; \
+	    boost::proto::eval(boost::proto::child(expr), ctx); \
+	    ctx.os << " ) )"; \
+	} \
+    }
+
+    UNARY_PRE_OPERATION(unary_plus,   +);
+    UNARY_PRE_OPERATION(negate,       -);
+    UNARY_PRE_OPERATION(logical_not,  !);
+    UNARY_PRE_OPERATION(pre_inc,     ++);
+    UNARY_PRE_OPERATION(pre_dec,     --);
+
+#undef UNARY_PRE_OPERATION
+
+#define UNARY_POST_OPERATION(the_tag, the_op) \
+    template <typename Expr> \
+    struct eval<Expr, boost::proto::tag::the_tag> { \
+	typedef void result_type; \
+	void operator()(const Expr &expr, multivector_expr_context &ctx) const { \
+	    ctx.os << "( ( "; \
+	    boost::proto::eval(boost::proto::child(expr), ctx); \
+	    ctx.os << " )" #the_op " )"; \
+	} \
+    }
+
+    UNARY_POST_OPERATION(post_inc, ++);
+    UNARY_POST_OPERATION(post_dec, --);
+
+#undef UNARY_POST_OPERATION
+
+    template <typename Expr>
+    struct eval<Expr, boost::proto::tag::function> {
+	typedef void result_type;
+
+	struct do_eval {
+	    mutable int pos;
+	    multivector_expr_context &ctx;
+
+	    do_eval(multivector_expr_context &ctx) : pos(0), ctx(ctx) {}
+
+	    template <typename Arg>
+	    void operator()(const Arg &arg) const {
+		if (pos++) ctx.os << ", ";
+		boost::proto::eval(arg, ctx);
+	    }
+	};
+
+	template <class FunCall>
+	typename std::enable_if<
+	    std::is_base_of<
+		builtin_function,
+		typename boost::proto::result_of::value<
+		    typename boost::proto::result_of::child_c<FunCall,0>::type
+		>::type
+	    >::value,
+	void
+	>::type
+	operator()(const FunCall &expr, multivector_expr_context &ctx) const {
+	    ctx.os << boost::proto::value(boost::proto::child_c<0>(expr)).name() << "( ";
+	    boost::fusion::for_each(
+		    boost::fusion::pop_front(expr),
+		    do_eval(ctx)
+		    );
+	    ctx.os << " )";
+	}
+
+	template <class FunCall>
+	typename std::enable_if<
+	    std::is_base_of<
+		user_function,
+		typename boost::proto::result_of::value<
+		    typename boost::proto::result_of::child_c<FunCall,0>::type
+		>::type
+	    >::value,
+	void
+	>::type
+	operator()(const FunCall &expr, multivector_expr_context &ctx) const {
+	    ctx.os << "func_1_" << ++ctx.fun_idx << "( ";
+	    boost::fusion::for_each(
+		    boost::fusion::pop_front(expr),
+		    do_eval(ctx)
+		    );
+	    ctx.os << " )";
+	}
+    };
+
+    template <typename Expr>
+    struct eval<Expr, boost::proto::tag::terminal> {
+	typedef void result_type;
+
+	template <typename T, size_t M, bool own>
+	void operator()(const multivector<T,M,own> &term, multivector_expr_context &ctx) const {
+	    static_assert(M == N, "Wrong number of components in a multivector");
+
+	    ctx.os << "prm_" << C + 1 << "_" << ++ctx.prm_idx << "[idx]";
+	}
+
+	template <typename Term>
+	void operator()(const Term &term, multivector_expr_context &ctx) const {
+	    typedef typename boost::proto::result_of::value<Term>::type term_type;
+
+	    static_assert(
+		    number_of_components<term_type>::value == 1 ||
+		    number_of_components<term_type>::value == N,
+		    "Wrong number of components in a multiscalar"
+		    );
+
+	    ctx.prm_idx++;
+
+	    if (number_of_components<term_type>::value > 1) {
+		ctx.os << "prm_" << C + 1 << "_" << ctx.prm_idx;
+	    } else {
+		ctx.os << "prm_1_" << ctx.prm_idx;
+	    }
+	}
+    };
+};
+
+
+template <size_t N, size_t C>
+struct declare_multiex_parameter {
+    std::ostream &os;
+    mutable int prm_idx;
+
+    declare_multiex_parameter(std::ostream &os) : os(os), prm_idx(0) { }
+
+    template <typename T, size_t M, bool own>
+    void operator()(const multivector<T, M, own> &term) const {
+	static_assert(M == N, "Wrong number of components in a multivector");
+
+	os << ",\n\tglobal " << type_name<T>() << " *prm_"
+	   << C + 1 << "_" << ++prm_idx;
+    }
+
+    template <typename Term>
+    void operator()(const Term &term) const {
+	typedef typename boost::proto::result_of::value<Term>::type term_type;
+
+	typedef
+	    typename component<
+		C, typename boost::proto::result_of::value<Term>::type
+		>::type
+	    component_type;
+
+	static_assert(
+		number_of_components<term_type>::value == 1 ||
+		number_of_components<term_type>::value == N,
+		"Wrong number of components in a multiscalar"
+		);
+
+	prm_idx++;
+
+	if (number_of_components<term_type>::value > 1) {
+	    os << ",\n\t"
+	       << type_name< component_type >()
+	       << " prm_" << C + 1 << "_" << prm_idx;
+	} else if (C == 0) {
+	    os << ",\n\t"
+	       << type_name< component_type >()
+	       << " prm_1_" << prm_idx;
+	}
+    }
+};
+
+template <size_t I, size_t N, class Expr>
+typename std::enable_if<I == N>::type
+mv_param_list_loop(const Expr &expr, std::ostream &os) { }
+
+template <size_t I, size_t N, class Expr>
+typename std::enable_if<I < N>::type
+mv_param_list_loop(const Expr &expr, std::ostream &os) {
+    extract_terminals()( expr,
+	    declare_multiex_parameter<N, I>(os)
+	    );
+
+    mv_param_list_loop<I+1, N, Expr>(expr, os);
+}
+
+template <size_t N, class Expr>
+void build_param_list(const Expr &expr, std::ostream &os) {
+    mv_param_list_loop<0, N, Expr>(expr, os);
+}
+
+
+
+
+template <size_t N, size_t C>
+struct set_multiex_argument {
+    cl::Kernel &krn;
+    uint dev, &pos;
+
+    set_multiex_argument(cl::Kernel &krn, uint dev, uint &pos)
+	: krn(krn), dev(dev), pos(pos) {}
+
+    template <typename T, size_t M, bool own>
+    void operator()(const multivector<T, M, own> &term) const {
+	static_assert(M == N, "Wrong number of components in a multivector");
+	krn.setArg(pos++, term(C)(dev));
+    }
+
+    template <typename Term>
+    void operator()(const Term &term) const {
+	typedef typename boost::proto::result_of::value<Term>::type term_type;
+
+	static_assert(
+		number_of_components<term_type>::value == 1 ||
+		number_of_components<term_type>::value == N,
+		"Wrong number of components in a multiscalar"
+		);
+
+	if ((number_of_components<term_type>::value > 1) || (C == 0))
+	    krn.setArg(pos++, get<C>(boost::proto::value(term)));
+    }
+};
+
+template <size_t I, size_t N, class Expr>
+typename std::enable_if<I == N>::type
+mv_kernel_args_loop(const Expr &expr, cl::Kernel &krn, uint d, uint &pos) { }
+
+template <size_t I, size_t N, class Expr>
+typename std::enable_if<I < N>::type
+mv_kernel_args_loop(const Expr &expr, cl::Kernel &krn, uint d, uint &pos) {
+    extract_terminals()( expr,
+	    set_multiex_argument<N, I>(krn, d, pos)
+	    );
+
+    mv_kernel_args_loop<I+1, N, Expr>(expr, krn, d, pos);
+}
+
+template <size_t N, class Expr>
+void set_kernel_args(const Expr &expr, cl::Kernel &krn, uint d, uint &pos) {
+    mv_kernel_args_loop<0, N, Expr>(expr, krn, d, pos);
+}
+
+
+
+template <size_t C>
+struct extract_component
+    : boost::proto::transform < extract_component<C> >
+{
+    template<typename Expr, typename Unused1, typename Unused2>
+    struct impl : boost::proto::transform_impl<Expr, Unused1, Unused2>
+    {
+	typedef
+	    typename vex::component<C,
+		typename boost::remove_const<
+		    typename boost::remove_reference<
+			typename impl::expr
+		    >::type
+		>::type
+	    >::type result_type;
+
+	result_type operator ()(
+              typename impl::expr_param term
+            , typename impl::state_param
+            , typename impl::data_param) const
+        {
+	    using namespace vex;
+	    using namespace std;
+
+	    return get<C>(term);
+        }
+
+    };
+};
+
+template <size_t C>
+struct extract_subexpression
+    : boost::proto::or_ <
+	boost::proto::when <
+	    boost::proto::terminal<boost::proto::_>,
+	    extract_component<C>
+	> ,
+	boost::proto::function<
+	    boost::proto::_,
+	    boost::proto::vararg< extract_subexpression<C> >
+	> ,
+	boost::proto::when <
+	    boost::proto::nary_expr<
+		boost::proto::_,
+		boost::proto::vararg< extract_subexpression<C> >
+	    >
+	>
+    >
+{};
+
+//---------------------------------------------------------------------------
+// Sparse matrix - (multi-)vector products
+//---------------------------------------------------------------------------
+
+struct matrix_terminal {};
+struct spmv_terminal {};
+struct vex_terminal {};
+
+//--- SpMV grammar ----------------------------------------------------------
+
+struct spmv_grammar
+    : boost::proto::or_<
+	  boost::proto::terminal< spmv_terminal >,
+	  boost::proto::terminal< vector_expression< boost::proto::_ > >,
+	  boost::proto::plus<
+	     boost::proto::terminal< vector_expression<boost::proto::_> >,
+	     boost::proto::terminal< spmv_terminal >
+	  >,
+	  boost::proto::minus<
+	     boost::proto::terminal< vector_expression<boost::proto::_> >,
+	     boost::proto::terminal< spmv_terminal >
+	  >
+      >
+{};
+
+template <class Expr>
+struct spmv_expression;
+
+struct spmv_domain
+    : boost::proto::domain<
+	boost::proto::generator<spmv_expression>,
+	spmv_grammar, vector_domain
+	>
+{ };
+
+template <class Expr>
+struct spmv_expression
+    : boost::proto::extends< Expr, spmv_expression<Expr>, spmv_domain>
+{
+    spmv_expression(const Expr &expr = Expr())
+	: boost::proto::extends< Expr, spmv_expression<Expr>, spmv_domain>(expr) {}
+};
+
+//--- SpMV operations -------------------------------------------------------
+
+template <class M, class V>
+struct spmv : spmv_expression< boost::proto::terminal<spmv_terminal>::type >
+{
+    const M &A;
+    const V &x;
+
+    spmv(const M &m, const V &v) : A(m), x(v) {}
+
+    void mul(V &y) const {
+	A.mul(x, y);
+    }
+};
+
+template <class M, class T>
+typename std::enable_if<
+    std::is_base_of<matrix_terminal, M>::value,
+    spmv< M, vector<T> >
+>::type
+operator*(const M &A, const vector<T> &x) {
+    return spmv< M, vector<T> >(A, x);
+}
+
+template <class Expr, class M, class T>
+typename boost::proto::result_of::make_expr<
+    boost::proto::tag::plus,
+    spmv_domain,
+    const vector_expression<Expr>&,
+    const spmv<M, vector<T>>&
+>::type const
+operator+(const vector_expression<Expr> &vex, const spmv<M, vector<T> > &mv)
+{
+    return boost::proto::make_expr< boost::proto::tag::plus, spmv_domain >(
+	    boost::ref(vex),
+	    boost::ref(mv)
+	    );
+}
+
+
+template <class Expr, class M, class T>
+typename boost::proto::result_of::make_expr<
+    boost::proto::tag::minus,
+    spmv_domain,
+    const vector_expression<Expr>&,
+    const spmv<M, vector<T>>&
+>::type const
+operator-(const vector_expression<Expr> &vex, const spmv<M, vector<T> > &mv)
+{
+    return boost::proto::make_expr< boost::proto::tag::minus, spmv_domain >(
+	    boost::ref(vex),
+	    boost::ref(mv)
+	    );
+}
 
 /// \endcond
 

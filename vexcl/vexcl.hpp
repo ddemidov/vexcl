@@ -478,7 +478,7 @@ enough. The compilers that have been tested and supported are:
 #include <vexcl/vector.hpp>
 #include <vexcl/multivector.hpp>
 #include <vexcl/reduce.hpp>
-//#include <vexcl/spmat.hpp>
+#include <vexcl/spmat.hpp>
 //#include <vexcl/stencil.hpp>
 #include <vexcl/profiler.hpp>
 
