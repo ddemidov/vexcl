@@ -835,7 +835,7 @@ int main(int argc, char *argv[]) {
 	});
 #endif
 
-#if 0
+#if 1
 	run_test("Tie vectors into a multivector", [&]() -> bool {
 		bool rc = true;
 		const size_t n = 1024;
@@ -892,7 +892,7 @@ int main(int argc, char *argv[]) {
 	});
 #endif
 
-#if 0
+#if 1
 	run_test("Reduction of multivector", [&]() -> bool {
 		bool rc = true;
 		const size_t n = 1024;

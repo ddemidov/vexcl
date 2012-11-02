@@ -1236,6 +1236,39 @@ void copy(const std::vector<T> &hv, multivector<T,N,own> &mv) {
 		mv(i).begin());
 }
 
+#ifdef VEXCL_VARIADIC_TEMPLATES
+/// Ties several vex::vectors into a multivector.
+/**
+ * The following example results in a single kernel:
+ * \code
+ * vex::vector<double> x(ctx.queue(), 1024);
+ * vex::vector<double> y(ctx.queue(), 1024);
+ *
+ * vex::tie(x,y) = std::make_tuple(
+ *			x + y,
+ *			y - x
+ *			);
+ * \endcode
+ * This is functionally equivalent to
+ * \code
+ * tmp_x = x + y;
+ * tmp_y = y - x;
+ * x = tmp_x;
+ * y = tmp_y;
+ * \endcode
+ * but does not use temporaries and is more efficient.
+ */
+template<typename T, class... Tail>
+typename std::enable_if<
+    And<std::is_same<T,Tail>...>::value,
+    multivector<T, sizeof...(Tail) + 1, false>
+    >::type
+tie(vex::vector<T> &head, vex::vector<Tail>&... tail) {
+    std::array<vex::vector<T>*, sizeof...(Tail) + 1> ptr = {{&head, (&tail)...}};
+
+    return multivector<T, sizeof...(Tail) + 1, false>(ptr);
+}
+#endif
 
 } // namespace vex
 
