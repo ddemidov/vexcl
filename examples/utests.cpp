@@ -791,7 +791,7 @@ int main(int argc, char *argv[]) {
 #endif
 
 #ifdef VEXCL_VARIADIC_TEMPLATES
-#if 0
+#if 1
 	run_test("Multiexpressions with multivectors", [&]() -> bool {
 		bool rc = true;
 		const size_t n = 1024;

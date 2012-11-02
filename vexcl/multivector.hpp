@@ -1066,9 +1066,8 @@ struct multivector
 			exdata<MultiExpr>::kernel[context()].setArg(pos++, vec[i]->operator()(d));
 
 		    {
-			set_expression_argument arg_setter(
-				exdata<MultiExpr>::kernel[context()], d, pos);
-			for_each(expr, arg_setter);
+			set_arguments f(exdata<MultiExpr>::kernel[context()], d, pos);
+			for_each(expr, f);
 		    }
 
 		    queue[d].enqueueNDRangeKernel(
@@ -1186,6 +1185,21 @@ struct multivector
 	    }
 	};
 
+	struct set_arguments {
+	    cl::Kernel &krn;
+	    uint d, &pos;
+
+	    set_arguments(cl::Kernel &krn, uint d, uint &pos)
+		: krn(krn), d(d), pos(pos) {}
+
+	    template <class Expr>
+	    void operator()(const Expr &expr) const {
+		extract_terminals()(
+			proto::as_child(expr),
+			set_expression_argument(krn, d, pos)
+			);
+	    }
+	};
 #endif
 
 	std::array<typename multivector_storage<T, own>::type,N> vec;

@@ -2,17 +2,10 @@
 #include <cmath>
 
 //#define VEXCL_SHOW_KERNELS
-/*
-#include <vexcl/devlist.hpp>
-#include <vexcl/vector_proto.hpp>
-#include <vexcl/reduce_proto.hpp>
-#include <vexcl/multivector.hpp>
-*/
 #include <boost/mpl/max.hpp>
-#include <boost/fusion/include/is_sequence.hpp>
 #include <vexcl/vexcl.hpp>
 
-extern const char greater_body[] = "return prm1 < prm2;";
+extern const char greater_body[] = "return prm1 > prm2;";
 vex::UserFunction<greater_body, bool(double, double)> greater;
 
 using boost::proto::_;
@@ -37,8 +30,6 @@ int main() {
 	vex::vector<double> b(ctx.queue(), n);
 	vex::vector<double> c(ctx.queue(), n);
 
-	std::cout << "fusion? " << boost::fusion::traits::is_sequence< vex::multivector<double,3> >::type::value << std::endl;
-
 	a = 1;
 	b = 2;
 	c = sin(M_PI/4 * a) + b;
@@ -58,30 +49,19 @@ int main() {
 	vex::multivector<double, 3> mb(ctx.queue(), n);
 	vex::multivector<double, 3> mc(ctx.queue(), n);
 
-	std::cout << "A" << std::endl;
 	ma = 1;
 	mb = 2;
 	mc = 3;
 
-	std::cout << "B" << std::endl;
-
-	ma = std::tie(a, b, c);
-
-	std::cout << "C" << std::endl;
-
 	std::array<double,3> t = ma[0];
 	std::cout << t[0] << " " << t[1] << " " << t[2] << " " << c[0] << std::endl;
 
-	ma = sin(2 * ma) + greater(mb, 5 + mc);
+	ma = sin(arr * ma) + greater(mb, tup + mc);
 
-	std::cout << sin(arr[0] * 1) + (2 < std::get<0>(tup) + 3)
+	std::cout << sin(arr[0] * 1) + (2 > std::get<0>(tup) + 3)
 		  << " = " << ma(0)[0] << std::endl;
 
-	auto ex = tup * ma + arr * mb;
-
-	proto::display_expr(vex::extract_subexpression<0>()(ex));
-	proto::display_expr(vex::extract_subexpression<1>()(ex));
-	proto::display_expr(vex::extract_subexpression<2>()(ex));
+	ma = std::tie(2 * a, b, c);
 
     } catch (const cl::Error &e) {
 	std::cout << e << std::endl;
