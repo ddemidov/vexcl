@@ -1331,43 +1331,42 @@ void set_kernel_args(const Expr &expr, cl::Kernel &krn, uint d, uint &pos) {
 }
 
 
-
 template <size_t C>
-struct extract_component
-    : boost::proto::transform < extract_component<C> >
-{
-    template<typename Expr, typename Unused1, typename Unused2>
-    struct impl : boost::proto::transform_impl<Expr, Unused1, Unused2>
-    {
-	typedef
-	    typename vex::component<C,
+struct extract_component : boost::proto::callable {
+    template <class T>
+    struct result;
+
+    template <class This, class T>
+    struct result< This(T) > {
+	typedef const typename component< C,
 		typename boost::remove_const<
-		    typename boost::remove_reference<
-			typename impl::expr
-		    >::type
+		    typename boost::remove_reference<T>::type
 		>::type
-	    >::type result_type;
-
-	result_type operator ()(
-              typename impl::expr_param term
-            , typename impl::state_param
-            , typename impl::data_param) const
-        {
-	    using namespace vex;
-	    using namespace std;
-
-	    return get<C>(term);
-        }
-
+	    >::type& type;
     };
+
+    template <class T>
+    typename result<extract_component(const T&)>::type
+    operator()(const T &t) const {
+	using namespace std;
+	return get<C>(t);
+    }
 };
 
 template <size_t C>
 struct extract_subexpression
     : boost::proto::or_ <
 	boost::proto::when <
+	    boost::proto::terminal< multivector_terminal >,
+	    extract_component<C>( boost::proto::_ )
+	> ,
+	boost::proto::when <
 	    boost::proto::terminal<boost::proto::_>,
-	    extract_component<C>
+	    boost::proto::_make_terminal (
+		    extract_component<C>(
+			boost::proto::_value(boost::proto::_)
+			)
+		    )
 	> ,
 	boost::proto::function<
 	    boost::proto::_,
