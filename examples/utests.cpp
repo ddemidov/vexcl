@@ -9,10 +9,7 @@
 
 //#define VEXCL_SHOW_KERNELS
 #include <vexcl/vexcl.hpp>
-
-#ifndef BOOST_NO_VARIADIC_TEMPLATES
-#  include <vexcl/generator.hpp>
-#endif
+#include <vexcl/generator.hpp>
 
 using namespace vex;
 
@@ -29,7 +26,6 @@ bool run_test(const std::string &name, std::function<bool()> test) {
     return rc;
 }
 
-#ifndef BOOST_NO_VARIADIC_TEMPLATES
 extern const char greater_body[] = "return prm1 > prm2 ? 1 : 0;";
 UserFunction<greater_body, size_t(double, double)> greater;
 
@@ -58,7 +54,6 @@ void runge_kutta_4(SysFunction sys, state_type &x, double dt) {
 
     x += (k1 + 2 * k2 + 2 * k3 + k4) / 6;
 }
-#endif
 
 extern const char pow3_oper_body[] = "return X[0] + pow(X[-1] + X[1], 3.0);";
 
@@ -1506,7 +1501,6 @@ int main(int argc, char *argv[]) {
 		});
 #endif
 
-#ifndef BOOST_NO_VARIADIC_TEMPLATES
 #if 1
 	run_test("Kernel auto-generation", [&]() -> bool {
 		bool rc = true;
@@ -1544,7 +1538,6 @@ int main(int argc, char *argv[]) {
 		rc = rc && fabs(x[0] - X[0]) < 1e-8;
 		return rc;
 		});
-#endif
 #endif
 
     } catch (const cl::Error &err) {
