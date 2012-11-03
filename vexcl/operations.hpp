@@ -36,10 +36,6 @@ THE SOFTWARE.
 #  define NOMINMAX
 #endif
 
-#ifndef _MSC_VER
-#  define VEXCL_VARIADIC_TEMPLATES
-#endif
-
 #include <boost/proto/proto.hpp>
 #include <boost/mpl/max.hpp>
 
@@ -244,7 +240,7 @@ BUILTIN_FUNCTION_1(trunc);
 #undef BUILTIN_FUNCTION_2
 #undef BUILTIN_FUNCTION_3
 
-#ifndef VEXCL_VARIADIC_TEMPLATES
+#ifndef BOOST_NO_VARIADIC_TEMPLATES
 
 //--- User Function ---------------------------------------------------------
 template <const char *body, class T>
@@ -855,7 +851,7 @@ inline T& get(T &t) {
     return t;
 }
 
-#ifdef VEXCL_VARIADIC_TEMPLATES
+#ifndef BOOST_NO_VARIADIC_TEMPLATES
 
 // std::tuple<...>
 template <typename... T>

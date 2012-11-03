@@ -37,20 +37,10 @@ THE SOFTWARE.
 #  define NOMINMAX
 #endif
 
-#ifndef __CL_ENABLE_EXCEPTIONS
-#  define __CL_ENABLE_EXCEPTIONS
-#endif
-
-#ifndef WIN32
-#  define INITIALIZER_LISTS_AVAILABLE
-#endif
-
 #include <vector>
 #include <map>
 #include <sstream>
 #include <cassert>
-#include <CL/cl.hpp>
-#include <vexcl/util.hpp>
 #include <vexcl/vector.hpp>
 
 namespace vex {
@@ -230,7 +220,7 @@ class stencil : private stencil_base<T> {
 	    init(end - begin);
 	}
 
-#ifdef INITIALIZER_LISTS_AVAILABLE
+#ifndef BOOST_NO_INITIALIZER_LISTS
 	/// Costructor.
 	/**
 	 * \param queue  vector of queues. Each queue represents one
@@ -648,7 +638,7 @@ class gstencil : public stencil_base<T> {
 	    assert(rows * cols == end - begin);
 	}
 
-#ifdef INITIALIZER_LISTS_AVAILABLE
+#ifndef BOOST_NO_INITIALIZER_LISTS
 	/// Costructor.
 	/**
 	 * \param queue  vector of queues. Each queue represents one

@@ -37,14 +37,6 @@ THE SOFTWARE.
 #  define NOMINMAX
 #endif
 
-#ifndef _MSC_VER
-#  define VEXCL_VARIADIC_TEMPLATES
-#endif
-
-#ifndef __CL_ENABLE_EXCEPTIONS
-#  define __CL_ENABLE_EXCEPTIONS
-#endif
-
 #include <array>
 #include <vector>
 #include <map>
@@ -401,7 +393,7 @@ struct multivector
 	    return *this;
 	}
 
-#ifdef VEXCL_VARIADIC_TEMPLATES
+#ifndef BOOST_NO_VARIADIC_TEMPLATES
 	/// Multi-expression assignments.
 	template <class... Expr>
 	typename std::enable_if<N == sizeof...(Expr), const multivector& >::type
@@ -560,7 +552,7 @@ struct multivector
 		vec[i] = mv.vec[i];
 	}
 
-#ifdef VEXCL_VARIADIC_TEMPLATES
+#ifndef BOOST_NO_VARIADIC_TEMPLATES
 	struct get_header {
 	    std::ostream &os;
 	    mutable int cmp_idx;
@@ -657,7 +649,7 @@ void copy(const std::vector<T> &hv, multivector<T,N,own> &mv) {
 		mv(i).begin());
 }
 
-#ifdef VEXCL_VARIADIC_TEMPLATES
+#ifndef BOOST_NO_VARIADIC_TEMPLATES
 /// Ties several vex::vectors into a multivector.
 /**
  * The following example results in a single kernel:

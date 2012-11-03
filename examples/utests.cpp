@@ -10,7 +10,7 @@
 //#define VEXCL_SHOW_KERNELS
 #include <vexcl/vexcl.hpp>
 
-#ifdef VEXCL_VARIADIC_TEMPLATES
+#ifndef BOOST_NO_VARIADIC_TEMPLATES
 #  include <vexcl/generator.hpp>
 #endif
 
@@ -29,7 +29,7 @@ bool run_test(const std::string &name, std::function<bool()> test) {
     return rc;
 }
 
-#ifdef VEXCL_VARIADIC_TEMPLATES
+#ifndef BOOST_NO_VARIADIC_TEMPLATES
 extern const char greater_body[] = "return prm1 > prm2 ? 1 : 0;";
 UserFunction<greater_body, size_t(double, double)> greater;
 
@@ -793,7 +793,7 @@ int main(int argc, char *argv[]) {
 	});
 #endif
 
-#ifdef VEXCL_VARIADIC_TEMPLATES
+#ifndef BOOST_NO_VARIADIC_TEMPLATES
 #if 1
 	run_test("Multiexpressions with multivectors", [&]() -> bool {
 		bool rc = true;
@@ -1506,7 +1506,7 @@ int main(int argc, char *argv[]) {
 		});
 #endif
 
-#ifdef VEXCL_VARIADIC_TEMPLATES
+#ifndef BOOST_NO_VARIADIC_TEMPLATES
 #if 1
 	run_test("Kernel auto-generation", [&]() -> bool {
 		bool rc = true;

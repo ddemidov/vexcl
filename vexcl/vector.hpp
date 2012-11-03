@@ -37,14 +37,6 @@ THE SOFTWARE.
 #  define NOMINMAX
 #endif
 
-#ifndef _MSC_VER
-#  define VEXCL_VARIADIC_TEMPLATES
-#endif
-
-#ifndef __CL_ENABLE_EXCEPTIONS
-#  define __CL_ENABLE_EXCEPTIONS
-#endif
-
 #include <vector>
 #include <map>
 #include <iostream>
@@ -52,7 +44,6 @@ THE SOFTWARE.
 #include <string>
 #include <type_traits>
 #include <functional>
-#include <CL/cl.hpp>
 #include <boost/proto/proto.hpp>
 #include <vexcl/util.hpp>
 #include <vexcl/profiler.hpp>

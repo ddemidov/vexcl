@@ -37,10 +37,6 @@ THE SOFTWARE.
 #  define NOMINMAX
 #endif
 
-#ifndef __CL_ENABLE_EXCEPTIONS
-#  define __CL_ENABLE_EXCEPTIONS
-#endif
-
 #include <iostream>
 #include <iomanip>
 #include <string>
@@ -48,8 +44,13 @@ THE SOFTWARE.
 #include <memory>
 #include <stack>
 #include <vector>
-#include <CL/cl.hpp>
 #include <cassert>
+
+#ifndef __CL_ENABLE_EXCEPTIONS
+#  define __CL_ENABLE_EXCEPTIONS
+#endif
+
+#include <CL/cl.hpp>
 
 #ifdef WIN32
 #  include <sys/timeb.h>

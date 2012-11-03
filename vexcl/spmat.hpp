@@ -37,10 +37,6 @@ THE SOFTWARE.
 #  define NOMINMAX
 #endif
 
-#ifndef __CL_ENABLE_EXCEPTIONS
-#  define __CL_ENABLE_EXCEPTIONS
-#endif
-
 #include <vector>
 #include <set>
 #include <map>
@@ -50,8 +46,6 @@ THE SOFTWARE.
 #include <algorithm>
 #include <iostream>
 #include <type_traits>
-#include <CL/cl.hpp>
-#include <vexcl/util.hpp>
 #include <vexcl/vector.hpp>
 
 #include <cstdlib>

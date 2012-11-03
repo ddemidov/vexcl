@@ -37,14 +37,6 @@ THE SOFTWARE.
 #  define NOMINMAX
 #endif
 
-#ifndef __CL_ENABLE_EXCEPTIONS
-#  define __CL_ENABLE_EXCEPTIONS
-#endif
-
-#ifndef _MSC_VER
-#  define VEXCL_VARIADIC_TEMPLATES
-#endif
-
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -53,8 +45,13 @@ THE SOFTWARE.
 #include <algorithm>
 #include <type_traits>
 #include <functional>
-#include <CL/cl.hpp>
 #include <climits>
+#include <boost/config.hpp>
+
+#ifndef __CL_ENABLE_EXCEPTIONS
+#  define __CL_ENABLE_EXCEPTIONS
+#endif
+#include <CL/cl.hpp>
 
 typedef unsigned int  uint;
 typedef unsigned char uchar;
@@ -163,7 +160,7 @@ inline size_t alignup(size_t n, size_t m = 16U) {
     return n % m ? n - n % m + m : n;
 }
 
-#ifdef VEXCL_VARIADIC_TEMPLATES
+#ifndef BOOST_NO_VARIADIC_TEMPLATES
 
 /// Iterate over tuple elements.
 template <size_t I = 0, class Function, class... V>

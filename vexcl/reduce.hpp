@@ -37,15 +37,10 @@ THE SOFTWARE.
 #  define NOMINMAX
 #endif
 
-#ifndef __CL_ENABLE_EXCEPTIONS
-#  define __CL_ENABLE_EXCEPTIONS
-#endif
-
 #include <vector>
 #include <sstream>
 #include <numeric>
 #include <limits>
-#include <CL/cl.hpp>
 #include <vexcl/vector.hpp>
 
 namespace vex {
