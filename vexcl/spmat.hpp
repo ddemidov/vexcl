@@ -60,6 +60,33 @@ size_t bytes(const std::vector<T> &x) {
     return x.size() * sizeof(T);
 }
 
+struct matrix_terminal {};
+
+template <class M, class V>
+struct spmv
+    : vector_expression< boost::proto::terminal< additive_vector_transform >::type >
+{
+    const M &A;
+    const V &x;
+
+    spmv(const M &m, const V &v) : A(m), x(v) {}
+
+    template <typename T>
+    void apply(vector<T> &y, float alpha = 1, bool append = false) const {
+	A.mul(x, y, alpha, append);
+    }
+};
+
+template <class M, class T>
+typename std::enable_if<
+    std::is_base_of<matrix_terminal, M>::value,
+    spmv< M, vector<T> >
+>::type
+operator*(const M &A, const vector<T> &x) {
+    return spmv< M, vector<T> >(A, x);
+}
+
+
 /// Sparse matrix in hybrid ELL-CSR format.
 template <typename real, typename column_t = size_t, typename idx_t = size_t>
 class SpMat : matrix_terminal {

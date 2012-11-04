@@ -378,8 +378,7 @@ int main(int argc, char *argv[]) {
 		vex::vector<double> X(ctx.queue(), x);
 		vex::vector<double> Y(ctx.queue(), x.size());
 
-		//Y = A * X;
-		A.mul(X, Y);
+		Y = A * X;
 		copy(Y, y);
 
 		double res = 0;
@@ -392,7 +391,6 @@ int main(int argc, char *argv[]) {
 
 		rc = rc && res < 1e-8;
 
-		/*
 		Y = X + A * X;
 		copy(Y, y);
 
@@ -405,7 +403,6 @@ int main(int argc, char *argv[]) {
 		}
 
 		rc = rc && res < 1e-8;
-		*/
 
 		return rc;
 	});

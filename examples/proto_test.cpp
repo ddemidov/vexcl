@@ -71,14 +71,7 @@ vex::SpMat<double> poisson(size_t n, const vex::Context &ctx) {
 	}
     }
 
-    std::vector<double> x(n * n * n);
-    std::vector<double> y(n * n * n, 0);
-    std::generate(x.begin(), x.end(), []() { return (double)rand() / RAND_MAX; });
-
-    vex::vector<double> X(ctx.queue(), x);
-    vex::vector<double> Y(ctx.queue(), y);
-
-    vex::SpMat <double> A(ctx.queue(), x.size(), x.size(), row.data(), col.data(), val.data());
+    vex::SpMat <double> A(ctx.queue(), n*n*n, n*n*n, row.data(), col.data(), val.data());
 
     return A;
 }
@@ -98,13 +91,18 @@ int main() {
 
 	proto::display_expr(vex::extract_subexpression<0>()(t * a + c));
 
-	/*
-	SpMat<double> A = poisson(n);
+	std::vector<double> x(n * n * n);
+	std::vector<double> y(n * n * n, 0);
+	std::generate(x.begin(), x.end(), []() { return (double)rand() / RAND_MAX; });
+
+	vex::vector<double> X(ctx.queue(), x);
+	vex::vector<double> Y(ctx.queue(), y);
+
+	vex::SpMat<double> A = poisson(n, ctx);
 	Y = X;
-	Y = A * X;
-	Y = X + A * X;
+	Y = -(A * X) + X; 
+	Y = X + A * X - X;
 	Y = X * Y + A * X;
-	*/
     } catch (const cl::Error &e) {
 	std::cout << e << std::endl;
     }

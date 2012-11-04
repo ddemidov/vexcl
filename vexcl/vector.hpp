@@ -424,10 +424,32 @@ struct vector
 	}
 
 	template <class Expr>
-	const vector& operator=(const spmv_expression<Expr> &expr) {
-	    assign_spmv_context assign(*this);
-	    boost::proto::eval(expr, assign);
+	typename std::enable_if<
+	    boost::proto::matches<
+		typename boost::proto::result_of::as_expr<Expr>::type,
+		additive_vector_transform_grammar
+	    >::value,
+	    const vector&
+	>::type
+	operator=(const Expr &expr) {
+	    std::cout << "SpMV not implemented yet" << std::endl;
+	    return *this;
+	}
 
+	template <class Expr>
+	typename std::enable_if<
+	    !boost::proto::matches<
+		typename boost::proto::result_of::as_expr<Expr>::type,
+		vector_expr_grammar
+	    >::value &&
+	    !boost::proto::matches<
+		typename boost::proto::result_of::as_expr<Expr>::type,
+		additive_vector_transform_grammar
+	    >::value,
+	    const vector&
+	>::type
+	operator=(const Expr &expr) {
+	    std::cout << "General not implemented yet" << std::endl;
 	    return *this;
 	}
 

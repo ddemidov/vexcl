@@ -474,6 +474,29 @@ struct extract_user_functions
 
 
 //---------------------------------------------------------------------------
+// Additive transforms
+//---------------------------------------------------------------------------
+
+struct additive_vector_transform {};
+
+struct additive_vector_transform_grammar
+    : boost::proto::or_<
+        boost::proto::terminal< additive_vector_transform >,
+	boost::proto::plus<
+	    additive_vector_transform_grammar,
+	    additive_vector_transform_grammar
+	>,
+	boost::proto::minus<
+	    additive_vector_transform_grammar,
+	    additive_vector_transform_grammar
+	>,
+	boost::proto::negate<
+	    additive_vector_transform_grammar
+	>
+      >
+{};
+
+//---------------------------------------------------------------------------
 // Elementwise vector operations
 //---------------------------------------------------------------------------
 
@@ -495,13 +518,95 @@ struct vector_expr_grammar
       >
 {};
 
+struct vector_full_grammar
+    : boost::proto::or_<
+	vector_expr_grammar,
+	boost::proto::terminal< additive_vector_transform >,
+	boost::proto::plus< vector_full_grammar, vector_full_grammar >,
+	boost::proto::minus< vector_full_grammar, vector_full_grammar >,
+	boost::proto::negate< vector_full_grammar >
+      >
+{};
+
+struct extract_vector_expressions
+    : boost::proto::or_<
+	  boost::proto::when<vector_expr_grammar, boost::proto::_>,
+	  boost::proto::when<
+	     boost::proto::plus<
+		vector_full_grammar,
+		additive_vector_transform_grammar
+	     >,
+	     extract_vector_expressions(boost::proto::_left)
+	  >,
+	  boost::proto::when<
+	     boost::proto::plus<
+		additive_vector_transform_grammar,
+		vector_full_grammar
+	     >,
+	     extract_vector_expressions(boost::proto::_right)
+	  >,
+	  boost::proto::when<
+	     boost::proto::minus<
+		vector_full_grammar,
+		additive_vector_transform_grammar
+	     >,
+	     extract_vector_expressions(boost::proto::_left)
+	  >,
+	  boost::proto::when<
+	     boost::proto::minus<
+		additive_vector_transform_grammar,
+		vector_full_grammar
+	     >,
+	     boost::proto::_make_negate(
+		    extract_vector_expressions(boost::proto::_right)
+		    )
+	  >,
+	  boost::proto::when<
+	     boost::proto::binary_expr<boost::proto::_,
+		extract_vector_expressions,
+		extract_vector_expressions
+	     >
+	  >
+      >
+{};
+
+struct extract_additive_vector_transforms
+    : boost::proto::or_<
+	  boost::proto::when<additive_vector_transform_grammar, boost::proto::_>
+	, boost::proto::when<
+	     boost::proto::plus<vector_full_grammar, vector_expr_grammar >,
+	     extract_additive_vector_transforms(boost::proto::_left)
+	  >
+	, boost::proto::when<
+	     boost::proto::plus< vector_expr_grammar, vector_full_grammar >,
+	     extract_additive_vector_transforms(boost::proto::_right)
+	  >
+	, boost::proto::when<
+	     boost::proto::minus<vector_full_grammar, vector_expr_grammar >,
+	     extract_additive_vector_transforms(boost::proto::_left)
+	  >
+	, boost::proto::when<
+	     boost::proto::minus<vector_expr_grammar, vector_full_grammar >,
+	     boost::proto::_make_negate(
+		     extract_additive_vector_transforms(boost::proto::_right)
+		     )
+	  >
+	, boost::proto::when<
+	     boost::proto::binary_expr<boost::proto::_,
+		extract_additive_vector_transforms,
+		extract_additive_vector_transforms
+	     >
+	  >
+      >
+{};
+
 template <class Expr>
 struct vector_expression;
 
 struct vector_domain
     : boost::proto::domain<
 	boost::proto::generator<vector_expression>,
-	vector_expr_grammar
+	vector_full_grammar
 	>
 { };
 
@@ -1376,104 +1481,6 @@ struct extract_subexpression
 	>
     >
 {};
-
-//---------------------------------------------------------------------------
-// Sparse matrix - (multi-)vector products
-//---------------------------------------------------------------------------
-
-struct matrix_terminal {};
-struct spmv_terminal {};
-struct vex_terminal {};
-
-//--- SpMV grammar ----------------------------------------------------------
-
-struct spmv_grammar
-    : boost::proto::or_<
-	  boost::proto::terminal< spmv_terminal >,
-	  boost::proto::terminal< vector_expression< boost::proto::_ > >,
-	  boost::proto::plus<
-	     boost::proto::terminal< vector_expression<boost::proto::_> >,
-	     boost::proto::terminal< spmv_terminal >
-	  >,
-	  boost::proto::minus<
-	     boost::proto::terminal< vector_expression<boost::proto::_> >,
-	     boost::proto::terminal< spmv_terminal >
-	  >
-      >
-{};
-
-template <class Expr>
-struct spmv_expression;
-
-struct spmv_domain
-    : boost::proto::domain<
-	boost::proto::generator<spmv_expression>,
-	spmv_grammar, vector_domain
-	>
-{ };
-
-template <class Expr>
-struct spmv_expression
-    : boost::proto::extends< Expr, spmv_expression<Expr>, spmv_domain>
-{
-    spmv_expression(const Expr &expr = Expr())
-	: boost::proto::extends< Expr, spmv_expression<Expr>, spmv_domain>(expr) {}
-};
-
-//--- SpMV operations -------------------------------------------------------
-
-template <class M, class V>
-struct spmv : spmv_expression< boost::proto::terminal<spmv_terminal>::type >
-{
-    const M &A;
-    const V &x;
-
-    spmv(const M &m, const V &v) : A(m), x(v) {}
-
-    void mul(V &y) const {
-	A.mul(x, y);
-    }
-};
-
-template <class M, class T>
-typename std::enable_if<
-    std::is_base_of<matrix_terminal, M>::value,
-    spmv< M, vector<T> >
->::type
-operator*(const M &A, const vector<T> &x) {
-    return spmv< M, vector<T> >(A, x);
-}
-
-template <class Expr, class M, class T>
-typename boost::proto::result_of::make_expr<
-    boost::proto::tag::plus,
-    spmv_domain,
-    const vector_expression<Expr>&,
-    const spmv<M, vector<T>>&
->::type const
-operator+(const vector_expression<Expr> &vex, const spmv<M, vector<T> > &mv)
-{
-    return boost::proto::make_expr< boost::proto::tag::plus, spmv_domain >(
-	    boost::ref(vex),
-	    boost::ref(mv)
-	    );
-}
-
-
-template <class Expr, class M, class T>
-typename boost::proto::result_of::make_expr<
-    boost::proto::tag::minus,
-    spmv_domain,
-    const vector_expression<Expr>&,
-    const spmv<M, vector<T>>&
->::type const
-operator-(const vector_expression<Expr> &vex, const spmv<M, vector<T> > &mv)
-{
-    return boost::proto::make_expr< boost::proto::tag::minus, spmv_domain >(
-	    boost::ref(vex),
-	    boost::ref(mv)
-	    );
-}
 
 /// \endcond
 
