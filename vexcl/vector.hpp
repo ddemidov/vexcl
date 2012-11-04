@@ -432,7 +432,12 @@ struct vector
 	    const vector&
 	>::type
 	operator=(const Expr &expr) {
-	    std::cout << "SpMV not implemented yet" << std::endl;
+	    additive_vector_transform_context< vector > ctx(*this);
+
+	    boost::proto::eval(
+		    simplify_additive_transform()( expr ),
+		    ctx
+		    );
 	    return *this;
 	}
 
@@ -449,7 +454,16 @@ struct vector
 	    const vector&
 	>::type
 	operator=(const Expr &expr) {
-	    std::cout << "General not implemented yet" << std::endl;
+	    *this = extract_vector_expressions()( expr );
+
+	    additive_vector_transform_context< vector > ctx(*this, true);
+
+	    boost::proto::eval(
+		    simplify_additive_transform()(
+			extract_additive_vector_transforms()( expr )
+			),
+		    ctx
+		    );
 	    return *this;
 	}
 

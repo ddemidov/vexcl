@@ -409,7 +409,7 @@ int main(int argc, char *argv[]) {
 #endif
 
 
-#if 0
+#if 1
 	run_test("Sparse matrix-vector product for non-square matrix", [&]() -> bool {
 		bool rc = true;
 		const size_t n = 1 << 10;
@@ -463,7 +463,7 @@ int main(int argc, char *argv[]) {
 	});
 #endif
 
-#if 0
+#if 1
 	run_test("Sparse matrix-vector product with nondefault types", [&]() -> bool {
 		bool rc = true;
 		const size_t n = 1 << 10;
@@ -516,7 +516,7 @@ int main(int argc, char *argv[]) {
 	});
 #endif
 
-#if 0
+#if 1
 	run_test("Sparse matrix-vector product for empty-row matrix", [&]() -> bool {
 		bool rc = true;
 		const size_t n = 1 << 20;
@@ -575,7 +575,7 @@ int main(int argc, char *argv[]) {
 	});
 #endif
 
-#if 0
+#if 1
 	run_test("Sparse matrix-vector product (CCSR format)", [&]() -> bool {
 		bool rc = true;
 		const uint n   = 32;
@@ -1184,7 +1184,7 @@ int main(int argc, char *argv[]) {
 		});
 #endif
 
-#if 0
+#if 1
 	run_test("Stencil convolution", [&]() -> bool {
 		bool rc = true;
 		const int n = 1 << 20;
@@ -1219,7 +1219,7 @@ int main(int argc, char *argv[]) {
 		});
 #endif
 
-#if 0
+#if 1
 	run_test("Stencil convolution with small vector", [&]() -> bool {
 		bool rc = true;
 		const int n = 1 << 7;
@@ -1292,7 +1292,7 @@ int main(int argc, char *argv[]) {
 		});
 #endif
 
-#if 0
+#if 1
 	run_test("Big stencil convolution", [&]() -> bool {
 		bool rc = true;
 		const int n = 1 << 16;
@@ -1327,147 +1327,7 @@ int main(int argc, char *argv[]) {
 		});
 #endif
 
-#if 0
-	run_test("Generalized stencil convolution", [&]() -> bool {
-		bool rc = true;
-		const int n = 1 << 20;
-
-		double sdata[] = {
-		    1, -1,  0,
-		    0,  1, -1
-		    };
-		gstencil<double> S(ctx.queue(), 2, 3, 1, sdata, sdata + 6);
-
-		std::vector<double> x(n);
-		std::vector<double> y(n, 1);
-		std::generate(x.begin(), x.end(), [](){ return (double)rand() / RAND_MAX; });
-
-		vex::vector<double> X(ctx.queue(), x);
-		vex::vector<double> Y(ctx.queue(), y);
-
-		Y += sin(X * S);
-
-		copy(Y, y);
-
-		double res = 0;
-		for(int i = 0; i < n; i++) {
-		    int left  = std::max(0, i - 1);
-		    int right = std::min(n - 1, i + 1);
-
-		    double sum = 1 + sin(x[left] - x[i]) + sin(x[i] - x[right]);
-		    res = std::max(res, fabs(sum - y[i]));
-		}
-		rc = rc && res < 1e-8;
-		return rc;
-		});
-#endif
-
-#if 0
-	run_test("Generalized stencil convolution with small vector", [&]() -> bool {
-		bool rc = true;
-		const int n = 1 << 7;
-
-		double sdata[] = {
-		    1, -1,  0,
-		    0,  1, -1
-		    };
-		gstencil<double> S(ctx.queue(), 2, 3, 1, sdata, sdata + 6);
-
-		std::vector<double> x(n);
-		std::vector<double> y(n, 1);
-		std::generate(x.begin(), x.end(), [](){ return (double)rand() / RAND_MAX; });
-
-		vex::vector<double> X(ctx.queue(), x);
-		vex::vector<double> Y(ctx.queue(), y);
-
-		Y += sin(X * S);
-
-		copy(Y, y);
-
-		double res = 0;
-		for(int i = 0; i < n; i++) {
-		    int left  = std::max(0, i - 1);
-		    int right = std::min(n - 1, i + 1);
-
-		    double sum = 1 + sin(x[left] - x[i]) + sin(x[i] - x[right]);
-		    res = std::max(res, fabs(sum - y[i]));
-		}
-		rc = rc && res < 1e-8;
-		return rc;
-		});
-#endif
-
-#if 0
-	run_test("Generalized stencil convolution for multivector", [&]() -> bool {
-		bool rc = true;
-		const int n = 1 << 16;
-		const int m = 20;
-
-		double sdata[] = {
-		    1, -1,  0,
-		    0,  1, -1
-		    };
-		gstencil<double> S(ctx.queue(), 2, 3, 1, sdata, sdata + 6);
-
-		std::vector<double> x(m * n);
-		std::vector<double> y(m * n, 1);
-		std::generate(x.begin(), x.end(), [](){ return (double)rand() / RAND_MAX; });
-
-		vex::multivector<double,m> X(ctx.queue(), x);
-		vex::multivector<double,m> Y(ctx.queue(), y);
-
-		Y += sin(X * S);
-
-		copy(Y, y);
-
-		for(int c = 0; c < m; c++) {
-		    double res = 0;
-		    for(int i = 0; i < n; i++) {
-			int left  = std::max(0, i - 1);
-			int right = std::min(n - 1, i + 1);
-
-			double sum = 1 + sin(x[c * n + left] - x[c * n + i]) + sin(x[c * n + i] - x[c * n + right]);
-			res = std::max(res, fabs(sum - y[c * n + i]));
-		    }
-		    rc = rc && res < 1e-8;
-		}
-		return rc;
-		});
-#endif
-
-#if 0
-	run_test("Generalized stencil with user function convolution", [&]() -> bool {
-		bool rc = true;
-		const int n = 1 << 20;
-
-		double sdata[] = {1, 0, 1};
-		gstencil<double> S(ctx.queue(), 1, 3, 1, sdata, sdata + 3);
-
-		std::vector<double> x(n);
-		std::vector<double> y(n);
-		std::generate(x.begin(), x.end(), [](){ return (double)rand() / RAND_MAX; });
-
-		vex::vector<double> X(ctx.queue(), x);
-		vex::vector<double> Y(ctx.queue(), n);
-
-		Y = X + pow3(X * S);
-
-		copy(Y, y);
-
-		double res = 0;
-		for(int i = 0; i < n; i++) {
-		    int left  = std::max(0, i - 1);
-		    int right = std::min(n - 1, i + 1);
-
-		    double sum = x[i] + pow(x[left] + x[right], 3);
-		    res = std::max(res, fabs(sum - y[i]));
-		}
-		rc = rc && res < 1e-8;
-		return rc;
-		});
-#endif
-
-#if 0
+#if 1
 	run_test("User-defined stencil operator", [&]() -> bool {
 		bool rc = true;
 		const int n = 1 << 20;
@@ -1490,7 +1350,7 @@ int main(int argc, char *argv[]) {
 		    int left  = std::max(0, i - 1);
 		    int right = std::min(n - 1, i + 1);
 
-		    double sum = x[i] + pow(x[left] + x[right], 3);
+		    double sum = x[i] + pow(x[left] + x[right], 3.0);
 		    res = std::max(res, fabs(sum - y[i]));
 		}
 		rc = rc && res < 1e-8;

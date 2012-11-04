@@ -48,8 +48,6 @@ THE SOFTWARE.
 #include <type_traits>
 #include <vexcl/vector.hpp>
 
-#include <cstdlib>
-
 namespace vex {
 
 /// \cond INTERNAL

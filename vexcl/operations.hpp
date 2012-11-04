@@ -528,77 +528,6 @@ struct vector_full_grammar
       >
 {};
 
-struct extract_vector_expressions
-    : boost::proto::or_<
-	  boost::proto::when<vector_expr_grammar, boost::proto::_>,
-	  boost::proto::when<
-	     boost::proto::plus<
-		vector_full_grammar,
-		additive_vector_transform_grammar
-	     >,
-	     extract_vector_expressions(boost::proto::_left)
-	  >,
-	  boost::proto::when<
-	     boost::proto::plus<
-		additive_vector_transform_grammar,
-		vector_full_grammar
-	     >,
-	     extract_vector_expressions(boost::proto::_right)
-	  >,
-	  boost::proto::when<
-	     boost::proto::minus<
-		vector_full_grammar,
-		additive_vector_transform_grammar
-	     >,
-	     extract_vector_expressions(boost::proto::_left)
-	  >,
-	  boost::proto::when<
-	     boost::proto::minus<
-		additive_vector_transform_grammar,
-		vector_full_grammar
-	     >,
-	     boost::proto::_make_negate(
-		    extract_vector_expressions(boost::proto::_right)
-		    )
-	  >,
-	  boost::proto::when<
-	     boost::proto::binary_expr<boost::proto::_,
-		extract_vector_expressions,
-		extract_vector_expressions
-	     >
-	  >
-      >
-{};
-
-struct extract_additive_vector_transforms
-    : boost::proto::or_<
-	  boost::proto::when<additive_vector_transform_grammar, boost::proto::_>
-	, boost::proto::when<
-	     boost::proto::plus<vector_full_grammar, vector_expr_grammar >,
-	     extract_additive_vector_transforms(boost::proto::_left)
-	  >
-	, boost::proto::when<
-	     boost::proto::plus< vector_expr_grammar, vector_full_grammar >,
-	     extract_additive_vector_transforms(boost::proto::_right)
-	  >
-	, boost::proto::when<
-	     boost::proto::minus<vector_full_grammar, vector_expr_grammar >,
-	     extract_additive_vector_transforms(boost::proto::_left)
-	  >
-	, boost::proto::when<
-	     boost::proto::minus<vector_expr_grammar, vector_full_grammar >,
-	     boost::proto::_make_negate(
-		     extract_additive_vector_transforms(boost::proto::_right)
-		     )
-	  >
-	, boost::proto::when<
-	     boost::proto::binary_expr<boost::proto::_,
-		extract_additive_vector_transforms,
-		extract_additive_vector_transforms
-	     >
-	  >
-      >
-{};
 
 template <class Expr>
 struct vector_expression;
@@ -924,6 +853,165 @@ struct get_expression_properties {
     template <typename Term>
     void operator()(const Term &term) const { }
 };
+
+//---------------------------------------------------------------------------
+struct extract_vector_expressions
+    : boost::proto::or_<
+	  boost::proto::when<vector_expr_grammar, boost::proto::_>,
+	  boost::proto::when<
+	     boost::proto::plus<
+		vector_full_grammar,
+		additive_vector_transform_grammar
+	     >,
+	     extract_vector_expressions(boost::proto::_left)
+	  >,
+	  boost::proto::when<
+	     boost::proto::plus<
+		additive_vector_transform_grammar,
+		vector_full_grammar
+	     >,
+	     extract_vector_expressions(boost::proto::_right)
+	  >,
+	  boost::proto::when<
+	     boost::proto::minus<
+		vector_full_grammar,
+		additive_vector_transform_grammar
+	     >,
+	     extract_vector_expressions(boost::proto::_left)
+	  >,
+	  boost::proto::when<
+	     boost::proto::minus<
+		additive_vector_transform_grammar,
+		vector_full_grammar
+	     >,
+	     boost::proto::_make_negate(
+		    extract_vector_expressions(boost::proto::_right)
+		    )
+	  >,
+	  boost::proto::when<
+	     boost::proto::binary_expr<boost::proto::_,
+		extract_vector_expressions,
+		extract_vector_expressions
+	     >
+	  >
+      >
+{};
+
+struct extract_additive_vector_transforms
+    : boost::proto::or_<
+	  boost::proto::when<additive_vector_transform_grammar, boost::proto::_>
+	, boost::proto::when<
+	     boost::proto::plus<vector_full_grammar, vector_expr_grammar >,
+	     extract_additive_vector_transforms(boost::proto::_left)
+	  >
+	, boost::proto::when<
+	     boost::proto::plus< vector_expr_grammar, vector_full_grammar >,
+	     extract_additive_vector_transforms(boost::proto::_right)
+	  >
+	, boost::proto::when<
+	     boost::proto::minus<vector_full_grammar, vector_expr_grammar >,
+	     extract_additive_vector_transforms(boost::proto::_left)
+	  >
+	, boost::proto::when<
+	     boost::proto::minus<vector_expr_grammar, vector_full_grammar >,
+	     boost::proto::_make_negate(
+		     extract_additive_vector_transforms(boost::proto::_right)
+		     )
+	  >
+	, boost::proto::when<
+	     boost::proto::binary_expr<boost::proto::_,
+		extract_additive_vector_transforms,
+		extract_additive_vector_transforms
+	     >
+	  >
+      >
+{};
+
+struct simplify_additive_transform
+    : boost::proto::or_<
+	  boost::proto::terminal< boost::proto::_ >,
+	  boost::proto::when<
+	     boost::proto::negate< boost::proto::terminal< boost::proto::_ > >,
+	     boost::proto::_
+	  >,
+	  boost::proto::when<
+	     boost::proto::negate< boost::proto::negate< boost::proto::_ > >,
+	     simplify_additive_transform(boost::proto::_child(boost::proto::_child))
+	  >,
+	  boost::proto::plus< simplify_additive_transform, simplify_additive_transform >,
+	  boost::proto::when<
+	    boost::proto::minus< boost::proto::_, boost::proto::_ >,
+	    boost::proto::_make_plus(
+		    simplify_additive_transform(boost::proto::_left),
+		    simplify_additive_transform(boost::proto::_make_negate(boost::proto::_right))
+		    )
+	  >,
+	  boost::proto::when<
+	     boost::proto::negate< boost::proto::plus<boost::proto::_, boost::proto::_> >,
+	     boost::proto::_make_plus(
+		     simplify_additive_transform(boost::proto::_make_negate(boost::proto::_left(boost::proto::_child))),
+		     simplify_additive_transform(boost::proto::_make_negate(boost::proto::_right(boost::proto::_child)))
+		     )
+	  >,
+	  boost::proto::when<
+	     boost::proto::negate< boost::proto::minus<boost::proto::_, boost::proto::_> >,
+	     boost::proto::_make_plus(
+		     simplify_additive_transform(boost::proto::_make_negate(boost::proto::_left(boost::proto::_child))),
+		     simplify_additive_transform(boost::proto::_right(boost::proto::_child))
+		     )
+	  >
+      >
+{};
+
+//---------------------------------------------------------------------------
+template <class Vector>
+struct additive_vector_transform_context {
+    Vector &dest;
+    bool initialized;
+
+    additive_vector_transform_context(Vector &dest, bool initialized = false)
+	: dest(dest), initialized(initialized) {}
+
+    template <typename Expr, typename Tag = typename Expr::proto_tag>
+    struct eval {};
+
+    template <typename Expr>
+    struct eval<Expr, boost::proto::tag::terminal> {
+	typedef int result_type;
+
+	template <typename T>
+	result_type operator()(const T &t, additive_vector_transform_context &ctx) const
+	{
+	    if (ctx.initialized) {
+		t.apply(ctx.dest, 1, true);
+	    } else {
+		t.apply(ctx.dest, 1, false);
+		ctx.initialized = true;
+	    }
+
+	    return 0;
+	}
+    };
+
+    template <typename Expr>
+    struct eval<Expr, boost::proto::tag::negate> {
+	typedef int result_type;
+
+	template <typename T>
+	result_type operator()(const T &t, additive_vector_transform_context &ctx) const
+	{
+	    if (ctx.initialized) {
+		boost::proto::child(t).apply(ctx.dest, -1, true);
+	    } else {
+		boost::proto::child(t).apply(ctx.dest, -1, false);
+		ctx.initialized = true;
+	    }
+
+	    return 0;
+	}
+    };
+};
+
 
 //---------------------------------------------------------------------------
 // Elementwise multi-vector operations
