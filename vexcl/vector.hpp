@@ -2452,6 +2452,9 @@ inline double device_vector_perf(
     vex::vector<float> b(queue, test_size);
     vex::vector<float> c(queue, test_size);
 
+    b = 1;
+    c = 2;
+
     // Skip the first run.
     a = b + c;
 
