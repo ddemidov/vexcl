@@ -243,7 +243,9 @@ BUILTIN_FUNCTION_1(trunc);
 #undef BUILTIN_FUNCTION_3
 
 //--- User Function ---------------------------------------------------------
-#ifndef BOOST_NO_VARIADIC_TEMPLATES
+
+// Workaround for gcc bug http://gcc.gnu.org/bugzilla/show_bug.cgi?id=35722
+#if !defined(BOOST_NO_VARIADIC_TEMPLATES) && (!defined(__GNUC__) || (__GNUC__ > 4 || __GNUC__ == 4 && __GNUC_MINOR__ > 6))
 
 template <const char *body, class T>
 struct UserFunction {};
