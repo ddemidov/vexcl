@@ -832,6 +832,14 @@ inline double device_vector_perf(
 
 } // namespace vex
 
+namespace boost { namespace fusion { namespace traits {
+
+template <class T>
+struct is_sequence< vex::vector<T> > : std::false_type
+{};
+
+} } }
+
 #ifdef WIN32
 #  pragma warning(pop)
 #endif

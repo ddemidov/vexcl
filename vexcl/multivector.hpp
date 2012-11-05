@@ -735,9 +735,11 @@ tie(vex::vector<T> &head, vex::vector<Tail>&... tail) {
 } // namespace vex
 
 namespace boost { namespace fusion { namespace traits {
+
 template <class T, size_t N, bool own>
 struct is_sequence< vex::multivector<T, N, own> > : std::false_type
 {};
+
 } } }
 
 #endif
