@@ -54,8 +54,9 @@ struct conv
 
     conv(const S &s, const V &x) : s(s), x(x) {}
 
-    template <typename T>
-    void apply(vector<T> &y, float alpha = 1, bool append = false) const {
+    void apply(vector<typename V::value_type> &y,
+	    float alpha = 1, bool append = false) const
+    {
 	s.convolve(x, y, append ? 1 : 0, alpha);
     }
 };
@@ -73,12 +74,14 @@ struct multiconv
 
     multiconv(const S &s, const V &x) : s(s), x(x) {}
 
-    template <typename T, size_t N, bool own>
-    void apply(multivector<T, N, own> &y, float alpha = 1, bool append = false) const {
-	static_assert(number_of_components<V>::value == N,
-		"Incompatible multivector dimensions in stencil convolution");
-
-	for(int i = 0; i < N; i++)
+    template <bool own>
+    void apply(multivector<
+		typename V::subtype::value_type,
+		number_of_components<V>::value,
+		own> &y,
+	    float alpha = 1, bool append = false) const
+    {
+	for(int i = 0; i < number_of_components<V>::value; i++)
 	    s.convolve(x(i), y(i), append ? 1 : 0, alpha);
     }
 };
@@ -506,12 +509,14 @@ void stencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y,
 }
 
 template <typename T>
-conv< stencil<T>, vector<T> > operator*( const stencil<T> &s, const vector<T> &x ) {
+conv< stencil<T>, vector<T> >
+operator*( const stencil<T> &s, const vector<T> &x ) {
     return conv< stencil<T>, vector<T> >(s, x);
 }
 
 template <typename T>
-conv< stencil<T>, vector<T> > operator*(const vector<T> &x, const stencil<T> &s) {
+conv< stencil<T>, vector<T> >
+operator*(const vector<T> &x, const stencil<T> &s) {
     return conv< stencil<T>, vector<T> >(s, x);
 }
 

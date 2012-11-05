@@ -78,8 +78,6 @@ struct multivector
       >
 {
     public:
-	typedef std::integral_constant<size_t, N> dim;
-
 	typedef vex::vector<T>  subtype;
 	typedef std::array<T,N> value_type;
 

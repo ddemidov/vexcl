@@ -175,6 +175,8 @@ struct vector
     : vector_expression< typename boost::proto::terminal< vector_terminal >::type >
 {
     public:
+	typedef T value_type;
+
 	/// Proxy class.
 	/**
 	 * Instances of this class are returned from vector::operator[]. These
