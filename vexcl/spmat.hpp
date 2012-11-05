@@ -50,6 +50,21 @@ THE SOFTWARE.
 
 namespace vex {
 
+
+/// Weights device wrt to spmv performance.
+/**
+ * Launches the following kernel on each device:
+ * \code
+ * y = A * x;
+ * \endcode
+ * where x and y are vectors, and A is matrix for 3D Poisson problem in square
+ * domain. Each device gets portion of the vector proportional to the
+ * performance of this operation.
+ */
+inline double device_spmv_perf(
+	const cl::Context &context, const cl::Device &device
+	);
+
 /// \cond INTERNAL
 
 /// Return size of std::vector in bytes.
@@ -117,6 +132,8 @@ operator*(const M &A, const multivector<T, N, own> &x) {
 }
 
 #endif
+
+/// \endcond
 
 /// Sparse matrix in hybrid ELL-CSR format.
 template <typename real, typename column_t = size_t, typename idx_t = size_t>

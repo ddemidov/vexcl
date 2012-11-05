@@ -1,10 +1,9 @@
 set(EXAMPLES
-    #benchmark
-    #cg
+    benchmark
+    cg
     devlist
     utests
     vector
-    proto_test
     )
 
 if (WIN32)

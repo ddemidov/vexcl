@@ -52,7 +52,121 @@ THE SOFTWARE.
 /// Vector expression template library for OpenCL.
 namespace vex {
 
-/// \cond INTERNAL
+//--- Partitioning ----------------------------------------------------------
+
+/// Weights device wrt to vector performance.
+/**
+ * Launches the following kernel on each device:
+ * \code
+ * a = b + c;
+ * \endcode
+ * where a, b and c are device vectors. Each device gets portion of the vector
+ * proportional to the performance of this operation.
+ */
+inline double device_vector_perf(
+	const cl::Context &context, const cl::Device &device
+	);
+
+/// Assigns equal weight to each device.
+/**
+ * This results in equal partitioning.
+ */
+inline double equal_weights(
+	const cl::Context &context, const cl::Device &device
+	)
+{
+    return 1;
+}
+
+/// Partitioning scheme for vectors and matrices.
+/**
+ * Should be set once before any object of vector or matrix type is declared.
+ * Otherwise default parttioning function (partition_by_vector_perf) is
+ * selected.
+ */
+template <bool dummy = true>
+struct partitioning_scheme {
+    typedef std::function<
+	double(const cl::Context&, const cl::Device&)
+	> weight_function;
+
+    static void set(weight_function f) {
+	if (!is_set) {
+	    weight = f;
+	    is_set = true;
+	} else {
+	    std::cerr <<
+		"Warning: "
+		"device weighting function is already set and will be left as is."
+		<< std::endl;
+	}
+    }
+
+    static std::vector<size_t> get(size_t n, const std::vector<cl::CommandQueue> &queue);
+
+    private:
+	static bool is_set;
+	static weight_function weight;
+	static std::map<cl_device_id, double> device_weight;
+};
+
+template <bool dummy>
+bool partitioning_scheme<dummy>::is_set = false;
+
+template <bool dummy>
+std::map<cl_device_id, double> partitioning_scheme<dummy>::device_weight;
+
+template <bool dummy>
+std::vector<size_t> partitioning_scheme<dummy>::get(size_t n,
+	const std::vector<cl::CommandQueue> &queue)
+{
+    if (!is_set) {
+	weight = device_vector_perf;
+	is_set = true;
+    }
+
+    std::vector<size_t> part;
+    part.reserve(queue.size() + 1);
+    part.push_back(0);
+
+    if (queue.size() > 1) {
+	std::vector<double> cumsum;
+	cumsum.reserve(queue.size() + 1);
+	cumsum.push_back(0);
+
+	for(auto q = queue.begin(); q != queue.end(); q++) {
+	    cl::Context context = q->getInfo<CL_QUEUE_CONTEXT>();
+	    cl::Device  device  = q->getInfo<CL_QUEUE_DEVICE>();
+
+	    auto dw = device_weight.find(device());
+
+	    double w = (dw == device_weight.end()) ?
+		(device_weight[device()] = weight(context, device)) :
+		dw->second;
+
+	    cumsum.push_back(cumsum.back() + w);
+	}
+
+	for(uint d = 1; d < queue.size(); d++)
+	    part.push_back(
+		    std::min(n,
+			alignup(static_cast<size_t>(n * cumsum[d] / cumsum.back()))
+			)
+		    );
+    }
+
+    part.push_back(n);
+    return part;
+}
+
+template <bool dummy>
+typename partitioning_scheme<dummy>::weight_function partitioning_scheme<dummy>::weight;
+
+inline std::vector<size_t> partition(size_t n,
+	    const std::vector<cl::CommandQueue> &queue)
+{
+    return partitioning_scheme<true>::get(n, queue);
+}
 
 //--- Vector Type -----------------------------------------------------------
 /// Device vector.
