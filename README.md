@@ -445,6 +445,10 @@ enough. The compilers that have been tested and supported:
    disabled: since it does not support variadic templates, only one-argument
    builtin functions are enabled; user functions are not available at all.
 
+VexCL uses standard OpenCL bindings for C++ from Khronos group. The cl.hpp file
+should be included with the OpenCL implementation on your system. If it is not
+there, you can download it from [Khronos site][clhpp].
+
 ----------------------------
 _This work is a joint effort of [Supercomputer Center of Russian Academy of
 Sciences][r2] (Kazan branch) and [Kazan Federal University][r3]. It is
@@ -455,3 +459,5 @@ partially supported by RFBR grant No 12-07-0007._
 [r3]: http://www.kpfu.ru
 
 [i1]: https://github.com/ddemidov/vexcl/raw/master/doc/figures/perf.png
+
+[clhpp]: http://www.khronos.org/registry/cl
