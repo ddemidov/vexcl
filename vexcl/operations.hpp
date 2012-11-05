@@ -240,9 +240,9 @@ BUILTIN_FUNCTION_1(trunc);
 #undef BUILTIN_FUNCTION_2
 #undef BUILTIN_FUNCTION_3
 
+//--- User Function ---------------------------------------------------------
 #ifndef BOOST_NO_VARIADIC_TEMPLATES
 
-//--- User Function ---------------------------------------------------------
 template <const char *body, class T>
 struct UserFunction {};
 
@@ -285,7 +285,6 @@ struct UserFunction<body, RetType(ArgType...)> : user_function
 
 #else
 
-//--- User Function ---------------------------------------------------------
 template <const char *body, class T>
 struct UserFunction {};
 
@@ -474,29 +473,6 @@ struct extract_user_functions
 
 
 //---------------------------------------------------------------------------
-// Additive transforms
-//---------------------------------------------------------------------------
-
-struct additive_vector_transform {};
-
-struct additive_vector_transform_grammar
-    : boost::proto::or_<
-        boost::proto::terminal< additive_vector_transform >,
-	boost::proto::plus<
-	    additive_vector_transform_grammar,
-	    additive_vector_transform_grammar
-	>,
-	boost::proto::minus<
-	    additive_vector_transform_grammar,
-	    additive_vector_transform_grammar
-	>,
-	boost::proto::negate<
-	    additive_vector_transform_grammar
-	>
-      >
-{};
-
-//---------------------------------------------------------------------------
 // Elementwise vector operations
 //---------------------------------------------------------------------------
 
@@ -515,6 +491,25 @@ struct vector_expr_grammar
           >,
 	  BUILTIN_OPERATIONS(vector_expr_grammar),
 	  USER_FUNCTIONS(vector_expr_grammar)
+      >
+{};
+
+struct additive_vector_transform {};
+
+struct additive_vector_transform_grammar
+    : boost::proto::or_<
+        boost::proto::terminal< additive_vector_transform >,
+	boost::proto::plus<
+	    additive_vector_transform_grammar,
+	    additive_vector_transform_grammar
+	>,
+	boost::proto::minus<
+	    additive_vector_transform_grammar,
+	    additive_vector_transform_grammar
+	>,
+	boost::proto::negate<
+	    additive_vector_transform_grammar
+	>
       >
 {};
 
@@ -1201,6 +1196,20 @@ get(const T &t) {
 
 //--- Multivector grammar ---------------------------------------------------
 
+struct multivector_expr_grammar
+    : boost::proto::or_<
+	  boost::proto::or_<
+	      boost::proto::terminal< multivector_terminal >,
+	      boost::proto::and_<
+	          boost::proto::terminal< boost::proto::_ >,
+		  boost::proto::if_< is_multiscalar< boost::proto::_value >() >
+	      >
+          >,
+	  BUILTIN_OPERATIONS(multivector_expr_grammar),
+	  USER_FUNCTIONS(multivector_expr_grammar)
+      >
+{};
+
 struct additive_multivector_transform {};
 
 struct additive_multivector_transform_grammar
@@ -1217,20 +1226,6 @@ struct additive_multivector_transform_grammar
 	boost::proto::negate<
 	    additive_multivector_transform_grammar
 	>
-      >
-{};
-
-struct multivector_expr_grammar
-    : boost::proto::or_<
-	  boost::proto::or_<
-	      boost::proto::terminal< multivector_terminal >,
-	      boost::proto::and_<
-	          boost::proto::terminal< boost::proto::_ >,
-		  boost::proto::if_< is_multiscalar< boost::proto::_value >() >
-	      >
-          >,
-	  BUILTIN_OPERATIONS(multivector_expr_grammar),
-	  USER_FUNCTIONS(multivector_expr_grammar)
       >
 {};
 
@@ -1496,8 +1491,6 @@ template <size_t N, class Expr>
 void build_param_list(const Expr &expr, std::ostream &os) {
     mv_param_list_loop<0, N, Expr>(expr, os);
 }
-
-
 
 
 template <size_t N, size_t C>
