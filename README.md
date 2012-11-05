@@ -448,11 +448,6 @@ VexCL uses standard OpenCL bindings for C++ from Khronos group. The cl.hpp file
 should be included with the OpenCL implementation on your system. If it is not
 there, you can download it from [Khronos site][clhpp].
 
-
-VexCL uses standard OpenCL bindings for C++ from Khronos group. The cl.hpp file
-should be included with the OpenCL implementation on your system. If it is not
-there, you can download it from [Khronos site][clhpp].
-
 ----------------------------
 _This work is a joint effort of [Supercomputer Center of Russian Academy of
 Sciences][r2] (Kazan branch) and [Kazan Federal University][r3]. It is
