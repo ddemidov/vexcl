@@ -54,6 +54,30 @@ namespace vex {
 
 //--- Partitioning ----------------------------------------------------------
 
+/// Weights device wrt to vector performance.
+/**
+ * Launches the following kernel on each device:
+ * \code
+ * a = b + c;
+ * \endcode
+ * where a, b and c are device vectors. Each device gets portion of the vector
+ * proportional to the performance of this operation.
+ */
+inline double device_vector_perf(
+	const cl::Context &context, const cl::Device &device
+	);
+
+/// Assigns equal weight to each device.
+/**
+ * This results in equal partitioning.
+ */
+inline double equal_weights(
+	const cl::Context &context, const cl::Device &device
+	)
+{
+    return 1;
+}
+
 /// \cond INTERNAL
 
 template <bool dummy = true>
@@ -136,30 +160,6 @@ typename partitioning_scheme<dummy>::weight_function partitioning_scheme<dummy>:
 
 /// \endcond
 
-/// Weights device wrt to vector performance.
-/**
- * Launches the following kernel on each device:
- * \code
- * a = b + c;
- * \endcode
- * where a, b and c are device vectors. Each device gets portion of the vector
- * proportional to the performance of this operation.
- */
-inline double device_vector_perf(
-	const cl::Context &context, const cl::Device &device
-	);
-
-/// Assigns equal weight to each device.
-/**
- * This results in equal partitioning.
- */
-inline double equal_weights(
-	const cl::Context &context, const cl::Device &device
-	)
-{
-    return 1;
-}
-
 /// Partitioning scheme for vectors and matrices.
 /**
  * Should be set once before any object of vector or matrix type is declared.
@@ -170,7 +170,7 @@ inline void set_partitioning(
 	std::function< double(const cl::Context&, const cl::Device&) > f
 	)
 {
-    parttioning<>::set(f);
+    partitioning_scheme<>::set(f);
 }
 
 inline std::vector<size_t> partition(size_t n,

@@ -5,8 +5,6 @@
 
 //#define VEXCL_SHOW_KERNELS
 #include <vexcl/vexcl.hpp>
-#include <vexcl/exclusive.hpp>
-#include <vexcl/generator.hpp>
 
 // http://headmyshoulder.github.com/odeint-v2
 #include <boost/numeric/odeint.hpp>

@@ -1,5 +1,4 @@
 #include <vexcl/vexcl.hpp>
-#include <vexcl/exclusive.hpp>
 using namespace vex;
 
 int main() {
