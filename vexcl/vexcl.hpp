@@ -458,6 +458,11 @@ enough. The compilers that have been tested and supported are:
     - Clang v3.1.
     - Microsoft Visual C++ 2010 manages to compile the project with some features
       disabled (due to lack of support for variadic templates).
+
+VexCL uses standard OpenCL bindings for C++ from Khronos group. The cl.hpp file
+should be included with the OpenCL implementation on your system. If it is not
+there, you can download it from <a href="http://www.khronos.org/registry/cl">Kronos site</a>.
+
 */
 
 #ifdef WIN32
