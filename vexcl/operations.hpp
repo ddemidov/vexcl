@@ -36,6 +36,8 @@ THE SOFTWARE.
 #  define NOMINMAX
 #endif
 
+#include <array>
+#include <tuple>
 #include <boost/proto/proto.hpp>
 #include <boost/mpl/max.hpp>
 
