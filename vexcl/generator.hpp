@@ -1,5 +1,5 @@
-#ifndef VEXCL_SYMBOLIC_HPP
-#define VEXCL_SYMBOLIC_HPP
+#ifndef VEXCL_GENERATOR_HPP
+#define VEXCL_GENERATOR_HPP
 
 /*
 The MIT License
@@ -37,28 +37,24 @@ THE SOFTWARE.
 #  define NOMINMAX
 #endif
 
-#ifndef _MSC_VER
-#  define VEXCL_VARIADIC_TEMPLATES
-#endif
-
-#ifndef __CL_ENABLE_EXCEPTIONS
-#  define __CL_ENABLE_EXCEPTIONS
-#endif
-
 #include <iostream>
-#include <string>
 #include <sstream>
-#include <map>
-#include <exception>
+#include <string>
 #include <stdexcept>
-#include <type_traits>
+#include <boost/proto/proto.hpp>
 #include <vexcl/util.hpp>
+#include <vexcl/operations.hpp>
 
 /// Vector expression template library for OpenCL.
 namespace vex {
 
 /// Kernel generation interface.
 namespace generator {
+
+//---------------------------------------------------------------------------
+// The recorder class. Holds static output stream for kernel recording and
+// static variable index (used in variable names).
+//---------------------------------------------------------------------------
 
 /// \cond INTERNAL
 template <bool dummy = true>
@@ -72,53 +68,217 @@ class recorder {
 	    return os ? *os : std::cout;
 	}
 
+	static size_t var_id() {
+	    return ++index;
+	}
     private:
+	static size_t index;
 	static std::ostream *os;
 };
 
 template <bool dummy>
-std::ostream* recorder<dummy>::os = 0;
+size_t recorder<dummy>::index = 0;
+
+template <bool dummy>
+std::ostream *recorder<dummy>::os = 0;
+
+inline size_t var_id() {
+    return recorder<>::var_id();
+}
 
 inline std::ostream& get_recorder() {
     return recorder<>::get();
 }
 
-/// \endcond
 
 /// Set output stream for kernel recorder.
 inline void set_recorder(std::ostream &os) {
     recorder<>::set(os);
 }
 
-/// \cond INTERNAL
-template <class T, class Enable = void>
-struct terminal {
-    static std::string get(const T &v) {
-	std::ostringstream s;
-	s << std::scientific << std::setprecision(18) << v;
-	return s.str();
-    }
+//---------------------------------------------------------------------------
+// Setting up boost::proto.
+//---------------------------------------------------------------------------
+
+struct variable {};
+
+// --- The grammar ----------------------------------------------------------
+
+struct symbolic_grammar
+    : boost::proto::or_<
+	  boost::proto::or_<
+	      boost::proto::terminal< variable >,
+	      boost::proto::and_<
+	          boost::proto::terminal< boost::proto::_ >,
+		  boost::proto::if_< boost::is_arithmetic< boost::proto::_value >() >
+	      >
+          >,
+	  BUILTIN_OPERATIONS(symbolic_grammar)
+      >
+{};
+
+template <class Expr>
+struct symbolic_expr;
+
+struct symbolic_domain
+    : boost::proto::domain< boost::proto::generator< symbolic_expr >, symbolic_grammar >
+{};
+
+template <class Expr>
+struct symbolic_expr
+    : boost::proto::extends< Expr, symbolic_expr< Expr >, symbolic_domain >
+{
+    typedef boost::proto::extends< Expr, symbolic_expr< Expr >, symbolic_domain > base_type;
+
+    symbolic_expr(const Expr &expr = Expr()) : base_type(expr) {}
 };
 
-template <class T>
-struct terminal< T, typename std::enable_if<T::is_symbolic>::type > {
-    static std::string get(const T &v) {
-	return v.get_string();
+template <typename T>
+struct symbolic;
+
+template <typename T>
+std::ostream& operator<<(std::ostream &os, const symbolic<T> &sym);
+
+struct symbolic_context {
+    template <typename Expr, typename Tag = typename Expr::proto_tag>
+    struct eval {};
+
+#define BINARY_OPERATION(bin_tag, bin_op) \
+    template <typename Expr> \
+    struct eval<Expr, boost::proto::tag::bin_tag> { \
+	typedef void result_type; \
+	void operator()(const Expr &expr, symbolic_context &ctx) const { \
+	    get_recorder() << "( "; \
+	    boost::proto::eval(boost::proto::left(expr), ctx); \
+	    get_recorder() << " " #bin_op " "; \
+	    boost::proto::eval(boost::proto::right(expr), ctx); \
+	    get_recorder() << " )"; \
+	} \
     }
+
+    BINARY_OPERATION(plus,          +);
+    BINARY_OPERATION(minus,         -);
+    BINARY_OPERATION(multiplies,    *);
+    BINARY_OPERATION(divides,       /);
+    BINARY_OPERATION(modulus,       %);
+    BINARY_OPERATION(shift_left,   <<);
+    BINARY_OPERATION(shift_right,  >>);
+    BINARY_OPERATION(less,          <);
+    BINARY_OPERATION(greater,       >);
+    BINARY_OPERATION(less_equal,   <=);
+    BINARY_OPERATION(greater_equal,>=);
+    BINARY_OPERATION(equal_to,     ==);
+    BINARY_OPERATION(not_equal_to, !=);
+    BINARY_OPERATION(logical_and,  &&);
+    BINARY_OPERATION(logical_or,   ||);
+    BINARY_OPERATION(bitwise_and,   &);
+    BINARY_OPERATION(bitwise_or,    |);
+    BINARY_OPERATION(bitwise_xor,   ^);
+
+#undef BINARY_OPERATION
+
+#define UNARY_PRE_OPERATION(the_tag, the_op) \
+    template <typename Expr> \
+    struct eval<Expr, boost::proto::tag::the_tag> { \
+	typedef void result_type; \
+	void operator()(const Expr &expr, symbolic_context &ctx) const { \
+	    get_recorder() << "( " #the_op "( "; \
+	    boost::proto::eval(boost::proto::child(expr), ctx); \
+	    get_recorder() << " ) )"; \
+	} \
+    }
+
+    UNARY_PRE_OPERATION(unary_plus,   +);
+    UNARY_PRE_OPERATION(negate,       -);
+    UNARY_PRE_OPERATION(logical_not,  !);
+    UNARY_PRE_OPERATION(pre_inc,     ++);
+    UNARY_PRE_OPERATION(pre_dec,     --);
+
+#undef UNARY_PRE_OPERATION
+
+#define UNARY_POST_OPERATION(the_tag, the_op) \
+    template <typename Expr> \
+    struct eval<Expr, boost::proto::tag::the_tag> { \
+	typedef void result_type; \
+	void operator()(const Expr &expr, symbolic_context &ctx) const { \
+	    get_recorder() << "( ( "; \
+	    boost::proto::eval(boost::proto::child(expr), ctx); \
+	    get_recorder() << " )" #the_op " )"; \
+	} \
+    }
+
+    UNARY_POST_OPERATION(post_inc, ++);
+    UNARY_POST_OPERATION(post_dec, --);
+
+#undef UNARY_POST_OPERATION
+
+    template <class Expr>
+    struct eval<Expr, boost::proto::tag::function> {
+	typedef void result_type;
+
+	struct display {
+	    mutable int pos;
+	    symbolic_context &ctx;
+
+	    display(symbolic_context &ctx) : pos(0), ctx(ctx) {}
+
+	    template <class Arg>
+	    void operator()(const Arg &arg) const {
+		if (pos++) get_recorder() << ", ";
+		boost::proto::eval(arg, ctx);
+	    }
+	};
+
+	void operator()(const Expr &expr, symbolic_context &ctx) const {
+	    get_recorder() << boost::proto::value(boost::proto::child_c<0>(expr)).name() << "( ";
+
+	    boost::fusion::for_each(
+		    boost::fusion::pop_front(expr),
+		    display(ctx)
+		    );
+
+	    get_recorder() << " )";
+	}
+    };
+
+    template <typename Expr>
+    struct eval<Expr, boost::proto::tag::terminal> {
+	typedef void result_type;
+
+	template <typename Term>
+	void operator()(const Term &term, symbolic_context &ctx) const {
+	    get_recorder() << std::scientific << std::setprecision(12)
+		<< boost::proto::value(term);
+	}
+
+	template <typename T>
+	void operator()(const symbolic<T> &v, symbolic_context &ctx) const {
+	    get_recorder() << v;
+	}
+    };
 };
+
+
+//---------------------------------------------------------------------------
+// Builtin functions.
+//---------------------------------------------------------------------------
+
+template <class Expr>
+void record(const Expr &expr) {
+    symbolic_context ctx;
+    boost::proto::eval(boost::proto::as_expr(expr), ctx);
+}
 /// \endcond
 
-/// Symbolic value.
-/**
- * This class is used for recording of expression sequence which would later
- * become single autogenerated kernel. See examples/symbolic.cpp for the usage
- * example.
- */
-template <typename T>
-class symbolic {
-    public:
-	static const bool is_symbolic = true;
+//---------------------------------------------------------------------------
+// The symbolic class.
+//---------------------------------------------------------------------------
 
+template <typename T>
+class symbolic
+    : public symbolic_expr< boost::proto::terminal< variable >::type >
+{
+    public:
 	/// Scope/Type of the symbolic variable.
 	enum scope_type {
 	    LocalVar        = 0, ///< Local variable.
@@ -134,53 +294,29 @@ class symbolic {
 
 	/// Default constructor. Results in local kernel variable.
 	symbolic(scope_type scope = LocalVar, constness_type constness = NonConst)
-	    : num(index++), scope(scope), constness(constness)
+	    : num(var_id()), scope(scope), constness(constness)
 	{
 	    if (scope == LocalVar) {
-		get_recorder()
-		    << type_name<T>() << " " << get_string() << ";\n";
+		get_recorder() << type_name<T>() << " " << *this << ";\n";
 	    }
-	}
-
-	/// Copy constructor. Results in local variable initialized by give value.
-	symbolic(const symbolic &s)
-	    : num(index++), scope(LocalVar), constness(NonConst)
-	{
-	    get_recorder()
-		<< type_name<T>() << " " << get_string() << " = "
-		<< s.get_string() << ";\n";
 	}
 
 	/// Expression constructor. Results in local variable initialized by expression.
 	template <class Expr>
 	explicit symbolic(const Expr &expr)
-	    : num(index++),
-	      scope(LocalVar), constness(NonConst)
+	    : num(var_id()), scope(LocalVar), constness(NonConst)
 	{
-	    get_recorder()
-		<< type_name<T>() << " " << get_string() << " = "
-		<< terminal<Expr>::get(expr) << ";\n";
-	}
-
-	/// Returns variable name.
-	std::string get_string() const {
-	    std::ostringstream s;
-	    s << "var" << num;
-	    return s.str();
-	}
-
-	/// Assignment operator. Results in assignment written to recorder.
-	const symbolic& operator=(const symbolic &s) {
-	    get_recorder()
-		<< get_string() << " = " << s.get_string() << ";\n";
-	    return *this;
+	    get_recorder() << type_name<T>() << " " << *this << " = ";
+	    record(expr);
+	    get_recorder() << ";\n";
 	}
 
 	/// Assignment operator. Results in assignment written to recorder.
 	template <class Expr>
 	const symbolic& operator=(const Expr &expr) const {
-	    get_recorder()
-		<< get_string() << " = " << terminal<Expr>::get(expr) << ";\n";
+	    get_recorder() << *this << " = ";
+	    record(expr);
+	    get_recorder() << ";\n";
 	    return *this;
 	}
 
@@ -203,20 +339,27 @@ class symbolic {
 
 #undef COMPOUND_ASSIGNMENT
 
-	/// Read parameter value to local variable at kernel enter.
-	std::string read() const {
-	    std::ostringstream s;
-	    s << type_name<T>() << " " << get_string() << " = p_" << get_string();
+	size_t id() const {
+	    return num;
+	}
 
-	    switch (scope) {
-		case VectorParameter:
-		    s << "[idx];\n";
-		    break;
-		case ScalarParameter:
-		    s << ";\n";
-		    break;
-		case LocalVar:
-		    break;
+	/// Initialize local variable at kernel enter.
+	std::string init() const {
+	    std::ostringstream s;
+
+	    if (scope != LocalVar) {
+		s << type_name<T>() << " " << *this << " = p_" << *this;
+
+		switch (scope) {
+		    case VectorParameter:
+			s << "[idx];\n";
+			break;
+		    case ScalarParameter:
+			s << ";\n";
+			break;
+		    default:
+			break;
+		}
 	    }
 
 	    return s.str();
@@ -227,7 +370,7 @@ class symbolic {
 	    std::ostringstream s;
 
 	    if (scope == VectorParameter && constness == NonConst)
-		s << "p_" << get_string() << "[idx] = " << get_string() << ";\n";
+		s << "p_" << *this << "[idx] = " << *this << ";\n";
 
 	    return s.str();
 	}
@@ -247,127 +390,37 @@ class symbolic {
 	    if (scope == VectorParameter)
 		s << "*";
 
-	    s << " p_" << get_string();
+	    s << " p_" << *this;
 
 	    return s.str();
 	}
     private:
-	static size_t index;
-	size_t num;
-
+	size_t         num;
 	scope_type     scope;
 	constness_type constness;
 };
 
 template <typename T>
-size_t symbolic<T>::index = 0;
-
-/// Symbolic expression template.
-template <class LHS, binop::kind OP, class RHS>
-struct symbolic_expression {
-    static const bool is_symbolic = true;
-
-    symbolic_expression(const LHS &lhs, const RHS &rhs) : lhs(lhs), rhs(rhs) {}
-
-    const LHS &lhs;
-    const RHS &rhs;
-
-    std::string get_string() const {
-	std::ostringstream s;
-	s << "(" << terminal<LHS>::get(lhs) << " " << binop::traits<OP>::oper()
-	  << " " << terminal<RHS>::get(rhs) << ")";
-	return s.str();
-    }
-};
-
-/// \cond INTERNAL
-template <class T, class Enable = void>
-struct valid_symb
-    : public std::false_type {};
-
-template <class T>
-struct valid_symb<T, typename std::enable_if<std::is_arithmetic<T>::value>::type>
-    : std::true_type {};
-
-template <class T>
-struct valid_symb<T, typename std::enable_if<T::is_symbolic>::type>
-    : std::true_type {};
-/// \endcond
-
-#define DEFINE_BINARY_OP(kind, oper) \
-template <class LHS, class RHS> \
-typename std::enable_if<valid_symb<LHS>::value && valid_symb<RHS>::value, \
-symbolic_expression<LHS, kind, RHS> \
->::type \
-operator oper(const LHS &lhs, const RHS &rhs) { \
-    return symbolic_expression<LHS, kind, RHS>(lhs, rhs); \
+std::ostream& operator<<(std::ostream &os, const symbolic<T> &sym) {
+    return os << "var" << sym.id();
 }
 
-DEFINE_BINARY_OP(binop::Add,          + )
-DEFINE_BINARY_OP(binop::Subtract,     - )
-DEFINE_BINARY_OP(binop::Multiply,     * )
-DEFINE_BINARY_OP(binop::Divide,       / )
-DEFINE_BINARY_OP(binop::Remainder,    % )
-DEFINE_BINARY_OP(binop::Greater,      > )
-DEFINE_BINARY_OP(binop::Less,         < )
-DEFINE_BINARY_OP(binop::GreaterEqual, >=)
-DEFINE_BINARY_OP(binop::LessEqual,    <=)
-DEFINE_BINARY_OP(binop::Equal,        ==)
-DEFINE_BINARY_OP(binop::NotEqual,     !=)
-DEFINE_BINARY_OP(binop::BitwiseAnd,   & )
-DEFINE_BINARY_OP(binop::BitwiseOr,    | )
-DEFINE_BINARY_OP(binop::BitwiseXor,   ^ )
-DEFINE_BINARY_OP(binop::LogicalAnd,   &&)
-DEFINE_BINARY_OP(binop::LogicalOr,    ||)
-DEFINE_BINARY_OP(binop::RightShift,   >>)
-DEFINE_BINARY_OP(binop::LeftShift,    <<)
-
-#undef DEFINE_BINARY_OP
-
 /// Autogenerated kernel.
-template <class... Args>
+template <size_t NP>
 class Kernel {
     public:
-	/// Launches kernel with provided parameters.
-	template <class... Param>
-	void operator()(const Param&... param) {
-	    static_assert(
-		    sizeof...(Param) == sizeof...(Args),
-		    "Wrong number of kernel parameters"
-		    );
-
-	    for(uint d = 0; d < queue.size(); d++) {
-		if (size_t psize = prm_size(d, param...)) {
-		    cl::Context context = qctx(queue[d]);
-
-		    uint pos = 0;
-		    krn[context()].setArg(pos++, psize);
-
-		    set_params(krn[context()], d, pos, param...);
-
-		    queue[d].enqueueNDRangeKernel(
-			    krn[context()],
-			    cl::NullRange,
-			    alignup(psize, wgs[context()]),
-			    wgs[context()]
-			    );
-		}
-	    }
-	}
-
-    private:
-	    template <class... SymPrm> friend
-	    Kernel<SymPrm...> build_kernel(
-		    const std::vector<cl::CommandQueue> &queue,
-		    const std::string &name, const std::string& body, const SymPrm&... args
-		    );
-
+	template <class ArgTuple>
 	Kernel(
 		const std::vector<cl::CommandQueue> &queue,
 		const std::string &name, const std::string &body,
-		const Args&... args
+		const ArgTuple& args
 	      ) : queue(queue)
 	{
+	    static_assert(
+		    std::tuple_size<ArgTuple>::value == NP,
+		    "Wrong number of kernel parameters"
+		    );
+
 	    std::ostringstream source;
 
 	    source
@@ -375,20 +428,23 @@ class Kernel {
 		<< "kernel void " << name << "(\n"
 		<< "\t" << type_name<size_t>() << " n";
 
-	    declare_params(source, args...);
+	    declare_params declprm(source);
+	    for_each(args, declprm);
 
-	    source
-		<< "\n\t)\n{\n"
-		<< "size_t idx = get_global_id(0);\n"
-		<< "if (idx < n) {\n";
+	    source <<
+		"\n)\n{\n\t"
+		"for(size_t idx = get_global_id(0); idx < n; "
+		"idx += get_global_size(0)) {\n";
 
-	    read_params(source, args...);
+	    read_params readprm(source);
+	    for_each(args, readprm);
 
 	    source << body;
 	    
-	    write_params(source, args...);
+	    write_params writeprm(source);
+	    for_each(args, writeprm);
 
-	    source << "}\n}\n";
+	    source << "\t}\n}\n";
 
 #ifdef VEXCL_SHOW_KERNELS
 	    std::cout << source.str() << std::endl;
@@ -405,193 +461,246 @@ class Kernel {
 	    }
 	}
 
+#ifndef BOOST_NO_VARIADIC_TEMPLATES
+	/// Launches kernel with provided parameters.
+	template <class... Param>
+	void operator()(const Param&... param) {
+	    launch(std::tie(param...));
+	}
+#else
+	/// Launches kernel with provided parameters.
+	template <
+	    class Param1
+	    >
+	void operator()(
+		const Param1 &param1
+		)
+	{
+	    launch(std::tie(
+			param1
+			));
+	}
+
+
+	/// Launches kernel with provided parameters.
+	template <
+	    class Param1,
+	    class Param2
+	    >
+	void operator()(
+		const Param1 &param1,
+		const Param2 &param2
+		)
+	{
+	    launch(std::tie(
+			param1,
+			param2
+			));
+	}
+
+	/// Launches kernel with provided parameters.
+	template <
+	    class Param1,
+	    class Param2,
+	    class Param3
+	    >
+	void operator()(
+		const Param1 &param1,
+		const Param2 &param2,
+		const Param3 &param3
+		)
+	{
+	    launch(std::tie(
+			param1,
+			param2,
+			param3
+			));
+	}
+
+#endif
+    private:
+
+	template <class ParamTuple>
+	void launch(const ParamTuple &param) {
+	    static_assert(
+		    std::tuple_size<ParamTuple>::value == NP,
+		    "Wrong number of kernel parameters"
+		    );
+
+	    for(uint d = 0; d < queue.size(); d++) {
+		if (size_t psize = prm_size(d, param)) {
+		    cl::Context context = qctx(queue[d]);
+		    cl::Device  device  = qdev(queue[d]);
+
+		    uint pos = 0;
+		    krn[context()].setArg(pos++, psize);
+
+		    set_params setprm(krn[context()], d, pos);
+		    for_each(param, setprm);
+
+		    size_t g_size = device.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU ?
+			alignup(psize, wgs[context()]) :
+			device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() * wgs[context()] * 4;
+
+		    queue[d].enqueueNDRangeKernel(krn[context()],
+			    cl::NullRange, g_size, wgs[context()]
+			    );
+		}
+	    }
+	}
+
+	struct declare_params {
+	    std::ostream &os;
+
+	    declare_params(std::ostream &os) : os(os) {}
+
+	    template <class T>
+	    void operator()(const T &v) const {
+		os << ",\n\t" << v.prmdecl();
+	    }
+	};
+
+	struct read_params {
+	    std::ostream &os;
+
+	    read_params(std::ostream &os) : os(os) {}
+
+	    template <class T>
+	    void operator()(const T &v) const {
+		os << v.init();
+	    }
+	};
+
+	struct write_params {
+	    std::ostream &os;
+
+	    write_params(std::ostream &os) : os(os) {}
+
+	    template <class T>
+	    void operator()(const T &v) const {
+		os << v.write();
+	    }
+	};
+
+	struct set_params {
+	    cl::Kernel &krn;
+	    uint d, &pos;
+
+	    set_params(cl::Kernel &krn, uint d, uint &pos)
+		: krn(krn), d(d), pos(pos) {};
+
+	    template <class T>
+	    void operator()(const T &v) const {
+		krn.setArg(pos++, v);
+	    }
+	    template <class T>
+	    void operator()(const vector<T> &v) const {
+		krn.setArg(pos++, v(d));
+	    }
+	};
+
 	std::vector<cl::CommandQueue> queue;
 
 	std::map<cl_context, cl::Kernel> krn;
 	std::map<cl_context, uint> wgs;
 
-	void declare_params(std::ostream &os) const {}
-
-	template <class Head, class... Tail>
-	void declare_params(std::ostream &os, const Head &head, const Tail&... tail) {
-	    os << ",\n\t" << head.prmdecl();
-	    declare_params(os, tail...);
+	template <class T>
+	size_t prm_part_size(uint d, const T &t) const {
+	    return 0;
 	}
 
-	void read_params(std::ostream &os) const {}
-
-	template <class Head, class... Tail>
-	void read_params(std::ostream &os, const Head &head, const Tail&... tail) {
-	    os << head.read();
-	    read_params(os, tail...);
+	template <class T>
+	size_t prm_part_size(uint d, const vector<T> &v) const {
+	    return v.part_size(d);
 	}
 
-	void write_params(std::ostream &os) const {}
-
-	template <class Head, class... Tail>
-	void write_params(std::ostream &os, const Head &head, const Tail&... tail) {
-	    os << head.write();
-	    write_params(os, tail...);
+	template <size_t I = 0, class PrmTuple>
+	typename std::enable_if<
+	    I == std::tuple_size<PrmTuple>::value, size_t
+	>::type
+	prm_size(uint d, const PrmTuple &prm) const {
+	    return 0;
 	}
 
-	size_t prm_size(uint d) const {
-	    throw std::logic_error(
-		    "Kernel has to have at least one vector parameter"
+	template <size_t I = 0, class PrmTuple>
+	typename std::enable_if<
+	    I < std::tuple_size<PrmTuple>::value, size_t
+	>::type
+	prm_size(uint d, const PrmTuple &prm) const {
+	    return std::max(
+		    prm_part_size(d, std::get<I>(prm)),
+		    prm_size<I + 1>(d, prm)
 		    );
-	}
-
-	template <class Head, class... Tail>
-	size_t prm_size(uint d, const Head &head, const Tail&... tail) const {
-	    if (std::is_arithmetic<Head>::value)
-		return prm_size(d, tail...);
-	    else 
-		return KernelGenerator<Head>(head).part_size(d);
-	}
-
-	void set_params(cl::Kernel &k, uint d, uint &p) const {}
-
-	template <class Head, class... Tail>
-	void set_params(cl::Kernel &k, uint d, uint &p, const Head &head,
-		const Tail&... tail) const
-	{
-	    KernelGenerator<Head>(head).kernel_args(k, d, p);
-	    set_params(k, d, p, tail...);
 	}
 };
 
+#ifndef BOOST_NO_VARIADIC_TEMPLATES
 /// Builds kernel from recorded expression sequence and symbolic parameter list.
 template <class... Args>
-Kernel<Args...> build_kernel(
+Kernel<sizeof...(Args)> build_kernel(
 	const std::vector<cl::CommandQueue> &queue,
 	const std::string &name, const std::string& body, const Args&... args
 	)
 {
-    return Kernel<Args...>(queue, name, body, args...);
+    return Kernel<sizeof...(Args)>(queue, name, body, std::tie(args...));
+}
+#else
+
+/// Builds kernel from recorded expression sequence and symbolic parameter list.
+template <
+    class Arg1
+    >
+Kernel<1> build_kernel(
+	const std::vector<cl::CommandQueue> &queue,
+	const std::string &name, const std::string& body,
+	const Arg1& arg1
+	)
+{
+    return Kernel<1>(queue, name, body, std::tie(
+		arg1
+		));
 }
 
-/// \cond INTERNAL
-template <class func_name, class... Expr>
-class symbolic_builtin {
-    public:
-	static const bool is_symbolic = true;
-
-	symbolic_builtin(const Expr&... expr) : expr(std::ref(expr)...) {}
-
-	std::string get_string() const {
-	    std::ostringstream s;
-	    s << func_name::value() << "(";
-	    output_names out(s);
-	    for_each(out);
-	    s << ")";
-	    return s.str();
-	}
-    private:
-	const std::tuple<std::reference_wrapper<const Expr>...> expr;
-
-	template <uint pos = 0, class Function>
-	typename std::enable_if<(pos == sizeof...(Expr)), void>::type
-	for_each(Function &f) const
-	{ }
-
-	template <uint pos = 0, class Function>
-	typename std::enable_if<(pos < sizeof...(Expr)), void>::type
-	for_each(Function &f) const
-	{
-	    f( std::get<pos>(expr).get() );
-	    for_each<pos+1, Function>(f);
-	}
-
-	struct output_names {
-	    std::ostringstream &s;
-	    output_names(std::ostringstream &s) : s(s) {}
-
-	    template <class E>
-	    void operator()(const E &e) const {
-		s << terminal<E>::get(e);
-	    }
-
-	};
-};
-/// \endcond
-
-#define DEFINE_BUILTIN_FUNCTION(name) \
-template <class Expr> \
-typename std::enable_if<valid_symb<Expr>::value, \
-	 symbolic_builtin<name##_name, Expr> \
-	 >::type \
-name(const Expr &expr) { \
-    return symbolic_builtin<name##_name, Expr>(expr); \
+/// Builds kernel from recorded expression sequence and symbolic parameter list.
+template <
+    class Arg1,
+    class Arg2
+    >
+Kernel<2> build_kernel(
+	const std::vector<cl::CommandQueue> &queue,
+	const std::string &name, const std::string& body,
+	const Arg1& arg1,
+	const Arg2& arg2
+	)
+{
+    return Kernel<1>(queue, name, body, std::tie(
+		arg1,
+		arg2
+		));
 }
 
-DEFINE_BUILTIN_FUNCTION(acos)
-DEFINE_BUILTIN_FUNCTION(acosh)
-DEFINE_BUILTIN_FUNCTION(acospi)
-DEFINE_BUILTIN_FUNCTION(asin)
-DEFINE_BUILTIN_FUNCTION(asinh)
-DEFINE_BUILTIN_FUNCTION(asinpi)
-DEFINE_BUILTIN_FUNCTION(atan)
-DEFINE_BUILTIN_FUNCTION(atan2)
-DEFINE_BUILTIN_FUNCTION(atanh)
-DEFINE_BUILTIN_FUNCTION(atanpi)
-DEFINE_BUILTIN_FUNCTION(atan2pi)
-DEFINE_BUILTIN_FUNCTION(cbrt)
-DEFINE_BUILTIN_FUNCTION(ceil)
-DEFINE_BUILTIN_FUNCTION(copysign)
-DEFINE_BUILTIN_FUNCTION(cos)
-DEFINE_BUILTIN_FUNCTION(cosh)
-DEFINE_BUILTIN_FUNCTION(cospi)
-DEFINE_BUILTIN_FUNCTION(erfc)
-DEFINE_BUILTIN_FUNCTION(erf)
-DEFINE_BUILTIN_FUNCTION(exp)
-DEFINE_BUILTIN_FUNCTION(exp2)
-DEFINE_BUILTIN_FUNCTION(exp10)
-DEFINE_BUILTIN_FUNCTION(expm1)
-DEFINE_BUILTIN_FUNCTION(fabs)
-DEFINE_BUILTIN_FUNCTION(fdim)
-DEFINE_BUILTIN_FUNCTION(floor)
-DEFINE_BUILTIN_FUNCTION(fma)
-DEFINE_BUILTIN_FUNCTION(fmax)
-DEFINE_BUILTIN_FUNCTION(fmin)
-DEFINE_BUILTIN_FUNCTION(fmod)
-DEFINE_BUILTIN_FUNCTION(fract)
-DEFINE_BUILTIN_FUNCTION(frexp)
-DEFINE_BUILTIN_FUNCTION(hypot)
-DEFINE_BUILTIN_FUNCTION(ilogb)
-DEFINE_BUILTIN_FUNCTION(ldexp)
-DEFINE_BUILTIN_FUNCTION(lgamma)
-DEFINE_BUILTIN_FUNCTION(lgamma_r)
-DEFINE_BUILTIN_FUNCTION(log)
-DEFINE_BUILTIN_FUNCTION(log2)
-DEFINE_BUILTIN_FUNCTION(log10)
-DEFINE_BUILTIN_FUNCTION(log1p)
-DEFINE_BUILTIN_FUNCTION(logb)
-DEFINE_BUILTIN_FUNCTION(mad)
-DEFINE_BUILTIN_FUNCTION(maxmag)
-DEFINE_BUILTIN_FUNCTION(minmag)
-DEFINE_BUILTIN_FUNCTION(modf)
-DEFINE_BUILTIN_FUNCTION(nan)
-DEFINE_BUILTIN_FUNCTION(nextafter)
-DEFINE_BUILTIN_FUNCTION(pow)
-DEFINE_BUILTIN_FUNCTION(pown)
-DEFINE_BUILTIN_FUNCTION(powr)
-DEFINE_BUILTIN_FUNCTION(remainder)
-DEFINE_BUILTIN_FUNCTION(remquo)
-DEFINE_BUILTIN_FUNCTION(rint)
-DEFINE_BUILTIN_FUNCTION(rootn)
-DEFINE_BUILTIN_FUNCTION(round)
-DEFINE_BUILTIN_FUNCTION(rsqrt)
-DEFINE_BUILTIN_FUNCTION(sin)
-DEFINE_BUILTIN_FUNCTION(sincos)
-DEFINE_BUILTIN_FUNCTION(sinh)
-DEFINE_BUILTIN_FUNCTION(sinpi)
-DEFINE_BUILTIN_FUNCTION(sqrt)
-DEFINE_BUILTIN_FUNCTION(tan)
-DEFINE_BUILTIN_FUNCTION(tanh)
-DEFINE_BUILTIN_FUNCTION(tanpi)
-DEFINE_BUILTIN_FUNCTION(tgamma)
-DEFINE_BUILTIN_FUNCTION(trunc)
+/// Builds kernel from recorded expression sequence and symbolic parameter list.
+template <
+    class Arg1,
+    class Arg2,
+    class Arg3
+    >
+Kernel<2> build_kernel(
+	const std::vector<cl::CommandQueue> &queue,
+	const std::string &name, const std::string& body,
+	const Arg1& arg1,
+	const Arg2& arg2,
+	const Arg3& arg3
+	)
+{
+    return Kernel<1>(queue, name, body, std::tie(
+		arg1,
+		arg2,
+		arg3
+		));
+}
 
-#undef DEFINE_BUILTIN_FUNCTION
+#endif
 
 } // namespace generator;
 

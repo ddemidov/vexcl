@@ -37,10 +37,6 @@ THE SOFTWARE.
 #  define NOMINMAX
 #endif
 
-#ifndef __CL_ENABLE_EXCEPTIONS
-#  define __CL_ENABLE_EXCEPTIONS
-#endif
-
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -49,8 +45,13 @@ THE SOFTWARE.
 #include <algorithm>
 #include <type_traits>
 #include <functional>
-#include <CL/cl.hpp>
 #include <climits>
+#include <boost/config.hpp>
+
+#ifndef __CL_ENABLE_EXCEPTIONS
+#  define __CL_ENABLE_EXCEPTIONS
+#endif
+#include <CL/cl.hpp>
 
 typedef unsigned int  uint;
 typedef unsigned char uchar;
@@ -59,13 +60,19 @@ namespace vex {
 
 /// Convert typename to string.
 template <class T> inline std::string type_name()  { return "undefined_type"; }
-template <> inline std::string type_name<float>()  { return "float"; }
-template <> inline std::string type_name<double>() { return "double"; }
-template <> inline std::string type_name<int>()    { return "int"; }
-template <> inline std::string type_name<char>()   { return "char"; }
-template <> inline std::string type_name<bool>()   { return "bool"; }
-template <> inline std::string type_name<uint>()   { return "unsigned int"; }
-template <> inline std::string type_name<uchar>()  { return "unsigned char"; }
+
+#define STRINGIFY(type) \
+template <> inline std::string type_name<type>()  { return #type; }
+
+STRINGIFY(float);
+STRINGIFY(double);
+STRINGIFY(int);
+STRINGIFY(char);
+STRINGIFY(bool);
+STRINGIFY(uint);
+STRINGIFY(uchar);
+
+#undef STRINGIFY
 
 #if (__WORDSIZE == 64) || defined(_WIN64)
 template <> inline std::string type_name<size_t>()    { return "ulong"; }
@@ -153,134 +160,26 @@ inline size_t alignup(size_t n, size_t m = 16U) {
     return n % m ? n - n % m + m : n;
 }
 
-/// Weights device wrt to vector performance.
-/**
- * Launches the following kernel on each device:
- * \code
- * a = b + c;
- * \endcode
- * where a, b and c are device vectors. Each device gets portion of the vector
- * proportional to the performance of this operation.
- */
-inline double device_vector_perf(
-	const cl::Context &context, const cl::Device &device
-	);
+#ifndef BOOST_NO_VARIADIC_TEMPLATES
 
-/// Weights device wrt to spmv performance.
-/**
- * Launches the following kernel on each device:
- * \code
- * y = A * x;
- * \endcode
- * where x and y are vectors, and A is matrix for 3D Poisson problem in square
- * domain. Each device gets portion of the vector proportional to the
- * performance of this operation.
- */
-inline double device_spmv_perf(
-	const cl::Context &context, const cl::Device &device
-	);
+/// Iterate over tuple elements.
+template <size_t I = 0, class Function, class... V>
+typename std::enable_if<(I == sizeof...(V)), void>::type
+for_each(const std::tuple<V...> &v, Function &f)
+{ }
 
-/// Assigns equal weight to each device.
-/**
- * This results in equal partitioning.
- */
-inline double equal_weights(
-	const cl::Context &context, const cl::Device &device
-	)
+/// Iterate over tuple elements.
+template <size_t I = 0, class Function, class... V>
+typename std::enable_if<(I < sizeof...(V)), void>::type
+for_each(const std::tuple<V...> &v, Function &f)
 {
-    return 1;
+    f( std::get<I>(v) );
+
+    for_each<I + 1>(v, f);
 }
 
+#endif
 
-/// Partitioning scheme for vectors and matrices.
-/**
- * Should be set once before any object of vector or matrix type is declared.
- * Otherwise default parttioning function (partition_by_vector_perf) is
- * selected.
- */
-template <bool dummy = true>
-struct partitioning_scheme {
-    typedef std::function<
-	double(const cl::Context&, const cl::Device&)
-	> weight_function;
-
-    static void set(weight_function f) {
-	if (!is_set) {
-	    weight = f;
-	    is_set = true;
-	} else {
-	    std::cerr <<
-		"Warning: "
-		"device weighting function is already set and will be left as is."
-		<< std::endl;
-	}
-    }
-
-    static std::vector<size_t> get(size_t n, const std::vector<cl::CommandQueue> &queue);
-
-    private:
-	static bool is_set;
-	static weight_function weight;
-	static std::map<cl_device_id, double> device_weight;
-};
-
-template <bool dummy>
-bool partitioning_scheme<dummy>::is_set = false;
-
-template <bool dummy>
-std::map<cl_device_id, double> partitioning_scheme<dummy>::device_weight;
-
-template <bool dummy>
-std::vector<size_t> partitioning_scheme<dummy>::get(size_t n,
-	const std::vector<cl::CommandQueue> &queue)
-{
-    if (!is_set) {
-	weight = device_vector_perf;
-	is_set = true;
-    }
-
-    std::vector<size_t> part;
-    part.reserve(queue.size() + 1);
-    part.push_back(0);
-
-    if (queue.size() > 1) {
-	std::vector<double> cumsum;
-	cumsum.reserve(queue.size() + 1);
-	cumsum.push_back(0);
-
-	for(auto q = queue.begin(); q != queue.end(); q++) {
-	    cl::Context context = q->getInfo<CL_QUEUE_CONTEXT>();
-	    cl::Device  device  = q->getInfo<CL_QUEUE_DEVICE>();
-
-	    auto dw = device_weight.find(device());
-
-	    double w = (dw == device_weight.end()) ?
-		(device_weight[device()] = weight(context, device)) :
-		dw->second;
-
-	    cumsum.push_back(cumsum.back() + w);
-	}
-
-	for(uint d = 1; d < queue.size(); d++)
-	    part.push_back(
-		    std::min(n,
-			alignup(static_cast<size_t>(n * cumsum[d] / cumsum.back()))
-			)
-		    );
-    }
-
-    part.push_back(n);
-    return part;
-}
-
-template <bool dummy>
-typename partitioning_scheme<dummy>::weight_function partitioning_scheme<dummy>::weight;
-
-inline std::vector<size_t> partition(size_t n,
-	    const std::vector<cl::CommandQueue> &queue)
-{
-    return partitioning_scheme<true>::get(n, queue);
-}
 
 /// Create and build a program from source string.
 inline cl::Program build_sources(

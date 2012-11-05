@@ -283,14 +283,14 @@ dxdt(1) = x(0) - x(1);
 
 This results in two kernel launches. Instead, you can use the following form:
 \code
-dxdt = std::make_tuple(x(0) + x(1), x(0) - x(1));
+dxdt = std::tie(x(0) + x(1), x(0) - x(1));
 \endcode
 This expression would generate and launch single combined kernel, which would
 be more effective. Multi-expressions like these may also be used with ordinary
 vex::vectors with help of vex::tie() function:
 \code
 // vex::vector<double> dx, dy, x, y;
-vex::tie(dx,dy) = std::make_tuple(x + y, x - y);
+vex::tie(dx,dy) = std::tie(x + y, x - y);
 \endcode
 
 \section kernel_generator Converting existing algorithms to kernels
@@ -455,10 +455,14 @@ arithmetic was used as a basis for problem partitioning.
 VexCL makes heavy use of C++11 features, so your compiler has to be modern
 enough. The compilers that have been tested and supported are:
     - GCC v4.6 and above.
-    - Clang v3.1 (and probably some earlier versions).
+    - Clang v3.1.
     - Microsoft Visual C++ 2010 manages to compile the project with some features
-       disabled: since it does not support variadic templates, only one-argument
-       builtin functions are enabled; user functions are not available at all.
+      disabled (due to lack of support for variadic templates).
+
+VexCL uses standard OpenCL bindings for C++ from Khronos group. The cl.hpp file
+should be included with the OpenCL implementation on your system. If it is not
+there, you can download it from <a href="http://www.khronos.org/registry/cl">Kronos site</a>.
+
 */
 
 #ifdef WIN32
@@ -474,9 +478,9 @@ enough. The compilers that have been tested and supported are:
 #include <CL/cl.hpp>
 #include <iostream>
 
-#include <vexcl/util.hpp>
 #include <vexcl/devlist.hpp>
 #include <vexcl/vector.hpp>
+#include <vexcl/multivector.hpp>
 #include <vexcl/reduce.hpp>
 #include <vexcl/spmat.hpp>
 #include <vexcl/stencil.hpp>

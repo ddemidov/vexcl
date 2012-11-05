@@ -34,16 +34,16 @@ THE SOFTWARE.
  * boost::interprocess library. 
  */
 
-#ifndef __CL_ENABLE_EXCEPTIONS
-#  define __CL_ENABLE_EXCEPTIONS
-#endif
-
 #include <vector>
 #include <string>
 #include <fstream>
 #include <memory>
 #include <cstdlib>
 #include <boost/interprocess/sync/file_lock.hpp>
+
+#ifndef __CL_ENABLE_EXCEPTIONS
+#  define __CL_ENABLE_EXCEPTIONS
+#endif
 #include <CL/cl.hpp>
 
 namespace vex {
