@@ -45,6 +45,8 @@ THE SOFTWARE.
 
 namespace vex {
 
+/// \cond INTERNAL
+
 template <class S, class V>
 struct conv
     : vector_expression< boost::proto::terminal< additive_vector_transform >::type >
@@ -208,6 +210,8 @@ void stencil_base<T>::exchange_halos(const vex::vector<T> &x) const {
     // Wait for the end of transfer.
     for(uint d = 0; d < queue.size(); d++) event[d].wait();
 }
+
+/// \endcond
 
 /// Stencil.
 /**

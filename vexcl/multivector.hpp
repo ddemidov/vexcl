@@ -706,10 +706,7 @@ void copy(const std::vector<T> &hv, multivector<T,N,own> &mv) {
  * vex::vector<double> x(ctx.queue(), 1024);
  * vex::vector<double> y(ctx.queue(), 1024);
  *
- * vex::tie(x,y) = std::make_tuple(
- *			x + y,
- *			y - x
- *			);
+ * vex::tie(x,y) = std::tie( x + y, y - x );
  * \endcode
  * This is functionally equivalent to
  * \code

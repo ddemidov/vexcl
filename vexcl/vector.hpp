@@ -54,36 +54,8 @@ namespace vex {
 
 //--- Partitioning ----------------------------------------------------------
 
-/// Weights device wrt to vector performance.
-/**
- * Launches the following kernel on each device:
- * \code
- * a = b + c;
- * \endcode
- * where a, b and c are device vectors. Each device gets portion of the vector
- * proportional to the performance of this operation.
- */
-inline double device_vector_perf(
-	const cl::Context &context, const cl::Device &device
-	);
+/// \cond INTERNAL
 
-/// Assigns equal weight to each device.
-/**
- * This results in equal partitioning.
- */
-inline double equal_weights(
-	const cl::Context &context, const cl::Device &device
-	)
-{
-    return 1;
-}
-
-/// Partitioning scheme for vectors and matrices.
-/**
- * Should be set once before any object of vector or matrix type is declared.
- * Otherwise default parttioning function (partition_by_vector_perf) is
- * selected.
- */
 template <bool dummy = true>
 struct partitioning_scheme {
     typedef std::function<
@@ -162,10 +134,49 @@ std::vector<size_t> partitioning_scheme<dummy>::get(size_t n,
 template <bool dummy>
 typename partitioning_scheme<dummy>::weight_function partitioning_scheme<dummy>::weight;
 
+/// \endcond
+
+/// Weights device wrt to vector performance.
+/**
+ * Launches the following kernel on each device:
+ * \code
+ * a = b + c;
+ * \endcode
+ * where a, b and c are device vectors. Each device gets portion of the vector
+ * proportional to the performance of this operation.
+ */
+inline double device_vector_perf(
+	const cl::Context &context, const cl::Device &device
+	);
+
+/// Assigns equal weight to each device.
+/**
+ * This results in equal partitioning.
+ */
+inline double equal_weights(
+	const cl::Context &context, const cl::Device &device
+	)
+{
+    return 1;
+}
+
+/// Partitioning scheme for vectors and matrices.
+/**
+ * Should be set once before any object of vector or matrix type is declared.
+ * Otherwise default parttioning function (partition_by_vector_perf) is
+ * selected.
+ */
+inline void set_partitioning(
+	std::function< double(const cl::Context&, const cl::Device&) > f
+	)
+{
+    parttioning<>::set(f);
+}
+
 inline std::vector<size_t> partition(size_t n,
 	    const std::vector<cl::CommandQueue> &queue)
 {
-    return partitioning_scheme<true>::get(n, queue);
+    return partitioning_scheme<>::get(n, queue);
 }
 
 //--- Vector Type -----------------------------------------------------------
@@ -664,8 +675,6 @@ struct vector
 		}
 	}
 
-	/// \endcond
-
     private:
 	template <class Expr>
 	struct exdata {
@@ -827,8 +836,6 @@ inline double device_vector_perf(
     a = b + c;
     return 1.0 / prof.toc("");
 }
-
-/// \endcond
 
 } // namespace vex
 
