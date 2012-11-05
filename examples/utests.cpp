@@ -908,7 +908,7 @@ int main(int argc, char *argv[]) {
 		});
 #endif
 
-#if 0
+#if 1
 	run_test("Sparse matrix-multivector product", [&]() -> bool {
 		bool rc = true;
 		const size_t n   = 32;
@@ -1009,7 +1009,7 @@ int main(int argc, char *argv[]) {
 	});
 #endif
 
-#if 0
+#if 1
 	run_test("Sparse matrix-multivector product (CCSR format)", [&]() -> bool {
 		bool rc = true;
 		const uint n     = 32;
@@ -1254,7 +1254,7 @@ int main(int argc, char *argv[]) {
 		});
 #endif
 
-#if 0
+#if 1
 	run_test("Stencil convolution with multivector", [&]() -> bool {
 		bool rc = true;
 		const int n = 1 << 16;

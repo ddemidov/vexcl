@@ -84,6 +84,39 @@ operator*(const M &A, const vector<T> &x) {
     return spmv< M, vector<T> >(A, x);
 }
 
+#ifdef VEXCL_MULTIVECTOR_HPP
+
+template <class M, class V>
+struct multispmv
+    : multivector_expression<
+	boost::proto::terminal< additive_multivector_transform >::type
+	>
+{
+    const M &A;
+    const V &x;
+
+    multispmv(const M &m, const V &v) : A(m), x(v) {}
+
+    template <typename T, size_t N, bool own>
+    void apply(multivector<T, N, own> &y, float alpha = 1, bool append = false) const {
+	static_assert(number_of_components<V>::value == N,
+		"Incompatible multivector dimensions in spmv");
+
+	for(int i = 0; i < N; i++)
+	    A.mul(x(i), y(i), alpha, append);
+    }
+};
+
+template <class M, class T, size_t N, bool own>
+typename std::enable_if<
+    std::is_base_of<matrix_terminal, M>::value,
+    multispmv< M, multivector<T, N, own> >
+>::type
+operator*(const M &A, const multivector<T, N, own> &x) {
+    return multispmv< M, multivector<T, N, own> >(A, x);
+}
+
+#endif
 
 /// Sparse matrix in hybrid ELL-CSR format.
 template <typename real, typename column_t = size_t, typename idx_t = size_t>

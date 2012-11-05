@@ -1201,6 +1201,25 @@ get(const T &t) {
 
 //--- Multivector grammar ---------------------------------------------------
 
+struct additive_multivector_transform {};
+
+struct additive_multivector_transform_grammar
+    : boost::proto::or_<
+        boost::proto::terminal< additive_multivector_transform >,
+	boost::proto::plus<
+	    additive_multivector_transform_grammar,
+	    additive_multivector_transform_grammar
+	>,
+	boost::proto::minus<
+	    additive_multivector_transform_grammar,
+	    additive_multivector_transform_grammar
+	>,
+	boost::proto::negate<
+	    additive_multivector_transform_grammar
+	>
+      >
+{};
+
 struct multivector_expr_grammar
     : boost::proto::or_<
 	  boost::proto::or_<
@@ -1215,13 +1234,23 @@ struct multivector_expr_grammar
       >
 {};
 
+struct multivector_full_grammar
+    : boost::proto::or_<
+	multivector_expr_grammar,
+	boost::proto::terminal< additive_multivector_transform >,
+	boost::proto::plus< multivector_full_grammar, multivector_full_grammar >,
+	boost::proto::minus< multivector_full_grammar, multivector_full_grammar >,
+	boost::proto::negate< multivector_full_grammar >
+      >
+{};
+
 template <class Expr>
 struct multivector_expression;
 
 struct multivector_domain
     : boost::proto::domain<
 	boost::proto::generator<multivector_expression>,
-	multivector_expr_grammar
+	multivector_full_grammar
       >
 { };
 
@@ -1568,6 +1597,78 @@ struct extract_subexpression
 	    >
 	>
     >
+{};
+
+struct extract_multivector_expressions
+    : boost::proto::or_<
+	  boost::proto::when<multivector_expr_grammar, boost::proto::_>,
+	  boost::proto::when<
+	     boost::proto::plus<
+		multivector_full_grammar,
+		additive_multivector_transform_grammar
+	     >,
+	     extract_multivector_expressions(boost::proto::_left)
+	  >,
+	  boost::proto::when<
+	     boost::proto::plus<
+		additive_multivector_transform_grammar,
+		multivector_full_grammar
+	     >,
+	     extract_multivector_expressions(boost::proto::_right)
+	  >,
+	  boost::proto::when<
+	     boost::proto::minus<
+		multivector_full_grammar,
+		additive_multivector_transform_grammar
+	     >,
+	     extract_multivector_expressions(boost::proto::_left)
+	  >,
+	  boost::proto::when<
+	     boost::proto::minus<
+		additive_multivector_transform_grammar,
+		multivector_full_grammar
+	     >,
+	     boost::proto::_make_negate(
+		    extract_multivector_expressions(boost::proto::_right)
+		    )
+	  >,
+	  boost::proto::when<
+	     boost::proto::binary_expr<boost::proto::_,
+		extract_multivector_expressions,
+		extract_multivector_expressions
+	     >
+	  >
+      >
+{};
+
+struct extract_additive_multivector_transforms
+    : boost::proto::or_<
+	  boost::proto::when<additive_multivector_transform_grammar, boost::proto::_>
+	, boost::proto::when<
+	     boost::proto::plus<multivector_full_grammar, multivector_expr_grammar >,
+	     extract_additive_multivector_transforms(boost::proto::_left)
+	  >
+	, boost::proto::when<
+	     boost::proto::plus< multivector_expr_grammar, multivector_full_grammar >,
+	     extract_additive_multivector_transforms(boost::proto::_right)
+	  >
+	, boost::proto::when<
+	     boost::proto::minus<multivector_full_grammar, multivector_expr_grammar >,
+	     extract_additive_multivector_transforms(boost::proto::_left)
+	  >
+	, boost::proto::when<
+	     boost::proto::minus<multivector_expr_grammar, multivector_full_grammar >,
+	     boost::proto::_make_negate(
+		     extract_additive_multivector_transforms(boost::proto::_right)
+		     )
+	  >
+	, boost::proto::when<
+	     boost::proto::binary_expr<boost::proto::_,
+		extract_additive_multivector_transforms,
+		extract_additive_multivector_transforms
+	     >
+	  >
+      >
 {};
 
 /// \endcond

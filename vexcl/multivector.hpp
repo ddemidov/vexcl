@@ -306,7 +306,14 @@ struct multivector
 	 * All operations are delegated to components of the multivector.
 	 */
 	template <class Expr>
-	const multivector& operator=(const Expr& expr) {
+	typename std::enable_if<
+	    boost::proto::matches<
+		typename boost::proto::result_of::as_expr<Expr>::type,
+		multivector_expr_grammar
+	    >::value,
+	    const multivector&
+	>::type
+	operator=(const Expr& expr) {
 	    const std::vector<cl::CommandQueue> &queue = vec[0]->queue_list();
 
 	    for(auto q = queue.begin(); q != queue.end(); q++) {
@@ -495,6 +502,50 @@ struct multivector
 	    return *this;
 	}
 #endif
+
+	template <class Expr>
+	typename std::enable_if<
+	    boost::proto::matches<
+		typename boost::proto::result_of::as_expr<Expr>::type,
+		additive_multivector_transform_grammar
+	    >::value,
+	    const multivector&
+	>::type
+	operator=(const Expr &expr) {
+	    additive_vector_transform_context< multivector > ctx(*this);
+
+	    boost::proto::eval(
+		    simplify_additive_transform()( expr ),
+		    ctx
+		    );
+	    return *this;
+	}
+
+	template <class Expr>
+	typename std::enable_if<
+	    !boost::proto::matches<
+		typename boost::proto::result_of::as_expr<Expr>::type,
+		multivector_expr_grammar
+	    >::value &&
+	    !boost::proto::matches<
+		typename boost::proto::result_of::as_expr<Expr>::type,
+		additive_multivector_transform_grammar
+	    >::value,
+	    const multivector&
+	>::type
+	operator=(const Expr &expr) {
+	    *this = extract_multivector_expressions()( expr );
+
+	    additive_vector_transform_context< multivector > ctx(*this, true);
+
+	    boost::proto::eval(
+		    simplify_additive_transform()(
+			extract_additive_multivector_transforms()( expr )
+			),
+		    ctx
+		    );
+	    return *this;
+	}
 
 #define COMPOUND_ASSIGNMENT(cop, op) \
 	template <class Expr> \

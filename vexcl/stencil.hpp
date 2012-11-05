@@ -60,6 +60,31 @@ struct conv
     }
 };
 
+#ifdef VEXCL_MULTIVECTOR_HPP
+
+template <class S, class V>
+struct multiconv
+    : multivector_expression<
+	boost::proto::terminal< additive_multivector_transform >::type
+      >
+{
+    const S &s;
+    const V &x;
+
+    multiconv(const S &s, const V &x) : s(s), x(x) {}
+
+    template <typename T, size_t N, bool own>
+    void apply(multivector<T, N, own> &y, float alpha = 1, bool append = false) const {
+	static_assert(number_of_components<V>::value == N,
+		"Incompatible multivector dimensions in stencil convolution");
+
+	for(int i = 0; i < N; i++)
+	    s.convolve(x(i), y(i), append ? 1 : 0, alpha);
+    }
+};
+
+#endif
+
 template <typename T>
 class stencil_base {
     protected:
@@ -490,6 +515,22 @@ conv< stencil<T>, vector<T> > operator*(const vector<T> &x, const stencil<T> &s)
     return conv< stencil<T>, vector<T> >(s, x);
 }
 
+#ifdef VEXCL_MULTIVECTOR_HPP
+
+template <typename T, size_t N, bool own>
+multiconv< stencil<T>, multivector<T, N, own> >
+operator*( const stencil<T> &s, const multivector<T, N, own> &x ) {
+    return multiconv< stencil<T>, multivector<T, N, own> >(s, x);
+}
+
+template <typename T, size_t N, bool own>
+multiconv< stencil<T>, multivector<T, N, own> >
+operator*( const multivector<T, N, own> &x, const stencil<T> &s ) {
+    return multiconv< stencil<T>, multivector<T, N, own> >(s, x);
+}
+
+#endif
+
 /// User-defined stencil operator
 /**
  * Is used to define custom stencil operator. For example, to implement the
@@ -514,6 +555,14 @@ class StencilOperator : public stencil_base<T> {
 	operator()(const vector<T> &x) const {
 	    return conv< StencilOperator, vector<T> >(*this, x);
 	}
+
+#ifdef VEXCL_MULTIVECTOR_HPP
+	template <size_t N, bool own>
+	multiconv< StencilOperator, multivector<T, N, own> >
+	operator()(const multivector<T, N, own> &x) const {
+	    return multiconv< StencilOperator, multivector<T, N, own> >(*this, x);
+	}
+#endif
 
 	void convolve(const vex::vector<T> &x, vex::vector<T> &y,
 		T alpha = 0, T beta = 1) const;
