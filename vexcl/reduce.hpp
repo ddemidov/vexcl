@@ -45,11 +45,72 @@ THE SOFTWARE.
 
 namespace vex {
 
-/// Possible kinds of reduction.
-enum ReductionKind {
-    SUM = 0,
-    MAX = 1,
-    MIN = 2
+/// \cond INTERNAL
+extern const char sum_oper[] = "return prm1 + prm2;";
+extern const char max_oper[] = "return max(prm1, prm2);";
+extern const char min_oper[] = "return min(prm1, prm2);";
+/// \endcond
+
+/// Summation. Should be used as a template parameter for Reductor class.
+struct SUM {
+    template <typename T>
+    static T initial() {
+	return static_cast<T>(0);
+    };
+
+    template <typename T>
+    struct function {
+	typedef UserFunction<sum_oper, T(T, T)> type;
+    };
+
+    template <class Iterator>
+    static typename std::iterator_traits<Iterator>::value_type
+    reduce(Iterator begin, Iterator end) {
+	return std::accumulate(begin, end,
+		initial<typename std::iterator_traits<Iterator>::value_type>()
+		);
+    }
+};
+
+/// Maximum element. Should be used as a template parameter for Reductor class.
+struct MAX {
+    template <typename T>
+    static T initial() {
+	// Strictly speaking, this should fail for unsigned types.
+	// But negating maximum possible unsigned value gives 0 on
+	// 2s complement systems, so...
+	return -std::numeric_limits<T>::max();
+    };
+
+    template <typename T>
+    struct function {
+	typedef UserFunction<max_oper, T(T, T)> type;
+    };
+
+    template <class Iterator>
+    static typename std::iterator_traits<Iterator>::value_type
+    reduce(Iterator begin, Iterator end) {
+	return *std::max_element(begin, end);
+    }
+};
+
+/// Minimum element. Should be used as a template parameter for Reductor class.
+struct MIN {
+    template <typename T>
+    static T initial() {
+	return std::numeric_limits<T>::max();
+    };
+
+    template <typename T>
+    struct function {
+	typedef UserFunction<min_oper, T(T, T)> type;
+    };
+
+    template <class Iterator>
+    static typename std::iterator_traits<Iterator>::value_type
+    reduce(Iterator begin, Iterator end) {
+	return *std::min_element(begin, end);
+    }
 };
 
 /// Parallel reduction of arbitrary expression.
@@ -58,7 +119,7 @@ enum ReductionKind {
  * parameter. One Reductor class for each reduction kind is enough per thread
  * of execution.
  */
-template <typename real, ReductionKind RDC>
+template <typename real, class RDC>
 class Reductor {
     public:
 	/// Constructor.
@@ -99,32 +160,6 @@ class Reductor {
 	    static std::map<cl_context, size_t>     wgsize;
 	};
 
-	static real initial_value() {
-	    switch (RDC) {
-		case SUM:
-		    return 0;
-		case MAX:
-		    // Strictly speaking, this should fail for unsigned types.
-		    // But negating maximum possible unsigned value gives 0 on
-		    // 2s complement systems, so...
-		    return -std::numeric_limits<real>::max();
-		case MIN:
-		    return std::numeric_limits<real>::max();
-	    }
-	}
-
-	template <class Expr>
-	std::string cpu_kernel_source(
-		const cl::Context &context, const Expr &expr,
-		const std::string &kernel_name
-		) const;
-
-	template <class Expr>
-	std::string gpu_kernel_source(
-		const cl::Context &context, const Expr &expr,
-		const std::string &kernel_name
-		) const;
-
 	template <size_t I, size_t N, class Expr>
 	typename std::enable_if<I == N, void>::type
 	assign_subexpressions(std::array<real, N> &result, const Expr &expr) const
@@ -140,16 +175,16 @@ class Reductor {
 	}
 };
 
-template <typename real, ReductionKind RDC> template <class Expr>
+template <typename real, class RDC> template <class Expr>
 std::map<cl_context, bool> Reductor<real,RDC>::exdata<Expr>::compiled;
 
-template <typename real, ReductionKind RDC> template <class Expr>
+template <typename real, class RDC> template <class Expr>
 std::map<cl_context, cl::Kernel> Reductor<real,RDC>::exdata<Expr>::kernel;
 
-template <typename real, ReductionKind RDC> template <class Expr>
+template <typename real, class RDC> template <class Expr>
 std::map<cl_context, size_t> Reductor<real,RDC>::exdata<Expr>::wgsize;
 
-template <typename real, ReductionKind RDC>
+template <typename real, class RDC>
 Reductor<real,RDC>::Reductor(const std::vector<cl::CommandQueue> &queue)
     : queue(queue), event(queue.size())
 {
@@ -169,7 +204,7 @@ Reductor<real,RDC>::Reductor(const std::vector<cl::CommandQueue> &queue)
     hbuf.resize(idx.back());
 }
 
-template <typename real, ReductionKind RDC> template <class Expr>
+template <typename real, class RDC> template <class Expr>
 typename std::enable_if<
     boost::proto::matches<Expr, vector_expr_grammar>::value,
     real
@@ -189,15 +224,85 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
 	    kernel_name << "reduce_";
 	    boost::proto::eval(expr, name_ctx);
 
-	    std::string source = device_is_cpu ?
-		cpu_kernel_source(context, expr, kernel_name.str()) :
-		gpu_kernel_source(context, expr, kernel_name.str()) ;
+	    std::ostringstream increment_line;
+	    vector_expr_context expr_ctx(increment_line);
+
+	    increment_line << "mySum = reduce_operation(mySum, ";
+	    boost::proto::eval(expr, expr_ctx);
+	    increment_line << ");\n";
+
+	    std::ostringstream source;
+	    source << standard_kernel_header;
+
+	    RDC::template function<real>::type::define(source, "reduce_operation");
+
+	    extract_user_functions()( expr, declare_user_function(source) );
+
+	    source << "kernel void " << kernel_name.str() << "(\n\t"
+		<< type_name<size_t>() << " n";
+
+	    extract_terminals()( expr, declare_expression_parameter(source) );
+
+	    source << ",\n\tglobal " << type_name<real>() << " *g_odata,\n"
+		"\tlocal  " << type_name<real>() << " *sdata\n"
+		"\t)\n"
+		"{\n";
+	    if (device_is_cpu) {
+		source <<
+		    "    size_t grid_size  = get_global_size(0);\n"
+		    "    size_t chunk_size = (n + grid_size - 1) / grid_size;\n"
+		    "    size_t chunk_id   = get_global_id(0);\n"
+		    "    size_t start      = min(n, chunk_size * chunk_id);\n"
+		    "    size_t stop       = min(n, chunk_size * (chunk_id + 1));\n"
+		    "    " << type_name<real>() << " mySum = " << RDC::template initial<real>() << ";\n"
+		    "    for (size_t idx = start; idx < stop; idx++) {\n"
+		    "        " << increment_line.str() <<
+		    "    }\n"
+		    "\n"
+		    "    g_odata[get_group_id(0)] = mySum;\n"
+		    "}\n";
+	    } else {
+		source <<
+		    "    size_t tid        = get_local_id(0);\n"
+		    "    size_t block_size = get_local_size(0);\n"
+		    "    size_t p          = get_group_id(0) * block_size * 2 + tid;\n"
+		    "    size_t gridSize   = get_num_groups(0) * block_size * 2;\n"
+		    "    size_t idx;\n"
+		    "    " << type_name<real>() << " mySum = " << RDC::template initial<real>() << ";\n"
+		    "    while (p < n) {\n"
+		    "        idx = p;\n"
+		    "        " << increment_line.str() <<
+		    "        idx = p + block_size;\n"
+		    "        if (idx < n)\n"
+		    "            " << increment_line.str() <<
+		    "        p += gridSize;\n"
+		    "    }\n"
+		    "    sdata[tid] = mySum;\n"
+		    "\n"
+		    "    barrier(CLK_LOCAL_MEM_FENCE);\n"
+		    "    if (block_size >= 1024) { if (tid < 512) { sdata[tid] = mySum = reduce_operation(mySum, sdata[tid + 512]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
+		    "    if (block_size >=  512) { if (tid < 256) { sdata[tid] = mySum = reduce_operation(mySum, sdata[tid + 256]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
+		    "    if (block_size >=  256) { if (tid < 128) { sdata[tid] = mySum = reduce_operation(mySum, sdata[tid + 128]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
+		    "    if (block_size >=  128) { if (tid <  64) { sdata[tid] = mySum = reduce_operation(mySum, sdata[tid +  64]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
+		    "\n"
+		    "    if (tid < 32) {\n"
+		    "        local volatile " << type_name<real>() << "* smem = sdata;\n"
+		    "        if (block_size >=  64) { smem[tid] = mySum = reduce_operation(mySum, smem[tid + 32]); }\n"
+		    "        if (block_size >=  32) { smem[tid] = mySum = reduce_operation(mySum, smem[tid + 16]); }\n"
+		    "        if (block_size >=  16) { smem[tid] = mySum = reduce_operation(mySum, smem[tid +  8]); }\n"
+		    "        if (block_size >=   8) { smem[tid] = mySum = reduce_operation(mySum, smem[tid +  4]); }\n"
+		    "        if (block_size >=   4) { smem[tid] = mySum = reduce_operation(mySum, smem[tid +  2]); }\n"
+		    "        if (block_size >=   2) { smem[tid] = mySum = reduce_operation(mySum, smem[tid +  1]); }\n"
+		    "    }\n"
+		    "    if (tid == 0) g_odata[get_group_id(0)] = sdata[0];\n"
+		    "}\n";
+	    }
 
 #ifdef VEXCL_SHOW_KERNELS
-	    std::cout << source << std::endl;
+	    std::cout << source.str() << std::endl;
 #endif
 
-	    auto program = build_sources(context, source);
+	    auto program = build_sources(context, source.str());
 
 	    exdata<Expr>::kernel[context()]   = cl::Kernel(program, kernel_name.str().c_str());
 	    exdata<Expr>::compiled[context()] = true;
@@ -245,7 +350,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
 	}
     }
 
-    std::fill(hbuf.begin(), hbuf.end(), initial_value());
+    std::fill(hbuf.begin(), hbuf.end(), RDC::template initial<real>());
 
     for(uint d = 0; d < queue.size(); d++) {
 	if (prop.part_size(d))
@@ -256,19 +361,11 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
     for(uint d = 0; d < queue.size(); d++)
 	if (prop.part_size(d)) event[d].wait();
 
-    switch(RDC) {
-	case SUM:
-	    return std::accumulate(
-		    hbuf.begin(), hbuf.end(), static_cast<real>(0));
-	case MAX:
-	    return *std::max_element(hbuf.begin(), hbuf.end());
-	case MIN:
-	    return *std::min_element(hbuf.begin(), hbuf.end());
-    }
+    return RDC::reduce(hbuf.begin(), hbuf.end());
 }
 
 #ifdef VEXCL_MULTIVECTOR_HPP
-template <typename real, ReductionKind RDC> template <class Expr>
+template <typename real, class RDC> template <class Expr>
 typename std::enable_if<
     boost::proto::matches<Expr, multivector_expr_grammar>::value,
     std::array<real, boost::result_of<mutltiex_dimension(Expr)>::type::value>
@@ -282,188 +379,6 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
     return result;
 }
 #endif
-
-template <typename real, ReductionKind RDC> template <class Expr>
-std::string Reductor<real,RDC>::gpu_kernel_source(
-	const cl::Context &context, const Expr &expr,
-	const std::string &kernel_name) const
-{
-    std::vector<cl::Device> device = context.getInfo<CL_CONTEXT_DEVICES>();
-
-    std::ostringstream source;
-
-    std::ostringstream increment_line;
-    vector_expr_context expr_ctx(increment_line);
-
-    switch (RDC) {
-	case SUM:
-	    increment_line << "mySum += ";
-	    boost::proto::eval(expr, expr_ctx);
-	    increment_line << ";\n";
-	    break;
-	case MAX:
-	    increment_line << "mySum = max(mySum, ";
-	    boost::proto::eval(expr, expr_ctx);
-	    increment_line << ");\n";
-	    break;
-	case MIN:
-	    increment_line << "mySum = min(mySum, ";
-	    boost::proto::eval(expr, expr_ctx);
-	    increment_line << ");\n";
-	    break;
-    }
-
-    source << standard_kernel_header;
-
-    extract_user_functions()( expr, declare_user_function(source) );
-
-    source << "kernel void " << kernel_name << "(\n\t"
-	   << type_name<size_t>() << " n";
-
-    extract_terminals()( expr, declare_expression_parameter(source) );
-
-    source << ",\n\tglobal " << type_name<real>() << " *g_odata,\n"
-	"\tlocal  " << type_name<real>() << " *sdata\n"
-	"\t)\n"
-	"{\n"
-	"    size_t tid        = get_local_id(0);\n"
-	"    size_t block_size = get_local_size(0);\n"
-	"    size_t p          = get_group_id(0) * block_size * 2 + tid;\n"
-	"    size_t gridSize   = get_num_groups(0) * block_size * 2;\n"
-	"    size_t idx;\n"
-	"    " << type_name<real>() << " mySum = " << initial_value() << ";\n"
-	"    while (p < n) {\n"
-	"        idx = p;\n"
-	"        " << increment_line.str() <<
-	"        idx = p + block_size;\n"
-	"        if (idx < n)\n"
-	"            " << increment_line.str() <<
-	"        p += gridSize;\n"
-	"    }\n"
-	"    sdata[tid] = mySum;\n"
-	"\n";
-
-    switch (RDC) {
-	case SUM:
-	    source <<
-		"    barrier(CLK_LOCAL_MEM_FENCE);\n"
-		"    if (block_size >= 1024) { if (tid < 512) { sdata[tid] = mySum = mySum + sdata[tid + 512]; } barrier(CLK_LOCAL_MEM_FENCE); }\n"
-		"    if (block_size >=  512) { if (tid < 256) { sdata[tid] = mySum = mySum + sdata[tid + 256]; } barrier(CLK_LOCAL_MEM_FENCE); }\n"
-		"    if (block_size >=  256) { if (tid < 128) { sdata[tid] = mySum = mySum + sdata[tid + 128]; } barrier(CLK_LOCAL_MEM_FENCE); }\n"
-		"    if (block_size >=  128) { if (tid <  64) { sdata[tid] = mySum = mySum + sdata[tid +  64]; } barrier(CLK_LOCAL_MEM_FENCE); }\n"
-		"\n"
-		"    if (tid < 32) {\n"
-		"        local volatile " << type_name<real>() << "* smem = sdata;\n"
-		"        if (block_size >=  64) { smem[tid] = mySum = mySum + smem[tid + 32]; }\n"
-		"        if (block_size >=  32) { smem[tid] = mySum = mySum + smem[tid + 16]; }\n"
-		"        if (block_size >=  16) { smem[tid] = mySum = mySum + smem[tid +  8]; }\n"
-		"        if (block_size >=   8) { smem[tid] = mySum = mySum + smem[tid +  4]; }\n"
-		"        if (block_size >=   4) { smem[tid] = mySum = mySum + smem[tid +  2]; }\n"
-		"        if (block_size >=   2) { smem[tid] = mySum = mySum + smem[tid +  1]; }\n"
-		"    }\n";
-	    break;
-	case MAX:
-	    source <<
-		"    barrier(CLK_LOCAL_MEM_FENCE);\n"
-		"    if (block_size >= 1024) { if (tid < 512) { sdata[tid] = mySum = max(mySum, sdata[tid + 512]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
-		"    if (block_size >=  512) { if (tid < 256) { sdata[tid] = mySum = max(mySum, sdata[tid + 256]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
-		"    if (block_size >=  256) { if (tid < 128) { sdata[tid] = mySum = max(mySum, sdata[tid + 128]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
-		"    if (block_size >=  128) { if (tid <  64) { sdata[tid] = mySum = max(mySum, sdata[tid +  64]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
-		"\n"
-		"    if (tid < 32) {\n"
-		"        local volatile " << type_name<real>() << "* smem = sdata;\n"
-		"        if (block_size >=  64) { smem[tid] = mySum = max(mySum, smem[tid + 32]); }\n"
-		"        if (block_size >=  32) { smem[tid] = mySum = max(mySum, smem[tid + 16]); }\n"
-		"        if (block_size >=  16) { smem[tid] = mySum = max(mySum, smem[tid +  8]); }\n"
-		"        if (block_size >=   8) { smem[tid] = mySum = max(mySum, smem[tid +  4]); }\n"
-		"        if (block_size >=   4) { smem[tid] = mySum = max(mySum, smem[tid +  2]); }\n"
-		"        if (block_size >=   2) { smem[tid] = mySum = max(mySum, smem[tid +  1]); }\n"
-		"    }\n";
-	    break;
-	case MIN:
-	    source <<
-		"    barrier(CLK_LOCAL_MEM_FENCE);\n"
-		"    if (block_size >= 1024) { if (tid < 512) { sdata[tid] = mySum = min(mySum, sdata[tid + 512]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
-		"    if (block_size >=  512) { if (tid < 256) { sdata[tid] = mySum = min(mySum, sdata[tid + 256]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
-		"    if (block_size >=  256) { if (tid < 128) { sdata[tid] = mySum = min(mySum, sdata[tid + 128]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
-		"    if (block_size >=  128) { if (tid <  64) { sdata[tid] = mySum = min(mySum, sdata[tid +  64]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
-		"\n"
-		"    if (tid < 32) {\n"
-		"        local volatile " << type_name<real>() << "* smem = sdata;\n"
-		"        if (block_size >=  64) { smem[tid] = mySum = min(mySum, smem[tid + 32]); }\n"
-		"        if (block_size >=  32) { smem[tid] = mySum = min(mySum, smem[tid + 16]); }\n"
-		"        if (block_size >=  16) { smem[tid] = mySum = min(mySum, smem[tid +  8]); }\n"
-		"        if (block_size >=   8) { smem[tid] = mySum = min(mySum, smem[tid +  4]); }\n"
-		"        if (block_size >=   4) { smem[tid] = mySum = min(mySum, smem[tid +  2]); }\n"
-		"        if (block_size >=   2) { smem[tid] = mySum = min(mySum, smem[tid +  1]); }\n"
-		"    }\n";
-	    break;
-    }
-
-    source <<
-	"    if (tid == 0) g_odata[get_group_id(0)] = sdata[0];\n"
-	"}\n";
-
-    return source.str();
-}
-
-template <typename real, ReductionKind RDC> template <class Expr>
-std::string Reductor<real,RDC>::cpu_kernel_source(
-	const cl::Context &context, const Expr &expr,
-	const std::string &kernel_name) const
-{
-    std::vector<cl::Device> device = context.getInfo<CL_CONTEXT_DEVICES>();
-
-    std::ostringstream source;
-
-    std::ostringstream increment_line;
-    vector_expr_context expr_ctx(increment_line);
-
-    switch (RDC) {
-	case SUM:
-	    increment_line << "mySum += ";
-	    boost::proto::eval(expr, expr_ctx);
-	    increment_line << ";\n";
-	    break;
-	case MAX:
-	    increment_line << "mySum = max(mySum, ";
-	    boost::proto::eval(expr, expr_ctx);
-	    increment_line << ");\n";
-	    break;
-	case MIN:
-	    increment_line << "mySum = min(mySum, ";
-	    boost::proto::eval(expr, expr_ctx);
-	    increment_line << ");\n";
-	    break;
-    }
-
-    source << standard_kernel_header;
-
-    extract_user_functions()( expr, declare_user_function(source) );
-
-    source << "kernel void " << kernel_name << "(" << type_name<size_t>() << " n";
-
-    extract_terminals()( expr, declare_expression_parameter(source) );
-
-    source << ",\n\tglobal " << type_name<real>() << " *g_odata,\n"
-	"\tlocal  " << type_name<real>() << " *sdata\n"
-	"\t)\n"
-	"{\n"
-	"    size_t grid_size  = get_global_size(0);\n"
-	"    size_t chunk_size = (n + grid_size - 1) / grid_size;\n"
-	"    size_t chunk_id   = get_global_id(0);\n"
-	"    size_t start      = min(n, chunk_size * chunk_id);\n"
-	"    size_t stop       = min(n, chunk_size * (chunk_id + 1));\n"
-	"    " << type_name<real>() << " mySum = " << initial_value() << ";\n"
-	"    for (size_t idx = start; idx < stop; idx++) {\n"
-	"        " << increment_line.str() <<
-	"    }\n"
-	"\n"
-	"    g_odata[get_group_id(0)] = mySum;\n"
-	"}\n";
-
-    return source.str();
-}
 
 } // namespace vex
 
