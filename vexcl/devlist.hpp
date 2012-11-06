@@ -310,6 +310,9 @@ namespace Filter {
     ExclusiveFilter<Filter> Exclusive(const Filter &filter) {
 	return ExclusiveFilter<Filter>(filter);
     }
+
+    /// \cond INTERNAL
+
     /// Negation of a filter.
     template <class Flt>
 	struct NegateFilter {
@@ -322,8 +325,6 @@ namespace Filter {
 	    private:
 	    const Flt &flt;
 	};
-
-    /// \cond INTERNAL
 
     /// Filter join operators.
     enum FilterOp {
