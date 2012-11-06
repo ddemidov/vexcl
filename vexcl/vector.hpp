@@ -698,42 +698,6 @@ struct vector
 	    }
 	    if (hostptr) write_data(0, size(), hostptr, CL_TRUE);
 	}
-
-	struct assign_spmv_context {
-	    vector &v;
-
-	    assign_spmv_context(vector &v) : v(v) {}
-
-	    template <typename Expr, typename Tag = typename Expr::proto_tag>
-	    struct eval {};
-
-	    template <typename Expr>
-	    struct eval<Expr, boost::proto::tag::plus> {
-		typedef void result_type;
-
-		template <typename Term>
-		void operator()(const Term &term, assign_spmv_context &ctx) const {
-		    std::cout << "left: " << sizeof(term) << " ";
-		    boost::proto::display_expr(boost::proto::left(term));
-		    std::cout << "right: " << sizeof(term) << " ";
-		    boost::proto::display_expr(boost::proto::right(term));
-		    ctx.v = boost::proto::left(term);
-		    boost::proto::right(term).mul(ctx.v);
-		}
-	    };
-
-	    template <typename Expr>
-	    struct eval<Expr, boost::proto::tag::terminal> {
-		typedef void result_type;
-
-		template <class Term>
-		void operator()(const Term &term, assign_spmv_context &ctx) const {
-		    std::cout << "spmv: " << sizeof(term) << " ";
-		    boost::proto::display_expr(term);
-		    //spmv.mul(ctx.v);
-		}
-	    };
-	};
 };
 
 template <class T> template <class Expr>
