@@ -266,7 +266,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
 		    "    size_t tid        = get_local_id(0);\n"
 		    "    size_t block_size = get_local_size(0);\n"
 		    "    size_t p          = get_group_id(0) * block_size * 2 + tid;\n"
-		    "    size_t gridSize   = get_num_groups(0) * block_size * 2;\n"
+		    "    size_t gridSize   = get_global_size(0) * 2;\n"
 		    "    size_t idx;\n"
 		    "    " << type_name<real>() << " mySum = " << RDC::template initial<real>() << ";\n"
 		    "    while (p < n) {\n"
