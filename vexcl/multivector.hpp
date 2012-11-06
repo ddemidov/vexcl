@@ -26,7 +26,7 @@ THE SOFTWARE.
 */
 
 /**
- * \file   vector.hpp
+ * \file   multivector.hpp
  * \author Denis Demidov <ddemidov@ksu.ru>
  * \brief  OpenCL device multi-vector.
  */
