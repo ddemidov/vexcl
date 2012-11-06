@@ -71,6 +71,11 @@ struct multivector_storage<T, false> {
 
 /// \endcond
 
+/// Container for several vex::vectors.
+/**
+ * This class allows to synchronously operate on several vex::vectors of the
+ * same type and size.
+ */
 template <typename T, size_t N, bool own>
 struct multivector
     : multivector_expression<
