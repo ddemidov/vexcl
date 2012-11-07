@@ -77,8 +77,8 @@ struct multivector_storage<T, false> {
  * same type and size.
  */
 template <typename T, size_t N, bool own>
-struct multivector
-    : multivector_expression<
+class multivector
+    : public multivector_expression<
 	typename boost::proto::terminal< multivector_terminal >::type
       >
 {

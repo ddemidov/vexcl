@@ -2,6 +2,7 @@ set(EXAMPLES
     benchmark
     cg
     devlist
+    exclusive
     utests
     vector
     )
@@ -16,17 +17,16 @@ if (WIN32)
     include_directories(${OPENCL_INCLUDE})
 
     set(Boost_USE_STATIC_LIBS ON)
-    find_package(Boost COMPONENTS date_time QUIET)
-    if (Boost_FOUND)
-	include_directories(${Boost_INCLUDE_DIRS})
-	set(EXAMPLES ${EXAMPLES} exclusive)
-    endif (Boost_FOUND)
+    find_package(Boost COMPONENTS date_time)
 else (WIN32)
     find_library(OPENCL_LIBRARY OpenCL)
-    set(EXAMPLES ${EXAMPLES} exclusive)
+    find_package(Boost)
 endif (WIN32)
 
-include_directories(${CMAKE_SOURCE_DIR})
+include_directories(
+    ${CMAKE_SOURCE_DIR}
+    ${Boost_INCLUDE_DIRS}
+    )
 
 find_path(ODEINT boost/numeric/odeint.hpp)
 if (ODEINT)
@@ -46,7 +46,7 @@ foreach(example ${EXAMPLES})
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -stdlib=libc++")
     endif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
 
-    if (WIN32 AND "${example}" STREQUAL "exclusive")
+    if (WIN32)
 	target_link_libraries(${example} ${Boost_DATE_TIME_LIBRARY})
-    endif(WIN32 AND "${example}" STREQUAL "exclusive")
+    endif(WIN32)
 endforeach(example)

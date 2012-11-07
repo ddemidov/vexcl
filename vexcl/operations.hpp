@@ -481,7 +481,7 @@ struct extract_user_functions
 //---------------------------------------------------------------------------
 
 struct vector_terminal {};
-template <typename T> struct vector;
+template <typename T> class vector;
 
 //--- Vector grammar --------------------------------------------------------
 struct vector_expr_grammar
@@ -1122,7 +1122,7 @@ inline T& get(T t[N]) {
 struct multivector_terminal {};
 
 template <typename T, size_t N, bool own = true>
-struct multivector;
+class multivector;
 
 template <typename T, size_t N, bool own>
 struct number_of_components< multivector<T, N, own> >

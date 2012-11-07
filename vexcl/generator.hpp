@@ -134,7 +134,7 @@ struct symbolic_expr
 };
 
 template <typename T>
-struct symbolic;
+class symbolic;
 
 template <typename T>
 std::ostream& operator<<(std::ostream &os, const symbolic<T> &sym);
@@ -429,7 +429,7 @@ class Kernel {
 		<< "\t" << type_name<size_t>() << " n";
 
 	    declare_params declprm(source);
-	    for_each(args, declprm);
+	    for_each<0>(args, declprm);
 
 	    source <<
 		"\n)\n{\n\t"
@@ -437,12 +437,12 @@ class Kernel {
 		"idx += get_global_size(0)) {\n";
 
 	    read_params readprm(source);
-	    for_each(args, readprm);
+	    for_each<0>(args, readprm);
 
 	    source << body;
 	    
 	    write_params writeprm(source);
-	    for_each(args, writeprm);
+	    for_each<0>(args, writeprm);
 
 	    source << "\t}\n}\n";
 
@@ -528,7 +528,7 @@ class Kernel {
 		    );
 
 	    for(uint d = 0; d < queue.size(); d++) {
-		if (size_t psize = prm_size(d, param)) {
+		if (size_t psize = prm_size<0>(d, param)) {
 		    cl::Context context = qctx(queue[d]);
 		    cl::Device  device  = qdev(queue[d]);
 
@@ -536,7 +536,7 @@ class Kernel {
 		    krn[context()].setArg(pos++, psize);
 
 		    set_params setprm(krn[context()], d, pos);
-		    for_each(param, setprm);
+		    for_each<0>(param, setprm);
 
 		    size_t g_size = device.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU ?
 			alignup(psize, wgs[context()]) :
@@ -614,7 +614,7 @@ class Kernel {
 	    return v.part_size(d);
 	}
 
-	template <size_t I = 0, class PrmTuple>
+	template <size_t I, class PrmTuple>
 	typename std::enable_if<
 	    I == std::tuple_size<PrmTuple>::value, size_t
 	>::type
@@ -622,7 +622,7 @@ class Kernel {
 	    return 0;
 	}
 
-	template <size_t I = 0, class PrmTuple>
+	template <size_t I, class PrmTuple>
 	typename std::enable_if<
 	    I < std::tuple_size<PrmTuple>::value, size_t
 	>::type

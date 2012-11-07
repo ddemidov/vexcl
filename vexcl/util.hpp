@@ -160,25 +160,21 @@ inline size_t alignup(size_t n, size_t m = 16U) {
     return n % m ? n - n % m + m : n;
 }
 
-#ifndef BOOST_NO_VARIADIC_TEMPLATES
-
 /// Iterate over tuple elements.
-template <size_t I = 0, class Function, class... V>
-typename std::enable_if<(I == sizeof...(V)), void>::type
-for_each(const std::tuple<V...> &v, Function &f)
+template <size_t I, class Function, class Tuple>
+typename std::enable_if<(I == std::tuple_size<Tuple>::value), void>::type
+for_each(const Tuple &v, Function &f)
 { }
 
 /// Iterate over tuple elements.
-template <size_t I = 0, class Function, class... V>
-typename std::enable_if<(I < sizeof...(V)), void>::type
-for_each(const std::tuple<V...> &v, Function &f)
+template <size_t I, class Function, class Tuple>
+typename std::enable_if<(I < std::tuple_size<Tuple>::value), void>::type
+for_each(const Tuple &v, Function &f)
 {
     f( std::get<I>(v) );
 
     for_each<I + 1>(v, f);
 }
-
-#endif
 
 
 /// Create and build a program from source string.

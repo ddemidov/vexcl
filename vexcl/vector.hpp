@@ -182,8 +182,8 @@ inline std::vector<size_t> partition(size_t n,
 //--- Vector Type -----------------------------------------------------------
 /// Device vector.
 template <typename T>
-struct vector
-    : vector_expression< typename boost::proto::terminal< vector_terminal >::type >
+class vector
+    : public vector_expression< typename boost::proto::terminal< vector_terminal >::type >
 {
     public:
 	typedef T value_type;
@@ -398,7 +398,7 @@ struct vector
 
 	/// Access element.
 	const element operator[](size_t index) const {
-	    uint d = std::upper_bound(
+	    size_t d = std::upper_bound(
 		    part.begin(), part.end(), index) - part.begin() - 1;
 	    return element(queue[d], buf[d], index - part[d]);
 	}
