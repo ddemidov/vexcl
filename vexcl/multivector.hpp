@@ -403,24 +403,31 @@ class multivector
 	    return *this;
 	}
 
-#ifndef BOOST_NO_VARIADIC_TEMPLATES
 	/// Multi-expression assignments.
-	template <class... Expr>
-	typename std::enable_if<N == sizeof...(Expr), const multivector& >::type
-	operator=(const std::tuple<Expr...> &expr) {
-#if 0
-	    assign_components assign(vec);
-	    for_each(expr, assign);
+#ifdef BOOST_NO_VARIADIC_TEMPLATES
+	template <class... Args>
+	typename std::enable_if<N == sizeof...(Args), const multivector&>::type
+	operator=(const std::tuple<Args...> &expr) {
+	    typedef std::tuple<Args...> ExprTuple;
 #else
-	    typedef std::tuple<Expr...> MultiExpr;
-
+	template <class ExprTuple>
+	typename std::enable_if<
+	    N == std::tuple_size<ExprTuple>::value &&
+	    !boost::proto::matches<
+		typename boost::proto::result_of::as_expr<ExprTuple>::type,
+		multivector_full_grammar
+	    >::value,
+	    const multivector&
+	>::type
+	operator=(const ExprTuple &expr) {
+#endif
 	    const std::vector<cl::CommandQueue> &queue = vec[0]->queue_list();
 
 	    for(auto q = queue.begin(); q != queue.end(); q++) {
 		cl::Context context = qctx(*q);
 		cl::Device  device  = qdev(*q);
 
-		if (!exdata<MultiExpr>::compiled[context()]) {
+		if (!exdata<ExprTuple>::compiled[context()]) {
 		    std::ostringstream kernel;
 
 		    kernel << standard_kernel_header;
@@ -465,10 +472,10 @@ class multivector
 
 		    auto program = build_sources(context, kernel.str());
 
-		    exdata<MultiExpr>::kernel[context()]   = cl::Kernel(program, "multi_expr_tuple");
-		    exdata<MultiExpr>::compiled[context()] = true;
-		    exdata<MultiExpr>::wgsize[context()]   = kernel_workgroup_size(
-			    exdata<MultiExpr>::kernel[context()], device);
+		    exdata<ExprTuple>::kernel[context()]   = cl::Kernel(program, "multi_expr_tuple");
+		    exdata<ExprTuple>::compiled[context()] = true;
+		    exdata<ExprTuple>::wgsize[context()]   = kernel_workgroup_size(
+			    exdata<ExprTuple>::kernel[context()], device);
 
 		}
 	    }
@@ -479,32 +486,30 @@ class multivector
 		    cl::Device  device  = qdev(queue[d]);
 
 		    size_t g_size = device.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU ?
-			alignup(psize, exdata<MultiExpr>::wgsize[context()]) :
-			device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() * exdata<MultiExpr>::wgsize[context()] * 4;
+			alignup(psize, exdata<ExprTuple>::wgsize[context()]) :
+			device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() * exdata<ExprTuple>::wgsize[context()] * 4;
 
 		    uint pos = 0;
-		    exdata<MultiExpr>::kernel[context()].setArg(pos++, psize);
+		    exdata<ExprTuple>::kernel[context()].setArg(pos++, psize);
 
 		    for(uint i = 0; i < N; i++)
-			exdata<MultiExpr>::kernel[context()].setArg(pos++, vec[i]->operator()(d));
+			exdata<ExprTuple>::kernel[context()].setArg(pos++, vec[i]->operator()(d));
 
 		    {
-			set_arguments f(exdata<MultiExpr>::kernel[context()], d, pos);
+			set_arguments f(exdata<ExprTuple>::kernel[context()], d, pos);
 			for_each<0>(expr, f);
 		    }
 
 		    queue[d].enqueueNDRangeKernel(
-			    exdata<MultiExpr>::kernel[context()],
+			    exdata<ExprTuple>::kernel[context()],
 			    cl::NullRange,
-			    g_size, exdata<MultiExpr>::wgsize[context()]
+			    g_size, exdata<ExprTuple>::wgsize[context()]
 			    );
 		}
 	    }
-#endif
 
 	    return *this;
 	}
-#endif
 
 	template <class Expr>
 	typename std::enable_if<
@@ -526,6 +531,10 @@ class multivector
 
 	template <class Expr>
 	typename std::enable_if<
+	    boost::proto::matches<
+		typename boost::proto::result_of::as_expr<Expr>::type,
+		multivector_full_grammar
+	    >::value &&
 	    !boost::proto::matches<
 		typename boost::proto::result_of::as_expr<Expr>::type,
 		multivector_expr_grammar
@@ -606,7 +615,6 @@ class multivector
 		vec[i] = mv.vec[i];
 	}
 
-#ifndef BOOST_NO_VARIADIC_TEMPLATES
 	struct get_header {
 	    std::ostream &os;
 	    mutable int cmp_idx;
@@ -667,7 +675,6 @@ class multivector
 			);
 	    }
 	};
-#endif
 
 	std::array<typename multivector_storage<T, own>::type,N> vec;
 
@@ -731,6 +738,42 @@ tie(vex::vector<T> &head, vex::vector<Tail>&... tail) {
     std::array<vex::vector<T>*, sizeof...(Tail) + 1> ptr = {{&head, (&tail)...}};
 
     return multivector<T, sizeof...(Tail) + 1, false>(ptr);
+}
+#else
+/// Ties several vex::vectors into a multivector.
+/**
+ * The following example results in a single kernel:
+ * \code
+ * vex::vector<double> x(ctx.queue(), 1024);
+ * vex::vector<double> y(ctx.queue(), 1024);
+ *
+ * vex::tie(x,y) = std::tie( x + y, y - x );
+ * \endcode
+ * This is functionally equivalent to
+ * \code
+ * tmp_x = x + y;
+ * tmp_y = y - x;
+ * x = tmp_x;
+ * y = tmp_y;
+ * \endcode
+ * but does not use temporaries and is more efficient.
+ */
+template<typename T>
+multivector<T, 1, false> tie(vex::vector<T> &v0) {
+    std::array<vex::vector<T>*, 1> ptr = {{&v0}};
+    return multivector<T, 1, false>(ptr);
+}
+
+template<typename T>
+multivector<T, 2, false> tie(vex::vector<T> &v0, vex::vector<T> &v1) {
+    std::array<vex::vector<T>*, 2> ptr = {{&v0, &v1}};
+    return multivector<T, 2, false>(ptr);
+}
+
+template<typename T>
+multivector<T, 3, false> tie(vex::vector<T> &v0, vex::vector<T> &v1, vex::vector<T> &v2) {
+    std::array<vex::vector<T>*, 3> ptr = {{&v0, &v1, &v2}};
+    return multivector<T, 3, false>(ptr);
 }
 #endif
 
