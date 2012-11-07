@@ -398,5 +398,5 @@ inline std::ostream& operator<<(std::ostream &os, const cl::Error &e) {
 #  pragma warning(pop)
 #endif
 
-// vim: set et
+// vim: et
 #endif

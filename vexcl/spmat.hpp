@@ -1594,5 +1594,5 @@ inline double device_spmv_perf(
 #  pragma warning(pop)
 #endif
 
-// vim: set et
+// vim: et
 #endif

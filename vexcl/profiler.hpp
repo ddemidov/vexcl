@@ -298,5 +298,5 @@ inline std::ostream& operator<<(std::ostream &os, vex::profiler &prof) {
 #  pragma warning(pop)
 #endif
 
-// vim: set et
+// vim: et
 #endif

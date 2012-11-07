@@ -790,5 +790,5 @@ struct is_sequence< vex::multivector<T, N, own> > : std::false_type
 } } }
 
 
-// vim: set et
+// vim: et
 #endif

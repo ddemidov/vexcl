@@ -707,5 +707,5 @@ Kernel<2> build_kernel(
 } // namespace vex;
 
 
-// vim: set et
+// vim: et
 #endif

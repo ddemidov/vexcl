@@ -108,4 +108,4 @@ int main( int argc , char **argv )
     cout << result[0] << endl;
 }
 
-// vim: set et
+// vim: et

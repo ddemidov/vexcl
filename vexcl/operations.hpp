@@ -1673,5 +1673,5 @@ struct extract_additive_multivector_transforms
 } // namespace vex;
 
 
-// vim: set et
+// vim: et
 #endif

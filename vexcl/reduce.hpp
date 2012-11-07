@@ -386,5 +386,5 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
 #  pragma warning(pop)
 #endif
 
-// vim: set et
+// vim: et
 #endif

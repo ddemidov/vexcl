@@ -112,4 +112,4 @@ int main() {
     std::cout << "res = " << res << std::endl;
 }
 
-// vim: set et
+// vim: et

@@ -762,5 +762,5 @@ void StencilOperator<T, width, center, body>::convolve(
 #  pragma warning(pop)
 #endif
 
-// vim: set et
+// vim: et
 #endif

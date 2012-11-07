@@ -71,4 +71,4 @@ int main() {
     }
 }
 
-// vim: set et
+// vim: et

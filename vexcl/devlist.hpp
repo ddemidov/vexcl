@@ -554,5 +554,5 @@ inline std::ostream& operator<<(std::ostream &os, const vex::Context &ctx) {
 #  pragma warning(pop)
 #endif
 
-// vim: set et
+// vim: et
 #endif
