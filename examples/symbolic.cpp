@@ -26,13 +26,13 @@ struct sys_func
     const sym_value &R;
 
     sys_func(value_type sigma, value_type b, const sym_value &R)
-	: sigma(sigma), b(b), R(R) {}
+        : sigma(sigma), b(b), R(R) {}
 
     void operator()( const sym_state &x , sym_state &dxdt , value_type t ) const
     {
-	dxdt[0] = sigma * (x[1] - x[0]);
-	dxdt[1] = R * x[0] - x[1] - x[0] * x[2];
-	dxdt[2] = x[0] * x[1] - b * x[2];
+        dxdt[0] = sigma * (x[1] - x[0]);
+        dxdt[1] = R * x[0] - x[1] - x[0] * x[2];
+        dxdt[2] = x[0] * x[1] - b * x[2];
     }
 };
 
@@ -55,9 +55,9 @@ int main( int argc , char **argv )
 
     // State types that would become kernel parameters:
     sym_state sym_S = {{
-	sym_value::VectorParameter,
-	sym_value::VectorParameter,
-	sym_value::VectorParameter
+        sym_value::VectorParameter,
+        sym_value::VectorParameter,
+        sym_value::VectorParameter
     }};
 
     // Const kernel parameter.
@@ -74,16 +74,16 @@ int main( int argc , char **argv )
      */
     // Symbolic stepper:
     odeint::runge_kutta4<
-	    sym_state , value_type , sym_state , value_type ,
-	    odeint::range_algebra , odeint::default_operations
-	    > sym_stepper;
+            sym_state , value_type , sym_state , value_type ,
+            odeint::range_algebra , odeint::default_operations
+            > sym_stepper;
 
     sys_func sys(10.0, 8.0 / 3.0, sym_R);
     sym_stepper.do_step(std::ref(sys), sym_S, 0, dt);
 
     auto kernel = vex::generator::build_kernel(ctx.queue(), "lorenz", body.str(),
-	    sym_S[0], sym_S[1], sym_S[2], sym_R
-	    );
+            sym_S[0], sym_S[1], sym_S[2], sym_R
+            );
 
     // Real state initialization:
     value_type Rmin = 0.1 , Rmax = 50.0 , dR = ( Rmax - Rmin ) / value_type( n - 1 );
@@ -101,9 +101,11 @@ int main( int argc , char **argv )
 
     // Integration loop:
     for(value_type t = 0; t < t_max; t += dt)
-	kernel(X, Y, Z, R);
+        kernel(X, Y, Z, R);
 
     std::vector< value_type > result( n );
     vex::copy( X , result );
     cout << result[0] << endl;
 }
+
+// vim: set et

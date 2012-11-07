@@ -21,8 +21,8 @@ typedef double real;
 
 //---------------------------------------------------------------------------
 std::pair<double,double> benchmark_vector(
-	const std::vector<cl::CommandQueue> &queue, profiler &prof
-	)
+        const std::vector<cl::CommandQueue> &queue, profiler &prof
+        )
 {
     const size_t N = 1024 * 1024;
     const size_t M = 1024;
@@ -47,35 +47,35 @@ std::pair<double,double> benchmark_vector(
 
     prof.tic_cl("OpenCL");
     for(size_t i = 0; i < M; i++)
-	a += b + c * d;
+        a += b + c * d;
     time_elapsed = prof.toc("OpenCL");
 
     double gflops = (3.0 * N * M) / time_elapsed / 1e9;
     double bwidth = (5.0 * N * M * sizeof(real)) / time_elapsed / 1e9;
 
     std::cout
-	<< "Vector arithmetic\n"
-	<< "  OpenCL"
-	<< "\n    GFLOPS:    " << gflops
-	<< "\n    Bandwidth: " << bwidth
-	<< std::endl;
+        << "Vector arithmetic\n"
+        << "  OpenCL"
+        << "\n    GFLOPS:    " << gflops
+        << "\n    Bandwidth: " << bwidth
+        << std::endl;
 
 #ifdef BENCHMARK_CPU
     prof.tic_cpu("C++");
     for(size_t i = 0; i < M; i++)
-	for(size_t j = 0; j < N; j++)
-	    A[j] += B[j] + C[j] * D[j];
+        for(size_t j = 0; j < N; j++)
+            A[j] += B[j] + C[j] * D[j];
     time_elapsed = prof.toc("C++");
 
     {
-	double gflops = (3.0 * N * M) / time_elapsed / 1e9;
-	double bwidth = (5.0 * N * M * sizeof(real)) / time_elapsed / 1e9;
+        double gflops = (3.0 * N * M) / time_elapsed / 1e9;
+        double bwidth = (5.0 * N * M * sizeof(real)) / time_elapsed / 1e9;
 
-	std::cout
-	    << "  C++"
-	    << "\n    GFLOPS:    " << gflops
-	    << "\n    Bandwidth: " << bwidth
-	    << std::endl;
+        std::cout
+            << "  C++"
+            << "\n    GFLOPS:    " << gflops
+            << "\n    Bandwidth: " << bwidth
+            << std::endl;
     }
 
     vex::copy(A, b);
@@ -83,7 +83,7 @@ std::pair<double,double> benchmark_vector(
 
     a -= b;
     std::cout << "  res = " << sum(a * a)
-	      << std::endl << std::endl;
+              << std::endl << std::endl;
 #endif
 
     return std::make_pair(gflops, bwidth);
@@ -91,8 +91,8 @@ std::pair<double,double> benchmark_vector(
 
 //---------------------------------------------------------------------------
 std::pair<double, double> benchmark_reductor(
-	const std::vector<cl::CommandQueue> &queue, profiler &prof
-	)
+        const std::vector<cl::CommandQueue> &queue, profiler &prof
+        )
 {
     const size_t N = 16 * 1024 * 1024;
     const size_t M = 1024 / 16;
@@ -114,39 +114,39 @@ std::pair<double, double> benchmark_reductor(
 
     prof.tic_cl("OpenCL");
     for(size_t i = 0; i < M; i++)
-	sum_cl += sum(a * b);
+        sum_cl += sum(a * b);
     time_elapsed = prof.toc("OpenCL");
 
     double gflops = 2.0 * N * M / time_elapsed / 1e9;
     double bwidth = 2.0 * N * M * sizeof(real) / time_elapsed / 1e9;
 
     std::cout
-	<< "Reduction\n"
-	<< "  OpenCL"
-	<< "\n    GFLOPS:    " << gflops
-	<< "\n    Bandwidth: " << bwidth
-	<< std::endl;
+        << "Reduction\n"
+        << "  OpenCL"
+        << "\n    GFLOPS:    " << gflops
+        << "\n    Bandwidth: " << bwidth
+        << std::endl;
 
 #ifdef BENCHMARK_CPU
     double sum_cpp = 0;
     prof.tic_cpu("C++");
     for(size_t i = 0; i < M; i++)
-	sum_cpp += std::inner_product(A.begin(), A.end(), B.begin(), 0.0);
+        sum_cpp += std::inner_product(A.begin(), A.end(), B.begin(), 0.0);
     time_elapsed = prof.toc("C++");
 
     {
-	double gflops = 2.0 * N * M / time_elapsed / 1e9;
-	double bwidth = 2.0 * N * M * sizeof(real) / time_elapsed / 1e9;
+        double gflops = 2.0 * N * M / time_elapsed / 1e9;
+        double bwidth = 2.0 * N * M * sizeof(real) / time_elapsed / 1e9;
 
-	std::cout
-	    << "  C++"
-	    << "\n    GFLOPS:    " << gflops
-	    << "\n    Bandwidth: " << bwidth
-	    << std::endl;
+        std::cout
+            << "  C++"
+            << "\n    GFLOPS:    " << gflops
+            << "\n    Bandwidth: " << bwidth
+            << std::endl;
     }
 
     std::cout << "  res = " << fabs(sum_cl - sum_cpp)
-	      << std::endl << std::endl;
+              << std::endl << std::endl;
 #endif
 
     return std::make_pair(gflops, bwidth);
@@ -154,8 +154,8 @@ std::pair<double, double> benchmark_reductor(
 
 //---------------------------------------------------------------------------
 std::pair<double, double> benchmark_stencil(
-	const std::vector<cl::CommandQueue> &queue, profiler &prof
-	)
+        const std::vector<cl::CommandQueue> &queue, profiler &prof
+        )
 {
     const long N = 1024 * 1024;
     const long M = 1024;
@@ -176,47 +176,47 @@ std::pair<double, double> benchmark_stencil(
 
     prof.tic_cl("OpenCL");
     for(long i = 0; i < M; i++)
-	b = a * s;
+        b = a * s;
     time_elapsed = prof.toc("OpenCL");
 
     double gflops = 2.0 * S.size() * N * M / time_elapsed / 1e9;
     double bwidth = 2.0 * S.size() * N * M * sizeof(real) / time_elapsed / 1e9;
 
     std::cout
-	<< "Stencil convolution\n"
-	<< "  OpenCL"
-	<< "\n    GFLOPS:    " << gflops
-	<< "\n    Bandwidth: " << bwidth
-	<< std::endl;
+        << "Stencil convolution\n"
+        << "  OpenCL"
+        << "\n    GFLOPS:    " << gflops
+        << "\n    Bandwidth: " << bwidth
+        << std::endl;
 
 #ifdef BENCHMARK_CPU
     prof.tic_cpu("C++");
     for(long j = 0; j < M; j++) {
-	for(long i = 0; i < N; i++) {
-	    real sum = 0;
-	    for(long k = 0; k < (long)S.size(); k++)
-		sum += S[k] * A[std::min<long>(N-1, std::max<long>(0, i + k - center))];
-	    B[i] = sum;
-	}
+        for(long i = 0; i < N; i++) {
+            real sum = 0;
+            for(long k = 0; k < (long)S.size(); k++)
+                sum += S[k] * A[std::min<long>(N-1, std::max<long>(0, i + k - center))];
+            B[i] = sum;
+        }
     }
     time_elapsed = prof.toc("C++");
 
     {
-	double gflops = 2.0 * S.size() * N * M / time_elapsed / 1e9;
-	double bwidth = 2.0 * S.size() * N * M * sizeof(real) / time_elapsed / 1e9;
+        double gflops = 2.0 * S.size() * N * M / time_elapsed / 1e9;
+        double bwidth = 2.0 * S.size() * N * M * sizeof(real) / time_elapsed / 1e9;
 
-	std::cout
-	    << "  C++"
-	    << "\n    GFLOPS:    " << gflops
-	    << "\n    Bandwidth: " << bwidth
-	    << std::endl;
+        std::cout
+            << "  C++"
+            << "\n    GFLOPS:    " << gflops
+            << "\n    Bandwidth: " << bwidth
+            << std::endl;
     }
 
     Reductor<real,MAX> max(queue);
     copy(B, a);
 
     std::cout << "  res = " << max(fabs(a - b))
-	      << std::endl << std::endl;
+              << std::endl << std::endl;
 #endif
 
     return std::make_pair(gflops, bwidth);
@@ -224,8 +224,8 @@ std::pair<double, double> benchmark_stencil(
 
 //---------------------------------------------------------------------------
 std::pair<double,double> benchmark_spmv(
-	const std::vector<cl::CommandQueue> &queue, profiler &prof
-	)
+        const std::vector<cl::CommandQueue> &queue, profiler &prof
+        )
 {
     // Construct matrix for 3D Poisson problem in cubic domain.
     const size_t n = 128;
@@ -248,43 +248,43 @@ std::pair<double,double> benchmark_spmv(
 
     row.push_back(0);
     for(size_t k = 0, idx = 0; k < n; k++) {
-	for(size_t j = 0; j < n; j++) {
-	    for(size_t i = 0; i < n; i++, idx++) {
-		if (
-			i == 0 || i == (n - 1) ||
-			j == 0 || j == (n - 1) ||
-			k == 0 || k == (n - 1)
-		   )
-		{
-		    col.push_back(idx);
-		    val.push_back(1);
-		    row.push_back(row.back() + 1);
-		} else {
-		    col.push_back(idx - n * n);
-		    val.push_back(-h2i);
+        for(size_t j = 0; j < n; j++) {
+            for(size_t i = 0; i < n; i++, idx++) {
+                if (
+                        i == 0 || i == (n - 1) ||
+                        j == 0 || j == (n - 1) ||
+                        k == 0 || k == (n - 1)
+                   )
+                {
+                    col.push_back(idx);
+                    val.push_back(1);
+                    row.push_back(row.back() + 1);
+                } else {
+                    col.push_back(idx - n * n);
+                    val.push_back(-h2i);
 
-		    col.push_back(idx - n);
-		    val.push_back(-h2i);
+                    col.push_back(idx - n);
+                    val.push_back(-h2i);
 
-		    col.push_back(idx - 1);
-		    val.push_back(-h2i);
+                    col.push_back(idx - 1);
+                    val.push_back(-h2i);
 
-		    col.push_back(idx);
-		    val.push_back(6 * h2i);
+                    col.push_back(idx);
+                    val.push_back(6 * h2i);
 
-		    col.push_back(idx + 1);
-		    val.push_back(-h2i);
+                    col.push_back(idx + 1);
+                    val.push_back(-h2i);
 
-		    col.push_back(idx + n);
-		    val.push_back(-h2i);
+                    col.push_back(idx + n);
+                    val.push_back(-h2i);
 
-		    col.push_back(idx + n * n);
-		    val.push_back(-h2i);
+                    col.push_back(idx + n * n);
+                    val.push_back(-h2i);
 
-		    row.push_back(row.back() + 7);
-		}
-	    }
-	}
+                    row.push_back(row.back() + 7);
+                }
+            }
+        }
     }
 
     size_t nnz = row.back();
@@ -301,39 +301,39 @@ std::pair<double,double> benchmark_spmv(
 
     prof.tic_cl("OpenCL");
     for(size_t i = 0; i < M; i++)
-	y += A * x;
+        y += A * x;
     time_elapsed = prof.toc("OpenCL");
 
     double gflops = (2.0 * nnz + N) * M / time_elapsed / 1e9;
     double bwidth = M * (nnz * (2 * sizeof(real) + sizeof(size_t)) + 4 * N * sizeof(real)) / time_elapsed / 1e9;
 
     std::cout
-	<< "SpMV\n"
-	<< "  OpenCL"
-	<< "\n    GFLOPS:    " << gflops
-	<< "\n    Bandwidth: " << bwidth
-	<< std::endl;
+        << "SpMV\n"
+        << "  OpenCL"
+        << "\n    GFLOPS:    " << gflops
+        << "\n    Bandwidth: " << bwidth
+        << std::endl;
 
 #ifdef BENCHMARK_CPU
     prof.tic_cpu("C++");
     for(size_t k = 0; k < M; k++)
-	for(size_t i = 0; i < N; i++) {
-	    real s = 0;
-	    for(size_t j = row[i]; j < row[i + 1]; j++)
-		s += val[j] * X[col[j]];
-	    Y[i] += s;
-	}
+        for(size_t i = 0; i < N; i++) {
+            real s = 0;
+            for(size_t j = row[i]; j < row[i + 1]; j++)
+                s += val[j] * X[col[j]];
+            Y[i] += s;
+        }
     time_elapsed = prof.toc("C++");
 
     {
-	double gflops = (2.0 * nnz + N) * M / time_elapsed / 1e9;
-	double bwidth = M * (nnz * (2 * sizeof(real) + sizeof(size_t)) + 4 * N * sizeof(real)) / time_elapsed / 1e9;
+        double gflops = (2.0 * nnz + N) * M / time_elapsed / 1e9;
+        double bwidth = M * (nnz * (2 * sizeof(real) + sizeof(size_t)) + 4 * N * sizeof(real)) / time_elapsed / 1e9;
 
-	std::cout
-	    << "  C++"
-	    << "\n    GFLOPS:    " << gflops
-	    << "\n    Bandwidth: " << bwidth
-	    << std::endl;
+        std::cout
+            << "  C++"
+            << "\n    GFLOPS:    " << gflops
+            << "\n    Bandwidth: " << bwidth
+            << std::endl;
     }
 
     copy(Y, x);
@@ -350,8 +350,8 @@ std::pair<double,double> benchmark_spmv(
 
 //---------------------------------------------------------------------------
 std::pair<double,double> benchmark_spmv_ccsr(
-	const std::vector<cl::CommandQueue> &queue, profiler &prof
-	)
+        const std::vector<cl::CommandQueue> &queue, profiler &prof
+        )
 {
     // Construct matrix for 3D Poisson problem in cubic domain.
     const uint n = 128;
@@ -396,27 +396,27 @@ std::pair<double,double> benchmark_spmv_ccsr(
     val[7] = -h2i;
 
     for(size_t k = 0; k < n; k++) {
-	for(size_t j = 0; j < n; j++) {
-	    for(size_t i = 0; i < n; i++) {
-		if (
-			i == 0 || i == (n - 1) ||
-			j == 0 || j == (n - 1) ||
-			k == 0 || k == (n - 1)
-		   )
-		{
-		    idx.push_back(0);
-		} else {
-		    idx.push_back(1);
-		}
-	    }
-	}
+        for(size_t j = 0; j < n; j++) {
+            for(size_t i = 0; i < n; i++) {
+                if (
+                        i == 0 || i == (n - 1) ||
+                        j == 0 || j == (n - 1) ||
+                        k == 0 || k == (n - 1)
+                   )
+                {
+                    idx.push_back(0);
+                } else {
+                    idx.push_back(1);
+                }
+            }
+        }
     }
 
     size_t nnz = 6 * (n - 2) * (n - 2) * (n - 2) + n * n * n;
 
     // Transfer data to compute devices.
     vex::SpMatCCSR<real,int> A(queue[0], n * n * n, 2,
-	    idx.data(), row.data(), col.data(), val.data());
+            idx.data(), row.data(), col.data(), val.data());
 
     std::vector<cl::CommandQueue> q1(1, queue[0]);
     vex::vector<real> x(q1, X);
@@ -428,39 +428,39 @@ std::pair<double,double> benchmark_spmv_ccsr(
 
     prof.tic_cl("OpenCL");
     for(size_t i = 0; i < M; i++)
-	y += A * x;
+        y += A * x;
     time_elapsed = prof.toc("OpenCL");
 
     double gflops = (2.0 * nnz + N) * M / time_elapsed / 1e9;
     double bwidth = M * (nnz * (2 * sizeof(real) + sizeof(int)) + 4 * N * sizeof(real)) / time_elapsed / 1e9;
 
     std::cout
-	<< "SpMV (CCSR)\n"
-	<< "  OpenCL"
-	<< "\n    GFLOPS:    " << gflops
-	<< "\n    Bandwidth: " << bwidth
-	<< std::endl;
+        << "SpMV (CCSR)\n"
+        << "  OpenCL"
+        << "\n    GFLOPS:    " << gflops
+        << "\n    Bandwidth: " << bwidth
+        << std::endl;
 
 #ifdef BENCHMARK_CPU
     prof.tic_cpu("C++");
     for(size_t k = 0; k < M; k++)
-	for(size_t i = 0; i < N; i++) {
-	    real s = 0;
-	    for(size_t j = row[idx[i]]; j < row[idx[i] + 1]; j++)
-		s += val[j] * X[i + col[j]];
-	    Y[i] += s;
-	}
+        for(size_t i = 0; i < N; i++) {
+            real s = 0;
+            for(size_t j = row[idx[i]]; j < row[idx[i] + 1]; j++)
+                s += val[j] * X[i + col[j]];
+            Y[i] += s;
+        }
     time_elapsed = prof.toc("C++");
 
     {
-	double gflops = (2.0 * nnz + N) * M / time_elapsed / 1e9;
-	double bwidth = M * (nnz * (2 * sizeof(real) + sizeof(int)) + 4 * N * sizeof(real)) / time_elapsed / 1e9;
+        double gflops = (2.0 * nnz + N) * M / time_elapsed / 1e9;
+        double bwidth = M * (nnz * (2 * sizeof(real) + sizeof(int)) + 4 * N * sizeof(real)) / time_elapsed / 1e9;
 
-	std::cout
-	    << "  C++"
-	    << "\n    GFLOPS:    " << gflops
-	    << "\n    Bandwidth: " << bwidth
-	    << std::endl;
+        std::cout
+            << "  C++"
+            << "\n    GFLOPS:    " << gflops
+            << "\n    Bandwidth: " << bwidth
+            << std::endl;
     }
 
     copy(Y, x);
@@ -478,60 +478,62 @@ std::pair<double,double> benchmark_spmv_ccsr(
 //---------------------------------------------------------------------------
 int main() {
     try {
-	vex::Context ctx(
-		Filter::DoublePrecision && Filter::Env,
-		CL_QUEUE_PROFILING_ENABLE
-		);
+        vex::Context ctx(
+                Filter::DoublePrecision && Filter::Env,
+                CL_QUEUE_PROFILING_ENABLE
+                );
 
-	std::cout << ctx << std::endl;
+        std::cout << ctx << std::endl;
 
-	std::ofstream log("profiling.dat", std::ios::app);
+        std::ofstream log("profiling.dat", std::ios::app);
 
-	log << ctx.size() << " ";
+        log << ctx.size() << " ";
 
-	double gflops, bwidth;
+        double gflops, bwidth;
 
-	profiler prof(ctx.queue());
+        profiler prof(ctx.queue());
 
 #ifdef BENCHMARK_VECTOR
-	prof.tic_cpu("Vector arithmetic");
-	std::tie(gflops, bwidth) = benchmark_vector(ctx.queue(), prof);
-	prof.toc("Vector arithmetic");
+        prof.tic_cpu("Vector arithmetic");
+        std::tie(gflops, bwidth) = benchmark_vector(ctx.queue(), prof);
+        prof.toc("Vector arithmetic");
 
-	log << gflops << " " << bwidth << " ";
+        log << gflops << " " << bwidth << " ";
 #endif
 
 #ifdef BENCHMARK_REDUCTOR
-	prof.tic_cpu("Reduction");
-	std::tie(gflops, bwidth) = benchmark_reductor(ctx.queue(), prof);
-	prof.toc("Reduction");
+        prof.tic_cpu("Reduction");
+        std::tie(gflops, bwidth) = benchmark_reductor(ctx.queue(), prof);
+        prof.toc("Reduction");
 
-	log << gflops << " " << bwidth << " ";
+        log << gflops << " " << bwidth << " ";
 #endif
 
 #ifdef BENCHMARK_STENCIL
-	prof.tic_cpu("Stencil");
-	std::tie(gflops, bwidth) = benchmark_stencil(ctx.queue(), prof);
-	prof.toc("Stencil");
+        prof.tic_cpu("Stencil");
+        std::tie(gflops, bwidth) = benchmark_stencil(ctx.queue(), prof);
+        prof.toc("Stencil");
 
-	log << gflops << " " << bwidth << " ";
+        log << gflops << " " << bwidth << " ";
 #endif
 
 #ifdef BENCHMARK_SPMAT
-	prof.tic_cpu("SpMV");
-	std::tie(gflops, bwidth) = benchmark_spmv(ctx.queue(), prof);
-	prof.toc("SpMV");
+        prof.tic_cpu("SpMV");
+        std::tie(gflops, bwidth) = benchmark_spmv(ctx.queue(), prof);
+        prof.toc("SpMV");
 
-	log << gflops << " " << bwidth << std::endl;
+        log << gflops << " " << bwidth << std::endl;
 
-	prof.tic_cpu("SpMV (CCSR)");
-	std::tie(gflops, bwidth) = benchmark_spmv_ccsr(ctx.queue(), prof);
-	prof.toc("SpMV (CCSR)");
+        prof.tic_cpu("SpMV (CCSR)");
+        std::tie(gflops, bwidth) = benchmark_spmv_ccsr(ctx.queue(), prof);
+        prof.toc("SpMV (CCSR)");
 #endif
 
-	std::cout << prof << std::endl;
+        std::cout << prof << std::endl;
     } catch (const cl::Error &e) {
-	std::cerr << e << std::endl;
-	return 1;
+        std::cerr << e << std::endl;
+        return 1;
     }
 }
+
+// vim: set et

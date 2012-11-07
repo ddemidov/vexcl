@@ -64,16 +64,16 @@ namespace vex {
  * proportional to the performance of this operation.
  */
 inline double device_vector_perf(
-	const cl::Context &context, const cl::Device &device
-	);
+        const cl::Context &context, const cl::Device &device
+        );
 
 /// Assigns equal weight to each device.
 /**
  * This results in equal partitioning.
  */
 inline double equal_weights(
-	const cl::Context &context, const cl::Device &device
-	)
+        const cl::Context &context, const cl::Device &device
+        )
 {
     return 1;
 }
@@ -83,27 +83,27 @@ inline double equal_weights(
 template <bool dummy = true>
 struct partitioning_scheme {
     typedef std::function<
-	double(const cl::Context&, const cl::Device&)
-	> weight_function;
+        double(const cl::Context&, const cl::Device&)
+        > weight_function;
 
     static void set(weight_function f) {
-	if (!is_set) {
-	    weight = f;
-	    is_set = true;
-	} else {
-	    std::cerr <<
-		"Warning: "
-		"device weighting function is already set and will be left as is."
-		<< std::endl;
-	}
+        if (!is_set) {
+            weight = f;
+            is_set = true;
+        } else {
+            std::cerr <<
+                "Warning: "
+                "device weighting function is already set and will be left as is."
+                << std::endl;
+        }
     }
 
     static std::vector<size_t> get(size_t n, const std::vector<cl::CommandQueue> &queue);
 
     private:
-	static bool is_set;
-	static weight_function weight;
-	static std::map<cl_device_id, double> device_weight;
+        static bool is_set;
+        static weight_function weight;
+        static std::map<cl_device_id, double> device_weight;
 };
 
 template <bool dummy>
@@ -114,11 +114,11 @@ std::map<cl_device_id, double> partitioning_scheme<dummy>::device_weight;
 
 template <bool dummy>
 std::vector<size_t> partitioning_scheme<dummy>::get(size_t n,
-	const std::vector<cl::CommandQueue> &queue)
+        const std::vector<cl::CommandQueue> &queue)
 {
     if (!is_set) {
-	weight = device_vector_perf;
-	is_set = true;
+        weight = device_vector_perf;
+        is_set = true;
     }
 
     std::vector<size_t> part;
@@ -126,29 +126,29 @@ std::vector<size_t> partitioning_scheme<dummy>::get(size_t n,
     part.push_back(0);
 
     if (queue.size() > 1) {
-	std::vector<double> cumsum;
-	cumsum.reserve(queue.size() + 1);
-	cumsum.push_back(0);
+        std::vector<double> cumsum;
+        cumsum.reserve(queue.size() + 1);
+        cumsum.push_back(0);
 
-	for(auto q = queue.begin(); q != queue.end(); q++) {
-	    cl::Context context = q->getInfo<CL_QUEUE_CONTEXT>();
-	    cl::Device  device  = q->getInfo<CL_QUEUE_DEVICE>();
+        for(auto q = queue.begin(); q != queue.end(); q++) {
+            cl::Context context = q->getInfo<CL_QUEUE_CONTEXT>();
+            cl::Device  device  = q->getInfo<CL_QUEUE_DEVICE>();
 
-	    auto dw = device_weight.find(device());
+            auto dw = device_weight.find(device());
 
-	    double w = (dw == device_weight.end()) ?
-		(device_weight[device()] = weight(context, device)) :
-		dw->second;
+            double w = (dw == device_weight.end()) ?
+                (device_weight[device()] = weight(context, device)) :
+                dw->second;
 
-	    cumsum.push_back(cumsum.back() + w);
-	}
+            cumsum.push_back(cumsum.back() + w);
+        }
 
-	for(uint d = 1; d < queue.size(); d++)
-	    part.push_back(
-		    std::min(n,
-			alignup(static_cast<size_t>(n * cumsum[d] / cumsum.back()))
-			)
-		    );
+        for(uint d = 1; d < queue.size(); d++)
+            part.push_back(
+                    std::min(n,
+                        alignup(static_cast<size_t>(n * cumsum[d] / cumsum.back()))
+                        )
+                    );
     }
 
     part.push_back(n);
@@ -167,14 +167,14 @@ typename partitioning_scheme<dummy>::weight_function partitioning_scheme<dummy>:
  * selected.
  */
 inline void set_partitioning(
-	std::function< double(const cl::Context&, const cl::Device&) > f
-	)
+        std::function< double(const cl::Context&, const cl::Device&) > f
+        )
 {
     partitioning_scheme<>::set(f);
 }
 
 inline std::vector<size_t> partition(size_t n,
-	    const std::vector<cl::CommandQueue> &queue)
+            const std::vector<cl::CommandQueue> &queue)
 {
     return partitioning_scheme<>::get(n, queue);
 }
@@ -186,518 +186,518 @@ class vector
     : public vector_expression< typename boost::proto::terminal< vector_terminal >::type >
 {
     public:
-	typedef T value_type;
+        typedef T value_type;
 
-	/// Proxy class.
-	/**
-	 * Instances of this class are returned from vector::operator[]. These
-	 * may be used to read or write single element of a vector, although
-	 * this operations are too expensive to be used extensively and should
-	 * be reserved for debugging purposes.
-	 */
-	class element {
-	    public:
-		/// Read associated element of a vector.
-		operator T() const {
-		    T val;
-		    queue.enqueueReadBuffer(
-			    buf, CL_TRUE,
-			    index * sizeof(T), sizeof(T),
-			    &val
-			    );
-		    return val;
-		}
+        /// Proxy class.
+        /**
+         * Instances of this class are returned from vector::operator[]. These
+         * may be used to read or write single element of a vector, although
+         * this operations are too expensive to be used extensively and should
+         * be reserved for debugging purposes.
+         */
+        class element {
+            public:
+                /// Read associated element of a vector.
+                operator T() const {
+                    T val;
+                    queue.enqueueReadBuffer(
+                            buf, CL_TRUE,
+                            index * sizeof(T), sizeof(T),
+                            &val
+                            );
+                    return val;
+                }
 
-		/// Write associated element of a vector.
-		T operator=(T val) {
-		    queue.enqueueWriteBuffer(
-			    buf, CL_TRUE,
-			    index * sizeof(T), sizeof(T),
-			    &val
-			    );
-		    return val;
-		}
-	    private:
-		element(const cl::CommandQueue &q, cl::Buffer b, size_t i)
-		    : queue(q), buf(b), index(i) {}
+                /// Write associated element of a vector.
+                T operator=(T val) {
+                    queue.enqueueWriteBuffer(
+                            buf, CL_TRUE,
+                            index * sizeof(T), sizeof(T),
+                            &val
+                            );
+                    return val;
+                }
+            private:
+                element(const cl::CommandQueue &q, cl::Buffer b, size_t i)
+                    : queue(q), buf(b), index(i) {}
 
-		const cl::CommandQueue  &queue;
-		cl::Buffer              buf;
-		const size_t            index;
+                const cl::CommandQueue  &queue;
+                cl::Buffer              buf;
+                const size_t            index;
 
-		friend class vector;
-	};
+                friend class vector;
+        };
 
-	/// Iterator class.
-	/**
-	 * This class may in principle be used with standard template library,
-	 * although its main purpose is range specification for vector copy
-	 * operations.
-	 */
-	template <class vector_type, class element_type>
-	class iterator_type
-	    : public std::iterator<std::random_access_iterator_tag, T>
-	{
-	    public:
-		static const bool device_iterator = true;
+        /// Iterator class.
+        /**
+         * This class may in principle be used with standard template library,
+         * although its main purpose is range specification for vector copy
+         * operations.
+         */
+        template <class vector_type, class element_type>
+        class iterator_type
+            : public std::iterator<std::random_access_iterator_tag, T>
+        {
+            public:
+                static const bool device_iterator = true;
 
-		element_type operator*() const {
-		    return element_type(
-			    vec.queue[part], vec.buf[part],
-			    pos - vec.part[part]
-			    );
-		}
+                element_type operator*() const {
+                    return element_type(
+                            vec.queue[part], vec.buf[part],
+                            pos - vec.part[part]
+                            );
+                }
 
-		iterator_type& operator++() {
-		    pos++;
-		    while (part < vec.nparts() && pos >= vec.part[part + 1])
-			part++;
-		    return *this;
-		}
+                iterator_type& operator++() {
+                    pos++;
+                    while (part < vec.nparts() && pos >= vec.part[part + 1])
+                        part++;
+                    return *this;
+                }
 
-		iterator_type operator+(ptrdiff_t d) const {
-		    return iterator_type(vec, pos + d);
-		}
+                iterator_type operator+(ptrdiff_t d) const {
+                    return iterator_type(vec, pos + d);
+                }
 
-		ptrdiff_t operator-(iterator_type it) const {
-		    return pos - it.pos;
-		}
+                ptrdiff_t operator-(iterator_type it) const {
+                    return pos - it.pos;
+                }
 
-		bool operator==(const iterator_type &it) const {
-		    return pos == it.pos;
-		}
+                bool operator==(const iterator_type &it) const {
+                    return pos == it.pos;
+                }
 
-		bool operator!=(const iterator_type &it) const {
-		    return pos != it.pos;
-		}
+                bool operator!=(const iterator_type &it) const {
+                    return pos != it.pos;
+                }
 
-		vector_type &vec;
-		size_t  pos;
-		size_t  part;
+                vector_type &vec;
+                size_t  pos;
+                size_t  part;
 
-	    private:
-		iterator_type(vector_type &vec, size_t pos)
-		    : vec(vec), pos(pos), part(0)
-		{
-		    if (!vec.part.empty()) {
-			part = std::upper_bound(
-				vec.part.begin(), vec.part.end(), pos
-				) - vec.part.begin() - 1;
-		    }
-		}
+            private:
+                iterator_type(vector_type &vec, size_t pos)
+                    : vec(vec), pos(pos), part(0)
+                {
+                    if (!vec.part.empty()) {
+                        part = std::upper_bound(
+                                vec.part.begin(), vec.part.end(), pos
+                                ) - vec.part.begin() - 1;
+                    }
+                }
 
-		friend class vector;
-	};
+                friend class vector;
+        };
 
-	typedef iterator_type<vector, element> iterator;
-	typedef iterator_type<const vector, const element> const_iterator;
+        typedef iterator_type<vector, element> iterator;
+        typedef iterator_type<const vector, const element> const_iterator;
 
-	/// Empty constructor.
-	vector() {}
+        /// Empty constructor.
+        vector() {}
 
-	/// Copy constructor.
-	vector(const vector &v)
-	    : queue(v.queue), part(v.part),
-	      buf(queue.size()), event(queue.size())
-	{
-	    if (size()) allocate_buffers(CL_MEM_READ_WRITE, 0);
-	    *this = v;
-	}
+        /// Copy constructor.
+        vector(const vector &v)
+            : queue(v.queue), part(v.part),
+              buf(queue.size()), event(queue.size())
+        {
+            if (size()) allocate_buffers(CL_MEM_READ_WRITE, 0);
+            *this = v;
+        }
 
-	/// Copy host data to the new buffer.
-	vector(const std::vector<cl::CommandQueue> &queue,
-		size_t size, const T *host = 0,
-		cl_mem_flags flags = CL_MEM_READ_WRITE
-	      ) : queue(queue), part(vex::partition(size, queue)),
-	          buf(queue.size()), event(queue.size())
-	{
-	    if (size) allocate_buffers(flags, host);
-	}
+        /// Copy host data to the new buffer.
+        vector(const std::vector<cl::CommandQueue> &queue,
+                size_t size, const T *host = 0,
+                cl_mem_flags flags = CL_MEM_READ_WRITE
+              ) : queue(queue), part(vex::partition(size, queue)),
+                  buf(queue.size()), event(queue.size())
+        {
+            if (size) allocate_buffers(flags, host);
+        }
 
-	/// Copy host data to the new buffer.
-	vector(const std::vector<cl::CommandQueue> &queue,
-		const std::vector<T> &host,
-		cl_mem_flags flags = CL_MEM_READ_WRITE
-	      ) : queue(queue), part(vex::partition(host.size(), queue)),
-		  buf(queue.size()), event(queue.size())
-	{
-	    if (!host.empty()) allocate_buffers(flags, host.data());
-	}
+        /// Copy host data to the new buffer.
+        vector(const std::vector<cl::CommandQueue> &queue,
+                const std::vector<T> &host,
+                cl_mem_flags flags = CL_MEM_READ_WRITE
+              ) : queue(queue), part(vex::partition(host.size(), queue)),
+                  buf(queue.size()), event(queue.size())
+        {
+            if (!host.empty()) allocate_buffers(flags, host.data());
+        }
 
-	/// Move constructor
-	vector(vector &&v) {
-	    swap(v);
-	}
+        /// Move constructor
+        vector(vector &&v) {
+            swap(v);
+        }
 
-	/// Move assignment
-	const vector& operator=(vector &&v) {
-	    swap(v);
-	    return *this;
-	}
+        /// Move assignment
+        const vector& operator=(vector &&v) {
+            swap(v);
+            return *this;
+        }
 
-	/// Swap function.
-	void swap(vector &v) {
-	    std::swap(queue,   v.queue);
-	    std::swap(part,    v.part);
-	    std::swap(buf,     v.buf);
-	    std::swap(event,   v.event);
-	}
+        /// Swap function.
+        void swap(vector &v) {
+            std::swap(queue,   v.queue);
+            std::swap(part,    v.part);
+            std::swap(buf,     v.buf);
+            std::swap(event,   v.event);
+        }
 
-	/// Resize vector.
-	void resize(const vector &v, cl_mem_flags flags = CL_MEM_READ_WRITE)
-	{
-	    // Reallocate bufers
-	    *this = std::move(vector(v.queue, v.size(), 0, flags));
+        /// Resize vector.
+        void resize(const vector &v, cl_mem_flags flags = CL_MEM_READ_WRITE)
+        {
+            // Reallocate bufers
+            *this = std::move(vector(v.queue, v.size(), 0, flags));
 
-	    // Copy data
-	    *this = v;
-	}
+            // Copy data
+            *this = v;
+        }
 
-	/// Resize vector.
-	void resize(const std::vector<cl::CommandQueue> &queue,
-		size_t size, const T *host = 0,
-		cl_mem_flags flags = CL_MEM_READ_WRITE
-		)
-	{
-	    *this = std::move(vector(queue, size, host, flags));
-	}
+        /// Resize vector.
+        void resize(const std::vector<cl::CommandQueue> &queue,
+                size_t size, const T *host = 0,
+                cl_mem_flags flags = CL_MEM_READ_WRITE
+                )
+        {
+            *this = std::move(vector(queue, size, host, flags));
+        }
 
-	/// Resize vector.
-	void resize(const std::vector<cl::CommandQueue> &queue,
-		const std::vector<T> &host,
-		cl_mem_flags flags = CL_MEM_READ_WRITE
-	      )
-	{
-	    *this = std::move(vector(queue, host, flags));
-	}
+        /// Resize vector.
+        void resize(const std::vector<cl::CommandQueue> &queue,
+                const std::vector<T> &host,
+                cl_mem_flags flags = CL_MEM_READ_WRITE
+              )
+        {
+            *this = std::move(vector(queue, host, flags));
+        }
 
-	/// Return cl::Buffer object located on a given device.
-	cl::Buffer operator()(uint d = 0) const {
-	    return buf[d];
-	}
+        /// Return cl::Buffer object located on a given device.
+        cl::Buffer operator()(uint d = 0) const {
+            return buf[d];
+        }
 
-	/// Const iterator to beginning.
-	const_iterator begin() const {
-	    return const_iterator(*this, 0);
-	}
+        /// Const iterator to beginning.
+        const_iterator begin() const {
+            return const_iterator(*this, 0);
+        }
 
-	/// Const iterator to end.
-	const_iterator end() const {
-	    return const_iterator(*this, size());
-	}
+        /// Const iterator to end.
+        const_iterator end() const {
+            return const_iterator(*this, size());
+        }
 
-	/// Iterator to beginning.
-	iterator begin() {
-	    return iterator(*this, 0);
-	}
+        /// Iterator to beginning.
+        iterator begin() {
+            return iterator(*this, 0);
+        }
 
-	/// Iterator to end.
-	iterator end() {
-	    return iterator(*this, size());
-	}
+        /// Iterator to end.
+        iterator end() {
+            return iterator(*this, size());
+        }
 
-	/// Access element.
-	const element operator[](size_t index) const {
-	    size_t d = std::upper_bound(
-		    part.begin(), part.end(), index) - part.begin() - 1;
-	    return element(queue[d], buf[d], index - part[d]);
-	}
+        /// Access element.
+        const element operator[](size_t index) const {
+            size_t d = std::upper_bound(
+                    part.begin(), part.end(), index) - part.begin() - 1;
+            return element(queue[d], buf[d], index - part[d]);
+        }
 
-	/// Access element.
-	element operator[](size_t index) {
-	    uint d = static_cast<uint>(
-		std::upper_bound(part.begin(), part.end(), index) - part.begin() - 1
-		);
-	    return element(queue[d], buf[d], index - part[d]);
-	}
+        /// Access element.
+        element operator[](size_t index) {
+            uint d = static_cast<uint>(
+                std::upper_bound(part.begin(), part.end(), index) - part.begin() - 1
+                );
+            return element(queue[d], buf[d], index - part[d]);
+        }
 
-	/// Return size .
-	size_t size() const {
-	    return part.empty() ? 0 : part.back();
-	}
+        /// Return size .
+        size_t size() const {
+            return part.empty() ? 0 : part.back();
+        }
 
-	/// Return number of parts (devices).
-	uint nparts() const {
-	    return queue.size();
-	}
+        /// Return number of parts (devices).
+        uint nparts() const {
+            return queue.size();
+        }
 
-	/// Return size of part on a given device.
-	size_t part_size(uint d) const {
-	    return part[d + 1] - part[d];
-	}
+        /// Return size of part on a given device.
+        size_t part_size(uint d) const {
+            return part[d + 1] - part[d];
+        }
 
-	/// Return part start for a given device.
-	size_t part_start(uint d) const {
-	    return part[d];
-	}
+        /// Return part start for a given device.
+        size_t part_start(uint d) const {
+            return part[d];
+        }
 
-	/// Return reference to vector's queue list
-	const std::vector<cl::CommandQueue>& queue_list() const {
-	    return queue;
-	}
+        /// Return reference to vector's queue list
+        const std::vector<cl::CommandQueue>& queue_list() const {
+            return queue;
+        }
 
-	/// Return reference to vector's partition.
-	const std::vector<size_t>& partition() const {
-	    return part;
-	}
+        /// Return reference to vector's partition.
+        const std::vector<size_t>& partition() const {
+            return part;
+        }
 
-	/// Copies data from device vector.
-	const vector& operator=(const vector &x) {
-	    if (&x != this) {
-		for(uint d = 0; d < queue.size(); d++)
-		    if (size_t psize = part[d + 1] - part[d]) {
-			queue[d].enqueueCopyBuffer(x.buf[d], buf[d], 0, 0,
-				psize * sizeof(T));
-		    }
-	    }
+        /// Copies data from device vector.
+        const vector& operator=(const vector &x) {
+            if (&x != this) {
+                for(uint d = 0; d < queue.size(); d++)
+                    if (size_t psize = part[d + 1] - part[d]) {
+                        queue[d].enqueueCopyBuffer(x.buf[d], buf[d], 0, 0,
+                                psize * sizeof(T));
+                    }
+            }
 
-	    return *this;
-	}
+            return *this;
+        }
 
-	/** \name Expression assignments.
-	 * @{
-	 * The appropriate kernel is compiled first time the assignment is
-	 * made. Vectors participating in expression should have same number of
-	 * parts; corresponding parts of the vectors should reside on the same
-	 * compute devices.
-	 */
-	template <class Expr>
-	typename std::enable_if<
-	    boost::proto::matches<
-		typename boost::proto::result_of::as_expr<Expr>::type,
-		vector_expr_grammar
-	    >::value,
-	    const vector&
-	>::type
-	operator=(const Expr &expr) {
-	    for(auto q = queue.begin(); q != queue.end(); q++) {
-		cl::Context context = qctx(*q);
-		cl::Device  device  = qdev(*q);
+        /** \name Expression assignments.
+         * @{
+         * The appropriate kernel is compiled first time the assignment is
+         * made. Vectors participating in expression should have same number of
+         * parts; corresponding parts of the vectors should reside on the same
+         * compute devices.
+         */
+        template <class Expr>
+        typename std::enable_if<
+            boost::proto::matches<
+                typename boost::proto::result_of::as_expr<Expr>::type,
+                vector_expr_grammar
+            >::value,
+            const vector&
+        >::type
+        operator=(const Expr &expr) {
+            for(auto q = queue.begin(); q != queue.end(); q++) {
+                cl::Context context = qctx(*q);
+                cl::Device  device  = qdev(*q);
 
-		if (!exdata<Expr>::compiled[context()]) {
-		    std::ostringstream kernel;
+                if (!exdata<Expr>::compiled[context()]) {
+                    std::ostringstream kernel;
 
-		    vector_expr_context expr_ctx(kernel);
+                    vector_expr_context expr_ctx(kernel);
 
-		    std::ostringstream kernel_name;
-		    vector_name_context name_ctx(kernel_name);
-		    boost::proto::eval(boost::proto::as_child(expr), name_ctx);
+                    std::ostringstream kernel_name;
+                    vector_name_context name_ctx(kernel_name);
+                    boost::proto::eval(boost::proto::as_child(expr), name_ctx);
 
-		    kernel << standard_kernel_header;
+                    kernel << standard_kernel_header;
 
-		    extract_user_functions()(
-			    boost::proto::as_child(expr),
-			    declare_user_function(kernel)
-			    );
+                    extract_user_functions()(
+                            boost::proto::as_child(expr),
+                            declare_user_function(kernel)
+                            );
 
-		    kernel << "kernel void " << kernel_name.str()
-		           << "(\n\t" << type_name<size_t>()
-			   << " n,\n\tglobal " << type_name<T>() << " *res";
+                    kernel << "kernel void " << kernel_name.str()
+                           << "(\n\t" << type_name<size_t>()
+                           << " n,\n\tglobal " << type_name<T>() << " *res";
 
-		    extract_terminals()(
-			    boost::proto::as_child(expr),
-			    declare_expression_parameter(kernel)
-			    );
+                    extract_terminals()(
+                            boost::proto::as_child(expr),
+                            declare_expression_parameter(kernel)
+                            );
 
-		    kernel <<
-			"\n)\n{\n\t"
-			"for(size_t idx = get_global_id(0); idx < n; idx += get_global_size(0)) {\n"
-			"\t\tres[idx] = ";
+                    kernel <<
+                        "\n)\n{\n\t"
+                        "for(size_t idx = get_global_id(0); idx < n; idx += get_global_size(0)) {\n"
+                        "\t\tres[idx] = ";
 
-		    boost::proto::eval(boost::proto::as_child(expr), expr_ctx);
+                    boost::proto::eval(boost::proto::as_child(expr), expr_ctx);
 
-		    kernel << ";\n\t}\n}\n";
+                    kernel << ";\n\t}\n}\n";
 
 #ifdef VEXCL_SHOW_KERNELS
-		    std::cout << kernel.str() << std::endl;
+                    std::cout << kernel.str() << std::endl;
 #endif
 
-		    auto program = build_sources(context, kernel.str());
+                    auto program = build_sources(context, kernel.str());
 
-		    exdata<Expr>::kernel[context()]   = cl::Kernel(program, kernel_name.str().c_str());
-		    exdata<Expr>::compiled[context()] = true;
-		    exdata<Expr>::wgsize[context()]   = kernel_workgroup_size(
-			    exdata<Expr>::kernel[context()], device);
-		}
-	    }
+                    exdata<Expr>::kernel[context()]   = cl::Kernel(program, kernel_name.str().c_str());
+                    exdata<Expr>::compiled[context()] = true;
+                    exdata<Expr>::wgsize[context()]   = kernel_workgroup_size(
+                            exdata<Expr>::kernel[context()], device);
+                }
+            }
 
-	    for(uint d = 0; d < queue.size(); d++) {
-		if (size_t psize = part[d + 1] - part[d]) {
-		    cl::Context context = qctx(queue[d]);
-		    cl::Device  device  = qdev(queue[d]);
+            for(uint d = 0; d < queue.size(); d++) {
+                if (size_t psize = part[d + 1] - part[d]) {
+                    cl::Context context = qctx(queue[d]);
+                    cl::Device  device  = qdev(queue[d]);
 
-		    size_t g_size = device.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU ?
-			alignup(psize, exdata<Expr>::wgsize[context()]) :
-			device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() * exdata<Expr>::wgsize[context()] * 4;
+                    size_t g_size = device.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU ?
+                        alignup(psize, exdata<Expr>::wgsize[context()]) :
+                        device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() * exdata<Expr>::wgsize[context()] * 4;
 
-		    uint pos = 0;
-		    exdata<Expr>::kernel[context()].setArg(pos++, psize);
-		    exdata<Expr>::kernel[context()].setArg(pos++, buf[d]);
+                    uint pos = 0;
+                    exdata<Expr>::kernel[context()].setArg(pos++, psize);
+                    exdata<Expr>::kernel[context()].setArg(pos++, buf[d]);
 
-		    extract_terminals()(
-			    boost::proto::as_child(expr),
-			    set_expression_argument(exdata<Expr>::kernel[context()], d, pos)
-			    );
+                    extract_terminals()(
+                            boost::proto::as_child(expr),
+                            set_expression_argument(exdata<Expr>::kernel[context()], d, pos)
+                            );
 
-		    queue[d].enqueueNDRangeKernel(
-			    exdata<Expr>::kernel[context()],
-			    cl::NullRange,
-			    g_size, exdata<Expr>::wgsize[context()]
-			    );
-		}
-	    }
+                    queue[d].enqueueNDRangeKernel(
+                            exdata<Expr>::kernel[context()],
+                            cl::NullRange,
+                            g_size, exdata<Expr>::wgsize[context()]
+                            );
+                }
+            }
 
-	    return *this;
-	}
+            return *this;
+        }
 
-	template <class Expr>
-	typename std::enable_if<
-	    boost::proto::matches<
-		typename boost::proto::result_of::as_expr<Expr>::type,
-		additive_vector_transform_grammar
-	    >::value,
-	    const vector&
-	>::type
-	operator=(const Expr &expr) {
-	    additive_vector_transform_context< vector > ctx(*this);
+        template <class Expr>
+        typename std::enable_if<
+            boost::proto::matches<
+                typename boost::proto::result_of::as_expr<Expr>::type,
+                additive_vector_transform_grammar
+            >::value,
+            const vector&
+        >::type
+        operator=(const Expr &expr) {
+            additive_vector_transform_context< vector > ctx(*this);
 
-	    boost::proto::eval(
-		    simplify_additive_transform()( expr ),
-		    ctx
-		    );
-	    return *this;
-	}
+            boost::proto::eval(
+                    simplify_additive_transform()( expr ),
+                    ctx
+                    );
+            return *this;
+        }
 
-	template <class Expr>
-	typename std::enable_if<
-	    !boost::proto::matches<
-		typename boost::proto::result_of::as_expr<Expr>::type,
-		vector_expr_grammar
-	    >::value &&
-	    !boost::proto::matches<
-		typename boost::proto::result_of::as_expr<Expr>::type,
-		additive_vector_transform_grammar
-	    >::value,
-	    const vector&
-	>::type
-	operator=(const Expr &expr) {
-	    *this = extract_vector_expressions()( expr );
+        template <class Expr>
+        typename std::enable_if<
+            !boost::proto::matches<
+                typename boost::proto::result_of::as_expr<Expr>::type,
+                vector_expr_grammar
+            >::value &&
+            !boost::proto::matches<
+                typename boost::proto::result_of::as_expr<Expr>::type,
+                additive_vector_transform_grammar
+            >::value,
+            const vector&
+        >::type
+        operator=(const Expr &expr) {
+            *this = extract_vector_expressions()( expr );
 
-	    additive_vector_transform_context< vector > ctx(*this, true);
+            additive_vector_transform_context< vector > ctx(*this, true);
 
-	    boost::proto::eval(
-		    simplify_additive_transform()(
-			extract_additive_vector_transforms()( expr )
-			),
-		    ctx
-		    );
-	    return *this;
-	}
+            boost::proto::eval(
+                    simplify_additive_transform()(
+                        extract_additive_vector_transforms()( expr )
+                        ),
+                    ctx
+                    );
+            return *this;
+        }
 
 #define COMPOUND_ASSIGNMENT(cop, op) \
-	template <class Expr> \
-	const vector& operator cop(const Expr &expr) { \
-	    return *this = *this op expr; \
-	}
+        template <class Expr> \
+        const vector& operator cop(const Expr &expr) { \
+            return *this = *this op expr; \
+        }
 
-	COMPOUND_ASSIGNMENT(+=, +);
-	COMPOUND_ASSIGNMENT(-=, -);
-	COMPOUND_ASSIGNMENT(*=, *);
-	COMPOUND_ASSIGNMENT(/=, /);
-	COMPOUND_ASSIGNMENT(%=, %);
-	COMPOUND_ASSIGNMENT(&=, &);
-	COMPOUND_ASSIGNMENT(|=, |);
-	COMPOUND_ASSIGNMENT(^=, ^);
-	COMPOUND_ASSIGNMENT(<<=, <<);
-	COMPOUND_ASSIGNMENT(>>=, >>);
+        COMPOUND_ASSIGNMENT(+=, +);
+        COMPOUND_ASSIGNMENT(-=, -);
+        COMPOUND_ASSIGNMENT(*=, *);
+        COMPOUND_ASSIGNMENT(/=, /);
+        COMPOUND_ASSIGNMENT(%=, %);
+        COMPOUND_ASSIGNMENT(&=, &);
+        COMPOUND_ASSIGNMENT(|=, |);
+        COMPOUND_ASSIGNMENT(^=, ^);
+        COMPOUND_ASSIGNMENT(<<=, <<);
+        COMPOUND_ASSIGNMENT(>>=, >>);
 
 #undef COMPOUND_ASSIGNMENT
 
-	/// Copy data from host buffer to device(s).
-	void write_data(size_t offset, size_t size, const T *hostptr, cl_bool blocking,
-		std::vector<cl::Event> *uevent = 0)
-	{
-	    if (!size) return;
+        /// Copy data from host buffer to device(s).
+        void write_data(size_t offset, size_t size, const T *hostptr, cl_bool blocking,
+                std::vector<cl::Event> *uevent = 0)
+        {
+            if (!size) return;
 
-	    std::vector<cl::Event> &ev = uevent ? *uevent : event;
+            std::vector<cl::Event> &ev = uevent ? *uevent : event;
 
-	    for(uint d = 0; d < queue.size(); d++) {
-		size_t start = std::max(offset,        part[d]);
-		size_t stop  = std::min(offset + size, part[d + 1]);
+            for(uint d = 0; d < queue.size(); d++) {
+                size_t start = std::max(offset,        part[d]);
+                size_t stop  = std::min(offset + size, part[d + 1]);
 
-		if (stop <= start) continue;
+                if (stop <= start) continue;
 
-		queue[d].enqueueWriteBuffer(buf[d], CL_FALSE,
-			sizeof(T) * (start - part[d]),
-			sizeof(T) * (stop - start),
-			hostptr + start - offset,
-			0, &ev[d]
-			);
-	    }
+                queue[d].enqueueWriteBuffer(buf[d], CL_FALSE,
+                        sizeof(T) * (start - part[d]),
+                        sizeof(T) * (stop - start),
+                        hostptr + start - offset,
+                        0, &ev[d]
+                        );
+            }
 
-	    if (blocking)
-		for(size_t d = 0; d < queue.size(); d++) {
-		    size_t start = std::max(offset,        part[d]);
-		    size_t stop  = std::min(offset + size, part[d + 1]);
+            if (blocking)
+                for(size_t d = 0; d < queue.size(); d++) {
+                    size_t start = std::max(offset,        part[d]);
+                    size_t stop  = std::min(offset + size, part[d + 1]);
 
-		    if (start < stop) ev[d].wait();
-		}
-	}
+                    if (start < stop) ev[d].wait();
+                }
+        }
 
-	/// Copy data from device(s) to host buffer .
-	void read_data(size_t offset, size_t size, T *hostptr, cl_bool blocking,
-		std::vector<cl::Event> *uevent = 0) const
-	{
-	    if (!size) return;
+        /// Copy data from device(s) to host buffer .
+        void read_data(size_t offset, size_t size, T *hostptr, cl_bool blocking,
+                std::vector<cl::Event> *uevent = 0) const
+        {
+            if (!size) return;
 
-	    std::vector<cl::Event> &ev = uevent ? *uevent : event;
+            std::vector<cl::Event> &ev = uevent ? *uevent : event;
 
-	    for(uint d = 0; d < queue.size(); d++) {
-		size_t start = std::max(offset,        part[d]);
-		size_t stop  = std::min(offset + size, part[d + 1]);
+            for(uint d = 0; d < queue.size(); d++) {
+                size_t start = std::max(offset,        part[d]);
+                size_t stop  = std::min(offset + size, part[d + 1]);
 
-		if (stop <= start) continue;
+                if (stop <= start) continue;
 
-		queue[d].enqueueReadBuffer(buf[d], CL_FALSE,
-			sizeof(T) * (start - part[d]),
-			sizeof(T) * (stop - start),
-			hostptr + start - offset,
-			0, &ev[d]
-			);
-	    }
+                queue[d].enqueueReadBuffer(buf[d], CL_FALSE,
+                        sizeof(T) * (start - part[d]),
+                        sizeof(T) * (stop - start),
+                        hostptr + start - offset,
+                        0, &ev[d]
+                        );
+            }
 
-	    if (blocking)
-		for(uint d = 0; d < queue.size(); d++) {
-		    size_t start = std::max(offset,        part[d]);
-		    size_t stop  = std::min(offset + size, part[d + 1]);
+            if (blocking)
+                for(uint d = 0; d < queue.size(); d++) {
+                    size_t start = std::max(offset,        part[d]);
+                    size_t stop  = std::min(offset + size, part[d + 1]);
 
-		    if (start < stop) ev[d].wait();
-		}
-	}
+                    if (start < stop) ev[d].wait();
+                }
+        }
 
     private:
-	template <class Expr>
-	struct exdata {
-	    static std::map<cl_context,bool>       compiled;
-	    static std::map<cl_context,cl::Kernel> kernel;
-	    static std::map<cl_context,size_t>     wgsize;
-	};
+        template <class Expr>
+        struct exdata {
+            static std::map<cl_context,bool>       compiled;
+            static std::map<cl_context,cl::Kernel> kernel;
+            static std::map<cl_context,size_t>     wgsize;
+        };
 
-	std::vector<cl::CommandQueue>	queue;
-	std::vector<size_t>             part;
-	std::vector<cl::Buffer>		buf;
-	mutable std::vector<cl::Event>  event;
+        std::vector<cl::CommandQueue>   queue;
+        std::vector<size_t>             part;
+        std::vector<cl::Buffer>         buf;
+        mutable std::vector<cl::Event>  event;
 
-	void allocate_buffers(cl_mem_flags flags, const T *hostptr) {
-	    for(uint d = 0; d < queue.size(); d++) {
-		if (size_t psize = part[d + 1] - part[d]) {
-		    cl::Context context = qctx(queue[d]);
+        void allocate_buffers(cl_mem_flags flags, const T *hostptr) {
+            for(uint d = 0; d < queue.size(); d++) {
+                if (size_t psize = part[d + 1] - part[d]) {
+                    cl::Context context = qctx(queue[d]);
 
-		    buf[d] = cl::Buffer(context, flags, psize * sizeof(T));
-		}
-	    }
-	    if (hostptr) write_data(0, size(), hostptr, CL_TRUE);
-	}
+                    buf[d] = cl::Buffer(context, flags, psize * sizeof(T));
+                }
+            }
+            if (hostptr) write_data(0, size(), hostptr, CL_TRUE);
+        }
 };
 
 template <class T> template <class Expr>
@@ -737,15 +737,15 @@ struct stored_on_device<Iterator,
 template<class InputIterator, class OutputIterator>
 typename std::enable_if<
     std::is_same<
-	typename std::iterator_traits<InputIterator>::value_type,
-	typename std::iterator_traits<OutputIterator>::value_type
-	>::value &&
+        typename std::iterator_traits<InputIterator>::value_type,
+        typename std::iterator_traits<OutputIterator>::value_type
+        >::value &&
     stored_on_device<InputIterator>::value &&
     !stored_on_device<OutputIterator>::value,
     OutputIterator
     >::type
 copy(InputIterator first, InputIterator last,
-	OutputIterator result, cl_bool blocking = CL_TRUE)
+        OutputIterator result, cl_bool blocking = CL_TRUE)
 {
     first.vec.read_data(first.pos, last - first, &result[0], blocking);
     return result + (last - first);
@@ -755,15 +755,15 @@ copy(InputIterator first, InputIterator last,
 template<class InputIterator, class OutputIterator>
 typename std::enable_if<
     std::is_same<
-	typename std::iterator_traits<InputIterator>::value_type,
-	typename std::iterator_traits<OutputIterator>::value_type
-	>::value &&
+        typename std::iterator_traits<InputIterator>::value_type,
+        typename std::iterator_traits<OutputIterator>::value_type
+        >::value &&
     !stored_on_device<InputIterator>::value &&
     stored_on_device<OutputIterator>::value,
     OutputIterator
     >::type
 copy(InputIterator first, InputIterator last,
-	OutputIterator result, cl_bool blocking = CL_TRUE)
+        OutputIterator result, cl_bool blocking = CL_TRUE)
 {
     result.vec.write_data(result.pos, last - first, &first[0], blocking);
     return result + (last - first);
@@ -777,13 +777,13 @@ void swap(vector<T> &x, vector<T> &y) {
 
 /// Returns device weight after simple bandwidth test
 inline double device_vector_perf(
-	const cl::Context &context, const cl::Device &device
-	)
+        const cl::Context &context, const cl::Device &device
+        )
 {
     static const size_t test_size = 1024U * 1024U;
     std::vector<cl::CommandQueue> queue(1,
-	    cl::CommandQueue(context, device, CL_QUEUE_PROFILING_ENABLE)
-	    );
+            cl::CommandQueue(context, device, CL_QUEUE_PROFILING_ENABLE)
+            );
 
     // Allocate test vectors on current device and measure execution
     // time of a simple kernel.
@@ -814,4 +814,6 @@ struct is_sequence< vex::vector<T> > : std::false_type
 #ifdef WIN32
 #  pragma warning(pop)
 #endif
+
+// vim: set et
 #endif

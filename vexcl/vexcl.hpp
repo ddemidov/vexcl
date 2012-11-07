@@ -156,12 +156,12 @@ typedef double real;
 // Solve system of linear equations A u = f with conjugate gradients method.
 // Input matrix is represented in CSR format (parameters row, col, and val).
 void cg_gpu(
-	const std::vector<size_t> &row, // Indices to col and val vectors.
-	const std::vector<size_t> &col, // Column numbers of non-zero elements.
-	const std::vector<real>   &val, // Values of non-zero elements.
-	const std::vector<real>   &rhs, // Right-hand side.
-	std::vector<real> &x            // In: initial approximation; out: result.
-	)
+        const std::vector<size_t> &row, // Indices to col and val vectors.
+        const std::vector<size_t> &col, // Column numbers of non-zero elements.
+        const std::vector<real>   &val, // Values of non-zero elements.
+        const std::vector<real>   &rhs, // Right-hand side.
+        std::vector<real> &x            // In: initial approximation; out: result.
+        )
 {
     // Init OpenCL.
     vex::Context ctx(Filter::Type(CL_DEVICE_TYPE_GPU));
@@ -183,23 +183,23 @@ void cg_gpu(
     r = f - A * u;
 
     for(uint iter = 0; max(fabs(r)) > 1e-8 && iter < n; iter++) {
-	rho1 = sum(r * r);
+        rho1 = sum(r * r);
 
-	if (iter == 0) {
-	    p = r;
-	} else {
-	    real beta = rho1 / rho2;
-	    p = r + beta * p;
-	}
+        if (iter == 0) {
+            p = r;
+        } else {
+            real beta = rho1 / rho2;
+            p = r + beta * p;
+        }
 
-	q = A * p;
+        q = A * p;
 
-	real alpha = rho1 / sum(p * q);
+        real alpha = rho1 / sum(p * q);
 
-	u += alpha * p;
-	r -= alpha * q;
+        u += alpha * p;
+        r -= alpha * q;
 
-	rho2 = rho1;
+        rho2 = rho1;
     }
 
     // Get result to host.
@@ -490,4 +490,6 @@ there, you can download it from <a href="http://www.khronos.org/registry/cl">Kro
 #ifdef WIN32
 #  pragma warning(pop)
 #endif
+
+// vim: set et
 #endif
