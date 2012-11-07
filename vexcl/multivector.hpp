@@ -427,7 +427,7 @@ class multivector
 
 		    {
 			get_header f(kernel);
-			for_each(expr, f);
+			for_each<0>(expr, f);
 		    }
 
 		    kernel <<
@@ -439,7 +439,7 @@ class multivector
 
 		    {
 			get_params f(kernel);
-			for_each(expr, f);
+			for_each<0>(expr, f);
 		    }
 
 		    kernel <<
@@ -449,7 +449,7 @@ class multivector
 
 		    {
 			get_expressions f(kernel);
-			for_each(expr, f);
+			for_each<0>(expr, f);
 		    }
 
 		    kernel << "\n";
@@ -490,7 +490,7 @@ class multivector
 
 		    {
 			set_arguments f(exdata<MultiExpr>::kernel[context()], d, pos);
-			for_each(expr, f);
+			for_each<0>(expr, f);
 		    }
 
 		    queue[d].enqueueNDRangeKernel(
