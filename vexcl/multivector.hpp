@@ -404,7 +404,7 @@ class multivector
 	}
 
 	/// Multi-expression assignments.
-#ifdef BOOST_NO_VARIADIC_TEMPLATES
+#ifndef BOOST_NO_VARIADIC_TEMPLATES
 	template <class... Args>
 	typename std::enable_if<N == sizeof...(Args), const multivector&>::type
 	operator=(const std::tuple<Args...> &expr) {
@@ -412,12 +412,14 @@ class multivector
 #else
 	template <class ExprTuple>
 	typename std::enable_if<
-	    N == std::tuple_size<ExprTuple>::value &&
 	    !boost::proto::matches<
 		typename boost::proto::result_of::as_expr<ExprTuple>::type,
 		multivector_full_grammar
-	    >::value,
-	    const multivector&
+	    >::value
+#if !defined(_MSC_VER) || _MSC_VER >= 1700
+	    && N == std::tuple_size<ExprTuple>::value
+#endif
+	    , const multivector&
 	>::type
 	operator=(const ExprTuple &expr) {
 #endif

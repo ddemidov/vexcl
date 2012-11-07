@@ -9,7 +9,6 @@
 
 //#define VEXCL_SHOW_KERNELS
 #include <vexcl/vexcl.hpp>
-#include <vexcl/generator.hpp>
 
 using namespace vex;
 
@@ -785,7 +784,6 @@ int main(int argc, char *argv[]) {
 	});
 #endif
 
-#ifndef BOOST_NO_VARIADIC_TEMPLATES
 #if 1
 	run_test("Multiexpressions with multivectors", [&]() -> bool {
 		bool rc = true;
@@ -863,7 +861,6 @@ int main(int argc, char *argv[]) {
 
 		return rc;
 	});
-#endif
 #endif
 
 #if 1
