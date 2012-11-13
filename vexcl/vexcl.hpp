@@ -386,26 +386,30 @@ performance improvement with this technique.
 Custom kernels are of course possible as well. vector::operator(uint)
 returns cl::Buffer object for a specified device:
 \code
-vex::Context ctx(Filter::Type(CL_DEVICE_TYPE_GPU));
+vex::Context ctx(Filter::Vendor("NVIDIA"));
 
+std::vector< cl::Kernel > dummy;
+
+// Build kernel for each of the devices in context:
+for(uint d = 0; d < ctx.size(); d++) {
+    cl::Program program = build_sources(ctx.context(d),
+        "kernel void dummy(ulong size, global float *x) {\n"
+        "    x[get_global_id(0)] = 4.2;\n"
+        "}\n");
+    dummy.emplace_back(program, "dummy");
+}
+
+// Allocate device vector.
 const size_t n = 1 << 20;
 vex::vector<float> x(ctx.queue(), n);
 
-auto program = build_sources(context, std::string(
-    "kernel void dummy(ulong size, global float *x)\n"
-    "{\n"
-    "    size_t i = get_global_id(0);\n"
-    "    if (i < size) x[i] = 4.2;\n"
-    "}\n"
-    ));
-
+// Process each partition of the vector with the corresponding kernel:
 for(uint d = 0; d < ctx.size(); d++) {
-    auto dummy = cl::Kernel(program, "dummy").bind(ctx.queue()[d], alignup(n, 256), 256);
-    dummy((cl_ulong)x.part_size(d), x(d));
-}
+    dummy[d].setArg(0, static_cast<cl_ulong>(x.part_size(d)));
+    dummy[d].setArg(1, x(d));
 
-Reductor<float,SUM> sum(ctx.queue());
-std::cout << sum(x) << std::endl;
+    ctx.queue(d).enqueueNDRangeKernel(dummy[d], cl::NullRange, x.part_size(d), cl::NullRange);
+}
 \endcode
 
 \section scalability Scalability
