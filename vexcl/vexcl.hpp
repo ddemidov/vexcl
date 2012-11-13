@@ -363,11 +363,8 @@ auto kernel = vex::generator::build_kernel(ctx.queue(),
 
 // Create and initialize vector of states.
 std::vector<double> xinit(n);
-std::generate(xinit.begin(), xinit.end(), [](){
-    return (double)rand() / RAND_MAX;
-    });
-vex::vector<double> x(ctx.queue(), n);
-vex::copy(xinit, x);
+std::generate(xinit.begin(), xinit.end(), [](){ return (double)rand() / RAND_MAX; });
+vex::vector<double> x(ctx.queue(), xinit);
 
 // Make 100 rk4 steps.
 for(int i = 0; i < 100; i++) kernel(x);
