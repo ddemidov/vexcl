@@ -21,6 +21,8 @@ void cg_gpu(
     // Init OpenCL
     vex::Context ctx(Filter::Type(CL_DEVICE_TYPE_GPU) && Filter::DoublePrecision);
 
+    if (!ctx.size()) throw std::logic_error("No compute devices available");
+
     // Move data to GPU(s)
     vex::SpMat <real> A(ctx.queue(), n, n, row.data(), col.data(), val.data());
     vex::vector<real> f(ctx.queue(), rhs, CL_MEM_READ_ONLY);
@@ -64,52 +66,58 @@ int main() {
     size_t n = 1024;
     real h = 1.0 / (n - 1);
 
-    // Prepare problem (1D Poisson equation).
-    std::vector<size_t> row;
-    std::vector<size_t> col;
-    std::vector<real>   val;
-    std::vector<real>   rhs;
+    try {
+        // Prepare problem (1D Poisson equation).
+        std::vector<size_t> row;
+        std::vector<size_t> col;
+        std::vector<real>   val;
+        std::vector<real>   rhs;
 
-    row.reserve(n + 1);
-    col.reserve(2 + (n - 2) * 3);
-    val.reserve(2 + (n - 2) * 3);
-    rhs.reserve(n);
+        row.reserve(n + 1);
+        col.reserve(2 + (n - 2) * 3);
+        val.reserve(2 + (n - 2) * 3);
+        rhs.reserve(n);
 
-    row.push_back(0);
-    for(size_t i = 0; i < n; i++) {
-        if (i == 0 || i == n-1) {
-            col.push_back(i);
-            val.push_back(1);
-            rhs.push_back(0);
-            row.push_back(row.back() + 1);
-        } else {
-            col.push_back(i-1);
-            val.push_back(-1/(h*h));
+        row.push_back(0);
+        for(size_t i = 0; i < n; i++) {
+            if (i == 0 || i == n-1) {
+                col.push_back(i);
+                val.push_back(1);
+                rhs.push_back(0);
+                row.push_back(row.back() + 1);
+            } else {
+                col.push_back(i-1);
+                val.push_back(-1/(h*h));
 
-            col.push_back(i);
-            val.push_back(2/(h*h));
+                col.push_back(i);
+                val.push_back(2/(h*h));
 
-            col.push_back(i+1);
-            val.push_back(-1/(h*h));
+                col.push_back(i+1);
+                val.push_back(-1/(h*h));
 
-            rhs.push_back(2);
-            row.push_back(row.back() + 3);
+                rhs.push_back(2);
+                row.push_back(row.back() + 3);
+            }
         }
+
+        std::vector<real> x(n, 0);
+
+        // Solve problem.
+        cg_gpu(row, col, val, rhs, x);
+
+        // Compute actual residual.
+        double res = 0;
+        for(size_t i = 0; i < n; i++) {
+            double y = i * h;
+            res = std::max(res, fabs(x[i] - y * (1 - y)));
+        }
+
+        std::cout << "res = " << res << std::endl;
+    } catch (const cl::Error &e) {
+        std::cerr << "Error: " << e << std::endl;
+    } catch (const std::exception &e) {
+        std::cerr << "Error: " << e.what() << std::endl;
     }
-
-    std::vector<real> x(n, 0);
-
-    // Solve problem.
-    cg_gpu(row, col, val, rhs, x);
-
-    // Compute actual residual.
-    double res = 0;
-    for(size_t i = 0; i < n; i++) {
-        double y = i * h;
-        res = std::max(res, fabs(x[i] - y * (1 - y)));
-    }
-
-    std::cout << "res = " << res << std::endl;
 }
 
 // vim: et

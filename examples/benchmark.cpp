@@ -483,6 +483,11 @@ int main() {
                 CL_QUEUE_PROFILING_ENABLE
                 );
 
+        if (!ctx.size()) {
+            std::cerr << "No compute devices found" << std::endl;
+            return 1;
+        }
+
         std::cout << ctx << std::endl;
 
         std::ofstream log("profiling.dat", std::ios::app);

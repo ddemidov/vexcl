@@ -21,7 +21,7 @@ int main() {
         // Select every device supporting double precision.
         vex::Context ctx(Filter::All);
 
-        if (ctx.queue().empty()) {
+        if (!ctx.size()) {
             std::cerr << "No OpenCL devices found." << std::endl;
             return 1;
         }
