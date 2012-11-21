@@ -440,10 +440,9 @@ Supported compilers
 VexCL makes heavy use of C++11 features, so your compiler has to be modern
 enough. The compilers that have been tested and supported:
 
-* GCC v4.6 and above.
-* Clang v3.1.
-* Microsoft Visual C++ 2010 manages to compile the project with some features
-   disabled (due to lack of support for variadic templates).
+* GCC v4.6 and higher.
+* Clang v3.1 and higher.
+* Microsoft Visual C++ 2010 and higher.
 
 VexCL uses standard OpenCL bindings for C++ from Khronos group. The cl.hpp file
 should be included with the OpenCL implementation on your system. If it is not
