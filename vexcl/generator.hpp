@@ -45,6 +45,11 @@ THE SOFTWARE.
 #include <vexcl/util.hpp>
 #include <vexcl/operations.hpp>
 
+#ifdef BOOST_NO_VARIADIC_TEMPLATES
+#  include <boost/preprocessor/repetition.hpp>
+#endif
+
+
 /// Vector expression template library for OpenCL.
 namespace vex {
 
@@ -468,54 +473,18 @@ class Kernel {
             launch(std::tie(param...));
         }
 #else
-        /// Launches kernel with provided parameters.
-        template <
-            class Param1
-            >
-        void operator()(
-                const Param1 &param1
-                )
-        {
-            launch(std::tie(
-                        param1
-                        ));
+
+#define PRINT_PARAM(z, n, data) const Param ## n &param ## n
+#define FUNCALL_OPERATOR(z, n, data) \
+        template < BOOST_PP_ENUM_PARAMS(n, class Param) > \
+        void operator()( BOOST_PP_ENUM(n, PRINT_PARAM, ~) ) { \
+            launch(std::tie( BOOST_PP_ENUM_PARAMS(n, param) )); \
         }
 
+BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, FUNCALL_OPERATOR, ~)
 
-        /// Launches kernel with provided parameters.
-        template <
-            class Param1,
-            class Param2
-            >
-        void operator()(
-                const Param1 &param1,
-                const Param2 &param2
-                )
-        {
-            launch(std::tie(
-                        param1,
-                        param2
-                        ));
-        }
-
-        /// Launches kernel with provided parameters.
-        template <
-            class Param1,
-            class Param2,
-            class Param3
-            >
-        void operator()(
-                const Param1 &param1,
-                const Param2 &param2,
-                const Param3 &param3
-                )
-        {
-            launch(std::tie(
-                        param1,
-                        param2,
-                        param3
-                        ));
-        }
+#undef PRINT_PARAM
+#undef FUNCALL_OPERATOR
 
 #endif
     private:
@@ -673,7 +642,7 @@ Kernel<2> build_kernel(
         const Arg2& arg2
         )
 {
-    return Kernel<1>(queue, name, body, std::tie(
+    return Kernel<2>(queue, name, body, std::tie(
                 arg1,
                 arg2
                 ));
@@ -685,7 +654,7 @@ template <
     class Arg2,
     class Arg3
     >
-Kernel<2> build_kernel(
+Kernel<3> build_kernel(
         const std::vector<cl::CommandQueue> &queue,
         const std::string &name, const std::string& body,
         const Arg1& arg1,
@@ -693,7 +662,7 @@ Kernel<2> build_kernel(
         const Arg3& arg3
         )
 {
-    return Kernel<1>(queue, name, body, std::tie(
+    return Kernel<3>(queue, name, body, std::tie(
                 arg1,
                 arg2,
                 arg3
