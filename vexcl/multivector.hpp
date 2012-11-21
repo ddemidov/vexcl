@@ -742,41 +742,18 @@ tie(vex::vector<T> &head, vex::vector<Tail>&... tail) {
     return multivector<T, sizeof...(Tail) + 1, false>(ptr);
 }
 #else
-/// Ties several vex::vectors into a multivector.
-/**
- * The following example results in a single kernel:
- * \code
- * vex::vector<double> x(ctx.queue(), 1024);
- * vex::vector<double> y(ctx.queue(), 1024);
- *
- * vex::tie(x,y) = std::tie( x + y, y - x );
- * \endcode
- * This is functionally equivalent to
- * \code
- * tmp_x = x + y;
- * tmp_y = y - x;
- * x = tmp_x;
- * y = tmp_y;
- * \endcode
- * but does not use temporaries and is more efficient.
- */
-template<typename T>
-multivector<T, 1, false> tie(vex::vector<T> &v0) {
-    std::array<vex::vector<T>*, 1> ptr = {{&v0}};
-    return multivector<T, 1, false>(ptr);
+
+#define TIE_VECTORS(z, n, data) \
+template<typename T> \
+multivector<T, n, false> tie( BOOST_PP_ENUM_PARAMS(n, vex::vector<T> &v) ) { \
+    std::array<vex::vector<T>*, n> ptr = {{ BOOST_PP_ENUM_PARAMS(n, &v) }}; \
+    return multivector<T, n, false>(ptr); \
 }
 
-template<typename T>
-multivector<T, 2, false> tie(vex::vector<T> &v0, vex::vector<T> &v1) {
-    std::array<vex::vector<T>*, 2> ptr = {{&v0, &v1}};
-    return multivector<T, 2, false>(ptr);
-}
+BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, TIE_VECTORS, ~)
 
-template<typename T>
-multivector<T, 3, false> tie(vex::vector<T> &v0, vex::vector<T> &v1, vex::vector<T> &v2) {
-    std::array<vex::vector<T>*, 3> ptr = {{&v0, &v1, &v2}};
-    return multivector<T, 3, false>(ptr);
-}
+#undef TIE_VECTORS
+
 #endif
 
 } // namespace vex

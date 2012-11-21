@@ -41,6 +41,13 @@ THE SOFTWARE.
 #include <boost/proto/proto.hpp>
 #include <boost/mpl/max.hpp>
 
+#ifdef BOOST_NO_VARIADIC_TEMPLATES
+#  include <boost/preprocessor/repetition.hpp>
+#  ifndef VEXCL_MAX_ARITY
+#    define VEXCL_MAX_ARITY BOOST_PROTO_MAX_ARITY
+#  endif
+#endif
+
 /// Vector expression template library for OpenCL.
 namespace vex {
 
@@ -244,11 +251,11 @@ BUILTIN_FUNCTION_1(trunc);
 
 //--- User Function ---------------------------------------------------------
 
-// Workaround for gcc bug http://gcc.gnu.org/bugzilla/show_bug.cgi?id=35722
-#if !defined(BOOST_NO_VARIADIC_TEMPLATES) && (!defined(__GNUC__) || (__GNUC__ > 4 || __GNUC__ == 4 && __GNUC_MINOR__ > 6))
-
 template <const char *body, class T>
 struct UserFunction {};
+
+// Workaround for gcc bug http://gcc.gnu.org/bugzilla/show_bug.cgi?id=35722
+#if !defined(BOOST_NO_VARIADIC_TEMPLATES) && (!defined(__GNUC__) || (__GNUC__ > 4 || __GNUC__ == 4 && __GNUC_MINOR__ > 6))
 
 template<const char *body, class RetType, class... ArgType>
 struct UserFunction<body, RetType(ArgType...)> : user_function
@@ -289,115 +296,41 @@ struct UserFunction<body, RetType(ArgType...)> : user_function
 
 #else
 
-template <const char *body, class T>
-struct UserFunction {};
-
-template<const char *body, class RetType, class Arg1Type>
-struct UserFunction<body, RetType(Arg1Type)> : user_function
-{
-    template <class Arg1>
-    typename boost::proto::result_of::make_expr<
-        boost::proto::tag::function,
-        UserFunction,
-        const Arg1&
-    >::type const
-    operator()(const Arg1& arg1) {
-        return boost::proto::make_expr<boost::proto::tag::function>(
-                UserFunction(), boost::ref(arg1)
-                );
-    }
-    
-    static void define(std::ostream &os, const std::string &name) {
-        os << type_name<RetType>() << " " << name << "("
-           << "\n\t" << type_name<Arg1Type>() << " prm1"
-           << "\n)\n{\n" << body << "\n}\n\n";
-    }
+#define PRINT_ARG_REF(z, n, data) const Arg ## n&
+#define PRINT_PARAM(z, n, data) const Arg ## n &arg ## n
+#define PRINT_BOOST_REF(z, n, data) boost::ref(arg ## n)
+#define PRINT_PRM_DEF(z, n, data) \
+    << "\n\t" << type_name<ArgType ## n>() \
+    << " prm" << n + 1 BOOST_PP_EXPR_IF(BOOST_PP_LESS(BOOST_PP_ADD(n, 1), data), << ",")
+#define USER_FUNCTION(z, n, data) \
+template< const char *body, class RetType, BOOST_PP_ENUM_PARAMS(n, class ArgType) > \
+struct UserFunction<body, RetType( BOOST_PP_ENUM_PARAMS(n, ArgType) )> : user_function \
+{ \
+    template < BOOST_PP_ENUM_PARAMS(n, class Arg) > \
+    typename boost::proto::result_of::make_expr< \
+        boost::proto::tag::function, \
+        UserFunction, \
+        BOOST_PP_ENUM(n, PRINT_ARG_REF, ~) \
+    >::type const \
+    operator()( BOOST_PP_ENUM(n, PRINT_PARAM, ~) ) { \
+        return boost::proto::make_expr<boost::proto::tag::function>( \
+                UserFunction(), BOOST_PP_ENUM(n, PRINT_BOOST_REF, ~) \
+                ); \
+    } \
+    static void define(std::ostream &os, const std::string &name) { \
+        os << type_name<RetType>() << " " << name << "(" \
+           BOOST_PP_REPEAT(n, PRINT_PRM_DEF, n) \
+           << "\n)\n{\n" << body << "\n}\n\n"; \
+    } \
 };
 
-template<const char *body, class RetType,
-    class Arg1Type,
-    class Arg2Type
-    >
-struct UserFunction<body, RetType(
-        Arg1Type,
-        Arg2Type
-        )> : user_function
-{
-    template <
-        class Arg1,
-        class Arg2
-        >
-    typename boost::proto::result_of::make_expr<
-        boost::proto::tag::function,
-        UserFunction,
-        const Arg1&,
-        const Arg2&
-    >::type const
-    operator()(
-            const Arg1& arg1,
-            const Arg2& arg2
-            )
-    {
-        return boost::proto::make_expr<boost::proto::tag::function>(
-                UserFunction(),
-                boost::ref(arg1),
-                boost::ref(arg2)
-                );
-    }
-    
-    static void define(std::ostream &os, const std::string &name) {
-        os << type_name<RetType>() << " " << name << "("
-           << "\n\t" << type_name<Arg1Type>() << " prm1,"
-           << "\n\t" << type_name<Arg2Type>() << " prm2"
-           << "\n)\n{\n" << body << "\n}\n\n";
-    }
-};
+BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, USER_FUNCTION, ~)
 
-template<const char *body, class RetType,
-    class Arg1Type,
-    class Arg2Type,
-    class Arg3Type
-    >
-struct UserFunction<body, RetType(
-        Arg1Type,
-        Arg2Type,
-        Arg3Type
-        )> : user_function
-{
-    template <
-        class Arg1,
-        class Arg2,
-        class Arg3
-        >
-    typename boost::proto::result_of::make_expr<
-        boost::proto::tag::function,
-        UserFunction,
-        const Arg1&,
-        const Arg2&,
-        const Arg3&
-    >::type const
-    operator()(
-            const Arg1& arg1,
-            const Arg2& arg2,
-            const Arg3& arg3
-            )
-    {
-        return boost::proto::make_expr<boost::proto::tag::function>(
-                UserFunction(),
-                boost::ref(arg1),
-                boost::ref(arg2),
-                boost::ref(arg3)
-                );
-    }
-    
-    static void define(std::ostream &os, const std::string &name) {
-        os << type_name<RetType>() << " " << name << "("
-           << "\n\t" << type_name<Arg1Type>() << " prm1,"
-           << "\n\t" << type_name<Arg2Type>() << " prm2,"
-           << "\n\t" << type_name<Arg3Type>() << " prm3"
-           << "\n)\n{\n" << body << "\n}\n\n";
-    }
-};
+#undef PRINT_ARG_REF
+#undef PRINT_PARAM
+#undef PRINT_BOOST_REF
+#undef PRINT_PRM_DEF
+#undef USER_FUNCTION
 
 #endif
 

@@ -53,10 +53,6 @@ THE SOFTWARE.
 #endif
 #include <CL/cl.hpp>
 
-#if defined(BOOST_NO_VARIADIC_TEMPLATES) && !defined(VEXCL_MAX_ARITY)
-#  define VEXCL_MAX_ARITY 5
-#endif
-
 typedef unsigned int  uint;
 typedef unsigned char uchar;
 

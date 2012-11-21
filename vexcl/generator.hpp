@@ -45,11 +45,6 @@ THE SOFTWARE.
 #include <vexcl/util.hpp>
 #include <vexcl/operations.hpp>
 
-#ifdef BOOST_NO_VARIADIC_TEMPLATES
-#  include <boost/preprocessor/repetition.hpp>
-#endif
-
-
 /// Vector expression template library for OpenCL.
 namespace vex {
 
@@ -615,59 +610,22 @@ Kernel<sizeof...(Args)> build_kernel(
 }
 #else
 
-/// Builds kernel from recorded expression sequence and symbolic parameter list.
-template <
-    class Arg1
-    >
-Kernel<1> build_kernel(
-        const std::vector<cl::CommandQueue> &queue,
-        const std::string &name, const std::string& body,
-        const Arg1& arg1
-        )
-{
-    return Kernel<1>(queue, name, body, std::tie(
-                arg1
-                ));
+#define PRINT_ARG(z, n, data) const Arg ## n &arg ## n
+#define BUILD_KERNEL(z, n, data) \
+template < BOOST_PP_ENUM_PARAMS(n, class Arg) > \
+Kernel<n> build_kernel( \
+        const std::vector<cl::CommandQueue> &queue, \
+        const std::string &name, const std::string& body, \
+        BOOST_PP_ENUM(n, PRINT_ARG, ~) \
+        ) \
+{ \
+    return Kernel<n>(queue, name, body, std::tie( BOOST_PP_ENUM_PARAMS(n, arg) )); \
 }
 
-/// Builds kernel from recorded expression sequence and symbolic parameter list.
-template <
-    class Arg1,
-    class Arg2
-    >
-Kernel<2> build_kernel(
-        const std::vector<cl::CommandQueue> &queue,
-        const std::string &name, const std::string& body,
-        const Arg1& arg1,
-        const Arg2& arg2
-        )
-{
-    return Kernel<2>(queue, name, body, std::tie(
-                arg1,
-                arg2
-                ));
-}
+BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, BUILD_KERNEL, ~)
 
-/// Builds kernel from recorded expression sequence and symbolic parameter list.
-template <
-    class Arg1,
-    class Arg2,
-    class Arg3
-    >
-Kernel<3> build_kernel(
-        const std::vector<cl::CommandQueue> &queue,
-        const std::string &name, const std::string& body,
-        const Arg1& arg1,
-        const Arg2& arg2,
-        const Arg3& arg3
-        )
-{
-    return Kernel<3>(queue, name, body, std::tie(
-                arg1,
-                arg2,
-                arg3
-                ));
-}
+#undef PRINT_ARG
+#undef BUILD_KERNEL
 
 #endif
 
