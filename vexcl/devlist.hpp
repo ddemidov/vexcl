@@ -482,6 +482,10 @@ class Context {
                 )
         {
             std::tie(c, q) = queue_list(filter, properties);
+
+#ifdef VEXCL_THROW_ON_EMPTY_CONTEXT
+            if (q.empty()) throw std::logic_error("No compute devices found");
+#endif
         }
 
         /// Initializes context from user-supplied list of cl::Contexts and cl::CommandQueues.
