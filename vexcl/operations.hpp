@@ -45,7 +45,7 @@ THE SOFTWARE.
 // Include boost.preprocessor header if variadic templates are not vailable.
 // Also include it if we use gcc v4.6.
 // This is required due to bug http://gcc.gnu.org/bugzilla/show_bug.cgi?id=35722
-#if defined(BOOST_NO_VARIADIC_TEMPLATES) || (defined(__GNUC__) && __GNUC__ == 4 && __GNUC_MINOR__ == 6)
+#if defined(BOOST_NO_VARIADIC_TEMPLATES) || (defined(__GNUC__) && !defined(__clang__) && __GNUC__ == 4 && __GNUC_MINOR__ == 6)
 #  include <boost/preprocessor/repetition.hpp>
 #  ifndef VEXCL_MAX_ARITY
 #    define VEXCL_MAX_ARITY BOOST_PROTO_MAX_ARITY
@@ -259,7 +259,7 @@ template <const char *body, class T>
 struct UserFunction {};
 
 // Workaround for gcc bug http://gcc.gnu.org/bugzilla/show_bug.cgi?id=35722
-#if !defined(BOOST_NO_VARIADIC_TEMPLATES) && (!defined(__GNUC__) || (__GNUC__ > 4 || __GNUC__ == 4 && __GNUC_MINOR__ > 6))
+#if !defined(BOOST_NO_VARIADIC_TEMPLATES) && ((!defined(__GNUC__) || (__GNUC__ > 4 || __GNUC__ == 4 && __GNUC_MINOR__ > 6)) || defined(__clang__))
 
 template<const char *body, class RetType, class... ArgType>
 struct UserFunction<body, RetType(ArgType...)> : user_function
