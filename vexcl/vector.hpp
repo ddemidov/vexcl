@@ -186,7 +186,8 @@ class vector
     : public vector_expression< typename boost::proto::terminal< vector_terminal >::type >
 {
     public:
-        typedef T value_type;
+        typedef T      value_type;
+        typedef size_t size_type;
 
         /// Proxy class.
         /**
@@ -294,6 +295,15 @@ class vector
 
         /// Empty constructor.
         vector() {}
+
+	/// Construct by size and use static context.
+	vector(size_t size) :
+	    queue(StaticContext<>::get().queue()),
+	    part(vex::partition(size, queue)),
+	    buf(queue.size()), event(queue.size())
+	{
+            if (size) allocate_buffers(CL_MEM_READ_WRITE, 0);
+	}
 
         /// Copy constructor.
         vector(const vector &v)

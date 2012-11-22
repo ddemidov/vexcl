@@ -34,6 +34,12 @@ if (ODEINT)
     set(EXAMPLES ${EXAMPLES} symbolic)
 endif (ODEINT)
 
+find_path(VIENNACL viennacl/vector.hpp)
+if (VIENNACL)
+    include_directories(${VIENNACL})
+    set(EXAMPLES ${EXAMPLES} viennacl_cg)
+endif (VIENNACL)
+
 foreach(example ${EXAMPLES})
     add_executable(${example} ${example}.cpp)
     target_link_libraries(${example} ${OPENCL_LIBRARY})

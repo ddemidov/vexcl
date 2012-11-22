@@ -521,10 +521,30 @@ class Context {
         size_t size() const {
             return q.size();
         }
+
+
     private:
         std::vector<cl::Context>      c;
         std::vector<cl::CommandQueue> q;
 };
+
+template <bool dummy = true>
+class StaticContext {
+    public:
+        static void set(Context &ctx) {
+            instance = &ctx;
+        }
+
+        static const Context& get() {
+            if (!instance) throw std::logic_error("Uninitialized static context");
+            return *instance;
+        }
+    private:
+        static Context *instance;
+};
+
+template <bool dummy>
+Context* StaticContext<dummy>::instance = 0;
 
 
 } // namespace vex
