@@ -191,6 +191,11 @@ void cg_gpu(
 }
 ```
 
+VexCL also provides support for [ViennaCL][viennacl] iterative solvers. See
+examples/viennacl/solvers.cpp.
+
+[viennacl]: http://viennacl.sourceforge.net
+
 User-defined functions
 ----------------------
 

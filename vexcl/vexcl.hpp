@@ -207,6 +207,10 @@ void cg_gpu(
 }
 \endcode
 
+VexCL also provides support for <a
+href="http://viennacl.sourceforge.net">ViennaCL</a> iterative solvers. See
+examples/viennacl/solvers.cpp.
+
 \section userfun User-defined functions
 
 Simple arithmetic expressions are sometimes not enough. Imagine that you need
