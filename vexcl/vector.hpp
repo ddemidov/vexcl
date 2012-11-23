@@ -386,6 +386,11 @@ class vector
             *this = std::move(vector(size));
         }
 
+        /// Fills vector with zeros.
+        void clear() {
+            *this = static_cast<T>(0);
+        }
+
         /// Return cl::Buffer object located on a given device.
         cl::Buffer operator()(uint d = 0) const {
             return buf[d];

@@ -258,6 +258,11 @@ class multivector
             for(uint i = 0; i < N; i++) vec[i]->resize(size);
         }
 
+        /// Fills multivector with zeros.
+        void clear() {
+            *this = static_cast<T>(0);
+        }
+
         /// Return size of a multivector (equals size of individual components).
         size_t size() const {
             return vec[0]->size();
