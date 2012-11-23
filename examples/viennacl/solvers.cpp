@@ -7,8 +7,6 @@
 #include <viennacl/linalg/cg.hpp>
 #include <viennacl/linalg/bicgstab.hpp>
 
-#include "genproblem.hpp"
-
 typedef double real;
 
 template <class Tag>
@@ -28,17 +26,43 @@ void do_solve(const vex::SpMat<real> &A, vex::vector<real> f, const Tag &tag)
 
 int main() {
     try {
-        // Prepare problem (1D Poisson equation).
         size_t n = 1024;
+        real h2i = (n - 1) * (n - 1);
 
         std::vector<size_t> row;
         std::vector<size_t> col;
         std::vector<real>   val;
         std::vector<real>   rhs;
 
-        genproblem(n, row, col, val, rhs);
+        // Prepare problem (1D Poisson equation).
+        row.reserve(n + 1);
+        col.reserve(2 + (n - 2) * 3);
+        val.reserve(2 + (n - 2) * 3);
+        rhs.reserve(n);
 
-        // Move data to GPUs.
+        row.push_back(0);
+        for(size_t i = 0; i < n; i++) {
+            if (i == 0 || i == n - 1) {
+                col.push_back(i);
+                val.push_back(1);
+                rhs.push_back(0);
+                row.push_back(row.back() + 1);
+            } else {
+                col.push_back(i-1);
+                val.push_back(-h2i);
+
+                col.push_back(i);
+                val.push_back(2 * h2i);
+
+                col.push_back(i+1);
+                val.push_back(-h2i);
+
+                rhs.push_back(2);
+                row.push_back(row.back() + 3);
+            }
+        }
+
+        // Move data to GPU(s).
         vex::Context ctx(
                 vex::Filter::Type(CL_DEVICE_TYPE_GPU) &&
                 vex::Filter::DoublePrecision
