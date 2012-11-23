@@ -1,10 +1,8 @@
 set(EXAMPLES
     benchmark
-    cg
     devlist
     exclusive
     utests
-    vector
     )
 
 if (WIN32)
@@ -34,25 +32,26 @@ if (ODEINT)
     set(EXAMPLES ${EXAMPLES} symbolic)
 endif (ODEINT)
 
-find_path(VIENNACL viennacl/vector.hpp)
-if (VIENNACL)
-    include_directories(${VIENNACL})
-    set(EXAMPLES ${EXAMPLES} viennacl_cg)
-endif (VIENNACL)
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
+endif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -stdlib=libc++")
+endif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
 
 foreach(example ${EXAMPLES})
     add_executable(${example} ${example}.cpp)
     target_link_libraries(${example} ${OPENCL_LIBRARY})
 
-    if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -Wno-comment")
-    endif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-
-    if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -stdlib=libc++ -Wno-comment")
-    endif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-
     if (WIN32)
 	target_link_libraries(${example} ${Boost_DATE_TIME_LIBRARY})
     endif(WIN32)
 endforeach(example)
+
+option(VIENNACL_EXAMPLES "Compile ViennaCL examples" OFF)
+
+if (VIENNACL_EXAMPLES)
+    add_subdirectory(viennacl)
+endif (VIENNACL_EXAMPLES)
+
