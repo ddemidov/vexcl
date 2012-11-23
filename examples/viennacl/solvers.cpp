@@ -65,7 +65,8 @@ int main() {
         // Move data to GPU(s).
         vex::Context ctx(
                 vex::Filter::Type(CL_DEVICE_TYPE_GPU) &&
-                vex::Filter::DoublePrecision
+                vex::Filter::DoublePrecision,
+                CL_QUEUE_PROFILING_ENABLE
                 );
 
         std::cout << ctx << std::endl;
@@ -73,12 +74,20 @@ int main() {
         vex::SpMat <real> A(ctx.queue(), n, n, row.data(), col.data(), val.data());
         vex::vector<real> f(ctx.queue(), rhs);
 
+        vex::profiler prof(ctx.queue());
+
         // Solve problem with ViennaCL's solvers:
         std::cout << "CG" << std::endl;
+        prof.tic_cl("CG");
         do_solve(A, f, viennacl::linalg::cg_tag(1e-8, n));
+        prof.toc("CG");
 
         std::cout << "BiCGStab" << std::endl;
+        prof.tic_cl("BiCGStab");
         do_solve(A, f, viennacl::linalg::bicgstab_tag(1e-8, n));
+        prof.toc("BiCGStab");
+
+        std::cout << prof << std::endl;
 
     } catch(const cl::Error &err) {
         std::cerr << "OpenCL Error: " << err << std::endl;
