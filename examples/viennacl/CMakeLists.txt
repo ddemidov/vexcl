@@ -6,7 +6,7 @@ include_directories(
     ${VIENNACL_INCLUDE}
     )
 
-set(EXAMPLES cg)
+set(EXAMPLES solvers)
 
 foreach(example ${EXAMPLES})
     add_executable(${example} ${example}.cpp)
