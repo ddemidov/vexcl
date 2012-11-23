@@ -491,5 +491,5 @@ there, you can download it from <a href="http://www.khronos.org/registry/cl">Kro
 #  pragma warning(pop)
 #endif
 
-// vim: set et
+// vim: et
 #endif

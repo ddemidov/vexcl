@@ -51,7 +51,7 @@ int main() {
                 vex::Filter::DoublePrecision
                 );
 
-        vex::StaticContext<>::set(ctx);
+        std::cout << ctx << std::endl;
 
         vex::SpMat <real> A(ctx.queue(), n, n, row.data(), col.data(), val.data());
         vex::vector<real> f(ctx.queue(), rhs);

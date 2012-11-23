@@ -34,28 +34,29 @@ THE SOFTWARE.
 namespace viennacl {
     namespace linalg {
         template< typename T1, typename T2 >
-	decltype(T1() * T2())
-	inner_prod(const vex::vector<T1> &v1, const vex::vector<T2> &v2) {
-	    static vex::Reductor<decltype(T1() * T2()), vex::SUM> sum(
-		    vex::StaticContext<>::get().queue()
-		    );
-	    return sum(v1 * v2);
-	}
+        decltype(T1() * T2())
+        inner_prod(const vex::vector<T1> &v1, const vex::vector<T2> &v2) {
+            static vex::Reductor<decltype(T1() * T2()), vex::SUM> sum(
+                    vex::StaticContext<>::get().queue()
+                    );
+            return sum(v1 * v2);
+        }
 
         template <typename T, typename C, typename I>
-	auto prod(const vex::SpMat<T, C, I> &A, const vex::vector<T> &x)
-	    -> decltype(A * x)
-	{
-	    return A * x;
-	}
+        auto prod(const vex::SpMat<T, C, I> &A, const vex::vector<T> &x)
+            -> decltype(A * x)
+        {
+            return A * x;
+        }
     }
 
     namespace traits {
         template <class T>
-	void clear(vex::vector<T> &vec) {
-	    vec = 0;
-	}
+        void clear(vex::vector<T> &vec) {
+            vec = 0;
+        }
     }
 }
 
+// vim: et
 #endif

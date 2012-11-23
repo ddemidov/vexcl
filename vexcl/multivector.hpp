@@ -225,6 +225,14 @@ class multivector
                         ) );
         }
 
+        /// Construct from size.
+        multivector(size_t size) {
+            static_assert(own, "Wrong constructor for referenced-type multivector");
+            static_assert(N > 0, "What's the point?");
+
+            for(uint i = 0; i < N; i++) vec[i].reset(new vex::vector<T>(size));
+        }
+
         /// Copy constructor.
         multivector(const multivector &mv) {
             copy_components<own>(mv);
@@ -243,6 +251,11 @@ class multivector
         /// Resize multivector.
         void resize(const std::vector<cl::CommandQueue> &queue, size_t size) {
             for(uint i = 0; i < N; i++) vec[i]->resize(queue, size);
+        }
+
+        /// Resize multivector.
+        void resize(size_t size) {
+            for(uint i = 0; i < N; i++) vec[i]->resize(size);
         }
 
         /// Return size of a multivector (equals size of individual components).

@@ -296,14 +296,14 @@ class vector
         /// Empty constructor.
         vector() {}
 
-	/// Construct by size and use static context.
-	vector(size_t size) :
-	    queue(StaticContext<>::get().queue()),
-	    part(vex::partition(size, queue)),
-	    buf(queue.size()), event(queue.size())
-	{
+        /// Construct by size and use static context.
+        vector(size_t size) :
+            queue(current_context().queue()),
+            part(vex::partition(size, queue)),
+            buf(queue.size()), event(queue.size())
+        {
             if (size) allocate_buffers(CL_MEM_READ_WRITE, 0);
-	}
+        }
 
         /// Copy constructor.
         vector(const vector &v)
@@ -379,6 +379,11 @@ class vector
               )
         {
             *this = std::move(vector(queue, host, flags));
+        }
+
+        /// Resize vector with static context.
+        void resize(size_t size) {
+            *this = std::move(vector(size));
         }
 
         /// Return cl::Buffer object located on a given device.
@@ -825,5 +830,5 @@ struct is_sequence< vex::vector<T> > : std::false_type
 #  pragma warning(pop)
 #endif
 
-// vim: set et
+// vim: et
 #endif

@@ -469,6 +469,30 @@ queue_list(
     return std::make_pair(context, queue);
 }
 
+class Context;
+
+template <bool dummy = true>
+class StaticContext {
+    public:
+        static void set(Context &ctx) {
+            instance = &ctx;
+        }
+
+        static const Context& get() {
+            if (!instance) throw std::logic_error("Uninitialized static context");
+            return *instance;
+        }
+    private:
+        static Context *instance;
+};
+
+template <bool dummy>
+Context* StaticContext<dummy>::instance = 0;
+
+inline const Context& current_context() {
+    return StaticContext<>::get();
+}
+
 /// VexCL context holder.
 /**
  * Holds vectors of cl::Contexts and cl::CommandQueues returned by queue_list.
@@ -486,6 +510,8 @@ class Context {
 #ifdef VEXCL_THROW_ON_EMPTY_CONTEXT
             if (q.empty()) throw std::logic_error("No compute devices found");
 #endif
+
+            StaticContext<>::set(*this);
         }
 
         /// Initializes context from user-supplied list of cl::Contexts and cl::CommandQueues.
@@ -496,6 +522,8 @@ class Context {
                 c.push_back(u->first);
                 q.push_back(u->second);
             }
+
+            StaticContext<>::set(*this);
         }
 
         const std::vector<cl::Context>& context() const {
@@ -521,31 +549,10 @@ class Context {
         size_t size() const {
             return q.size();
         }
-
-
     private:
         std::vector<cl::Context>      c;
         std::vector<cl::CommandQueue> q;
 };
-
-template <bool dummy = true>
-class StaticContext {
-    public:
-        static void set(Context &ctx) {
-            instance = &ctx;
-        }
-
-        static const Context& get() {
-            if (!instance) throw std::logic_error("Uninitialized static context");
-            return *instance;
-        }
-    private:
-        static Context *instance;
-};
-
-template <bool dummy>
-Context* StaticContext<dummy>::instance = 0;
-
 
 } // namespace vex
 
