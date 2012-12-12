@@ -145,7 +145,7 @@ template <typename real, typename column_t = size_t, typename idx_t = size_t>
 class SpMat : matrix_terminal<real> {
     public:
         /// Empty constructor.
-        SpMat() {}
+        SpMat() : nrows(0), ncols(0), nnz(0) {}
 
         /// Constructor.
         /**
@@ -179,6 +179,13 @@ class SpMat : matrix_terminal<real> {
          */
         void mul(const vex::vector<real> &x, vex::vector<real> &y,
                  real alpha = 1, bool append = false) const;
+
+        /// Number of rows.
+        size_t rows() const { return nrows; }
+        /// Number of columns.
+        size_t cols() const { return ncols; }
+        /// Number of non-zero entries.
+        size_t nonzeros() const { return nnz;   }
     private:
         struct sparse_matrix {
             virtual void mul_local(
@@ -304,6 +311,11 @@ class SpMat : matrix_terminal<real> {
         std::vector<size_t> cidx;
         mutable std::vector<real> rx;
 
+        size_t nrows;
+        size_t ncols;
+        size_t nnz;
+
+
         static std::map<cl_context, bool>       compiled;
         static std::map<cl_context, cl::Kernel> gather_vals_to_send;
         static std::map<cl_context, uint>       wgsize;
@@ -331,7 +343,8 @@ SpMat<real,column_t,idx_t>::SpMat(
     : queue(queue), part(partition(n, queue)),
       event1(queue.size(), std::vector<cl::Event>(1)),
       event2(queue.size(), std::vector<cl::Event>(1)),
-      mtx(queue.size()), exc(queue.size())
+      mtx(queue.size()), exc(queue.size()),
+      nrows(n), ncols(m), nnz(row[n])
 {
     auto xpart = partition(m, queue);
 
