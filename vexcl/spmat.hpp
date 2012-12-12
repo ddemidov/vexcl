@@ -144,6 +144,9 @@ operator*(const M &A, const multivector<T, N, own> &x) {
 template <typename real, typename column_t = size_t, typename idx_t = size_t>
 class SpMat : matrix_terminal<real> {
     public:
+        /// Empty constructor.
+        SpMat() {}
+
         /// Constructor.
         /**
          * Constructs GPU representation of the matrix. Input matrix is in CSR
@@ -288,7 +291,7 @@ class SpMat : matrix_terminal<real> {
             mutable cl::Buffer rx;
         };
 
-        const std::vector<cl::CommandQueue> &queue;
+        const std::vector<cl::CommandQueue> queue;
         std::vector<cl::CommandQueue>       squeue;
         const std::vector<size_t>           part;
 
