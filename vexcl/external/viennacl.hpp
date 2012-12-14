@@ -49,6 +49,13 @@ namespace viennacl {
             return A * x;
         }
     }
+
+    namespace traits {
+        template <class T>
+        void clear(vex::vector<T> &vec) {
+            vec = 0;
+        }
+    }
 }
 
 // vim: et
