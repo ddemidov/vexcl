@@ -12,6 +12,7 @@ int main() {
                   << "    CL_DEVICE_HOST_UNIFIED_MEMORY = " << d->getInfo<CL_DEVICE_HOST_UNIFIED_MEMORY>() << std::endl
                   << "    CL_DEVICE_GLOBAL_MEM_SIZE     = " << d->getInfo<CL_DEVICE_GLOBAL_MEM_SIZE>() << std::endl
                   << "    CL_DEVICE_LOCAL_MEM_SIZE      = " << d->getInfo<CL_DEVICE_LOCAL_MEM_SIZE>() << std::endl
+                  << "    CL_DEVICE_MAX_MEM_ALLOC_SIZE  = " << d->getInfo<CL_DEVICE_MAX_MEM_ALLOC_SIZE>() << std::endl
                   << "    CL_DEVICE_MAX_CLOCK_FREQUENCY = " << d->getInfo<CL_DEVICE_MAX_CLOCK_FREQUENCY>() << std::endl
                   << std::endl;
     }
