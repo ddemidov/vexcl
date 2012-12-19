@@ -477,6 +477,8 @@ std::vector<std::set<column_t>> SpMat<real,column_t,idx_t>::setup_exchange(
 {
     std::vector<std::set<column_t>> remote_cols(queue.size());
 
+    if (queue.size() <= 1) return remote_cols;
+
     // Build sets of ghost points.
 #pragma omp parallel for schedule(static,1)
     for(uint d = 0; d < queue.size(); d++) {
