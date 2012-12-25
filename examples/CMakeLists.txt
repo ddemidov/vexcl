@@ -69,4 +69,14 @@ if (MPI_CXX_FOUND)
         LINK_FLAGS "${MPI_CXX_LINK_FLAGS}"
         )
     target_link_libraries(mpitests ${MPI_CXX_LIBRARIES} OpenCL)
+
+    if (ODEINT)
+        add_executable(damped_oscillator damped_oscillator.cpp)
+        set_target_properties(damped_oscillator PROPERTIES
+            COMPILE_FLAGS "${MPI_CXX_COMPILE_FLAGS}"
+            LINK_FLAGS "${MPI_CXX_LINK_FLAGS}"
+            INCLUDE_DIRECTORIES "${ODEINT};${CMAKE_SOURCE_DIR}"
+            )
+        target_link_libraries(damped_oscillator ${MPI_CXX_LIBRARIES} OpenCL)
+    endif(ODEINT)
 endif (MPI_CXX_FOUND)

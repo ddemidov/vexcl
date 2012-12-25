@@ -72,11 +72,11 @@ class vector
         }
         
         size_t size() const {
-            return part.back();
+            return part.empty() ? 0 : part.back();
         }
 
         size_t local_size() const {
-            return part[mpi.rank + 1] - part[mpi.rank];
+            return part.empty() ? 0 : part[mpi.rank + 1] - part[mpi.rank];
         }
 
         vex::vector<T>& data() {
