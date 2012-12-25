@@ -34,13 +34,18 @@ THE SOFTWARE.
 #include <mpi.h>
 #include <vexcl/vector.hpp>
 #include <vexcl/mpi/util.hpp>
+#include <vexcl/mpi/operations.hpp>
 
 namespace vex {
 /// MPI wrappers for VexCL types.
 namespace mpi {
 
 template <typename T>
-class vector {
+class vector 
+    : public mpi_vector_expression<
+        typename boost::proto::terminal< mpi_vector_terminal >::type
+      >
+{
     public:
         typedef T      value_type;
         typedef size_t size_type;
@@ -59,7 +64,7 @@ class vector {
 
             std::partial_sum(part.begin(), part.end(), part.begin());
         }
-
+        
         size_t size() const {
             return part.back();
         }
@@ -68,6 +73,26 @@ class vector {
             return part[mpi.rank + 1] - part[mpi.rank];
         }
 
+        vex::vector<T>& data() {
+            return local_data;
+        }
+
+        const vex::vector<T>& data() const {
+            return local_data;
+        }
+
+        template <class Expr>
+        typename std::enable_if<
+            boost::proto::matches<
+                typename boost::proto::result_of::as_expr<Expr>::type,
+                mpi_vector_expr_grammar
+            >::value,
+            const vector&
+        >::type
+        operator=(const Expr &expr) {
+            local_data = extract_local_expression()(boost::proto::as_child(expr));
+            return *this;
+        }
     private:
         comm_data mpi;
 

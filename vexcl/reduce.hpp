@@ -26,7 +26,7 @@ THE SOFTWARE.
 */
 
 /**
- * \file   reduce.hpp
+ * \file   vexcl/reduce.hpp
  * \author Denis Demidov <ddemidov@ksu.ru>
  * \brief  OpenCL vector reduction.
  */

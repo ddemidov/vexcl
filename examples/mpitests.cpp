@@ -1,7 +1,13 @@
+#define _GLIBCXX_USE_NANOSLEEP
 #include <iostream>
+#include <chrono>
+#include <thread>
 #include <mpi.h>
 #include <vexcl/vexcl.hpp>
 #include <vexcl/mpi/vector.hpp>
+#include <vexcl/mpi/reduce.hpp>
+
+using namespace vex;
 
 int mpi_rank;
 int mpi_size;
@@ -34,8 +40,8 @@ int main(int argc, char *argv[]) {
         std::cout << "World size: " << mpi_size << std::endl;
 
     try {
-        vex::Context ctx( vex::Filter::Exclusive(
-                    vex::Filter::Env && vex::Filter::Count(1)
+        vex::Context ctx( Filter::Exclusive(
+                    Filter::Env && Filter::Count(1)
                     ) );
 
         if (!ctx.size())
@@ -50,6 +56,8 @@ int main(int argc, char *argv[]) {
             MPI_Barrier(MPI_COMM_WORLD);
         }
 
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+
         if (mpi_rank == 0) std::cout << std::endl;
 
         run_test("Allocate mpi::vector", [&]() -> bool {
@@ -60,6 +68,62 @@ int main(int argc, char *argv[]) {
 
                 rc = rc && x.local_size() == n;
                 rc = rc && x.size() == n * mpi_size;
+
+                return rc;
+                });
+
+        run_test("Assign constant to mpi::vector", [&]() -> bool {
+                const size_t n = 1024;
+                bool rc = true;
+
+                vex::mpi::vector<double> x(MPI_COMM_WORLD, ctx.queue(), n);
+
+                x = 42;
+
+                rc = rc && x.data()[n/2] == 42;
+
+                return rc;
+                });
+
+        run_test("Copy constructor for mpi::vector", [&]() -> bool {
+                const size_t n = 1024;
+                bool rc = true;
+
+                vex::mpi::vector<double> x(MPI_COMM_WORLD, ctx.queue(), n);
+                x = 42;
+
+                vex::mpi::vector<double> y = x;
+
+                rc = rc && y.data()[n/2] == 42;
+
+                return rc;
+                });
+
+        run_test("Assign arithmetic expression to mpi::vector", [&]() -> bool {
+                const size_t n = 1024;
+                bool rc = true;
+
+                vex::mpi::vector<double> x(MPI_COMM_WORLD, ctx.queue(), n);
+                vex::mpi::vector<double> y(MPI_COMM_WORLD, ctx.queue(), n);
+
+                x = 42;
+                y = cos(x / 7);
+
+                rc = rc && fabs(y.data()[n/2] - cos(6.0)) < 1e-8;
+
+                return rc;
+                });
+
+        run_test("Reduce mpi::vector", [&]() -> bool {
+                const size_t n = 1024;
+                bool rc = true;
+
+                vex::mpi::vector<double> x(MPI_COMM_WORLD, ctx.queue(), n);
+                vex::mpi::Reductor<double, vex::SUM> sum(MPI_COMM_WORLD, ctx.queue());
+
+                x = 1;
+
+                rc = rc && fabs(sum(x) - x.size()) < 1e-8;
 
                 return rc;
                 });

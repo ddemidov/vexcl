@@ -26,7 +26,7 @@ THE SOFTWARE.
 */
 
 /**
- * \file   operations.hpp
+ * \file   vexcl/operations.hpp
  * \author Denis Demidov <ddemidov@ksu.ru>
  * \brief  Set of operations to be used in vector expressions.
  */
