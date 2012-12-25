@@ -26,7 +26,7 @@ THE SOFTWARE.
 */
 
 /**
- * \file   util.hpp
+ * \file   vexcl/util.hpp
  * \author Denis Demidov <ddemidov@ksu.ru>
  * \brief  OpenCL general utilities.
  */

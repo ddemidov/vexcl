@@ -61,3 +61,12 @@ if (VIENNACL_EXAMPLES)
     add_subdirectory(viennacl)
 endif (VIENNACL_EXAMPLES)
 
+find_package(MPI QUIET)
+if (MPI_CXX_FOUND)
+    add_executable(mpitests mpitests.cpp)
+    set_target_properties(mpitests PROPERTIES
+        COMPILE_FLAGS "${MPI_CXX_COMPILE_FLAGS}"
+        LINK_FLAGS "${MPI_CXX_LINK_FLAGS}"
+        )
+    target_link_libraries(mpitests ${MPI_CXX_LIBRARIES} OpenCL)
+endif (MPI_CXX_FOUND)

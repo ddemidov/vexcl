@@ -26,7 +26,7 @@ THE SOFTWARE.
 */
 
 /**
- * \file   vector.hpp
+ * \file   vexcl/vector.hpp
  * \author Denis Demidov <ddemidov@ksu.ru>
  * \brief  OpenCL device vector.
  */
@@ -632,6 +632,8 @@ class vector
         COMPOUND_ASSIGNMENT(>>=, >>);
 
 #undef COMPOUND_ASSIGNMENT
+
+        /** @} */
 
         /// Copy data from host buffer to device(s).
         void write_data(size_t offset, size_t size, const T *hostptr, cl_bool blocking,
