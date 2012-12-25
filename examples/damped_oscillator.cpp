@@ -141,7 +141,7 @@ int main( int argc , char **argv )
         odeint::integrate_const( stepper , oscillator( 1.0 , 0.2 , 0.0 , 1.2 )
                 , X , value_type(0.0) , t_max , dt );
 
-        cout << X.data()(0)[0] << endl;
+        cout << mpi_rank << ": " << X.data()(0)[0] << endl;
 
     } catch(const cl::Error &e) {
 	std::cout << e << std::endl;
