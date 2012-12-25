@@ -1,5 +1,5 @@
-#ifndef VEXCL_MPI_VECTOR_HPP
-#define VEXCL_MPI_VECTOR_HPP
+#ifndef VEXCL_MPI_MULTIVECTOR_HPP
+#define VEXCL_MPI_MULTIVECTOR_HPP
 
 /*
 The MIT License
@@ -26,33 +26,36 @@ THE SOFTWARE.
 */
 
 /**
- * \file   vexcl/mpi/vector.hpp
+ * \file   vexcl/mpi/multivector.hpp
  * \author Denis Demidov <ddemidov@ksu.ru>
- * \brief  MPI wrapper for vex::vector.
+ * \brief  MPI wrapper around vex::multivector.
  */
 
 #include <mpi.h>
-#include <vexcl/vector.hpp>
-#include <vexcl/mpi/util.hpp>
+#include <vexcl/multivector.hpp>
 #include <vexcl/mpi/operations.hpp>
 
 namespace vex {
-/// MPI wrappers for VexCL types.
+
+template <typename T, size_t N, bool own>
+struct number_of_components< vex::mpi::multivector<T, N, own> >
+    : boost::mpl::size_t<N>
+{};
+
 namespace mpi {
 
-template <typename T>
-class vector 
-    : public mpi_vector_expression<
-        typename boost::proto::terminal< mpi_vector_terminal >::type
+template <typename T, size_t N, bool own>
+class multivector
+    : public mpi_multivector_expression<
+        typename boost::proto::terminal< mpi_multivector_terminal >::type
       >
 {
     public:
-        typedef T      value_type;
-        typedef size_t size_type;
+        typedef typename vex::multivector<T,N,own>::value_type value_type;
 
-        vector() {}
+        multivector() {}
 
-        vector(MPI_Comm comm, const std::vector<cl::CommandQueue> &queue, size_t n)
+        multivector(MPI_Comm comm, const std::vector<cl::CommandQueue> &queue, size_t n)
             : mpi(comm), part(mpi.size + 1), local_data(queue, n)
         {
             part[0] = 0;
@@ -64,7 +67,7 @@ class vector
 
             std::partial_sum(part.begin(), part.end(), part.begin());
         }
-        
+
         size_t size() const {
             return part.back();
         }
@@ -73,11 +76,11 @@ class vector
             return part[mpi.rank + 1] - part[mpi.rank];
         }
 
-        vex::vector<T>& data() {
+        vex::multivector<T,N,own>& data() {
             return local_data;
         }
 
-        const vex::vector<T>& data() const {
+        const vex::multivector<T,N,own>& data() const {
             return local_data;
         }
 
@@ -85,9 +88,9 @@ class vector
         typename std::enable_if<
             boost::proto::matches<
                 typename boost::proto::result_of::as_expr<Expr>::type,
-                mpi_vector_expr_grammar
+                mpi_multivector_expr_grammar
             >::value,
-            const vector&
+            const multivector&
         >::type
         operator=(const Expr &expr) {
             local_data = extract_local_expression()(boost::proto::as_child(expr));
@@ -96,9 +99,8 @@ class vector
     private:
         comm_data mpi;
         std::vector<size_t> part;
-        vex::vector<T> local_data;
+        vex::multivector<T, N, own> local_data;
 };
-
 
 } // namespace mpi
 } // namespace vex

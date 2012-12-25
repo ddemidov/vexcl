@@ -4,8 +4,7 @@
 #include <thread>
 #include <mpi.h>
 #include <vexcl/vexcl.hpp>
-#include <vexcl/mpi/vector.hpp>
-#include <vexcl/mpi/reduce.hpp>
+#include <vexcl/mpi/mpi.hpp>
 
 using namespace vex;
 
@@ -127,6 +126,79 @@ int main(int argc, char *argv[]) {
 
                 return rc;
                 });
+
+        run_test("Allocate mpi::multivector", [&]() -> bool {
+                const size_t n = 1024;
+                const size_t m = 3;
+                bool rc = true;
+
+                vex::mpi::multivector<double,m> x(MPI_COMM_WORLD, ctx.queue(), n);
+
+                rc = rc && x.local_size() == n;
+                rc = rc && x.size() == n * mpi_size;
+
+                return rc;
+                });
+
+        run_test("Assign constant to mpi::multivector", [&]() -> bool {
+                const size_t n = 1024;
+                const size_t m = 3;
+                bool rc = true;
+
+                vex::mpi::multivector<double,m> x(MPI_COMM_WORLD, ctx.queue(), n);
+
+                x = 42;
+
+                rc = rc && x.data()(0)[n/2] == 42;
+                rc = rc && x.data()(1)[n/2] == 42;
+                rc = rc && x.data()(2)[n/2] == 42;
+
+                x = std::make_tuple(6, 7, 42);
+
+                rc = rc && x.data()(0)[n/2] == 6;
+                rc = rc && x.data()(1)[n/2] == 7;
+                rc = rc && x.data()(2)[n/2] == 42;
+
+                return rc;
+                });
+
+        run_test("Assign arithmetic expression to mpi::multivector", [&]() -> bool {
+                const size_t n = 1024;
+                const size_t m = 3;
+                bool rc = true;
+
+                vex::mpi::multivector<double,m> x(MPI_COMM_WORLD, ctx.queue(), n);
+                vex::mpi::multivector<double,m> y(MPI_COMM_WORLD, ctx.queue(), n);
+
+                x = std::make_tuple(6, 7, 42);
+                y = cos(x / 7);
+
+                rc = rc && fabs(y.data()(0)[n/2] - cos(6.0  / 7.0)) < 1e-8;
+                rc = rc && fabs(y.data()(1)[n/2] - cos(7.0  / 7.0)) < 1e-8;
+                rc = rc && fabs(y.data()(2)[n/2] - cos(42.0 / 7.0)) < 1e-8;
+
+                return rc;
+                });
+
+        run_test("Reduce mpi::multivector", [&]() -> bool {
+                const size_t n = 1024;
+                const size_t m = 3;
+                bool rc = true;
+
+                vex::mpi::multivector<double, m> x(MPI_COMM_WORLD, ctx.queue(), n);
+                vex::mpi::Reductor<double, vex::SUM> sum(MPI_COMM_WORLD, ctx.queue());
+
+                x = std::make_tuple(1, 2, 3);
+
+                auto s = sum(x);
+
+                rc = rc && fabs(s[0] - 1 * x.size()) < 1e-8;
+                rc = rc && fabs(s[1] - 2 * x.size()) < 1e-8;
+                rc = rc && fabs(s[2] - 3 * x.size()) < 1e-8;
+
+                return rc;
+                });
+
     } catch (const cl::Error &err) {
         std::cerr << "OpenCL error (" << mpi_rank << "): " << err << std::endl;
     } catch (const std::exception &err) {

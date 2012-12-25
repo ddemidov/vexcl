@@ -74,6 +74,24 @@ class Reductor {
             return global;
         }
 
+#ifdef VEXCL_MPI_MULTIVECTOR_HPP
+        template <class Expr>
+        typename std::enable_if<
+            boost::proto::matches<Expr, mpi_multivector_expr_grammar>::value,
+            std::array<T, boost::result_of<mutltiex_dimension(Expr)>::type::value>
+        >::type
+        operator()(const Expr &expr) const {
+            std::array<T, boost::result_of<mutltiex_dimension(Expr)>::type::value>
+                local = reduce(extract_local_expression()(boost::proto::as_child(expr))),
+                global;
+
+            MPI_Allreduce(local.data(), global.data(), boost::result_of<mutltiex_dimension(Expr)>::type::value,
+                    mpi_type<T>(), mpi_reduce_op<RDC>(), mpi.comm);
+
+            return global;
+        }
+
+#endif
     private:
         comm_data mpi;
         vex::Reductor<T,RDC> reduce;
