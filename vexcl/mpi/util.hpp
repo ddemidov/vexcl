@@ -61,6 +61,8 @@ struct comm_data {
     int      rank;
     int      size;
 
+    comm_data() {}
+
     comm_data(MPI_Comm comm) : comm(comm) {
         MPI_Comm_rank(comm, &rank);
         MPI_Comm_size(comm, &size);

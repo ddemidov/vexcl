@@ -68,6 +68,12 @@ class multivector
             std::partial_sum(part.begin(), part.end(), part.begin());
         }
 
+        void resize(const multivector &v) {
+            mpi  = v.mpi;
+            part = v.part;
+            local_data.resize(v.local_data.queue_list(), v.local_size());
+        }
+
         size_t size() const {
             return part.back();
         }
@@ -104,5 +110,13 @@ class multivector
 
 } // namespace mpi
 } // namespace vex
+
+namespace boost { namespace fusion { namespace traits {
+
+template <class T, size_t N, bool own>
+struct is_sequence< vex::mpi::multivector<T, N, own> > : std::false_type
+{};
+
+} } }
 
 #endif

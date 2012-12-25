@@ -64,6 +64,12 @@ class vector
 
             std::partial_sum(part.begin(), part.end(), part.begin());
         }
+
+        void resize(const vector &v) {
+            mpi  = v.mpi;
+            part = v.part;
+            local_data.resize(v.local_data);
+        }
         
         size_t size() const {
             return part.back();
@@ -102,5 +108,13 @@ class vector
 
 } // namespace mpi
 } // namespace vex
+
+namespace boost { namespace fusion { namespace traits {
+
+template <class T>
+struct is_sequence< vex::mpi::vector<T> > : std::false_type
+{};
+
+} } }
 
 #endif
