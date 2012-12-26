@@ -35,6 +35,11 @@ THE SOFTWARE.
 #include <vexcl/multivector.hpp>
 #include <vexcl/mpi/operations.hpp>
 
+#include <boost/preprocessor/repetition.hpp>
+#ifndef VEXCL_MAX_ARITY
+#  define VEXCL_MAX_ARITY BOOST_PROTO_MAX_ARITY
+#endif
+
 namespace vex {
 
 template <typename T, size_t N, bool own>
@@ -65,6 +70,20 @@ class multivector
                     part.data() + 1, 1, mpi_type<size_t>(),
                     mpi.comm);
 
+            std::partial_sum(part.begin(), part.end(), part.begin());
+        }
+
+        multivector(MPI_Comm comm, const vex::multivector<T, N, false> &mv)
+            : mpi(comm), part(mpi.size + 1), local_data(mv)
+        {
+            static_assert(!own, "Wrong constructor");
+
+            size_t n = mv.size();
+            part[0] = 0;
+            MPI_Allgather(
+                    &n,              1, mpi_type<size_t>(),
+                    part.data() + 1, 1, mpi_type<size_t>(),
+                    mpi.comm);
             std::partial_sum(part.begin(), part.end(), part.begin());
         }
 
@@ -112,13 +131,45 @@ class multivector
             local_data = extract_local_expression()(boost::proto::as_child(expr));
             return *this;
         }
+
+#define PRINT_EXTRACT(z, n, data) extract_local_expression()(boost::proto::as_child(std::get< n >(expr)))
+#define TUPLE_ASSIGNMENT(z, n, data) \
+        template < BOOST_PP_ENUM_PARAMS(n, class Expr) > \
+        const multivector& operator=(const std::tuple< BOOST_PP_ENUM_PARAMS(n, Expr) > &expr) { \
+            local_data = std::make_tuple( \
+                    BOOST_PP_ENUM(n, PRINT_EXTRACT, ~) \
+                    ); \
+            return *this; \
+        }
+
+BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, TUPLE_ASSIGNMENT, ~)
+
+#undef PRINT_EXTRACT
+#undef TUPLE_ASSIGNMENT
+
     private:
         comm_data mpi;
-        std::vector<size_t> part;
+        std::vector<size_t> part; // TODO: is this really necessary?
         vex::multivector<T, N, own> local_data;
 };
 
 } // namespace mpi
+
+#define PRINT_ARG(z, n, unused) vex::mpi::vector<T, own ## n> &v ## n
+#define PRINT_TIE_ARG(z, n, unused) v ## n.data()
+#define TIE_FUNCTION(z, n, unused) \
+template< typename T, BOOST_PP_ENUM_PARAMS(n, bool own) > \
+mpi::multivector<T, n, false> tie( BOOST_PP_ENUM(n, PRINT_ARG, ~) ) { \
+    return mpi::multivector<T, n, false>( v0.comm(), \
+            vex::tie( BOOST_PP_ENUM(n, PRINT_TIE_ARG, ~) )); \
+}
+
+BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, TIE_FUNCTION, ~)
+
+#undef PRINT_ARG
+#undef PRINT_TIE_ARG
+#undef TIE_FUNCTION
+
 } // namespace vex
 
 namespace boost { namespace fusion { namespace traits {

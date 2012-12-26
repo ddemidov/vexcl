@@ -199,6 +199,54 @@ int main(int argc, char *argv[]) {
                 return rc;
                 });
 
+        run_test("Assign multiexpression to mpi::multivector", [&]() -> bool {
+                const size_t n = 1024;
+                const size_t m = 3;
+                bool rc = true;
+
+                vex::mpi::multivector<double, m> x(MPI_COMM_WORLD, ctx.queue(), n);
+                vex::mpi::vector<double> y0(MPI_COMM_WORLD, ctx.queue(), n);
+                vex::mpi::vector<double> y1(MPI_COMM_WORLD, ctx.queue(), n);
+
+                y0 = 1;
+                y1 = 2;
+
+                int the_answer = 42;
+
+                x = std::tie(y1 - y0, y1 + y0, the_answer);
+
+                rc = rc && x(0).data()[42] == 1;
+                rc = rc && x(1).data()[42] == 3;
+                rc = rc && x(2).data()[42] == 42;
+
+                return rc;
+                });
+
+        run_test("Assign multiexpression to tied mpi::vectors", [&]() -> bool {
+                const size_t n = 1024;
+                bool rc = true;
+
+                vex::mpi::vector<double> x0(MPI_COMM_WORLD, ctx.queue(), n);
+                vex::mpi::vector<double> x1(MPI_COMM_WORLD, ctx.queue(), n);
+                vex::mpi::vector<double> x2(MPI_COMM_WORLD, ctx.queue(), n);
+
+                vex::mpi::vector<double> y0(MPI_COMM_WORLD, ctx.queue(), n);
+                vex::mpi::vector<double> y1(MPI_COMM_WORLD, ctx.queue(), n);
+
+                y0 = 1;
+                y1 = 2;
+
+                int the_answer = 42;
+
+                vex::tie(x0, x1, x2) = std::tie(y1 - y0, y1 + y0, the_answer);
+
+                rc = rc && x0.data()[42] == 1;
+                rc = rc && x1.data()[42] == 3;
+                rc = rc && x2.data()[42] == 42;
+
+                return rc;
+                });
+
     } catch (const cl::Error &err) {
         std::cerr << "OpenCL error (" << mpi_rank << "): " << err << std::endl;
     } catch (const std::exception &err) {

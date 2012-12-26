@@ -142,9 +142,13 @@ class vector
             (*local_data) = extract_local_expression()(boost::proto::as_child(expr));
             return *this;
         }
+
+        MPI_Comm comm() const {
+            return mpi.comm;
+        }
     private:
         comm_data mpi;
-        std::vector<size_t> part;
+        std::vector<size_t> part; // TODO: is this really necessary?
         typename mpi_vector_storage<T, own>::type local_data;
 
         template <bool own_data>
