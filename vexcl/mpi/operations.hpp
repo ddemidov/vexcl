@@ -117,13 +117,13 @@ struct extract_local_terminal : boost::proto::callable {
     template <class T>
     struct result;
 
-    template <class This, class T>
-    struct result< This( vex::mpi::vector<T>& ) > {
+    template <class This, class T, bool own>
+    struct result< This( vex::mpi::vector<T, own>& ) > {
         typedef const vex::vector<T>& type;
     };
 
-    template <class This, class T>
-    struct result< This( const vex::mpi::vector<T>& ) > {
+    template <class This, class T, bool own>
+    struct result< This( const vex::mpi::vector<T, own>& ) > {
         typedef const vex::vector<T>& type;
     };
 
@@ -137,8 +137,8 @@ struct extract_local_terminal : boost::proto::callable {
         typedef const vex::multivector<T, N, own>& type;
     };
 
-    template <class T>
-    const vex::vector<T>& operator()(const vex::mpi::vector<T> &v) const {
+    template <class T, bool own>
+    const vex::vector<T>& operator()(const vex::mpi::vector<T, own> &v) const {
         return v.data();
     }
 

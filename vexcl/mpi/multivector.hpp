@@ -90,6 +90,16 @@ class multivector
             return local_data;
         }
 
+        const vex::mpi::vector<T,false> operator()(uint i) const {
+            return vex::mpi::vector<T,false>(mpi.comm,
+                    const_cast<vex::vector<T>&>(local_data(i))
+                    );
+        }
+
+        vex::mpi::vector<T,false> operator()(uint i) {
+            return vex::mpi::vector<T,false>(mpi.comm, local_data(i));
+        }
+
         template <class Expr>
         typename std::enable_if<
             boost::proto::matches<

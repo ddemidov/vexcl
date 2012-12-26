@@ -66,11 +66,8 @@ class vector
 
         vector() {}
 
-        vector(const vector &v)
-            : mpi(v.mpi), part(v.part),
-              local_data(new vex::vector<T>(v.data()))
-        {
-            static_assert(own, "Wrong constructor for non-owning vector");
+        vector(const vector &v) : mpi(v.mpi), part(v.part) {
+            copy_local_data<own>(v);
         }
 
         vector(MPI_Comm comm, const std::vector<cl::CommandQueue> &queue, size_t n)
@@ -90,11 +87,11 @@ class vector
         }
 
         vector(MPI_Comm comm, vex::vector<T> &v)
-            : mpi(comm), part(mpi.size + 1), local_data(v)
+            : mpi(comm), part(mpi.size + 1), local_data(&v)
         {
             static_assert(!own, "Wrong constructor for owning vector");
 
-            size_t n = v->size();
+            size_t n = v.size();
 
             part[0] = 0;
 
@@ -149,6 +146,18 @@ class vector
         comm_data mpi;
         std::vector<size_t> part;
         typename mpi_vector_storage<T, own>::type local_data;
+
+        template <bool own_data>
+        typename std::enable_if<own_data, void>::type
+        copy_local_data(const vector &v) {
+            local_data.reset(new vex::vector<T>(v.data()));
+        }
+
+        template <bool own_data>
+        typename std::enable_if<!own_data, void>::type
+        copy_local_data(const vector &v) {
+            local_data = const_cast<vex::vector<T>*>(&(v.data()));
+        }
 };
 
 
