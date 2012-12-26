@@ -189,7 +189,7 @@ class multivector
                 const std::vector<T> &host,
                 cl_mem_flags flags = CL_MEM_READ_WRITE)
         {
-            static_assert(own, "Wrong constructor for referenced-type multivector");
+            static_assert(own, "Wrong constructor for non-owning multivector");
             static_assert(N > 0, "What's the point?");
 
             size_t size = host.size() / N;
@@ -216,7 +216,7 @@ class multivector
         multivector(const std::vector<cl::CommandQueue> &queue, size_t size,
                 const T *host = 0, cl_mem_flags flags = CL_MEM_READ_WRITE)
         {
-            static_assert(own, "Wrong constructor for referenced-type multivector");
+            static_assert(own, "Wrong constructor for non-owning multivector");
             static_assert(N > 0, "What's the point?");
 
             for(uint i = 0; i < N; i++)
@@ -227,7 +227,7 @@ class multivector
 
         /// Construct from size.
         multivector(size_t size) {
-            static_assert(own, "Wrong constructor for referenced-type multivector");
+            static_assert(own, "Wrong constructor for non-owning multivector");
             static_assert(N > 0, "What's the point?");
 
             for(uint i = 0; i < N; i++) vec[i].reset(new vex::vector<T>(size));

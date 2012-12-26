@@ -16,22 +16,22 @@
 namespace boost { namespace numeric { namespace odeint {
 
 // vex::mpi::vector
-template< typename T >
-struct is_resizeable< vex::mpi::vector< T > > : boost::true_type { };
+template< typename T, bool own >
+struct is_resizeable< vex::mpi::vector< T, own > > : boost::true_type { };
 
-template< typename T >
-struct resize_impl< vex::mpi::vector< T > , vex::mpi::vector< T > >
+template< typename T, bool own >
+struct resize_impl< vex::mpi::vector< T, own > , vex::mpi::vector< T, own > >
 {
-    static void resize( vex::mpi::vector< T > &x1 , const vex::mpi::vector< T > &x2 )
+    static void resize( vex::mpi::vector< T, own > &x1 , const vex::mpi::vector< T, own > &x2 )
     {
         x1.resize( x2 );
     }
 };
 
-template< typename T >
-struct same_size_impl< vex::mpi::vector< T > , vex::mpi::vector< T > >
+template< typename T, bool own >
+struct same_size_impl< vex::mpi::vector< T, own > , vex::mpi::vector< T, own > >
 {
-    static bool same_size( const vex::mpi::vector< T > &x1 , const vex::mpi::vector< T > &x2 )
+    static bool same_size( const vex::mpi::vector< T, own > &x1 , const vex::mpi::vector< T, own > &x2 )
     {
         return x1.size() == x2.size();
     }

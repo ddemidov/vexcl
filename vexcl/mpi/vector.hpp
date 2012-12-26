@@ -32,6 +32,7 @@ THE SOFTWARE.
  */
 
 #include <mpi.h>
+#include <memory>
 #include <vexcl/vector.hpp>
 #include <vexcl/mpi/util.hpp>
 #include <vexcl/mpi/operations.hpp>
@@ -40,7 +41,20 @@ namespace vex {
 /// MPI wrappers for VexCL types.
 namespace mpi {
 
+template <typename T, bool own>
+struct mpi_vector_storage {};
+
 template <typename T>
+struct mpi_vector_storage<T, true> {
+    typedef std::unique_ptr< vex::vector<T> > type;
+};
+
+template <typename T>
+struct mpi_vector_storage<T, false> {
+    typedef vex::vector<T>* type;
+};
+
+template <typename T, bool own>
 class vector 
     : public mpi_vector_expression<
         typename boost::proto::terminal< mpi_vector_terminal >::type
@@ -52,9 +66,36 @@ class vector
 
         vector() {}
 
-        vector(MPI_Comm comm, const std::vector<cl::CommandQueue> &queue, size_t n)
-            : mpi(comm), part(mpi.size + 1), local_data(queue, n)
+        vector(const vector &v)
+            : mpi(v.mpi), part(v.part),
+              local_data(new vex::vector<T>(v.data()))
         {
+            static_assert(own, "Wrong constructor for non-owning vector");
+        }
+
+        vector(MPI_Comm comm, const std::vector<cl::CommandQueue> &queue, size_t n)
+            : mpi(comm), part(mpi.size + 1),
+              local_data(new vex::vector<T>(queue, n))
+        {
+            static_assert(own, "Wrong constructor for non-owning vector");
+
+            part[0] = 0;
+
+            MPI_Allgather(
+                    &n,              1, mpi_type<size_t>(),
+                    part.data() + 1, 1, mpi_type<size_t>(),
+                    mpi.comm);
+
+            std::partial_sum(part.begin(), part.end(), part.begin());
+        }
+
+        vector(MPI_Comm comm, vex::vector<T> &v)
+            : mpi(comm), part(mpi.size + 1), local_data(v)
+        {
+            static_assert(!own, "Wrong constructor for owning vector");
+
+            size_t n = v->size();
+
             part[0] = 0;
 
             MPI_Allgather(
@@ -68,7 +109,7 @@ class vector
         void resize(const vector &v) {
             mpi  = v.mpi;
             part = v.part;
-            local_data.resize(v.local_data);
+            local_data->resize(v.local_data);
         }
         
         size_t size() const {
@@ -80,11 +121,16 @@ class vector
         }
 
         vex::vector<T>& data() {
-            return local_data;
+            return *local_data;
         }
 
         const vex::vector<T>& data() const {
-            return local_data;
+            return *local_data;
+        }
+
+        const vector& operator=(const vector &v) {
+            data() = v.data();
+            return *this;
         }
 
         template <class Expr>
@@ -96,13 +142,13 @@ class vector
             const vector&
         >::type
         operator=(const Expr &expr) {
-            local_data = extract_local_expression()(boost::proto::as_child(expr));
+            (*local_data) = extract_local_expression()(boost::proto::as_child(expr));
             return *this;
         }
     private:
         comm_data mpi;
         std::vector<size_t> part;
-        vex::vector<T> local_data;
+        typename mpi_vector_storage<T, own>::type local_data;
 };
 
 
@@ -111,8 +157,8 @@ class vector
 
 namespace boost { namespace fusion { namespace traits {
 
-template <class T>
-struct is_sequence< vex::mpi::vector<T> > : std::false_type
+template <class T, bool own>
+struct is_sequence< vex::mpi::vector<T, own> > : std::false_type
 {};
 
 } } }

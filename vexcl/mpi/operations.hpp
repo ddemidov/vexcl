@@ -110,7 +110,7 @@ struct mpi_multivector_expression
 };
 
 // Local expression extractor
-template <typename T> class vector;
+template <typename T, bool own = true> class vector;
 template <typename T, size_t N, bool own = true> class multivector;
 
 struct extract_local_terminal : boost::proto::callable {
