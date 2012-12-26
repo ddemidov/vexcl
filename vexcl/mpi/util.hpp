@@ -69,6 +69,20 @@ struct comm_data {
     }
 };
 
+inline void precondition(MPI_Comm comm, bool cond, const char *msg) {
+    bool glob;
+
+    if (!cond) {
+        int rank;
+        MPI_Comm_rank(comm, &rank);
+        std::cerr << "Condition failed at process " << rank << ": " << msg << std::endl;
+    }
+
+    MPI_Allreduce(&cond, &glob, 1, MPI_C_BOOL, MPI_LAND, comm);
+
+    if (!glob) throw std::runtime_error(msg);
+}
+
 } // namespace mpi
 } // namespace vex
 

@@ -43,8 +43,7 @@ int main(int argc, char *argv[]) {
                     Filter::Env && Filter::Count(1)
                     ) );
 
-        if (!ctx.size())
-            throw std::runtime_error("No OpenCL device found");
+        vex::mpi::precondition(MPI_COMM_WORLD, ctx.size() > 0, "No OpenCL device found");
 
         for(int i = 0; i < mpi_size; ++i) {
             if (i == mpi_rank)
