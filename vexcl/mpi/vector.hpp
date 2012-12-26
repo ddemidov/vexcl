@@ -71,36 +71,16 @@ class vector
         }
 
         vector(MPI_Comm comm, const std::vector<cl::CommandQueue> &queue, size_t n)
-            : mpi(comm), part(mpi.size + 1),
+            : mpi(comm), part(restore_partitioning(mpi, n)),
               local_data(new vex::vector<T>(queue, n))
         {
             static_assert(own, "Wrong constructor for non-owning vector");
-
-            part[0] = 0;
-
-            MPI_Allgather(
-                    &n,              1, mpi_type<size_t>(),
-                    part.data() + 1, 1, mpi_type<size_t>(),
-                    mpi.comm);
-
-            std::partial_sum(part.begin(), part.end(), part.begin());
         }
 
         vector(MPI_Comm comm, vex::vector<T> &v)
-            : mpi(comm), part(mpi.size + 1), local_data(&v)
+            : mpi(comm), part(restore_partitioning(mpi, v.size())), local_data(&v)
         {
             static_assert(!own, "Wrong constructor for owning vector");
-
-            size_t n = v.size();
-
-            part[0] = 0;
-
-            MPI_Allgather(
-                    &n,              1, mpi_type<size_t>(),
-                    part.data() + 1, 1, mpi_type<size_t>(),
-                    mpi.comm);
-
-            std::partial_sum(part.begin(), part.end(), part.begin());
         }
 
         void resize(const vector &v) {

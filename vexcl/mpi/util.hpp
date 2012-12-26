@@ -32,6 +32,8 @@ THE SOFTWARE.
  */
 
 #include <mpi.h>
+#include <vector>
+#include <algorithm>
 
 namespace vex {
 namespace mpi {
@@ -81,6 +83,26 @@ inline void precondition(MPI_Comm comm, bool cond, const char *msg) {
     MPI_Allreduce(&cond, &glob, 1, MPI_C_BOOL, MPI_LAND, comm);
 
     if (!glob) throw std::runtime_error(msg);
+}
+
+inline std::vector<size_t> restore_partitioning(
+        const comm_data &mpi,
+        size_t local_size
+        )
+{
+    std::vector<size_t> part(mpi.size + 1);
+
+    part[0] = 0;
+
+    MPI_Allgather(
+            &local_size,     1, mpi_type<size_t>(),
+            part.data() + 1, 1, mpi_type<size_t>(),
+            mpi.comm
+            );
+
+    std::partial_sum(part.begin(), part.end(), part.begin());
+
+    return part;
 }
 
 } // namespace mpi

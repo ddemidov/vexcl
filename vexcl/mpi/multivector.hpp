@@ -61,30 +61,15 @@ class multivector
         multivector() {}
 
         multivector(MPI_Comm comm, const std::vector<cl::CommandQueue> &queue, size_t n)
-            : mpi(comm), part(mpi.size + 1), local_data(queue, n)
+            : mpi(comm), part(restore_partitioning(mpi, n)), local_data(queue, n)
         {
-            part[0] = 0;
-
-            MPI_Allgather(
-                    &n,              1, mpi_type<size_t>(),
-                    part.data() + 1, 1, mpi_type<size_t>(),
-                    mpi.comm);
-
-            std::partial_sum(part.begin(), part.end(), part.begin());
+            static_assert(own, "Wrong constructor for non-owning multivector");
         }
 
         multivector(MPI_Comm comm, const vex::multivector<T, N, false> &mv)
-            : mpi(comm), part(mpi.size + 1), local_data(mv)
+            : mpi(comm), part(restore_partitioning(mpi, mv.size())), local_data(mv)
         {
-            static_assert(!own, "Wrong constructor");
-
-            size_t n = mv.size();
-            part[0] = 0;
-            MPI_Allgather(
-                    &n,              1, mpi_type<size_t>(),
-                    part.data() + 1, 1, mpi_type<size_t>(),
-                    mpi.comm);
-            std::partial_sum(part.begin(), part.end(), part.begin());
+            static_assert(!own, "Wrong constructor for owning multivector");
         }
 
         void resize(const multivector &v) {

@@ -26,7 +26,7 @@ THE SOFTWARE.
 */
 
 /**
- * \file   spmat.hpp
+ * \file   vexcl/spmat.hpp
  * \author Denis Demidov <ddemidov@ksu.ru>
  * \brief  OpenCL sparse matrix.
  */
