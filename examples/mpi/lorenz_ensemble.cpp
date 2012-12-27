@@ -114,8 +114,8 @@ int main( int argc , char **argv ) {
         const value_type dR = (Rmax - Rmin) / (part.back() - 1);
 
         std::vector<value_type> r( n );
-        for(size_t i = part[mpi.rank]; i < part[mpi.rank + 1]; ++i)
-            r[i] = Rmin + i * dR;
+        for(size_t i = part[mpi.rank], j = 0; i < part[mpi.rank + 1]; ++i, ++j)
+            r[j] = Rmin + i * dR;
 
         state_type X(mpi.comm, ctx.queue(), n);
         X = 10.0;
