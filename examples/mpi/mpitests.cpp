@@ -6,66 +6,56 @@
 #include <vexcl/vexcl.hpp>
 #include <vexcl/mpi/mpi.hpp>
 
-using namespace vex;
-
-int mpi_rank;
-int mpi_size;
-
 static bool all_passed = true;
+vex::mpi::comm_data mpi;
 
 bool run_test(const std::string &name, std::function<bool()> test) {
     char fc = std::cout.fill('.');
-    if (mpi_rank == 0)
+    if (mpi.rank == 0)
         std::cout << name << ": " << std::setw(62 - name.size()) << "." << std::flush;
     std::cout.fill(fc);
 
     bool rc = test();
     bool glob_rc;
 
-    MPI_Allreduce(&rc, &glob_rc, 1, MPI_C_BOOL, MPI_LAND, MPI_COMM_WORLD);
+    MPI_Allreduce(&rc, &glob_rc, 1, MPI_C_BOOL, MPI_LAND, mpi.comm);
 
     all_passed = all_passed && glob_rc;
-    if (mpi_rank == 0)
+    if (mpi.rank == 0)
         std::cout << (rc ? " success." : " failed.") << std::endl;
     return rc;
 }
 
 int main(int argc, char *argv[]) {
     MPI_Init(&argc, &argv);
-    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
+    mpi = vex::mpi::comm_data(MPI_COMM_WORLD);
 
-    if (mpi_rank == 0) 
-        std::cout << "World size: " << mpi_size << std::endl;
+    if (mpi.rank == 0) std::cout << "World size: " << mpi.size << std::endl;
 
     try {
-        vex::Context ctx( Filter::Exclusive(
-                    Filter::Env && Filter::Count(1)
-                    ) );
+        vex::Context ctx( vex::Filter::Exclusive(
+                    vex::Filter::Env && vex::Filter::Count(1) ) );
 
-        vex::mpi::precondition(MPI_COMM_WORLD, ctx.size() > 0, "No OpenCL device found");
+        mpi.precondition(!ctx.empty(), "No OpenCL devices found");
 
-        for(int i = 0; i < mpi_size; ++i) {
-            if (i == mpi_rank)
-                std::cout << mpi_rank << ": "
-                          << ctx.device(0).getInfo<CL_DEVICE_NAME>()
-                          << std::endl;
+        for(int i = 0; i < mpi.size; ++i) {
+            if (i == mpi.rank)
+                std::cout << mpi.rank << ": " << ctx.device(0) << std::endl;
 
-            MPI_Barrier(MPI_COMM_WORLD);
+            MPI_Barrier(mpi.comm);
         }
 
-        std::this_thread::sleep_for(std::chrono::seconds(1));
-
-        if (mpi_rank == 0) std::cout << std::endl;
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        if (mpi.rank == 0) std::cout << std::endl;
 
         run_test("Allocate mpi::vector", [&]() -> bool {
                 const size_t n = 1024;
                 bool rc = true;
 
-                vex::mpi::vector<double> x(MPI_COMM_WORLD, ctx.queue(), n);
+                vex::mpi::vector<double> x(mpi.comm, ctx.queue(), n);
 
                 rc = rc && x.local_size() == n;
-                rc = rc && x.size() == n * mpi_size;
+                rc = rc && x.size() == n * mpi.size;
 
                 return rc;
                 });
@@ -74,7 +64,7 @@ int main(int argc, char *argv[]) {
                 const size_t n = 1024;
                 bool rc = true;
 
-                vex::mpi::vector<double> x(MPI_COMM_WORLD, ctx.queue(), n);
+                vex::mpi::vector<double> x(mpi.comm, ctx.queue(), n);
 
                 x = 42;
 
@@ -87,7 +77,7 @@ int main(int argc, char *argv[]) {
                 const size_t n = 1024;
                 bool rc = true;
 
-                vex::mpi::vector<double> x(MPI_COMM_WORLD, ctx.queue(), n);
+                vex::mpi::vector<double> x(mpi.comm, ctx.queue(), n);
                 x = 42;
 
                 vex::mpi::vector<double> y = x;
@@ -101,11 +91,11 @@ int main(int argc, char *argv[]) {
                 const size_t n = 1024;
                 bool rc = true;
 
-                vex::mpi::vector<double> x(MPI_COMM_WORLD, ctx.queue(), n);
-                vex::mpi::vector<double> y(MPI_COMM_WORLD, ctx.queue(), n);
+                vex::mpi::vector<double> x(mpi.comm, ctx.queue(), n);
+                vex::mpi::vector<double> y(mpi.comm, ctx.queue(), n);
 
                 x = 42;
-                y = cos(x / 7);
+                y = vex::cos(x / 7);
 
                 rc = rc && fabs(y.data()[n/2] - cos(6.0)) < 1e-8;
 
@@ -116,8 +106,8 @@ int main(int argc, char *argv[]) {
                 const size_t n = 1024;
                 bool rc = true;
 
-                vex::mpi::vector<double> x(MPI_COMM_WORLD, ctx.queue(), n);
-                vex::mpi::Reductor<double, vex::SUM> sum(MPI_COMM_WORLD, ctx.queue());
+                vex::mpi::vector<double> x(mpi.comm, ctx.queue(), n);
+                vex::mpi::Reductor<double, vex::SUM> sum(mpi.comm, ctx.queue());
 
                 x = 1;
 
@@ -131,10 +121,10 @@ int main(int argc, char *argv[]) {
                 const size_t m = 3;
                 bool rc = true;
 
-                vex::mpi::multivector<double,m> x(MPI_COMM_WORLD, ctx.queue(), n);
+                vex::mpi::multivector<double,m> x(mpi.comm, ctx.queue(), n);
 
                 rc = rc && x.local_size() == n;
-                rc = rc && x.size() == n * mpi_size;
+                rc = rc && x.size() == n * mpi.size;
 
                 return rc;
                 });
@@ -144,7 +134,7 @@ int main(int argc, char *argv[]) {
                 const size_t m = 3;
                 bool rc = true;
 
-                vex::mpi::multivector<double,m> x(MPI_COMM_WORLD, ctx.queue(), n);
+                vex::mpi::multivector<double,m> x(mpi.comm, ctx.queue(), n);
 
                 x = 42;
 
@@ -166,11 +156,11 @@ int main(int argc, char *argv[]) {
                 const size_t m = 3;
                 bool rc = true;
 
-                vex::mpi::multivector<double,m> x(MPI_COMM_WORLD, ctx.queue(), n);
-                vex::mpi::multivector<double,m> y(MPI_COMM_WORLD, ctx.queue(), n);
+                vex::mpi::multivector<double,m> x(mpi.comm, ctx.queue(), n);
+                vex::mpi::multivector<double,m> y(mpi.comm, ctx.queue(), n);
 
                 x = std::make_tuple(6, 7, 42);
-                y = cos(x / 7);
+                y = vex::cos(x / 7);
 
                 rc = rc && fabs(y.data()(0)[n/2] - cos(6.0  / 7.0)) < 1e-8;
                 rc = rc && fabs(y.data()(1)[n/2] - cos(7.0  / 7.0)) < 1e-8;
@@ -184,8 +174,8 @@ int main(int argc, char *argv[]) {
                 const size_t m = 3;
                 bool rc = true;
 
-                vex::mpi::multivector<double, m> x(MPI_COMM_WORLD, ctx.queue(), n);
-                vex::mpi::Reductor<double, vex::SUM> sum(MPI_COMM_WORLD, ctx.queue());
+                vex::mpi::multivector<double, m> x(mpi.comm, ctx.queue(), n);
+                vex::mpi::Reductor<double, vex::SUM> sum(mpi.comm, ctx.queue());
 
                 x = std::make_tuple(1, 2, 3);
 
@@ -203,9 +193,9 @@ int main(int argc, char *argv[]) {
                 const size_t m = 3;
                 bool rc = true;
 
-                vex::mpi::multivector<double, m> x(MPI_COMM_WORLD, ctx.queue(), n);
-                vex::mpi::vector<double> y0(MPI_COMM_WORLD, ctx.queue(), n);
-                vex::mpi::vector<double> y1(MPI_COMM_WORLD, ctx.queue(), n);
+                vex::mpi::multivector<double, m> x(mpi.comm, ctx.queue(), n);
+                vex::mpi::vector<double> y0(mpi.comm, ctx.queue(), n);
+                vex::mpi::vector<double> y1(mpi.comm, ctx.queue(), n);
 
                 y0 = 1;
                 y1 = 2;
@@ -225,12 +215,12 @@ int main(int argc, char *argv[]) {
                 const size_t n = 1024;
                 bool rc = true;
 
-                vex::mpi::vector<double> x0(MPI_COMM_WORLD, ctx.queue(), n);
-                vex::mpi::vector<double> x1(MPI_COMM_WORLD, ctx.queue(), n);
-                vex::mpi::vector<double> x2(MPI_COMM_WORLD, ctx.queue(), n);
+                vex::mpi::vector<double> x0(mpi.comm, ctx.queue(), n);
+                vex::mpi::vector<double> x1(mpi.comm, ctx.queue(), n);
+                vex::mpi::vector<double> x2(mpi.comm, ctx.queue(), n);
 
-                vex::mpi::vector<double> y0(MPI_COMM_WORLD, ctx.queue(), n);
-                vex::mpi::vector<double> y1(MPI_COMM_WORLD, ctx.queue(), n);
+                vex::mpi::vector<double> y0(mpi.comm, ctx.queue(), n);
+                vex::mpi::vector<double> y1(mpi.comm, ctx.queue(), n);
 
                 y0 = 1;
                 y1 = 2;
@@ -250,18 +240,17 @@ int main(int argc, char *argv[]) {
                 const size_t n2 = n * n;
                 bool rc = true;
 
-                size_t chunk_size  = (n2 + mpi_size - 1) / mpi_size;
-                size_t chunk_start = chunk_size * mpi_rank;
+                size_t chunk_size  = (n2 + mpi.size - 1) / mpi.size;
+                size_t chunk_start = chunk_size * mpi.rank;
                 size_t chunk_end   = std::min(n2, chunk_start + chunk_size);
 
                 chunk_size = chunk_end - chunk_start;
 
-                auto part = vex::mpi::restore_partitioning(MPI_COMM_WORLD, chunk_size);
+                auto part = mpi.restore_partitioning(chunk_size);
 
                 std::vector<int>    row;
                 std::vector<int>    col;
                 std::vector<double> val;
-
 
                 row.reserve(chunk_size + 1);
                 col.reserve(5 * chunk_size);
@@ -269,7 +258,7 @@ int main(int argc, char *argv[]) {
 
                 row.push_back(0);
 
-                for(size_t idx = part[mpi_rank]; idx < part[mpi_rank + 1]; ++idx) {
+                for(size_t idx = part[mpi.rank]; idx < part[mpi.rank + 1]; ++idx) {
                     size_t i = idx % n;
                     size_t j = idx / n;
 
@@ -296,22 +285,22 @@ int main(int argc, char *argv[]) {
                     row.push_back(col.size());
                 }
 
-                vex::mpi::SpMat<double, int, int> A(MPI_COMM_WORLD, ctx.queue(),
+                vex::mpi::SpMat<double, int, int> A(mpi.comm, ctx.queue(),
                         chunk_size, chunk_size,
                         row.data(), col.data(), val.data()
                         );
 
-                vex::mpi::vector<double> x(MPI_COMM_WORLD, ctx.queue(), chunk_size);
-                vex::mpi::vector<double> y(MPI_COMM_WORLD, ctx.queue(), chunk_size);
+                vex::mpi::vector<double> x(mpi.comm, ctx.queue(), chunk_size);
+                vex::mpi::vector<double> y(mpi.comm, ctx.queue(), chunk_size);
 
                 x = 1;
                 y = 1;
 
                 A.mul(x, y);
 
-                vex::mpi::Reductor<double, vex::MIN> min(MPI_COMM_WORLD, ctx.queue());
-                vex::mpi::Reductor<double, vex::MAX> max(MPI_COMM_WORLD, ctx.queue());
-                vex::mpi::Reductor<double, vex::SUM> sum(MPI_COMM_WORLD, ctx.queue());
+                vex::mpi::Reductor<double, vex::MIN> min(mpi.comm, ctx.queue());
+                vex::mpi::Reductor<double, vex::MAX> max(mpi.comm, ctx.queue());
+                vex::mpi::Reductor<double, vex::SUM> sum(mpi.comm, ctx.queue());
 
                 rc = rc && min(y) == 0;
                 rc = rc && max(y) == 0.5;
@@ -321,9 +310,9 @@ int main(int argc, char *argv[]) {
                 });
 
     } catch (const cl::Error &err) {
-        std::cerr << "OpenCL error (" << mpi_rank << "): " << err << std::endl;
+        std::cerr << "OpenCL error (" << mpi.rank << "): " << err << std::endl;
     } catch (const std::exception &err) {
-        std::cerr << "Error (" << mpi_rank << "): " << err.what() << std::endl;
+        std::cerr << "Error (" << mpi.rank << "): " << err.what() << std::endl;
     }
 
     MPI_Finalize();

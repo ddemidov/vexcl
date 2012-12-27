@@ -70,44 +70,41 @@ struct comm_data {
         MPI_Comm_rank(comm, &rank);
         MPI_Comm_size(comm, &size);
     }
-};
 
-inline void precondition(MPI_Comm comm, bool cond, const char *msg) {
-    bool glob;
+    void precondition(bool cond, const char *msg) const {
+        bool glob;
 
-    if (!cond) {
-        int rank;
-        MPI_Comm_rank(comm, &rank);
-        std::cerr << "Condition failed at process " << rank << ": " << msg << std::endl;
+        if (!cond) {
+            std::cerr << "Condition failed at process "
+                << rank << ": " << msg << std::endl;
+        }
+
+        MPI_Allreduce(&cond, &glob, 1, MPI_C_BOOL, MPI_LAND, comm);
+
+        if (!glob) throw std::runtime_error(msg);
     }
 
-    MPI_Allreduce(&cond, &glob, 1, MPI_C_BOOL, MPI_LAND, comm);
+    std::vector<size_t> restore_partitioning(size_t local_size) const {
+        std::vector<size_t> part(size + 1);
 
-    if (!glob) throw std::runtime_error(msg);
-}
+        part[0] = 0;
 
-inline std::vector<size_t> restore_partitioning(
-        const comm_data &mpi,
-        size_t local_size
-        )
-{
-    std::vector<size_t> part(mpi.size + 1);
+        MPI_Allgather(
+                &local_size,     1, mpi_type<size_t>(),
+                part.data() + 1, 1, mpi_type<size_t>(),
+                comm
+                );
 
-    part[0] = 0;
+        std::partial_sum(part.begin(), part.end(), part.begin());
 
-    MPI_Allgather(
-            &local_size,     1, mpi_type<size_t>(),
-            part.data() + 1, 1, mpi_type<size_t>(),
-            mpi.comm
-            );
+        return part;
+    }
 
-    std::partial_sum(part.begin(), part.end(), part.begin());
+};
 
-    return part;
-}
-
-inline int get_mpi_tag() {
-    static int tag = 42000;
+template <int START = 1000>
+int get_mpi_tag() {
+    static int tag = START;
     return ++tag;
 }
 

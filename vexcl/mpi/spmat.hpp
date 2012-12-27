@@ -170,8 +170,8 @@ class SpMat {
                 const idx_t *row, const column_t *col, const real *val
              )
             : mpi(comm),
-              row_part(restore_partitioning(mpi, n)),
-              col_part(restore_partitioning(mpi, m))
+              row_part(mpi.restore_partitioning(n)),
+              col_part(mpi.restore_partitioning(m))
         {
             // Split into local and remote parts; renumber columns.
             std::vector<idx_t> loc_row(n + 1, 0);

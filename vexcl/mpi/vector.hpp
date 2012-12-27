@@ -55,7 +55,7 @@ struct mpi_vector_storage<T, false> {
 };
 
 template <typename T, bool own>
-class vector 
+class vector
     : public mpi_vector_expression<
         typename boost::proto::terminal< mpi_vector_terminal >::type
       >
@@ -71,14 +71,23 @@ class vector
         }
 
         vector(MPI_Comm comm, const std::vector<cl::CommandQueue> &queue, size_t n)
-            : mpi(comm), part(restore_partitioning(mpi, n)),
+            : mpi(comm), part(mpi.restore_partitioning(n)),
               local_data(new vex::vector<T>(queue, n))
         {
             static_assert(own, "Wrong constructor for non-owning vector");
         }
 
+        vector(MPI_Comm comm, const std::vector<cl::CommandQueue> &queue,
+                std::vector<T> &host
+              )
+            : mpi(comm), part(mpi.restore_partitioning(host.size())),
+              local_data(new vex::vector<T>(queue, host))
+        {
+            static_assert(own, "Wrong constructor for non-owning vector");
+        }
+
         vector(MPI_Comm comm, vex::vector<T> &v)
-            : mpi(comm), part(restore_partitioning(mpi, v.size())), local_data(&v)
+            : mpi(comm), part(mpi.restore_partitioning(v.size())), local_data(&v)
         {
             static_assert(!own, "Wrong constructor for owning vector");
         }
@@ -88,7 +97,7 @@ class vector
             part = v.part;
             local_data->resize(v.local_data);
         }
-        
+
         size_t size() const {
             return part.empty() ? 0 : part.back();
         }
@@ -103,6 +112,15 @@ class vector
 
         const vex::vector<T>& data() const {
             return *local_data;
+        }
+
+        const typename vex::vector<T>::element operator[](size_t index) const {
+            return (*local_data)[index];
+        }
+
+        /// Access element.
+        typename vex::vector<T>::element operator[](size_t index) {
+            return (*local_data)[index];
         }
 
         const vector& operator=(const vector &v) {

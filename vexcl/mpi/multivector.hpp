@@ -61,13 +61,13 @@ class multivector
         multivector() {}
 
         multivector(MPI_Comm comm, const std::vector<cl::CommandQueue> &queue, size_t n)
-            : mpi(comm), part(restore_partitioning(mpi, n)), local_data(queue, n)
+            : mpi(comm), part(mpi.restore_partitioning(n)), local_data(queue, n)
         {
             static_assert(own, "Wrong constructor for non-owning multivector");
         }
 
         multivector(MPI_Comm comm, const vex::multivector<T, N, false> &mv)
-            : mpi(comm), part(restore_partitioning(mpi, mv.size())), local_data(mv)
+            : mpi(comm), part(mpi.restore_partitioning(mv.size())), local_data(mv)
         {
             static_assert(!own, "Wrong constructor for owning multivector");
         }

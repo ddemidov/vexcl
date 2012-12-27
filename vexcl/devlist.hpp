@@ -549,6 +549,10 @@ class Context {
         size_t size() const {
             return q.size();
         }
+
+        bool empty() const {
+            return q.empty();
+        }
     private:
         std::vector<cl::Context>      c;
         std::vector<cl::CommandQueue> q;
@@ -556,12 +560,17 @@ class Context {
 
 } // namespace vex
 
+/// Output device name to stream.
+inline std::ostream& operator<<(std::ostream &os, const cl::Device &device) {
+    return os << device.getInfo<CL_DEVICE_NAME>();
+}
+
 /// Output list of devices to stream.
 inline std::ostream& operator<<(std::ostream &os, const std::vector<cl::Device> &device) {
     uint p = 1;
 
     for(auto d = device.begin(); d != device.end(); d++)
-        os << p++ << ". " << d->getInfo<CL_DEVICE_NAME>() << std::endl;
+        os << p++ << ". " << *d << std::endl;
 
     return os;
 }
