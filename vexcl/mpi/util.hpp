@@ -223,17 +223,6 @@ class exchange {
             std::vector<value_t>     val;
             std::vector<MPI_Request> req;
         } send;
-
-        struct column_owner {
-            const std::vector<size_t> &part;
-
-            column_owner(const std::vector<size_t> &part) : part(part) {}
-
-            int operator()(column_t c) const {
-                return std::upper_bound(part.begin(), part.end(), c)
-                    - part.begin() - 1;
-            }
-        };
 };
 
 } // namespace mpi

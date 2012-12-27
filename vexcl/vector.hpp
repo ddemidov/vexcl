@@ -131,8 +131,8 @@ std::vector<size_t> partitioning_scheme<dummy>::get(size_t n,
         cumsum.push_back(0);
 
         for(auto q = queue.begin(); q != queue.end(); q++) {
-            cl::Context context = q->getInfo<CL_QUEUE_CONTEXT>();
-            cl::Device  device  = q->getInfo<CL_QUEUE_DEVICE>();
+            cl::Context context = qctx(*q);
+            cl::Device  device  = qdev(*q);
 
             auto dw = device_weight.find(device());
 

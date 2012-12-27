@@ -1243,7 +1243,7 @@ void SpMat<real,column_t,idx_t>::SpMatCSR::mul_local(
         real alpha, bool append
         ) const
 {
-    cl::Context context = queue.getInfo<CL_QUEUE_CONTEXT>();
+    cl::Context context = qctx(queue);
 
     if (has_loc) {
         if (append) {
@@ -1289,7 +1289,7 @@ void SpMat<real,column_t,idx_t>::SpMatCSR::mul_remote(
 {
     if (!has_rem) return;
 
-    cl::Context context = queue.getInfo<CL_QUEUE_CONTEXT>();
+    cl::Context context = qctx(queue);
 
     uint pos = 0;
     spmv_add[context()].setArg(pos++, n);
@@ -1403,7 +1403,7 @@ SpMatCCSR<real,column_t,idx_t>::SpMatCCSR(
             "Column type for CCSR format has to be signed."
             );
 
-    cl::Context context = queue.getInfo<CL_QUEUE_CONTEXT>();
+    cl::Context context = qctx(queue);
 
     prepare_kernels(context);
 
@@ -1496,7 +1496,7 @@ void SpMatCCSR<real,column_t,idx_t>::mul(
         real alpha, bool append
         ) const
 {
-    cl::Context context = queue.getInfo<CL_QUEUE_CONTEXT>();
+    cl::Context context = qctx(queue);
 
     if (append) {
         uint pos = 0;

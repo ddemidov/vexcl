@@ -1394,6 +1394,35 @@ int main(int argc, char *argv[]) {
                 });
 #endif
 
+#if 1
+        run_test("Gather scattered points from vector", [&]() -> bool {
+                const size_t N = 1 << 20;
+                const size_t M = 100;
+                bool rc = true;
+
+                std::vector<double> x(N);
+                std::generate(x.begin(), x.end(), [](){ return (double)rand() / RAND_MAX; });
+
+                vex::vector<double> X(ctx.queue(), x);
+
+                std::vector<size_t> i(M);
+                std::generate(i.begin(), i.end(), [](){ return rand() % N; });
+                std::sort(i.begin(), i.end());
+                i.resize( std::unique(i.begin(), i.end()) - i.begin() );
+
+                std::vector<double> data(i.size());
+
+                vex::gather<double> get(ctx.queue(), x.size(), i);
+
+                get(X, data);
+
+                for(size_t p = 0; p < i.size(); ++p)
+                    rc = rc && data[p] == x[i[p]];
+
+                return rc;
+                });
+#endif
+
     } catch (const cl::Error &err) {
         std::cerr << "OpenCL error: " << err << std::endl;
         return 1;

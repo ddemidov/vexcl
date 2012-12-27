@@ -229,6 +229,17 @@ inline cl::Device qdev(const cl::CommandQueue& q) {
     return dev;
 }
 
+struct column_owner {
+    const std::vector<size_t> &part;
+
+    column_owner(const std::vector<size_t> &part) : part(part) {}
+
+    uint operator()(size_t c) const {
+        return std::upper_bound(part.begin(), part.end(), c)
+            - part.begin() - 1;
+    }
+};
+
 } // namespace vex
 
 /// Output description of an OpenCL error to a stream.

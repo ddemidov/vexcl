@@ -488,6 +488,7 @@ there, you can download it from <a href="http://www.khronos.org/registry/cl">Kro
 #include <vexcl/reduce.hpp>
 #include <vexcl/spmat.hpp>
 #include <vexcl/stencil.hpp>
+#include <vexcl/gather.hpp>
 #include <vexcl/generator.hpp>
 #include <vexcl/profiler.hpp>
 
