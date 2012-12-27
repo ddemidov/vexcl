@@ -43,7 +43,7 @@ THE SOFTWARE.
 namespace vex {
 namespace mpi {
 
-template <typename real, typename column_t, typename idx_t>
+template <typename real, typename column_t = size_t, typename idx_t = size_t>
 class SpMat {
     public:
         SpMat() {}
@@ -118,7 +118,8 @@ class SpMat {
 
             if (loc_row.back()) {
                 loc_mtx.reset(
-                        new vex::SpMat( queue, n, m,
+                        new vex::SpMat<real, column_t, idx_t>(
+                            queue, n, m,
                             loc_row.data(), loc_col.data(), loc_val.data())
                         );
             }
@@ -127,19 +128,20 @@ class SpMat {
                 rem_x.resize(queue, remote_cols.size());
 
                 rem_mtx.reset(
-                        new vex::SpMat( queue, n, remote_cols.size(),
+                        new vex::SpMat<real, column_t, idx_t>(
+                            queue, n, remote_cols.size(),
                             rem_row.data(), rem_col.data(), rem_val.data())
                         );
             }
 
-            // TODO: setup exchange
+            exc.reset(new exchange<real, column_t>(mpi.comm, col_part, remote_cols));
         }
 
         void mul(const vex::mpi::vector<real> &x, vex::mpi::vector<real> &y,
                 real alpha = 1, bool append = false) const
         {
             if (rem_mtx) {
-                // TODO: start exchange
+                exc->start(x.data());
             }
 
             if (loc_mtx)
@@ -148,8 +150,8 @@ class SpMat {
                 y.data() = 0;
 
             if (rem_mtx) {
-                // TODO: finish exchange
-                rem_mtx->mul(rem_x.data(), y.data, alpha, true);
+                exc->finish(rem_x);
+                rem_mtx->mul(rem_x, y.data(), alpha, true);
             }
         }
     private:
@@ -160,7 +162,9 @@ class SpMat {
         std::unique_ptr< vex::SpMat<real, column_t, idx_t> > loc_mtx;
         std::unique_ptr< vex::SpMat<real, column_t, idx_t> > rem_mtx;
 
-        vex::vector<real> rem_x;
+        mutable vex::vector<real> rem_x;
+
+        std::unique_ptr< exchange<real, column_t> > exc;
 };
 
 } // namespace mpi

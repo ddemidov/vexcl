@@ -34,5 +34,6 @@ THE SOFTWARE.
 #include <vexcl/mpi/vector.hpp>
 #include <vexcl/mpi/multivector.hpp>
 #include <vexcl/mpi/reduce.hpp>
+#include <vexcl/mpi/spmat.hpp>
 
 #endif
