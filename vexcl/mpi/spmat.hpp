@@ -38,10 +38,127 @@ THE SOFTWARE.
 #include <mpi.h>
 
 #include <vexcl/spmat.hpp>
+#include <vexcl/gather.hpp>
 #include <vexcl/mpi/util.hpp>
 
 namespace vex {
 namespace mpi {
+
+template <typename value_t>
+class exchange {
+    public:
+        template <typename column_t>
+        exchange(
+                MPI_Comm comm, const std::vector<cl::CommandQueue> &queue,
+                const std::vector<size_t> &part,
+                const std::set<column_t>  &remote_cols
+                )
+            : mpi(comm)
+        {
+            static const int tagExcCols = get_mpi_tag();
+
+            column_owner owner(part);
+
+            recv.idx.resize(mpi.size + 1, 0);
+
+            recv.req.resize(mpi.size, MPI_REQUEST_NULL);
+            send.req.resize(mpi.size, MPI_REQUEST_NULL);
+
+            // Count columns that we receive.
+            for(auto c = remote_cols.begin(); c != remote_cols.end(); ++c)
+                ++recv.idx[owner(*c) + 1];
+
+            // Exchange the counts.
+            std::vector<size_t> comm_matrix(mpi.size * mpi.size);
+            MPI_Allgather(&recv.idx[1], mpi.size, mpi_type<size_t>(),
+                    comm_matrix.data(), mpi.size, mpi_type<size_t>(),
+                    mpi.comm);
+
+            std::partial_sum(recv.idx.begin(), recv.idx.end(), recv.idx.begin());
+            recv.val.resize(recv.idx.back());
+
+            send.idx.reserve(mpi.size + 1);
+            send.idx.push_back(0);
+            for(auto i = 0; i < mpi.size; ++i)
+                send.idx.push_back(send.idx.back()
+                        + comm_matrix[mpi.size * i + mpi.rank]);
+
+            send.col.resize(send.idx.back());
+            send.val.resize(send.idx.back());
+
+            // Ready to exchange exact column numbers.
+            std::vector<size_t> rcols(remote_cols.begin(), remote_cols.end());
+
+            // Start receiving columns they need.
+            for(int i = 0; i < mpi.size; ++i)
+                if (int n = send.idx[i + 1] - send.idx[i])
+                    MPI_Irecv(&send.col[send.idx[i]], n, mpi_type<size_t>(),
+                            i, tagExcCols, mpi.comm, &send.req[i]);
+
+            // Start sending columns we need to them.
+            for(int i = 0; i < mpi.size; ++i)
+                if (int n = recv.idx[i + 1] - recv.idx[i])
+                    MPI_Isend(&rcols[recv.idx[i]], n, mpi_type<size_t>(),
+                            i, tagExcCols, mpi.comm, &recv.req[i]);
+
+            MPI_Waitall(mpi.size, send.req.data(), MPI_STATUSES_IGNORE);
+
+            // Renumber columns to send.
+            for(auto c = send.col.begin(); c != send.col.end(); ++c)
+                *c -= part[mpi.rank];
+
+            get.reset(new gather<value_t>(
+                        queue, part[mpi.rank + 1] - part[mpi.rank], send.col
+                        ));
+
+            MPI_Waitall(mpi.size, recv.req.data(), MPI_STATUSES_IGNORE);
+        }
+
+        size_t remote_size() const {
+            return recv.idx.back();
+        }
+
+        void start(const vex::vector<value_t> &local_data) {
+            static const int tagExcVals = get_mpi_tag();
+
+            (*get)(local_data, send.val);
+
+            for(int i = 0; i < mpi.size; ++i)
+                if (int n = recv.idx[i + 1] - recv.idx[i])
+                    MPI_Irecv(&recv.val[recv.idx[i]], n, mpi_type<value_t>(),
+                            i, tagExcVals, mpi.comm, &recv.req[i]);
+
+            for(int i = 0; i < mpi.size; ++i)
+                if (int n = send.idx[i + 1] - send.idx[i])
+                    MPI_Isend(&send.val[send.idx[i]], n, mpi_type<value_t>(),
+                            i, tagExcVals, mpi.comm, &send.req[i]);
+        }
+
+        void finish(vex::vector<value_t> &remote_data) {
+            MPI_Waitall(mpi.size, recv.req.data(), MPI_STATUSES_IGNORE);
+
+            vex::copy(recv.val, remote_data);
+
+            MPI_Waitall(mpi.size, send.req.data(), MPI_STATUSES_IGNORE);
+        }
+    private:
+        comm_data mpi;
+
+        struct {
+            std::vector<size_t>      idx;
+            std::vector<value_t>     val;
+            std::vector<MPI_Request> req;
+        } recv;
+
+        struct {
+            std::vector<size_t>      idx;
+            std::vector<size_t>      col;
+            std::vector<value_t>     val;
+            std::vector<MPI_Request> req;
+        } send;
+
+        std::unique_ptr< gather<value_t> > get;
+};
 
 template <typename real, typename column_t = size_t, typename idx_t = size_t>
 class SpMat {
@@ -134,7 +251,7 @@ class SpMat {
                         );
             }
 
-            exc.reset(new exchange<real, column_t>(mpi.comm, col_part, remote_cols));
+            exc.reset(new exchange<real>(mpi.comm, queue, col_part, remote_cols));
         }
 
         void mul(const vex::mpi::vector<real> &x, vex::mpi::vector<real> &y,
@@ -164,7 +281,7 @@ class SpMat {
 
         mutable vex::vector<real> rem_x;
 
-        std::unique_ptr< exchange<real, column_t> > exc;
+        std::unique_ptr< exchange<real> > exc;
 };
 
 } // namespace mpi
