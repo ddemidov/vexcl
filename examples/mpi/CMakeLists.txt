@@ -15,5 +15,13 @@ if (MPI_CXX_FOUND)
             INCLUDE_DIRECTORIES "${ODEINT};${CMAKE_SOURCE_DIR}"
             )
         target_link_libraries(lorenz_ensemble ${MPI_CXX_LIBRARIES} OpenCL)
+
+        add_executable(disordered_lattice disordered_lattice.cpp)
+        set_target_properties(disordered_lattice PROPERTIES
+            COMPILE_FLAGS "${MPI_CXX_COMPILE_FLAGS}"
+            LINK_FLAGS "${MPI_CXX_LINK_FLAGS}"
+            INCLUDE_DIRECTORIES "${ODEINT};${CMAKE_SOURCE_DIR}"
+            )
+        target_link_libraries(disordered_lattice ${MPI_CXX_LIBRARIES} OpenCL)
     endif(ODEINT)
 endif (MPI_CXX_FOUND)

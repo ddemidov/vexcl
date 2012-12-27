@@ -95,7 +95,8 @@ class vector
         void resize(const vector &v) {
             mpi  = v.mpi;
             part = v.part;
-            local_data->resize(v.local_data);
+            if (v.local_data)
+                local_data.reset(new vex::vector<value_type>(v.data()));
         }
 
         size_t size() const {
@@ -152,7 +153,8 @@ class vector
         template <bool own_data>
         typename std::enable_if<own_data, void>::type
         copy_local_data(const vector &v) {
-            local_data.reset(new vex::vector<T>(v.data()));
+            if (v.local_data)
+                local_data.reset(new vex::vector<T>(v.data()));
         }
 
         template <bool own_data>
