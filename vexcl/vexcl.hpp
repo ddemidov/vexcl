@@ -39,7 +39,9 @@ ease of OpenCL developement with C++. VexCL strives to reduce amount of
 boilerplate code needed to develop OpenCL applications. The library provides
 convenient and intuitive notation for vector arithmetic, reduction, and sparse
 matrix-vector multiplication. Multi-device and even multi-platform computations
-are supported.
+are supported. VexCL also provides MPI wrapper \ref vex::mpi "classes" for
+its types.
+
 The source code is available at https://github.com/ddemidov/vexcl.
 
 \section devlist Selection of compute devices
@@ -454,6 +456,14 @@ Another thing worth noting is overall degradation of performance after Intel
 CPU is added to VexCL context. The only primitive gaining speed from this
 addition is vector arithmetic. This is probably because performance of vector
 arithmetic was used as a basis for problem partitioning.
+
+\section mpi MPI wrappers
+
+VexCL provides thin layer of MPI wrappers for its types. Please see examples in
+examples/mpi folder for use cases.  Provided types are vex::mpi::vector,
+vex::mpi::multivector, vex::mpi::SpMat, vex::mpi::Reductor. Any operations with
+these types are dispatched to the underlying vexcl types. Ghost points are
+exchanged between neighbor MPI processes as needed.
 
 \section compilers Supported compilers
 
