@@ -55,6 +55,7 @@ THE SOFTWARE.
 /// Vector expression template library for OpenCL.
 namespace vex {
 
+/// \cond INTERNAL
 struct elem_index {
     size_t offset;
 
@@ -65,7 +66,9 @@ template <>
 inline std::string type_name<elem_index>() {
     return type_name<size_t>();
 }
+/// \endcond
 
+/// When used in vector expression, returns current element index plus offset.
 inline typename boost::proto::result_of::as_expr<elem_index>::type
 element_index(size_t offset = 0) {
     return boost::proto::as_expr(elem_index(offset));

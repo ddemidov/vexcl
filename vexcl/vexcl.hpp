@@ -113,6 +113,13 @@ Y = 42;
 Z = sqrt(2 * X) + cos(Y);
 \endcode
 
+If values of vector elements should depend on their positions in the vector,
+then you can use element_index() function in vector expresion. For example,
+to assign one period of sine function to a vector, you could
+\code
+X = sin(2 * M_PI / X.size() * element_index());
+\endcode
+
 You can copy the result back to host or you can use vector::operator[] to
 read (or write) vector elements directly. Though latter technique is very
 ineffective and should be used for debugging purposes only.
