@@ -127,7 +127,7 @@ class Reductor {
 
         /// Compute reduction of the input expression.
         /**
-         * The input expression can be as simple as a single vector, although
+         * The input expression may be as simple as a single vector, although
          * expressions of arbitrary complexity may be reduced.
          */
         template <class Expr>

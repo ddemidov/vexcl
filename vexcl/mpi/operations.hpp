@@ -37,6 +37,8 @@ THE SOFTWARE.
 namespace vex {
 namespace mpi {
 
+/// \cond INTERNAL
+
 // mpi::vector operations.
 struct mpi_vector_terminal{};
 
@@ -257,6 +259,8 @@ struct extract_local_expression
         >
     >
 {};
+
+/// \endcond
 
 } // namespace mpi
 } // namespace vex

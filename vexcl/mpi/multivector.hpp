@@ -28,7 +28,7 @@ THE SOFTWARE.
 /**
  * \file   vexcl/mpi/multivector.hpp
  * \author Denis Demidov <ddemidov@ksu.ru>
- * \brief  MPI wrapper around vex::multivector.
+ * \brief  MPI wrapper for vex::multivector.
  */
 
 #include <mpi.h>
@@ -42,41 +42,88 @@ THE SOFTWARE.
 
 namespace vex {
 
+/// \cond INTERNAL
+
 template <typename T, size_t N, bool own>
 struct number_of_components< vex::mpi::multivector<T, N, own> >
     : boost::mpl::size_t<N>
 {};
 
+/// \endcond
+
 namespace mpi {
+
+/// \cond INTERNAL
 
 typedef mpi_multivector_expression<
     typename boost::proto::terminal< mpi_multivector_terminal >::type
     > mpi_multivector_terminal_expression;
 
+/// \endcond
+
+/// MPI wrapper for vex::multivector class template
 template <typename T, size_t N, bool own>
 class multivector : public mpi_multivector_terminal_expression {
     public:
-        typedef typename vex::multivector<T,N,own>::value_type value_type;
+        typedef vex::multivector<T,N,own>      base_type;
+        typedef typename base_type::value_type value_type;
 
+        /// Empty constructor.
         multivector() : l_size(0) {}
 
-        multivector(MPI_Comm comm, const std::vector<cl::CommandQueue> &queue, size_t n)
-            : mpi(comm), l_size(n), local_data(queue, n)
+        /// Constructor.
+        /**
+         * If host pointer is not NULL, it is copied to the underlying vector
+         * components of the multivector.
+         * \param comm  MPI communicator.
+         * \param queue queue list to be shared between all components.
+         * \param size  Local size of each component.
+         * \param host  Host vector that holds local data to be copied to
+         *              the components. Size of host vector should be divisible
+         *              by N. Components of the created multivector will have
+         *              size equal to host.size() / N. The data will be
+         *              partitioned equally between all components.
+         * \param flags cl::Buffer creation flags.
+         */
+        multivector(MPI_Comm comm, const std::vector<cl::CommandQueue> &queue,
+                size_t n, const T *host = 0,
+                cl_mem_flags flags = CL_MEM_READ_WRITE
+                )
+            : mpi(comm), l_size(n), local_data(queue, n, host, flags)
         {
             static_assert(own, "Wrong constructor for non-owning multivector");
         }
 
+        /// Constructs non-owning multivector.
+        /**
+         * This constructor is called from vex::tie and should not be used by
+         * hand. Copies references to component vectors.
+         */
         multivector(MPI_Comm comm, const vex::multivector<T, N, false> &mv)
             : mpi(comm), l_size(mv.size()), local_data(mv)
         {
             static_assert(!own, "Wrong constructor for owning multivector");
         }
 
+        /// Resize multivector.
+        /**
+         * \param queue queue list to be shared between all components.
+         * \param size  Local size of each component.
+         */
+        void resize(const std::vector<cl::CommandQueue> &queue, size_t size) {
+            local_data.resize(queue, size);
+        }
+
+        /// Resize multivector.
         void resize(const multivector &v) {
             mpi = v.mpi;
             local_data.resize(v.local_data.queue_list(), v.local_size());
         }
 
+        /// Global size of the multivector.
+        /**
+         * \note Involves collective MPI operation.
+         */
         size_t global_size() const {
             size_t g_size;
             MPI_Allreduce(const_cast<size_t*>(&l_size), &g_size, 1,
@@ -84,28 +131,37 @@ class multivector : public mpi_multivector_terminal_expression {
             return g_size;
         }
 
+        /// Local size of the multivector.
         size_t local_size() const {
             return l_size;
         }
 
-        vex::multivector<T,N,own>& data() {
+        /// Reference to the local vex::multivector instance.
+        base_type& data() {
             return local_data;
         }
 
-        const vex::multivector<T,N,own>& data() const {
+        /// Reference to the local vex::multivector instance.
+        const base_type& data() const {
             return local_data;
         }
 
+        /// Component of the multivector.
         const vex::mpi::vector<T,false> operator()(uint i) const {
             return vex::mpi::vector<T,false>(mpi.comm,
                     const_cast<vex::vector<T>&>(local_data(i))
                     );
         }
 
+        /// Component of the multivector.
         vex::mpi::vector<T,false> operator()(uint i) {
             return vex::mpi::vector<T,false>(mpi.comm, local_data(i));
         }
 
+        /** \name Expression assignments.
+         * @{
+         * All operations are delegated to components of the multivector.
+         */
         template <class Expr>
         typename std::enable_if<
             boost::proto::matches<
@@ -197,11 +253,11 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, TUPLE_ASSIGNMENT, ~)
 
 #undef PRINT_EXTRACT
 #undef TUPLE_ASSIGNMENT
-
+        /** @} */
     private:
         comm_data mpi;
         size_t l_size;
-        vex::multivector<T, N, own> local_data;
+        base_type local_data;
 };
 
 } // namespace mpi

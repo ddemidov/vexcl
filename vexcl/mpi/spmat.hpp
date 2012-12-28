@@ -28,7 +28,7 @@ THE SOFTWARE.
 /**
  * \file   vexcl/mpi/spmat.hpp
  * \author Denis Demidov <ddemidov@ksu.ru>
- * \brief  MPI wrapper around vex::SpMat.
+ * \brief  MPI wrapper for vex::SpMat.
  */
 
 #include <vector>
@@ -44,6 +44,7 @@ THE SOFTWARE.
 namespace vex {
 namespace mpi {
 
+/// \cond INTERNAL
 struct mpi_matrix_terminal {};
 
 template <class M, class V>
@@ -118,136 +119,35 @@ operator*(const M &A, const V &x) {
 
 #endif
 
-template <typename value_t>
-class exchange {
-    public:
-        template <typename column_t>
-        exchange(
-                MPI_Comm comm, const std::vector<cl::CommandQueue> &queue,
-                const std::vector<size_t> &part,
-                const std::set<column_t>  &remote_cols
-                )
-            : mpi(comm)
-        {
-            static const int tagExcCols = get_mpi_tag();
+/// \endcond
 
-            column_owner owner(part);
-
-            recv.idx.resize(mpi.size + 1, 0);
-
-            recv.req.resize(mpi.size, MPI_REQUEST_NULL);
-            send.req.resize(mpi.size, MPI_REQUEST_NULL);
-
-            // Count columns that we receive.
-            for(auto c = remote_cols.begin(); c != remote_cols.end(); ++c)
-                ++recv.idx[owner(*c) + 1];
-
-            // Exchange the counts.
-            std::vector<size_t> comm_matrix(mpi.size * mpi.size);
-            MPI_Allgather(&recv.idx[1], mpi.size, mpi_type<size_t>(),
-                    comm_matrix.data(), mpi.size, mpi_type<size_t>(),
-                    mpi.comm);
-
-            std::partial_sum(recv.idx.begin(), recv.idx.end(), recv.idx.begin());
-            recv.val.resize(recv.idx.back());
-
-            send.idx.reserve(mpi.size + 1);
-            send.idx.push_back(0);
-            for(auto i = 0; i < mpi.size; ++i)
-                send.idx.push_back(send.idx.back()
-                        + comm_matrix[mpi.size * i + mpi.rank]);
-
-            send.col.resize(send.idx.back());
-            send.val.resize(send.idx.back());
-
-            // Ready to exchange exact column numbers.
-            std::vector<size_t> rcols(remote_cols.begin(), remote_cols.end());
-
-            // Start receiving columns they need.
-            for(int i = 0; i < mpi.size; ++i)
-                if (int n = send.idx[i + 1] - send.idx[i])
-                    MPI_Irecv(&send.col[send.idx[i]], n, mpi_type<size_t>(),
-                            i, tagExcCols, mpi.comm, &send.req[i]);
-
-            // Start sending columns we need to them.
-            for(int i = 0; i < mpi.size; ++i)
-                if (int n = recv.idx[i + 1] - recv.idx[i])
-                    MPI_Isend(&rcols[recv.idx[i]], n, mpi_type<size_t>(),
-                            i, tagExcCols, mpi.comm, &recv.req[i]);
-
-            MPI_Waitall(mpi.size, send.req.data(), MPI_STATUSES_IGNORE);
-
-            // Renumber columns to send.
-            for(auto c = send.col.begin(); c != send.col.end(); ++c)
-                *c -= part[mpi.rank];
-
-            get.reset(new gather<value_t>(
-                        queue, part[mpi.rank + 1] - part[mpi.rank], send.col
-                        ));
-
-            MPI_Waitall(mpi.size, recv.req.data(), MPI_STATUSES_IGNORE);
-        }
-
-        size_t remote_size() const {
-            return recv.idx.back();
-        }
-
-        void start(const vex::vector<value_t> &local_data) {
-            static const int tagExcVals = get_mpi_tag();
-
-            (*get)(local_data, send.val);
-
-            for(int i = 0; i < mpi.size; ++i)
-                if (int n = recv.idx[i + 1] - recv.idx[i])
-                    MPI_Irecv(&recv.val[recv.idx[i]], n, mpi_type<value_t>(),
-                            i, tagExcVals, mpi.comm, &recv.req[i]);
-
-            for(int i = 0; i < mpi.size; ++i)
-                if (int n = send.idx[i + 1] - send.idx[i])
-                    MPI_Isend(&send.val[send.idx[i]], n, mpi_type<value_t>(),
-                            i, tagExcVals, mpi.comm, &send.req[i]);
-        }
-
-        void finish(vex::vector<value_t> &remote_data) {
-            MPI_Waitall(mpi.size, recv.req.data(), MPI_STATUSES_IGNORE);
-
-            vex::copy(recv.val, remote_data);
-
-            MPI_Waitall(mpi.size, send.req.data(), MPI_STATUSES_IGNORE);
-        }
-    private:
-        comm_data mpi;
-
-        struct {
-            std::vector<size_t>      idx;
-            std::vector<value_t>     val;
-            std::vector<MPI_Request> req;
-        } recv;
-
-        struct {
-            std::vector<size_t>      idx;
-            std::vector<size_t>      col;
-            std::vector<value_t>     val;
-            std::vector<MPI_Request> req;
-        } send;
-
-        std::unique_ptr< gather<value_t> > get;
-};
-
+/// MPI wrapper for vex::SpMat class template.
 template <typename real, typename column_t = size_t, typename idx_t = size_t>
 class SpMat : public mpi_matrix_terminal {
     public:
         typedef real value_type;
 
+        /// Empty constructor.
         SpMat() {}
 
+        /// Constructor.
+        /**
+         * Constructs local part of distributed matrix. Each process holds
+         * continuous strip of the matrix rows.
+         * \param comm  MPI communicator.
+         * \param queue vector of command queues.
+         * \param n     Number of rows in the local part of the matrix.
+         * \param m     Local size of a vector that the matrix will be
+         *              multiplied by. Should be equal to n if the matrix is
+         *              square.
+         * \param row   Index into col and val vectors.
+         * \param col   Global column numbers of the local non-zero entries.
+         * \param val   Values of the local non-zero entries.
+         */
         SpMat(MPI_Comm comm, const std::vector<cl::CommandQueue> &queue,
                 size_t n, size_t m,
                 const idx_t *row, const column_t *col, const real *val
-             )
-            : mpi(comm),
-              row_part(mpi.restore_partitioning(n)),
-              col_part(mpi.restore_partitioning(m))
+             ) : mpi(comm)
         {
             // Split into local and remote parts; renumber columns.
             std::vector<idx_t> loc_row(n + 1, 0);
@@ -259,8 +159,9 @@ class SpMat : public mpi_matrix_terminal {
             std::vector<real> loc_val;
             std::vector<real> rem_val;
 
-            column_t part_beg = col_part[mpi.rank];
-            column_t part_end = col_part[mpi.rank + 1];
+            auto col_part = mpi.restore_partitioning(m);
+            auto part_beg = col_part[mpi.rank];
+            auto part_end = col_part[mpi.rank + 1];
 
             std::set<column_t> remote_cols;
 
@@ -330,6 +231,17 @@ class SpMat : public mpi_matrix_terminal {
             exc.reset(new exchange<real>(mpi.comm, queue, col_part, remote_cols));
         }
 
+        /// Matrix-vector multiplication.
+        /**
+         * Matrix vector multiplication (\f$y = \alpha Ax\f$ or \f$y += alpha
+         * Ax\f$) is performed in parallel on all registered compute devices.
+         * Ghost values of x are transfered across MPI processes as needed.
+         * \param x      input vector.
+         * \param y      output vector.
+         * \param alpha  coefficient in front of matrix-vector product
+         * \param append if set, matrix-vector product is appended to y.
+         *               Otherwise, y is replaced with matrix-vector product.
+         */
         template <class V, class W>
         typename std::enable_if<
             std::is_base_of<mpi_vector_terminal_expression, V>::value &&
@@ -355,8 +267,6 @@ class SpMat : public mpi_matrix_terminal {
         }
     private:
         comm_data mpi;
-        std::vector<size_t> row_part;
-        std::vector<size_t> col_part;
 
         std::unique_ptr< vex::SpMat<real, column_t, idx_t> > loc_mtx;
         std::unique_ptr< vex::SpMat<real, column_t, idx_t> > rem_mtx;

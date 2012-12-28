@@ -171,9 +171,9 @@ class SpMat : matrix_terminal {
 
         /// Matrix-vector multiplication.
         /**
-         * Matrix vector multiplication (y = alpha Ax or y += alpha Ax) is
-         * performed in parallel on all registered compute devices. Ghost
-         * values of x are transfered across GPU boundaries as needed.
+         * Matrix vector multiplication (\f$y = \alpha Ax\f$ or \f$y += alpha
+         * Ax\f$) is performed in parallel on all registered compute devices.
+         * Ghost values of x are transfered across GPU boundaries as needed.
          * \param x      input vector.
          * \param y      output vector.
          * \param alpha  coefficient in front of matrix-vector product

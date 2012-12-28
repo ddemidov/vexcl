@@ -28,7 +28,7 @@ THE SOFTWARE.
 /**
  * \file   vexcl/mpi/reduce.hpp
  * \author Denis Demidov <ddemidov@ksu.ru>
- * \brief  mpi::vector reduction.
+ * \brief  MPI wrapper for vex::Reductor.
  */
 
 #include <mpi.h>
@@ -38,6 +38,8 @@ THE SOFTWARE.
 
 namespace vex {
 namespace mpi {
+
+/// \cond INTERNAL
 
 template <class RDC>
 inline MPI_Op mpi_reduce_op() {
@@ -53,13 +55,22 @@ DEFINE_REDUCE_OP(vex::MIN, MPI_MIN);
 
 #undef DEFINE_REDUCE_OP
 
+/// \endcond
+
+/// MPI wrapper for vex::Reductor class template.
 template <typename T, class RDC>
 class Reductor {
     public:
+        /// Constructor.
         Reductor(MPI_Comm comm, const std::vector<cl::CommandQueue> &queue)
             : mpi(comm), reduce(queue)
         {}
 
+        /// Compute and return reduction of the input expression.
+        /**
+         * The input expression may be as simple as a single vector, although
+         * expressions of arbitrary complexity may be reduced.
+         */
         template <class Expr>
         typename std::enable_if<
             boost::proto::matches<Expr, mpi_vector_expr_grammar>::value, T
