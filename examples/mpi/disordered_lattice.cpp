@@ -156,8 +156,6 @@ int main( int argc , char *argv[] ) {
     size_t chunk_end   = std::min(n, chunk_start + chunk_size);
     chunk_size = chunk_end - chunk_start;
 
-    std::cout << mpi.rank << ": " << chunk_size << std::endl;
-
     const value_type K     = 0.1;
     const value_type beta  = 0.01;
     const value_type t_max = 100.0;

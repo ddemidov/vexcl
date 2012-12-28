@@ -55,7 +55,7 @@ int main(int argc, char *argv[]) {
                 vex::mpi::vector<double> x(mpi.comm, ctx.queue(), n);
 
                 rc = rc && x.local_size() == n;
-                rc = rc && x.size() == n * mpi.size;
+                rc = rc && x.global_size() == n * mpi.size;
 
                 return rc;
                 });
@@ -111,7 +111,7 @@ int main(int argc, char *argv[]) {
 
                 x = 1;
 
-                rc = rc && fabs(sum(x) - x.size()) < 1e-8;
+                rc = rc && fabs(sum(x) - x.global_size()) < 1e-8;
 
                 return rc;
                 });
@@ -124,7 +124,7 @@ int main(int argc, char *argv[]) {
                 vex::mpi::multivector<double,m> x(mpi.comm, ctx.queue(), n);
 
                 rc = rc && x.local_size() == n;
-                rc = rc && x.size() == n * mpi.size;
+                rc = rc && x.global_size() == n * mpi.size;
 
                 return rc;
                 });
@@ -181,9 +181,9 @@ int main(int argc, char *argv[]) {
 
                 auto s = sum(x);
 
-                rc = rc && fabs(s[0] - 1 * x.size()) < 1e-8;
-                rc = rc && fabs(s[1] - 2 * x.size()) < 1e-8;
-                rc = rc && fabs(s[2] - 3 * x.size()) < 1e-8;
+                rc = rc && fabs(s[0] - 1 * x.global_size()) < 1e-8;
+                rc = rc && fabs(s[1] - 2 * x.global_size()) < 1e-8;
+                rc = rc && fabs(s[2] - 3 * x.global_size()) < 1e-8;
 
                 return rc;
                 });

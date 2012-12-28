@@ -58,32 +58,34 @@ class multivector
     public:
         typedef typename vex::multivector<T,N,own>::value_type value_type;
 
-        multivector() {}
+        multivector() : l_size(0) {}
 
         multivector(MPI_Comm comm, const std::vector<cl::CommandQueue> &queue, size_t n)
-            : mpi(comm), part(mpi.restore_partitioning(n)), local_data(queue, n)
+            : mpi(comm), l_size(n), local_data(queue, n)
         {
             static_assert(own, "Wrong constructor for non-owning multivector");
         }
 
         multivector(MPI_Comm comm, const vex::multivector<T, N, false> &mv)
-            : mpi(comm), part(mpi.restore_partitioning(mv.size())), local_data(mv)
+            : mpi(comm), l_size(mv.size()), local_data(mv)
         {
             static_assert(!own, "Wrong constructor for owning multivector");
         }
 
         void resize(const multivector &v) {
-            mpi  = v.mpi;
-            part = v.part;
+            mpi = v.mpi;
             local_data.resize(v.local_data.queue_list(), v.local_size());
         }
 
-        size_t size() const {
-            return part.empty() ? 0 : part.back();
+        size_t global_size() const {
+            size_t g_size;
+            MPI_Allreduce(const_cast<size_t*>(&l_size), &g_size, 1,
+                    mpi_type<size_t>(), MPI_SUM, mpi.comm);
+            return g_size;
         }
 
         size_t local_size() const {
-            return part.empty() ? 0 : part[mpi.rank + 1] - part[mpi.rank];
+            return l_size;
         }
 
         vex::multivector<T,N,own>& data() {
@@ -134,7 +136,7 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, TUPLE_ASSIGNMENT, ~)
 
     private:
         comm_data mpi;
-        std::vector<size_t> part; // TODO: is this really necessary?
+        size_t l_size;
         vex::multivector<T, N, own> local_data;
 };
 

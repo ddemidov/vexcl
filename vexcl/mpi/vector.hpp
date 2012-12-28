@@ -64,15 +64,14 @@ class vector
         typedef T      value_type;
         typedef size_t size_type;
 
-        vector() {}
+        vector() : l_size(0) {}
 
-        vector(const vector &v) : mpi(v.mpi), part(v.part) {
+        vector(const vector &v) : mpi(v.mpi), l_size(v.l_size) {
             copy_local_data<own>(v);
         }
 
         vector(MPI_Comm comm, const std::vector<cl::CommandQueue> &queue, size_t n)
-            : mpi(comm), part(mpi.restore_partitioning(n)),
-              local_data(new vex::vector<T>(queue, n))
+            : mpi(comm), l_size(n), local_data(new vex::vector<T>(queue, n))
         {
             static_assert(own, "Wrong constructor for non-owning vector");
         }
@@ -80,31 +79,33 @@ class vector
         vector(MPI_Comm comm, const std::vector<cl::CommandQueue> &queue,
                 std::vector<T> &host
               )
-            : mpi(comm), part(mpi.restore_partitioning(host.size())),
-              local_data(new vex::vector<T>(queue, host))
+            : mpi(comm), l_size(host.size()), local_data(new vex::vector<T>(queue, host))
         {
             static_assert(own, "Wrong constructor for non-owning vector");
         }
 
         vector(MPI_Comm comm, vex::vector<T> &v)
-            : mpi(comm), part(mpi.restore_partitioning(v.size())), local_data(&v)
+            : mpi(comm), l_size(v.size()), local_data(&v)
         {
             static_assert(!own, "Wrong constructor for owning vector");
         }
 
         void resize(const vector &v) {
-            mpi  = v.mpi;
-            part = v.part;
-            if (v.local_data)
-                local_data.reset(new vex::vector<value_type>(v.data()));
+            mpi = v.mpi;
+            local_data.reset(v.local_data
+                    ? new vex::vector<value_type>(v.data())
+                    : 0);
         }
 
-        size_t size() const {
-            return part.empty() ? 0 : part.back();
+        size_t global_size() const {
+            size_t g_size;
+            MPI_Allreduce(const_cast<size_t*>(&l_size), &g_size, 1,
+                    mpi_type<size_t>(), MPI_SUM, mpi.comm);
+            return g_size;
         }
 
         size_t local_size() const {
-            return part.empty() ? 0 : part[mpi.rank + 1] - part[mpi.rank];
+            return l_size;
         }
 
         vex::vector<T>& data() {
@@ -147,7 +148,7 @@ class vector
         }
     private:
         comm_data mpi;
-        std::vector<size_t> part; // TODO: is this really necessary?
+        size_t l_size;
         typename mpi_vector_storage<T, own>::type local_data;
 
         template <bool own_data>

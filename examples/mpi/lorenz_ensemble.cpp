@@ -56,7 +56,7 @@ struct same_size_impl< vex::mpi::multivector< T , N , own > , vex::mpi::multivec
 {
     static bool same_size( const vex::mpi::multivector< T , N , own > &x1 , const vex::mpi::multivector< T , N , own > &x2 )
     {
-        return x1.size() == x2.size();
+        return x1.local_size() == x2.local_size();
     }
 };
 
