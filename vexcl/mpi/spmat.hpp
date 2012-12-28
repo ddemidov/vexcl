@@ -233,7 +233,7 @@ class SpMat : public mpi_matrix_terminal {
 
         /// Matrix-vector multiplication.
         /**
-         * Matrix vector multiplication (\f$y = \alpha Ax\f$ or \f$y += alpha
+         * Matrix vector multiplication (\f$y = \alpha Ax\f$ or \f$y += \alpha
          * Ax\f$) is performed in parallel on all registered compute devices.
          * Ghost values of x are transfered across MPI processes as needed.
          * \param x      input vector.
