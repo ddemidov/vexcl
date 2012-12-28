@@ -54,14 +54,42 @@ struct mpi_vector_expr_grammar
       >
 {};
 
+struct mpi_additive_vector_transform{};
+
+struct mpi_additive_vector_transform_grammar
+    : boost::proto::or_<
+        boost::proto::terminal< mpi_additive_vector_transform >,
+        boost::proto::plus<
+            mpi_additive_vector_transform_grammar,
+            mpi_additive_vector_transform_grammar
+        >,
+        boost::proto::minus<
+            mpi_additive_vector_transform_grammar,
+            mpi_additive_vector_transform_grammar
+        >,
+        boost::proto::negate<
+            mpi_additive_vector_transform_grammar
+        >
+      >
+{};
+
+struct mpi_vector_full_grammar
+    : boost::proto::or_<
+        mpi_vector_expr_grammar,
+        boost::proto::terminal< mpi_additive_vector_transform >,
+        boost::proto::plus< mpi_vector_full_grammar, mpi_vector_full_grammar >,
+        boost::proto::minus< mpi_vector_full_grammar, mpi_vector_full_grammar >,
+        boost::proto::negate< mpi_vector_full_grammar >
+      >
+{};
+
 template <class Expr>
 struct mpi_vector_expression;
 
 struct mpi_vector_domain
     : boost::proto::domain<
         boost::proto::generator<mpi_vector_expression>,
-        // TODO: add full grammar
-        mpi_vector_expr_grammar
+        mpi_vector_full_grammar
         >
 { };
 
@@ -72,6 +100,19 @@ struct mpi_vector_expression
     mpi_vector_expression(const Expr &expr = Expr())
         : boost::proto::extends< Expr, mpi_vector_expression<Expr>, mpi_vector_domain>(expr) {}
 };
+
+
+VEXCL_VECTOR_EXPR_EXTRACTOR(mpi_extract_vector_expressions,
+        mpi_vector_expr_grammar,
+        mpi_additive_vector_transform_grammar,
+        mpi_vector_full_grammar
+        );
+
+VEXCL_ADDITIVE_EXPR_EXTRACTOR(mpi_extract_additive_vector_transforms,
+        mpi_vector_expr_grammar,
+        mpi_additive_vector_transform_grammar,
+        mpi_vector_full_grammar
+        );
 
 // mpi::multivector operations.
 struct mpi_multivector_terminal{};
@@ -90,14 +131,42 @@ struct mpi_multivector_expr_grammar
       >
 {};
 
+struct mpi_additive_multivector_transform {};
+
+struct mpi_additive_multivector_transform_grammar
+    : boost::proto::or_<
+        boost::proto::terminal< mpi_additive_multivector_transform >,
+        boost::proto::plus<
+            mpi_additive_multivector_transform_grammar,
+            mpi_additive_multivector_transform_grammar
+        >,
+        boost::proto::minus<
+            mpi_additive_multivector_transform_grammar,
+            mpi_additive_multivector_transform_grammar
+        >,
+        boost::proto::negate<
+            mpi_additive_multivector_transform_grammar
+        >
+      >
+{};
+
+struct mpi_multivector_full_grammar
+    : boost::proto::or_<
+        mpi_multivector_expr_grammar,
+        boost::proto::terminal< mpi_additive_multivector_transform >,
+        boost::proto::plus< mpi_multivector_full_grammar, mpi_multivector_full_grammar >,
+        boost::proto::minus< mpi_multivector_full_grammar, mpi_multivector_full_grammar >,
+        boost::proto::negate< mpi_multivector_full_grammar >
+      >
+{};
+
 template <class Expr>
 struct mpi_multivector_expression;
 
 struct mpi_multivector_domain
     : boost::proto::domain<
         boost::proto::generator<mpi_multivector_expression>,
-        // TODO: add full grammar
-        mpi_multivector_expr_grammar
+        mpi_multivector_full_grammar
       >
 { };
 
@@ -108,6 +177,18 @@ struct mpi_multivector_expression
     mpi_multivector_expression(const Expr &expr = Expr())
         : boost::proto::extends< Expr, mpi_multivector_expression<Expr>, mpi_multivector_domain>(expr) {}
 };
+
+VEXCL_VECTOR_EXPR_EXTRACTOR(mpi_extract_multivector_expressions,
+        mpi_multivector_expr_grammar,
+        mpi_additive_multivector_transform_grammar,
+        mpi_multivector_full_grammar
+        );
+
+VEXCL_ADDITIVE_EXPR_EXTRACTOR(mpi_extract_additive_multivector_transforms,
+        mpi_multivector_expr_grammar,
+        mpi_additive_multivector_transform_grammar,
+        mpi_multivector_full_grammar
+        );
 
 // Local expression extractor
 template <typename T, bool own = true> class vector;

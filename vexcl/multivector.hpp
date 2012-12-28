@@ -71,17 +71,18 @@ struct multivector_storage<T, false> {
 
 /// \endcond
 
+typedef multivector_expression<
+    typename boost::proto::terminal< multivector_terminal >::type
+    > multivector_terminal_expression;
+
+
 /// Container for several vex::vectors.
 /**
  * This class allows to synchronously operate on several vex::vectors of the
  * same type and size.
  */
 template <typename T, size_t N, bool own>
-class multivector
-    : public multivector_expression<
-        typename boost::proto::terminal< multivector_terminal >::type
-      >
-{
+class multivector : public multivector_terminal_expression {
     public:
         typedef vex::vector<T>  subtype;
         typedef std::array<T,N> value_type;

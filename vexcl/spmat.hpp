@@ -73,7 +73,6 @@ size_t bytes(const std::vector<T> &x) {
     return x.size() * sizeof(T);
 }
 
-template<typename T>
 struct matrix_terminal {};
 
 template <class M, class V>
@@ -85,20 +84,20 @@ struct spmv
 
     spmv(const M &m, const V &v) : A(m), x(v) {}
 
-    void apply(vector<typename V::value_type> &y,
-            float alpha = 1, bool append = false) const
-    {
+    void apply(V &y, float alpha = 1, bool append = false) const {
         A.mul(x, y, alpha, append);
     }
 };
 
-template <class M, class T>
+template <class M, class V>
 typename std::enable_if<
-    std::is_base_of<matrix_terminal<T>, M>::value,
-    spmv< M, vector<T> >
+    std::is_base_of<matrix_terminal, M>::value &&
+    std::is_base_of<vector_terminal_expression, V>::value &&
+    std::is_same<typename M::value_type, typename V::value_type>::value,
+    spmv< M, V >
 >::type
-operator*(const M &A, const vector<T> &x) {
-    return spmv< M, vector<T> >(A, x);
+operator*(const M &A, const V &x) {
+    return spmv< M, V >(A, x);
 }
 
 #ifdef VEXCL_MULTIVECTOR_HPP
@@ -114,26 +113,28 @@ struct multispmv
 
     multispmv(const M &m, const V &v) : A(m), x(v) {}
 
-    template <bool own>
-    void apply(
-            multivector<
-                typename V::subtype::value_type,
-                number_of_components<V>::value,
-                own> &y,
-            float alpha = 1, bool append = false) const
-    {
+    template <class W>
+    typename std::enable_if<
+        std::is_base_of<multivector_terminal_expression, W>::value &&
+        std::is_same<typename M::value_type, typename W::value_type::value_type>::value &&
+        number_of_components<V>::value == number_of_components<W>::value,
+        void
+    >::type
+    apply(W &y, float alpha = 1, bool append = false) const {
         for(int i = 0; i < number_of_components<V>::value; i++)
             A.mul(x(i), y(i), alpha, append);
     }
 };
 
-template <class M, class T, size_t N, bool own>
+template <class M, class V>
 typename std::enable_if<
-    std::is_base_of<matrix_terminal<T>, M>::value,
-    multispmv< M, multivector<T, N, own> >
+    std::is_base_of<matrix_terminal,      M>::value &&
+    std::is_base_of<multivector_terminal_expression, V>::value &&
+    std::is_same<typename M::value_type, typename V::value_type::value_type>::value,
+    multispmv< M, V >
 >::type
-operator*(const M &A, const multivector<T, N, own> &x) {
-    return multispmv< M, multivector<T, N, own> >(A, x);
+operator*(const M &A, const V &x) {
+    return multispmv< M, V >(A, x);
 }
 
 #endif
@@ -142,8 +143,10 @@ operator*(const M &A, const multivector<T, N, own> &x) {
 
 /// Sparse matrix in hybrid ELL-CSR format.
 template <typename real, typename column_t = size_t, typename idx_t = size_t>
-class SpMat : matrix_terminal<real> {
+class SpMat : matrix_terminal {
     public:
+        typedef real value_type;
+
         /// Empty constructor.
         SpMat() : nrows(0), ncols(0), nnz(0) {}
 
@@ -1324,8 +1327,10 @@ void SpMat<real,column_t,idx_t>::SpMatCSR::mul_remote(
  * reside on the same device with matrix.
  */
 template <typename real, typename column_t = ptrdiff_t, typename idx_t = size_t>
-class SpMatCCSR : matrix_terminal<real> {
+class SpMatCCSR : matrix_terminal {
     public:
+        typedef real value_type;
+
         /// Constructor for CCSR format.
         /**
          * Constructs GPU representation of the CCSR matrix.

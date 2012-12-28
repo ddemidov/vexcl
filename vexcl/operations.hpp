@@ -253,6 +253,58 @@ BUILTIN_FUNCTION_1(trunc);
 #undef BUILTIN_FUNCTION_2
 #undef BUILTIN_FUNCTION_3
 
+#define VEXCL_VECTOR_EXPR_EXTRACTOR(name, VG, AG, FG) \
+struct name \
+    : boost::proto::or_< \
+          boost::proto::when<VG, boost::proto::_>, \
+          boost::proto::when< \
+             boost::proto::plus< FG, AG >, \
+             name(boost::proto::_left) \
+          >, \
+          boost::proto::when< \
+             boost::proto::plus< AG, FG >, \
+             name(boost::proto::_right) \
+          >, \
+          boost::proto::when< \
+             boost::proto::minus< FG, AG >, \
+             name(boost::proto::_left) \
+          >, \
+          boost::proto::when< \
+             boost::proto::minus< AG, FG >, \
+             boost::proto::_make_negate( name(boost::proto::_right) ) \
+          >, \
+          boost::proto::when< \
+             boost::proto::binary_expr<boost::proto::_, name, name > \
+          > \
+      > \
+{}
+
+#define VEXCL_ADDITIVE_EXPR_EXTRACTOR(name, VG, AG, FG) \
+struct name \
+    : boost::proto::or_< \
+          boost::proto::when<AG, boost::proto::_> \
+        , boost::proto::when< \
+             boost::proto::plus<FG, VG >, \
+             name(boost::proto::_left) \
+          > \
+        , boost::proto::when< \
+             boost::proto::plus< VG, FG >, \
+             name(boost::proto::_right) \
+          > \
+        , boost::proto::when< \
+             boost::proto::minus<FG, VG >, \
+             name(boost::proto::_left) \
+          > \
+        , boost::proto::when< \
+             boost::proto::minus<VG, FG >, \
+             boost::proto::_make_negate( name(boost::proto::_right) ) \
+          > \
+        , boost::proto::when< \
+             boost::proto::binary_expr<boost::proto::_, name, name > \
+          > \
+      > \
+{}
+
 //--- User Function ---------------------------------------------------------
 
 template <const char *body, class T>
@@ -791,77 +843,17 @@ struct get_expression_properties {
 };
 
 //---------------------------------------------------------------------------
-struct extract_vector_expressions
-    : boost::proto::or_<
-          boost::proto::when<vector_expr_grammar, boost::proto::_>,
-          boost::proto::when<
-             boost::proto::plus<
-                vector_full_grammar,
-                additive_vector_transform_grammar
-             >,
-             extract_vector_expressions(boost::proto::_left)
-          >,
-          boost::proto::when<
-             boost::proto::plus<
-                additive_vector_transform_grammar,
-                vector_full_grammar
-             >,
-             extract_vector_expressions(boost::proto::_right)
-          >,
-          boost::proto::when<
-             boost::proto::minus<
-                vector_full_grammar,
-                additive_vector_transform_grammar
-             >,
-             extract_vector_expressions(boost::proto::_left)
-          >,
-          boost::proto::when<
-             boost::proto::minus<
-                additive_vector_transform_grammar,
-                vector_full_grammar
-             >,
-             boost::proto::_make_negate(
-                    extract_vector_expressions(boost::proto::_right)
-                    )
-          >,
-          boost::proto::when<
-             boost::proto::binary_expr<boost::proto::_,
-                extract_vector_expressions,
-                extract_vector_expressions
-             >
-          >
-      >
-{};
+VEXCL_VECTOR_EXPR_EXTRACTOR(extract_vector_expressions,
+        vector_expr_grammar,
+        additive_vector_transform_grammar,
+        vector_full_grammar
+        );
 
-struct extract_additive_vector_transforms
-    : boost::proto::or_<
-          boost::proto::when<additive_vector_transform_grammar, boost::proto::_>
-        , boost::proto::when<
-             boost::proto::plus<vector_full_grammar, vector_expr_grammar >,
-             extract_additive_vector_transforms(boost::proto::_left)
-          >
-        , boost::proto::when<
-             boost::proto::plus< vector_expr_grammar, vector_full_grammar >,
-             extract_additive_vector_transforms(boost::proto::_right)
-          >
-        , boost::proto::when<
-             boost::proto::minus<vector_full_grammar, vector_expr_grammar >,
-             extract_additive_vector_transforms(boost::proto::_left)
-          >
-        , boost::proto::when<
-             boost::proto::minus<vector_expr_grammar, vector_full_grammar >,
-             boost::proto::_make_negate(
-                     extract_additive_vector_transforms(boost::proto::_right)
-                     )
-          >
-        , boost::proto::when<
-             boost::proto::binary_expr<boost::proto::_,
-                extract_additive_vector_transforms,
-                extract_additive_vector_transforms
-             >
-          >
-      >
-{};
+VEXCL_ADDITIVE_EXPR_EXTRACTOR(extract_additive_vector_transforms,
+        vector_expr_grammar,
+        additive_vector_transform_grammar,
+        vector_full_grammar
+        );
 
 struct simplify_additive_transform
     : boost::proto::or_<
@@ -1533,77 +1525,17 @@ struct extract_subexpression
     >
 {};
 
-struct extract_multivector_expressions
-    : boost::proto::or_<
-          boost::proto::when<multivector_expr_grammar, boost::proto::_>,
-          boost::proto::when<
-             boost::proto::plus<
-                multivector_full_grammar,
-                additive_multivector_transform_grammar
-             >,
-             extract_multivector_expressions(boost::proto::_left)
-          >,
-          boost::proto::when<
-             boost::proto::plus<
-                additive_multivector_transform_grammar,
-                multivector_full_grammar
-             >,
-             extract_multivector_expressions(boost::proto::_right)
-          >,
-          boost::proto::when<
-             boost::proto::minus<
-                multivector_full_grammar,
-                additive_multivector_transform_grammar
-             >,
-             extract_multivector_expressions(boost::proto::_left)
-          >,
-          boost::proto::when<
-             boost::proto::minus<
-                additive_multivector_transform_grammar,
-                multivector_full_grammar
-             >,
-             boost::proto::_make_negate(
-                    extract_multivector_expressions(boost::proto::_right)
-                    )
-          >,
-          boost::proto::when<
-             boost::proto::binary_expr<boost::proto::_,
-                extract_multivector_expressions,
-                extract_multivector_expressions
-             >
-          >
-      >
-{};
+VEXCL_VECTOR_EXPR_EXTRACTOR(extract_multivector_expressions,
+        multivector_expr_grammar,
+        additive_multivector_transform_grammar,
+        multivector_full_grammar
+        );
 
-struct extract_additive_multivector_transforms
-    : boost::proto::or_<
-          boost::proto::when<additive_multivector_transform_grammar, boost::proto::_>
-        , boost::proto::when<
-             boost::proto::plus<multivector_full_grammar, multivector_expr_grammar >,
-             extract_additive_multivector_transforms(boost::proto::_left)
-          >
-        , boost::proto::when<
-             boost::proto::plus< multivector_expr_grammar, multivector_full_grammar >,
-             extract_additive_multivector_transforms(boost::proto::_right)
-          >
-        , boost::proto::when<
-             boost::proto::minus<multivector_full_grammar, multivector_expr_grammar >,
-             extract_additive_multivector_transforms(boost::proto::_left)
-          >
-        , boost::proto::when<
-             boost::proto::minus<multivector_expr_grammar, multivector_full_grammar >,
-             boost::proto::_make_negate(
-                     extract_additive_multivector_transforms(boost::proto::_right)
-                     )
-          >
-        , boost::proto::when<
-             boost::proto::binary_expr<boost::proto::_,
-                extract_additive_multivector_transforms,
-                extract_additive_multivector_transforms
-             >
-          >
-      >
-{};
+VEXCL_ADDITIVE_EXPR_EXTRACTOR(extract_additive_multivector_transforms,
+        multivector_expr_grammar,
+        additive_multivector_transform_grammar,
+        multivector_full_grammar
+        );
 
 /// \endcond
 

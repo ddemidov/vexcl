@@ -54,12 +54,12 @@ struct mpi_vector_storage<T, false> {
     typedef vex::vector<T>* type;
 };
 
+typedef mpi_vector_expression<
+    typename boost::proto::terminal< mpi_vector_terminal >::type
+    > mpi_vector_terminal_expression;
+
 template <typename T, bool own>
-class vector
-    : public mpi_vector_expression<
-        typename boost::proto::terminal< mpi_vector_terminal >::type
-      >
-{
+class vector : public mpi_vector_terminal_expression {
     public:
         typedef T      value_type;
         typedef size_t size_type;
@@ -130,6 +130,10 @@ class vector
             return *this;
         }
 
+        MPI_Comm comm() const {
+            return mpi.comm;
+        }
+
         template <class Expr>
         typename std::enable_if<
             boost::proto::matches<
@@ -143,9 +147,70 @@ class vector
             return *this;
         }
 
-        MPI_Comm comm() const {
-            return mpi.comm;
+        template <class Expr>
+        typename std::enable_if<
+            boost::proto::matches<
+                typename boost::proto::result_of::as_expr<Expr>::type,
+                mpi_additive_vector_transform_grammar
+            >::value,
+            const vector&
+        >::type
+        operator=(const Expr &expr) {
+            additive_vector_transform_context< vector > ctx(*this);
+
+            boost::proto::eval(
+                    simplify_additive_transform()( expr ),
+                    ctx
+                    );
+
+            return *this;
         }
+
+        template <class Expr>
+        typename std::enable_if<
+            !boost::proto::matches<
+                typename boost::proto::result_of::as_expr<Expr>::type,
+                mpi_vector_expr_grammar
+            >::value &&
+            !boost::proto::matches<
+                typename boost::proto::result_of::as_expr<Expr>::type,
+                mpi_additive_vector_transform_grammar
+            >::value,
+            const vector&
+        >::type
+        operator=(const Expr &expr) {
+            *this = mpi_extract_vector_expressions()( expr );
+
+            additive_vector_transform_context< vector > ctx(*this, true);
+
+            boost::proto::eval(
+                    simplify_additive_transform()(
+                        mpi_extract_additive_vector_transforms()( expr )
+                        ),
+                    ctx
+                    );
+            return *this;
+        }
+
+#define COMPOUND_ASSIGNMENT(cop, op) \
+        template <class Expr> \
+        const vector& operator cop(const Expr &expr) { \
+            return *this = *this op expr; \
+        }
+
+        COMPOUND_ASSIGNMENT(+=, +);
+        COMPOUND_ASSIGNMENT(-=, -);
+        COMPOUND_ASSIGNMENT(*=, *);
+        COMPOUND_ASSIGNMENT(/=, /);
+        COMPOUND_ASSIGNMENT(%=, %);
+        COMPOUND_ASSIGNMENT(&=, &);
+        COMPOUND_ASSIGNMENT(|=, |);
+        COMPOUND_ASSIGNMENT(^=, ^);
+        COMPOUND_ASSIGNMENT(<<=, <<);
+        COMPOUND_ASSIGNMENT(>>=, >>);
+
+#undef COMPOUND_ASSIGNMENT
+
     private:
         comm_data mpi;
         size_t l_size;

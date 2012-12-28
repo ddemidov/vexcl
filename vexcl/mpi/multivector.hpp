@@ -49,12 +49,12 @@ struct number_of_components< vex::mpi::multivector<T, N, own> >
 
 namespace mpi {
 
+typedef mpi_multivector_expression<
+    typename boost::proto::terminal< mpi_multivector_terminal >::type
+    > mpi_multivector_terminal_expression;
+
 template <typename T, size_t N, bool own>
-class multivector
-    : public mpi_multivector_expression<
-        typename boost::proto::terminal< mpi_multivector_terminal >::type
-      >
-{
+class multivector : public mpi_multivector_terminal_expression {
     public:
         typedef typename vex::multivector<T,N,own>::value_type value_type;
 
@@ -118,6 +118,70 @@ class multivector
             local_data = extract_local_expression()(boost::proto::as_child(expr));
             return *this;
         }
+
+        template <class Expr>
+        typename std::enable_if<
+            boost::proto::matches<
+                typename boost::proto::result_of::as_expr<Expr>::type,
+                mpi_additive_multivector_transform_grammar
+            >::value,
+            const multivector&
+        >::type
+        operator=(const Expr &expr) {
+            additive_vector_transform_context< multivector > ctx(*this);
+
+            boost::proto::eval(
+                    simplify_additive_transform()( expr ),
+                    ctx
+                    );
+
+            return *this;
+        }
+
+        template <class Expr>
+        typename std::enable_if<
+            !boost::proto::matches<
+                typename boost::proto::result_of::as_expr<Expr>::type,
+                mpi_multivector_expr_grammar
+            >::value &&
+            !boost::proto::matches<
+                typename boost::proto::result_of::as_expr<Expr>::type,
+                mpi_additive_multivector_transform_grammar
+            >::value,
+            const multivector&
+        >::type
+        operator=(const Expr &expr) {
+            *this = mpi_extract_multivector_expressions()( expr );
+
+            additive_vector_transform_context< multivector > ctx(*this, true);
+
+            boost::proto::eval(
+                    simplify_additive_transform()(
+                        mpi_extract_additive_multivector_transforms()( expr )
+                        ),
+                    ctx
+                    );
+            return *this;
+        }
+
+#define COMPOUND_ASSIGNMENT(cop, op) \
+        template <class Expr> \
+        const multivector& operator cop(const Expr &expr) { \
+            return *this = *this op expr; \
+        }
+
+        COMPOUND_ASSIGNMENT(+=, +);
+        COMPOUND_ASSIGNMENT(-=, -);
+        COMPOUND_ASSIGNMENT(*=, *);
+        COMPOUND_ASSIGNMENT(/=, /);
+        COMPOUND_ASSIGNMENT(%=, %);
+        COMPOUND_ASSIGNMENT(&=, &);
+        COMPOUND_ASSIGNMENT(|=, |);
+        COMPOUND_ASSIGNMENT(^=, ^);
+        COMPOUND_ASSIGNMENT(<<=, <<);
+        COMPOUND_ASSIGNMENT(>>=, >>);
+
+#undef COMPOUND_ASSIGNMENT
 
 #define PRINT_EXTRACT(z, n, data) extract_local_expression()(boost::proto::as_child(std::get< n >(expr)))
 #define TUPLE_ASSIGNMENT(z, n, data) \

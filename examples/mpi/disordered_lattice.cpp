@@ -121,8 +121,7 @@ class ham_lattice {
         }
 
         void operator()(const state_type &q, state_type &dp) const {
-            dp = -beta * q * q * q;
-            A->mul(q, dp, 1, true);
+            dp = (*A) * q - beta * q * q * q;
         }
 
     private:

@@ -237,6 +237,7 @@ int main(int argc, char *argv[]) {
                 });
         run_test("Matrix-vector product", [&]() -> bool {
                 const size_t n  = 1024;
+                const size_t m  = 3;
                 const size_t n2 = n * n;
                 bool rc = true;
 
@@ -293,10 +294,14 @@ int main(int argc, char *argv[]) {
                 vex::mpi::vector<double> x(mpi.comm, ctx.queue(), chunk_size);
                 vex::mpi::vector<double> y(mpi.comm, ctx.queue(), chunk_size);
 
-                x = 1;
-                y = 1;
+                vex::mpi::multivector<double, m> mx(mpi.comm, ctx.queue(), chunk_size);
+                vex::mpi::multivector<double, m> my(mpi.comm, ctx.queue(), chunk_size);
 
-                A.mul(x, y);
+                x = 1;
+                y = A * x;
+
+                mx = std::make_tuple(1, 2, 3);
+                my = A * mx;
 
                 vex::mpi::Reductor<double, vex::MIN> min(mpi.comm, ctx.queue());
                 vex::mpi::Reductor<double, vex::MAX> max(mpi.comm, ctx.queue());
@@ -305,6 +310,16 @@ int main(int argc, char *argv[]) {
                 rc = rc && min(y) == 0;
                 rc = rc && max(y) == 0.5;
                 rc = rc && sum(y) == 0.5 * (n - 2) * (n - 2);
+
+                auto vmin = min(my);
+                auto vmax = max(my);
+                auto vsum = sum(my);
+
+                for(int i = 0; i < m; ++i) {
+                    rc = rc && vmin[i] == 0;
+                    rc = rc && vmax[i] == 0.5 * (i + 1);
+                    rc = rc && vsum[i] == 0.5 * (i + 1) * (n - 2) * (n - 2);
+                }
 
                 return rc;
                 });

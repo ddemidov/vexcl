@@ -180,11 +180,13 @@ inline std::vector<size_t> partition(size_t n,
 }
 
 //--- Vector Type -----------------------------------------------------------
+typedef vector_expression<
+    typename boost::proto::terminal< vector_terminal >::type
+    > vector_terminal_expression;
+
 /// Device vector.
 template <typename T>
-class vector
-    : public vector_expression< typename boost::proto::terminal< vector_terminal >::type >
-{
+class vector : public vector_terminal_expression {
     public:
         typedef T      value_type;
         typedef size_t size_type;
