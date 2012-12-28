@@ -45,6 +45,13 @@ THE SOFTWARE.
 #include <vexcl/util.hpp>
 #include <boost/interprocess/sync/file_lock.hpp>
 
+#ifdef __GNUC__
+#  define _GLIBCXX_USE_NANOSLEEP
+#endif
+#include <thread>
+#include <chrono>
+#include <random>
+
 namespace vex {
 
 /// Device filters.
@@ -264,8 +271,30 @@ namespace Filter {
                 }
 
                 bool try_lock() {
-                    if (flock)
-                        return flock->try_lock();
+                    if (flock) {
+                        // Try and lock the file related to compute device.
+                        // If the file is locked already, it could mean two
+                        // things:
+                        // 1. Somebody locked the file, and uses the device.
+                        // 2. Somebody locked the file, and is in process of
+                        //    checking the device. If device is not good (for
+                        //    them) they will release the lock in a few
+                        //    moments.
+                        // To process case 2 correctly, we try to lock the
+                        // device a couple of times with a random pause.
+
+                        std::mt19937 rng(reinterpret_cast<size_t>(this));
+                        std::uniform_int_distribution<uint> rnd(0, 30);
+
+                        for(int try_num = 0; try_num < 3; ++try_num) {
+                            if (flock->try_lock())
+                                return true;
+
+                            std::this_thread::sleep_for(
+                                    std::chrono::milliseconds( rnd(rng) ) );
+                        }
+                        return false;
+                    }
                     else
                         return true;
                 }
