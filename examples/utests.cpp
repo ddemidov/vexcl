@@ -1423,6 +1423,48 @@ int main(int argc, char *argv[]) {
                 });
 #endif
 
+#if 1
+        run_test("Use element index in a vector expression", [&]() -> bool {
+                const size_t N = 16 * 1024;
+                bool rc = true;
+                vex::vector<double> x(ctx.queue(), N);
+                x = sin(0.5 * element_index());
+                for(int i = 0; i < 100; ++i) {
+                    size_t idx = rand() % N;
+                    rc = rc && fabs(x[idx] - sin(0.5 * idx)) < 1e-8;
+                }
+                return rc;
+                });
+#endif
+
+#if 1
+        run_test("Use element index in a multivector expression", [&]() -> bool {
+                const size_t N = 16 * 1024;
+                bool rc = true;
+                vex::multivector<double, 2> x(ctx.queue(), N);
+                vex::multivector<double, 2> y(ctx.queue(), N);
+                x = std::tie(
+                    sin(0.5 * element_index()),
+                    cos(0.5 * element_index())
+                    );
+                y = 0.5 * element_index();
+
+                for(int i = 0; i < 100; ++i) {
+                    size_t idx = rand() % N;
+
+                    std::array<double,2> vx = x[idx];
+                    std::array<double,2> vy = y[idx];
+
+                    rc = rc && fabs(vx[0] - sin(0.5 * idx)) < 1e-8;
+                    rc = rc && fabs(vx[1] - cos(0.5 * idx)) < 1e-8;
+
+                    rc = rc && fabs(vy[0] - 0.5 * idx) < 1e-8;
+                    rc = rc && fabs(vy[1] - 0.5 * idx) < 1e-8;
+                }
+                return rc;
+                });
+#endif
+
     } catch (const cl::Error &err) {
         std::cerr << "OpenCL error: " << err << std::endl;
         return 1;

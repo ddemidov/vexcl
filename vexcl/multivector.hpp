@@ -407,8 +407,7 @@ class multivector : public multivector_terminal_expression {
                     set_kernel_args<N>(
                             boost::proto::as_child(expr),
                             exdata<Expr>::kernel[context()],
-                            d,
-                            pos
+                            d, pos, vec[0]->part_start(d)
                             );
 
                     queue[d].enqueueNDRangeKernel(
@@ -514,10 +513,10 @@ class multivector : public multivector_terminal_expression {
                     exdata<ExprTuple>::kernel[context()].setArg(pos++, psize);
 
                     for(uint i = 0; i < N; i++)
-                        exdata<ExprTuple>::kernel[context()].setArg(pos++, vec[i]->operator()(d));
+                        exdata<ExprTuple>::kernel[context()].setArg(pos++, (*vec[i])(d));
 
                     {
-                        set_arguments f(exdata<ExprTuple>::kernel[context()], d, pos);
+                        set_arguments f(exdata<ExprTuple>::kernel[context()], d, pos, vec[0]->part_start(d));
                         for_each<0>(expr, f);
                     }
 
@@ -684,15 +683,16 @@ class multivector : public multivector_terminal_expression {
         struct set_arguments {
             cl::Kernel &krn;
             uint d, &pos;
+            size_t part_start;
 
-            set_arguments(cl::Kernel &krn, uint d, uint &pos)
-                : krn(krn), d(d), pos(pos) {}
+            set_arguments(cl::Kernel &krn, uint d, uint &pos, size_t part_start)
+                : krn(krn), d(d), pos(pos), part_start(part_start) {}
 
             template <class Expr>
             void operator()(const Expr &expr) const {
                 extract_terminals()(
                         boost::proto::as_child(expr),
-                        set_expression_argument(krn, d, pos)
+                        set_expression_argument(krn, d, pos, part_start)
                         );
             }
         };

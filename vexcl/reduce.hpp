@@ -339,7 +339,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
 
             extract_terminals()(
                     expr,
-                    set_expression_argument(exdata<Expr>::kernel[context()], d, pos)
+                    set_expression_argument(exdata<Expr>::kernel[context()], d, pos, prop.part_start(d))
                     );
 
             exdata<Expr>::kernel[context()].setArg(pos++, dbuf[d]);

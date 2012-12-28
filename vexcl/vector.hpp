@@ -558,7 +558,7 @@ class vector : public vector_terminal_expression {
 
                     extract_terminals()(
                             boost::proto::as_child(expr),
-                            set_expression_argument(exdata<Expr>::kernel[context()], d, pos)
+                            set_expression_argument(exdata<Expr>::kernel[context()], d, pos, part[d])
                             );
 
                     queue[d].enqueueNDRangeKernel(

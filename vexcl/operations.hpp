@@ -55,6 +55,22 @@ THE SOFTWARE.
 /// Vector expression template library for OpenCL.
 namespace vex {
 
+struct elem_index {
+    size_t offset;
+
+    elem_index(size_t offset = 0) : offset(offset) {}
+};
+
+template <>
+inline std::string type_name<elem_index>() {
+    return type_name<size_t>();
+}
+
+inline typename boost::proto::result_of::as_expr<elem_index>::type
+element_index(size_t offset = 0) {
+    return boost::proto::as_expr(elem_index(offset));
+}
+
 /// \cond INTERNAL
 
 struct builtin_function {};
@@ -64,6 +80,7 @@ struct user_function {};
 
 //--- Standard grammar (no terminals) ---------------------------------------
 #define BUILTIN_OPERATIONS(grammar) \
+    boost::proto::or_< boost::proto::terminal< elem_index > >, \
     boost::proto::or_< \
         boost::proto::unary_plus< grammar >, \
         boost::proto::negate< grammar >, \
@@ -327,7 +344,7 @@ struct UserFunction<body, RetType(ArgType...)> : user_function
                 UserFunction(), boost::ref(arg)...
                 );
     }
-    
+
     static void define(std::ostream &os, const std::string &name) {
         os << type_name<RetType>() << " " << name << "(";
         show_arg<ArgType...>(os, 1);
@@ -752,8 +769,22 @@ struct vector_expr_context {
         }
 
         template <typename Term>
-        void operator()(const Term &term, vector_expr_context &ctx) const {
+        typename std::enable_if<
+            !std::is_same<typename boost::proto::result_of::value<Term>::type, elem_index>::value,
+            void
+        >::type
+        operator()(const Term &term, vector_expr_context &ctx) const {
             ctx.os << "prm_" << ctx.cmp_idx << "_" << ++ctx.prm_idx;
+        }
+
+        template <typename Term>
+        typename std::enable_if<
+            std::is_same<typename boost::proto::result_of::value<Term>::type, elem_index>::value,
+            void
+        >::type
+        operator()(const Term &term, vector_expr_context &ctx) const {
+            ctx.os << "( prm_" << ctx.cmp_idx << "_" << ++ctx.prm_idx
+                   << " + idx )";
         }
     };
 };
@@ -801,9 +832,10 @@ struct declare_expression_parameter {
 struct set_expression_argument {
     cl::Kernel &krn;
     uint dev, &pos;
+    size_t part_start;
 
-    set_expression_argument(cl::Kernel &krn, uint dev, uint &pos)
-        : krn(krn), dev(dev), pos(pos) {}
+    set_expression_argument(cl::Kernel &krn, uint dev, uint &pos, size_t part_start)
+        : krn(krn), dev(dev), pos(pos), part_start(part_start) {}
 
     template <typename T>
     void operator()(const vector<T> &term) const {
@@ -811,8 +843,21 @@ struct set_expression_argument {
     }
 
     template <typename Term>
-    void operator()(const Term &term) const {
+    typename std::enable_if<
+        !std::is_same<typename boost::proto::result_of::value<Term>::type, elem_index>::value,
+        void
+    >::type
+    operator()(const Term &term) const {
         krn.setArg(pos++, boost::proto::value(term));
+    }
+
+    template <typename Term>
+    typename std::enable_if<
+        std::is_same<typename boost::proto::result_of::value<Term>::type, elem_index>::value,
+        void
+    >::type
+    operator()(const Term &term) const {
+        krn.setArg(pos++, boost::proto::value(term).offset + part_start);
     }
 };
 
@@ -823,10 +868,12 @@ struct get_expression_properties {
 
     get_expression_properties() : queue(0), part(0), size(0) {}
 
+    size_t part_start(uint d) const {
+        return part ? (*part)[d] : 0;
+    }
+
     size_t part_size(uint d) const {
-        return part ?
-            part->operator[](d + 1) - part->operator[](d) :
-            0;
+        return part ? (*part)[d + 1] - (*part)[d] : 0;
     }
 
     template <typename T>
@@ -1351,11 +1398,15 @@ struct multivector_expr_context {
 
             ctx.prm_idx++;
 
-            if (number_of_components<term_type>::value > 1) {
-                ctx.os << "prm_" << C + 1 << "_" << ctx.prm_idx;
-            } else {
-                ctx.os << "prm_1_" << ctx.prm_idx;
-            }
+            uint cnum = 1;
+            if (number_of_components<term_type>::value > 1)
+                cnum += C;
+
+            if (std::is_same<term_type, elem_index>::value)
+                ctx.os << "( prm_" << cnum << "_" << ctx.prm_idx
+                       << " + idx )";
+            else
+                ctx.os << "prm_" << cnum << "_" << ctx.prm_idx;
         }
     };
 };
@@ -1430,9 +1481,10 @@ template <size_t N, size_t C>
 struct set_multiex_argument {
     cl::Kernel &krn;
     uint dev, &pos;
+    size_t part_start;
 
-    set_multiex_argument(cl::Kernel &krn, uint dev, uint &pos)
-        : krn(krn), dev(dev), pos(pos) {}
+    set_multiex_argument(cl::Kernel &krn, uint dev, uint &pos, size_t part_start)
+        : krn(krn), dev(dev), pos(pos), part_start(part_start) {}
 
     template <typename T, size_t M, bool own>
     void operator()(const multivector<T, M, own> &term) const {
@@ -1441,7 +1493,11 @@ struct set_multiex_argument {
     }
 
     template <typename Term>
-    void operator()(const Term &term) const {
+    typename std::enable_if<
+        !std::is_same<typename boost::proto::result_of::value<Term>::type, elem_index>::value,
+        void
+    >::type
+    operator()(const Term &term) const {
         typedef typename boost::proto::result_of::value<Term>::type term_type;
 
         static_assert(
@@ -1453,25 +1509,35 @@ struct set_multiex_argument {
         if ((number_of_components<term_type>::value > 1) || (C == 0))
             krn.setArg(pos++, get<C>(boost::proto::value(term)));
     }
+
+    template <typename Term>
+    typename std::enable_if<
+        std::is_same<typename boost::proto::result_of::value<Term>::type, elem_index>::value,
+        void
+    >::type
+    operator()(const Term &term) const {
+        if (C == 0)
+            krn.setArg(pos++, boost::proto::value(term).offset + part_start);
+    }
 };
 
 template <size_t I, size_t N, class Expr>
 typename std::enable_if<I == N>::type
-mv_kernel_args_loop(const Expr &expr, cl::Kernel &krn, uint d, uint &pos) { }
+mv_kernel_args_loop(const Expr &expr, cl::Kernel &krn, uint d, uint &pos, size_t part_start) { }
 
 template <size_t I, size_t N, class Expr>
 typename std::enable_if<I < N>::type
-mv_kernel_args_loop(const Expr &expr, cl::Kernel &krn, uint d, uint &pos) {
+mv_kernel_args_loop(const Expr &expr, cl::Kernel &krn, uint d, uint &pos, size_t part_start) {
     extract_terminals()( expr,
-            set_multiex_argument<N, I>(krn, d, pos)
+            set_multiex_argument<N, I>(krn, d, pos, part_start)
             );
 
-    mv_kernel_args_loop<I+1, N, Expr>(expr, krn, d, pos);
+    mv_kernel_args_loop<I+1, N, Expr>(expr, krn, d, pos, part_start);
 }
 
 template <size_t N, class Expr>
-void set_kernel_args(const Expr &expr, cl::Kernel &krn, uint d, uint &pos) {
-    mv_kernel_args_loop<0, N, Expr>(expr, krn, d, pos);
+void set_kernel_args(const Expr &expr, cl::Kernel &krn, uint d, uint &pos, size_t part_start) {
+    mv_kernel_args_loop<0, N, Expr>(expr, krn, d, pos, part_start);
 }
 
 
