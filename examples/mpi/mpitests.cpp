@@ -68,7 +68,7 @@ int main(int argc, char *argv[]) {
 
                 x = 42;
 
-                rc = rc && x.data()[n/2] == 42;
+                rc = rc && x[n/2] == 42;
 
                 return rc;
                 });
@@ -82,7 +82,7 @@ int main(int argc, char *argv[]) {
 
                 vex::mpi::vector<double> y = x;
 
-                rc = rc && y.data()[n/2] == 42;
+                rc = rc && y[n/2] == 42;
 
                 return rc;
                 });
@@ -97,7 +97,7 @@ int main(int argc, char *argv[]) {
                 x = 42;
                 y = vex::cos(x / 7);
 
-                rc = rc && fabs(y.data()[n/2] - cos(6.0)) < 1e-8;
+                rc = rc && fabs(y[n/2] - cos(6.0)) < 1e-8;
 
                 return rc;
                 });
@@ -138,15 +138,15 @@ int main(int argc, char *argv[]) {
 
                 x = 42;
 
-                rc = rc && x.data()(0)[n/2] == 42;
-                rc = rc && x.data()(1)[n/2] == 42;
-                rc = rc && x.data()(2)[n/2] == 42;
+                rc = rc && x(0)[n/2] == 42;
+                rc = rc && x(1)[n/2] == 42;
+                rc = rc && x(2)[n/2] == 42;
 
                 x = std::make_tuple(6, 7, 42);
 
-                rc = rc && x.data()(0)[n/2] == 6;
-                rc = rc && x.data()(1)[n/2] == 7;
-                rc = rc && x.data()(2)[n/2] == 42;
+                rc = rc && x(0)[n/2] == 6;
+                rc = rc && x(1)[n/2] == 7;
+                rc = rc && x(2)[n/2] == 42;
 
                 return rc;
                 });
@@ -162,9 +162,9 @@ int main(int argc, char *argv[]) {
                 x = std::make_tuple(6, 7, 42);
                 y = vex::cos(x / 7);
 
-                rc = rc && fabs(y.data()(0)[n/2] - cos(6.0  / 7.0)) < 1e-8;
-                rc = rc && fabs(y.data()(1)[n/2] - cos(7.0  / 7.0)) < 1e-8;
-                rc = rc && fabs(y.data()(2)[n/2] - cos(42.0 / 7.0)) < 1e-8;
+                rc = rc && fabs(y(0)[n/2] - cos(6.0  / 7.0)) < 1e-8;
+                rc = rc && fabs(y(1)[n/2] - cos(7.0  / 7.0)) < 1e-8;
+                rc = rc && fabs(y(2)[n/2] - cos(42.0 / 7.0)) < 1e-8;
 
                 return rc;
                 });
@@ -204,9 +204,9 @@ int main(int argc, char *argv[]) {
 
                 x = std::tie(y1 - y0, y1 + y0, the_answer);
 
-                rc = rc && x(0).data()[42] == 1;
-                rc = rc && x(1).data()[42] == 3;
-                rc = rc && x(2).data()[42] == 42;
+                rc = rc && x(0)[42] == 1;
+                rc = rc && x(1)[42] == 3;
+                rc = rc && x(2)[42] == 42;
 
                 return rc;
                 });
@@ -229,9 +229,9 @@ int main(int argc, char *argv[]) {
 
                 vex::tie(x0, x1, x2) = std::tie(y1 - y0, y1 + y0, the_answer);
 
-                rc = rc && x0.data()[42] == 1;
-                rc = rc && x1.data()[42] == 3;
-                rc = rc && x2.data()[42] == 42;
+                rc = rc && x0[42] == 1;
+                rc = rc && x1[42] == 3;
+                rc = rc && x2[42] == 42;
 
                 return rc;
                 });
@@ -319,6 +319,24 @@ int main(int argc, char *argv[]) {
                     rc = rc && vmin[i] == 0;
                     rc = rc && vmax[i] == 0.5 * (i + 1);
                     rc = rc && vsum[i] == 0.5 * (i + 1) * (n - 2) * (n - 2);
+                }
+
+                return rc;
+                });
+
+        run_test("Use element_index in mpi::vector expression", [&]() -> bool {
+                const size_t n = 1024;
+                bool rc = true;
+
+                vex::mpi::vector<double> x(mpi.comm, ctx.queue(), n);
+
+                auto part = mpi.restore_partitioning(n);
+
+                x = vex::element_index(part[mpi.rank]);
+
+                for (int i = 0; i < 100; ++i) {
+                    size_t idx = rand() % n;
+                    rc = rc && x[idx] == part[mpi.rank] + idx;
                 }
 
                 return rc;
