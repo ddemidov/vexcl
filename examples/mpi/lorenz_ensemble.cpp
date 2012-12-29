@@ -16,28 +16,6 @@
 /* Resizing of vex::mpi types for odeint */
 namespace boost { namespace numeric { namespace odeint {
 
-// vex::mpi::vector
-template< typename T, bool own >
-struct is_resizeable< vex::mpi::vector< T, own > > : boost::true_type { };
-
-template< typename T, bool own >
-struct resize_impl< vex::mpi::vector< T, own > , vex::mpi::vector< T, own > >
-{
-    static void resize( vex::mpi::vector< T, own > &x1 , const vex::mpi::vector< T, own > &x2 )
-    {
-        x1.resize( x2 );
-    }
-};
-
-template< typename T, bool own >
-struct same_size_impl< vex::mpi::vector< T, own > , vex::mpi::vector< T, own > >
-{
-    static bool same_size( const vex::mpi::vector< T, own > &x1 , const vex::mpi::vector< T, own > &x2 )
-    {
-        return x1.size() == x2.size();
-    }
-};
-
 // vex::mpi::multivector
 template< typename T , size_t N, bool own >
 struct is_resizeable< vex::mpi::multivector< T , N , own > > : boost::true_type { };

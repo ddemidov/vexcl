@@ -37,28 +37,6 @@ struct same_size_impl< vex::mpi::vector< T, own > , vex::mpi::vector< T, own > >
     }
 };
 
-// vex::mpi::multivector
-template< typename T , size_t N, bool own >
-struct is_resizeable< vex::mpi::multivector< T , N , own > > : boost::true_type { };
-
-template< typename T , size_t N, bool own >
-struct resize_impl< vex::mpi::multivector< T , N , own > , vex::mpi::multivector< T , N , own > >
-{
-    static void resize( vex::mpi::multivector< T , N , own > &x1 , const vex::mpi::multivector< T , N , own > &x2 )
-    {
-        x1.resize( x2 );
-    }
-};
-
-template< typename T , size_t N, bool own >
-struct same_size_impl< vex::mpi::multivector< T , N , own > , vex::mpi::multivector< T , N , own > >
-{
-    static bool same_size( const vex::mpi::multivector< T , N , own > &x1 , const vex::mpi::multivector< T , N , own > &x2 )
-    {
-        return x1.local_size() == x2.local_size();
-    }
-};
-
 } } }
 
 namespace odeint = boost::numeric::odeint;
