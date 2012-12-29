@@ -45,6 +45,7 @@ struct mpi_vector_terminal{};
 struct mpi_vector_expr_grammar
     : boost::proto::or_<
           boost::proto::or_<
+              boost::proto::or_< boost::proto::terminal< elem_index > >, \
               boost::proto::terminal< mpi_vector_terminal >,
               boost::proto::and_<
                   boost::proto::terminal< boost::proto::_ >,
@@ -122,6 +123,7 @@ struct mpi_multivector_terminal{};
 struct mpi_multivector_expr_grammar
     : boost::proto::or_<
           boost::proto::or_<
+              boost::proto::or_< boost::proto::terminal< elem_index > >, \
               boost::proto::terminal< mpi_multivector_terminal >,
               boost::proto::and_<
                   boost::proto::terminal< boost::proto::_ >,

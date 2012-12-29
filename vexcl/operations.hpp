@@ -83,7 +83,6 @@ struct user_function {};
 
 //--- Standard grammar (no terminals) ---------------------------------------
 #define BUILTIN_OPERATIONS(grammar) \
-    boost::proto::or_< boost::proto::terminal< elem_index > >, \
     boost::proto::or_< \
         boost::proto::unary_plus< grammar >, \
         boost::proto::negate< grammar >, \
@@ -496,6 +495,7 @@ template <typename T> class vector;
 struct vector_expr_grammar
     : boost::proto::or_<
           boost::proto::or_<
+              boost::proto::or_< boost::proto::terminal< elem_index > >, \
               boost::proto::terminal< vector_terminal >,
               boost::proto::and_<
                   boost::proto::terminal< boost::proto::_ >,
@@ -1182,6 +1182,7 @@ get(const T &t) {
 struct multivector_expr_grammar
     : boost::proto::or_<
           boost::proto::or_<
+              boost::proto::or_< boost::proto::terminal< elem_index > >, \
               boost::proto::terminal< multivector_terminal >,
               boost::proto::and_<
                   boost::proto::terminal< boost::proto::_ >,
