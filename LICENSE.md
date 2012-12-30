@@ -1,4 +1,5 @@
 The MIT License
+---------------
 
 Copyright (c) 2012 Denis Demidov <ddemidov@ksu.ru>
 
