@@ -46,7 +46,9 @@ THE SOFTWARE.
 #include <boost/interprocess/sync/file_lock.hpp>
 
 #ifdef __GNUC__
-#  define _GLIBCXX_USE_NANOSLEEP
+#  ifndef _GLIBCXX_USE_NANOSLEEP
+#    define _GLIBCXX_USE_NANOSLEEP
+#  endif
 #endif
 #include <thread>
 #include <chrono>
