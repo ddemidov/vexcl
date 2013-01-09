@@ -61,4 +61,8 @@ if (VIENNACL_EXAMPLES)
     add_subdirectory(viennacl)
 endif (VIENNACL_EXAMPLES)
 
-add_subdirectory(mpi)
+option(MPI_EXAMPLES "Compile MPI examples" ON)
+
+if (MPI_EXAMPLES)
+    add_subdirectory(mpi)
+endif (MPI_EXAMPLES)
