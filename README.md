@@ -476,7 +476,7 @@ there, you can download it from [Khronos site][clhpp].
 ----------------------------
 _This work is a joint effort of [Supercomputer Center of Russian Academy of
 Sciences][r2] (Kazan branch) and [Kazan Federal University][r3]. It is
-partially supported by RFBR grant No 12-07-0007._
+partially supported by RFBR grants No 12-07-0007 and 12-01-00033._
 
 [r1]: https://github.com/ddemidov/vexcl/blob/master/examples/benchmark.cpp
 [r2]: http://www.jscc.ru/eng/index.shtml
