@@ -56,10 +56,10 @@ struct conv
 
     conv(const S &s, const V &x) : s(s), x(x) {}
 
-    void apply(vector<typename V::value_type> &y,
-            float alpha = 1, bool append = false) const
+    template<bool negate, bool append>
+    void apply(vector<typename V::value_type> &y) const
     {
-        s.convolve(x, y, append ? 1 : 0, alpha);
+        s.convolve(x, y, append ? 1 : 0, negate ? -1 : 1);
     }
 };
 
@@ -76,15 +76,14 @@ struct multiconv
 
     multiconv(const S &s, const V &x) : s(s), x(x) {}
 
-    template <bool own>
+    template <bool negate, bool append, bool own>
     void apply(multivector<
                 typename V::subtype::value_type,
                 number_of_components<V>::value,
-                own> &y,
-            float alpha = 1, bool append = false) const
+                own> &y) const
     {
         for(int i = 0; i < number_of_components<V>::value; i++)
-            s.convolve(x(i), y(i), append ? 1 : 0, alpha);
+            s.convolve(x(i), y(i), append ? 1 : 0, negate ? -1 : 1);
     }
 };
 

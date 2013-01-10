@@ -961,9 +961,9 @@ struct additive_vector_transform_context {
         result_type operator()(const T &t, additive_vector_transform_context &ctx) const
         {
             if (ctx.initialized) {
-                t.apply(ctx.dest, 1, true);
+                t.template apply<false, true>(ctx.dest);
             } else {
-                t.apply(ctx.dest, 1, false);
+                t.template apply<false, false>(ctx.dest);
                 ctx.initialized = true;
             }
 
@@ -979,9 +979,9 @@ struct additive_vector_transform_context {
         result_type operator()(const T &t, additive_vector_transform_context &ctx) const
         {
             if (ctx.initialized) {
-                boost::proto::child(t).apply(ctx.dest, -1, true);
+                boost::proto::child(t).template apply<true, true>(ctx.dest);
             } else {
-                boost::proto::child(t).apply(ctx.dest, -1, false);
+                boost::proto::child(t).template apply<true, false>(ctx.dest);
                 ctx.initialized = true;
             }
 

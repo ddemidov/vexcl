@@ -84,8 +84,9 @@ struct spmv
 
     spmv(const M &m, const V &v) : A(m), x(v) {}
 
-    void apply(V &y, float alpha = 1, bool append = false) const {
-        A.mul(x, y, alpha, append);
+    template<bool negate, bool append>
+    void apply(V &y) const {
+        A.mul(x, y, negate ? -1 : 1, append);
     }
 };
 
@@ -113,16 +114,16 @@ struct multispmv
 
     multispmv(const M &m, const V &v) : A(m), x(v) {}
 
-    template <class W>
+    template <bool negate, bool append, class W>
     typename std::enable_if<
         std::is_base_of<multivector_terminal_expression, W>::value &&
         std::is_same<typename M::value_type, typename W::value_type::value_type>::value &&
         number_of_components<V>::value == number_of_components<W>::value,
         void
     >::type
-    apply(W &y, float alpha = 1, bool append = false) const {
+    apply(W &y) const {
         for(int i = 0; i < number_of_components<V>::value; i++)
-            A.mul(x(i), y(i), alpha, append);
+            A.mul(x(i), y(i), negate ? -1 : 1, append);
     }
 };
 
