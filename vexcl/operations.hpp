@@ -499,7 +499,7 @@ struct vector_expr_grammar
               boost::proto::terminal< vector_terminal >,
               boost::proto::and_<
                   boost::proto::terminal< boost::proto::_ >,
-                  boost::proto::if_< std::is_arithmetic< boost::proto::_value >() >
+                  boost::proto::if_< is_cl_native< boost::proto::_value >() >
               >
           >,
           BUILTIN_OPERATIONS(vector_expr_grammar),
@@ -1004,7 +1004,7 @@ struct is_multiscalar : std::false_type
 
 template <class T>
 struct is_multiscalar< T, 
-    typename std::enable_if< std::is_arithmetic<T>::value >::type >
+    typename std::enable_if< is_cl_native<T>::value >::type >
     : std::true_type
 {};
 
@@ -1035,7 +1035,7 @@ struct And<Head, Tail...>
 
 template <class... Args>
 struct is_multiscalar<std::tuple<Args...>,
-    typename std::enable_if<And< std::is_arithmetic<Args>... >::type::value >::type >
+    typename std::enable_if<And< is_cl_native<Args>... >::type::value >::type >
     : std::true_type
 {};
 
@@ -1055,7 +1055,7 @@ struct component< I, std::tuple<Args...> >
 
 template <class T, size_t N>
 struct is_multiscalar< std::array<T, N>, 
-    typename std::enable_if< std::is_arithmetic<T>::value >::type >
+    typename std::enable_if< is_cl_native<T>::value >::type >
     : std::true_type
 {};
 
@@ -1072,7 +1072,7 @@ struct component< I, std::array<T, N> > {
 // C-style arrays
 template <class T, size_t N>
 struct is_multiscalar< T[N], 
-    typename std::enable_if< std::is_arithmetic<T>::value >::type >
+    typename std::enable_if< is_cl_native<T>::value >::type >
     : std::true_type
 {};
 

@@ -55,7 +55,7 @@ extern const char min_oper[] = "return min(prm1, prm2);";
 struct SUM {
     template <typename T>
     static T initial() {
-        return static_cast<T>(0);
+        return T();
     };
 
     template <typename T>

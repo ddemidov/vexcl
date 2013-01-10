@@ -110,7 +110,7 @@ struct symbolic_grammar
               boost::proto::terminal< variable >,
               boost::proto::and_<
                   boost::proto::terminal< boost::proto::_ >,
-                  boost::proto::if_< boost::is_arithmetic< boost::proto::_value >() >
+                  boost::proto::if_< is_cl_native< boost::proto::_value >() >
               >
           >,
           BUILTIN_OPERATIONS(symbolic_grammar)

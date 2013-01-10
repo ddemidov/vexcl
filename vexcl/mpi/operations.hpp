@@ -49,7 +49,7 @@ struct mpi_vector_expr_grammar
               boost::proto::terminal< mpi_vector_terminal >,
               boost::proto::and_<
                   boost::proto::terminal< boost::proto::_ >,
-                  boost::proto::if_< std::is_arithmetic< boost::proto::_value >() >
+                  boost::proto::if_< is_cl_native< boost::proto::_value >() >
               >
           >,
           BUILTIN_OPERATIONS(mpi_vector_expr_grammar),
