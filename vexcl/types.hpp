@@ -37,7 +37,7 @@ cl_##type##len &operator op##= (cl_##type##len &a, const cl_##type##len &b) { \
     return a; \
 } \
 cl_##type##len operator op(const cl_##type##len &a, const cl_##type##len &b) { \
-    cl_##type##len res; return res op##= b; \
+    cl_##type##len res = a; return res op##= b; \
 }
 
 #define CL_VEC_TYPE(type, len) \
