@@ -107,7 +107,7 @@ class vector : public mpi_vector_terminal_expression {
         vector(MPI_Comm comm, const std::vector<cl::CommandQueue> &queue,
                 std::vector<T> &host, cl_mem_flags flags = CL_MEM_READ_WRITE
               )
-            : mpi(comm), l_size(host.size()), local_data(new vex::vector<T>(queue, host))
+            : mpi(comm), l_size(host.size()), local_data(new vex::vector<T>(queue, host, flags))
         {
             static_assert(own, "Wrong constructor for non-owning vector");
         }

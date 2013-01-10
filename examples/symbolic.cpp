@@ -28,7 +28,7 @@ struct sys_func
     sys_func(value_type sigma, value_type b, const sym_value &R)
         : sigma(sigma), b(b), R(R) {}
 
-    void operator()( const sym_state &x , sym_state &dxdt , value_type t ) const
+    void operator()( const sym_state &x , sym_state &dxdt , value_type ) const
     {
         dxdt[0] = sigma * (x[1] - x[0]);
         dxdt[1] = R * x[0] - x[1] - x[0] * x[2];
