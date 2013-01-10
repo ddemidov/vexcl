@@ -1532,7 +1532,7 @@ int main(int argc, char *argv[]) {
 
                 vex::vector<cl_int4> X(ctx.queue(), N);
 
-                cl_int4 c = {1, 2, 3, 4};
+                cl_int4 c = {{1, 2, 3, 4}};
 
                 X = c * (make_int4(5 + element_index()));
 
