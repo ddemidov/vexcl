@@ -390,6 +390,19 @@ int main(int argc, char *argv[]) {
 
                 rc = rc && res < 1e-8;
 
+                Y = 42 * (A * X);
+                copy(Y, y);
+
+                res = 0;
+                for(size_t i = 0; i < x.size(); i++) {
+                    double sum = 0;
+                    for(size_t j = row[i]; j < row[i + 1]; j++)
+                        sum += val[j] * x[col[j]];
+                    res = std::max(res, fabs(42 * sum - y[i]));
+                }
+
+                rc = rc && res < 1e-8;
+
                 Y = X + A * X;
                 copy(Y, y);
 
@@ -1212,6 +1225,20 @@ int main(int argc, char *argv[]) {
                     res = std::max(res, fabs(sum - y[i]));
                 }
                 rc = rc && res < 1e-8;
+
+                Y = 42 * (X * S);
+
+                copy(Y, y);
+
+                res = 0;
+                for(int i = 0; i < n; i++) {
+                    double sum = 0;
+                    for(int k = -center; k < (int)s.size() - center; k++)
+                        sum += s[k + center] * x[std::min(n-1,std::max(0, i + k))];
+                    res = std::max(res, fabs(42 * sum - y[i]));
+                }
+                rc = rc && res < 1e-8;
+
                 return rc;
                 });
 #endif
@@ -1285,6 +1312,22 @@ int main(int argc, char *argv[]) {
                     }
                     rc = rc && res < 1e-8;
                 }
+
+                Y = 42 * (X * S);
+
+                copy(Y, y);
+
+                for(int c = 0; c < m; c++) {
+                    double res = 0;
+                    for(int i = 0; i < n; i++) {
+                        double sum = 0;
+                        for(int k = -center; k < (int)s.size() - center; k++)
+                            sum += s[k + center] * x[c * n + std::min(n-1,std::max(0, i + k))];
+                        res = std::max(res, fabs(42 * sum - y[i + c * n]));
+                    }
+                    rc = rc && res < 1e-8;
+                }
+
                 return rc;
                 });
 #endif
@@ -1350,6 +1393,20 @@ int main(int argc, char *argv[]) {
                     double sum = x[i] + pow(x[left] + x[right], 3.0);
                     res = std::max(res, fabs(sum - y[i]));
                 }
+
+                Y = 42 * pow3_op(X);
+
+                copy(Y, y);
+
+                res = 0;
+                for(int i = 0; i < n; i++) {
+                    int left  = std::max(0, i - 1);
+                    int right = std::min(n - 1, i + 1);
+
+                    double sum = x[i] + pow(x[left] + x[right], 3.0);
+                    res = std::max(res, fabs(42 * sum - y[i]));
+                }
+
                 rc = rc && res < 1e-8;
                 return rc;
                 });

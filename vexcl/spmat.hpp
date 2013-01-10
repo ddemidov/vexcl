@@ -82,11 +82,13 @@ struct spmv
     const M &A;
     const V &x;
 
-    spmv(const M &m, const V &v) : A(m), x(v) {}
+    typename M::value_type scale;
+
+    spmv(const M &m, const V &v) : A(m), x(v), scale(1) {}
 
     template<bool negate, bool append>
     void apply(V &y) const {
-        A.mul(x, y, negate ? -1 : 1, append);
+        A.mul(x, y, negate ? -scale : scale, append);
     }
 };
 
@@ -101,6 +103,12 @@ operator*(const M &A, const V &x) {
     return spmv< M, V >(A, x);
 }
 
+template <class M, class V>
+spmv<M, V> operator*(typename M::value_type c, spmv<M, V> mv) {
+    mv.scale *= c;
+    return mv;
+}
+
 #ifdef VEXCL_MULTIVECTOR_HPP
 
 template <class M, class V>
@@ -111,8 +119,9 @@ struct multispmv
 {
     const M &A;
     const V &x;
+    typename M::value_type scale;
 
-    multispmv(const M &m, const V &v) : A(m), x(v) {}
+    multispmv(const M &m, const V &v) : A(m), x(v), scale(1) {}
 
     template <bool negate, bool append, class W>
     typename std::enable_if<
@@ -125,7 +134,7 @@ struct multispmv
     >::type
     apply(W &y) const {
         for(size_t i = 0; i < number_of_components<V>::value; i++)
-            A.mul(x(i), y(i), negate ? -1 : 1, append);
+            A.mul(x(i), y(i), negate ? -scale : scale, append);
     }
 };
 
@@ -140,6 +149,11 @@ operator*(const M &A, const V &x) {
     return multispmv< M, V >(A, x);
 }
 
+template <class M, class V>
+multispmv<M, V> operator*(typename M::value_type c, multispmv<M, V> mv) {
+    mv.scale *= c;
+    return mv;
+}
 #endif
 
 /// \endcond
