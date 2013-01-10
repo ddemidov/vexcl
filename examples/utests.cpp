@@ -31,6 +31,9 @@ UserFunction<greater_body, size_t(double, double)> greater;
 extern const char pow3_body[] = "return pow(prm1, 3.0);";
 UserFunction<pow3_body, double(double)> pow3;
 
+extern const char make_int4_body[] = "return (int4)(prm1, prm1, prm1, prm1);";
+UserFunction<make_int4_body, cl_int4(int)> make_int4;
+
 template <class state_type>
 void sys_func(const state_type &x, state_type &dx, double dt) {
     dx = dt * sin(x);
@@ -1518,6 +1521,30 @@ int main(int argc, char *argv[]) {
                     rc = rc && fabs(vy[0] - 0.5 * idx) < 1e-8;
                     rc = rc && fabs(vy[1] - 0.5 * idx) < 1e-8;
                 }
+                return rc;
+                });
+#endif
+
+#if 1
+        run_test("Arithmetic with OpenCL vector values", [&]() -> bool {
+                const size_t N = 16 * 1024;
+                bool rc = true;
+
+                vex::vector<cl_int4> X(ctx.queue(), N);
+
+                cl_int4 c = {1, 2, 3, 4};
+
+                X = c * (make_int4(5 + element_index()));
+
+                for(int i = 0; i < 100; ++i) {
+                    size_t idx = rand() % N;
+
+                    cl_int4 v = X[idx];
+
+                    for(int j = 0; j < 4; ++j)
+                    rc = rc && (v.s[j] - c.s[j] * (5 + idx)) == 0;
+                }
+
                 return rc;
                 });
 #endif
