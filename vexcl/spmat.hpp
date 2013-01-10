@@ -475,8 +475,8 @@ void SpMat<real,column_t,idx_t>::mul(const vex::vector<real> &x, vex::vector<rea
 
 template <typename real, typename column_t, typename idx_t>
 std::vector<std::set<column_t>> SpMat<real,column_t,idx_t>::setup_exchange(
-        size_t n, const std::vector<size_t> &xpart,
-        const idx_t *row, const column_t *col, const real *val
+        size_t, const std::vector<size_t> &xpart,
+        const idx_t *row, const column_t *col, const real *
         )
 {
     std::vector<std::set<column_t>> remote_cols(queue.size());

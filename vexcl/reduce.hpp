@@ -162,7 +162,7 @@ class Reductor {
 
         template <size_t I, size_t N, class Expr>
         typename std::enable_if<I == N, void>::type
-        assign_subexpressions(std::array<real, N> &result, const Expr &expr) const
+        assign_subexpressions(std::array<real, N> &, const Expr &) const
         { }
 
         template <size_t I, size_t N, class Expr>

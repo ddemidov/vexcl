@@ -72,7 +72,7 @@ inline double device_vector_perf(
  * This results in equal partitioning.
  */
 inline double equal_weights(
-        const cl::Context &context, const cl::Device &device
+        const cl::Context &, const cl::Device &
         )
 {
     return 1;

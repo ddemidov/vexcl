@@ -602,7 +602,7 @@ class multivector : public multivector_terminal_expression {
     private:
         template <size_t I, class Expr>
             typename std::enable_if<I == N>::type
-            expr_list_loop(const Expr &expr, std::ostream &os) { }
+            expr_list_loop(const Expr &, std::ostream &) { }
 
         template <size_t I, class Expr>
             typename std::enable_if<I < N>::type

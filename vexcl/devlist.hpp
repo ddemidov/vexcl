@@ -62,7 +62,7 @@ namespace Filter {
     struct AllFilter {
         AllFilter() {}
 
-        bool operator()(const cl::Device &d) const {
+        bool operator()(const cl::Device &) const {
             return true;
         }
     };
@@ -146,7 +146,7 @@ namespace Filter {
     struct Count {
         explicit Count(int c) : count(c) {}
 
-        bool operator()(const cl::Device &d) const {
+        bool operator()(const cl::Device &) const {
             return --count >= 0;
         }
 
@@ -162,7 +162,7 @@ namespace Filter {
     struct Position {
         explicit Position(int p) : pos(p) {}
 
-        bool operator()(const cl::Device &d) const {
+        bool operator()(const cl::Device &) const {
             return 0 == pos--;
         }
 

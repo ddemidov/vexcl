@@ -258,7 +258,7 @@ class profiler {
          * Also removes interval from the top of the profiler hierarchy.
          * \param name name of the measured interval. 
          */
-        double toc(const std::string &name) {
+        double toc(const std::string &) {
             assert(!stack.empty());
             assert(stack.top() != &root);
 

@@ -180,7 +180,7 @@ inline size_t alignup(size_t n, size_t m = 16U) {
 /// Iterate over tuple elements.
 template <size_t I, class Function, class Tuple>
 typename std::enable_if<(I == std::tuple_size<Tuple>::value), void>::type
-for_each(const Tuple &v, Function &f)
+for_each(const Tuple &, Function &)
 { }
 
 /// Iterate over tuple elements.
