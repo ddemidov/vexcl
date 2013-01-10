@@ -17,7 +17,9 @@ if (WIN32)
     set(Boost_USE_STATIC_LIBS ON)
     find_package(Boost COMPONENTS date_time)
 else (WIN32)
-    find_library(OPENCL_LIBRARY OpenCL)
+    find_library(OPENCL_LIBRARY OpenCL
+        HINTS "/opt/AMDAPP" ENV "AMDAPPSDKROOT"
+        PATH_SUFFIXES "lib/x86_64" "lib/x86")
     find_package(Boost)
 endif (WIN32)
 
@@ -66,3 +68,20 @@ option(MPI_EXAMPLES "Compile MPI examples" ON)
 if (MPI_EXAMPLES)
     add_subdirectory(mpi)
 endif (MPI_EXAMPLES)
+
+option(FFT_EXAMPLES "Compile FFT examples" OFF)
+if (FFT_EXAMPLES)
+    find_library(AMDFFT_LIBRARY "clAmdFft.Runtime"
+        HINTS "/opt/AMDAPP" ENV "AMDFFTROOT"
+        PATH_SUFFIXES "lib64" "lib32")
+    find_path(AMDFFT_INCLUDE_DIR "clAmdFft.h"
+        HINTS "/opt/AMDAPP" ENV "AMDFFTROOT"
+        PATH_SUFFIXES "include")
+    add_executable(fft fft.cpp)
+    target_link_libraries(fft ${OPENCL_LIBRARY} ${AMDFFT_LIBRARY})
+    include_directories(${AMDFFT_INCLUDE_DIR})
+
+    if (WIN32)
+	target_link_libraries(fft ${Boost_DATE_TIME_LIBRARY})
+    endif(WIN32)
+endif (FFT_EXAMPLES)

@@ -584,6 +584,10 @@ class Context {
         bool empty() const {
             return q.empty();
         }
+
+        operator bool() const {
+            return !empty();
+        }
     private:
         std::vector<cl::Context>      c;
         std::vector<cl::CommandQueue> q;
