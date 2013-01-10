@@ -122,7 +122,7 @@ struct multispmv
         void
     >::type
     apply(W &y) const {
-        for(int i = 0; i < number_of_components<V>::value; i++)
+        for(size_t i = 0; i < number_of_components<V>::value; i++)
             A.mul(x(i), y(i), negate ? -1 : 1, append);
     }
 };

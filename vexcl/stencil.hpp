@@ -82,7 +82,7 @@ struct multiconv
                 number_of_components<V>::value,
                 own> &y) const
     {
-        for(int i = 0; i < number_of_components<V>::value; i++)
+        for(size_t i = 0; i < number_of_components<V>::value; i++)
             s.convolve(x(i), y(i), append ? 1 : 0, negate ? -1 : 1);
     }
 };
