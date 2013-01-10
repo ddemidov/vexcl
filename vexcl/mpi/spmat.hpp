@@ -101,7 +101,7 @@ struct mpi_multispmv
 	, void
     >::type
     apply(W &y) const {
-        for(int i = 0; i < number_of_components<V>::value; i++) {
+        for(size_t i = 0; i < number_of_components<V>::value; i++) {
             auto dst = y(i);
             A.mul(x(i), dst, negate ? -1 : 1, append);
         }
@@ -171,7 +171,7 @@ class SpMat : public mpi_matrix_terminal {
                 for(size_t j = row[i], e = row[i + 1]; j < e; ++j) {
                     column_t c = col[j];
 
-                    if (part_beg <= c && c < part_end) {
+                    if (static_cast<column_t>(part_beg) <= c && c < static_cast<column_t>(part_end)) {
                         ++loc_row[i + 1];
                     } else {
                         remote_cols.insert(c);
@@ -202,7 +202,7 @@ class SpMat : public mpi_matrix_terminal {
                     column_t c = col[j];
                     real     v = val[j];
 
-                    if (part_beg <= c && c < part_end) {
+                    if (static_cast<column_t>(part_beg) <= c && c < static_cast<column_t>(part_end)) {
                         loc_col.push_back(c - part_beg);
                         loc_val.push_back(v);
                     } else {

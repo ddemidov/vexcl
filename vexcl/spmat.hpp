@@ -226,7 +226,7 @@ class SpMat : matrix_terminal {
 
             SpMatELL(
                     const cl::CommandQueue &queue,
-                    size_t beg, size_t end, size_t xbeg, size_t xend,
+                    size_t beg, size_t end, column_t xbeg, column_t xend,
                     const idx_t *row, const column_t *col, const real *val,
                     const std::set<column_t> &remote_cols
                     );
@@ -272,7 +272,7 @@ class SpMat : matrix_terminal {
         struct SpMatCSR : public sparse_matrix {
             SpMatCSR(
                     const cl::CommandQueue &queue,
-                    size_t beg, size_t end, size_t xbeg, size_t xend,
+                    size_t beg, size_t end, column_t xbeg, column_t xend,
                     const idx_t *row, const column_t *col, const real *val,
                     const std::set<column_t> &remote_cols
                     );
@@ -503,8 +503,8 @@ std::vector<std::set<column_t>> SpMat<real,column_t,idx_t>::setup_exchange(
 #pragma omp parallel for schedule(static,1)
     for(int d = 0; d < queue.size(); d++) {
         for(size_t i = part[d]; i < part[d + 1]; i++) {
-            for(size_t j = row[i]; j < row[i + 1]; j++) {
-                if (col[j] < xpart[d] || col[j] >= xpart[d + 1]) {
+            for(idx_t j = row[i]; j < row[i + 1]; j++) {
+                if (col[j] < static_cast<column_t>(xpart[d]) || col[j] >= static_cast<column_t>(xpart[d + 1])) {
                     remote_cols[d].insert(col[j]);
                 }
             }
@@ -598,7 +598,7 @@ std::map<cl_context, uint> SpMat<real,column_t,idx_t>::SpMatELL::wgsize;
 template <typename real, typename column_t, typename idx_t>
 SpMat<real,column_t,idx_t>::SpMatELL::SpMatELL(
         const cl::CommandQueue &queue,
-        size_t beg, size_t end, size_t xbeg, size_t xend,
+        size_t beg, size_t end, column_t xbeg, column_t xend,
         const idx_t *row, const column_t *col, const real *val,
         const std::set<column_t> &remote_cols
         )
@@ -617,7 +617,7 @@ SpMat<real,column_t,idx_t>::SpMatELL::SpMatELL(
         loc_ell.w = rem_ell.w = 0;
         for(size_t i = beg; i < end; i++) {
             uint w = 0;
-            for(size_t j = row[i]; j < row[i + 1]; j++)
+            for(idx_t j = row[i]; j < row[i + 1]; j++)
                 if (col[j] >= xbeg && col[j] < xend) w++;
 
             loc_ell.w = std::max(loc_ell.w, w);
@@ -630,7 +630,7 @@ SpMat<real,column_t,idx_t>::SpMatELL::SpMatELL(
 
         for(size_t i = beg; i < end; i++) {
             uint w = 0;
-            for(size_t j = row[i]; j < row[i + 1]; j++)
+            for(idx_t j = row[i]; j < row[i + 1]; j++)
                 if (col[j] >= xbeg && col[j] < xend) w++;
 
             loc_hist[w]++;
@@ -665,7 +665,7 @@ SpMat<real,column_t,idx_t>::SpMatELL::SpMatELL(
     size_t loc_nnz = 0, rem_nnz = 0;
     for(size_t i = beg; i < end; i++) {
         uint w = 0;
-        for(size_t j = row[i]; j < row[i + 1]; j++)
+        for(idx_t j = row[i]; j < row[i + 1]; j++)
             if (col[j] >= xbeg && col[j] < xend) w++;
 
         if (w > loc_ell.w) {
@@ -716,7 +716,8 @@ SpMat<real,column_t,idx_t>::SpMatELL::SpMatELL(
     rcsr_idx.push_back(0);
 
     for(size_t i = beg, k = 0; i < end; i++, k++) {
-        for(size_t j = row[i], lc = 0, rc = 0; j < row[i + 1]; j++) {
+        size_t lc = 0, rc = 0;
+        for(idx_t j = row[i]; j < row[i + 1]; j++) {
             if (col[j] >= xbeg && col[j] < xend) {
                 if (lc < loc_ell.w) {
                     lell_col[k + pitch * lc] = col[j] - xbeg;
@@ -738,11 +739,11 @@ SpMat<real,column_t,idx_t>::SpMatELL::SpMatELL(
                 }
             }
         }
-        if (lcsr_col.size() > lcsr_idx.back()) {
+        if (lcsr_col.size() > static_cast<size_t>(lcsr_idx.back())) {
             lcsr_row.push_back(i - beg);
             lcsr_idx.push_back(lcsr_col.size());
         }
-        if (rcsr_col.size() > rcsr_idx.back()) {
+        if (rcsr_col.size() > static_cast<size_t>(rcsr_idx.back())) {
             rcsr_row.push_back(i - beg);
             rcsr_idx.push_back(rcsr_col.size());
         }
@@ -1048,7 +1049,7 @@ std::map<cl_context, uint> SpMat<real,column_t,idx_t>::SpMatCSR::wgsize;
 template <typename real, typename column_t, typename idx_t>
 SpMat<real,column_t,idx_t>::SpMatCSR::SpMatCSR(
         const cl::CommandQueue &queue,
-        size_t beg, size_t end, size_t xbeg, size_t xend,
+        size_t beg, size_t end, column_t xbeg, column_t xend,
         const idx_t *row, const column_t *col, const real *val,
         const std::set<column_t> &remote_cols
         )
@@ -1112,7 +1113,7 @@ SpMat<real,column_t,idx_t>::SpMatCSR::SpMatCSR(
         }
 
         for(size_t i = beg; i < end; i++) {
-            for(size_t j = row[i]; j < row[i + 1]; j++) {
+            for(idx_t j = row[i]; j < row[i + 1]; j++) {
                 if (col[j] >= xbeg && col[j] < xend) {
                     lcol.push_back(col[j] - xbeg);
                     lval.push_back(val[j]);

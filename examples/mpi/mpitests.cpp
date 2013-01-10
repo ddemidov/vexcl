@@ -317,7 +317,7 @@ int main(int argc, char *argv[]) {
                 auto vmax = max(my);
                 auto vsum = sum(my);
 
-                for(int i = 0; i < m; ++i) {
+                for(size_t i = 0; i < m; ++i) {
                     rc = rc && vmin[i] == 0;
                     rc = rc && vmax[i] == 0.5 * (i + 1);
                     rc = rc && vsum[i] == 0.5 * (i + 1) * (n - 2) * (n - 2);
