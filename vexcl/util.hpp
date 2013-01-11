@@ -234,7 +234,7 @@ struct column_owner {
 
     column_owner(const std::vector<size_t> &part) : part(part) {}
 
-    uint operator()(size_t c) const {
+    size_t operator()(size_t c) const {
         return std::upper_bound(part.begin(), part.end(), c)
             - part.begin() - 1;
     }

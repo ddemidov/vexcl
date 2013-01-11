@@ -69,7 +69,7 @@ inline std::string type_name<elem_index>() {
 /// \endcond
 
 /// When used in vector expression, returns current element index plus offset.
-inline typename boost::proto::result_of::as_expr<elem_index>::type
+inline boost::proto::result_of::as_expr<elem_index>::type
 element_index(size_t offset = 0) {
     return boost::proto::as_expr(elem_index(offset));
 }

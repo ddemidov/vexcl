@@ -93,10 +93,12 @@ struct mpi_multispmv
 
     template <class W>
     typename std::enable_if<
-        std::is_base_of<mpi_multivector_terminal_expression, W>::value &&
-        std::is_same<typename M::value_type, typename W::value_type::value_type>::value &&
-        number_of_components<V>::value == number_of_components<W>::value,
-        void
+        std::is_base_of<mpi_multivector_terminal_expression, W>::value
+#ifndef WIN32
+	&& std::is_same<typename M::value_type, typename W::value_type::value_type>::value
+#endif
+	&& number_of_components<V>::value == number_of_components<W>::value
+	, void
     >::type
     apply(W &y, float alpha = 1, bool append = false) const {
         for(int i = 0; i < number_of_components<V>::value; i++) {

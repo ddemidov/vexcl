@@ -1406,7 +1406,7 @@ int main(int argc, char *argv[]) {
                 vex::vector<double> X(ctx.queue(), x);
 
                 std::vector<size_t> i(M);
-                std::generate(i.begin(), i.end(), [](){ return rand() % N; });
+                std::generate(i.begin(), i.end(), [N](){ return rand() % N; });
                 std::sort(i.begin(), i.end());
                 i.resize( std::unique(i.begin(), i.end()) - i.begin() );
 

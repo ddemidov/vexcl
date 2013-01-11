@@ -48,8 +48,10 @@ THE SOFTWARE.
 #ifdef __GNUC__
 #  define _GLIBCXX_USE_NANOSLEEP
 #endif
-#include <thread>
-#include <chrono>
+
+#include <boost/thread.hpp>
+#include <boost/chrono.hpp>
+
 #include <random>
 
 namespace vex {
@@ -290,8 +292,8 @@ namespace Filter {
                             if (flock->try_lock())
                                 return true;
 
-                            std::this_thread::sleep_for(
-                                    std::chrono::milliseconds( rnd(rng) ) );
+                            boost::this_thread::sleep_for(
+                                    boost::chrono::milliseconds( rnd(rng) ) );
                         }
                         return false;
                     }
