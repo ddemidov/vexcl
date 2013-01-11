@@ -395,7 +395,7 @@ SpMat<real,column_t,idx_t>::SpMat(
 
     // Each device get it's own strip of the matrix.
 #pragma omp parallel for schedule(static,1)
-    for(uint d = 0; d < queue.size(); d++) {
+    for(int d = 0; d < queue.size(); d++) {
         if (part[d + 1] > part[d]) {
             cl::Device device = qdev(queue[d]);
 
@@ -484,7 +484,7 @@ std::vector<std::set<column_t>> SpMat<real,column_t,idx_t>::setup_exchange(
 
     // Build sets of ghost points.
 #pragma omp parallel for schedule(static,1)
-    for(uint d = 0; d < queue.size(); d++) {
+    for(int d = 0; d < queue.size(); d++) {
         for(size_t i = part[d]; i < part[d + 1]; i++) {
             for(size_t j = row[i]; j < row[i + 1]; j++) {
                 if (col[j] < xpart[d] || col[j] >= xpart[d + 1]) {
@@ -507,7 +507,7 @@ std::vector<std::set<column_t>> SpMat<real,column_t,idx_t>::setup_exchange(
     // Build local structures to facilitate exchange.
     if (cols_to_send.size()) {
 #pragma omp parallel for schedule(static,1)
-        for(uint d = 0; d < queue.size(); d++) {
+        for(int d = 0; d < queue.size(); d++) {
             if (size_t rcols = remote_cols[d].size()) {
                 exc[d].cols_to_recv.resize(rcols);
                 exc[d].vals_to_recv.resize(rcols);
