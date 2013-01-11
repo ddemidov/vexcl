@@ -499,7 +499,7 @@ struct vector_expr_grammar
               boost::proto::terminal< vector_terminal >,
               boost::proto::and_<
                   boost::proto::terminal< boost::proto::_ >,
-                  boost::proto::if_< std::is_arithmetic< boost::proto::_value >() >
+                  boost::proto::if_< is_cl_native< boost::proto::_value >() >
               >
           >,
           BUILTIN_OPERATIONS(vector_expr_grammar),
@@ -621,7 +621,7 @@ struct vector_name_context {
     struct eval<Expr, boost::proto::tag::terminal> {
         typedef void result_type;
 
-        void operator()(const Expr &expr, vector_name_context &ctx) const {
+        void operator()(const Expr &, vector_name_context &ctx) const {
             ctx.os << "term_";
         }
     };
@@ -767,7 +767,7 @@ struct vector_expr_context {
         typedef void result_type;
 
         template <typename T>
-        void operator()(const vector<T> &term, vector_expr_context &ctx) const {
+        void operator()(const vector<T> &, vector_expr_context &ctx) const {
             ctx.os << "prm_" << ctx.cmp_idx << "_" << ++ctx.prm_idx << "[idx]";
         }
 
@@ -776,7 +776,7 @@ struct vector_expr_context {
             !std::is_same<typename boost::proto::result_of::value<Term>::type, elem_index>::value,
             void
         >::type
-        operator()(const Term &term, vector_expr_context &ctx) const {
+        operator()(const Term &, vector_expr_context &ctx) const {
             ctx.os << "prm_" << ctx.cmp_idx << "_" << ++ctx.prm_idx;
         }
 
@@ -785,7 +785,7 @@ struct vector_expr_context {
             std::is_same<typename boost::proto::result_of::value<Term>::type, elem_index>::value,
             void
         >::type
-        operator()(const Term &term, vector_expr_context &ctx) const {
+        operator()(const Term &, vector_expr_context &ctx) const {
             ctx.os << "( prm_" << ctx.cmp_idx << "_" << ++ctx.prm_idx
                    << " + idx )";
         }
@@ -819,13 +819,13 @@ struct declare_expression_parameter {
     : os(os), cmp_idx(cmp_idx), prm_idx(0) {}
 
     template <typename T>
-    void operator()(const vector<T> &term) const {
+    void operator()(const vector<T> &) const {
         os << ",\n\tglobal " << type_name<T>() << " *prm_"
            << cmp_idx << "_" << ++prm_idx;
     }
 
     template <typename Term>
-    void operator()(const Term &term) const {
+    void operator()(const Term &) const {
         os << ",\n\t"
            << type_name< typename boost::proto::result_of::value<Term>::type >()
            << " prm_" << cmp_idx << "_" << ++prm_idx;
@@ -889,7 +889,7 @@ struct get_expression_properties {
     }
 
     template <typename Term>
-    void operator()(const Term &term) const { }
+    void operator()(const Term &) const { }
 };
 
 //---------------------------------------------------------------------------
@@ -961,9 +961,9 @@ struct additive_vector_transform_context {
         result_type operator()(const T &t, additive_vector_transform_context &ctx) const
         {
             if (ctx.initialized) {
-                t.apply(ctx.dest, 1, true);
+                t.template apply<false, true>(ctx.dest);
             } else {
-                t.apply(ctx.dest, 1, false);
+                t.template apply<false, false>(ctx.dest);
                 ctx.initialized = true;
             }
 
@@ -979,9 +979,9 @@ struct additive_vector_transform_context {
         result_type operator()(const T &t, additive_vector_transform_context &ctx) const
         {
             if (ctx.initialized) {
-                boost::proto::child(t).apply(ctx.dest, -1, true);
+                boost::proto::child(t).template apply<true, true>(ctx.dest);
             } else {
-                boost::proto::child(t).apply(ctx.dest, -1, false);
+                boost::proto::child(t).template apply<true, false>(ctx.dest);
                 ctx.initialized = true;
             }
 
@@ -1004,7 +1004,7 @@ struct is_multiscalar : std::false_type
 
 template <class T>
 struct is_multiscalar< T, 
-    typename std::enable_if< std::is_arithmetic<T>::value >::type >
+    typename std::enable_if< is_cl_native<T>::value >::type >
     : std::true_type
 {};
 
@@ -1035,7 +1035,7 @@ struct And<Head, Tail...>
 
 template <class... Args>
 struct is_multiscalar<std::tuple<Args...>,
-    typename std::enable_if<And< std::is_arithmetic<Args>... >::type::value >::type >
+    typename std::enable_if<And< is_cl_native<Args>... >::type::value >::type >
     : std::true_type
 {};
 
@@ -1055,7 +1055,7 @@ struct component< I, std::tuple<Args...> >
 
 template <class T, size_t N>
 struct is_multiscalar< std::array<T, N>, 
-    typename std::enable_if< std::is_arithmetic<T>::value >::type >
+    typename std::enable_if< is_cl_native<T>::value >::type >
     : std::true_type
 {};
 
@@ -1072,7 +1072,7 @@ struct component< I, std::array<T, N> > {
 // C-style arrays
 template <class T, size_t N>
 struct is_multiscalar< T[N], 
-    typename std::enable_if< std::is_arithmetic<T>::value >::type >
+    typename std::enable_if< is_cl_native<T>::value >::type >
     : std::true_type
 {};
 
@@ -1384,14 +1384,14 @@ struct multivector_expr_context {
         typedef void result_type;
 
         template <typename T, size_t M, bool own>
-        void operator()(const multivector<T,M,own> &term, multivector_expr_context &ctx) const {
+        void operator()(const multivector<T,M,own> &, multivector_expr_context &ctx) const {
             static_assert(M == N, "Wrong number of components in a multivector");
 
             ctx.os << "prm_" << C + 1 << "_" << ++ctx.prm_idx << "[idx]";
         }
 
         template <typename Term>
-        void operator()(const Term &term, multivector_expr_context &ctx) const {
+        void operator()(const Term &, multivector_expr_context &ctx) const {
             typedef typename boost::proto::result_of::value<Term>::type term_type;
 
             static_assert(
@@ -1424,7 +1424,7 @@ struct declare_multiex_parameter {
     declare_multiex_parameter(std::ostream &os) : os(os), prm_idx(0) { }
 
     template <typename T, size_t M, bool own>
-    void operator()(const multivector<T, M, own> &term) const {
+    void operator()(const multivector<T, M, own> &) const {
         static_assert(M == N, "Wrong number of components in a multivector");
 
         os << ",\n\tglobal " << type_name<T>() << " *prm_"
@@ -1432,7 +1432,7 @@ struct declare_multiex_parameter {
     }
 
     template <typename Term>
-    void operator()(const Term &term) const {
+    void operator()(const Term &) const {
         typedef typename boost::proto::result_of::value<Term>::type term_type;
 
         typedef
@@ -1463,7 +1463,7 @@ struct declare_multiex_parameter {
 
 template <size_t I, size_t N, class Expr>
 typename std::enable_if<I == N>::type
-mv_param_list_loop(const Expr &expr, std::ostream &os) { }
+mv_param_list_loop(const Expr &, std::ostream &) { }
 
 template <size_t I, size_t N, class Expr>
 typename std::enable_if<I < N>::type
@@ -1527,7 +1527,7 @@ struct set_multiex_argument {
 
 template <size_t I, size_t N, class Expr>
 typename std::enable_if<I == N>::type
-mv_kernel_args_loop(const Expr &expr, cl::Kernel &krn, uint d, uint &pos, size_t part_start) { }
+mv_kernel_args_loop(const Expr &, cl::Kernel &, uint, uint &, size_t) { }
 
 template <size_t I, size_t N, class Expr>
 typename std::enable_if<I < N>::type

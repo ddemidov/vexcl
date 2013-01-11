@@ -46,12 +46,14 @@ THE SOFTWARE.
 #include <type_traits>
 #include <functional>
 #include <climits>
+#include <stdexcept>
 #include <boost/config.hpp>
 
 #ifndef __CL_ENABLE_EXCEPTIONS
 #  define __CL_ENABLE_EXCEPTIONS
 #endif
 #include <CL/cl.hpp>
+#include <vexcl/types.hpp>
 
 typedef unsigned int  uint;
 typedef unsigned char uchar;
@@ -59,25 +61,40 @@ typedef unsigned char uchar;
 namespace vex {
 
 /// Convert typename to string.
-template <class T> inline std::string type_name()  { return "undefined_type"; }
+template <class T> inline std::string type_name() {
+    throw std::logic_error("Trying to use an undefined type in a kernel.");
+}
+
+/// Declares a type as CL native, allows using it as a literal.
+template <class T> struct is_cl_native : std::false_type {};
+
 
 #define STRINGIFY(type) \
-template <> inline std::string type_name<type>()  { return #type; }
+template <> inline std::string type_name<cl_##type>() { return #type; } \
+template <> struct is_cl_native<cl_##type> : std::true_type {};
 
-STRINGIFY(float);
-STRINGIFY(double);
-STRINGIFY(int);
-STRINGIFY(char);
-STRINGIFY(bool);
-STRINGIFY(uint);
-STRINGIFY(uchar);
+// enable use of OpenCL vector types as literals
+#define CL_VEC_TYPE(type, len) \
+template <> inline std::string type_name<cl_##type##len>() { return #type #len; } \
+template <> struct is_cl_native<cl_##type##len> : std::true_type {};
 
+#define CL_TYPES(type) \
+STRINGIFY(type); \
+CL_VEC_TYPE(type, 2); \
+CL_VEC_TYPE(type, 4); \
+CL_VEC_TYPE(type, 8); \
+CL_VEC_TYPE(type, 16);
+
+CL_TYPES(float);
+CL_TYPES(double);
+CL_TYPES(char);  CL_TYPES(uchar);
+CL_TYPES(short); CL_TYPES(ushort);
+CL_TYPES(int);   CL_TYPES(uint);
+CL_TYPES(long);  CL_TYPES(ulong);
+#undef CL_TYPES
+#undef CL_VEC_TYPE
 #undef STRINGIFY
 
-#if (__WORDSIZE == 64) || defined(_WIN64)
-template <> inline std::string type_name<size_t>()    { return "ulong"; }
-template <> inline std::string type_name<ptrdiff_t>() { return "long"; }
-#endif
 
 const std::string standard_kernel_header = std::string(
         "#if defined(cl_khr_fp64)\n"
@@ -163,7 +180,7 @@ inline size_t alignup(size_t n, size_t m = 16U) {
 /// Iterate over tuple elements.
 template <size_t I, class Function, class Tuple>
 typename std::enable_if<(I == std::tuple_size<Tuple>::value), void>::type
-for_each(const Tuple &v, Function &f)
+for_each(const Tuple &, Function &)
 { }
 
 /// Iterate over tuple elements.

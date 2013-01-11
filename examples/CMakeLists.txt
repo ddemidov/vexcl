@@ -36,7 +36,7 @@ if (OpenMP_CXX_FLAGS)
 endif (OpenMP_CXX_FLAGS)
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -Wall -Wclobbered -Wempty-body -Wignored-qualifiers -Wmissing-field-initializers -Wsign-compare -Wtype-limits -Wuninitialized -Wunused-parameter -Wunused-but-set-parameter -Werror")
 endif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
@@ -54,4 +54,8 @@ if (VIENNACL_EXAMPLES)
     add_subdirectory(viennacl)
 endif (VIENNACL_EXAMPLES)
 
-add_subdirectory(mpi)
+option(MPI_EXAMPLES "Compile MPI examples" ON)
+
+if (MPI_EXAMPLES)
+    add_subdirectory(mpi)
+endif (MPI_EXAMPLES)

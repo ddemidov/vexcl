@@ -110,7 +110,7 @@ struct symbolic_grammar
               boost::proto::terminal< variable >,
               boost::proto::and_<
                   boost::proto::terminal< boost::proto::_ >,
-                  boost::proto::if_< boost::is_arithmetic< boost::proto::_value >() >
+                  boost::proto::if_< is_cl_native< boost::proto::_value >() >
               >
           >,
           BUILTIN_OPERATIONS(symbolic_grammar)
@@ -246,13 +246,13 @@ struct symbolic_context {
         typedef void result_type;
 
         template <typename Term>
-        void operator()(const Term &term, symbolic_context &ctx) const {
+        void operator()(const Term &term, symbolic_context &) const {
             get_recorder() << std::scientific << std::setprecision(12)
                 << boost::proto::value(term);
         }
 
         template <typename T>
-        void operator()(const symbolic<T> &v, symbolic_context &ctx) const {
+        void operator()(const symbolic<T> &v, symbolic_context &) const {
             get_recorder() << v;
         }
     };
@@ -582,7 +582,7 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, FUNCALL_OPERATOR, ~)
         typename std::enable_if<
             I == std::tuple_size<PrmTuple>::value, size_t
         >::type
-        prm_size(uint d, const PrmTuple &prm) const {
+        prm_size(uint, const PrmTuple &) const {
             return 0;
         }
 
