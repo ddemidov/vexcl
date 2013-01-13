@@ -34,8 +34,11 @@ THE SOFTWARE.
 // TODO: multivector (AMD FFT supports batch transforms!)
 #include <vexcl/vector.hpp>
 
-// AMD's FFT library.
-#include <clAmdFft.h>
+#ifdef USE_AMD_FFT
+#   include <clAmdFft.h>
+#else
+#   include <vexcl/fft/plan.hpp>
+#endif
 
 namespace vex {
 
@@ -45,10 +48,10 @@ template <class F>
 struct fft_expr
     : vector_expression< boost::proto::terminal< additive_vector_transform >::type >
 {
-    const F &f;
-    const vector<typename F::input_t> &input;
+    F &f;
+    vector<typename F::input_t> &input;
 
-    fft_expr(const F &f, const vector<typename F::input_t> &x) : f(f), input(x) {}
+    fft_expr(F &f, vector<typename F::input_t> &x) : f(f), input(x) {}
 
     template <bool negate, bool append>
     void apply(vector<typename F::output_t> &output) const
@@ -58,6 +61,7 @@ struct fft_expr
 };
 
 
+#ifdef USE_AMD_FFT
 enum fft_direction {
    forward = CLFFT_FORWARD,
    inverse = CLFFT_BACKWARD
@@ -165,10 +169,59 @@ struct FFT {
 
 
     // User call
-    fft_expr<this_t> operator()(const vector<T0> &x) const {
+    fft_expr<this_t> operator()(vector<T0> &x) {
         return {*this, x};
     }
 };
+#else // USE_AMD_FFT
+
+enum direction {
+    forward, inverse
+};
+
+template <typename T0, typename T1 = T0>
+struct FFT {
+    typedef FFT<T0, T1> this_t;
+    typedef T0 input_t;
+    typedef T1 output_t;
+    typedef typename cl::scalar_of<T0>::type T0s;
+    typedef typename cl::scalar_of<T1>::type T1s;
+    static_assert(std::is_same<T0s, T1s>::value, "Input and output must have same precision.");
+    typedef T0s T;
+
+    fft::plan<T> plan;
+
+    /// 1D constructor
+    FFT(const std::vector<cl::CommandQueue> &queues,
+        size_t length, direction dir = forward)
+        : plan(queues, {length}, dir == inverse) {}
+
+    /// N-D constructors
+    FFT(const std::vector<cl::CommandQueue> &queues,
+        const std::vector<size_t> &lengths, direction dir = forward)
+        : plan(queues, lengths, dir == inverse) {}
+
+#ifndef BOOST_NO_INITIALIZER_LISTS
+    FFT(const std::vector<cl::CommandQueue> &queues,
+        const std::initializer_list<size_t> &lengths, direction dir = forward)
+        : plan(queues, lengths, dir == inverse) {}
+#endif
+
+    template <bool negate, bool append>
+    void execute(vector<T0> &input, vector<T1> &output) {
+        assert(!append);
+        static_assert(!negate, "Not implemented");
+        plan(input, output);
+    }
+
+
+    // User call
+    fft_expr<this_t> operator()(vector<T0> &x) {
+        return {*this, x};
+    }
+};
+
+#endif
 
 
 }
