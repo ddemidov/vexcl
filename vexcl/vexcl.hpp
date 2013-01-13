@@ -4,7 +4,7 @@
 /*
 The MIT License
 
-Copyright (c) 2012 Denis Demidov <ddemidov@ksu.ru>
+Copyright (c) 2012-2013 Denis Demidov <ddemidov@ksu.ru>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -282,7 +282,7 @@ Sometimes operations with multicomponent vector cannot be expressed with simple
 arithmetic expressions. Imagine that you need to solve the following system of
 ordinary differential equations:
 \f[
-\frac{dx}{dt} = x + y, \quad 
+\frac{dx}{dt} = x + y, \quad
 \frac{dy}{dt} = x - y.
 \f]
 

@@ -4,7 +4,7 @@
 /*
 The MIT License
 
-Copyright (c) 2012 Denis Demidov <ddemidov@ksu.ru>
+Copyright (c) 2012-2013 Denis Demidov <ddemidov@ksu.ru>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -1020,7 +1020,7 @@ struct is_multiscalar : std::false_type
 // Arithmetic scalars
 
 template <class T>
-struct is_multiscalar< T, 
+struct is_multiscalar< T,
     typename std::enable_if< is_cl_native<T>::value >::type >
     : std::true_type
 {};
@@ -1071,7 +1071,7 @@ struct component< I, std::tuple<Args...> >
 // std::array<T,N>
 
 template <class T, size_t N>
-struct is_multiscalar< std::array<T, N>, 
+struct is_multiscalar< std::array<T, N>,
     typename std::enable_if< is_cl_native<T>::value >::type >
     : std::true_type
 {};
@@ -1088,7 +1088,7 @@ struct component< I, std::array<T, N> > {
 
 // C-style arrays
 template <class T, size_t N>
-struct is_multiscalar< T[N], 
+struct is_multiscalar< T[N],
     typename std::enable_if< is_cl_native<T>::value >::type >
     : std::true_type
 {};

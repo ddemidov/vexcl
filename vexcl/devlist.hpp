@@ -4,7 +4,7 @@
 /*
 The MIT License
 
-Copyright (c) 2012 Denis Demidov <ddemidov@ksu.ru>
+Copyright (c) 2012-2013 Denis Demidov <ddemidov@ksu.ru>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -414,7 +414,7 @@ namespace Filter {
 /**
  * \param filter  Device filter functor. Functors may be combined with logical
  *                operators.
- * \returns list of devices satisfying the provided filter. 
+ * \returns list of devices satisfying the provided filter.
  *
  * This example selects any GPU which supports double precision arithmetic:
  * \code
