@@ -196,7 +196,8 @@ for_each(const Tuple &v, Function &f)
 
 /// Create and build a program from source string.
 inline cl::Program build_sources(
-        const cl::Context &context, const std::string &source
+        const cl::Context &context, const std::string &source,
+        const std::string &options = ""
         )
 {
     cl::Program program(context, cl::Program::Sources(
@@ -206,7 +207,7 @@ inline cl::Program build_sources(
     auto device = context.getInfo<CL_CONTEXT_DEVICES>();
 
     try {
-        program.build(device);
+        program.build(device, options.c_str());
     } catch(const cl::Error&) {
         std::cerr << source
                   << std::endl
