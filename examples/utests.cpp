@@ -31,6 +31,9 @@ UserFunction<greater_body, size_t(double, double)> greater;
 extern const char pow3_body[] = "return pow(prm1, 3.0);";
 UserFunction<pow3_body, double(double)> pow3;
 
+extern const char make_int4_body[] = "return (int4)(prm1, prm1, prm1, prm1);";
+UserFunction<make_int4_body, cl_int4(int)> make_int4;
+
 template <class state_type>
 void sys_func(const state_type &x, state_type &dx, double dt) {
     dx = dt * sin(x);
@@ -386,6 +389,19 @@ int main(int argc, char *argv[]) {
                     for(size_t j = row[i]; j < row[i + 1]; j++)
                         sum += val[j] * x[col[j]];
                     res = std::max(res, fabs(sum - y[i]));
+                }
+
+                rc = rc && res < 1e-8;
+
+                Y = 42 * (A * X);
+                copy(Y, y);
+
+                res = 0;
+                for(size_t i = 0; i < x.size(); i++) {
+                    double sum = 0;
+                    for(size_t j = row[i]; j < row[i + 1]; j++)
+                        sum += val[j] * x[col[j]];
+                    res = std::max(res, fabs(42 * sum - y[i]));
                 }
 
                 rc = rc && res < 1e-8;
@@ -1212,6 +1228,20 @@ int main(int argc, char *argv[]) {
                     res = std::max(res, fabs(sum - y[i]));
                 }
                 rc = rc && res < 1e-8;
+
+                Y = 42 * (X * S);
+
+                copy(Y, y);
+
+                res = 0;
+                for(int i = 0; i < n; i++) {
+                    double sum = 0;
+                    for(int k = -center; k < (int)s.size() - center; k++)
+                        sum += s[k + center] * x[std::min(n-1,std::max(0, i + k))];
+                    res = std::max(res, fabs(42 * sum - y[i]));
+                }
+                rc = rc && res < 1e-8;
+
                 return rc;
                 });
 #endif
@@ -1285,6 +1315,22 @@ int main(int argc, char *argv[]) {
                     }
                     rc = rc && res < 1e-8;
                 }
+
+                Y = 42 * (X * S);
+
+                copy(Y, y);
+
+                for(int c = 0; c < m; c++) {
+                    double res = 0;
+                    for(int i = 0; i < n; i++) {
+                        double sum = 0;
+                        for(int k = -center; k < (int)s.size() - center; k++)
+                            sum += s[k + center] * x[c * n + std::min(n-1,std::max(0, i + k))];
+                        res = std::max(res, fabs(42 * sum - y[i + c * n]));
+                    }
+                    rc = rc && res < 1e-8;
+                }
+
                 return rc;
                 });
 #endif
@@ -1350,6 +1396,20 @@ int main(int argc, char *argv[]) {
                     double sum = x[i] + pow(x[left] + x[right], 3.0);
                     res = std::max(res, fabs(sum - y[i]));
                 }
+
+                Y = 42 * pow3_op(X);
+
+                copy(Y, y);
+
+                res = 0;
+                for(int i = 0; i < n; i++) {
+                    int left  = std::max(0, i - 1);
+                    int right = std::min(n - 1, i + 1);
+
+                    double sum = x[i] + pow(x[left] + x[right], 3.0);
+                    res = std::max(res, fabs(42 * sum - y[i]));
+                }
+
                 rc = rc && res < 1e-8;
                 return rc;
                 });
@@ -1406,7 +1466,7 @@ int main(int argc, char *argv[]) {
                 vex::vector<double> X(ctx.queue(), x);
 
                 std::vector<size_t> i(M);
-                std::generate(i.begin(), i.end(), [](){ return rand() % N; });
+                std::generate(i.begin(), i.end(), [N](){ return rand() % N; });
                 std::sort(i.begin(), i.end());
                 i.resize( std::unique(i.begin(), i.end()) - i.begin() );
 
@@ -1461,6 +1521,30 @@ int main(int argc, char *argv[]) {
                     rc = rc && fabs(vy[0] - 0.5 * idx) < 1e-8;
                     rc = rc && fabs(vy[1] - 0.5 * idx) < 1e-8;
                 }
+                return rc;
+                });
+#endif
+
+#if 1
+        run_test("Arithmetic with OpenCL vector values", [&]() -> bool {
+                const size_t N = 16 * 1024;
+                bool rc = true;
+
+                vex::vector<cl_int4> X(ctx.queue(), N);
+
+                cl_int4 c = {{1, 2, 3, 4}};
+
+                X = c * (make_int4(5 + element_index()));
+
+                for(int i = 0; i < 100; ++i) {
+                    size_t idx = rand() % N;
+
+                    cl_int4 v = X[idx];
+
+                    for(int j = 0; j < 4; ++j)
+                    rc = rc && (v.s[j] - c.s[j] * (5 + idx)) == 0;
+                }
+
                 return rc;
                 });
 #endif

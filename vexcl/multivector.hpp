@@ -4,7 +4,7 @@
 /*
 The MIT License
 
-Copyright (c) 2012 Denis Demidov <ddemidov@ksu.ru>
+Copyright (c) 2012-2013 Denis Demidov <ddemidov@ksu.ru>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -540,12 +540,8 @@ class multivector : public multivector_terminal_expression {
             const multivector&
         >::type
         operator=(const Expr &expr) {
-            additive_vector_transform_context< multivector > ctx(*this);
-
-            boost::proto::eval(
-                    simplify_additive_transform()( expr ),
-                    ctx
-                    );
+            apply_additive_transform</*append=*/false>(*this,
+                    simplify_additive_transform()( expr ));
             return *this;
         }
 
@@ -568,13 +564,10 @@ class multivector : public multivector_terminal_expression {
         operator=(const Expr &expr) {
             *this = extract_multivector_expressions()( expr );
 
-            additive_vector_transform_context< multivector > ctx(*this, true);
-
-            boost::proto::eval(
+            apply_additive_transform</*append=*/true>(*this,
                     simplify_additive_transform()(
                         extract_additive_multivector_transforms()( expr )
-                        ),
-                    ctx
+                        )
                     );
             return *this;
         }

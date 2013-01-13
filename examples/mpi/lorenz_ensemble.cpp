@@ -54,7 +54,7 @@ struct lorenz_system {
 
     lorenz_system( const vector_type &R ) : R( R ) { }
 
-    void operator()( const state_type &x, state_type &dxdt, value_type t ) {
+    void operator()( const state_type &x, state_type &dxdt, value_type ) {
 	dxdt = std::tie(
 		sigma * (x(1) - x(0)),
 		R * x(0) - x(1) - x(0) * x(2),

@@ -4,7 +4,7 @@
 /*
 The MIT License
 
-Copyright (c) 2012 Denis Demidov <ddemidov@ksu.ru>
+Copyright (c) 2012-2013 Denis Demidov <ddemidov@ksu.ru>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -54,12 +54,14 @@ struct conv
     const S &s;
     const V &x;
 
-    conv(const S &s, const V &x) : s(s), x(x) {}
+    typename S::value_type scale;
+
+    conv(const S &s, const V &x) : s(s), x(x), scale(1) {}
 
     template<bool negate, bool append>
     void apply(vector<typename V::value_type> &y) const
     {
-        s.convolve(x, y, append ? 1 : 0, negate ? -1 : 1);
+        s.convolve(x, y, append ? 1 : 0, negate ? -scale : scale);
     }
 };
 
@@ -74,7 +76,9 @@ struct multiconv
     const S &s;
     const V &x;
 
-    multiconv(const S &s, const V &x) : s(s), x(x) {}
+    typename S::value_type scale;
+
+    multiconv(const S &s, const V &x) : s(s), x(x), scale(1) {}
 
     template <bool negate, bool append, bool own>
     void apply(multivector<
@@ -83,7 +87,7 @@ struct multiconv
                 own> &y) const
     {
         for(size_t i = 0; i < number_of_components<V>::value; i++)
-            s.convolve(x(i), y(i), append ? 1 : 0, negate ? -1 : 1);
+            s.convolve(x(i), y(i), append ? 1 : 0, negate ? -scale : scale);
     }
 };
 
@@ -230,6 +234,8 @@ void stencil_base<T>::exchange_halos(const vex::vector<T> &x) const {
 template <typename T>
 class stencil : private stencil_base<T> {
     public:
+        typedef T value_type;
+
         /// Costructor.
         /**
          * \param queue  vector of queues. Each queue represents one
@@ -523,6 +529,12 @@ operator*(const vector<T> &x, const stencil<T> &s) {
     return conv< stencil<T>, vector<T> >(s, x);
 }
 
+template <typename S, class V>
+conv<S, V> operator*(typename S::value_type c, conv<S, V> cnv) {
+    cnv.scale *= c;
+    return cnv;
+}
+
 #ifdef VEXCL_MULTIVECTOR_HPP
 
 template <typename T, size_t N, bool own>
@@ -535,6 +547,12 @@ template <typename T, size_t N, bool own>
 multiconv< stencil<T>, multivector<T, N, own> >
 operator*( const multivector<T, N, own> &x, const stencil<T> &s ) {
     return multiconv< stencil<T>, multivector<T, N, own> >(s, x);
+}
+
+template <typename S, class V>
+multiconv<S, V> operator*(typename S::value_type c, multiconv<S, V> cnv) {
+    cnv.scale *= c;
+    return cnv;
 }
 
 #endif
@@ -550,13 +568,15 @@ operator*( const multivector<T, N, own> &x, const stencil<T> &s ) {
  * \code
  * extern const char pow3_oper_body[] = "return X[0] + pow(X[-1] + X[1], 3);";
  * StencilOperator<double, 3, 1, pow3_oper_body> pow3_oper(ctx.queue());
- * 
+ *
  * y = pow3_oper(x);
  * \endcode
  */
 template <typename T, uint width, uint center, const char *body>
-class StencilOperator : public stencil_base<T> {
+class StencilOperator : private stencil_base<T> {
     public:
+        typedef T value_type;
+
         StencilOperator(const std::vector<cl::CommandQueue> &queue);
 
         conv< StencilOperator, vector<T> >

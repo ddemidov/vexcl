@@ -6,21 +6,16 @@ set(EXAMPLES
     )
 
 if (WIN32)
-    find_library(OPENCL_LIBRARY OpenCL
-	"c:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v4.0/lib/x64"
-	)
-    find_path(OPENCL_INCLUDE CL/opencl.h
-	"c:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v4.0/include"
-	)
+    # TODO: What to do with AMD platform?
+    find_library(OPENCL_LIBRARY OpenCL "$ENV{CUDA_LIB_PATH}")
+    find_path(OPENCL_INCLUDE CL/opencl.h "$ENV{CUDA_INC_PATH}")
     include_directories(${OPENCL_INCLUDE})
 
     set(Boost_USE_STATIC_LIBS ON)
-    find_package(Boost COMPONENTS date_time)
+    find_package(Boost COMPONENTS system date_time thread chrono)
 else (WIN32)
-    find_library(OPENCL_LIBRARY OpenCL
-        HINTS "/opt/AMDAPP" ENV "AMDAPPSDKROOT"
-        PATH_SUFFIXES "lib/x86_64" "lib/x86")
-    find_package(Boost)
+    find_library(OPENCL_LIBRARY OpenCL)
+    find_package(Boost COMPONENTS system thread chrono)
 endif (WIN32)
 
 include_directories(
@@ -50,11 +45,7 @@ endif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
 
 foreach(example ${EXAMPLES})
     add_executable(${example} ${example}.cpp)
-    target_link_libraries(${example} ${OPENCL_LIBRARY})
-
-    if (WIN32)
-	target_link_libraries(${example} ${Boost_DATE_TIME_LIBRARY})
-    endif(WIN32)
+    target_link_libraries(${example} ${OPENCL_LIBRARY} ${Boost_LIBRARIES})
 endforeach(example)
 
 option(VIENNACL_EXAMPLES "Compile ViennaCL examples" OFF)

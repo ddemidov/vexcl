@@ -4,7 +4,7 @@
 /*
 The MIT License
 
-Copyright (c) 2012 Denis Demidov <ddemidov@ksu.ru>
+Copyright (c) 2012-2013 Denis Demidov <ddemidov@ksu.ru>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -251,7 +251,7 @@ struct column_owner {
 
     column_owner(const std::vector<size_t> &part) : part(part) {}
 
-    uint operator()(size_t c) const {
+    size_t operator()(size_t c) const {
         return std::upper_bound(part.begin(), part.end(), c)
             - part.begin() - 1;
     }

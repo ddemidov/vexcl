@@ -4,7 +4,7 @@
 /*
 The MIT License
 
-Copyright (c) 2012 Denis Demidov <ddemidov@ksu.ru>
+Copyright (c) 2012-2013 Denis Demidov <ddemidov@ksu.ru>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -93,13 +93,15 @@ struct mpi_multispmv
 
     template <bool negate, bool append, class W>
     typename std::enable_if<
-        std::is_base_of<mpi_multivector_terminal_expression, W>::value &&
-        std::is_same<typename M::value_type, typename W::value_type::value_type>::value &&
-        number_of_components<V>::value == number_of_components<W>::value,
-        void
+        std::is_base_of<mpi_multivector_terminal_expression, W>::value
+#ifndef WIN32
+	&& std::is_same<typename M::value_type, typename W::value_type::value_type>::value
+#endif
+	&& number_of_components<V>::value == number_of_components<W>::value
+	, void
     >::type
     apply(W &y) const {
-        for(int i = 0; i < number_of_components<V>::value; i++) {
+        for(size_t i = 0; i < number_of_components<V>::value; i++) {
             auto dst = y(i);
             A.mul(x(i), dst, negate ? -1 : 1, append);
         }
@@ -169,7 +171,7 @@ class SpMat : public mpi_matrix_terminal {
                 for(size_t j = row[i], e = row[i + 1]; j < e; ++j) {
                     column_t c = col[j];
 
-                    if (part_beg <= c && c < part_end) {
+                    if (static_cast<column_t>(part_beg) <= c && c < static_cast<column_t>(part_end)) {
                         ++loc_row[i + 1];
                     } else {
                         remote_cols.insert(c);
@@ -200,7 +202,7 @@ class SpMat : public mpi_matrix_terminal {
                     column_t c = col[j];
                     real     v = val[j];
 
-                    if (part_beg <= c && c < part_end) {
+                    if (static_cast<column_t>(part_beg) <= c && c < static_cast<column_t>(part_end)) {
                         loc_col.push_back(c - part_beg);
                         loc_val.push_back(v);
                     } else {

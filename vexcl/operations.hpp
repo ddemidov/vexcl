@@ -4,7 +4,7 @@
 /*
 The MIT License
 
-Copyright (c) 2012 Denis Demidov <ddemidov@ksu.ru>
+Copyright (c) 2012-2013 Denis Demidov <ddemidov@ksu.ru>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -69,7 +69,7 @@ inline std::string type_name<elem_index>() {
 /// \endcond
 
 /// When used in vector expression, returns current element index plus offset.
-inline typename boost::proto::result_of::as_expr<elem_index>::type
+inline boost::proto::result_of::as_expr<elem_index>::type
 element_index(size_t offset = 0) {
     return boost::proto::as_expr(elem_index(offset));
 }
@@ -941,55 +941,72 @@ struct simplify_additive_transform
       >
 {};
 
-//---------------------------------------------------------------------------
-template <class Vector>
-struct additive_vector_transform_context {
+template <bool append, class Vector>
+struct additive_applicator {
     Vector &dest;
-    bool initialized;
 
-    additive_vector_transform_context(Vector &dest, bool initialized = false)
-        : dest(dest), initialized(initialized) {}
-
-    template <typename Expr, typename Tag = typename Expr::proto_tag>
-    struct eval {};
+    additive_applicator(Vector &dest) : dest(dest) {}
 
     template <typename Expr>
-    struct eval<Expr, boost::proto::tag::terminal> {
-        typedef int result_type;
-
-        template <typename T>
-        result_type operator()(const T &t, additive_vector_transform_context &ctx) const
-        {
-            if (ctx.initialized) {
-                t.template apply<false, true>(ctx.dest);
-            } else {
-                t.template apply<false, false>(ctx.dest);
-                ctx.initialized = true;
-            }
-
-            return 0;
-        }
-    };
+    typename std::enable_if<
+        boost::proto::matches<
+            typename boost::proto::result_of::as_expr<Expr>::type,
+            boost::proto::terminal<boost::proto::_>
+        >::value,
+        void
+    >::type
+    operator()(const Expr &expr) const {
+        expr.template apply</*negate=*/false, append>(dest);
+    }
 
     template <typename Expr>
-    struct eval<Expr, boost::proto::tag::negate> {
-        typedef int result_type;
-
-        template <typename T>
-        result_type operator()(const T &t, additive_vector_transform_context &ctx) const
-        {
-            if (ctx.initialized) {
-                boost::proto::child(t).template apply<true, true>(ctx.dest);
-            } else {
-                boost::proto::child(t).template apply<true, false>(ctx.dest);
-                ctx.initialized = true;
-            }
-
-            return 0;
-        }
-    };
+    typename std::enable_if<
+        boost::proto::matches<
+            typename boost::proto::result_of::as_expr<Expr>::type,
+            boost::proto::negate<boost::proto::_>
+        >::value,
+        void
+    >::type
+    operator()(const Expr &expr) const {
+        boost::proto::child(expr).template apply</*negate=*/true, append>(dest);
+    }
 };
 
+template <bool append, class Vector, class Expr>
+typename std::enable_if<
+    boost::proto::matches<
+        typename boost::proto::result_of::as_expr<Expr>::type,
+        boost::proto::terminal<boost::proto::_>
+    >::value ||
+    boost::proto::matches<
+        typename boost::proto::result_of::as_expr<Expr>::type,
+        boost::proto::negate<boost::proto::_>
+    >::value,
+    void
+>::type apply_additive_transform(Vector &dest, const Expr &expr) {
+    (additive_applicator<append, Vector>(dest))(expr);
+}
+
+template <bool append, class Vector, class Expr>
+typename std::enable_if<
+    !boost::proto::matches<
+        typename boost::proto::result_of::as_expr<Expr>::type,
+        boost::proto::terminal<boost::proto::_>
+    >::value &&
+    !boost::proto::matches<
+        typename boost::proto::result_of::as_expr<Expr>::type,
+        boost::proto::negate<boost::proto::_>
+    >::value,
+    void
+>::type apply_additive_transform(Vector &dest, const Expr &expr) {
+    auto flat_expr = boost::proto::flatten(expr);
+
+    (additive_applicator<append, Vector>(dest))(boost::fusion::front(flat_expr));
+
+    boost::fusion::for_each(boost::fusion::pop_front(flat_expr),
+            additive_applicator</*append=*/true, Vector>(dest)
+            );
+}
 
 //---------------------------------------------------------------------------
 // Elementwise multi-vector operations
@@ -1003,7 +1020,7 @@ struct is_multiscalar : std::false_type
 // Arithmetic scalars
 
 template <class T>
-struct is_multiscalar< T, 
+struct is_multiscalar< T,
     typename std::enable_if< is_cl_native<T>::value >::type >
     : std::true_type
 {};
@@ -1054,7 +1071,7 @@ struct component< I, std::tuple<Args...> >
 // std::array<T,N>
 
 template <class T, size_t N>
-struct is_multiscalar< std::array<T, N>, 
+struct is_multiscalar< std::array<T, N>,
     typename std::enable_if< is_cl_native<T>::value >::type >
     : std::true_type
 {};
@@ -1071,7 +1088,7 @@ struct component< I, std::array<T, N> > {
 
 // C-style arrays
 template <class T, size_t N>
-struct is_multiscalar< T[N], 
+struct is_multiscalar< T[N],
     typename std::enable_if< is_cl_native<T>::value >::type >
     : std::true_type
 {};

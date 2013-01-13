@@ -4,7 +4,7 @@
 /*
 The MIT License
 
-Copyright (c) 2012 Denis Demidov <ddemidov@ksu.ru>
+Copyright (c) 2012-2013 Denis Demidov <ddemidov@ksu.ru>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -82,11 +82,13 @@ struct spmv
     const M &A;
     const V &x;
 
-    spmv(const M &m, const V &v) : A(m), x(v) {}
+    typename M::value_type scale;
+
+    spmv(const M &m, const V &v) : A(m), x(v), scale(1) {}
 
     template<bool negate, bool append>
     void apply(V &y) const {
-        A.mul(x, y, negate ? -1 : 1, append);
+        A.mul(x, y, negate ? -scale : scale, append);
     }
 };
 
@@ -101,6 +103,12 @@ operator*(const M &A, const V &x) {
     return spmv< M, V >(A, x);
 }
 
+template <class M, class V>
+spmv<M, V> operator*(typename M::value_type c, spmv<M, V> mv) {
+    mv.scale *= c;
+    return mv;
+}
+
 #ifdef VEXCL_MULTIVECTOR_HPP
 
 template <class M, class V>
@@ -111,19 +119,22 @@ struct multispmv
 {
     const M &A;
     const V &x;
+    typename M::value_type scale;
 
-    multispmv(const M &m, const V &v) : A(m), x(v) {}
+    multispmv(const M &m, const V &v) : A(m), x(v), scale(1) {}
 
     template <bool negate, bool append, class W>
     typename std::enable_if<
-        std::is_base_of<multivector_terminal_expression, W>::value &&
-        std::is_same<typename M::value_type, typename W::value_type::value_type>::value &&
-        number_of_components<V>::value == number_of_components<W>::value,
+        std::is_base_of<multivector_terminal_expression, W>::value
+#ifndef WIN32
+        && std::is_same<typename M::value_type, typename W::value_type::value_type>::value
+#endif
+        && number_of_components<V>::value == number_of_components<W>::value,
         void
     >::type
     apply(W &y) const {
         for(size_t i = 0; i < number_of_components<V>::value; i++)
-            A.mul(x(i), y(i), negate ? -1 : 1, append);
+            A.mul(x(i), y(i), negate ? -scale : scale, append);
     }
 };
 
@@ -138,6 +149,11 @@ operator*(const M &A, const V &x) {
     return multispmv< M, V >(A, x);
 }
 
+template <class M, class V>
+multispmv<M, V> operator*(typename M::value_type c, multispmv<M, V> mv) {
+    mv.scale *= c;
+    return mv;
+}
 #endif
 
 /// \endcond
@@ -210,7 +226,7 @@ class SpMat : matrix_terminal {
 
             SpMatELL(
                     const cl::CommandQueue &queue,
-                    size_t beg, size_t end, size_t xbeg, size_t xend,
+                    size_t beg, size_t end, column_t xbeg, column_t xend,
                     const idx_t *row, const column_t *col, const real *val,
                     const std::set<column_t> &remote_cols
                     );
@@ -256,7 +272,7 @@ class SpMat : matrix_terminal {
         struct SpMatCSR : public sparse_matrix {
             SpMatCSR(
                     const cl::CommandQueue &queue,
-                    size_t beg, size_t end, size_t xbeg, size_t xend,
+                    size_t beg, size_t end, column_t xbeg, column_t xend,
                     const idx_t *row, const column_t *col, const real *val,
                     const std::set<column_t> &remote_cols
                     );
@@ -396,7 +412,7 @@ SpMat<real,column_t,idx_t>::SpMat(
 
     // Each device get it's own strip of the matrix.
 #pragma omp parallel for schedule(static,1)
-    for(uint d = 0; d < queue.size(); d++) {
+    for(int d = 0; d < static_cast<int>(queue.size()); d++) {
         if (part[d + 1] > part[d]) {
             cl::Device device = qdev(queue[d]);
 
@@ -485,10 +501,10 @@ std::vector<std::set<column_t>> SpMat<real,column_t,idx_t>::setup_exchange(
 
     // Build sets of ghost points.
 #pragma omp parallel for schedule(static,1)
-    for(uint d = 0; d < queue.size(); d++) {
+    for(int d = 0; d < static_cast<int>(queue.size()); d++) {
         for(size_t i = part[d]; i < part[d + 1]; i++) {
-            for(size_t j = row[i]; j < row[i + 1]; j++) {
-                if (col[j] < xpart[d] || col[j] >= xpart[d + 1]) {
+            for(idx_t j = row[i]; j < row[i + 1]; j++) {
+                if (col[j] < static_cast<column_t>(xpart[d]) || col[j] >= static_cast<column_t>(xpart[d + 1])) {
                     remote_cols[d].insert(col[j]);
                 }
             }
@@ -508,7 +524,7 @@ std::vector<std::set<column_t>> SpMat<real,column_t,idx_t>::setup_exchange(
     // Build local structures to facilitate exchange.
     if (cols_to_send.size()) {
 #pragma omp parallel for schedule(static,1)
-        for(uint d = 0; d < queue.size(); d++) {
+        for(int d = 0; d < static_cast<int>(queue.size()); d++) {
             if (size_t rcols = remote_cols[d].size()) {
                 exc[d].cols_to_recv.resize(rcols);
                 exc[d].vals_to_recv.resize(rcols);
@@ -582,7 +598,7 @@ std::map<cl_context, uint> SpMat<real,column_t,idx_t>::SpMatELL::wgsize;
 template <typename real, typename column_t, typename idx_t>
 SpMat<real,column_t,idx_t>::SpMatELL::SpMatELL(
         const cl::CommandQueue &queue,
-        size_t beg, size_t end, size_t xbeg, size_t xend,
+        size_t beg, size_t end, column_t xbeg, column_t xend,
         const idx_t *row, const column_t *col, const real *val,
         const std::set<column_t> &remote_cols
         )
@@ -601,7 +617,7 @@ SpMat<real,column_t,idx_t>::SpMatELL::SpMatELL(
         loc_ell.w = rem_ell.w = 0;
         for(size_t i = beg; i < end; i++) {
             uint w = 0;
-            for(size_t j = row[i]; j < row[i + 1]; j++)
+            for(idx_t j = row[i]; j < row[i + 1]; j++)
                 if (col[j] >= xbeg && col[j] < xend) w++;
 
             loc_ell.w = std::max(loc_ell.w, w);
@@ -614,7 +630,7 @@ SpMat<real,column_t,idx_t>::SpMatELL::SpMatELL(
 
         for(size_t i = beg; i < end; i++) {
             uint w = 0;
-            for(size_t j = row[i]; j < row[i + 1]; j++)
+            for(idx_t j = row[i]; j < row[i + 1]; j++)
                 if (col[j] >= xbeg && col[j] < xend) w++;
 
             loc_hist[w]++;
@@ -649,7 +665,7 @@ SpMat<real,column_t,idx_t>::SpMatELL::SpMatELL(
     size_t loc_nnz = 0, rem_nnz = 0;
     for(size_t i = beg; i < end; i++) {
         uint w = 0;
-        for(size_t j = row[i]; j < row[i + 1]; j++)
+        for(idx_t j = row[i]; j < row[i + 1]; j++)
             if (col[j] >= xbeg && col[j] < xend) w++;
 
         if (w > loc_ell.w) {
@@ -700,7 +716,8 @@ SpMat<real,column_t,idx_t>::SpMatELL::SpMatELL(
     rcsr_idx.push_back(0);
 
     for(size_t i = beg, k = 0; i < end; i++, k++) {
-        for(size_t j = row[i], lc = 0, rc = 0; j < row[i + 1]; j++) {
+        size_t lc = 0, rc = 0;
+        for(idx_t j = row[i]; j < row[i + 1]; j++) {
             if (col[j] >= xbeg && col[j] < xend) {
                 if (lc < loc_ell.w) {
                     lell_col[k + pitch * lc] = col[j] - xbeg;
@@ -722,11 +739,11 @@ SpMat<real,column_t,idx_t>::SpMatELL::SpMatELL(
                 }
             }
         }
-        if (lcsr_col.size() > lcsr_idx.back()) {
+        if (lcsr_col.size() > static_cast<size_t>(lcsr_idx.back())) {
             lcsr_row.push_back(i - beg);
             lcsr_idx.push_back(lcsr_col.size());
         }
-        if (rcsr_col.size() > rcsr_idx.back()) {
+        if (rcsr_col.size() > static_cast<size_t>(rcsr_idx.back())) {
             rcsr_row.push_back(i - beg);
             rcsr_idx.push_back(rcsr_col.size());
         }
@@ -1032,7 +1049,7 @@ std::map<cl_context, uint> SpMat<real,column_t,idx_t>::SpMatCSR::wgsize;
 template <typename real, typename column_t, typename idx_t>
 SpMat<real,column_t,idx_t>::SpMatCSR::SpMatCSR(
         const cl::CommandQueue &queue,
-        size_t beg, size_t end, size_t xbeg, size_t xend,
+        size_t beg, size_t end, column_t xbeg, column_t xend,
         const idx_t *row, const column_t *col, const real *val,
         const std::set<column_t> &remote_cols
         )
@@ -1096,7 +1113,7 @@ SpMat<real,column_t,idx_t>::SpMatCSR::SpMatCSR(
         }
 
         for(size_t i = beg; i < end; i++) {
-            for(size_t j = row[i]; j < row[i + 1]; j++) {
+            for(idx_t j = row[i]; j < row[i + 1]; j++) {
                 if (col[j] >= xbeg && col[j] < xend) {
                     lcol.push_back(col[j] - xbeg);
                     lval.push_back(val[j]);
@@ -1310,7 +1327,7 @@ void SpMat<real,column_t,idx_t>::SpMatCSR::mul_remote(
 }
 
 /// Sparse matrix in CCSR format.
-/** 
+/**
  * Compressed CSR format. row, col, and val arrays contain unique rows of the
  * matrix. Column numbers in col array are relative to diagonal. idx array
  * contains index into row vector, corresponding to each row of the matrix. So

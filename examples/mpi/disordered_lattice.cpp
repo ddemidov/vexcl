@@ -73,10 +73,7 @@ class ham_lattice {
             row.push_back( 0 );
             index_modulus index(n);
 
-            for(int idx = part[mpi.rank]; idx < part[mpi.rank + 1]; ++idx) {
-                int i = idx / n2;
-                int j = idx % n2;
-
+            for(int idx = part[mpi.rank]; static_cast<size_t>(idx) < part[mpi.rank + 1]; ++idx) {
                 int is[5] = { idx , index( idx + 1 ) , index( idx - 1 ) , index( idx - n2 ) , index( idx + n2 ) };
 
                 std::sort( is , is + 5 );

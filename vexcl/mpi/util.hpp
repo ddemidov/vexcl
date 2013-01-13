@@ -4,7 +4,7 @@
 /*
 The MIT License
 
-Copyright (c) 2012 Denis Demidov <ddemidov@ksu.ru>
+Copyright (c) 2012-2013 Denis Demidov <ddemidov@ksu.ru>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -35,6 +35,10 @@ THE SOFTWARE.
 #include <vector>
 #include <set>
 #include <algorithm>
+
+#ifndef VEXCL_MPI_TAG_START
+#   define VEXCL_MPI_TAG_START 1000
+#endif
 
 namespace vex {
 namespace mpi {
@@ -112,7 +116,7 @@ struct comm_data {
 };
 
 /// Unique MPI tag generator.
-template <int START = 1000>
+template <int START>
 int get_mpi_tag() {
     static int tag = START;
     return ++tag;
@@ -138,7 +142,7 @@ class exchange {
                 )
             : mpi(comm)
         {
-            static const int tagExcCols = get_mpi_tag();
+            static const int tagExcCols = get_mpi_tag<VEXCL_MPI_TAG_START>();
 
             column_owner owner(part);
 
@@ -204,7 +208,7 @@ class exchange {
 
         /// Starts asyncronous exchange of ghost points.
         void start(const vex::vector<value_t> &local_data) {
-            static const int tagExcVals = get_mpi_tag();
+            static const int tagExcVals = get_mpi_tag<VEXCL_MPI_TAG_START>();
 
             (*get)(local_data, send.val);
 

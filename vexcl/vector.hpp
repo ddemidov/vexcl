@@ -4,7 +4,7 @@
 /*
 The MIT License
 
-Copyright (c) 2012 Denis Demidov <ddemidov@ksu.ru>
+Copyright (c) 2012-2013 Denis Demidov <ddemidov@ksu.ru>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -581,12 +581,10 @@ class vector : public vector_terminal_expression {
             const vector&
         >::type
         operator=(const Expr &expr) {
-            additive_vector_transform_context< vector > ctx(*this);
-
-            boost::proto::eval(
-                    simplify_additive_transform()( expr ),
-                    ctx
+            apply_additive_transform</*append=*/false>(
+                    *this, simplify_additive_transform()( expr )
                     );
+
             return *this;
         }
 
@@ -605,14 +603,12 @@ class vector : public vector_terminal_expression {
         operator=(const Expr &expr) {
             *this = extract_vector_expressions()( expr );
 
-            additive_vector_transform_context< vector > ctx(*this, true);
-
-            boost::proto::eval(
-                    simplify_additive_transform()(
-                        extract_additive_vector_transforms()( expr )
-                        ),
-                    ctx
+            apply_additive_transform</*append=*/true>(
+                    *this, simplify_additive_transform()(
+                            extract_additive_vector_transforms()( expr )
+                        )
                     );
+
             return *this;
         }
 
