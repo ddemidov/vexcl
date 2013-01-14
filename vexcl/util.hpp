@@ -101,9 +101,6 @@ CL_TYPES(long);  CL_TYPES(ulong);
 /// of that type, this enables operator* and operator/.
 template <class T> struct is_scalable : std::false_type {};
 
-} // namespace vex
-
-// operators must be in gobal namespace.
 template <class T> typename std::enable_if<vex::is_scalable<T>::value, T>::type
 operator*(const T &expr, const typename T::value_type &factor) {
     T scaled_expr(expr);
@@ -124,7 +121,6 @@ operator/(const T &expr, const typename T::value_type &factor) {
 }
 
 
-namespace vex {
 
 
 const std::string standard_kernel_header = std::string(
