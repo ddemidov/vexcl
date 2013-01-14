@@ -357,7 +357,7 @@ class symbolic
                     case ScalarParameter:
                         s << ";\n";
                         break;
-                    default:
+                    case LocalVar:
                         break;
                 }
             }
@@ -569,7 +569,7 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, FUNCALL_OPERATOR, ~)
         std::map<cl_context, uint> wgs;
 
         template <class T>
-        size_t prm_part_size(uint d, const T &t) const {
+        size_t prm_part_size(uint, const T &) const {
             return 0;
         }
 

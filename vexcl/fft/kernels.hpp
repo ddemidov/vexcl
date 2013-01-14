@@ -70,7 +70,7 @@ void kernel_radix(std::ostringstream &o, size_t radix, bool invert) {
                 if(2 * i == half_radix) {
                     o << 'v' << j << "=twiddle_1_2(v" << j << ");";
                 } else {
-                    T factor = (invert ? 1 : -1) * M_PI * i / half_radix;
+                    T factor = (invert ? 1 : -1) * (T)M_PI * i / half_radix;
                     T2 twiddle = {{std::cos(factor), std::sin(factor)}};            
                     o << 'v' << j << "=mul(v" << j << ',' << std::setprecision(25) << twiddle << ");";
                 }

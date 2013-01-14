@@ -63,13 +63,6 @@ void test(Context &ctx, std::vector<size_t> ns) {
     std::cerr << "]        rms" << std::endl;
     std::cerr << "fftw-clfft      " << rms(output - ref) << "%" << std::endl;
     std::cerr << "x-ifft(fft(x))  " << rms(input - back) << "%" << std::endl;
-
-
-    if(false && n < 16) std::cerr
-        << "input   " << input << '\n'
-        << "fftw    " << ref << '\n'
-        << "clfft   " << output << '\n'
-        << "inverse " << back << std::endl;
 }
 
 int main() {

@@ -2,7 +2,7 @@
 #include <vexcl/fft.hpp>
 #include <random>
 
-#if USE_OPENMP
+#ifdef USE_OPENMP
 #include <omp.h>
 #endif
 
@@ -17,7 +17,7 @@ const size_t runs = 1000;
 
 
 
-#if USE_CUDA
+#ifdef USE_CUDA
 
 #include <cufft.h>
 #include <cuda_runtime.h>
@@ -98,7 +98,7 @@ void test(Context &ctx, cl_float2 *data, size_t n, size_t m) {
 }
 
 int main() {
-#if USE_OPENMP
+#ifdef USE_OPENMP
     fftwf_init_threads();
     fftwf_plan_with_nthreads(omp_get_max_threads());
 #endif
@@ -121,7 +121,7 @@ int main() {
         std::cout << k;
         test_fftw(data, n, 1);
         test(ctx, data, n, 1);
-        #if USE_CUDA
+        #ifdef USE_CUDA
         test_cufft(data, n, 1);
         #endif
         std::cout << std::endl;
@@ -135,7 +135,7 @@ int main() {
         std::cout << k;
         test_fftw(data, n, n);
         test(ctx, data, n, n);
-        #if USE_CUDA
+        #ifdef USE_CUDA
         test_cufft(data, n, n);
         #endif
         std::cout << std::endl;

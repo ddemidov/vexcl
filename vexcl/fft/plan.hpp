@@ -10,12 +10,11 @@ namespace fft {
 
 
 /// Return the greatest k = 2^m <= n
-size_t pow2_floor(size_t n) {
+static int pow2_floor(int n) {
     if(n == 0) return 0;
     for(size_t m = 0 ; ; m++)
-        if(std::pow(2, m + 1) > n)
-            return std::pow(2, m);
-    throw std::runtime_error("overflow");
+        if((1 << (m + 1)) > n)
+            return 1 << m;
 }
 
 extern const char r2c_f_oper[] = "return (float2)(prm1, 0);";
