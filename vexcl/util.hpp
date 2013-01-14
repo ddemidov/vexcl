@@ -103,6 +103,11 @@ template <> inline std::string type_name<size_t>() {
         std::numeric_limits<uint>::max() ? "uint" : "ulong";
 }
 template <> struct is_cl_native<size_t> : std::true_type {};
+template <> inline std::string type_name<ptrdiff_t>() {
+    return std::numeric_limits<std::ptrdiff_t>::max() ==
+        std::numeric_limits<int>::max() ? "int" : "long";
+}
+template <> struct is_cl_native<ptrdiff_t> : std::true_type {};
 #endif
 
 const std::string standard_kernel_header = std::string(
