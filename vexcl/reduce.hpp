@@ -45,12 +45,6 @@ THE SOFTWARE.
 
 namespace vex {
 
-/// \cond INTERNAL
-extern const char sum_oper[] = "return prm1 + prm2;";
-extern const char max_oper[] = "return max(prm1, prm2);";
-extern const char min_oper[] = "return min(prm1, prm2);";
-/// \endcond
-
 /// Summation. Should be used as a template parameter for Reductor class.
 struct SUM {
     template <typename T>
@@ -59,9 +53,9 @@ struct SUM {
     };
 
     template <typename T>
-    struct function {
-        typedef UserFunction<sum_oper, T(T, T)> type;
-    };
+    static UserFunction<T(T, T)> function() {
+        return {"return prm1 + prm2;"};
+    }
 
     template <class Iterator>
     static typename std::iterator_traits<Iterator>::value_type
@@ -83,9 +77,9 @@ struct MAX {
     };
 
     template <typename T>
-    struct function {
-        typedef UserFunction<max_oper, T(T, T)> type;
-    };
+    static UserFunction<T(T, T)> function() {
+        return {"return max(prm1, prm2);"};
+    }
 
     template <class Iterator>
     static typename std::iterator_traits<Iterator>::value_type
@@ -102,9 +96,9 @@ struct MIN {
     };
 
     template <typename T>
-    struct function {
-        typedef UserFunction<min_oper, T(T, T)> type;
-    };
+    static UserFunction<T(T, T)> function() {
+        return {"return min(prm1, prm2);"};
+    }
 
     template <class Iterator>
     static typename std::iterator_traits<Iterator>::value_type
@@ -234,7 +228,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
             std::ostringstream source;
             source << standard_kernel_header;
 
-            RDC::template function<real>::type::define(source, "reduce_operation");
+            RDC::template function<real>().define(source, "reduce_operation");
 
             extract_user_functions()( expr, declare_user_function(source) );
 

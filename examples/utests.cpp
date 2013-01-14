@@ -25,14 +25,11 @@ bool run_test(const std::string &name, std::function<bool()> test) {
     return rc;
 }
 
-extern const char greater_body[] = "return prm1 > prm2 ? 1 : 0;";
-UserFunction<greater_body, size_t(double, double)> greater;
+UserFunction<size_t(double, double)> greater("return prm1 > prm2 ? 1 : 0;");
 
-extern const char pow3_body[] = "return pow(prm1, 3.0);";
-UserFunction<pow3_body, double(double)> pow3;
+UserFunction<double(double)> pow3("return pow(prm1, 3.0);");
 
-extern const char make_int4_body[] = "return (int4)(prm1, prm1, prm1, prm1);";
-UserFunction<make_int4_body, cl_int4(int)> make_int4;
+UserFunction<cl_int4(int)> make_int4("return (int4)(prm1, prm1, prm1, prm1);");
 
 template <class state_type>
 void sys_func(const state_type &x, state_type &dx, double dt) {

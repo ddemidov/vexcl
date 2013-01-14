@@ -326,42 +326,45 @@ struct name \
 
 //--- User Function ---------------------------------------------------------
 
-template <const char *body, class T>
+template <class T>
 struct UserFunction {};
 
 // Workaround for gcc bug http://gcc.gnu.org/bugzilla/show_bug.cgi?id=35722
 #if !defined(BOOST_NO_VARIADIC_TEMPLATES) && ((!defined(__GNUC__) || (__GNUC__ > 4 || __GNUC__ == 4 && __GNUC_MINOR__ > 6)) || defined(__clang__))
 
-template<const char *body, class RetType, class... ArgType>
-struct UserFunction<body, RetType(ArgType...)> : user_function
+template<class RetType, class... ArgType>
+struct UserFunction<RetType(ArgType...)> : user_function
 {
+    const std::string body;
+    UserFunction(std::string body) : body(body) {}
+
     template <class... Arg>
     typename boost::proto::result_of::make_expr<
         boost::proto::tag::function,
         UserFunction,
         const Arg&...
     >::type const
-    operator()(const Arg&... arg) {
+    operator()(const Arg&... arg) const {
         return boost::proto::make_expr<boost::proto::tag::function>(
-                UserFunction(), boost::ref(arg)...
+                *this, boost::ref(arg)...
                 );
     }
 
-    static void define(std::ostream &os, const std::string &name) {
+    void define(std::ostream &os, const std::string &name) const {
         os << type_name<RetType>() << " " << name << "(";
         show_arg<ArgType...>(os, 1);
         os << "\n)\n{\n" << body << "\n}\n\n";
     }
 
     template <class Head>
-    static void show_arg(std::ostream &os, uint pos) {
+    void show_arg(std::ostream &os, uint pos) const {
         if (pos > 1) os << ",";
         os << "\n\t" << type_name<Head>() << " prm" << pos;
     }
 
     template <class Head, class... Tail>
-    static typename std::enable_if<sizeof...(Tail), void>::type
-    show_arg(std::ostream &os, uint pos) {
+    typename std::enable_if<sizeof...(Tail), void>::type
+    show_arg(std::ostream &os, uint pos) const {
         if (pos > 1) os << ",";
         show_arg<Tail...>(
                 os << "\n\t" << type_name<Head>() << " prm" << pos, pos + 1
@@ -378,9 +381,11 @@ struct UserFunction<body, RetType(ArgType...)> : user_function
     << "\n\t" << type_name<ArgType ## n>() \
     << " prm" << n + 1 BOOST_PP_EXPR_IF(BOOST_PP_LESS(BOOST_PP_ADD(n, 1), data), << ",")
 #define USER_FUNCTION(z, n, data) \
-template< const char *body, class RetType, BOOST_PP_ENUM_PARAMS(n, class ArgType) > \
-struct UserFunction<body, RetType( BOOST_PP_ENUM_PARAMS(n, ArgType) )> : user_function \
+template<class RetType, BOOST_PP_ENUM_PARAMS(n, class ArgType) > \
+struct UserFunction<RetType( BOOST_PP_ENUM_PARAMS(n, ArgType) )> : user_function \
 { \
+    const std::string body; \
+    UserFunction(std::string body) : body(body) {} \
     template < BOOST_PP_ENUM_PARAMS(n, class Arg) > \
     typename boost::proto::result_of::make_expr< \
         boost::proto::tag::function, \
