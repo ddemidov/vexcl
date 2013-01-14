@@ -74,8 +74,8 @@ template <class T>
 struct plan {
     typedef typename cl::vector_of<T, 2>::type T2;
 
-    typedef typename helpers<T>::r2c r2c;
-    typedef typename helpers<T>::c2r c2r;
+    typename helpers<T>::r2c r2c;
+    typename helpers<T>::c2r c2r;
 
     const std::vector<cl::CommandQueue> &queue;
     cl::Program program;
