@@ -730,8 +730,7 @@ StencilOperator<T, width, center, body>::StencilOperator(
             while(available_lmem < width + wgsize[context()])
                 wgsize[context()] /= 2;
 
-            lmem[context()] = device_is_cpu ? cl::__local(width)
-                : cl::__local(sizeof(T) * (wgsize[context()] + width - 1));
+            lmem[context()] = cl::__local(sizeof(T) * (wgsize[context()] + width - 1));
         }
 
     }
