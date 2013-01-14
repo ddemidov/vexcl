@@ -31,7 +31,6 @@ THE SOFTWARE.
  * \brief  Fast Fourier Transformation.
  */
 
-// TODO: multivector (AMD FFT supports batch transforms!)
 #include <vexcl/vector.hpp>
 
 #ifdef USE_AMD_FFT
@@ -42,26 +41,28 @@ THE SOFTWARE.
 
 namespace vex {
 
-/// \cond INTERNAL
-
+#ifdef USE_AMD_FFT
 template <class F>
 struct fft_expr
     : vector_expression< boost::proto::terminal< additive_vector_transform >::type >
 {
-    F &f;
-    vector<typename F::input_t> &input;
+    typedef typename F::input_t T0;
 
-    fft_expr(F &f, vector<typename F::input_t> &x) : f(f), input(x) {}
+    F &f;
+    vector<T0> &input;
+
+    fft_expr(F &f, vector<T0> &x) : f(f), input(x) {}
 
     template <bool negate, bool append>
     void apply(vector<typename F::output_t> &output) const
     {
-        f.template execute<negate, append>(input, output);
+        static_assert(!append, "Appending not implemented yet.");
+        static_assert(!negate, "Negation not implemented yet.");
+        f.execute(input, output);
     }
 };
 
 
-#ifdef USE_AMD_FFT
 enum fft_direction {
    forward = CLFFT_FORWARD,
    inverse = CLFFT_BACKWARD
@@ -152,10 +153,7 @@ struct FFT {
     }
     
 
-    template <bool negate, bool append>
     void execute(const vector<T0> &input, vector<T1> &output) const {
-        static_assert(!append, "Appending not implemented yet.");
-        static_assert(!negate, "Negation not implemented yet.");
         cl_mem input_buf = input(0)();
         cl_mem output_buf = output(0)();
         fft_check_error(clAmdFftSetResultLocation(plan,
@@ -175,6 +173,30 @@ struct FFT {
 };
 #else // USE_AMD_FFT
 
+
+template <class F>
+struct fft_expr
+    : vector_expression< boost::proto::terminal< additive_vector_transform >::type >
+{
+    typedef typename F::input_t T0;
+    typedef typename F::T1s value_type;
+    value_type scale;
+
+    F &f;
+    const vector<T0> &input;
+
+    fft_expr(F &f, const vector<T0> &x) : scale(1), f(f), input(x) {}
+
+    template <bool negate, bool append>
+    void apply(vector<typename F::output_t> &output) const {
+        f.template execute<negate, append>(input, output, scale);
+    }
+};
+
+template <class F>
+struct is_scalable<fft_expr<F>> : std::true_type {};
+
+
 enum direction {
     forward, inverse
 };
@@ -184,6 +206,7 @@ struct FFT {
     typedef FFT<T0, T1> this_t;
     typedef T0 input_t;
     typedef T1 output_t;
+    typedef T1 value_type;
     typedef typename cl::scalar_of<T0>::type T0s;
     typedef typename cl::scalar_of<T1>::type T1s;
     static_assert(std::is_same<T0s, T1s>::value, "Input and output must have same precision.");
@@ -208,16 +231,14 @@ struct FFT {
 #endif
 
     template <bool negate, bool append>
-    void execute(vector<T0> &input, vector<T1> &output) {
-        assert(!append);
-        static_assert(!negate, "Not implemented");
-        plan(input, output);
+    void execute(const vector<T0> &input, vector<T1> &output, T1s scale) {
+        plan(input, output, append, negate ? -scale : scale);
     }
 
 
     // User call
-    fft_expr<this_t> operator()(vector<T0> &x) {
-        return {*this, x};
+    fft_expr<this_t> operator()(const vector<T0> &x) {
+        return fft_expr<this_t>(*this, x);
     }
 };
 

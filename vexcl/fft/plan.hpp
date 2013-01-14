@@ -81,6 +81,7 @@ struct plan {
     cl::Program program;
     const std::vector<size_t> sizes;
     const bool inverse;
+    T scale;
 
     std::map<size_t, cl::Kernel> radix_k;
     cl::Kernel transpose_k;
@@ -96,7 +97,7 @@ struct plan {
     //  2D case: {h, w} in row-major format: x + y * w. (like FFTw)
     //  etc.
     plan(const std::vector<cl::CommandQueue> &queues, const std::vector<size_t> sizes, bool inverse)
-        : queue(queues), sizes(sizes), inverse(inverse), current(1), other(0) {
+        : queue(queues), sizes(sizes), inverse(inverse), scale(1), current(1), other(0) {
         assert(sizes.size() >= 1);
         assert(queues.size() == 1);
         auto queue = queues[0];
@@ -112,6 +113,7 @@ struct plan {
         total_n = 1;
         for(size_t i = 0 ; i < sizes.size() ; i++)
             total_n *= sizes[i];
+        if(inverse) scale /= total_n;
         temp[0] = vector<T2>(queues, total_n);
         temp[1] = vector<T2>(queues, total_n);
     }
@@ -177,36 +179,27 @@ struct plan {
             execute_1d(w, h);
             transpose(w, h);
         }
-        if(inverse)
-            temp[current] *= (T)1 / total_n;
     }
 
-    // Execute the complete transformation. C2C
-    void operator()(vector<T2> &input, vector<T2> &output) {
-        temp[current] = input;
+    /// Execute the complete transformation.
+    /// Converts real-valued input and output, supports multiply-adding to output.
+    template <class In, class Out>
+    void operator()(const vector<In> &input, vector<Out> &output, bool append, T ex_scale) {
+        static_assert(std::is_same<In, T>::value || std::is_same<In, T2>::value, "Invalid input type.");
+        static_assert(std::is_same<Out, T>::value || std::is_same<Out, T2>::value, "Invalid output type.");
+        if(std::is_same<In, T>::value) { // real input
+            temp[current] = r2c(input);
+        } else { // complex input
+            temp[current] = input;
+        }
         execute();
-        output = temp[current];
-    }
-
-    // R2C
-    void operator()(vector<T> &input, vector<T2> &output) {
-        temp[current] = r2c(input);
-        execute();
-        output = temp[current];
-    }
-
-    // C2R
-    void operator()(vector<T2> &input, vector<T> &output) {
-        temp[current] = input;
-        execute();
-        output = c2r(temp[current]);
-    }
-
-    // R2R
-    void operator()(vector<T> &input, vector<T> &output) {
-        temp[current] = r2c(input);
-        execute();
-        output = c2r(temp[current]);
+        if(std::is_same<Out, T>::value) { // real output
+            if(append) output += c2r(temp[current]) * (ex_scale * scale);
+            else output = c2r(temp[current]) * (ex_scale * scale);
+        } else { // complex output
+            if(append) output += temp[current] * (ex_scale * scale);
+            else output = temp[current] * (ex_scale * scale);
+        }
     }
 };
 
