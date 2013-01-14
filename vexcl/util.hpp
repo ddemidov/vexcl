@@ -54,6 +54,7 @@ THE SOFTWARE.
 #endif
 #include <CL/cl.hpp>
 #include <vexcl/types.hpp>
+#include <limits>
 
 typedef unsigned int  uint;
 typedef unsigned char uchar;
@@ -95,6 +96,13 @@ CL_TYPES(long);  CL_TYPES(ulong);
 #undef CL_VEC_TYPE
 #undef STRINGIFY
 
+#ifdef _LIBCPP_VERSION
+template <> inline std::string type_name<size_t>() {
+    return std::numeric_limits<std::size_t>::max() ==
+        std::numeric_limits<uint>::max() ? "uint" : "ulong";
+}
+template <> struct is_cl_native<size_t> : std::true_type {};
+#endif
 
 const std::string standard_kernel_header = std::string(
         "#if defined(cl_khr_fp64)\n"

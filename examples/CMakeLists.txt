@@ -5,21 +5,24 @@ set(EXAMPLES
     utests
     )
 
+set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
+
 if (WIN32)
     # TODO: What to do with AMD platform?
-    find_library(OPENCL_LIBRARY OpenCL "$ENV{CUDA_LIB_PATH}")
-    find_path(OPENCL_INCLUDE CL/opencl.h "$ENV{CUDA_INC_PATH}")
-    include_directories(${OPENCL_INCLUDE})
+    set(OpenCL_INCPATH "$ENV{CUDA_INC_PATH}")
+    set(OpenCL_LIBPATH "$ENV{CUDA_LIB_PATH}")
 
     set(Boost_USE_STATIC_LIBS ON)
     find_package(Boost COMPONENTS system date_time thread chrono)
 else (WIN32)
-    find_library(OPENCL_LIBRARY OpenCL)
     find_package(Boost COMPONENTS system thread chrono)
 endif (WIN32)
 
+find_package(OpenCL REQUIRED)
+
 include_directories(
     ${CMAKE_SOURCE_DIR}
+    ${OPENCL_INCLUDE_DIRS}
     ${Boost_INCLUDE_DIRS}
     )
 
@@ -45,7 +48,7 @@ endif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
 
 foreach(example ${EXAMPLES})
     add_executable(${example} ${example}.cpp)
-    target_link_libraries(${example} ${OPENCL_LIBRARY} ${Boost_LIBRARIES})
+    target_link_libraries(${example} ${OPENCL_LIBRARIES} ${Boost_LIBRARIES})
 endforeach(example)
 
 option(VIENNACL_EXAMPLES "Compile ViennaCL examples" OFF)
