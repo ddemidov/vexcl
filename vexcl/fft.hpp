@@ -67,10 +67,18 @@ enum fft_direction {
    inverse = CLFFT_BACKWARD
 };
 
+void fft_check_error(clAmdFftStatus status) const {
+    if(status != CL_SUCCESS)
+        throw cl::Error(status, "AMD FFT");
+}
+
 // AMD FFT needs Setup/Teardown calls for the whole library.
 // Sequential Setup/Teardowns are OK, but overlapping is not.
-size_t fft_ref_count = 0;
-// TODO: breaks when two objects, both using FFT, are linked.
+struct amd_context_t {
+    amd_context_t() { fft_check_error(clAmdFftSetup(NULL)); }
+    ~amd_context_t() { fft_check_error(clAmdFftTeardown()); }
+};
+static std::unique_ptr<amd_fft_context> amd_context;
 
 
 /**
@@ -98,11 +106,6 @@ struct FFT {
     clAmdFftPlanHandle plan;
     fft_direction dir;
 
-    void check_error(clAmdFftStatus status) const {
-        if(status != CL_SUCCESS)
-            throw cl::Error(status, "AMD FFT");
-    }
-
     template <class Array>
     FFT(const std::vector<cl::CommandQueue> &queues,
         const Array &lengths, fft_direction dir = forward)
@@ -128,10 +131,11 @@ struct FFT {
     template <class Array>
     void init(const Array &lengths) {
         assert(lengths.size() >= 1 && lengths.size() <= 3);
-        size_t _lengths[lengths.size()];
+        assert(queues.size() == 1);
+        if(!amd_context) amd_context.reset(new amd_context_t());
+        size_t _lengths[3];
         std::copy(std::begin(lengths), std::end(lengths), _lengths);
-        // TODO: all queues must be in same context
-        cl::Context context = static_cast<cl::CommandQueue>(queues[0]).getInfo<CL_QUEUE_CONTEXT>();
+        cl::Context context = qctx(queues[0]);
         if(fft_ref_count++ == 0)
             check_error(clAmdFftSetup(NULL));
         check_error(clAmdFftCreateDefaultPlan(&plan, context(),
@@ -150,20 +154,16 @@ struct FFT {
 
     template <bool negate, bool append>
     void execute(const vector<T0> &input, vector<T1> &output) const {
-        assert(!append); // TODO: that should be static.
+        static_assert(!append, "Appending not implemented yet.");
         static_assert(!negate, "Negation not implemented yet.");
-        // Doesn't support split buffers.
-        assert(queues.size() == 1);
         cl_mem input_buf = input(0)();
         cl_mem output_buf = output(0)();
-        check_error(clAmdFftSetResultLocation(plan,
+        fft_check_error(clAmdFftSetResultLocation(plan,
             input_buf == output_buf ? CLFFT_INPLACE : CLFFT_OUTOFPLACE));
-        cl_command_queue _queues[queues.size()];
-        for(size_t i = 0 ; i < queues.size() ; i++)
-            _queues[i] = queues[i]();
-        check_error(clAmdFftEnqueueTransform(plan, static_cast<clAmdFftDirection>(dir),
-            queues.size(), _queues,
-            /* wait events */0, NULL, /* out events */NULL,
+        cl_command_queue queue = queues[0]();
+        fft_check_error(clAmdFftEnqueueTransform(plan,
+            static_cast<clAmdFftDirection>(dir),
+            1, &queue, /* wait events */0, NULL, /* out events */NULL,
             &input_buf, &output_buf, NULL));
     }
 
