@@ -90,7 +90,7 @@ struct plan {
         auto kernel = radix_k[radix];
         kernel.setArg(0, temp[current](0));
         kernel.setArg(1, temp[other](0));
-        kernel.setArg<cl_uint>(2, p);
+        kernel.template setArg<cl_uint>(2, p);
 
         size_t wg = pow2_floor(std::min(m,
             (size_t)kernel_workgroup_size(kernel, qdev(queue[0]))));

@@ -54,19 +54,17 @@ cl_##base_type##len operator op(const cl_##base_type##len &a, const cl_##base_ty
 }
 
 #define CL_VEC_TYPE(base_type, len) \
-namespace std { \
-    BIN_OP(base_type, len, +) \
-    BIN_OP(base_type, len, -) \
-    BIN_OP(base_type, len, *) \
-    BIN_OP(base_type, len, /) \
-    ostream &operator<<(ostream &os, const cl_##base_type##len &value) { \
-        os << "(" #base_type #len ")("; \
-        for(size_t i = 0 ; i < len ; i++) { \
-            if(i != 0) os << ','; \
-            os << value.s[i]; \
-        } \
-        return os << ')'; \
+BIN_OP(base_type, len, +) \
+BIN_OP(base_type, len, -) \
+BIN_OP(base_type, len, *) \
+BIN_OP(base_type, len, /) \
+std::ostream &operator<<(std::ostream &os, const cl_##base_type##len &value) { \
+    os << "(" #base_type #len ")("; \
+    for(std::size_t i = 0 ; i < len ; i++) { \
+        if(i != 0) os << ','; \
+        os << value.s[i]; \
     } \
+    return os << ')'; \
 } \
 namespace cl { \
     typedef cl_##base_type##len base_type##len; \
