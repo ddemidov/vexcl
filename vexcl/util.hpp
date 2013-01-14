@@ -47,7 +47,9 @@ THE SOFTWARE.
 #include <functional>
 #include <climits>
 #include <stdexcept>
+#include <limits>
 #include <boost/config.hpp>
+#include <boost/type_traits/is_same.hpp>
 
 #ifndef __CL_ENABLE_EXCEPTIONS
 #  define __CL_ENABLE_EXCEPTIONS
@@ -61,7 +63,7 @@ typedef unsigned char uchar;
 namespace vex {
 
 /// Convert typename to string.
-template <class T> inline std::string type_name() {
+template <class T, class E = void> inline std::string type_name() {
     throw std::logic_error("Trying to use an undefined type in a kernel.");
 }
 
@@ -95,6 +97,13 @@ CL_TYPES(long);  CL_TYPES(ulong);
 #undef CL_VEC_TYPE
 #undef STRINGIFY
 
+template <> inline std::string type_name<size_t, typename
+    std::enable_if<!boost::is_same<size_t, cl_uint>::value
+    && !boost::is_same<size_t, cl_ulong>::value>::type>() {
+    return std::numeric_limits<std::size_t>::max() ==
+        std::numeric_limits<uint>::max() ? "uint" : "ulong";
+}
+template <> struct is_cl_native<size_t> : std::true_type {};
 
 const std::string standard_kernel_header = std::string(
         "#if defined(cl_khr_fp64)\n"
