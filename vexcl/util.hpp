@@ -96,6 +96,37 @@ CL_TYPES(long);  CL_TYPES(ulong);
 #undef STRINGIFY
 
 
+/// Type trait to determine if an expression is scalable.
+/// It must have a type `value_type` and a field `scale`
+/// of that type, this enables operator* and operator/.
+template <class T> struct is_scalable : std::false_type {};
+
+} // namespace vex
+
+// operators must be in gobal namespace.
+template <class T> typename std::enable_if<vex::is_scalable<T>::value, T>::type
+operator*(const T &expr, const typename T::value_type &factor) {
+    T scaled_expr(expr);
+    scaled_expr.scale *= factor;
+    return scaled_expr;
+}
+
+template <class T> typename std::enable_if<vex::is_scalable<T>::value, T>::type
+operator*(const typename T::value_type &factor, const T &expr) {
+    return expr * factor;
+}
+
+template <class T> typename std::enable_if<vex::is_scalable<T>::value, T>::type
+operator/(const T &expr, const typename T::value_type &factor) {
+    T scaled_expr(expr);
+    scaled_expr.scale /= factor;
+    return scaled_expr;
+}
+
+
+namespace vex {
+
+
 const std::string standard_kernel_header = std::string(
         "#if defined(cl_khr_fp64)\n"
         "#  pragma OPENCL EXTENSION cl_khr_fp64: enable\n"
