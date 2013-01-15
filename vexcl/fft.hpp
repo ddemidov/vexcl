@@ -179,7 +179,7 @@ struct fft_expr
     : vector_expression< boost::proto::terminal< additive_vector_transform >::type >
 {
     typedef typename F::input_t T0;
-    typedef typename F::T1s value_type;
+    typedef typename F::value_type value_type;
     value_type scale;
 
     F &f;
@@ -203,16 +203,11 @@ enum direction {
 
 template <typename T0, typename T1 = T0>
 struct FFT {
-    typedef FFT<T0, T1> this_t;
     typedef T0 input_t;
     typedef T1 output_t;
-    typedef T1 value_type;
-    typedef typename cl::scalar_of<T0>::type T0s;
-    typedef typename cl::scalar_of<T1>::type T1s;
-    static_assert(std::is_same<T0s, T1s>::value, "Input and output must have same precision.");
-    typedef T0s T;
+    typedef typename cl::scalar_of<T1>::type value_type;
 
-    fft::plan<T> plan;
+    fft::plan<T0, T1> plan;
 
     /// 1D constructor
     FFT(const std::vector<cl::CommandQueue> &queues,
@@ -231,14 +226,14 @@ struct FFT {
 #endif
 
     template <bool negate, bool append>
-    void execute(const vector<T0> &input, vector<T1> &output, T1s scale) {
+    void execute(const vector<T0> &input, vector<T1> &output, value_type scale) {
         plan(input, output, append, negate ? -scale : scale);
     }
 
 
     // User call
-    fft_expr<this_t> operator()(const vector<T0> &x) {
-        return fft_expr<this_t>(*this, x);
+    fft_expr<FFT<T0, T1>> operator()(const vector<T0> &x) {
+        return {*this, x};
     }
 };
 

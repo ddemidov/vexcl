@@ -70,8 +70,15 @@ struct helpers<cl_double> {
 
 
 
-template <class T>
+template <class T0, class T1>
 struct plan {
+    typedef typename cl::scalar_of<T0>::type T0s;
+    typedef typename cl::scalar_of<T1>::type T1s;
+    static_assert(boost::is_same<T0s, T1s>::value, "Input and output must have same precision.");
+    typedef T0s T;
+    static_assert(boost::is_same<T, cl_float>::value || boost::is_same<T, cl_double>::value,
+        "Only float and double data supported.");
+
     typedef typename cl::vector_of<T, 2>::type T2;
 
     typename helpers<T>::r2c r2c;
@@ -150,16 +157,13 @@ struct plan {
     
     /// Execute the complete transformation.
     /// Converts real-valued input and output, supports multiply-adding to output.
-    template <class In, class Out>
-    void operator()(const vector<In> &in, vector<Out> &out, bool append, T ex_scale) {
-        static_assert(std::is_same<In, T>::value || std::is_same<In, T2>::value, "Invalid input type.");
-        static_assert(std::is_same<Out, T>::value || std::is_same<Out, T2>::value, "Invalid output type.");
-        if(std::is_same<In, T>::value) temp[input] = r2c(in);
+    void operator()(const vector<T0> &in, vector<T1> &out, bool append, T ex_scale) {
+        if(std::is_same<T0, T>::value) temp[input] = r2c(in);
         else temp[input] = in;
         for(auto run : kernels)
             queues[0].enqueueNDRangeKernel(run.kernel, cl::NullRange,
                 run.global, run.local);
-        if(std::is_same<Out, T>::value) {
+        if(std::is_same<T1, T>::value) {
             if(append) out += c2r(temp[output]) * (ex_scale * scale);
             else out = c2r(temp[output]) * (ex_scale * scale);
         } else {
