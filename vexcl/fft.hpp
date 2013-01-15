@@ -31,6 +31,7 @@ THE SOFTWARE.
  * \brief  Fast Fourier Transformation.
  */
 
+#include <memory>
 #include <vexcl/vector.hpp>
 
 #ifdef USE_AMD_FFT
@@ -68,7 +69,7 @@ enum fft_direction {
    inverse = CLFFT_BACKWARD
 };
 
-void fft_check_error(clAmdFftStatus status) const {
+void fft_check_error(clAmdFftStatus status) {
     if(status != CL_SUCCESS)
         throw cl::Error(status, "AMD FFT");
 }
@@ -92,12 +93,13 @@ struct amd_context {
         struct ctx_t {
             ctx_t() { fft_check_error(clAmdFftSetup(NULL)); }
             ~ctx_t() { fft_check_error(clAmdFftTeardown()); }
-        }
+        };
+
         static std::unique_ptr<ctx_t> ctx;
 };
 
 template <bool dummy>
-amd_context<dummy>::std::unique_ptr<ctx_t> ctx;
+std::unique_ptr<typename amd_context<dummy>::ctx_t> amd_context<dummy>::ctx;
 
 /**
  * An FFT functor. Assumes the vector is in row major format and densely packed.
@@ -154,8 +156,6 @@ struct FFT {
         size_t _lengths[3];
         std::copy(std::begin(lengths), std::end(lengths), _lengths);
         cl::Context context = qctx(queues[0]);
-        if(fft_ref_count++ == 0)
-            check_error(clAmdFftSetup(NULL));
         check_error(clAmdFftCreateDefaultPlan(&plan, context(),
             static_cast<clAmdFftDim>(lengths.size()), _lengths));
         check_error(clAmdFftSetPlanPrecision(plan, CLFFT_SINGLE));
@@ -163,10 +163,7 @@ struct FFT {
     }
 
     ~FFT() {
-        if(plan)
-            check_error(clAmdFftDestroyPlan(&plan));
-        if(--fft_ref_count == 0)
-            check_error(clAmdFftTeardown());
+        if(plan) check_error(clAmdFftDestroyPlan(&plan));
     }
 
 
