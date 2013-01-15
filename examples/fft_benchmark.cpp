@@ -1,6 +1,9 @@
+#include <iostream>
+#include <iomanip>
+#include <random>
+
 #include <vexcl/vexcl.hpp>
 #include <vexcl/fft.hpp>
-#include <random>
 
 #ifdef USE_OPENMP
 #include <omp.h>
@@ -53,7 +56,7 @@ void test_cufft(cl_float2 *data, size_t n, size_t m) {
     for(size_t i = 0 ; i < runs ; i++)
         cufftExecC2C(plan, inData, outData, CUFFT_FORWARD);
     cudaDeviceSynchronize();
-    std::cout << '\t' << prof.toc("Run") << std::flush;
+    std::cout << '\t' << std::scientific << prof.toc("Run") << std::flush;
 
     cufftDestroy(plan);
     cudaFree(inData);
@@ -74,7 +77,7 @@ void test_fftw(cl_float2 *data, size_t n, size_t m) {
     prof.tic_cpu("Run");
     for(size_t i = 0 ; i < runs ; i++)
         fftwf_execute(p1);
-    std::cout << '\t' << prof.toc("Run") << std::flush;
+    std::cout << '\t' << std::scientific << prof.toc("Run") << std::flush;
 
     fftwf_destroy_plan(p1);
     fftwf_free(out);
@@ -94,7 +97,7 @@ void test(Context &ctx, cl_float2 *data, size_t n, size_t m) {
     for(size_t i = 0 ; i < runs ; i++)
         b = fft(a);
     ctx.queue()[0].finish();
-    std::cout << '\t' << prof.toc("Run") << std::flush;
+    std::cout << '\t' << std::scientific << prof.toc("Run") << std::flush;
 }
 
 int main() {
@@ -115,7 +118,7 @@ int main() {
         reinterpret_cast<float*>(data)[i] = dist(gen);
 
     // 1D
-    std::cout << "k\tt(fftw)\tt(clfft1)\tt(cufft1)" << std::endl;
+    std::cout << "k\tt(fftw)\t\tt(clfft1)\tt(cufft1)" << std::endl;
     for(size_t k = 1 ; k < k_max * 2 ; k++) {
         size_t n = 1 << k;
         std::cout << k;
