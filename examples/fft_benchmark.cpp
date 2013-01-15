@@ -115,7 +115,7 @@ int main() {
         reinterpret_cast<float*>(data)[i] = dist(gen);
 
     // 1D
-    std::cout << "k\tt(fftw)\tt(clfft1)\tt(cufft1)" << std::endl;
+    std::cout << "#k\tt(fftw1)\tt(clfft1)\tt(cufft1)" << std::endl;
     for(size_t k = 1 ; k < k_max * 2 ; k++) {
         size_t n = 1 << k;
         std::cout << k;
@@ -129,7 +129,7 @@ int main() {
     std::cout << "\n\n";
 
     // 2D
-    std::cout << "k\tt(fftw)\tt(clfft2)\t(cufft2)" << std::endl;
+    std::cout << "#k\tt(fftw2)\tt(clfft2)\t(cufft2)" << std::endl;
     for(size_t k = 1 ; k < k_max ; k++) {
         size_t n = 1 << k;
         std::cout << k;
