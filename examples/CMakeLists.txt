@@ -66,7 +66,7 @@ endif (MPI_EXAMPLES)
 option(FFT_EXAMPLES "Compile FFT examples" OFF)
 option(FFT_AMD "Use AMDFFT (env AMDFFTROOT)" OFF)
 if (FFT_EXAMPLES)
-    set(FFT_LIBS ${OPENCL_LIBRARY} ${Boost_LIBRARIES})
+    set(FFT_LIBS ${OPENCL_LIBRARIES} ${Boost_LIBRARIES})
 
     # Use AMD FFT instead of ours
     if (FFT_AMD)
