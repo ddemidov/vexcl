@@ -72,7 +72,7 @@ struct helpers<cl_double> {
 
 template <class T>
 struct plan {
-    typedef typename cl::vector_of<T, 2>::type T2;
+    typedef typename cl_vector_of<T, 2>::type T2;
 
     typename helpers<T>::r2c r2c;
     typename helpers<T>::c2r c2r;

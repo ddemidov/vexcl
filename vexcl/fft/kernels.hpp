@@ -76,7 +76,7 @@ void param_list(std::ostringstream &o, size_t from, size_t to) {
 
 template <class T>
 void kernel_radix(std::ostringstream &o, size_t radix, bool invert) {
-    typedef typename cl::vector_of<T,2>::type T2;
+    typedef typename cl_vector_of<T,2>::type T2;
     const size_t log2_radix = log2(radix);
 
     // inline DFT macro.

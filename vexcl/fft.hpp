@@ -207,8 +207,8 @@ struct FFT {
     typedef T0 input_t;
     typedef T1 output_t;
     typedef T1 value_type;
-    typedef typename cl::scalar_of<T0>::type T0s;
-    typedef typename cl::scalar_of<T1>::type T1s;
+    typedef typename cl_scalar_of<T0>::type T0s;
+    typedef typename cl_scalar_of<T1>::type T1s;
     static_assert(std::is_same<T0s, T1s>::value, "Input and output must have same precision.");
     typedef T0s T;
 
