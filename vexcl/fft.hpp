@@ -4,7 +4,7 @@
 /*
 The MIT License
 
-Copyright (c) 2012 Denis Demidov <ddemidov@ksu.ru>
+Copyright (c) 2012-2013 Denis Demidov <ddemidov@ksu.ru>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -26,7 +26,7 @@ THE SOFTWARE.
 */
 
 /**
- * \file   stencil.hpp
+ * \file   fft.hpp
  * \author Pascal Germroth <pascal@ensieve.org>
  * \brief  Fast Fourier Transformation.
  */
@@ -205,7 +205,7 @@ template <typename T0, typename T1 = T0>
 struct FFT {
     typedef T0 input_t;
     typedef T1 output_t;
-    typedef typename cl::scalar_of<T1>::type value_type;
+    typedef typename cl_scalar_of<T1>::type value_type;
 
     fft::plan<T0, T1> plan;
 

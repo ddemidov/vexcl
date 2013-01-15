@@ -31,18 +31,19 @@ THE SOFTWARE.
  * \brief  C++ sugar for OpenCL vector types, eg. cl::float4, operator+.
  */
 
-namespace cl {
+namespace vex {
+
     /// Get the corresponding scalar type for a CL vector (or scalar) type.
-    /// \code scalar_of<cl_float4>::type == cl_float \endcode
+    /** \code cl_scalar_of<cl_float4>::type == cl_float \endcode */
     template <class T>
-    struct scalar_of {};
+    struct cl_scalar_of {};
 
     /// Get the corresponding vector type for a CL scalar type.
-    /// \code vector_of<cl_float, 4>::type == cl_float4 \endcode
+    /** \code cl_vector_of<cl_float, 4>::type == cl_float4 \endcode */
     template <class T, int dim>
-    struct vector_of {};
-}
+    struct cl_vector_of {};
 
+} // namespace vex
 
 #define BIN_OP(base_type, len, op) \
 cl_##base_type##len &operator op##= (cl_##base_type##len &a, const cl_##base_type##len &b) { \
@@ -89,10 +90,9 @@ std::ostream &operator<<(std::ostream &os, const cl_##base_type##len &value) { \
     } \
     return os << ')'; \
 } \
-namespace cl { \
-    typedef cl_##base_type##len base_type##len; \
-    template <> struct scalar_of<cl_##base_type##len> { typedef cl_##base_type type; }; \
-    template <> struct vector_of<cl_##base_type, len> { typedef cl_##base_type##len type; }; \
+namespace vex { \
+    template <> struct cl_scalar_of<cl_##base_type##len> { typedef cl_##base_type type; }; \
+    template <> struct cl_vector_of<cl_##base_type, len> { typedef cl_##base_type##len type; }; \
 }
 
 #define CL_TYPES(base_type) \
@@ -100,8 +100,8 @@ CL_VEC_TYPE(base_type, 2); \
 CL_VEC_TYPE(base_type, 4); \
 CL_VEC_TYPE(base_type, 8); \
 CL_VEC_TYPE(base_type, 16); \
-namespace cl { \
-    template <> struct scalar_of<cl_##base_type> { typedef cl_##base_type type; }; \
+namespace vex { \
+    template <> struct cl_scalar_of<cl_##base_type> { typedef cl_##base_type type; }; \
 }
 
 CL_TYPES(float);

@@ -66,7 +66,9 @@ void test(Context &ctx, std::vector<size_t> ns) {
 }
 
 int main() {
-    Context ctx(Filter::Position(0), CL_QUEUE_PROFILING_ENABLE);
+    Context ctx(Filter::Env && Filter::Count(1), CL_QUEUE_PROFILING_ENABLE);
+    std::cout << ctx << std::endl;
+
     test(ctx, {16 * 16 * 2});
     test(ctx, {16 * 16 * 4});
     test(ctx, {16 * 16 * 8});

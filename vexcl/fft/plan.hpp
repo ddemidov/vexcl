@@ -4,7 +4,7 @@
 /*
 The MIT License
 
-Copyright (c) 2012 Denis Demidov <ddemidov@ksu.ru>
+Copyright (c) 2012-2013 Denis Demidov <ddemidov@ksu.ru>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -26,7 +26,7 @@ THE SOFTWARE.
 */
 
 /**
- * \file   plan.hpp
+ * \file   fft/plan.hpp
  * \author Pascal Germroth <pascal@ensieve.org>
  * \brief  FFT plan, stores kernels and buffers for one configuration.
  */
@@ -64,14 +64,14 @@ struct helpers<cl_double> {
 
 template <class T0, class T1>
 struct plan {
-    typedef typename cl::scalar_of<T0>::type T0s;
-    typedef typename cl::scalar_of<T1>::type T1s;
+    typedef typename cl_scalar_of<T0>::type T0s;
+    typedef typename cl_scalar_of<T1>::type T1s;
     static_assert(boost::is_same<T0s, T1s>::value, "Input and output must have same precision.");
     typedef T0s T;
     static_assert(boost::is_same<T, cl_float>::value || boost::is_same<T, cl_double>::value,
         "Only float and double data supported.");
 
-    typedef typename cl::vector_of<T, 2>::type T2;
+    typedef typename cl_vector_of<T, 2>::type T2;
 
     typename helpers<T>::r2c r2c;
     typename helpers<T>::c2r c2r;

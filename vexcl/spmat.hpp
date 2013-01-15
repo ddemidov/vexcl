@@ -79,10 +79,12 @@ template <class M, class V>
 struct spmv
     : vector_expression< boost::proto::terminal< additive_vector_transform >::type >
 {
+    typedef typename M::value_type value_type;
+
     const M &A;
     const V &x;
 
-    typename M::value_type scale;
+    value_type scale;
 
     spmv(const M &m, const V &v) : A(m), x(v), scale(1) {}
 
@@ -104,10 +106,7 @@ operator*(const M &A, const V &x) {
 }
 
 template <class M, class V>
-spmv<M, V> operator*(typename M::value_type c, spmv<M, V> mv) {
-    mv.scale *= c;
-    return mv;
-}
+struct is_scalable< spmv<M, V> > : std::true_type {};
 
 #ifdef VEXCL_MULTIVECTOR_HPP
 
@@ -117,9 +116,12 @@ struct multispmv
         boost::proto::terminal< additive_multivector_transform >::type
         >
 {
+    typedef typename M::value_type value_type;
+
     const M &A;
     const V &x;
-    typename M::value_type scale;
+
+    value_type scale;
 
     multispmv(const M &m, const V &v) : A(m), x(v), scale(1) {}
 
@@ -127,7 +129,7 @@ struct multispmv
     typename std::enable_if<
         std::is_base_of<multivector_terminal_expression, W>::value
 #ifndef WIN32
-        && std::is_same<typename M::value_type, typename W::value_type::value_type>::value
+        && std::is_same<value_type, typename W::value_type::value_type>::value
 #endif
         && number_of_components<V>::value == number_of_components<W>::value,
         void
@@ -150,10 +152,8 @@ operator*(const M &A, const V &x) {
 }
 
 template <class M, class V>
-multispmv<M, V> operator*(typename M::value_type c, multispmv<M, V> mv) {
-    mv.scale *= c;
-    return mv;
-}
+struct is_scalable< multispmv<M, V> > : std::true_type {};
+
 #endif
 
 /// \endcond

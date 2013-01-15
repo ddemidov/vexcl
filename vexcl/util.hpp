@@ -47,7 +47,9 @@ THE SOFTWARE.
 #include <functional>
 #include <climits>
 #include <stdexcept>
+#include <limits>
 #include <boost/config.hpp>
+#include <boost/type_traits/is_same.hpp>
 
 #ifndef __CL_ENABLE_EXCEPTIONS
 #  define __CL_ENABLE_EXCEPTIONS
@@ -95,33 +97,18 @@ CL_TYPES(long);  CL_TYPES(ulong);
 #undef CL_VEC_TYPE
 #undef STRINGIFY
 
-
-/// Type trait to determine if an expression is scalable.
-/// It must have a type `value_type` and a field `scale`
-/// of that type, this enables operator* and operator/.
-template <class T> struct is_scalable : std::false_type {};
-
-template <class T> typename std::enable_if<vex::is_scalable<T>::value, T>::type
-operator*(const T &expr, const typename T::value_type &factor) {
-    T scaled_expr(expr);
-    scaled_expr.scale *= factor;
-    return scaled_expr;
+#if defined(__clang__) && defined(__APPLE__)
+template <> inline std::string type_name<size_t>() {
+    return std::numeric_limits<std::size_t>::max() ==
+        std::numeric_limits<uint>::max() ? "uint" : "ulong";
 }
-
-template <class T> typename std::enable_if<vex::is_scalable<T>::value, T>::type
-operator*(const typename T::value_type &factor, const T &expr) {
-    return expr * factor;
+template <> struct is_cl_native<size_t> : std::true_type {};
+template <> inline std::string type_name<ptrdiff_t>() {
+    return std::numeric_limits<std::ptrdiff_t>::max() ==
+        std::numeric_limits<int>::max() ? "int" : "long";
 }
-
-template <class T> typename std::enable_if<vex::is_scalable<T>::value, T>::type
-operator/(const T &expr, const typename T::value_type &factor) {
-    T scaled_expr(expr);
-    scaled_expr.scale /= factor;
-    return scaled_expr;
-}
-
-
-
+template <> struct is_cl_native<ptrdiff_t> : std::true_type {};
+#endif
 
 const std::string standard_kernel_header = std::string(
         "#if defined(cl_khr_fp64)\n"

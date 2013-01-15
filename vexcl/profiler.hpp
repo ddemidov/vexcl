@@ -256,7 +256,6 @@ class profiler {
         /// Returns time since last tic.
         /**
          * Also removes interval from the top of the profiler hierarchy.
-         * \param name name of the measured interval.
          */
         double toc(const std::string &) {
             assert(!stack.empty());

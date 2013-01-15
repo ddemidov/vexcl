@@ -339,8 +339,8 @@ class multivector : public multivector_terminal_expression {
             const std::vector<cl::CommandQueue> &queue = vec[0]->queue_list();
 
             for(auto q = queue.begin(); q != queue.end(); q++) {
-                cl::Context context = q->getInfo<CL_QUEUE_CONTEXT>();
-                cl::Device  device  = q->getInfo<CL_QUEUE_DEVICE>();
+                cl::Context context = qctx(*q);
+                cl::Device  device  = qdev(*q);
 
                 if (!exdata<Expr>::compiled[context()]) {
 

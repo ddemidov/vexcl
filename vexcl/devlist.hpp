@@ -455,6 +455,8 @@ std::vector<cl::Device> device_list(DevFilter filter = Filter::All)
 /**
  * \param filter  Device filter functor. Functors may be combined with logical
  *                operators.
+ * \param properties Command queue properties.
+ *
  * \returns list of queues accociated with selected devices.
  * \see device_list
  */

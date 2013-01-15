@@ -51,19 +51,24 @@ template <class S, class V>
 struct conv
     : vector_expression< boost::proto::terminal< additive_vector_transform >::type >
 {
+    typedef typename S::value_type value_type;
+
     const S &s;
     const V &x;
 
-    typename S::value_type scale;
+    value_type scale;
 
     conv(const S &s, const V &x) : s(s), x(x), scale(1) {}
 
     template<bool negate, bool append>
-    void apply(vector<typename V::value_type> &y) const
+    void apply(vector<value_type> &y) const
     {
         s.convolve(x, y, append ? 1 : 0, negate ? -scale : scale);
     }
 };
+
+template <typename S, class V>
+struct is_scalable< conv<S, V> > : std::true_type {};
 
 #ifdef VEXCL_MULTIVECTOR_HPP
 
@@ -73,23 +78,25 @@ struct multiconv
         boost::proto::terminal< additive_multivector_transform >::type
       >
 {
+    typedef typename S::value_type value_type;
+
     const S &s;
     const V &x;
 
-    typename S::value_type scale;
+    value_type scale;
 
     multiconv(const S &s, const V &x) : s(s), x(x), scale(1) {}
 
     template <bool negate, bool append, bool own>
-    void apply(multivector<
-                typename V::subtype::value_type,
-                number_of_components<V>::value,
-                own> &y) const
+    void apply(multivector<value_type, number_of_components<V>::value, own> &y) const
     {
         for(size_t i = 0; i < number_of_components<V>::value; i++)
             s.convolve(x(i), y(i), append ? 1 : 0, negate ? -scale : scale);
     }
 };
+
+template <typename S, class V>
+struct is_scalable< multiconv<S, V> > : std::true_type {};
 
 #endif
 
@@ -131,8 +138,8 @@ stencil_base<T>::stencil_base(
     assert(center < width);
 
     for(uint d = 0; d < queue.size(); d++) {
-        cl::Context context = queue[d].getInfo<CL_QUEUE_CONTEXT>();
-        cl::Device  device  = queue[d].getInfo<CL_QUEUE_DEVICE>();
+        cl::Context context = qctx(queue[d]);
+        cl::Device  device  = qdev(queue[d]);
 
         if (begin != end) {
             s[d] = cl::Buffer(context, CL_MEM_READ_ONLY, (end - begin) * sizeof(T));
@@ -296,6 +303,8 @@ class stencil : private stencil_base<T> {
          * y = alpha * y + beta * conv(x);
          * \param x input vector.
          * \param y output vector.
+         * \param alpha Scaling coefficient in front of y.
+         * \param beta  Scaling coefficient in front of convolution.
          */
         void convolve(const vex::vector<T> &x, vex::vector<T> &y,
                 T alpha = 0, T beta = 1) const;
@@ -338,8 +347,8 @@ std::map<cl_context, cl::Kernel> stencil<T>::fast_conv;
 template <typename T>
 void stencil<T>::init(uint width) {
     for (uint d = 0; d < queue.size(); d++) {
-        cl::Context context = static_cast<cl::CommandQueue>(queue[d]).getInfo<CL_QUEUE_CONTEXT>();
-        cl::Device  device  = static_cast<cl::CommandQueue>(queue[d]).getInfo<CL_QUEUE_DEVICE>();
+        cl::Context context = qctx(queue[d]);
+        cl::Device  device  = qdev(queue[d]);
 
         bool device_is_cpu = device.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU;
 
@@ -485,8 +494,8 @@ void stencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y,
 
     for(uint d = 0; d < queue.size(); d++) {
         if (size_t psize = x.part_size(d)) {
-            cl::Context context = static_cast<cl::CommandQueue>(queue[d]).getInfo<CL_QUEUE_CONTEXT>();
-            cl::Device  device  = static_cast<cl::CommandQueue>(queue[d]).getInfo<CL_QUEUE_DEVICE>();
+            cl::Context context = qctx(queue[d]);
+            cl::Device  device  = qdev(queue[d]);
 
             bool device_is_cpu = device.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU;
 
@@ -529,12 +538,6 @@ operator*(const vector<T> &x, const stencil<T> &s) {
     return conv< stencil<T>, vector<T> >(s, x);
 }
 
-template <typename S, class V>
-conv<S, V> operator*(typename S::value_type c, conv<S, V> cnv) {
-    cnv.scale *= c;
-    return cnv;
-}
-
 #ifdef VEXCL_MULTIVECTOR_HPP
 
 template <typename T, size_t N, bool own>
@@ -547,12 +550,6 @@ template <typename T, size_t N, bool own>
 multiconv< stencil<T>, multivector<T, N, own> >
 operator*( const multivector<T, N, own> &x, const stencil<T> &s ) {
     return multiconv< stencil<T>, multivector<T, N, own> >(s, x);
-}
-
-template <typename S, class V>
-multiconv<S, V> operator*(typename S::value_type c, multiconv<S, V> cnv) {
-    cnv.scale *= c;
-    return cnv;
 }
 
 #endif
@@ -628,8 +625,8 @@ StencilOperator<T, width, center, body>::StencilOperator(
     : Base(queue, width, center, static_cast<T*>(0), static_cast<T*>(0))
 {
     for (uint d = 0; d < queue.size(); d++) {
-        cl::Context context = static_cast<cl::CommandQueue>(queue[d]).getInfo<CL_QUEUE_CONTEXT>();
-        cl::Device  device  = static_cast<cl::CommandQueue>(queue[d]).getInfo<CL_QUEUE_DEVICE>();
+        cl::Context context = qctx(queue[d]);
+        cl::Device  device  = qdev(queue[d]);
 
         if (!compiled[context()]) {
             bool device_is_cpu = device.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU;
@@ -730,8 +727,7 @@ StencilOperator<T, width, center, body>::StencilOperator(
             while(available_lmem < width + wgsize[context()])
                 wgsize[context()] /= 2;
 
-            lmem[context()] = device_is_cpu ? cl::__local(width)
-                : cl::__local(sizeof(T) * (wgsize[context()] + width - 1));
+            lmem[context()] = cl::__local(sizeof(T) * (wgsize[context()] + width - 1));
         }
 
     }
@@ -745,8 +741,8 @@ void StencilOperator<T, width, center, body>::convolve(
 
     for(uint d = 0; d < queue.size(); d++) {
         if (size_t psize = x.part_size(d)) {
-            cl::Context context = static_cast<cl::CommandQueue>(queue[d]).getInfo<CL_QUEUE_CONTEXT>();
-            cl::Device  device  = static_cast<cl::CommandQueue>(queue[d]).getInfo<CL_QUEUE_DEVICE>();
+            cl::Context context = qctx(queue[d]);
+            cl::Device  device  = qdev(queue[d]);
 
             bool device_is_cpu = device.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU;
 

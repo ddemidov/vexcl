@@ -7,7 +7,11 @@ if (MPI_CXX_FOUND)
         COMPILE_FLAGS "${MPI_CXX_COMPILE_FLAGS}"
         LINK_FLAGS "${MPI_CXX_LINK_FLAGS}"
         )
-    target_link_libraries(mpitests ${Boost_LIBRARIES} ${MPI_CXX_LIBRARIES} ${OPENCL_LIBRARY})
+    target_link_libraries(mpitests
+        ${Boost_LIBRARIES}
+        ${MPI_CXX_LIBRARIES}
+        ${OPENCL_LIBRARIES}
+        )
 
     if (ODEINT)
         add_executable(lorenz_ensemble lorenz_ensemble.cpp)
@@ -16,7 +20,11 @@ if (MPI_CXX_FOUND)
             LINK_FLAGS "${MPI_CXX_LINK_FLAGS}"
             INCLUDE_DIRECTORIES "${ODEINT};${CMAKE_SOURCE_DIR}"
             )
-        target_link_libraries(lorenz_ensemble ${Boost_LIBRARIES} ${MPI_CXX_LIBRARIES} ${OPENCL_LIBRARY})
+        target_link_libraries(lorenz_ensemble
+            ${Boost_LIBRARIES}
+            ${MPI_CXX_LIBRARIES}
+            ${OPENCL_LIBRARIES}
+            )
 
         add_executable(disordered_lattice disordered_lattice.cpp)
         set_target_properties(disordered_lattice PROPERTIES
@@ -24,6 +32,10 @@ if (MPI_CXX_FOUND)
             LINK_FLAGS "${MPI_CXX_LINK_FLAGS}"
             INCLUDE_DIRECTORIES "${ODEINT};${CMAKE_SOURCE_DIR}"
             )
-        target_link_libraries(disordered_lattice ${Boost_LIBRARIES} ${MPI_CXX_LIBRARIES} ${OPENCL_LIBRARY})
+        target_link_libraries(disordered_lattice
+            ${Boost_LIBRARIES}
+            ${MPI_CXX_LIBRARIES}
+            ${OPENCL_LIBRARIES}
+            )
     endif(ODEINT)
 endif (MPI_CXX_FOUND)

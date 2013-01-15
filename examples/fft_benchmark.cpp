@@ -1,6 +1,9 @@
+#include <iostream>
+#include <iomanip>
+#include <random>
+
 #include <vexcl/vexcl.hpp>
 #include <vexcl/fft.hpp>
-#include <random>
 
 using namespace vex;
 
@@ -108,7 +111,7 @@ void info(double time, size_t size, size_t dim) {
         : 2.0 * size * size * std::log(size); // O(n log n)[1D fft] * n[rows] * 2[transposed]
     std::cout << '\t';
     if(time < 0) std::cout << '-';
-    else std::cout << (ops / time);
+    else std::cout << std::scientific << (ops / time);
     std::cout << std::flush;
 }
 
@@ -117,7 +120,8 @@ int main() {
     fftwf_init_threads();
     fftwf_plan_with_nthreads(omp_get_max_threads());
 #endif
-    Context ctx(Filter::Count(1), CL_QUEUE_PROFILING_ENABLE);
+    Context ctx(Filter::Env && Filter::Count(1), CL_QUEUE_PROFILING_ENABLE);
+    std::cout << ctx << std::endl;
 
     // random data
     const size_t k_max = 10, n_max = 1 << k_max;

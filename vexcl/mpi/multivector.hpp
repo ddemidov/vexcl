@@ -77,7 +77,7 @@ class multivector : public mpi_multivector_terminal_expression {
          * components of the multivector.
          * \param comm  MPI communicator.
          * \param queue queue list to be shared between all components.
-         * \param size  Local size of each component.
+         * \param n     Local size of each component.
          * \param host  Host vector that holds local data to be copied to
          *              the components. Size of host vector should be divisible
          *              by N. Components of the created multivector will have
@@ -184,11 +184,8 @@ class multivector : public mpi_multivector_terminal_expression {
             const multivector&
         >::type
         operator=(const Expr &expr) {
-            additive_vector_transform_context< multivector > ctx(*this);
-
-            boost::proto::eval(
-                    simplify_additive_transform()( expr ),
-                    ctx
+            apply_additive_transform</*append=*/false>(
+                    *this, simplify_additive_transform()( expr )
                     );
 
             return *this;
@@ -209,14 +206,12 @@ class multivector : public mpi_multivector_terminal_expression {
         operator=(const Expr &expr) {
             *this = mpi_extract_multivector_expressions()( expr );
 
-            additive_vector_transform_context< multivector > ctx(*this, true);
-
-            boost::proto::eval(
-                    simplify_additive_transform()(
-                        mpi_extract_additive_multivector_transforms()( expr )
-                        ),
-                    ctx
+            apply_additive_transform</*append=*/true>(
+                    *this, simplify_additive_transform()(
+                            mpi_extract_additive_vector_transforms()( expr )
+                        )
                     );
+
             return *this;
         }
 
