@@ -76,10 +76,36 @@ element_index(size_t offset = 0) {
 
 /// \cond INTERNAL
 
+/// Type trait to determine if an expression is scalable.
+/**
+ * It must have a type `value_type` and a field `scale` of that type, this
+ * enables operator* and operator/.
+ */
+template <class T> struct is_scalable : std::false_type {};
+
+template <class T>
+typename std::enable_if<vex::is_scalable<T>::value, T>::type
+operator*(const T &expr, const typename T::value_type &factor) {
+    T scaled_expr(expr);
+    scaled_expr.scale *= factor;
+    return scaled_expr;
+}
+
+template <class T>
+typename std::enable_if<vex::is_scalable<T>::value, T>::type
+operator*(const typename T::value_type &factor, const T &expr) {
+    return expr * factor;
+}
+
+template <class T> typename std::enable_if<vex::is_scalable<T>::value, T>::type
+operator/(const T &expr, const typename T::value_type &factor) {
+    T scaled_expr(expr);
+    scaled_expr.scale /= factor;
+    return scaled_expr;
+}
+
 struct builtin_function {};
 struct user_function {};
-
-// TODO compare compilation speed with boost::proto::switch_
 
 //--- Standard grammar (no terminals) ---------------------------------------
 #define BUILTIN_OPERATIONS(grammar) \
