@@ -131,8 +131,8 @@ stencil_base<T>::stencil_base(
     assert(center < width);
 
     for(uint d = 0; d < queue.size(); d++) {
-        cl::Context context = queue[d].getInfo<CL_QUEUE_CONTEXT>();
-        cl::Device  device  = queue[d].getInfo<CL_QUEUE_DEVICE>();
+        cl::Context context = qctx(queue[d]);
+        cl::Device  device  = qdev(queue[d]);
 
         if (begin != end) {
             s[d] = cl::Buffer(context, CL_MEM_READ_ONLY, (end - begin) * sizeof(T));
@@ -338,8 +338,8 @@ std::map<cl_context, cl::Kernel> stencil<T>::fast_conv;
 template <typename T>
 void stencil<T>::init(uint width) {
     for (uint d = 0; d < queue.size(); d++) {
-        cl::Context context = static_cast<cl::CommandQueue>(queue[d]).getInfo<CL_QUEUE_CONTEXT>();
-        cl::Device  device  = static_cast<cl::CommandQueue>(queue[d]).getInfo<CL_QUEUE_DEVICE>();
+        cl::Context context = qctx(queue[d]);
+        cl::Device  device  = qdev(queue[d]);
 
         bool device_is_cpu = device.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU;
 
@@ -485,8 +485,8 @@ void stencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y,
 
     for(uint d = 0; d < queue.size(); d++) {
         if (size_t psize = x.part_size(d)) {
-            cl::Context context = static_cast<cl::CommandQueue>(queue[d]).getInfo<CL_QUEUE_CONTEXT>();
-            cl::Device  device  = static_cast<cl::CommandQueue>(queue[d]).getInfo<CL_QUEUE_DEVICE>();
+            cl::Context context = qctx(queue[d]);
+            cl::Device  device  = qdev(queue[d]);
 
             bool device_is_cpu = device.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU;
 
@@ -628,8 +628,8 @@ StencilOperator<T, width, center, body>::StencilOperator(
     : Base(queue, width, center, static_cast<T*>(0), static_cast<T*>(0))
 {
     for (uint d = 0; d < queue.size(); d++) {
-        cl::Context context = static_cast<cl::CommandQueue>(queue[d]).getInfo<CL_QUEUE_CONTEXT>();
-        cl::Device  device  = static_cast<cl::CommandQueue>(queue[d]).getInfo<CL_QUEUE_DEVICE>();
+        cl::Context context = qctx(queue[d]);
+        cl::Device  device  = qdev(queue[d]);
 
         if (!compiled[context()]) {
             bool device_is_cpu = device.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU;
@@ -744,8 +744,8 @@ void StencilOperator<T, width, center, body>::convolve(
 
     for(uint d = 0; d < queue.size(); d++) {
         if (size_t psize = x.part_size(d)) {
-            cl::Context context = static_cast<cl::CommandQueue>(queue[d]).getInfo<CL_QUEUE_CONTEXT>();
-            cl::Device  device  = static_cast<cl::CommandQueue>(queue[d]).getInfo<CL_QUEUE_DEVICE>();
+            cl::Context context = qctx(queue[d]);
+            cl::Device  device  = qdev(queue[d]);
 
             bool device_is_cpu = device.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU;
 
