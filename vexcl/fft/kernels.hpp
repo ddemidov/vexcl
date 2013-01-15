@@ -37,6 +37,21 @@ THE SOFTWARE.
 namespace vex {
 namespace fft {
 
+struct kernel_call {
+    cl::Kernel kernel;
+    cl::NDRange global, local;
+    kernel_call(cl::Kernel k, cl::NDRange g, cl::NDRange l) : kernel(k), global(g), local(l) {}
+};
+
+
+/// Return the greatest k = 2^m <= n
+static int pow2_floor(int n) {
+    if(n == 0) return 0;
+    for(size_t m = 0 ; ; m++)
+        if((1 << (m + 1)) > n)
+            return 1 << m;
+}
+
 // return the `s` most significant bits from an integer in reverse.
 // <http://graphics.stanford.edu/~seander/bithacks.html#BitReverseObvious>
 template <class T>
@@ -156,7 +171,7 @@ void kernel_common(std::ostringstream &o) {
 
 
 template <class T>
-cl::Kernel radix_kernel(cl::Context &ctx, bool invert, size_t radix, size_t p, cl::Buffer in, cl::Buffer out) {
+kernel_call radix_kernel(cl::CommandQueue &queue, size_t n, size_t batch, bool invert, size_t radix, size_t p, cl::Buffer in, cl::Buffer out) {
     std::ostringstream o;
     kernel_common<T>(o);
 
@@ -181,17 +196,29 @@ cl::Kernel radix_kernel(cl::Context &ctx, bool invert, size_t radix, size_t p, c
     // kernels.
     kernel_radix<T>(o, invert, radix, p);
 
-    auto program = build_sources(ctx, o.str());
+    auto program = build_sources(qctx(queue), o.str());
     cl::Kernel kernel(program, "radix");
     kernel.setArg(0, in);
     kernel.setArg(1, out);
-    return kernel;
+
+    const size_t m = n / radix;
+    size_t wg = pow2_floor(std::min(m,
+        (size_t)kernel_workgroup_size(kernel, qdev(queue))));
+
+    return kernel_call(kernel, cl::NDRange(m, batch), cl::NDRange(wg, 1));
 }
 
+
 template <class T>
-cl::Kernel transpose_kernel(cl::Context &ctx, size_t width, size_t height, size_t block_size, cl::Buffer in, cl::Buffer out) {
+kernel_call transpose_kernel(cl::CommandQueue &queue, size_t width, size_t height, cl::Buffer in, cl::Buffer out) {
     std::ostringstream o;
     kernel_common<T>(o);
+
+    // determine max block size to fit into __local memory.
+    size_t block_size = 128;
+    const auto local_size = qdev(queue).getInfo<CL_DEVICE_LOCAL_MEM_SIZE>();
+    while(block_size * block_size * sizeof(T) * 2 > local_size) block_size /= 2;
+    block_size /= 2;
 
     // from NVIDIA SDK.
     o << "__kernel void transpose("
@@ -204,7 +231,7 @@ cl::Kernel transpose_kernel(cl::Context &ctx, size_t width, size_t height, size_
         "target_x = local_y + group_y * block_size,"
         "target_y = local_x + group_x * block_size;"
         // local memory
-        "__local real2_t block[sizeof(real2_t) * " << (block_size * (block_size + 1)) << "];"
+        "__local real2_t block[" << (block_size * block_size) << "];"
         // copy from input to local memory
         "block[local_x + local_y * block_size] = input[global_x + global_y * width];"
         // wait until the whole block is filled
@@ -213,11 +240,13 @@ cl::Kernel transpose_kernel(cl::Context &ctx, size_t width, size_t height, size_
         "output[target_x + target_y * height] = block[local_x + local_y * block_size];"
         "}";
 
-    auto program = build_sources(ctx, o.str());
+    auto program = build_sources(qctx(queue), o.str());
     cl::Kernel kernel(program, "transpose");
     kernel.setArg(0, in);
     kernel.setArg(1, out);
-    return kernel;
+
+    return kernel_call(kernel, cl::NDRange(width, height),
+        cl::NDRange(std::min(width, block_size), std::min(height, block_size)));
 }
 
 

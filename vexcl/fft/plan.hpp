@@ -40,14 +40,6 @@ namespace vex {
 namespace fft {
 
 
-/// Return the greatest k = 2^m <= n
-static int pow2_floor(int n) {
-    if(n == 0) return 0;
-    for(size_t m = 0 ; ; m++)
-        if((1 << (m + 1)) > n)
-            return 1 << m;
-}
-
 extern const char r2c_f_oper[] = "return (float2)(prm1, 0);";
 extern const char r2c_d_oper[] = "return (double2)(prm1, 0);";
 extern const char c2r_oper[] = "return prm1.x;";
@@ -87,11 +79,6 @@ struct plan {
     const std::vector<cl::CommandQueue> &queues;
     T scale;
 
-    struct kernel_call {
-        cl::Kernel kernel;
-        cl::NDRange global, local;
-        kernel_call(cl::Kernel k, cl::NDRange g, cl::NDRange l) : kernel(k), global(g), local(l) {}
-    };
     std::vector<kernel_call> kernels;
 
     vector<T2> temp[2];
@@ -127,10 +114,8 @@ struct plan {
                 size_t p = 1;
                 while(p < w) {
                     size_t radix = get_radix(p, w);
-                    size_t m = w / radix;
-                    auto kernel = radix_kernel<T>(context, inverse, radix, p, temp[current](0), temp[other](0));
-                    size_t wg = pow2_floor(std::min(m, (size_t)kernel_workgroup_size(kernel, device)));
-                    kernels.emplace_back(kernel, cl::NDRange(m, h), cl::NDRange(wg, 1));
+                    kernels.push_back(radix_kernel<T>(queue, w, h,
+                        inverse, radix, p, temp[current](0), temp[other](0)));
                     std::swap(current, other);
                     p *= radix;
                 }
@@ -138,10 +123,8 @@ struct plan {
 
             // transpose.
             if(w > 1 && h > 1) {
-                const size_t block_dim = 16;
-                auto kernel = transpose_kernel<T>(context, w, h, block_dim, temp[current](0), temp[other](0));
-                kernels.emplace_back(kernel, cl::NDRange(w, h),
-                    cl::NDRange(std::min(w, block_dim), std::min(h, block_dim)));
+                kernels.push_back(transpose_kernel<T>(queue, w, h,
+                    temp[current](0), temp[other](0)));
                 std::swap(current, other);
             }
         }
