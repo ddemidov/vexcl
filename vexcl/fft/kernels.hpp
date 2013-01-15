@@ -75,10 +75,7 @@ void param_list(std::ostringstream &o, size_t from, size_t to) {
 }
 
 template <class T>
-void kernel_radix(std::ostringstream &o, size_t radix, bool invert) {
-    typedef typename cl::vector_of<T,2>::type T2;
-    const size_t log2_radix = log2(radix);
-
+void in_place_dft(std::ostringstream &o, bool invert, size_t radix) {
     // inline DFT macro.
     if(radix == 2) {
         o << R"(#define DFT2(v0,v1) { \
@@ -102,7 +99,8 @@ void kernel_radix(std::ostringstream &o, size_t radix, bool invert) {
                     o << 'v' << j << "=twiddle_1_2(v" << j << ");";
                 } else {
                     T factor = (invert ? 1 : -1) * (T)M_PI * i / half_radix;
-                    T2 twiddle = {{std::cos(factor), std::sin(factor)}};            
+                    typename cl::vector_of<T,2>::type twiddle =
+                        {{std::cos(factor), std::sin(factor)}};
                     o << 'v' << j << "=mul(v" << j << ',' << std::setprecision(25) << twiddle << ");";
                 }
             }
@@ -112,16 +110,22 @@ void kernel_radix(std::ostringstream &o, size_t radix, bool invert) {
         o << "DFT" << half_radix ; param_list(o, half_radix, radix); o << ';';
         o << "}\n";
     }
+}
+
+template <class T>
+void kernel_radix(std::ostringstream &o, bool invert, size_t radix, size_t p) {
+    for(size_t r = radix ; r >= 2 ; r /= 2)
+        in_place_dft<T>(o, invert, r);
 
     // kernel.
-    o << "__kernel void radix" << radix << "(__global const real2_t *x, __global real2_t *y, uint p) {";
+    o << "__kernel void radix(__global const real2_t *x, __global real2_t *y) {";
     o << "const size_t threads = get_global_size(0);"
         << "const size_t i = get_global_id(0);"
-        << "const size_t k = i & (p - 1);" // index in input sequence, in 0..P-1
+        << "const size_t k = i & " << (p - 1) << ";" // index in input sequence, in 0..P-1
         << "const size_t j = ((i - k) * " << radix << ") + k;" // output index
         << "const size_t batch_offset = get_global_id(1) * threads * " << radix << ';'
         << "x += i + batch_offset; y += j + batch_offset;"
-        << "real_t alpha = -FFT_PI * (real_t)k / (real_t)(p * " << radix << "/ 2);";
+        << "real_t alpha = -FFT_PI / " << (p * radix / 2) << " * k;";
 
     // read
     o << "real2_t v0 = x[0];";
@@ -131,17 +135,15 @@ void kernel_radix(std::ostringstream &o, size_t radix, bool invert) {
     o << "DFT" << radix; param_list(o, 0, radix); o << ';';
     // write back
     for(size_t i = 0 ; i < radix ; i++) {
-        size_t j = bit_reverse(i, log2_radix);
-        o << "y[" << i << "*p]=v" << j << ';';
+        size_t j = bit_reverse(i, log2(radix));
+        o << "y[" << (i * p) << "]=v" << j << ';';
     }
     o << "}\n";
 }
 
 
-
 template <class T>
-std::string kernel_code(bool invert, std::vector<size_t> radixes) {
-    std::ostringstream o;
+void kernel_common(std::ostringstream &o) {
     if(std::is_same<T, cl_double>::value) {
         o << standard_kernel_header;
         o << "typedef double real_t; typedef double2 real2_t;\n";
@@ -150,26 +152,13 @@ std::string kernel_code(bool invert, std::vector<size_t> radixes) {
         o << "typedef float real_t; typedef float2 real2_t;\n";
         o << "#define FFT_PI M_PI_F\n";
     }
+}
 
-    // from NVIDIA SDK.
-    o << R"(
-        __kernel void transpose(
-            __global const real2_t *input, __global real2_t *output, __local real2_t *block,
-            const uint width, const uint height, const uint block_size) {
-            const size_t
-                global_x = get_global_id(0), global_y = get_global_id(1),
-                local_x = get_local_id(0), local_y = get_local_id(1),
-                group_x = get_group_id(0), group_y = get_group_id(1),
-                target_x = local_y + group_y * block_size,
-                target_y = local_x + group_x * block_size;
-            // copy from input to local memory
-            block[local_x + local_y * block_size] = input[global_x + global_y * width];
-            // wait until the whole block is filled
-            barrier(CLK_LOCAL_MEM_FENCE);
-            // transpose local block to target
-            output[target_x + target_y * height] = block[local_x + local_y * block_size];
-        }
-    )";
+
+template <class T>
+cl::Kernel radix_kernel(cl::Context &ctx, bool invert, size_t radix, size_t p, cl::Buffer in, cl::Buffer out) {
+    std::ostringstream o;
+    kernel_common<T>(o);
 
     // Return A*B (complex multiplication)
     o << R"(
@@ -190,10 +179,45 @@ std::string kernel_code(bool invert, std::vector<size_t> radixes) {
         << "return (real2_t)(" << (invert ? "-a.y, a.x" : "a.y, -a.x") << ");}\n";
 
     // kernels.
-    for(auto r : radixes)
-        kernel_radix<T>(o, r, invert);
+    kernel_radix<T>(o, invert, radix, p);
 
-    return o.str();
+    auto program = build_sources(ctx, o.str());
+    cl::Kernel kernel(program, "radix");
+    kernel.setArg(0, in);
+    kernel.setArg(1, out);
+    return kernel;
+}
+
+template <class T>
+cl::Kernel transpose_kernel(cl::Context &ctx, size_t width, size_t height, size_t block_size, cl::Buffer in, cl::Buffer out) {
+    std::ostringstream o;
+    kernel_common<T>(o);
+
+    // from NVIDIA SDK.
+    o << "__kernel void transpose("
+        "__global const real2_t *input, __global real2_t *output) {"
+        "const size_t "
+        "global_x = get_global_id(0), global_y = get_global_id(1),"
+        "local_x = get_local_id(0), local_y = get_local_id(1),"
+        "group_x = get_group_id(0), group_y = get_group_id(1),"
+        "width =" << width << ", height = " << height << ", block_size = " << block_size << ","
+        "target_x = local_y + group_y * block_size,"
+        "target_y = local_x + group_x * block_size;"
+        // local memory
+        "__local real2_t block[sizeof(real2_t) * " << (block_size * (block_size + 1)) << "];"
+        // copy from input to local memory
+        "block[local_x + local_y * block_size] = input[global_x + global_y * width];"
+        // wait until the whole block is filled
+        "barrier(CLK_LOCAL_MEM_FENCE);"
+        // transpose local block to target
+        "output[target_x + target_y * height] = block[local_x + local_y * block_size];"
+        "}";
+
+    auto program = build_sources(ctx, o.str());
+    cl::Kernel kernel(program, "transpose");
+    kernel.setArg(0, in);
+    kernel.setArg(1, out);
+    return kernel;
 }
 
 

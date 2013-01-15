@@ -77,128 +77,94 @@ struct plan {
     typename helpers<T>::r2c r2c;
     typename helpers<T>::c2r c2r;
 
-    const std::vector<cl::CommandQueue> &queue;
-    cl::Program program;
-    const std::vector<size_t> sizes;
-    const bool inverse;
+    const std::vector<cl::CommandQueue> &queues;
     T scale;
 
-    std::map<size_t, cl::Kernel> radix_k;
-    cl::Kernel transpose_k;
+    struct kernel_call {
+        cl::Kernel kernel;
+        cl::NDRange global, local;
+        kernel_call(cl::Kernel k, cl::NDRange g, cl::NDRange l) : kernel(k), global(g), local(l) {}
+    };
+    std::vector<kernel_call> kernels;
 
     vector<T2> temp[2];
-    size_t current, other;
-    size_t total_n;
-
-    std::vector<size_t> radixes;
+    size_t input, output;
 
     // \param sizes
     //  1D case: {n}.
     //  2D case: {h, w} in row-major format: x + y * w. (like FFTw)
     //  etc.
     plan(const std::vector<cl::CommandQueue> &queues, const std::vector<size_t> sizes, bool inverse)
-        : queue(queues), sizes(sizes), inverse(inverse), scale(1), current(1), other(0) {
+        : queues(queues) {
         assert(sizes.size() >= 1);
         assert(queues.size() == 1);
         auto queue = queues[0];
-        radixes = {{2,4,8,16}};
-        auto code = kernel_code<T>(inverse, radixes);
-        program = build_sources(qctx(queue), code,
-            "-cl-fast-relaxed-math -Werror");
-        for(auto radix : radixes) {
-            std::ostringstream n; n << "radix" << radix;
-            radix_k[radix] = cl::Kernel(program, n.str().c_str());
-        }
-        transpose_k = cl::Kernel(program, "transpose");
-        total_n = 1;
-        for(size_t i = 0 ; i < sizes.size() ; i++)
-            total_n *= sizes[i];
-        if(inverse) scale /= total_n;
+        auto context = qctx(queue);
+        auto device = qdev(queue);
+
+        size_t total_n = 1;
+        for(auto x : sizes) total_n *= x;
+        scale = inverse ? ((T)1 / total_n) : 1;
+
         temp[0] = vector<T2>(queues, total_n);
         temp[1] = vector<T2>(queues, total_n);
-    }
+        size_t current = 0, other = 1;
 
-    void enqueue_radix(size_t m, size_t batch, size_t p, size_t radix) {
-        auto kernel = radix_k[radix];
-        kernel.setArg(0, temp[current](0));
-        kernel.setArg(1, temp[other](0));
-        kernel.template setArg<cl_uint>(2, p);
+        // Build the list of kernels.
+        input = current;
+        for(auto d = sizes.rbegin() ; d != sizes.rend() ; d++) {
+            const size_t w = *d, h = total_n / w;
 
-        size_t wg = pow2_floor(std::min(m,
-            (size_t)kernel_workgroup_size(kernel, qdev(queue[0]))));
-        wg = std::min(wg, (size_t)128);
-        if(batch == 1)
-            queue[0].enqueueNDRangeKernel(kernel, cl::NullRange,
-                cl::NDRange(m), cl::NDRange(wg));
-        else
-            queue[0].enqueueNDRangeKernel(kernel, cl::NullRange,
-                cl::NDRange(m, batch), cl::NDRange(wg, 1));
+            // 1D, each row.
+            if(w > 1) {
+                size_t p = 1;
+                while(p < w) {
+                    size_t radix = get_radix(p, w);
+                    size_t m = w / radix;
+                    auto kernel = radix_kernel<T>(context, inverse, radix, p, temp[current](0), temp[other](0));
+                    size_t wg = pow2_floor(std::min(m, (size_t)kernel_workgroup_size(kernel, device)));
+                    kernels.emplace_back(kernel, cl::NDRange(m, h), cl::NDRange(wg, 1));
+                    std::swap(current, other);
+                    p *= radix;
+                }
+            }
+
+            // transpose.
+            if(w > 1 && h > 1) {
+                const size_t block_dim = 16;
+                auto kernel = transpose_kernel<T>(context, w, h, block_dim, temp[current](0), temp[other](0));
+                kernels.emplace_back(kernel, cl::NDRange(w, h),
+                    cl::NDRange(std::min(w, block_dim), std::min(h, block_dim)));
+                std::swap(current, other);
+            }
+        }
+        output = current;
     }
 
     // returns the next radix to use for stage p, size n.
-    size_t get_radix(size_t p, size_t n) {
-        for(auto r = radixes.rbegin() ; r != radixes.rend() ; r++)
-            if(p * (*r) <= n) return *r;
+    static size_t get_radix(size_t p, size_t n) {
+        const size_t rs[] = {16, 8, 4, 2};
+        for(auto r : rs) if(p * r <= n) return r;
         throw std::runtime_error("Unsupported FFT size.");
     }
     
-    // Execute 1D transforms. Input and output will be in temp[current].
-    void execute_1d(size_t n, size_t batch) {
-        if(n == 1) return;
-        size_t p = 1;
-        while(p < n) {
-            size_t radix = get_radix(p, n);
-            enqueue_radix(n / radix, batch, p, radix);
-            p *= radix;
-            std::swap(current, other);
-        }
-    }
-
-    // Transpose the array (width <-> height)
-    void transpose(size_t w, size_t h) {
-        if(w == 1 || h == 1) return;
-        const size_t block_dim = 16;
-        transpose_k.setArg(0, temp[current](0));
-        transpose_k.setArg(1, temp[other](0));
-        transpose_k.setArg(2, sizeof(T2) * block_dim * (block_dim + 1), NULL);
-        transpose_k.setArg<cl_uint>(3, w);
-        transpose_k.setArg<cl_uint>(4, h);
-        transpose_k.setArg<cl_uint>(5, block_dim);
-
-        queue[0].enqueueNDRangeKernel(transpose_k, cl::NullRange,
-            cl::NDRange(w, h),
-            cl::NDRange(std::min(w,block_dim), std::min(h,block_dim)));
-        std::swap(current, other);
-    }
-
-    // Execute all transforms
-    void execute() {
-        // FFT each row, transpose so that columns are rows, repeat
-        for(auto d = sizes.rbegin() ; d != sizes.rend() ; d++) {
-            const size_t w = *d, h = total_n / w;
-            execute_1d(w, h);
-            transpose(w, h);
-        }
-    }
-
     /// Execute the complete transformation.
     /// Converts real-valued input and output, supports multiply-adding to output.
     template <class In, class Out>
-    void operator()(const vector<In> &input, vector<Out> &output, bool append, T ex_scale) {
+    void operator()(const vector<In> &in, vector<Out> &out, bool append, T ex_scale) {
         static_assert(std::is_same<In, T>::value || std::is_same<In, T2>::value, "Invalid input type.");
         static_assert(std::is_same<Out, T>::value || std::is_same<Out, T2>::value, "Invalid output type.");
-        if(std::is_same<In, T>::value) { // real input
-            temp[current] = r2c(input);
-        } else { // complex input
-            temp[current] = input;
-        }
-        execute();
-        if(std::is_same<Out, T>::value) { // real output
-            if(append) output += c2r(temp[current]) * (ex_scale * scale);
-            else output = c2r(temp[current]) * (ex_scale * scale);
-        } else { // complex output
-            if(append) output += temp[current] * (ex_scale * scale);
-            else output = temp[current] * (ex_scale * scale);
+        if(std::is_same<In, T>::value) temp[input] = r2c(in);
+        else temp[input] = in;
+        for(auto run : kernels)
+            queues[0].enqueueNDRangeKernel(run.kernel, cl::NullRange,
+                run.global, run.local);
+        if(std::is_same<Out, T>::value) {
+            if(append) out += c2r(temp[output]) * (ex_scale * scale);
+            else out = c2r(temp[output]) * (ex_scale * scale);
+        } else {
+            if(append) out += temp[output] * (ex_scale * scale);
+            else out = temp[output] * (ex_scale * scale);
         }
     }
 };
