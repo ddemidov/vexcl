@@ -150,7 +150,7 @@ struct FFT {
     void init(const Array &lengths) {
         assert(lengths.size() >= 1 && lengths.size() <= 3);
         assert(queues.size() == 1);
-        amd_context::init();
+        amd_context<>::init();
         size_t _lengths[3];
         std::copy(std::begin(lengths), std::end(lengths), _lengths);
         cl::Context context = qctx(queues[0]);
