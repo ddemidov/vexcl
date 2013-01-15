@@ -51,19 +51,24 @@ template <class S, class V>
 struct conv
     : vector_expression< boost::proto::terminal< additive_vector_transform >::type >
 {
+    typedef typename S::value_type value_type;
+
     const S &s;
     const V &x;
 
-    typename S::value_type scale;
+    value_type scale;
 
     conv(const S &s, const V &x) : s(s), x(x), scale(1) {}
 
     template<bool negate, bool append>
-    void apply(vector<typename V::value_type> &y) const
+    void apply(vector<value_type> &y) const
     {
         s.convolve(x, y, append ? 1 : 0, negate ? -scale : scale);
     }
 };
+
+template <typename S, class V>
+struct is_scalable< conv<S, V> > : std::true_type {};
 
 #ifdef VEXCL_MULTIVECTOR_HPP
 
@@ -73,23 +78,25 @@ struct multiconv
         boost::proto::terminal< additive_multivector_transform >::type
       >
 {
+    typedef typename S::value_type value_type;
+
     const S &s;
     const V &x;
 
-    typename S::value_type scale;
+    value_type scale;
 
     multiconv(const S &s, const V &x) : s(s), x(x), scale(1) {}
 
     template <bool negate, bool append, bool own>
-    void apply(multivector<
-                typename V::subtype::value_type,
-                number_of_components<V>::value,
-                own> &y) const
+    void apply(multivector<value_type, number_of_components<V>::value, own> &y) const
     {
         for(size_t i = 0; i < number_of_components<V>::value; i++)
             s.convolve(x(i), y(i), append ? 1 : 0, negate ? -scale : scale);
     }
 };
+
+template <typename S, class V>
+struct is_scalable< multiconv<S, V> > : std::true_type {};
 
 #endif
 
@@ -529,12 +536,6 @@ operator*(const vector<T> &x, const stencil<T> &s) {
     return conv< stencil<T>, vector<T> >(s, x);
 }
 
-template <typename S, class V>
-conv<S, V> operator*(typename S::value_type c, conv<S, V> cnv) {
-    cnv.scale *= c;
-    return cnv;
-}
-
 #ifdef VEXCL_MULTIVECTOR_HPP
 
 template <typename T, size_t N, bool own>
@@ -547,12 +548,6 @@ template <typename T, size_t N, bool own>
 multiconv< stencil<T>, multivector<T, N, own> >
 operator*( const multivector<T, N, own> &x, const stencil<T> &s ) {
     return multiconv< stencil<T>, multivector<T, N, own> >(s, x);
-}
-
-template <typename S, class V>
-multiconv<S, V> operator*(typename S::value_type c, multiconv<S, V> cnv) {
-    cnv.scale *= c;
-    return cnv;
 }
 
 #endif
