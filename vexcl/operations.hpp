@@ -435,6 +435,8 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, USER_FUNCTION, ~)
 
 #endif
 
+/// \endcond
+
 /// Macro to declare a user function type.
 /**
  * \code
@@ -461,6 +463,9 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, USER_FUNCTION, ~)
  */
 #define VEX_FUNCTION(name, signature, body) \
     VEX_FUNCTION_TYPE(user_function_##name##_body, signature, body) name
+
+
+/// \cond INTERNAL
 
 //---------------------------------------------------------------------------
 // Expression Transforms
