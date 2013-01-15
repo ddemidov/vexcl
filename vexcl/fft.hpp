@@ -69,7 +69,7 @@ enum fft_direction {
    inverse = CLFFT_BACKWARD
 };
 
-void fft_check_error(clAmdFftStatus status) {
+inline void fft_check_error(clAmdFftStatus status) {
     if(status != CL_SUCCESS)
         throw cl::Error(status, "AMD FFT");
 }
