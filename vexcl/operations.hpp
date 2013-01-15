@@ -440,6 +440,25 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, USER_FUNCTION, ~)
 
 #endif
 
+/// Macro to declare a user function type.
+/// \code
+/// cl_function_t(pow3_t, double(double), "return pow(prm1, 3);");
+/// pow3_t pow3;
+/// output = pow3(input);
+/// \endcode
+#define cl_function_t(name, type, body) \
+    struct name : UserFunction<name, type> { \
+        name() : UserFunction<name, type>(body) {} \
+    }
+
+/// Macro to declare a user function value.
+/// \code
+/// cl_function(pow3, double(double), "return pow(prm1, 3);");
+/// output = pow3(input);
+/// \endcode
+#define cl_function(name, type, body) \
+    cl_function_t(cl_function_##name##_t, type, body) name
+
 //---------------------------------------------------------------------------
 // Expression Transforms
 //---------------------------------------------------------------------------

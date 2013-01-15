@@ -51,13 +51,8 @@ struct plan {
 
     typedef typename cl_vector_of<T, 2>::type T2;
 
-    struct r2c_t : UserFunction<r2c_t, T2(T)> {
-        r2c_t() : UserFunction<r2c_t, T2(T)>("return (" + type_name<T2>() + ")(prm1, 0);") {}
-    } r2c;
-
-    struct c2r_t : UserFunction<c2r_t, T(T2)> {
-        c2r_t() : UserFunction<c2r_t, T(T2)>("return prm1.x;") {}
-    } c2r;
+    cl_function(r2c, T2(T), "return (" + type_name<T2>() + ")(prm1, 0);");
+    cl_function(c2r, T(T2), "return prm1.x;");
 
     const std::vector<cl::CommandQueue> &queues;
     T scale;

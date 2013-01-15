@@ -229,10 +229,7 @@ to build such a function, you need to supply its body, its return type and
 types of its arguments. After that, you can apply the function to any valid
 vector expressions:
 \code
-// Function body has to be defined at global scope, and it has to be of `extern
-// const char[]` type. This allows us to use it as a template parameter.
-extern const char greater_body[] = "return prm1 > prm2 ? 1 : 0;";
-UserFunction<greater_body, size_t(float, float)> greater;
+cl_function(greater, size_t(float, float), "return prm1 > prm2 ? 1 : 0;");
 
 size_t count_if_greater(
     const Reductor<size_t, SUM> &sum,

@@ -25,10 +25,7 @@ bool run_test(const std::string &name, std::function<bool()> test) {
     return rc;
 }
 
-struct greater_t : UserFunction<greater_t, size_t(double, double)> {
-    greater_t() : UserFunction("return prm1 > prm2 ? 1 : 0;") {}
-};
-greater_t greater;
+cl_function(greater, size_t(double, double), "return prm1 > prm2 ? 1 : 0;");
 
 template <class state_type>
 void sys_func(const state_type &x, state_type &dx, double dt) {
@@ -1159,14 +1156,8 @@ int main(int argc, char *argv[]) {
                 vex::vector<double> x(ctx.queue(), N);
                 Reductor<size_t,SUM> sum(ctx.queue());
                 x = 1;
-                struct times2_t : UserFunction<times2_t, double(double)> {
-                    times2_t() : UserFunction("return prm1 * 2;") {}
-                };
-                times2_t times2;
-                struct times4_t : UserFunction<times4_t, double(double)> {
-                    times4_t() : UserFunction("return prm1 * 4;") {}
-                };
-                times4_t times4;
+                cl_function(times2, double(double), "return prm1 * 2;");
+                cl_function(times4, double(double), "return prm1 * 4;");
                 rc = rc && sum(times2(x)) == 2 * N;
                 rc = rc && sum(times4(x)) == 4 * N;
                 return rc;
@@ -1562,11 +1553,7 @@ int main(int argc, char *argv[]) {
                 vex::vector<cl_int4> X(ctx.queue(), N);
 
                 cl_int4 c = {{1, 2, 3, 4}};
-
-                struct make_int4_t : UserFunction<make_int4_t, cl_int4(int)> {
-                    make_int4_t() : UserFunction("return (int4)(prm1, prm1, prm1, prm1);") {}
-                };
-                make_int4_t make_int4;
+                cl_function(make_int4, cl_int4(int), "return (int4)(prm1, prm1, prm1, prm1);");
                 X = c * (make_int4(5 + element_index()));
 
                 for(int i = 0; i < 100; ++i) {
