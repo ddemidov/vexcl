@@ -508,6 +508,8 @@ class Context;
 
 template <bool dummy = true>
 class StaticContext {
+    static_assert(dummy, "dummy parameter should be true");
+
     public:
         static void set(Context &ctx) {
             instance = &ctx;

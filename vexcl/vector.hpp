@@ -82,6 +82,7 @@ inline double equal_weights(
 
 template <bool dummy = true>
 struct partitioning_scheme {
+    static_assert(dummy, "dummy parameter should be true");
     typedef std::function<
         double(const cl::Context&, const cl::Device&)
         > weight_function;
