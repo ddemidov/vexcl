@@ -139,13 +139,16 @@ void kernel_radix(std::ostringstream &o, bool invert, size_t radix, size_t p, si
         << "const size_t k = i & " << (p - 1) << ";" // index in input sequence, in 0..P-1
         << "const size_t j = ((i - k) * " << radix << ") + k;" // output index
         << "const size_t batch_offset = get_global_id(1) * " << (threads * radix) << ';'
-        << "x += i + batch_offset; y += j + batch_offset;"
-        << "real_t alpha = -FFT_PI / " << (p * radix / 2) << " * k;";
+        << "x += i + batch_offset; y += j + batch_offset;";
 
     // read
-    o << "real2_t v0 = x[0];";
-    for(size_t i = 1 ; i < radix ; i++)
-        o << "real2_t v" << i << "=twiddle(x[" << (i * threads) << "]," << i << ",alpha);";
+    for(size_t i = 0 ; i < radix ; i++)
+        o << "real2_t v" << i << " = x[" << (i * threads) << "];";
+    // twiddle
+    for(size_t i = 1 ; i < radix ; i++) {
+        const T alpha = -M_PI * i / (p * radix / 2);
+        o << "v" << i << "=twiddle(v" << i << ",(real_t)" << std::setprecision(25) << alpha << " * k);";
+    }
     // inplace DFT
     o << "DFT" << radix; param_list(o, 0, radix); o << ';';
     // write back
@@ -182,10 +185,10 @@ kernel_call radix_kernel(cl::CommandQueue &queue, size_t n, size_t batch, bool i
         }
     )";
 
-    // A * exp(k * alpha * I) == cos(k * alpha) + I * sin(k * alpha)
-    o << "real2_t twiddle(real2_t a, int k, real_t alpha) {"
+    // A * exp(alpha * I) == A  * (cos(alpha) + I * sin(alpha))
+    o << "real2_t twiddle(real2_t a, real_t alpha) {"
         << "real_t cs, sn;"
-        << "sn = sincos(" << (invert ? '-' : ' ') << "k * alpha, &cs);"
+        << "sn = sincos(" << (invert ? '-' : ' ') << "alpha, &cs);"
         << "return mul(a, (real2_t)(cs, sn));"
         << "}";
 
@@ -196,7 +199,7 @@ kernel_call radix_kernel(cl::CommandQueue &queue, size_t n, size_t batch, bool i
     const size_t m = n / radix;
     kernel_radix<T>(o, invert, radix, p, m);
 
-    auto program = build_sources(qctx(queue), o.str());
+    auto program = build_sources(qctx(queue), o.str(), "-cl-mad-enable -cl-fast-relaxed-math");
     cl::Kernel kernel(program, "radix");
     kernel.setArg(0, in);
     kernel.setArg(1, out);
