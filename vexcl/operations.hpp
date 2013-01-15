@@ -352,28 +352,31 @@ struct name \
 
 //--- User Function ---------------------------------------------------------
 
-template <const char *body, class T>
+template <class C, class T>
 struct UserFunction {};
 
 // Workaround for gcc bug http://gcc.gnu.org/bugzilla/show_bug.cgi?id=35722
 #if !defined(BOOST_NO_VARIADIC_TEMPLATES) && ((!defined(__GNUC__) || (__GNUC__ > 4 || __GNUC__ == 4 && __GNUC_MINOR__ > 6)) || defined(__clang__))
 
-template<const char *body, class RetType, class... ArgType>
-struct UserFunction<body, RetType(ArgType...)> : user_function
+template<class Impl, class RetType, class... ArgType>
+struct UserFunction<Impl, RetType(ArgType...)> : user_function
 {
+    const std::string body;
+    UserFunction(std::string body) : body(body) {}
+
     template <class... Arg>
     typename boost::proto::result_of::make_expr<
         boost::proto::tag::function,
-        UserFunction,
+        Impl,
         const Arg&...
     >::type const
     operator()(const Arg&... arg) {
         return boost::proto::make_expr<boost::proto::tag::function>(
-                UserFunction(), boost::ref(arg)...
+                *static_cast<Impl *>(this), boost::ref(arg)...
                 );
     }
 
-    static void define(std::ostream &os, const std::string &name) {
+    void define(std::ostream &os, const std::string &name) const {
         os << type_name<RetType>() << " " << name << "(";
         show_arg<ArgType...>(os, 1);
         os << "\n)\n{\n" << body << "\n}\n\n";
@@ -404,18 +407,20 @@ struct UserFunction<body, RetType(ArgType...)> : user_function
     << "\n\t" << type_name<ArgType ## n>() \
     << " prm" << n + 1 BOOST_PP_EXPR_IF(BOOST_PP_LESS(BOOST_PP_ADD(n, 1), data), << ",")
 #define USER_FUNCTION(z, n, data) \
-template< const char *body, class RetType, BOOST_PP_ENUM_PARAMS(n, class ArgType) > \
-struct UserFunction<body, RetType( BOOST_PP_ENUM_PARAMS(n, ArgType) )> : user_function \
+template< class Impl, class RetType, BOOST_PP_ENUM_PARAMS(n, class ArgType) > \
+struct UserFunction<Impl, RetType( BOOST_PP_ENUM_PARAMS(n, ArgType) )> : user_function \
 { \
+    std::string body; \
+    UserFunction(std::string body) : body(body) {} \
     template < BOOST_PP_ENUM_PARAMS(n, class Arg) > \
     typename boost::proto::result_of::make_expr< \
         boost::proto::tag::function, \
-        UserFunction, \
+        Impl, \
         BOOST_PP_ENUM(n, PRINT_ARG_REF, ~) \
     >::type const \
     operator()( BOOST_PP_ENUM(n, PRINT_PARAM, ~) ) { \
         return boost::proto::make_expr<boost::proto::tag::function>( \
-                UserFunction(), BOOST_PP_ENUM(n, PRINT_BOOST_REF, ~) \
+                static_cast<Impl>(*this), BOOST_PP_ENUM(n, PRINT_BOOST_REF, ~) \
                 ); \
     } \
     static void define(std::ostream &os, const std::string &name) { \

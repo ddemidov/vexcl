@@ -40,28 +40,6 @@ namespace vex {
 namespace fft {
 
 
-extern const char r2c_f_oper[] = "return (float2)(prm1, 0);";
-extern const char r2c_d_oper[] = "return (double2)(prm1, 0);";
-extern const char c2r_oper[] = "return prm1.x;";
-
-template <class T>
-struct helpers {};
-
-template <>
-struct helpers<cl_float> {
-    typedef UserFunction<r2c_f_oper, cl_float2(cl_float)> r2c;
-    typedef UserFunction<c2r_oper, cl_float(cl_float2)> c2r;
-};
-
-template <>
-struct helpers<cl_double> {
-    typedef UserFunction<r2c_d_oper, cl_double2(cl_double)> r2c;
-    typedef UserFunction<c2r_oper, cl_double(cl_double2)> c2r;
-};
-
-
-
-
 template <class T0, class T1>
 struct plan {
     typedef typename cl_scalar_of<T0>::type T0s;
@@ -73,8 +51,13 @@ struct plan {
 
     typedef typename cl_vector_of<T, 2>::type T2;
 
-    typename helpers<T>::r2c r2c;
-    typename helpers<T>::c2r c2r;
+    struct r2c_t : UserFunction<r2c_t, T2(T)> {
+        r2c_t() : UserFunction<r2c_t, T2(T)>("return (" + type_name<T2>() + ")(prm1, 0);") {}
+    } r2c;
+
+    struct c2r_t : UserFunction<c2r_t, T(T2)> {
+        c2r_t() : UserFunction<c2r_t, T(T2)>("return prm1.x;") {}
+    } c2r;
 
     const std::vector<cl::CommandQueue> &queues;
     T scale;
