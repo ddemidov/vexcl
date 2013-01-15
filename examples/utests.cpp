@@ -25,14 +25,7 @@ bool run_test(const std::string &name, std::function<bool()> test) {
     return rc;
 }
 
-extern const char greater_body[] = "return prm1 > prm2 ? 1 : 0;";
-UserFunction<greater_body, size_t(double, double)> greater;
-
-extern const char pow3_body[] = "return pow(prm1, 3.0);";
-UserFunction<pow3_body, double(double)> pow3;
-
-extern const char make_int4_body[] = "return (int4)(prm1, prm1, prm1, prm1);";
-UserFunction<make_int4_body, cl_int4(int)> make_int4;
+cl_function(greater, size_t(double, double), "return prm1 > prm2 ? 1 : 0;");
 
 template <class state_type>
 void sys_func(const state_type &x, state_type &dx, double dt) {
@@ -1157,6 +1150,21 @@ int main(int argc, char *argv[]) {
 #endif
 
 #if 1
+        run_test("Custom functions with same signature", [&]() -> bool {
+                const size_t N = 1024;
+                bool rc = true;
+                vex::vector<double> x(ctx.queue(), N);
+                Reductor<size_t,SUM> sum(ctx.queue());
+                x = 1;
+                cl_function(times2, double(double), "return prm1 * 2;");
+                cl_function(times4, double(double), "return prm1 * 4;");
+                rc = rc && sum(times2(x)) == 2 * N;
+                rc = rc && sum(times4(x)) == 4 * N;
+                return rc;
+            });
+#endif
+
+#if 1
         run_test("Two-arguments builtin function call for multivector", [&]() -> bool {
                 bool rc = true;
                 const size_t n = 1024;
@@ -1545,7 +1553,7 @@ int main(int argc, char *argv[]) {
                 vex::vector<cl_int4> X(ctx.queue(), N);
 
                 cl_int4 c = {{1, 2, 3, 4}};
-
+                cl_function(make_int4, cl_int4(int), "return (int4)(prm1, prm1, prm1, prm1);");
                 X = c * (make_int4(5 + element_index()));
 
                 for(int i = 0; i < 100; ++i) {
