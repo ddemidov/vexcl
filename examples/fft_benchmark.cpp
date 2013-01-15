@@ -105,7 +105,8 @@ int main() {
     fftwf_init_threads();
     fftwf_plan_with_nthreads(omp_get_max_threads());
 #endif
-    Context ctx(Filter::Count(1), CL_QUEUE_PROFILING_ENABLE);
+    Context ctx(Filter::Env && Filter::Count(1), CL_QUEUE_PROFILING_ENABLE);
+    std::cout << ctx << std::endl;
 
     // random data
     const size_t k_max = 9, n_max = 1 << k_max;
