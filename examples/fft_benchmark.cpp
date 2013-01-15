@@ -51,7 +51,7 @@ double test_cufft(cl_float2 *data, size_t n, size_t m) {
     return t;
 }
 #else
-double test_cuda(cl_float2 *, size_t, size_t) {
+double test_cufft(cl_float2 *, size_t, size_t) {
     return -1;
 }
 #endif
