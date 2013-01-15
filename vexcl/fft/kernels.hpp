@@ -38,9 +38,10 @@ namespace vex {
 namespace fft {
 
 struct kernel_call {
+    cl::Program program;
     cl::Kernel kernel;
     cl::NDRange global, local;
-    kernel_call(cl::Kernel k, cl::NDRange g, cl::NDRange l) : kernel(k), global(g), local(l) {}
+    kernel_call(cl::Program p, cl::Kernel k, cl::NDRange g, cl::NDRange l) : program(p), kernel(k), global(g), local(l) {}
 };
 
 
@@ -203,7 +204,7 @@ kernel_call radix_kernel(cl::CommandQueue &queue, size_t n, size_t batch, bool i
     size_t wg = pow2_floor(std::min(m,
         (size_t)kernel_workgroup_size(kernel, qdev(queue))));
 
-    return kernel_call(kernel, cl::NDRange(m, batch), cl::NDRange(wg, 1));
+    return kernel_call(program, kernel, cl::NDRange(m, batch), cl::NDRange(wg, 1));
 }
 
 
@@ -243,7 +244,7 @@ kernel_call transpose_kernel(cl::CommandQueue &queue, size_t width, size_t heigh
     kernel.setArg(0, in);
     kernel.setArg(1, out);
 
-    return kernel_call(kernel, cl::NDRange(width, height),
+    return kernel_call(program, kernel, cl::NDRange(width, height),
         cl::NDRange(std::min(width, block_size), std::min(height, block_size)));
 }
 
