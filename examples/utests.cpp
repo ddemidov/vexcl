@@ -1247,6 +1247,18 @@ int main(int argc, char *argv[]) {
 #endif
 
 #if 1
+        run_test("Two Stencil convolutions in one expression", [&]() -> bool {
+                const int n = 32;
+                std::vector<double> s(5);
+                stencil<double> S(ctx.queue(), s, 3);
+                vex::vector<double> X(ctx.queue(), n);
+                vex::vector<double> Y(ctx.queue(), n);
+                Y = X * S + X * S;
+                return true;
+            });
+#endif
+
+#if 1
         run_test("Stencil convolution with small vector", [&]() -> bool {
                 bool rc = true;
                 const int n = 1 << 7;

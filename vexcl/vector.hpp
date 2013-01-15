@@ -821,6 +821,20 @@ inline double device_vector_perf(
     return 1.0 / prof.toc("");
 }
 
+
+/// Download and print the vector elements.
+template<class T>
+std::ostream &operator<<(std::ostream &o, const vex::vector<T> &t) {
+   std::vector<T> data(t.size());
+   copy(t, data);
+   o << '{';
+   for(size_t i = 0 ; i < data.size() ; i++) {
+      if(i != 0) o << ',';
+      o << data[i];
+   }
+   return o << '}';
+}
+
 } // namespace vex
 
 namespace boost { namespace fusion { namespace traits {

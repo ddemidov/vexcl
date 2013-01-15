@@ -110,6 +110,33 @@ template <> inline std::string type_name<ptrdiff_t>() {
 template <> struct is_cl_native<ptrdiff_t> : std::true_type {};
 #endif
 
+/// Type trait to determine if an expression is scalable.
+/// It must have a type `value_type` and a field `scale`
+/// of that type, this enables operator* and operator/.
+template <class T> struct is_scalable : std::false_type {};
+
+template <class T> typename std::enable_if<vex::is_scalable<T>::value, T>::type
+operator*(const T &expr, const typename T::value_type &factor) {
+    T scaled_expr(expr);
+    scaled_expr.scale *= factor;
+    return scaled_expr;
+}
+
+template <class T> typename std::enable_if<vex::is_scalable<T>::value, T>::type
+operator*(const typename T::value_type &factor, const T &expr) {
+    return expr * factor;
+}
+
+template <class T> typename std::enable_if<vex::is_scalable<T>::value, T>::type
+operator/(const T &expr, const typename T::value_type &factor) {
+    T scaled_expr(expr);
+    scaled_expr.scale /= factor;
+    return scaled_expr;
+}
+
+
+
+
 const std::string standard_kernel_header = std::string(
         "#if defined(cl_khr_fp64)\n"
         "#  pragma OPENCL EXTENSION cl_khr_fp64: enable\n"
@@ -210,7 +237,8 @@ for_each(const Tuple &v, Function &f)
 
 /// Create and build a program from source string.
 inline cl::Program build_sources(
-        const cl::Context &context, const std::string &source
+        const cl::Context &context, const std::string &source,
+        const std::string &options = ""
         )
 {
     cl::Program program(context, cl::Program::Sources(
@@ -220,7 +248,7 @@ inline cl::Program build_sources(
     auto device = context.getInfo<CL_CONTEXT_DEVICES>();
 
     try {
-        program.build(device);
+        program.build(device, options.c_str());
     } catch(const cl::Error&) {
         std::cerr << source
                   << std::endl

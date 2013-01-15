@@ -31,39 +31,78 @@ THE SOFTWARE.
  * \brief  C++ sugar for OpenCL vector types, eg. cl::float4, operator+.
  */
 
-#define BIN_OP(type, len, op) \
-cl_##type##len &operator op##= (cl_##type##len &a, const cl_##type##len &b) { \
+namespace cl {
+    /// Get the corresponding scalar type for a CL vector (or scalar) type.
+    /// \code scalar_of<cl_float4>::type == cl_float \endcode
+    template <class T>
+    struct scalar_of {};
+
+    /// Get the corresponding vector type for a CL scalar type.
+    /// \code vector_of<cl_float, 4>::type == cl_float4 \endcode
+    template <class T, int dim>
+    struct vector_of {};
+}
+
+
+#define BIN_OP(base_type, len, op) \
+cl_##base_type##len &operator op##= (cl_##base_type##len &a, const cl_##base_type##len &b) { \
     for(size_t i = 0 ; i < len ; i++) a.s[i] op##= b.s[i]; \
     return a; \
 } \
-cl_##type##len operator op(const cl_##type##len &a, const cl_##type##len &b) { \
-    cl_##type##len res = a; return res op##= b; \
+cl_##base_type##len operator op(const cl_##base_type##len &a, const cl_##base_type##len &b) { \
+    cl_##base_type##len res = a; return res op##= b; \
 }
 
-#define CL_VEC_TYPE(type, len) \
-namespace std { \
-    BIN_OP(type, len, +) \
-    BIN_OP(type, len, -) \
-    BIN_OP(type, len, *) \
-    BIN_OP(type, len, /) \
-    ostream &operator<<(ostream &os, const cl_##type##len &value) { \
-        os << "(" #type #len ")("; \
-        for(size_t i = 0 ; i < len ; i++) { \
-            if(i != 0) os << ','; \
-            os << value.s[i]; \
-        } \
-        return os << ')'; \
+// `scalar OP vector` acts like `(vector_t)(scalar) OP vector` in OpenCl:
+// all components are set to the scalar value.
+#define BIN_SCALAR_OP(base_type, len, op) \
+cl_##base_type##len &operator op##= (cl_##base_type##len &a, const cl_##base_type &b) { \
+    for(size_t i = 0 ; i < len ; i++) a.s[i] op##= b; \
+    return a; \
+} \
+cl_##base_type##len operator op(const cl_##base_type##len &a, const cl_##base_type &b) { \
+    cl_##base_type##len res = a; return res op##= b; \
+} \
+cl_##base_type##len operator op(const cl_##base_type &a, const cl_##base_type##len &b) { \
+    cl_##base_type##len res = b; return res op##= a; \
+}
+
+#define CL_VEC_TYPE(base_type, len) \
+BIN_OP(base_type, len, +) \
+BIN_OP(base_type, len, -) \
+BIN_OP(base_type, len, *) \
+BIN_OP(base_type, len, /) \
+BIN_SCALAR_OP(base_type, len, +) \
+BIN_SCALAR_OP(base_type, len, -) \
+BIN_SCALAR_OP(base_type, len, *) \
+BIN_SCALAR_OP(base_type, len, /) \
+cl_##base_type##len operator -(const cl_##base_type##len &a) { \
+    cl_##base_type##len res; \
+    for(size_t i = 0 ; i < len ; i++) res.s[i] = -a.s[i]; \
+    return res; \
+} \
+std::ostream &operator<<(std::ostream &os, const cl_##base_type##len &value) { \
+    os << "(" #base_type #len ")("; \
+    for(std::size_t i = 0 ; i < len ; i++) { \
+        if(i != 0) os << ','; \
+        os << value.s[i]; \
     } \
+    return os << ')'; \
 } \
 namespace cl { \
-    typedef cl_##type##len type##len; \
+    typedef cl_##base_type##len base_type##len; \
+    template <> struct scalar_of<cl_##base_type##len> { typedef cl_##base_type type; }; \
+    template <> struct vector_of<cl_##base_type, len> { typedef cl_##base_type##len type; }; \
 }
 
-#define CL_TYPES(type) \
-CL_VEC_TYPE(type, 2); \
-CL_VEC_TYPE(type, 4); \
-CL_VEC_TYPE(type, 8); \
-CL_VEC_TYPE(type, 16);
+#define CL_TYPES(base_type) \
+CL_VEC_TYPE(base_type, 2); \
+CL_VEC_TYPE(base_type, 4); \
+CL_VEC_TYPE(base_type, 8); \
+CL_VEC_TYPE(base_type, 16); \
+namespace cl { \
+    template <> struct scalar_of<cl_##base_type> { typedef cl_##base_type type; }; \
+}
 
 CL_TYPES(float);
 CL_TYPES(double);
