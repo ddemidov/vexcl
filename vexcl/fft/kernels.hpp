@@ -128,24 +128,23 @@ void in_place_dft(std::ostringstream &o, bool invert, size_t radix) {
 }
 
 template <class T>
-void kernel_radix(std::ostringstream &o, bool invert, size_t radix, size_t p) {
+void kernel_radix(std::ostringstream &o, bool invert, size_t radix, size_t p, size_t threads) {
     for(size_t r = radix ; r >= 2 ; r /= 2)
         in_place_dft<T>(o, invert, r);
 
     // kernel.
     o << "__kernel void radix(__global const real2_t *x, __global real2_t *y) {";
-    o << "const size_t threads = get_global_size(0);"
-        << "const size_t i = get_global_id(0);"
+    o << "const size_t i = get_global_id(0);"
         << "const size_t k = i & " << (p - 1) << ";" // index in input sequence, in 0..P-1
         << "const size_t j = ((i - k) * " << radix << ") + k;" // output index
-        << "const size_t batch_offset = get_global_id(1) * threads * " << radix << ';'
+        << "const size_t batch_offset = get_global_id(1) * " << (threads * radix) << ';'
         << "x += i + batch_offset; y += j + batch_offset;"
         << "real_t alpha = -FFT_PI / " << (p * radix / 2) << " * k;";
 
     // read
     o << "real2_t v0 = x[0];";
     for(size_t i = 1 ; i < radix ; i++)
-        o << "real2_t v" << i << "=twiddle(x[" << i << "* threads]," << i << ",alpha);";
+        o << "real2_t v" << i << "=twiddle(x[" << (i * threads) << "]," << i << ",alpha);";
     // inplace DFT
     o << "DFT" << radix; param_list(o, 0, radix); o << ';';
     // write back
@@ -193,15 +192,14 @@ kernel_call radix_kernel(cl::CommandQueue &queue, size_t n, size_t batch, bool i
     o << "real2_t twiddle_1_2(real2_t a){"
         << "return (real2_t)(" << (invert ? "-a.y, a.x" : "a.y, -a.x") << ");}\n";
 
-    // kernels.
-    kernel_radix<T>(o, invert, radix, p);
+    const size_t m = n / radix;
+    kernel_radix<T>(o, invert, radix, p, m);
 
     auto program = build_sources(qctx(queue), o.str());
     cl::Kernel kernel(program, "radix");
     kernel.setArg(0, in);
     kernel.setArg(1, out);
 
-    const size_t m = n / radix;
     size_t wg = pow2_floor(std::min(m,
         (size_t)kernel_workgroup_size(kernel, qdev(queue))));
 
