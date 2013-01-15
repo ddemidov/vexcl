@@ -303,6 +303,8 @@ class stencil : private stencil_base<T> {
          * y = alpha * y + beta * conv(x);
          * \param x input vector.
          * \param y output vector.
+         * \param alpha Scaling coefficient in front of y.
+         * \param beta  Scaling coefficient in front of convolution.
          */
         void convolve(const vex::vector<T> &x, vex::vector<T> &y,
                 T alpha = 0, T beta = 1) const;

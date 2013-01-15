@@ -77,7 +77,7 @@ class multivector : public mpi_multivector_terminal_expression {
          * components of the multivector.
          * \param comm  MPI communicator.
          * \param queue queue list to be shared between all components.
-         * \param size  Local size of each component.
+         * \param n     Local size of each component.
          * \param host  Host vector that holds local data to be copied to
          *              the components. Size of host vector should be divisible
          *              by N. Components of the created multivector will have
