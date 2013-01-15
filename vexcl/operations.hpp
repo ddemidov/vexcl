@@ -435,6 +435,18 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, USER_FUNCTION, ~)
 
 #endif
 
+/// Macro to declare a user function type.
+/**
+ * \code
+ * VEX_FUNCTION_TYPE(pow3_t, double(double), "return pow(prm1, 3.0);");
+ * pow3_t pow3;
+ * output = pow3(input);
+ * \endcode
+ *
+ * \note Should be used in case same function is used in several places (to
+ * save on OpenCL kernel recompilations). Otherwise VEX_FUNCTION should
+ * be used locally.
+ */
 #define VEX_FUNCTION_TYPE(name, signature, body_str) \
     struct name : UserFunction<name, signature> { \
         static std::string body() { return body_str; } \

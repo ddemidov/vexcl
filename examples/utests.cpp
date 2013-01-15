@@ -50,8 +50,6 @@ void runge_kutta_4(SysFunction sys, state_type &x, double dt) {
     x += (k1 + 2 * k2 + 2 * k3 + k4) / 6;
 }
 
-extern const char pow3_oper_body[] = "return X[0] + pow(X[-1] + X[1], 3.0);";
-
 int main(int argc, char *argv[]) {
     try {
         vex::Context ctx(Filter::DoublePrecision && Filter::Env);
@@ -1395,7 +1393,9 @@ int main(int argc, char *argv[]) {
                 bool rc = true;
                 const int n = 1 << 20;
 
-                StencilOperator<double, 3, 1, pow3_oper_body> pow3_op(ctx.queue());
+                VEX_STENCIL_OPERATOR(pow3_op,
+                    double, 3, 1,  "return X[0] + pow(X[-1] + X[1], 3.0);",
+                    ctx.queue());
 
                 std::vector<double> x(n);
                 std::vector<double> y(n);
@@ -1417,7 +1417,7 @@ int main(int argc, char *argv[]) {
                     res = std::max(res, fabs(sum - y[i]));
                 }
 
-                Y = 42 * pow3_op(X);
+                Y = 41 * pow3_op(X) + pow3_op(X);
 
                 copy(Y, y);
 
@@ -1449,7 +1449,7 @@ int main(int argc, char *argv[]) {
                 sym_state sym_x(sym_state::VectorParameter);
 
                 // Record expression sequience.
-                runge_kutta_4(sys_func<sym_state>, sym_x, dt); 
+                runge_kutta_4(sys_func<sym_state>, sym_x, dt);
 
                 // Build kernel.
                 auto kernel = generator::build_kernel(ctx.queue(),
