@@ -229,7 +229,7 @@ to build such a function, you need to supply its body, its return type and
 types of its arguments. After that, you can apply the function to any valid
 vector expressions:
 \code
-cl_function(greater, size_t(float, float), "return prm1 > prm2 ? 1 : 0;");
+VEX_FUNCTION(greater, size_t(float, float), "return prm1 > prm2 ? 1 : 0;");
 
 size_t count_if_greater(
     const Reductor<size_t, SUM> &sum,

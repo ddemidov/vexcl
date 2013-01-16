@@ -25,7 +25,7 @@ bool run_test(const std::string &name, std::function<bool()> test) {
     return rc;
 }
 
-cl_function(greater, size_t(double, double), "return prm1 > prm2 ? 1 : 0;");
+VEX_FUNCTION(greater, size_t(double, double), "return prm1 > prm2 ? 1 : 0;");
 
 template <class state_type>
 void sys_func(const state_type &x, state_type &dx, double dt) {
@@ -49,8 +49,6 @@ void runge_kutta_4(SysFunction sys, state_type &x, double dt) {
 
     x += (k1 + 2 * k2 + 2 * k3 + k4) / 6;
 }
-
-extern const char pow3_oper_body[] = "return X[0] + pow(X[-1] + X[1], 3.0);";
 
 int main(int argc, char *argv[]) {
     try {
@@ -1156,8 +1154,8 @@ int main(int argc, char *argv[]) {
                 vex::vector<double> x(ctx.queue(), N);
                 Reductor<size_t,SUM> sum(ctx.queue());
                 x = 1;
-                cl_function(times2, double(double), "return prm1 * 2;");
-                cl_function(times4, double(double), "return prm1 * 4;");
+                VEX_FUNCTION(times2, double(double), "return prm1 * 2;");
+                VEX_FUNCTION(times4, double(double), "return prm1 * 4;");
                 rc = rc && sum(times2(x)) == 2 * N;
                 rc = rc && sum(times4(x)) == 4 * N;
                 return rc;
@@ -1395,7 +1393,9 @@ int main(int argc, char *argv[]) {
                 bool rc = true;
                 const int n = 1 << 20;
 
-                StencilOperator<double, 3, 1, pow3_oper_body> pow3_op(ctx.queue());
+                VEX_STENCIL_OPERATOR(pow3_op,
+                    double, 3, 1,  "return X[0] + pow(X[-1] + X[1], 3.0);",
+                    ctx.queue());
 
                 std::vector<double> x(n);
                 std::vector<double> y(n);
@@ -1417,7 +1417,7 @@ int main(int argc, char *argv[]) {
                     res = std::max(res, fabs(sum - y[i]));
                 }
 
-                Y = 42 * pow3_op(X);
+                Y = 41 * pow3_op(X) + pow3_op(X);
 
                 copy(Y, y);
 
@@ -1449,7 +1449,7 @@ int main(int argc, char *argv[]) {
                 sym_state sym_x(sym_state::VectorParameter);
 
                 // Record expression sequience.
-                runge_kutta_4(sys_func<sym_state>, sym_x, dt); 
+                runge_kutta_4(sys_func<sym_state>, sym_x, dt);
 
                 // Build kernel.
                 auto kernel = generator::build_kernel(ctx.queue(),
@@ -1553,7 +1553,7 @@ int main(int argc, char *argv[]) {
                 vex::vector<cl_int4> X(ctx.queue(), N);
 
                 cl_int4 c = {{1, 2, 3, 4}};
-                cl_function(make_int4, cl_int4(int), "return (int4)(prm1, prm1, prm1, prm1);");
+                VEX_FUNCTION(make_int4, cl_int4(int), "return (int4)(prm1, prm1, prm1, prm1);");
                 X = c * (make_int4(5 + element_index()));
 
                 for(int i = 0; i < 100; ++i) {

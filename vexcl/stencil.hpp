@@ -569,7 +569,7 @@ operator*( const multivector<T, N, own> &x, const stencil<T> &s ) {
  * y = pow3_oper(x);
  * \endcode
  */
-template <typename T, uint width, uint center, const char *body>
+template <typename T, uint width, uint center, class Impl>
 class StencilOperator : private stencil_base<T> {
     public:
         typedef T value_type;
@@ -607,20 +607,20 @@ class StencilOperator : private stencil_base<T> {
         static std::map<cl_context, cl::LocalSpaceArg> lmem;
 };
 
-template <typename T, uint width, uint center, const char *body>
-std::map<cl_context, bool> StencilOperator<T, width, center, body>::compiled;
+template <typename T, uint width, uint center, class Impl>
+std::map<cl_context, bool> StencilOperator<T, width, center, Impl>::compiled;
 
-template <typename T, uint width, uint center, const char *body>
-std::map<cl_context, cl::Kernel> StencilOperator<T, width, center, body>::kernel;
+template <typename T, uint width, uint center, class Impl>
+std::map<cl_context, cl::Kernel> StencilOperator<T, width, center, Impl>::kernel;
 
-template <typename T, uint width, uint center, const char *body>
-std::map<cl_context, uint> StencilOperator<T, width, center, body>::wgsize;
+template <typename T, uint width, uint center, class Impl>
+std::map<cl_context, uint> StencilOperator<T, width, center, Impl>::wgsize;
 
-template <typename T, uint width, uint center, const char *body>
-std::map<cl_context, cl::LocalSpaceArg> StencilOperator<T, width, center, body>::lmem;
+template <typename T, uint width, uint center, class Impl>
+std::map<cl_context, cl::LocalSpaceArg> StencilOperator<T, width, center, Impl>::lmem;
 
-template <typename T, uint width, uint center, const char *body>
-StencilOperator<T, width, center, body>::StencilOperator(
+template <typename T, uint width, uint center, class Impl>
+StencilOperator<T, width, center, Impl>::StencilOperator(
         const std::vector<cl::CommandQueue> &queue)
     : Base(queue, width, center, static_cast<T*>(0), static_cast<T*>(0))
 {
@@ -659,8 +659,8 @@ StencilOperator<T, width, center, body>::StencilOperator(
                 "    }\n"
                 "}\n"
                 "real stencil_oper(local real *X) {\n"
-                << body <<
-                "}\n"
+                << Impl::body() <<
+                "\n}\n"
                 "kernel void convolve(\n"
                 "    " << type_name<size_t>() << " n,\n"
                 "    char has_left,\n"
@@ -733,8 +733,8 @@ StencilOperator<T, width, center, body>::StencilOperator(
     }
 }
 
-template <typename T, uint width, uint center, const char *body>
-void StencilOperator<T, width, center, body>::convolve(
+template <typename T, uint width, uint center, class Impl>
+void StencilOperator<T, width, center, Impl>::convolve(
         const vex::vector<T> &x, vex::vector<T> &y, T alpha, T beta) const
 {
     Base::exchange_halos(x);
@@ -770,6 +770,34 @@ void StencilOperator<T, width, center, body>::convolve(
         }
     }
 }
+
+/// Macro to declare a user-defined stencil operator type.
+/**
+ * \code
+ * VEX_STENCIL_OPERATOR_TYPE(pow3_oper_t, double, 3, 1, "return X[0] + pow(X[-1] + X[1], 3.0);");
+ * pow3_oper_t pow3_oper(ctx.queue());
+ * output = pow3_oper(input);
+ * \endcode
+ *
+ * \note Should be used in case same operator is used in several places (to
+ * save on OpenCL kernel recompilations). Otherwise VEX_STENCIL_OPERATOR should
+ * be used locally.
+ */
+#define VEX_STENCIL_OPERATOR_TYPE(name, type, width, center, body_str) \
+    struct name : StencilOperator<type, width, center, name> { \
+        name(const std::vector<cl::CommandQueue> &q) : StencilOperator<type, width, center, name>(q) {} \
+        static std::string body() { return body_str; } \
+    }
+
+/// Macro to declare a user-defined stencil operator.
+/**
+ * \code
+ * VEX_STENCIL_OPERATOR(pow3_oper, double, 3, 1, "return X[0] + pow(X[-1] + X[1], 3.0);", queue);
+ * output = pow3_oper(input);
+ * \endcode
+ */
+#define VEX_STENCIL_OPERATOR(name, type, width, center, body, queue) \
+    VEX_STENCIL_OPERATOR_TYPE(stencil_operator_##name##_t, type, width, center, body) name(queue)
 
 } // namespace vex
 

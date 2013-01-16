@@ -54,7 +54,7 @@ struct SUM {
 
     template <typename T>
     struct function : UserFunction<function<T>, T(T, T)> {
-        function() : UserFunction<function<T>, T(T, T)>("return prm1 + prm2;") {}
+        static std::string body() { return "return prm1 + prm2;"; }
     };
 
     template <class Iterator>
@@ -78,7 +78,7 @@ struct MAX {
 
     template <typename T>
     struct function : UserFunction<function<T>, T(T, T)> {
-        function() : UserFunction<function<T>, T(T, T)>("return max(prm1, prm2);") {}
+        static std::string body() { return "return max(prm1, prm2);"; }
     };
 
     template <class Iterator>
@@ -97,7 +97,7 @@ struct MIN {
 
     template <typename T>
     struct function : UserFunction<function<T>, T(T, T)> {
-        function() : UserFunction<function<T>, T(T, T)>("return min(prm1, prm2);") {}
+        static std::string body() { return "return min(prm1, prm2);"; }
     };
 
     template <class Iterator>
