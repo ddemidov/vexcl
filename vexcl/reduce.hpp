@@ -327,7 +327,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
             cl::Context context = qctx(queue[d]);
 
             size_t g_size = (idx[d + 1] - idx[d]) * exdata<Expr>::wgsize[context()];
-            auto lmem = cl::__local(exdata<Expr>::wgsize[context()] * sizeof(real));
+            auto lmem = cl::Local(exdata<Expr>::wgsize[context()] * sizeof(real));
 
             uint pos = 0;
             exdata<Expr>::kernel[context()].setArg(pos++, psize);

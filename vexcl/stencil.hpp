@@ -471,15 +471,15 @@ void stencil<T>::init(uint width) {
         if (device_is_cpu || available_lmem < width + 64 + lhalo + rhalo) {
             conv[d]  = slow_conv[context()];
             wgs[d]   = wgsize[context()];
-            loc_s[d] = cl::__local(1);
-            loc_x[d] = cl::__local(1);
+            loc_s[d] = cl::Local(1);
+            loc_x[d] = cl::Local(1);
         } else {
             conv[d] = fast_conv[context()];
             wgs[d]  = wgsize[context()];
             while(available_lmem < width + wgs[d] + lhalo + rhalo)
                 wgs[d] /= 2;
-            loc_s[d] = cl::__local(sizeof(T) * width);
-            loc_x[d] = cl::__local(sizeof(T) * (wgs[d] + lhalo + rhalo));
+            loc_s[d] = cl::Local(sizeof(T) * width);
+            loc_x[d] = cl::Local(sizeof(T) * (wgs[d] + lhalo + rhalo));
         }
 
     }
@@ -727,7 +727,7 @@ StencilOperator<T, width, center, Impl>::StencilOperator(
             while(available_lmem < width + wgsize[context()])
                 wgsize[context()] /= 2;
 
-            lmem[context()] = cl::__local(sizeof(T) * (wgsize[context()] + width - 1));
+            lmem[context()] = cl::Local(sizeof(T) * (wgsize[context()] + width - 1));
         }
 
     }
