@@ -5,6 +5,7 @@ find_package(LATEX QUIET)
 find_package(Doxygen QUIET)
 
 if (LATEX_COMPILER AND DOXYGEN_FOUND)
+    option(DOC_BUILD "Build documentaion")
     option(DOC_BUILD_CHM "Build documentaion in chm format")
 
     set(DOXYGEN_INPUT_DIR   ${CMAKE_SOURCE_DIR})
@@ -22,9 +23,12 @@ if (LATEX_COMPILER AND DOXYGEN_FOUND)
 	${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
 	)
 
-    add_custom_target(doc
-	COMMAND rm -f ${CMAKE_CURRENT_BINARY_DIR}/html/*
-	COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
-	COMMENT "Build Doxygen-generated documentation"
-	)
+    if (DOC_BUILD)
+        add_custom_target(doc ALL DEPENDS
+            COMMAND rm -f ${CMAKE_CURRENT_BINARY_DIR}/html/*
+            COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
+            COMMENT "Build Doxygen-generated documentation"
+            )
+        install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/html DESTINATION share/vexcl/doc)
+    endif (DOC_BUILD)
 endif(LATEX_COMPILER AND DOXYGEN_FOUND)

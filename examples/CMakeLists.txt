@@ -110,3 +110,9 @@ if (FFT_EXAMPLES)
     endif()
     target_link_libraries(fft_benchmark ${FFT_LIBS})
 endif (FFT_EXAMPLES)
+
+foreach(file ${EXAMPLES})
+    list(APPEND binaries "${CMAKE_CURRENT_BINARY_DIR}/${file}")
+endforeach()
+
+install(PROGRAMS ${binaries} DESTINATION share/vexcl/examples)
