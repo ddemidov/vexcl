@@ -48,11 +48,16 @@ void test(Context &ctx, std::vector<size_t> ns) {
     vector<cl_float2> ref(ctx.queue(), ref_h);
     vector<cl_float2> back(ctx.queue(), n);
 
-    FFT<cl_float2>  fft(ctx.queue(), ns);
-    output = fft(input);
+    try {
+        FFT<cl_float2>  fft(ctx.queue(), ns);
+        output = fft(input);
 
-    FFT<cl_float2> ifft(ctx.queue(), ns, inverse);
-    back = ifft(output);
+        FFT<cl_float2> ifft(ctx.queue(), ns, inverse);
+        back = ifft(output);
+    } catch(cl::Error e) {
+        std::cerr << e << std::endl;
+        throw;
+    }
 
     Reductor<cl_float2, SUM> sum(ctx.queue());
     #define rms(e) (100 * std::sqrt(hsum(sum(pow(e, 2))) / n) / range)
