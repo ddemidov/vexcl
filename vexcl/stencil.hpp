@@ -147,7 +147,11 @@ stencil_base<T>::stencil_base(
             queue[d].enqueueWriteBuffer(s[d], CL_FALSE, 0,
                     (end - begin) * sizeof(T), &begin[0], 0, &event[d]);
         } else {
+#ifdef CL_VERSION_1_2
+            queue[d].enqueueMarkerWithWaitList(0, &event[d]);
+#else
             queue[d].enqueueMarker(&event[d]);
+#endif
         }
 
         // Allocate one element more than needed, to be sure size is nonzero.
