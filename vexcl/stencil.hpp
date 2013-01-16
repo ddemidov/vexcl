@@ -147,7 +147,13 @@ stencil_base<T>::stencil_base(
             queue[d].enqueueWriteBuffer(s[d], CL_FALSE, 0,
                     (end - begin) * sizeof(T), &begin[0], 0, &event[d]);
         } else {
-            queue[d].enqueueMarker(&event[d]);
+            // This device is not used (its partition is empty).
+            // Allocate and write single byte to be able to consistently wait
+            // for all events.
+            char dummy = 0;
+
+            s[d] = cl::Buffer(context, CL_MEM_READ_ONLY, sizeof(char));
+            queue[d].enqueueWriteBuffer(s[d], CL_FALSE, 0, sizeof(char), &dummy, 0, &event[d]);
         }
 
         // Allocate one element more than needed, to be sure size is nonzero.
