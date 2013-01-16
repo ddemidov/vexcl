@@ -113,6 +113,8 @@ endif (FFT_EXAMPLES)
 
 foreach(file ${EXAMPLES})
     list(APPEND binaries "${CMAKE_CURRENT_BINARY_DIR}/${file}")
+    list(APPEND source "${CMAKE_CURRENT_SOURCE_DIR}/${file}.cpp")
 endforeach()
 
 install(PROGRAMS ${binaries} DESTINATION share/vexcl/examples)
+install(FILES ${source} DESTINATION share/vexcl/examples/src)
