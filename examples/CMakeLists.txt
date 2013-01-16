@@ -70,6 +70,8 @@ endif (MPI_EXAMPLES)
 
 option(FFT_EXAMPLES "Compile FFT examples" OFF)
 option(FFT_AMD "Use AMDFFT (env AMDFFTROOT)" OFF)
+option(FFT_FFTW "Use FFTW for verification and benchmarking" OFF)
+
 if (FFT_EXAMPLES)
     set(FFT_LIBS ${OPENCL_LIBRARIES} ${Boost_LIBRARIES})
 
@@ -87,27 +89,39 @@ if (FFT_EXAMPLES)
     endif()
 
     # Verification, compare against FFTw
-    find_library(FFTW_LIBRARY NAMES "fftw3f")
-    find_path(FFTW_INCLUDE_DIR "fftw3.h")
-    set(FFT_LIBS ${FFT_LIBS} ${FFTW_LIBRARY})
-    include_directories(${FFTW_INCLUDE_DIR})
-    add_executable(fft_verify fft_verify.cpp)
-    target_link_libraries(fft_verify ${FFT_LIBS})
+    if (FFT_FFTW)
+        find_library(FFTW_LIBRARY NAMES "fftw3f")
+        find_path(FFTW_INCLUDE_DIR "fftw3.h")
+        set(FFT_LIBS ${FFT_LIBS} ${FFTW_LIBRARY})
+        include_directories(${FFTW_INCLUDE_DIR})
+        add_definitions(-DUSE_FFTW)
+        add_executable(fft_verify fft_verify.cpp)
+        target_link_libraries(fft_verify ${FFT_LIBS})
 
-    # Benchmark, compare against CUDA if available
-    # compare against multi threaded FFTw if available
-    if(OpenMP_FOUND)
+        # Use multi threaded FFTw in benchmark if available
+        if(OpenMP_FOUND)
+            find_library(FFTW_OMP_LIBRARY NAMES "fftw3f_omp")
+            set(FFT_LIBS ${FFT_LIBS} ${FFTW_OMP_LIBRARY})
+        endif(OpenMP_FOUND)
+    endif (FFT_FFTW)
+
+    # Benchmark, 
+    add_executable(fft_benchmark fft_benchmark.cpp)
+
+    # Use multi threaded FFTw in benchmark if available
+    if (FFT_FFTW AND OpenMP_FOUND)
         find_library(FFTW_OMP_LIBRARY NAMES "fftw3f_omp")
         set(FFT_LIBS ${FFT_LIBS} ${FFTW_OMP_LIBRARY})
-        add_definitions(-DUSE_OPENMP)
-    endif()
-    add_executable(fft_benchmark fft_benchmark.cpp)
+    endif (FFT_FFTW AND OpenMP_FOUND)
+
+    # Compare against CUDA if available
     find_package(CUDA)
     if(CUDA_FOUND)
         include_directories(${CUDA_INCLUDE_DIRS})
         set(FFT_LIBS ${FFT_LIBS} ${CUDA_LIBRARIES} ${CUDA_cufft_LIBRARY})
-        add_definitions(-DUSE_CUDA=1)
-    endif()
+        add_definitions(-DUSE_CUDA)
+    endif(CUDA_FOUND)
+
     target_link_libraries(fft_benchmark ${FFT_LIBS})
 endif (FFT_EXAMPLES)
 

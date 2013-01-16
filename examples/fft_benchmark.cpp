@@ -58,10 +58,10 @@ double test_cufft(cl_float2 *, size_t, size_t) {
 
 
 #ifdef USE_FFTW
-#ifdef USE_OPENMP
-#include <omp.h>
-#endif
-#include <fftw3.h>
+#  ifdef _OPENMP
+#    include <omp.h>
+#  endif
+#  include <fftw3.h>
 
 double test_fftw(cl_float2 *data, size_t n, size_t m) {
     int sz[2] = {(int)n, (int)m};
@@ -116,7 +116,7 @@ void info(double time, size_t size, size_t dim) {
 }
 
 int main() {
-#if defined(USE_OPENMP) && defined(USE_FFTW)
+#if defined(_OPENMP) && defined(USE_FFTW)
     fftwf_init_threads();
     fftwf_plan_with_nthreads(omp_get_max_threads());
 #endif

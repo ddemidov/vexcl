@@ -147,7 +147,13 @@ stencil_base<T>::stencil_base(
             queue[d].enqueueWriteBuffer(s[d], CL_FALSE, 0,
                     (end - begin) * sizeof(T), &begin[0], 0, &event[d]);
         } else {
-            queue[d].enqueueMarker(&event[d]);
+            // This device is not used (its partition is empty).
+            // Allocate and write single byte to be able to consistently wait
+            // for all events.
+            char dummy = 0;
+
+            s[d] = cl::Buffer(context, CL_MEM_READ_ONLY, sizeof(char));
+            queue[d].enqueueWriteBuffer(s[d], CL_FALSE, 0, sizeof(char), &dummy, 0, &event[d]);
         }
 
         // Allocate one element more than needed, to be sure size is nonzero.
@@ -471,15 +477,15 @@ void stencil<T>::init(uint width) {
         if (device_is_cpu || available_lmem < width + 64 + lhalo + rhalo) {
             conv[d]  = slow_conv[context()];
             wgs[d]   = wgsize[context()];
-            loc_s[d] = cl::__local(1);
-            loc_x[d] = cl::__local(1);
+            loc_s[d] = cl::Local(1);
+            loc_x[d] = cl::Local(1);
         } else {
             conv[d] = fast_conv[context()];
             wgs[d]  = wgsize[context()];
             while(available_lmem < width + wgs[d] + lhalo + rhalo)
                 wgs[d] /= 2;
-            loc_s[d] = cl::__local(sizeof(T) * width);
-            loc_x[d] = cl::__local(sizeof(T) * (wgs[d] + lhalo + rhalo));
+            loc_s[d] = cl::Local(sizeof(T) * width);
+            loc_x[d] = cl::Local(sizeof(T) * (wgs[d] + lhalo + rhalo));
         }
 
     }
@@ -727,7 +733,7 @@ StencilOperator<T, width, center, Impl>::StencilOperator(
             while(available_lmem < width + wgsize[context()])
                 wgsize[context()] /= 2;
 
-            lmem[context()] = cl::__local(sizeof(T) * (wgsize[context()] + width - 1));
+            lmem[context()] = cl::Local(sizeof(T) * (wgsize[context()] + width - 1));
         }
 
     }
