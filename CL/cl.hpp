@@ -5659,7 +5659,7 @@ public:
      */
     cl_int enqueueMarkerWithWaitList(
         const VECTOR_CLASS<Event> *events = 0,
-        Event *event = 0)
+        Event *event = 0) const
     {
         cl_event tmp;
         cl_int err = detail::errHandler(
@@ -5689,7 +5689,7 @@ public:
      */
     cl_int clEnqueueBarrierWithWaitList(
         const VECTOR_CLASS<Event> *events = 0,
-        Event *event = 0)
+        Event *event = 0) const
     {
         cl_event tmp;
         cl_int err = detail::errHandler(
