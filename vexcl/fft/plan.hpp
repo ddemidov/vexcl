@@ -89,13 +89,14 @@ struct plan {
 
             // 1D, each row.
             if(w > 1) {
-                size_t p = 1;
-                while(p < w) {
-                    size_t radix = get_radix(p, w);
+                size_t p = 1, m = w;
+                while(m > 1) {
+                    pow radix = get_radix(m);
                     kernels.push_back(radix_kernel<T>(queue, w, h,
                         inverse, radix, p, temp[current](0), temp[other](0)));
                     std::swap(current, other);
-                    p *= radix;
+                    p *= radix.value;
+                    m /= radix.value;
                 }
             }
 
@@ -109,10 +110,10 @@ struct plan {
         output = current;
     }
 
-    // returns the next radix to use for stage p, size n.
-    static size_t get_radix(size_t p, size_t n) {
-        const size_t rs[] = {16, 8, 4, 2};
-        for(auto r : rs) if(p * r <= n) return r;
+    // returns the next radix to use for remaining size m.
+    static pow get_radix(size_t m) {
+        static const pow rs[] = {pow(2,4), pow(2,3), pow(2,2), pow(2,2), pow(2,1)};
+        for(auto r : rs) if(m % r.value == 0) return r;
         throw std::runtime_error("Unsupported FFT size.");
     }
     

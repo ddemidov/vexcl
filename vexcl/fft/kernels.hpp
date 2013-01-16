@@ -44,6 +44,12 @@ struct kernel_call {
     kernel_call(cl::Program p, cl::Kernel k, cl::NDRange g, cl::NDRange l) : program(p), kernel(k), global(g), local(l) {}
 };
 
+// Store v=b^e as components.
+struct pow {
+    size_t base, exponent, value;
+    pow(size_t b, size_t e) : base(b), exponent(e), value(std::pow(b, e)) {}
+};
+
 
 /// Return the greatest k = 2^m <= n
 static int pow2_floor(int n) {
@@ -91,20 +97,21 @@ void param_list(std::ostringstream &o, size_t from, size_t to) {
 }
 
 template <class T>
-void in_place_dft(std::ostringstream &o, bool invert, size_t radix) {
+void in_place_dft(std::ostringstream &o, bool invert, pow radix) {
+    typedef typename cl_vector_of<T,2>::type T2;
     // inline DFT macro.
-    if(radix == 2) {
+    if(radix.value == 2) {
         o << R"(#define DFT2(v0,v1) { \
                 real2_t tmp = v0 - v1; \
                 v0 += v1; \
                 v1 = tmp; \
             }
         )";
-    } else {
-        const size_t half_radix = radix / 2;
+    } else if(radix.base == 2) {
+        const size_t half_radix = radix.value / 2;
         // parameters
-        o << "#define DFT" << radix;
-        param_list(o, 0, radix);
+        o << "#define DFT" << radix.value;
+        param_list(o, 0, radix.value);
         o << '{';
         // leaves
         for(size_t i = 0 ; i < half_radix ; i++) {
@@ -115,46 +122,52 @@ void in_place_dft(std::ostringstream &o, bool invert, size_t radix) {
                     o << 'v' << j << "=twiddle_1_2(v" << j << ");";
                 } else {
                     T factor = (invert ? 1 : -1) * (T)M_PI * i / half_radix;
-                    typename cl_vector_of<T,2>::type twiddle =
-                        {{std::cos(factor), std::sin(factor)}};
+                    T2 twiddle = {{std::cos(factor), std::sin(factor)}};
                     o << 'v' << j << "=mul(v" << j << ',' << std::setprecision(25) << twiddle << ");";
                 }
             }
         }
         // next stage
         o << "DFT" << half_radix; param_list(o, 0, half_radix); o << ';';
-        o << "DFT" << half_radix ; param_list(o, half_radix, radix); o << ';';
+        o << "DFT" << half_radix ; param_list(o, half_radix, radix.value); o << ';';
         o << "}\n";
     }
 }
 
 template <class T>
-void kernel_radix(std::ostringstream &o, bool invert, size_t radix, size_t p, size_t threads) {
-    for(size_t r = radix ; r >= 2 ; r /= 2)
-        in_place_dft<T>(o, invert, r);
+void kernel_radix(std::ostringstream &o, bool invert, pow radix, size_t p, size_t threads) {
+    for(size_t e = 0 ; e <= radix.exponent ; e++)
+        in_place_dft<T>(o, invert, pow(radix.base, e));
 
     // kernel.
     o << "__kernel void radix(__global const real2_t *x, __global real2_t *y) {";
-    o << "const size_t i = get_global_id(0);"
-        << "const size_t k = i & " << (p - 1) << ";" // index in input sequence, in 0..P-1
-        << "const size_t j = ((i - k) * " << radix << ") + k;" // output index
-        << "const size_t batch_offset = get_global_id(1) * " << (threads * radix) << ';'
+    o << "const size_t i = get_global_id(0);";
+        // index in input sequence, in 0..P-1
+    if(radix.base == 2)
+        o << "const size_t k = i & " << (p - 1) << ";";
+    else
+        o << "const size_t k = i % " << p << ";";
+
+    o << "const size_t j = ((i - k) * " << radix.value << ") + k;" // output index
+        << "const size_t batch_offset = get_global_id(1) * " << (threads * radix.value) << ';'
         << "x += i + batch_offset; y += j + batch_offset;";
 
     // read
-    for(size_t i = 0 ; i < radix ; i++)
+    for(size_t i = 0 ; i < radix.value ; i++)
         o << "real2_t v" << i << " = x[" << (i * threads) << "];";
     // twiddle
-    for(size_t i = 1 ; i < radix ; i++) {
-        const T alpha = -M_PI * i / (p * radix / 2);
+    for(size_t i = 1 ; i < radix.value ; i++) {
+        const T alpha = -M_PI * i / (p * radix.value / radix.base);
         o << "v" << i << "=twiddle(v" << i << ",(real_t)" << std::setprecision(25) << alpha << " * k);";
     }
     // inplace DFT
-    o << "DFT" << radix; param_list(o, 0, radix); o << ';';
+    o << "DFT" << radix.value; param_list(o, 0, radix.value); o << ';';
     // write back
-    for(size_t i = 0 ; i < radix ; i++) {
-        size_t j = bit_reverse(i, log2(radix));
-        o << "y[" << (i * p) << "]=v" << j << ';';
+    if(radix.base == 2) {
+        for(size_t i = 0 ; i < radix.value ; i++) {
+            size_t j = bit_reverse(i, radix.exponent);
+            o << "y[" << (i * p) << "]=v" << j << ';';
+        }
     }
     o << "}\n";
 }
@@ -174,7 +187,7 @@ void kernel_common(std::ostringstream &o) {
 
 
 template <class T>
-kernel_call radix_kernel(cl::CommandQueue &queue, size_t n, size_t batch, bool invert, size_t radix, size_t p, cl::Buffer in, cl::Buffer out) {
+kernel_call radix_kernel(cl::CommandQueue &queue, size_t n, size_t batch, bool invert, pow radix, size_t p, cl::Buffer in, cl::Buffer out) {
     std::ostringstream o;
     kernel_common<T>(o);
 
@@ -196,7 +209,7 @@ kernel_call radix_kernel(cl::CommandQueue &queue, size_t n, size_t batch, bool i
     o << "real2_t twiddle_1_2(real2_t a){"
         << "return (real2_t)(" << (invert ? "-a.y, a.x" : "a.y, -a.x") << ");}\n";
 
-    const size_t m = n / radix;
+    const size_t m = n / radix.value;
     kernel_radix<T>(o, invert, radix, p, m);
 
     auto program = build_sources(qctx(queue), o.str(), "-cl-mad-enable -cl-fast-relaxed-math");
