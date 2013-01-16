@@ -28,7 +28,7 @@ THE SOFTWARE.
 /**
  * \file   types.hpp
  * \author Pascal Germroth <pascal@ensieve.org>
- * \brief  C++ sugar for OpenCL vector types, eg. cl::float4, operator+.
+ * \brief  C++ sugar for OpenCL vector types, eg. cl_float4, operator+.
  */
 
 namespace vex {
@@ -42,6 +42,11 @@ namespace vex {
     /** \code cl_vector_of<cl_float, 4>::type == cl_float4 \endcode */
     template <class T, int dim>
     struct cl_vector_of {};
+
+    /// Get the number of values in a CL vector (or scalar) type.
+    /** \code cl_vector_length<cl_float4>::value == 4 \endcode */
+    template <class T>
+    struct cl_vector_length {};
 
 } // namespace vex
 
@@ -93,6 +98,7 @@ std::ostream &operator<<(std::ostream &os, const cl_##base_type##len &value) { \
 namespace vex { \
     template <> struct cl_scalar_of<cl_##base_type##len> { typedef cl_##base_type type; }; \
     template <> struct cl_vector_of<cl_##base_type, len> { typedef cl_##base_type##len type; }; \
+    template <> struct cl_vector_length<cl_##base_type##len> { enum { value = len }; }; \
 }
 
 #define CL_TYPES(base_type) \
@@ -102,6 +108,8 @@ CL_VEC_TYPE(base_type, 8); \
 CL_VEC_TYPE(base_type, 16); \
 namespace vex { \
     template <> struct cl_scalar_of<cl_##base_type> { typedef cl_##base_type type; }; \
+    template <> struct cl_vector_of<cl_##base_type, 1> { typedef cl_##base_type type; }; \
+    template <> struct cl_vector_length<cl_##base_type> { enum { value = 1 }; }; \
 }
 
 CL_TYPES(float);
