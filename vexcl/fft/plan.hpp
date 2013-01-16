@@ -112,7 +112,7 @@ struct plan {
 
     // returns the next radix to use for remaining size m.
     static pow get_radix(size_t m) {
-        static const pow rs[] = {pow(2,4), pow(2,3), pow(2,2), pow(2,2), pow(2,1)};
+        static const pow rs[] = {pow(2,4), pow(2,3), pow(2,2), pow(2,2), pow(2,1), pow(3,1)};
         for(auto r : rs) if(m % r.value == 0) return r;
         throw std::runtime_error("Unsupported FFT size.");
     }

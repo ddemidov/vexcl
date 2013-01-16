@@ -131,6 +131,18 @@ void in_place_dft(std::ostringstream &o, bool invert, pow radix) {
         o << "DFT" << half_radix; param_list(o, 0, half_radix); o << ';';
         o << "DFT" << half_radix ; param_list(o, half_radix, radix.value); o << ';';
         o << "}\n";
+    } else if(radix.value == 3) {
+        const T sq = std::sqrt(3) / 2;
+        o <<
+            "#define DFT3(v0,v1,v2) { "
+            "   real2_t w0 = " << std::setprecision(25) << (T2){{-0.5, invert ? sq : -sq}} << "; "
+            "   real2_t w1 = " << std::setprecision(25) << (T2){{-0.5, invert ? -sq : sq}} << "; "
+            "   real2_t t0 = v0 + v1 + v2; "
+            "   real2_t t1 = v0 + mul(v1, w0) + mul(v2, w1);"
+            "   v2 = v0 + mul(v1, w1) + mul(v2, w0);"
+            "   v0 = t0;"
+            "   v1 = t1;"
+            "} \n";
     }
 }
 
@@ -168,6 +180,9 @@ void kernel_radix(std::ostringstream &o, bool invert, pow radix, size_t p, size_
             size_t j = bit_reverse(i, radix.exponent);
             o << "y[" << (i * p) << "]=v" << j << ';';
         }
+    } else if(radix.value == 3) {
+        for(size_t i = 0 ; i < radix.value ; i++)
+            o << "y[" << (i * p) << "]=v" << i << ";";
     }
     o << "}\n";
 }
@@ -217,8 +232,7 @@ kernel_call radix_kernel(cl::CommandQueue &queue, size_t n, size_t batch, bool i
     kernel.setArg(0, in);
     kernel.setArg(1, out);
 
-    size_t wg = pow2_floor(std::min(m,
-        (size_t)kernel_workgroup_size(kernel, qdev(queue))));
+    if(m % 2 != 0) wg = 1; // ?!
 
     return kernel_call(program, kernel, cl::NDRange(m, batch), cl::NDRange(wg, 1));
 }

@@ -59,6 +59,9 @@ void test(Context &ctx, std::vector<size_t> ns) {
         throw;
     }
 
+    if(n < 20 && n % 3 == 0)
+        std::cerr << "ref " << ref << "\nout " << output << std::endl;
+
     Reductor<cl_float2, SUM> sum(ctx.queue());
     #define rms(e) (100 * std::sqrt(hsum(sum(pow(e, 2))) / n) / range)
 
@@ -84,6 +87,8 @@ int main() {
     test(ctx, {2, 4});
     test(ctx, {2 * 16, 4 * 16, 8 * 16});
     test(ctx, {2 * 16, 4 * 16, 8 * 16, 2});
+    test(ctx, {3});
+    test(ctx, {3 * 3}); // TODO: wrong.
     return 0;
 }
 
