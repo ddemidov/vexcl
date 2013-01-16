@@ -81,7 +81,7 @@ struct amd_context {
     static_assert(dummy, "dummy parameter should be true");
 
     static void init() {
-        if (!ctx) ctx.rest(new ctx_t());
+        if (!ctx) ctx.reset(new ctx_t());
     }
 
     // Not really needed, but who knows.
@@ -156,14 +156,14 @@ struct FFT {
         size_t _lengths[3];
         std::copy(std::begin(lengths), std::end(lengths), _lengths);
         cl::Context context = qctx(queues[0]);
-        check_error(clAmdFftCreateDefaultPlan(&plan, context(),
+        fft_check_error(clAmdFftCreateDefaultPlan(&plan, context(),
             static_cast<clAmdFftDim>(lengths.size()), _lengths));
-        check_error(clAmdFftSetPlanPrecision(plan, CLFFT_SINGLE));
-        check_error(clAmdFftSetLayout(plan, CLFFT_COMPLEX_INTERLEAVED, CLFFT_COMPLEX_INTERLEAVED));
+        fft_check_error(clAmdFftSetPlanPrecision(plan, CLFFT_SINGLE));
+        fft_check_error(clAmdFftSetLayout(plan, CLFFT_COMPLEX_INTERLEAVED, CLFFT_COMPLEX_INTERLEAVED));
     }
 
     ~FFT() {
-        if(plan) check_error(clAmdFftDestroyPlan(&plan));
+        if(plan) fft_check_error(clAmdFftDestroyPlan(&plan));
     }
 
 
