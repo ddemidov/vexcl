@@ -78,6 +78,7 @@ namespace random {
  * Threefry, based on the Threefish cipher, is a non cryptographic algorithm
  * for pseudorandom number generation from the Random123 suite.
  * \see http://www.deshawresearch.com/resources_random123.html
+ * \sa vex::Random.
  */
 struct threefry {
     // print the rotation table for WxN

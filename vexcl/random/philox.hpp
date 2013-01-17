@@ -75,11 +75,12 @@ namespace vex {
 namespace random {
 
 
-/// Philox rundom number generator.
+/// Philox random number generator.
 /**
  * Philox is an integer multiplication based, non cryptographic algorithm
  * for pseudorandom number generation from the Random123 suite.
  * \see http://www.deshawresearch.com/resources_random123.html
+ * \sa vex::Random.
  */
 struct philox {
     /// generates a macro `philox(ctr, key)`
