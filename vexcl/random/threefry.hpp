@@ -1,5 +1,5 @@
-#ifndef VEXCL_RANDOM_PHILOX_HPP
-#define VEXCL_RANDOM_PHILOX_HPP
+#ifndef VEXCL_RANDOM_THREEFRY_HPP
+#define VEXCL_RANDOM_THREEFRY_HPP
 
 /*
 The MIT License
@@ -26,14 +26,14 @@ THE SOFTWARE.
 */
 
 /**
- * \file   random/philox.hpp
+ * \file   random/threefry.hpp
  * \author Pascal Germroth <pascal@ensieve.org>
- * \brief  Philox random generator.
+ * \brief  Threefry random generator.
  */
 
 
 /*
-Philox is an integer multiplication based, non cryptographic algorithm
+Threefry, based on the Threefish cipher, is a non cryptographic algorithm
 for pseudorandom number generation from the Random123 suite,
 see <http://www.deshawresearch.com/resources_random123.html>
 
@@ -74,68 +74,82 @@ namespace vex {
 namespace random {
 
 
-struct philox {
-    /// generates a macro `philox(ctr, key)`
-    /// modifies both inputs, use the components of ctr for randomness.
+struct threefry {
+    // print the rotation table for WxN
+    template <size_t n>
+    static void table(std::ostream &o, const int r[n]) {
+        for(size_t i = 0 ; i < n ; i++) {
+            if(i > 0) o << ", ";
+            o << "R" << i << " = " << r[i];
+        }
+    }
+
+    template <size_t bits, size_t w>
+    static void rotation_table(std::ostream &o) {
+        static const int r2x32[8] = {13, 15, 26,  6, 17, 29, 16, 24};
+        static const int r4x32[16] = {10, 26, 11, 21, 13, 27, 23,  5,
+             6, 20, 17, 11, 25, 10, 18, 20};
+        static const int r2x64[8] = {16, 42, 12, 31, 16, 32, 24, 21};
+        static const int r4x64[16] = {14, 16, 52, 57, 23, 40,  5, 37,
+            25, 33, 46, 12, 58, 22, 32, 32};
+        if(w == 2) table<8>(o, bits == 32 ? r2x32 : r2x64);
+        else table<16>(o, bits == 32 ? r4x32 : r4x64);
+    }
+
+    // Generates a `name(ctr, key)` macro.
+    // `ctr` will be modified, containing the random output.
+    // `key` will be preserved.
     template <class T>
-    static void macro(std::ostream &o, std::string name, size_t rounds = 10) {
+    static void macro(std::ostream &o, std::string name, size_t rounds = 20) {
         const size_t w = cl_vector_length<T>::value;
         static_assert(w == 2 || w == 4, "Only supports 2- and 4-vectors.");
         typedef typename cl_scalar_of<T>::type Ts;
         static_assert(boost::is_same<Ts, cl_uint>::value || boost::is_same<Ts, cl_ulong>::value,
             "Only supports 32 or 64 bit integers.");
-        typedef T ctr_t;
-        typedef typename cl_vector_of<Ts, w/2>::type key_t;
+        const size_t bits = sizeof(Ts) * 8;
 
-        o << "typedef " << type_name<ctr_t>() << " ctr_t;\n";
-        o << "typedef " << type_name<key_t>() << " key_t;\n";
+        o << "typedef " << type_name<T>() << " ctr_t;\n";
+        o << "typedef ctr_t key_t;\n";
 
-        // Define macro
-        o << "#define " << name << "(ctr, key) {\\\n"
-          << "ctr_t __mul;\\\n";
-        o << type_name<Ts>() << " ";
-        // constants
-        if(boost::is_same<T, cl_uint>::value) { // 32
-            o << "W0 = 0x9E3779B9, ";
-            if(w == 2)
-                o << "M0 = 0xD256D193;\\\n";
-            else
-                o << "W1 = 0xBB67AE85, "
-                    "M0 = 0xD2511F53, "
-                    "M1 = 0xCD9E8D57;\\\n";
-        } else { // 64
-            o << "W0 = 0x9E3779B97F4A7C15, "; // golden ratio
-            if(w == 2)
-                o << "M0 = 0xD2B74407B1CE6E93;\\\n";
-            else
-                o << "M0 = 0xD2E7470EE14C6C93, "
-                    "M1 = 0xCA5A826395121157, "
-                    "W1 = 0xBB67AE8584CAA73B;\\\n"; // sqrt(3)-1
-        }
-
+        o << "#define " << name << "(ctr, key) {\\\n";
+        o << "const " << type_name<Ts>() << " ";
+        rotation_table<bits, w>(o);
+        o << ", p = "
+          << (bits == 32 ? "0x1BD11BDA" : "0x1BD11BDAA9FC1A22");
+        for(size_t i = 0 ; i < w ; i++)
+            o << " ^ key.s" << i;
+        o << ";\\\n";
+        // Insert initial key before round 0
+        for(size_t i = 0 ; i < w ; i++)
+            o << "ctr.s" << i << " += key.s" << i << ";\\\n";
         for(size_t round = 0 ; round < rounds ; round++) {
-            if(round > 0) { // bump key
-                if(w == 2)
-                    o << "key += W0;\\\n";
-                else
-                    o << "key.s0 += W0;"
-                        " key.s1 += W1;\\\n";
-            }
-            // next round
+            // do rounds
             if(w == 2)
-                o << "__mul.s0 = mul_hi(M0, ctr.s0);"
-                    " __mul.s1 = M0 * ctr.s0;"
-                    " ctr.s0 = __mul.s0 ^ key ^ ctr.s1;"
-                    " ctr.s1 = __mul.s1;\\\n";
-            else
-                o << "__mul.s0 = mul_hi(M0, ctr.s0);"
-                    " __mul.s1 = M0 * ctr.s0;"
-                    " __mul.s2 = mul_hi(M1, ctr.s2);"
-                    " __mul.s3 = M1 * ctr.s2;"
-                    " ctr.s0 = __mul.s2 ^ ctr.s1 ^ key.s0;"
-                    " ctr.s1 = __mul.s3;"
-                    " ctr.s2 = __mul.s0 ^ ctr.s3 ^ key.s1;"
-                    " ctr.s3 = __mul.s1;\\\n";
+                o << "ctr.s0 += ctr.s1; "
+                  << "ctr.s1 = rotate(ctr.s1, R" << (round % 8) << "); "
+                  << "ctr.s1 ^= ctr.s0;\\\n";
+            else {
+                const size_t r = 2 * (round % 8),
+                    r0 = r + (round % 2),
+                    r1 = r + ((round + 1) % 2);
+                o << "ctr.s0 += ctr.s1; "
+                  << "ctr.s1 = rotate(ctr.s1, R" << r0 << "); "
+                  << "ctr.s1 ^= ctr.s0;\\\n"
+                  << "ctr.s2 += ctr.s3; "
+                  << "ctr.s3 = rotate(ctr.s3, R" << r1 << "); "
+                  << "ctr.s3 ^= ctr.s2;\\\n";
+            }
+            // inject key
+            if((round + 1) % 4 == 0) {
+                const size_t j = round / 4 + 1;
+                for(size_t i = 0 ; i < w ; i++) {
+                    const size_t ii = ((j + i) % (w + 1));
+                    o << "ctr.s" << i << " += ";
+                    if(ii == w) o << "p; ";
+                    else o << "key.s" << ii << "; ";
+                }
+                o << "ctr.s" << (w - 1) << " += " << j << ";\\\n";
+            }
         }
         o << "}\n";
     }

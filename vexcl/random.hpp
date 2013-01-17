@@ -32,6 +32,7 @@ THE SOFTWARE.
  */
 
 #include <vexcl/random/philox.hpp>
+#include <vexcl/random/threefry.hpp>
 
 
 namespace vex {

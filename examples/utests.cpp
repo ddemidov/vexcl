@@ -1606,6 +1606,15 @@ int main(int argc, char *argv[]) {
                 rc = rc && std::abs(sumd(x4)/N) < 1e-3;
                 // E(abs(X) ~ N(0,s)) = sqrt(2/M_PI) * s
                 rc = rc && std::abs(sumd(fabs(x4))/N - std::sqrt(2 / M_PI)) < 1e-3;
+
+                vex::vector<cl_double> x5(ctx.queue(), N);
+                Random<cl_double, random::threefry> rand5;
+                x5 = rand5(element_index(), 0xc0ffee);
+                rc = rc && std::abs(sumd(x5)/N - 0.5) < 1e-3;
+
+                vex::vector<cl_double4> x6(ctx.queue(), N);
+                Random<cl_double, random::threefry> rand6;
+                x6 = rand6(element_index(), 0xc0ffee);
                 return rc;
                 });
 #endif
