@@ -44,9 +44,9 @@ int main() {
 `vex::Context` object holds list of initialized OpenCL contexts and command
 queues for each filtered device. If you just need list of available devices
 without creating contexts and queues on them, then look for `device_list()`
-function in documenation.
+function in documentation.
 
-If you wish to obtain exclusive access to your devices (across all processes
+If you wish to obtain an exclusive access to your devices (across all processes
 that use VexCL library), just wrap your device filter in `Filter::Exclusive`
 function call:
 ```C++
@@ -265,7 +265,6 @@ x = rnd(element_index(0), seed);
 y = rnd(element_index(n), seed);
 
 double pi = 8.0 * sum(x * x + y * y < 1) / n;
-}
 ```
 [rnd123]: http://www.deshawresearch.com/resources_random123.html
 
