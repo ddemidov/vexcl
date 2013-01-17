@@ -29,16 +29,14 @@ THE SOFTWARE.
  * \file   random/threefry.hpp
  * \author Pascal Germroth <pascal@ensieve.org>
  * \brief  Threefry random generator.
- */
 
-
-/*
 Threefry, based on the Threefish cipher, is a non cryptographic algorithm
 for pseudorandom number generation from the Random123 suite,
 see <http://www.deshawresearch.com/resources_random123.html>
 
 The original code came with the following copyright notice:
 
+\verbatim
 Copyright 2010-2011, D. E. Shaw Research.
 All rights reserved.
 
@@ -68,12 +66,16 @@ DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
 THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+\endverbatim
 */
 
 namespace vex {
 namespace random {
 
 
+/// Threefry, based on the Threefish cipher, is a non cryptographic algorithm
+/// for pseudorandom number generation from the Random123 suite,
+/** \see <http://www.deshawresearch.com/resources_random123.html> */
 struct threefry {
     // print the rotation table for WxN
     template <size_t n>

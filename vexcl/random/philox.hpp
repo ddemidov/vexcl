@@ -75,6 +75,9 @@ namespace vex {
 namespace random {
 
 
+/// Philox is an integer multiplication based, non cryptographic algorithm
+/// for pseudorandom number generation from the Random123 suite.
+/** \see <http://www.deshawresearch.com/resources_random123.html>. */
 struct philox {
     /// generates a macro `philox(ctr, key)`
     /// modifies both inputs, uses the components of ctr for randomness.
