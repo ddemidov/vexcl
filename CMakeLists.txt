@@ -3,5 +3,6 @@ project(VexCL CXX)
 
 add_subdirectory(examples)
 add_subdirectory(doc)
+add_subdirectory(cmake)
 
 install(DIRECTORY vexcl DESTINATION include)
