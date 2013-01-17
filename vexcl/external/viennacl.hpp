@@ -48,6 +48,11 @@ namespace viennacl {
         {
             return A * x;
         }
+
+        template <typename T>
+        T norm_2(const vex::vector<T> &x) {
+            return sqrt(inner_prod(x, x));
+        }
     }
 
     namespace traits {

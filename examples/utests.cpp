@@ -1577,7 +1577,6 @@ int main(int argc, char *argv[]) {
                 Reductor<size_t,SUM> sumi(ctx.queue());
                 Reductor<double,SUM> sumd(ctx.queue());
 
-                // These should compile...
                 vex::vector<cl_uint> x0(ctx.queue(), N);
                 Random<cl_int> rand0;
                 x0 = rand0(element_index());
