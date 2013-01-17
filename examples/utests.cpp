@@ -1579,28 +1579,28 @@ int main(int argc, char *argv[]) {
 
                 vex::vector<cl_uint> x0(ctx.queue(), N);
                 Random<cl_int> rand0;
-                x0 = rand0(element_index());
+                x0 = rand0(element_index(), 0xf00d);
 
                 vex::vector<cl_float8> x1(ctx.queue(), N);
                 Random<cl_float8> rand1;
-                x1 = rand1(element_index());
+                x1 = rand1(element_index(), 0xbeef);
 
                 vex::vector<cl_double4> x2(ctx.queue(), N);
                 Random<cl_double4> rand2;
-                x2 = rand2(element_index());
+                x2 = rand2(element_index(), 0xc0ffee);
 
                 vex::vector<cl_double> x3(ctx.queue(), N);
                 Random<cl_double> rand3;
-                x3 = rand3(element_index());
+                x3 = rand3(element_index(), 0xf00);
                 // X in [0,1]
                 rc = rc && sumi(x3 > 1) == 0;
                 rc = rc && sumi(x3 < 0) == 0;
                 // mean = 0.5
-                rc = rc && std::abs((sumd(x3) / N) - 0.5) < 1e-4;
+                rc = rc && std::abs((sumd(x3) / N) - 0.5) < 1e-3;
 
                 vex::vector<cl_double> x4(ctx.queue(), N);
                 RandomNormal<cl_double> rand4;
-                x4 = rand4(element_index());
+                x4 = rand4(element_index(), 0x42);
                 // E(X ~ N(0,s)) = 0
                 rc = rc && std::abs(sumd(x4)/N) < 1e-3;
                 // E(abs(X) ~ N(0,s)) = sqrt(2/M_PI) * s
