@@ -736,10 +736,22 @@ void copy(const vex::vector<T> &dv, std::vector<T> &hv, cl_bool blocking = CL_TR
     dv.read_data(0, dv.size(), hv.data(), blocking);
 }
 
+/// Copy device vector to host pointer.
+template <class T>
+void copy(const vex::vector<T> &dv, T *hv, cl_bool blocking = CL_TRUE) {
+    dv.read_data(0, dv.size(), hv, blocking);
+}
+
 /// Copy host vector to device vector.
 template <class T>
 void copy(const std::vector<T> &hv, vex::vector<T> &dv, cl_bool blocking = CL_TRUE) {
     dv.write_data(0, dv.size(), hv.data(), blocking);
+}
+
+/// Copy host pointer to device vector.
+template <class T>
+void copy(const T *hv, vex::vector<T> &dv, cl_bool blocking = CL_TRUE) {
+    dv.write_data(0, dv.size(), hv, blocking);
 }
 
 /// \cond INTERNAL
