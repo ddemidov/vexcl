@@ -37,20 +37,24 @@ THE SOFTWARE.
 namespace vex {
 
 /// A random generator.
-/// For integral types, generated values span the complete range.
-/// For floating point types, generated values are >= 0 and <= 1.
-/// 
-/// Uses Random123 generators which provide 64(2x32), 128(4x32, 2x64)
-/// and 256(4x64) random bits, this limits the supported output types,
-/// which means `cl_double8` (512bit) is not supported, but `cl_uchar2` is.
 /**
+ * For integral types, generated values span the complete range.
+ * For floating point types, generated values are >= 0 and <= 1.
+ *
+ * Uses Random123 generators which provide 64(2x32), 128(4x32, 2x64)
+ * and 256(4x64) random bits, this limits the supported output types,
+ * which means `cl_double8` (512bit) is not supported, but `cl_uchar2` is.
  * \code
  * Random<cl_int> rand();
- * output = rand(element_index(seed));
+ * // Generate numbers from the same sequence
+ * output1 = rand(element_index(), seed1);
+ * output2 = rand(element_index(output1.size()), seed1);
+ * // Generate a new sequence
+ * output3 = rand(element_index(), seed2);
  * \endcode
  */
 template <class T, class Generator = random::philox>
-struct Random : UserFunction<Random<T, Generator>, T(cl_ulong)> {
+struct Random : UserFunction<Random<T, Generator>, T(cl_ulong, cl_ulong)> {
     // TODO: parameter should be same size as ctr_t
     // to allow using full range of the generator.
     typedef typename cl_scalar_of<T>::type Ts;
@@ -75,7 +79,7 @@ struct Random : UserFunction<Random<T, Generator>, T(cl_ulong)> {
             default:
                 throw std::runtime_error("Unsupported random output type.");
         }
-        o << "ctr_t ctr = prm1;\n"
+        o << "ctr_t ctr; ctr.s0 = prm1; ctr.s1 = prm2;\n"
             "key_t key = 0x12345678;\n"
             "rand(ctr, key);\n"
             "#undef rand\n";
@@ -112,10 +116,10 @@ struct Random : UserFunction<Random<T, Generator>, T(cl_ulong)> {
 /**
  * \code
  * RandomNormal<cl_double2> rand();
- * output = mean + std_deviation * rand(element_index(seed));
+ * output = mean + std_deviation * rand(element_index(), seed);
  */
 template <class T, class Generator = random::philox>
-struct RandomNormal : UserFunction<RandomNormal<T,Generator>, T(cl_ulong)> {
+struct RandomNormal : UserFunction<RandomNormal<T,Generator>, T(cl_ulong, cl_ulong)> {
     typedef typename cl_scalar_of<T>::type Ts;
     static_assert(boost::is_same<Ts, cl_float>::value
         || boost::is_same<Ts, cl_double>::value,
@@ -132,7 +136,7 @@ struct RandomNormal : UserFunction<RandomNormal<T,Generator>, T(cl_ulong)> {
         else
             Generator::template macro<cl_uint4>(o, "rand");
 
-        o << "ctr_t ctr = prm1;\n"
+        o << "ctr_t ctr; ctr.s0 = prm1; ctr.s1 = prm2;\n"
             "key_t key = 0x12345678;\n";
         o << type_name<T>() << " z;\n";
 
