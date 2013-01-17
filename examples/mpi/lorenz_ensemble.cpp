@@ -8,7 +8,7 @@
 #include <mpi.h>
 
 #include <vexcl/vexcl.hpp>
-#include <vexcl/mpi/mpi.hpp>
+#include <vexcl/mpi.hpp>
 
 #include <boost/numeric/odeint.hpp>
 #include <boost/numeric/odeint/algebra/vector_space_algebra.hpp>

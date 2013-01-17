@@ -6,7 +6,7 @@
 #include <boost/thread.hpp>
 #include <mpi.h>
 #include <vexcl/vexcl.hpp>
-#include <vexcl/mpi/mpi.hpp>
+#include <vexcl/mpi.hpp>
 
 static bool all_passed = true;
 vex::mpi::comm_data mpi;

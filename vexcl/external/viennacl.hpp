@@ -26,7 +26,7 @@ THE SOFTWARE.
 */
 
 /**
- * \file   viennacl.hpp
+ * \file   external/viennacl.hpp
  * \author Denis Demidov <ddemidov@ksu.ru>
  * \brief  Enables use of ViennaCL (http://viennacl.sourceforge.net) iterative solvers.
  */
