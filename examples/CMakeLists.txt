@@ -109,10 +109,10 @@ if (FFT_EXAMPLES)
     add_executable(fft_benchmark fft_benchmark.cpp)
 
     # Use multi threaded FFTw in benchmark if available
-    if (FFT_FFTW AND OpenMP_FOUND)
+    if (FFT_FFTW AND OPENMP_FOUND)
         find_library(FFTW_OMP_LIBRARY NAMES "fftw3f_omp")
         set(FFT_LIBS ${FFT_LIBS} ${FFTW_OMP_LIBRARY})
-    endif (FFT_FFTW AND OpenMP_FOUND)
+    endif (FFT_FFTW AND OPENMP_FOUND)
 
     # Compare against CUDA if available
     find_package(CUDA)

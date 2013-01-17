@@ -29,16 +29,14 @@ THE SOFTWARE.
  * \file   random/philox.hpp
  * \author Pascal Germroth <pascal@ensieve.org>
  * \brief  Philox random generator.
- */
 
-
-/*
 Philox is an integer multiplication based, non cryptographic algorithm
 for pseudorandom number generation from the Random123 suite,
-see <http://www.deshawresearch.com/resources_random123.html>
+see <http://www.deshawresearch.com/resources_random123.html>.
 
 The original code came with the following copyright notice:
 
+\verbatim
 Copyright 2010-2011, D. E. Shaw Research.
 All rights reserved.
 
@@ -68,15 +66,18 @@ DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
 THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+\endverbatim
 */
 
 namespace vex {
+
+/// Random generators.
 namespace random {
 
 
 struct philox {
     /// generates a macro `philox(ctr, key)`
-    /// modifies both inputs, use the components of ctr for randomness.
+    /// modifies both inputs, uses the components of ctr for randomness.
     template <class T>
     static void macro(std::ostream &o, std::string name, size_t rounds = 10) {
         const size_t w = cl_vector_length<T>::value;
