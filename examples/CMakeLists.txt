@@ -115,7 +115,7 @@ if (FFT_EXAMPLES)
     endif (FFT_FFTW AND OPENMP_FOUND)
 
     # Compare against CUDA if available
-    find_package(CUDA)
+    find_package(CUDA QUIET)
     if(CUDA_FOUND)
         include_directories(${CUDA_INCLUDE_DIRS})
         set(FFT_LIBS ${FFT_LIBS} ${CUDA_LIBRARIES} ${CUDA_cufft_LIBRARY})
