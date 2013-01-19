@@ -450,7 +450,7 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, USER_FUNCTION, ~)
  * be used locally.
  */
 #define VEX_FUNCTION_TYPE(name, signature, body_str) \
-    struct name : UserFunction<name, signature> { \
+    struct name : vex::UserFunction<name, signature> { \
         static std::string body() { return body_str; } \
     }
 
