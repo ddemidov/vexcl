@@ -790,8 +790,8 @@ void StencilOperator<T, width, center, Impl>::convolve(
  * be used locally.
  */
 #define VEX_STENCIL_OPERATOR_TYPE(name, type, width, center, body_str) \
-    struct name : StencilOperator<type, width, center, name> { \
-        name(const std::vector<cl::CommandQueue> &q) : StencilOperator<type, width, center, name>(q) {} \
+    struct name : vex::StencilOperator<type, width, center, name> { \
+        name(const std::vector<cl::CommandQueue> &q) : vex::StencilOperator<type, width, center, name>(q) {} \
         static std::string body() { return body_str; } \
     }
 
