@@ -187,69 +187,41 @@ struct FFT {
 };
 #else // USE_AMD_FFT
 
-/// Helper class for copying the FFT input/output to/from the plan.
-template <class T, class Selector = void>
-struct fft_eval {};
 
-// real input/output
-// Only enabled when T is scalar.
-template <class T>
-struct fft_eval<T, typename std::enable_if<cl_vector_length<T>::value == 1>::type> {
-    typedef typename cl_vector_of<T, 2>::type T2;
+template <class F>
+struct fft_expr
+    : vector_expression< boost::proto::terminal< additive_vector_transform >::type >
+{
+    typedef typename F::input_t T0;
+    typedef typename F::value_type value_type;
+    value_type scale;
 
-    VEX_FUNCTION_TYPE(r2c, T2(T), "return (" + type_name<T2>() + ")(prm1, 0);");
-    VEX_FUNCTION_TYPE(c2r, T(T2), "return prm1.x;");
+    F &f;
+    const vector<T0> &input;
 
-    template <class Expr>
-    static void in(fft::plan<T2> &p, const Expr &in) {
-        p.in() = r2c()(in);
-    }
+    fft_expr(F &f, const vector<T0> &x) : scale(1), f(f), input(x) {}
 
-    static auto out(const fft::plan<T2> &p) -> decltype(c2r()(p.out())) {
-        return c2r()(p.out());
+    template <bool negate, bool append>
+    void apply(vector<typename F::output_t> &output) const {
+        f.template execute<negate, append>(input, output, scale);
     }
 };
 
-// complex input/output
-// Only enabled when T is a 2-vector.
-template <class T>
-struct fft_eval<T, typename std::enable_if<cl_vector_length<T>::value == 2>::type> {
-    template <class Expr>
-    static void in(fft::plan<T> &p, const Expr &in) {
-        p.in() = in;
-    }
+template <class F>
+struct is_scalable<fft_expr<F>> : std::true_type {};
 
-    static vector<T> out(const fft::plan<T> &p) {
-        return p.out();
-    }
-};
 
 enum direction {
     forward, inverse
 };
 
-/// An FFT plan.
-/**
- * Supports real (scalar) and complex (cl_type2) input and output.
- * Supports cl_float and cl_double precision.
- * Input and output are full VexCL expressions:
- * \code
- * // Convolution using FFT.
- * FFT<cl_float, cl_float2> fft(ctx.queue(), N);
- * FFT<cl_float2, cl_float> ifft(ctx.queue(), N);
- * output = ifft(fft(data) * fft(kernel));
- * \endcode
- */
 template <typename T0, typename T1 = T0>
 struct FFT {
-    typedef typename cl_scalar_of<T0>::type T0s;
-    typedef typename cl_scalar_of<T1>::type T1s;
-    static_assert(std::is_same<T0s, T1s>::value,
-        "Input and output must have same precision.");
-    typedef T0s Ts;
-    typedef typename cl_vector_of<Ts, 2>::type T;
+    typedef T0 input_t;
+    typedef T1 output_t;
+    typedef typename cl_scalar_of<T1>::type value_type;
 
-    fft::plan<T> plan;
+    fft::plan<T0, T1> plan;
 
     /// 1D constructor
     FFT(const std::vector<cl::CommandQueue> &queues,
@@ -267,13 +239,15 @@ struct FFT {
         : plan(queues, lengths, dir == inverse) {}
 #endif
 
-    /// User call
-    template <class Expr>
-    auto operator()(const Expr &in) -> decltype(fft_eval<T1>::out(plan)) {
-        // fft_eval handles the real/complex conversion
-        fft_eval<T0>::in(plan, in);
-        plan();
-        return fft_eval<T1>::out(plan);
+    template <bool negate, bool append>
+    void execute(const vector<T0> &input, vector<T1> &output, value_type scale) {
+        plan(input, output, append, negate ? -scale : scale);
+    }
+
+
+    // User call
+    fft_expr<FFT<T0, T1>> operator()(const vector<T0> &x) {
+        return {*this, x};
     }
 };
 
