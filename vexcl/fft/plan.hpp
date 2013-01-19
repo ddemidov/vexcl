@@ -40,22 +40,15 @@ namespace vex {
 namespace fft {
 
 
-template <class T0, class T1>
+template <class T2>
 struct plan {
-    typedef typename cl_scalar_of<T0>::type T0s;
-    typedef typename cl_scalar_of<T1>::type T1s;
-    static_assert(boost::is_same<T0s, T1s>::value, "Input and output must have same precision.");
-    typedef T0s T;
-    static_assert(boost::is_same<T, cl_float>::value || boost::is_same<T, cl_double>::value,
-        "Only float and double data supported.");
-
-    typedef typename cl_vector_of<T, 2>::type T2;
-
-    VEX_FUNCTION(r2c, T2(T), "return (" + type_name<T2>() + ")(prm1, 0);");
-    VEX_FUNCTION(c2r, T(T2), "return prm1.x;");
+    static_assert(std::is_same<T2, cl_float2>::value || std::is_same<T2, cl_double2>::value,
+        "Only float2 and double2 are supported.");
+    typedef typename cl_scalar_of<T2>::type T;
 
     const std::vector<cl::CommandQueue> &queues;
-    T scale;
+    const bool inverse;
+    size_t total_n;
 
     std::vector<kernel_call> kernels;
 
@@ -67,16 +60,15 @@ struct plan {
     //  2D case: {h, w} in row-major format: x + y * w. (like FFTw)
     //  etc.
     plan(const std::vector<cl::CommandQueue> &queues, const std::vector<size_t> sizes, bool inverse)
-        : queues(queues) {
+        : queues(queues), inverse(inverse) {
         assert(sizes.size() >= 1);
         assert(queues.size() == 1);
         auto queue = queues[0];
         auto context = qctx(queue);
         auto device = qdev(queue);
 
-        size_t total_n = 1;
+        total_n = 1;
         for(auto x : sizes) total_n *= x;
-        scale = inverse ? ((T)1 / total_n) : 1;
 
         temp[0] = vector<T2>(queues, total_n);
         temp[1] = vector<T2>(queues, total_n);
@@ -115,23 +107,21 @@ struct plan {
         for(auto r : rs) if(p * r <= n) return r;
         throw std::runtime_error("Unsupported FFT size.");
     }
-    
+
+    /// Use to set the input
+    vector<T2> &in() { return temp[input]; }
+
     /// Execute the complete transformation.
-    /// Converts real-valued input and output, supports multiply-adding to output.
-    void operator()(const vector<T0> &in, vector<T1> &out, bool append, T ex_scale) {
-        if(std::is_same<T0, T>::value) temp[input] = r2c(in);
-        else temp[input] = in;
+    void operator()() {
         for(auto run : kernels)
             queues[0].enqueueNDRangeKernel(run.kernel, cl::NullRange,
                 run.global, run.local);
-        if(std::is_same<T1, T>::value) {
-            if(append) out += c2r(temp[output]) * (ex_scale * scale);
-            else out = c2r(temp[output]) * (ex_scale * scale);
-        } else {
-            if(append) out += temp[output] * (ex_scale * scale);
-            else out = temp[output] * (ex_scale * scale);
-        }
+        if(inverse)
+            temp[output] *= (T)1 / total_n;
     }
+
+    /// Use to get the output
+    const vector<T2> &out() const { return temp[output]; }
 };
 
 

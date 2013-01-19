@@ -10,6 +10,7 @@
 //#define VEXCL_SHOW_KERNELS
 #include <vexcl/vexcl.hpp>
 #include <vexcl/random.hpp>
+#include <vexcl/fft.hpp>
 
 using namespace vex;
 
@@ -1618,6 +1619,22 @@ int main(int argc, char *argv[]) {
                 });
 #endif
 
+#if 1
+        run_test("Complex FFT expressions", [&]() -> bool {
+                const size_t N = 1024;
+                bool rc = true;
+                vex::vector<cl_float> data_in(ctx.queue(), N);
+                FFT<cl_float, cl_float> fft(ctx.queue(), N);
+                //FFT<cl_float, cl_float> ifft(ctx.queue(), N, inverse);
+                vex::vector<cl_float> data_out(ctx.queue(), N);
+                // Argument and output are full expressions.
+                data_out = fft(fabs(data_in * sqrt(data_in))) * data_in;
+                // This would work if we could use the same
+                // userfunction more than once per expression
+                // data_out = ifft(fft(data_in));
+                return rc;
+            });
+#endif
     } catch (const cl::Error &err) {
         std::cerr << "OpenCL error: " << err << std::endl;
         return 1;
