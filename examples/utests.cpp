@@ -1618,6 +1618,27 @@ int main(int argc, char *argv[]) {
                 });
 #endif
 
+#if 1
+        run_test("Nested function invocation", [&]() -> bool {
+                bool rc = true;
+                const size_t N = 1024;
+                VEX_FUNCTION(f, int(int), "return 2 * prm1;");
+                VEX_FUNCTION(g, int(int), "return 3 * prm1;");
+
+                vex::vector<int> data(ctx.queue(), N);
+
+                data = 1;
+                data = f(f(data));
+                rc = rc && data[0] == 4;
+
+                data = 1;
+                data = g(f(data));
+                rc = rc && data[0] == 6;
+
+                return rc;
+                }); 
+#endif
+
     } catch (const cl::Error &err) {
         std::cerr << "OpenCL error: " << err << std::endl;
         return 1;

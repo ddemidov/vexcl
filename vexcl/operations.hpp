@@ -525,12 +525,14 @@ struct extract_user_functions
         boost::proto::terminal<boost::proto::_>,
         boost::proto::when <
             boost::proto::function<
-                boost::proto::terminal <
-                    boost::proto::convertible_to<vex::user_function>
+                boost::proto::when <
+                    boost::proto::terminal <
+                        boost::proto::convertible_to<vex::user_function>
+                    >,
+                    process_terminal(boost::proto::_)
                 >,
                 boost::proto::vararg< extract_user_functions >
-            >,
-            process_terminal(boost::proto::_child0)
+            >
         > ,
         boost::proto::when <
             boost::proto::nary_expr<
