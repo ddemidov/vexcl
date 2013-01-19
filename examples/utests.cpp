@@ -10,6 +10,7 @@
 //#define VEXCL_SHOW_KERNELS
 #include <vexcl/vexcl.hpp>
 #include <vexcl/random.hpp>
+#include <vexcl/fft.hpp>
 
 using namespace vex;
 
@@ -1637,6 +1638,37 @@ int main(int argc, char *argv[]) {
 
                 return rc;
                 }); 
+#endif
+
+#if 1
+        run_test("FFT", [&]() -> bool {
+               bool rc = true;
+               const size_t N = 1024;
+
+               {
+                   vex::vector<cl_float> data(ctx.queue(), N);
+                   FFT<cl_float> fft(ctx.queue(), N);
+                   // should compile
+                   data += fft(data * data) * 5;
+               }
+
+               {
+                   vex::vector<cl_float> in(ctx.queue(), N);
+                   vex::vector<cl_float2> out(ctx.queue(), N);
+                   vex::vector<cl_float> back(ctx.queue(), N);
+                   Random<cl_float> randf;
+                   in = randf(element_index(), rand());
+                   FFT<cl_float, cl_float2> fft(ctx.queue(), N);
+                   FFT<cl_float2, cl_float> ifft(ctx.queue(), N, inverse);
+                   out = fft(in);
+                   back = ifft(out);
+                   Reductor<cl_float, SUM> sum(ctx.queue());
+                   float rms = std::sqrt(sum(pow(in - back, 2)) / N);
+                   rc = rc && rms < 1e-3;
+               }
+
+               return rc;
+            });
 #endif
     } catch (const cl::Error &err) {
         std::cerr << "OpenCL error: " << err << std::endl;

@@ -118,7 +118,8 @@ struct plan {
     
     /// Execute the complete transformation.
     /// Converts real-valued input and output, supports multiply-adding to output.
-    void operator()(const vector<T0> &in, vector<T1> &out, bool append, T ex_scale) {
+    template <class Expr>
+    void operator()(const Expr &in, vector<T1> &out, bool append, T ex_scale) {
         if(std::is_same<T0, T>::value) temp[input] = r2c(in);
         else temp[input] = in;
         for(auto run : kernels)

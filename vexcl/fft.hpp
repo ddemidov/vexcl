@@ -188,7 +188,7 @@ struct FFT {
 #else // USE_AMD_FFT
 
 
-template <class F>
+template <class F, class Expr>
 struct fft_expr
     : vector_expression< boost::proto::terminal< additive_vector_transform >::type >
 {
@@ -197,9 +197,9 @@ struct fft_expr
     value_type scale;
 
     F &f;
-    const vector<T0> &input;
+    const Expr &input;
 
-    fft_expr(F &f, const vector<T0> &x) : scale(1), f(f), input(x) {}
+    fft_expr(F &f, const Expr &x) : scale(1), f(f), input(x) {}
 
     template <bool negate, bool append>
     void apply(vector<typename F::output_t> &output) const {
@@ -207,8 +207,8 @@ struct fft_expr
     }
 };
 
-template <class F>
-struct is_scalable<fft_expr<F>> : std::true_type {};
+template <class F, class E>
+struct is_scalable<fft_expr<F, E>> : std::true_type {};
 
 
 enum direction {
@@ -239,14 +239,15 @@ struct FFT {
         : plan(queues, lengths, dir == inverse) {}
 #endif
 
-    template <bool negate, bool append>
-    void execute(const vector<T0> &input, vector<T1> &output, value_type scale) {
+    template <bool negate, bool append, class Expr>
+    void execute(const Expr &input, vector<T1> &output, value_type scale) {
         plan(input, output, append, negate ? -scale : scale);
     }
 
 
     // User call
-    fft_expr<FFT<T0, T1>> operator()(const vector<T0> &x) {
+    template <class Expr>
+    fft_expr<FFT<T0, T1>, Expr> operator()(const Expr &x) {
         return {*this, x};
     }
 };
