@@ -89,7 +89,9 @@ struct Random : UserFunction<Random<T, Generator>, T(cl_ulong, cl_ulong)> {
         if(boost::is_same<Ts, cl_float>::value) {
             o << "return convert_" << type_name<T>() << "(as_"
               << type_name<typename cl_vector_of<cl_uint, N>::type>()
-              << "(ctr)) / "
+              << "(ctr";
+            if(N == 1) o << ".s0";
+            o << ")) / "
               << std::numeric_limits<cl_uint>::max()
               << ".0f;";
         } else if(boost::is_same<Ts, cl_double>::value) {
