@@ -62,6 +62,9 @@ int main(int argc, char *argv[]) {
             return 1;
         }
 
+        std::vector<cl::CommandQueue> single_queue(
+                ctx.queue().begin(), ctx.queue().begin() + 1);
+
         uint seed = argc > 1 ? atoi(argv[1]) : static_cast<uint>(time(0));
         std::cout << "seed: " << seed << std::endl << std::endl;
         srand(seed);
@@ -1646,23 +1649,23 @@ int main(int argc, char *argv[]) {
                const size_t N = 1024;
 
                {
-                   vex::vector<cl_float> data(ctx.queue(), N);
-                   FFT<cl_float> fft(ctx.queue(), N);
+                   vex::vector<cl_float> data(single_queue, N);
+                   FFT<cl_float> fft(single_queue, N);
                    // should compile
                    data += fft(data * data) * 5;
                }
 
                {
-                   vex::vector<cl_float> in(ctx.queue(), N);
-                   vex::vector<cl_float2> out(ctx.queue(), N);
-                   vex::vector<cl_float> back(ctx.queue(), N);
+                   vex::vector<cl_float> in(single_queue, N);
+                   vex::vector<cl_float2> out(single_queue, N);
+                   vex::vector<cl_float> back(single_queue, N);
                    Random<cl_float> randf;
                    in = randf(element_index(), rand());
-                   FFT<cl_float, cl_float2> fft(ctx.queue(), N);
-                   FFT<cl_float2, cl_float> ifft(ctx.queue(), N, inverse);
+                   FFT<cl_float, cl_float2> fft(single_queue, N);
+                   FFT<cl_float2, cl_float> ifft(single_queue, N, inverse);
                    out = fft(in);
                    back = ifft(out);
-                   Reductor<cl_float, SUM> sum(ctx.queue());
+                   Reductor<cl_float, SUM> sum(single_queue);
                    float rms = std::sqrt(sum(pow(in - back, 2)) / N);
                    rc = rc && rms < 1e-3;
                }
