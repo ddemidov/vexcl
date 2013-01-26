@@ -58,8 +58,8 @@ DEFINE_MPI_TYPE(float,    MPI_FLOAT);
 DEFINE_MPI_TYPE(double,   MPI_DOUBLE);
 
 #if (__WORDSIZE == 64) || defined(_WIN64)
-DEFINE_MPI_TYPE(size_t,    MPI_UINT64_T);
-DEFINE_MPI_TYPE(ptrdiff_t, MPI_INT64_T);
+DEFINE_MPI_TYPE(size_t,    MPI_UNSIGNED_LONG_LONG);
+DEFINE_MPI_TYPE(ptrdiff_t, MPI_LONG_LONG_INT);
 #endif
 
 #undef DEFINE_MPI_TYPE
@@ -91,7 +91,7 @@ struct comm_data {
                 << rank << ": " << msg << std::endl;
         }
 
-        MPI_Allreduce(&cond, &glob, 1, MPI_C_BOOL, MPI_LAND, comm);
+        MPI_Allreduce(&cond, &glob, 1, MPI_CHAR, MPI_LAND, comm);
 
         if (!glob) throw std::runtime_error(msg);
     }
