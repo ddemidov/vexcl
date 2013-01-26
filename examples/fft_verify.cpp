@@ -22,6 +22,15 @@ std::vector<cl_float2> random_vec(size_t n, float range) {
 
 
 void test(Context &ctx, std::vector<size_t> ns) {
+    std::ostringstream name;
+    for(size_t i = 0 ; i < ns.size() ; i++) {
+        if(i > 0) name << 'x';
+        name << ns[i];
+    }
+    char fc = std::cout.fill('.');
+    std::cout << name.str() << ": " << std::setw(62 - name.str().size()) << "." << std::flush;
+    std::cout.fill(fc);
+
     size_t n = 1;
     for(size_t i = 0 ; i < ns.size() ; i++) n *= ns[i];
 
@@ -57,12 +66,17 @@ void test(Context &ctx, std::vector<size_t> ns) {
     Reductor<cl_float2, SUM> sum(ctx.queue());
     #define rms(e) (100 * std::sqrt(hsum(sum(pow(e, 2))) / n) / range)
 
-    std::cerr << "n=[";
-    for(size_t i = 0 ; i < ns.size() ; i++)
-        std::cerr << ns[i] << ' ';
-    std::cerr << "]        rms" << std::endl;
-    std::cerr << "fftw-clfft      " << rms(output - ref) << "%" << std::endl;
-    std::cerr << "x-ifft(fft(x))  " << rms(input - back) << "%" << std::endl;
+    const float rms_fft = rms(output - ref);
+    const float rms_inv = rms(input - back);
+
+    const bool rc = rms_fft < 0.02 && rms_inv < 1e-4;
+
+    std::cout << (rc ? " success." : " failed.") << std::endl;
+
+    if(!rc) {
+        std::cout << "  fftw-clfft      " << rms_fft << "%" << std::endl;
+        std::cout << "  x-ifft(fft(x))  " << rms_inv << "%" << std::endl;
+    }
 }
 
 int main() {
