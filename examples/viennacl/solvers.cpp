@@ -69,6 +69,8 @@ int main() {
                 CL_QUEUE_PROFILING_ENABLE
                 );
 
+        if (!ctx) throw std::runtime_error("No GPUs with double precision found");
+
         std::cout << ctx << std::endl;
 
         vex::SpMat <real> A(ctx.queue(), n, n, row.data(), col.data(), val.data());
