@@ -91,7 +91,7 @@ struct comm_data {
                 << rank << ": " << msg << std::endl;
         }
 
-        MPI_Allreduce(&cond, &glob, 1, MPI_CHAR, MPI_LAND, comm);
+        MPI_Allreduce(&cond, &glob, 1, MPI_BYTE, MPI_LAND, comm);
 
         if (!glob) throw std::runtime_error(msg);
     }

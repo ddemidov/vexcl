@@ -20,7 +20,7 @@ bool run_test(const std::string &name, std::function<bool()> test) {
     bool rc = test();
     bool glob_rc;
 
-    MPI_Allreduce(&rc, &glob_rc, 1, MPI_CHAR, MPI_LAND, mpi.comm);
+    MPI_Allreduce(&rc, &glob_rc, 1, MPI_BYTE, MPI_LAND, mpi.comm);
 
     all_passed = all_passed && glob_rc;
     if (mpi.rank == 0)
