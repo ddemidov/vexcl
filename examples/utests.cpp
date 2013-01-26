@@ -1666,7 +1666,7 @@ int main(int argc, char *argv[]) {
                    out = fft(in);
                    back = ifft(out);
                    Reductor<cl_float, SUM> sum(single_queue);
-                   float rms = std::sqrt(sum(pow(in - back, 2)) / N);
+                   float rms = std::sqrt(sum(pow(in - back, 2.0)) / N);
                    rc = rc && rms < 1e-3;
                }
 
