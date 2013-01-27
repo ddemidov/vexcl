@@ -2,7 +2,6 @@ set(EXAMPLES
     benchmark
     devlist
     exclusive
-    utests
     )
 
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
@@ -50,6 +49,9 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
     endif (USE_LIBCPP)
 endif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+
+add_executable(utests utests.cpp dummy.cpp)
+target_link_libraries(utests ${OPENCL_LIBRARIES} ${Boost_LIBRARIES})
 
 foreach(example ${EXAMPLES})
     add_executable(${example} ${example}.cpp)

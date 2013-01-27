@@ -51,25 +51,25 @@ namespace vex {
 } // namespace vex
 
 #define BIN_OP(base_type, len, op) \
-cl_##base_type##len &operator op##= (cl_##base_type##len &a, const cl_##base_type##len &b) { \
+inline cl_##base_type##len &operator op##= (cl_##base_type##len &a, const cl_##base_type##len &b) { \
     for(size_t i = 0 ; i < len ; i++) a.s[i] op##= b.s[i]; \
     return a; \
 } \
-cl_##base_type##len operator op(const cl_##base_type##len &a, const cl_##base_type##len &b) { \
+inline cl_##base_type##len operator op(const cl_##base_type##len &a, const cl_##base_type##len &b) { \
     cl_##base_type##len res = a; return res op##= b; \
 }
 
 // `scalar OP vector` acts like `(vector_t)(scalar) OP vector` in OpenCl:
 // all components are set to the scalar value.
 #define BIN_SCALAR_OP(base_type, len, op) \
-cl_##base_type##len &operator op##= (cl_##base_type##len &a, const cl_##base_type &b) { \
+inline cl_##base_type##len &operator op##= (cl_##base_type##len &a, const cl_##base_type &b) { \
     for(size_t i = 0 ; i < len ; i++) a.s[i] op##= b; \
     return a; \
 } \
-cl_##base_type##len operator op(const cl_##base_type##len &a, const cl_##base_type &b) { \
+inline cl_##base_type##len operator op(const cl_##base_type##len &a, const cl_##base_type &b) { \
     cl_##base_type##len res = a; return res op##= b; \
 } \
-cl_##base_type##len operator op(const cl_##base_type &a, const cl_##base_type##len &b) { \
+inline cl_##base_type##len operator op(const cl_##base_type &a, const cl_##base_type##len &b) { \
     cl_##base_type##len res = b; return res op##= a; \
 }
 
@@ -82,12 +82,12 @@ BIN_SCALAR_OP(base_type, len, +) \
 BIN_SCALAR_OP(base_type, len, -) \
 BIN_SCALAR_OP(base_type, len, *) \
 BIN_SCALAR_OP(base_type, len, /) \
-cl_##base_type##len operator -(const cl_##base_type##len &a) { \
+inline cl_##base_type##len operator -(const cl_##base_type##len &a) { \
     cl_##base_type##len res; \
     for(size_t i = 0 ; i < len ; i++) res.s[i] = -a.s[i]; \
     return res; \
 } \
-std::ostream &operator<<(std::ostream &os, const cl_##base_type##len &value) { \
+inline std::ostream &operator<<(std::ostream &os, const cl_##base_type##len &value) { \
     os << "(" #base_type #len ")("; \
     for(std::size_t i = 0 ; i < len ; i++) { \
         if(i != 0) os << ','; \
