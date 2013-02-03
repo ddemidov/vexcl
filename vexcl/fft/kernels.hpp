@@ -94,12 +94,11 @@ template <class T>
 void in_place_dft(std::ostringstream &o, bool invert, size_t radix) {
     // inline DFT macro.
     if(radix == 2) {
-        o << R"(#define DFT2(v0,v1) { \
-                real2_t tmp = v0 - v1; \
-                v0 += v1; \
-                v1 = tmp; \
-            }
-        )";
+        o << "#define DFT2(v0,v1) {"
+                "real2_t tmp = v0 - v1;"
+                "v0 += v1;"
+                "v1 = tmp;"
+            "}";
     } else {
         const size_t half_radix = radix / 2;
         // parameters
@@ -179,11 +178,9 @@ kernel_call radix_kernel(cl::CommandQueue &queue, size_t n, size_t batch, bool i
     kernel_common<T>(o);
 
     // Return A*B (complex multiplication)
-    o << R"(
-        real2_t mul(real2_t a, real2_t b) {
-            return (real2_t)(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x);
-        }
-    )";
+    o << "real2_t mul(real2_t a, real2_t b) {"
+            "return (real2_t)(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x);"
+        "}";
 
     // A * exp(alpha * I) == A  * (cos(alpha) + I * sin(alpha))
     o << "real2_t twiddle(real2_t a, real_t alpha) {"
