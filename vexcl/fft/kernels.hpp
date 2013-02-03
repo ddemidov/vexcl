@@ -94,36 +94,36 @@ template <class T>
 void in_place_dft(std::ostringstream &o, bool invert, size_t radix) {
     // inline DFT macro.
     if(radix == 2) {
-        o << "#define DFT2(v0,v1) {"
-                "real2_t tmp = v0 - v1;"
-                "v0 += v1;"
-                "v1 = tmp;"
-            "}";
+        o << "#define DFT2(v0,v1) { \\\n"
+             "\t\treal2_t tmp = v0 - v1; \\\n"
+             "\t\tv0 += v1; \\\n"
+             "\t\tv1 = tmp; \\\n"
+             "\t}\n\n";
     } else {
         const size_t half_radix = radix / 2;
         // parameters
         o << "#define DFT" << radix;
         param_list(o, 0, radix);
-        o << '{';
+        o << "{ \\\n";
         // leaves
         for(size_t i = 0 ; i < half_radix ; i++) {
-            o << "DFT2(v" << i << ",v" << (i + half_radix) << ");";
+            o << "\t\tDFT2(v" << i << ",v" << (i + half_radix) << "); \\\n";
             if(i != 0) {
                 const size_t j = i + half_radix;
                 if(2 * i == half_radix) {
-                    o << 'v' << j << "=twiddle_1_2(v" << j << ");";
+                    o << "\t\tv" << j << " = twiddle_1_2(v" << j << "); \\\n";
                 } else {
                     T factor = (invert ? 1 : -1) * (T)M_PI * i / half_radix;
                     typename cl_vector_of<T,2>::type twiddle =
                         {{std::cos(factor), std::sin(factor)}};
-                    o << 'v' << j << "=mul(v" << j << ',' << std::setprecision(25) << twiddle << ");";
+                    o << "\t\tv" << j << " = mul(v" << j << ',' << std::setprecision(25) << twiddle << "); \\\n";
                 }
             }
         }
         // next stage
-        o << "DFT" << half_radix; param_list(o, 0, half_radix); o << ';';
-        o << "DFT" << half_radix ; param_list(o, half_radix, radix); o << ';';
-        o << "}\n";
+        o << "\t\tDFT" << half_radix; param_list(o, 0, half_radix); o << "; \\\n";
+        o << "\t\tDFT" << half_radix ; param_list(o, half_radix, radix); o << "; \\\n";
+        o << "\t}\n\n";
     }
 }
 
@@ -133,29 +133,29 @@ void kernel_radix(std::ostringstream &o, bool invert, size_t radix, size_t p, si
         in_place_dft<T>(o, invert, r);
 
     // kernel.
-    o << "__kernel void radix(__global const real2_t *x, __global real2_t *y) {";
-    o << "const size_t i = get_global_id(0);"
-        << "const size_t k = i & " << (p - 1) << ";" // index in input sequence, in 0..P-1
-        << "const size_t j = ((i - k) * " << radix << ") + k;" // output index
-        << "const size_t batch_offset = get_global_id(1) * " << (threads * radix) << ';'
-        << "x += i + batch_offset; y += j + batch_offset;";
+    o << "kernel void radix(global const real2_t *x, global real2_t *y) {\n";
+    o << "\tconst size_t i = get_global_id(0);\n"
+      << "\tconst size_t k = i & " << (p - 1) << ";\n" // index in input sequence, in 0..P-1
+      << "\tconst size_t j = ((i - k) * " << radix << ") + k;\n" // output index
+      << "\tconst size_t batch_offset = get_global_id(1) * " << (threads * radix) << ";\n"
+      << "\tx += i + batch_offset; y += j + batch_offset;\n";
 
     // read
     for(size_t i = 0 ; i < radix ; i++)
-        o << "real2_t v" << i << " = x[" << (i * threads) << "];";
+        o << "\treal2_t v" << i << " = x[" << (i * threads) << "];\n";
     // twiddle
     for(size_t i = 1 ; i < radix ; i++) {
         const T alpha = -M_PI * i / (p * radix / 2);
-        o << "v" << i << "=twiddle(v" << i << ",(real_t)" << std::setprecision(25) << alpha << " * k);";
+        o << "\tv" << i << "=twiddle(v" << i << ",(real_t)" << std::setprecision(25) << alpha << " * k);\n";
     }
     // inplace DFT
-    o << "DFT" << radix; param_list(o, 0, radix); o << ';';
+    o << "\tDFT" << radix; param_list(o, 0, radix); o << ";\n";
     // write back
     for(size_t i = 0 ; i < radix ; i++) {
         size_t j = bit_reverse(i, log2(radix));
-        o << "y[" << (i * p) << "]=v" << j << ';';
+        o << "\ty[" << (i * p) << "]=v" << j << ";\n";
     }
-    o << "}\n";
+    o << "}\n\n";
 }
 
 
@@ -178,23 +178,27 @@ kernel_call radix_kernel(cl::CommandQueue &queue, size_t n, size_t batch, bool i
     kernel_common<T>(o);
 
     // Return A*B (complex multiplication)
-    o << "real2_t mul(real2_t a, real2_t b) {"
-            "return (real2_t)(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x);"
-        "}";
+    o << "real2_t mul(real2_t a, real2_t b) {\n"
+         "\treturn (real2_t)(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x);\n"
+         "}\n\n";
 
     // A * exp(alpha * I) == A  * (cos(alpha) + I * sin(alpha))
-    o << "real2_t twiddle(real2_t a, real_t alpha) {"
-        << "real_t cs, sn;"
-        << "sn = sincos(" << (invert ? '-' : ' ') << "alpha, &cs);"
-        << "return mul(a, (real2_t)(cs, sn));"
-        << "}";
+    o << "real2_t twiddle(real2_t a, real_t alpha) {\n"
+      << "\treal_t cs, sn;\n"
+      << "\tsn = sincos(" << (invert ? '-' : ' ') << "alpha, &cs);\n"
+      << "\treturn mul(a, (real2_t)(cs, sn));\n"
+      << "}\n\n";
 
     // real(twiddle) = 0
-    o << "real2_t twiddle_1_2(real2_t a){"
-        << "return (real2_t)(" << (invert ? "-a.y, a.x" : "a.y, -a.x") << ");}\n";
+    o << "real2_t twiddle_1_2(real2_t a) {\n"
+      << "\treturn (real2_t)(" << (invert ? "-a.y, a.x" : "a.y, -a.x") << ");\n}\n\n";
 
     const size_t m = n / radix;
     kernel_radix<T>(o, invert, radix, p, m);
+
+#ifdef VEXCL_SHOW_KERNELS
+    std::cout << o.str() << std::endl;
+#endif
 
     auto program = build_sources(qctx(queue), o.str(), "-cl-mad-enable -cl-fast-relaxed-math");
     cl::Kernel kernel(program, "radix");
@@ -213,31 +217,35 @@ kernel_call transpose_kernel(cl::CommandQueue &queue, size_t width, size_t heigh
     std::ostringstream o;
     kernel_common<T>(o);
 
-    // determine max block size to fit into __local memory.
+    // determine max block size to fit into local memory.
     size_t block_size = 128;
     const auto local_size = qdev(queue).getInfo<CL_DEVICE_LOCAL_MEM_SIZE>();
     while(block_size * block_size * sizeof(T) * 2 > local_size) block_size /= 2;
     block_size /= 2;
 
     // from NVIDIA SDK.
-    o << "__kernel void transpose("
-        "__global const real2_t *input, __global real2_t *output) {"
-        "const size_t "
-        "global_x = get_global_id(0), global_y = get_global_id(1),"
-        "local_x = get_local_id(0), local_y = get_local_id(1),"
-        "group_x = get_group_id(0), group_y = get_group_id(1),"
-        "width =" << width << ", height = " << height << ", block_size = " << block_size << ","
-        "target_x = local_y + group_y * block_size,"
-        "target_y = local_x + group_x * block_size;"
+    o << "kernel void transpose(\n"
+        "\tglobal const real2_t *input, global real2_t *output) {\n"
+        "\tconst size_t "
+        "\tglobal_x = get_global_id(0), global_y = get_global_id(1),\n"
+        "\t\tlocal_x = get_local_id(0), local_y = get_local_id(1),\n"
+        "\t\tgroup_x = get_group_id(0), group_y = get_group_id(1),\n"
+        "\t\twidth =" << width << ", height = " << height << ", block_size = " << block_size << ",\n"
+        "\t\ttarget_x = local_y + group_y * block_size,\n"
+        "\t\ttarget_y = local_x + group_x * block_size;\n"
         // local memory
-        "__local real2_t block[" << (block_size * block_size) << "];"
+        "\tlocal real2_t block[" << (block_size * block_size) << "];\n"
         // copy from input to local memory
-        "block[local_x + local_y * block_size] = input[global_x + global_y * width];"
+        "\tblock[local_x + local_y * block_size] = input[global_x + global_y * width];\n"
         // wait until the whole block is filled
-        "barrier(CLK_LOCAL_MEM_FENCE);"
+        "\tbarrier(CLK_LOCAL_MEM_FENCE);\n"
         // transpose local block to target
-        "output[target_x + target_y * height] = block[local_x + local_y * block_size];"
-        "}";
+        "\toutput[target_x + target_y * height] = block[local_x + local_y * block_size];\n"
+        "}\n\n";
+
+#ifdef VEXCL_SHOW_KERNELS
+    std::cout << o.str() << std::endl;
+#endif
 
     auto program = build_sources(qctx(queue), o.str());
     cl::Kernel kernel(program, "transpose");
