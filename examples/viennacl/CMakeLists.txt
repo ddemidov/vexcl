@@ -10,10 +10,6 @@ set(EXAMPLES solvers)
 
 foreach(example ${EXAMPLES})
     add_executable(${example} ${example}.cpp)
-    target_link_libraries(${example} ${OPENCL_LIBRARY})
+    target_link_libraries(${example} ${OPENCL_LIBRARIES} ${Boost_LIBRARIES})
     set_target_properties(${example} PROPERTIES COMPILE_FLAGS -Wno-comment)
-
-    if (WIN32)
-	target_link_libraries(${example} ${Boost_DATE_TIME_LIBRARY})
-    endif(WIN32)
 endforeach(example)

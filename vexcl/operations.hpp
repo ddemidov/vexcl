@@ -361,9 +361,6 @@ struct UserFunction {};
 template<class Impl, class RetType, class... ArgType>
 struct UserFunction<Impl, RetType(ArgType...)> : user_function
 {
-    const std::string body;
-    UserFunction(std::string body) : body(body) {}
-
     template <class... Arg>
     typename boost::proto::result_of::make_expr<
         boost::proto::tag::function,
@@ -372,14 +369,14 @@ struct UserFunction<Impl, RetType(ArgType...)> : user_function
     >::type const
     operator()(const Arg&... arg) {
         return boost::proto::make_expr<boost::proto::tag::function>(
-                *static_cast<Impl *>(this), boost::ref(arg)...
+                Impl(), boost::ref(arg)...
                 );
     }
 
-    void define(std::ostream &os, const std::string &name) const {
+    static void define(std::ostream &os, const std::string &name) {
         os << type_name<RetType>() << " " << name << "(";
         show_arg<ArgType...>(os, 1);
-        os << "\n)\n{\n" << body << "\n}\n\n";
+        os << "\n)\n{\n" << Impl::body() << "\n}\n\n";
     }
 
     template <class Head>
@@ -410,8 +407,6 @@ struct UserFunction<Impl, RetType(ArgType...)> : user_function
 template< class Impl, class RetType, BOOST_PP_ENUM_PARAMS(n, class ArgType) > \
 struct UserFunction<Impl, RetType( BOOST_PP_ENUM_PARAMS(n, ArgType) )> : user_function \
 { \
-    std::string body; \
-    UserFunction(std::string body) : body(body) {} \
     template < BOOST_PP_ENUM_PARAMS(n, class Arg) > \
     typename boost::proto::result_of::make_expr< \
         boost::proto::tag::function, \
@@ -420,13 +415,13 @@ struct UserFunction<Impl, RetType( BOOST_PP_ENUM_PARAMS(n, ArgType) )> : user_fu
     >::type const \
     operator()( BOOST_PP_ENUM(n, PRINT_PARAM, ~) ) { \
         return boost::proto::make_expr<boost::proto::tag::function>( \
-                static_cast<Impl>(*this), BOOST_PP_ENUM(n, PRINT_BOOST_REF, ~) \
+                Impl(), BOOST_PP_ENUM(n, PRINT_BOOST_REF, ~) \
                 ); \
     } \
     static void define(std::ostream &os, const std::string &name) { \
         os << type_name<RetType>() << " " << name << "(" \
            BOOST_PP_REPEAT(n, PRINT_PRM_DEF, n) \
-           << "\n)\n{\n" << body << "\n}\n\n"; \
+           << "\n)\n{\n" << Impl::body() << "\n}\n\n"; \
     } \
 };
 
@@ -440,24 +435,37 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, USER_FUNCTION, ~)
 
 #endif
 
+/// \endcond
+
 /// Macro to declare a user function type.
-/// \code
-/// cl_function_t(pow3_t, double(double), "return pow(prm1, 3);");
-/// pow3_t pow3;
-/// output = pow3(input);
-/// \endcode
-#define cl_function_t(name, type, body) \
-    struct name : UserFunction<name, type> { \
-        name() : UserFunction<name, type>(body) {} \
+/**
+ * \code
+ * VEX_FUNCTION_TYPE(pow3_t, double(double), "return pow(prm1, 3.0);");
+ * pow3_t pow3;
+ * output = pow3(input);
+ * \endcode
+ *
+ * \note Should be used in case same function is used in several places (to
+ * save on OpenCL kernel recompilations). Otherwise VEX_FUNCTION should
+ * be used locally.
+ */
+#define VEX_FUNCTION_TYPE(name, signature, body_str) \
+    struct name : vex::UserFunction<name, signature> { \
+        static std::string body() { return body_str; } \
     }
 
-/// Macro to declare a user function value.
-/// \code
-/// cl_function(pow3, double(double), "return pow(prm1, 3);");
-/// output = pow3(input);
-/// \endcode
-#define cl_function(name, type, body) \
-    cl_function_t(cl_function_##name##_t, type, body) name
+/// Macro to declare a user function.
+/**
+ * \code
+ * VEX_FUNCTION(pow3, double(double), "return pow(prm1, 3.0);");
+ * output = pow3(input);
+ * \endcode
+ */
+#define VEX_FUNCTION(name, signature, body) \
+    VEX_FUNCTION_TYPE(user_function_##name##_body, signature, body) name
+
+
+/// \cond INTERNAL
 
 //---------------------------------------------------------------------------
 // Expression Transforms
@@ -517,12 +525,14 @@ struct extract_user_functions
         boost::proto::terminal<boost::proto::_>,
         boost::proto::when <
             boost::proto::function<
-                boost::proto::terminal <
-                    boost::proto::convertible_to<vex::user_function>
+                boost::proto::when <
+                    boost::proto::terminal <
+                        boost::proto::convertible_to<vex::user_function>
+                    >,
+                    process_terminal(boost::proto::_)
                 >,
                 boost::proto::vararg< extract_user_functions >
-            >,
-            process_terminal(boost::proto::_child0)
+            >
         > ,
         boost::proto::when <
             boost::proto::nary_expr<

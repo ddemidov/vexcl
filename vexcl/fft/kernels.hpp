@@ -101,12 +101,11 @@ void in_place_dft(std::ostringstream &o, bool invert, pow radix) {
     typedef typename cl_vector_of<T,2>::type T2;
     // inline DFT macro.
     if(radix.value == 2) {
-        o << R"(#define DFT2(v0,v1) { \
-                real2_t tmp = v0 - v1; \
-                v0 += v1; \
-                v1 = tmp; \
-            }
-        )";
+        o << "#define DFT2(v0,v1) {"
+                "real2_t tmp = v0 - v1;"
+                "v0 += v1;"
+                "v1 = tmp;"
+            "}\n";
     } else if(radix.base == 2) {
         const size_t half_radix = radix.value / 2;
         // parameters
@@ -152,37 +151,33 @@ void kernel_radix(std::ostringstream &o, bool invert, pow radix, size_t p, size_
         in_place_dft<T>(o, invert, pow(radix.base, e));
 
     // kernel.
-    o << "__kernel void radix(__global const real2_t *x, __global real2_t *y) {";
-    o << "const size_t i = get_global_id(0);";
+    o << "__kernel void radix(__global const real2_t *x, __global real2_t *y) {\n";
+      << "  const size_t i = get_global_id(0);\n";
         // index in input sequence, in 0..P-1
-    if(radix.base == 2)
-        o << "const size_t k = i & " << (p - 1) << ";";
-    else
-        o << "const size_t k = i % " << p << ";";
-
-    o << "const size_t j = ((i - k) * " << radix.value << ") + k;" // output index
-        << "const size_t batch_offset = get_global_id(1) * " << (threads * radix.value) << ';'
-        << "x += i + batch_offset; y += j + batch_offset;";
-
+      << "  const size_t k = i % " << p << ";\n";
+      << "  const size_t j = ((i - k) * " << radix.value << ") + k;\n" // output index
+      << "  const size_t batch_offset = get_global_id(1) * " << (threads * radix.value) << ";\n"
+      << "  x += i + batch_offset; y += j + batch_offset;\n";
     // read
     for(size_t i = 0 ; i < radix.value ; i++)
-        o << "real2_t v" << i << " = x[" << (i * threads) << "];";
+        o << "real2_t v" << i << " = x[" << (i * threads) << "];\n";
     // twiddle
     for(size_t i = 1 ; i < radix.value ; i++) {
-        const T alpha = -M_PI * i / (p * radix.value / radix.base);
-        o << "v" << i << "=twiddle(v" << i << ",(real_t)" << std::setprecision(25) << alpha << " * k);";
+        const T alpha = -2 * M_PI * i / (p * radix.value);
+        o << "v" << i << "=twiddle(v" << i << ",(real_t)" << std::setprecision(25) << alpha << " * k);\n";
     }
     // inplace DFT
-    o << "DFT" << radix.value; param_list(o, 0, radix.value); o << ';';
+    o << "  DFT" << radix.value; param_list(o, 0, radix.value); o << ";\n";
     // write back
     if(radix.base == 2) {
         for(size_t i = 0 ; i < radix.value ; i++) {
             size_t j = bit_reverse(i, radix.exponent);
-            o << "y[" << (i * p) << "]=v" << j << ';';
+            o << "y[" << (i * p) << "]=v" << j << ";\n";
         }
     } else if(radix.value == 3) {
-        for(size_t i = 0 ; i < radix.value ; i++)
-            o << "y[" << (i * p) << "]=v" << i << ";";
+        for(size_t i = 0 ; i < radix.value ; i++) {
+            o << "y[" << (i * p) << "]=v" << i << ";\n";
+        }
     }
     o << "}\n";
 }
@@ -207,22 +202,21 @@ kernel_call radix_kernel(cl::CommandQueue &queue, size_t n, size_t batch, bool i
     kernel_common<T>(o);
 
     // Return A*B (complex multiplication)
-    o << R"(
-        real2_t mul(real2_t a, real2_t b) {
-            return (real2_t)(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x);
-        }
-    )";
+    o << "real2_t mul(real2_t a, real2_t b) {\n"
+      << "  return (real2_t)(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x);\n"
+      << "}\n";
 
     // A * exp(alpha * I) == A  * (cos(alpha) + I * sin(alpha))
-    o << "real2_t twiddle(real2_t a, real_t alpha) {"
-        << "real_t cs, sn;"
-        << "sn = sincos(" << (invert ? '-' : ' ') << "alpha, &cs);"
-        << "return mul(a, (real2_t)(cs, sn));"
-        << "}";
+    o << "real2_t twiddle(real2_t a, real_t alpha) {\n"
+      << "  real_t cs, sn;\n"
+      << "  sn = sincos(" << (invert ? '-' : ' ') << "alpha, &cs);\n"
+      << "  return mul(a, (real2_t)(cs, sn));\n"
+      << "}\n";
 
     // real(twiddle) = 0
-    o << "real2_t twiddle_1_2(real2_t a){"
-        << "return (real2_t)(" << (invert ? "-a.y, a.x" : "a.y, -a.x") << ");}\n";
+    o << "real2_t twiddle_1_2(real2_t a){\n"
+      << "  return (real2_t)(" << (invert ? "-a.y, a.x" : "a.y, -a.x") << ");\n"
+      << "}\n";
 
     const size_t m = n / radix.value;
     kernel_radix<T>(o, invert, radix, p, m);
@@ -251,23 +245,25 @@ kernel_call transpose_kernel(cl::CommandQueue &queue, size_t width, size_t heigh
 
     // from NVIDIA SDK.
     o << "__kernel void transpose("
-        "__global const real2_t *input, __global real2_t *output) {"
-        "const size_t "
-        "global_x = get_global_id(0), global_y = get_global_id(1),"
-        "local_x = get_local_id(0), local_y = get_local_id(1),"
-        "group_x = get_group_id(0), group_y = get_group_id(1),"
-        "width =" << width << ", height = " << height << ", block_size = " << block_size << ","
-        "target_x = local_y + group_y * block_size,"
-        "target_y = local_x + group_x * block_size;"
+      << "__global const real2_t *input, __global real2_t *output) {\n"
+      << "  const size_t "
+      << "    global_x = get_global_id(0), global_y = get_global_id(1),\n"
+      << "    local_x = get_local_id(0), local_y = get_local_id(1),\n"
+      << "    group_x = get_group_id(0), group_y = get_group_id(1),\n"
+      << "    width =" << width << ",\n"
+      << "    height = " << height << ",\n"
+      << "    block_size = " << block_size << ",\n"
+      << "    target_x = local_y + group_y * block_size,\n"
+      << "    target_y = local_x + group_x * block_size;\n"
         // local memory
-        "__local real2_t block[" << (block_size * block_size) << "];"
+      << "  __local real2_t block[" << (block_size * block_size) << "];\n"
         // copy from input to local memory
-        "block[local_x + local_y * block_size] = input[global_x + global_y * width];"
+      << "  block[local_x + local_y * block_size] = input[global_x + global_y * width];\n"
         // wait until the whole block is filled
-        "barrier(CLK_LOCAL_MEM_FENCE);"
+      << "  barrier(CLK_LOCAL_MEM_FENCE);\n"
         // transpose local block to target
-        "output[target_x + target_y * height] = block[local_x + local_y * block_size];"
-        "}";
+      << "  output[target_x + target_y * height] = block[local_x + local_y * block_size];\n"
+      << "}\n";
 
     auto program = build_sources(qctx(queue), o.str());
     cl::Kernel kernel(program, "transpose");

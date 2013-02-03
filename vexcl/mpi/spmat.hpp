@@ -26,7 +26,7 @@ THE SOFTWARE.
 */
 
 /**
- * \file   vexcl/mpi/spmat.hpp
+ * \file   mpi/spmat.hpp
  * \author Denis Demidov <ddemidov@ksu.ru>
  * \brief  MPI wrapper for vex::SpMat.
  */

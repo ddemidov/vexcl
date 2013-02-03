@@ -26,7 +26,7 @@ THE SOFTWARE.
 */
 
 /**
- * \file   vexcl/mpi/multivector.hpp
+ * \file   mpi/multivector.hpp
  * \author Denis Demidov <ddemidov@ksu.ru>
  * \brief  MPI wrapper for vex::multivector.
  */

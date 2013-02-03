@@ -63,9 +63,9 @@ int main() {
 vex::Context object holds list of initialized OpenCL contexts and command
 queues for each filtered device. If you just need list of available devices
 without creating contexts and queues on them, then look for device_list()
-function in documenation.
+function in documentation.
 
-If you wish to obtain exclusive access to your devices (across all processes
+If you wish to obtain an exclusive access to your devices (across all processes
 that use VexCL library), just wrap your device filter in Filter::Exclusive()
 function call:
 \code
@@ -229,7 +229,7 @@ to build such a function, you need to supply its body, its return type and
 types of its arguments. After that, you can apply the function to any valid
 vector expressions:
 \code
-cl_function(greater, size_t(float, float), "return prm1 > prm2 ? 1 : 0;");
+VEX_FUNCTION(greater, size_t(float, float), "return prm1 > prm2 ? 1 : 0;");
 
 size_t count_if_greater(
     const Reductor<size_t, SUM> &sum,
@@ -244,6 +244,46 @@ size_t count_if_greater(
 You could also write sum(greater(x + y, 5 * y)), or use any other expressions
 as parameters to the greater() call. Note that in the function body
 parameters are always named as prm1, prm2, etc.
+
+
+\section random Random number generation
+
+VexCL provides random number generators from <a
+href="http://www.deshawresearch.com/resources_random123.html">Random123</a>
+suite, in which  Nth random number can be obtained by applying a stateless
+mixing function to N instead of the conventional approach of using N iterations
+of a stateful transformation. This technique is easily parallelizable and is
+well suited for use in GPGPU applications.
+
+In order to use a random number sequence in a vector expression, user has to
+declare either vex::Random or vex::RandomNormal class template instance as
+in the following example:
+\code
+vex::RandomNormal<cl_double2, vex::random::philox> rnd;
+vex::vector<cl_double2> x(ctx.queue(), size);
+unsigned seed = std::rand();
+
+x = rnd(vex::element_index(), seed);
+
+Reductor<size_t, SUM> sum(ctx.queue());
+
+assert( fabs(sum(rnd(element_index(), seed) - 0.5) / size) < 1e-3 );
+\endcode
+Note that element_index() here provides the random number generator with a
+sequence position N. You also can generate several independent random vectors
+by adjusting the element_index() (or a seed):
+\code
+vex::vector<double> x(ctx.queue(), n);
+vex::vector<double> y(ctx.queue(), n);
+
+RandomNormal<double, random::threefry> rnd;
+Reductor<size_t, SUM> sum(ctx.queue());
+
+x = rnd(element_index(0), seed);
+y = rnd(element_index(n), seed);
+
+double pi = 8.0 * sum(x * x + y * y < 1) / n;
+\endcode
 
 
 \section multivector Multi-component vectors

@@ -9,6 +9,8 @@
 
 //#define VEXCL_SHOW_KERNELS
 #include <vexcl/vexcl.hpp>
+#include <vexcl/random.hpp>
+#include <vexcl/fft.hpp>
 
 using namespace vex;
 
@@ -25,7 +27,7 @@ bool run_test(const std::string &name, std::function<bool()> test) {
     return rc;
 }
 
-cl_function(greater, size_t(double, double), "return prm1 > prm2 ? 1 : 0;");
+VEX_FUNCTION(greater, size_t(double, double), "return prm1 > prm2 ? 1 : 0;");
 
 template <class state_type>
 void sys_func(const state_type &x, state_type &dx, double dt) {
@@ -50,8 +52,6 @@ void runge_kutta_4(SysFunction sys, state_type &x, double dt) {
     x += (k1 + 2 * k2 + 2 * k3 + k4) / 6;
 }
 
-extern const char pow3_oper_body[] = "return X[0] + pow(X[-1] + X[1], 3.0);";
-
 int main(int argc, char *argv[]) {
     try {
         vex::Context ctx(Filter::DoublePrecision && Filter::Env);
@@ -61,6 +61,9 @@ int main(int argc, char *argv[]) {
             std::cerr << "No OpenCL devices found." << std::endl;
             return 1;
         }
+
+        std::vector<cl::CommandQueue> single_queue(
+                ctx.queue().begin(), ctx.queue().begin() + 1);
 
         uint seed = argc > 1 ? atoi(argv[1]) : static_cast<uint>(time(0));
         std::cout << "seed: " << seed << std::endl << std::endl;
@@ -1156,8 +1159,8 @@ int main(int argc, char *argv[]) {
                 vex::vector<double> x(ctx.queue(), N);
                 Reductor<size_t,SUM> sum(ctx.queue());
                 x = 1;
-                cl_function(times2, double(double), "return prm1 * 2;");
-                cl_function(times4, double(double), "return prm1 * 4;");
+                VEX_FUNCTION(times2, double(double), "return prm1 * 2;");
+                VEX_FUNCTION(times4, double(double), "return prm1 * 4;");
                 rc = rc && sum(times2(x)) == 2 * N;
                 rc = rc && sum(times4(x)) == 4 * N;
                 return rc;
@@ -1395,7 +1398,9 @@ int main(int argc, char *argv[]) {
                 bool rc = true;
                 const int n = 1 << 20;
 
-                StencilOperator<double, 3, 1, pow3_oper_body> pow3_op(ctx.queue());
+                VEX_STENCIL_OPERATOR(pow3_op,
+                    double, 3, 1,  "return X[0] + pow(X[-1] + X[1], 3.0);",
+                    ctx.queue());
 
                 std::vector<double> x(n);
                 std::vector<double> y(n);
@@ -1417,7 +1422,7 @@ int main(int argc, char *argv[]) {
                     res = std::max(res, fabs(sum - y[i]));
                 }
 
-                Y = 42 * pow3_op(X);
+                Y = 41 * pow3_op(X) + pow3_op(X);
 
                 copy(Y, y);
 
@@ -1449,7 +1454,7 @@ int main(int argc, char *argv[]) {
                 sym_state sym_x(sym_state::VectorParameter);
 
                 // Record expression sequience.
-                runge_kutta_4(sys_func<sym_state>, sym_x, dt); 
+                runge_kutta_4(sys_func<sym_state>, sym_x, dt);
 
                 // Build kernel.
                 auto kernel = generator::build_kernel(ctx.queue(),
@@ -1553,7 +1558,7 @@ int main(int argc, char *argv[]) {
                 vex::vector<cl_int4> X(ctx.queue(), N);
 
                 cl_int4 c = {{1, 2, 3, 4}};
-                cl_function(make_int4, cl_int4(int), "return (int4)(prm1, prm1, prm1, prm1);");
+                VEX_FUNCTION(make_int4, cl_int4(int), "return (int4)(prm1, prm1, prm1, prm1);");
                 X = c * (make_int4(5 + element_index()));
 
                 for(int i = 0; i < 100; ++i) {
@@ -1569,6 +1574,105 @@ int main(int argc, char *argv[]) {
                 });
 #endif
 
+#if 1
+        run_test("Random generator", [&]() -> bool {
+                const size_t N = 1024 * 1024;
+                bool rc = true;
+                Reductor<size_t,SUM> sumi(ctx.queue());
+                Reductor<double,SUM> sumd(ctx.queue());
+
+                vex::vector<cl_uint> x0(ctx.queue(), N);
+                Random<cl_int> rand0;
+                x0 = rand0(element_index(), rand());
+
+                vex::vector<cl_float8> x1(ctx.queue(), N);
+                Random<cl_float8> rand1;
+                x1 = rand1(element_index(), rand());
+
+                vex::vector<cl_double4> x2(ctx.queue(), N);
+                Random<cl_double4> rand2;
+                x2 = rand2(element_index(), rand());
+
+                vex::vector<cl_double> x3(ctx.queue(), N);
+                Random<cl_double> rand3;
+                x3 = rand3(element_index(), rand());
+                // X in [0,1]
+                rc = rc && sumi(x3 > 1) == 0;
+                rc = rc && sumi(x3 < 0) == 0;
+                // mean = 0.5
+                rc = rc && std::abs((sumd(x3) / N) - 0.5) < 1e-2;
+
+                vex::vector<cl_double> x4(ctx.queue(), N);
+                RandomNormal<cl_double> rand4;
+                x4 = rand4(element_index(), rand());
+                // E(X ~ N(0,s)) = 0
+                rc = rc && std::abs(sumd(x4)/N) < 1e-2;
+                // E(abs(X) ~ N(0,s)) = sqrt(2/M_PI) * s
+                rc = rc && std::abs(sumd(fabs(x4))/N - std::sqrt(2 / M_PI)) < 1e-2;
+
+                vex::vector<cl_double> x5(ctx.queue(), N);
+                Random<cl_double, random::threefry> rand5;
+                x5 = rand5(element_index(), rand());
+                rc = rc && std::abs(sumd(x5)/N - 0.5) < 1e-2;
+
+                vex::vector<cl_double4> x6(ctx.queue(), N);
+                Random<cl_double, random::threefry> rand6;
+                x6 = rand6(element_index(), rand());
+                return rc;
+                });
+#endif
+
+#if 1
+        run_test("Nested function invocation", [&]() -> bool {
+                bool rc = true;
+                const size_t N = 1024;
+                VEX_FUNCTION(f, int(int), "return 2 * prm1;");
+                VEX_FUNCTION(g, int(int), "return 3 * prm1;");
+
+                vex::vector<int> data(ctx.queue(), N);
+
+                data = 1;
+                data = f(f(data));
+                rc = rc && data[0] == 4;
+
+                data = 1;
+                data = g(f(data));
+                rc = rc && data[0] == 6;
+
+                return rc;
+                }); 
+#endif
+
+#if 1
+        run_test("FFT", [&]() -> bool {
+               bool rc = true;
+               const size_t N = 1024;
+
+               {
+                   vex::vector<cl_float> data(single_queue, N);
+                   FFT<cl_float> fft(single_queue, N);
+                   // should compile
+                   data += fft(data * data) * 5;
+               }
+
+               {
+                   vex::vector<cl_float> in(single_queue, N);
+                   vex::vector<cl_float2> out(single_queue, N);
+                   vex::vector<cl_float> back(single_queue, N);
+                   Random<cl_float> randf;
+                   in = randf(element_index(), rand());
+                   FFT<cl_float, cl_float2> fft(single_queue, N);
+                   FFT<cl_float2, cl_float> ifft(single_queue, N, inverse);
+                   out = fft(in);
+                   back = ifft(out);
+                   Reductor<cl_float, SUM> sum(single_queue);
+                   float rms = std::sqrt(sum(pow(in - back, 2.0f)) / N);
+                   rc = rc && rms < 1e-3;
+               }
+
+               return rc;
+            });
+#endif
     } catch (const cl::Error &err) {
         std::cerr << "OpenCL error: " << err << std::endl;
         return 1;

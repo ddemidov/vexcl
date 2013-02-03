@@ -6,7 +6,7 @@
 #include <boost/thread.hpp>
 #include <mpi.h>
 #include <vexcl/vexcl.hpp>
-#include <vexcl/mpi/mpi.hpp>
+#include <vexcl/mpi.hpp>
 
 static bool all_passed = true;
 vex::mpi::comm_data mpi;
@@ -20,7 +20,7 @@ bool run_test(const std::string &name, std::function<bool()> test) {
     bool rc = test();
     bool glob_rc;
 
-    MPI_Allreduce(&rc, &glob_rc, 1, MPI_C_BOOL, MPI_LAND, mpi.comm);
+    MPI_Allreduce(&rc, &glob_rc, 1, MPI_BYTE, MPI_LAND, mpi.comm);
 
     all_passed = all_passed && glob_rc;
     if (mpi.rank == 0)

@@ -26,7 +26,7 @@ THE SOFTWARE.
 */
 
 /**
- * \file   viennacl.hpp
+ * \file   external/viennacl.hpp
  * \author Denis Demidov <ddemidov@ksu.ru>
  * \brief  Enables use of ViennaCL (http://viennacl.sourceforge.net) iterative solvers.
  */
@@ -47,6 +47,11 @@ namespace viennacl {
             -> decltype(A * x)
         {
             return A * x;
+        }
+
+        template <typename T>
+        T norm_2(const vex::vector<T> &x) {
+            return sqrt(inner_prod(x, x));
         }
     }
 

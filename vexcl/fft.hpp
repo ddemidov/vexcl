@@ -31,6 +31,7 @@ THE SOFTWARE.
  * \brief  Fast Fourier Transformation.
  */
 
+#include <memory>
 #include <vexcl/vector.hpp>
 
 #ifdef USE_AMD_FFT
@@ -68,19 +69,37 @@ enum fft_direction {
    inverse = CLFFT_BACKWARD
 };
 
-void fft_check_error(clAmdFftStatus status) const {
+inline void fft_check_error(clAmdFftStatus status) {
     if(status != CL_SUCCESS)
         throw cl::Error(status, "AMD FFT");
 }
 
 // AMD FFT needs Setup/Teardown calls for the whole library.
 // Sequential Setup/Teardowns are OK, but overlapping is not.
-struct amd_context_t {
-    amd_context_t() { fft_check_error(clAmdFftSetup(NULL)); }
-    ~amd_context_t() { fft_check_error(clAmdFftTeardown()); }
-};
-static std::unique_ptr<amd_fft_context> amd_context;
+template <bool dummy = true>
+struct amd_context {
+    static_assert(dummy, "dummy parameter should be true");
 
+    static void init() {
+        if (!ctx) ctx.reset(new ctx_t());
+    }
+
+    // Not really needed, but who knows.
+    static void destroy() {
+        ctx.reset(0);
+    }
+
+    private:
+        struct ctx_t {
+            ctx_t() { fft_check_error(clAmdFftSetup(NULL)); }
+            ~ctx_t() { fft_check_error(clAmdFftTeardown()); }
+        };
+
+        static std::unique_ptr<ctx_t> ctx;
+};
+
+template <bool dummy>
+std::unique_ptr<typename amd_context<dummy>::ctx_t> amd_context<dummy>::ctx;
 
 /**
  * An FFT functor. Assumes the vector is in row major format and densely packed.
@@ -120,7 +139,7 @@ struct FFT {
         std::array<size_t, 1> lengths = {{length}};
         init(lengths);
     }
-   
+
 #ifndef BOOST_NO_INITIALIZER_LISTS
     FFT(const std::vector<cl::CommandQueue> &queues,
         std::initializer_list<size_t> lengths, fft_direction dir = forward)
@@ -133,25 +152,20 @@ struct FFT {
     void init(const Array &lengths) {
         assert(lengths.size() >= 1 && lengths.size() <= 3);
         assert(queues.size() == 1);
-        if(!amd_context) amd_context.reset(new amd_context_t());
+        amd_context<>::init();
         size_t _lengths[3];
         std::copy(std::begin(lengths), std::end(lengths), _lengths);
         cl::Context context = qctx(queues[0]);
-        if(fft_ref_count++ == 0)
-            check_error(clAmdFftSetup(NULL));
-        check_error(clAmdFftCreateDefaultPlan(&plan, context(),
+        fft_check_error(clAmdFftCreateDefaultPlan(&plan, context(),
             static_cast<clAmdFftDim>(lengths.size()), _lengths));
-        check_error(clAmdFftSetPlanPrecision(plan, CLFFT_SINGLE)); 
-        check_error(clAmdFftSetLayout(plan, CLFFT_COMPLEX_INTERLEAVED, CLFFT_COMPLEX_INTERLEAVED));
+        fft_check_error(clAmdFftSetPlanPrecision(plan, CLFFT_SINGLE));
+        fft_check_error(clAmdFftSetLayout(plan, CLFFT_COMPLEX_INTERLEAVED, CLFFT_COMPLEX_INTERLEAVED));
     }
 
     ~FFT() {
-        if(plan)
-            check_error(clAmdFftDestroyPlan(&plan));
-        if(--fft_ref_count == 0)
-            check_error(clAmdFftTeardown());
+        if(plan) fft_check_error(clAmdFftDestroyPlan(&plan));
     }
-    
+
 
     void execute(const vector<T0> &input, vector<T1> &output) const {
         cl_mem input_buf = input(0)();
@@ -174,7 +188,7 @@ struct FFT {
 #else // USE_AMD_FFT
 
 
-template <class F>
+template <class F, class Expr>
 struct fft_expr
     : vector_expression< boost::proto::terminal< additive_vector_transform >::type >
 {
@@ -183,9 +197,9 @@ struct fft_expr
     value_type scale;
 
     F &f;
-    const vector<T0> &input;
+    const Expr &input;
 
-    fft_expr(F &f, const vector<T0> &x) : scale(1), f(f), input(x) {}
+    fft_expr(F &f, const Expr &x) : scale(1), f(f), input(x) {}
 
     template <bool negate, bool append>
     void apply(vector<typename F::output_t> &output) const {
@@ -193,8 +207,8 @@ struct fft_expr
     }
 };
 
-template <class F>
-struct is_scalable<fft_expr<F>> : std::true_type {};
+template <class F, class E>
+struct is_scalable<fft_expr<F, E>> : std::true_type {};
 
 
 enum direction {
@@ -225,14 +239,15 @@ struct FFT {
         : plan(queues, lengths, dir == inverse) {}
 #endif
 
-    template <bool negate, bool append>
-    void execute(const vector<T0> &input, vector<T1> &output, value_type scale) {
+    template <bool negate, bool append, class Expr>
+    void execute(const Expr &input, vector<T1> &output, value_type scale) {
         plan(input, output, append, negate ? -scale : scale);
     }
 
 
     // User call
-    fft_expr<FFT<T0, T1>> operator()(const vector<T0> &x) {
+    template <class Expr>
+    fft_expr<FFT<T0, T1>, Expr> operator()(const Expr &x) {
         return {*this, x};
     }
 };

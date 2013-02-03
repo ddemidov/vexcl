@@ -51,8 +51,8 @@ struct plan {
 
     typedef typename cl_vector_of<T, 2>::type T2;
 
-    cl_function(r2c, T2(T), "return (" + type_name<T2>() + ")(prm1, 0);");
-    cl_function(c2r, T(T2), "return prm1.x;");
+    VEX_FUNCTION(r2c, T2(T), "return (" + type_name<T2>() + ")(prm1, 0);");
+    VEX_FUNCTION(c2r, T(T2), "return prm1.x;");
 
     const std::vector<cl::CommandQueue> &queues;
     T scale;
@@ -119,7 +119,8 @@ struct plan {
     
     /// Execute the complete transformation.
     /// Converts real-valued input and output, supports multiply-adding to output.
-    void operator()(const vector<T0> &in, vector<T1> &out, bool append, T ex_scale) {
+    template <class Expr>
+    void operator()(const Expr &in, vector<T1> &out, bool append, T ex_scale) {
         if(std::is_same<T0, T>::value) temp[input] = r2c(in);
         else temp[input] = in;
         for(auto run : kernels)

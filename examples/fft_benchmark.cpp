@@ -14,29 +14,33 @@ const size_t runs = 1000;
 #include <cufft.h>
 #include <cuda_runtime.h>
 
+void check(cudaError_t status, const char *msg) {
+    if (status != cudaSuccess)
+        throw std::runtime_error(msg);
+}
+
+void check(cufftResult status, const char *msg) {
+    if (status != CUFFT_SUCCESS)
+        throw std::runtime_error(msg);
+}
+
 double test_cufft(cl_float2 *data, size_t n, size_t m) {
     size_t dataSize = sizeof(cufftComplex) * n * m;
-    cudaError_t status;
-    cufftResult fftStatus;
 
     cufftHandle plan;
     if(m == 1)
-        fftStatus = cufftPlan1d(&plan, (int)n, CUFFT_C2C, 1);
+        check(cufftPlan1d(&plan, (int)n, CUFFT_C2C, 1), "cufftPlan1d");
     else
-        fftStatus = cufftPlan2d(&plan, (int)n, (int)m, CUFFT_C2C);
-    assert(fftStatus == CUFFT_SUCCESS);
+        check(cufftPlan2d(&plan, (int)n, (int)m, CUFFT_C2C), "cufftPlan2d");
 
     cufftComplex *inData;
-    status = cudaMalloc((void **)(&inData), dataSize);
-    assert(status == cudaSuccess);
+    check(cudaMalloc((void **)(&inData), dataSize), "cudaMalloc");
 
     cufftComplex *outData;
-    status = cudaMalloc((void **)(&outData), dataSize);
-    assert(status == cudaSuccess);
+    check(cudaMalloc((void **)(&outData), dataSize), "cudaMalloc");
 
     // Send X to device
-    status = cudaMemcpy(inData, data, dataSize, cudaMemcpyHostToDevice);
-    assert(status == cudaSuccess);
+    check(cudaMemcpy(inData, data, dataSize, cudaMemcpyHostToDevice), "cudaMemcpy");
 
     profiler prof({});
     prof.tic_cpu("Run");
@@ -58,10 +62,10 @@ double test_cufft(cl_float2 *, size_t, size_t) {
 
 
 #ifdef USE_FFTW
-#ifdef USE_OPENMP
-#include <omp.h>
-#endif
-#include <fftw3.h>
+#  ifdef _OPENMP
+#    include <omp.h>
+#  endif
+#  include <fftw3.h>
 
 double test_fftw(cl_float2 *data, size_t n, size_t m) {
     int sz[2] = {(int)n, (int)m};
@@ -116,7 +120,7 @@ void info(double time, size_t size, size_t dim) {
 }
 
 int main() {
-#if defined(USE_OPENMP) && defined(USE_FFTW)
+#if defined(_OPENMP) && defined(USE_FFTW)
     fftwf_init_threads();
     fftwf_plan_with_nthreads(omp_get_max_threads());
 #endif
