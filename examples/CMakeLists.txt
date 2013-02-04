@@ -7,10 +7,6 @@ set(EXAMPLES
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 
 if (WIN32)
-    # TODO: What to do with AMD platform?
-    set(OpenCL_INCPATH "$ENV{CUDA_INC_PATH}")
-    set(OpenCL_LIBPATH "$ENV{CUDA_LIB_PATH}")
-
     set(Boost_USE_STATIC_LIBS ON)
     find_package(Boost COMPONENTS system date_time thread chrono)
 else (WIN32)

@@ -226,7 +226,7 @@ struct FFT {
     /// 1D constructor
     FFT(const std::vector<cl::CommandQueue> &queues,
         size_t length, direction dir = forward)
-        : plan(queues, {length}, dir == inverse) {}
+        : plan(queues, std::vector<size_t>(1, length), dir == inverse) {}
 
     /// N-D constructors
     FFT(const std::vector<cl::CommandQueue> &queues,
@@ -248,7 +248,7 @@ struct FFT {
     // User call
     template <class Expr>
     fft_expr<FFT<T0, T1>, Expr> operator()(const Expr &x) {
-        return {*this, x};
+        return fft_expr< FFT<T0,T1>, Expr >(*this, x);
     }
 };
 

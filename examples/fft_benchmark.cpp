@@ -42,7 +42,7 @@ double test_cufft(cl_float2 *data, size_t n, size_t m) {
     // Send X to device
     check(cudaMemcpy(inData, data, dataSize, cudaMemcpyHostToDevice), "cudaMemcpy");
 
-    profiler prof({});
+    profiler prof( (std::vector<cl::CommandQueue>()) );
     prof.tic_cpu("Run");
     for(size_t i = 0 ; i < runs ; i++)
         cufftExecC2C(plan, inData, outData, CUFFT_FORWARD);
@@ -100,7 +100,7 @@ double test(Context &ctx, cl_float2 *data, size_t n, size_t m) {
     ctx.queue()[0].finish();
 
     // Run some
-    profiler prof({});
+    profiler prof( (std::vector<cl::CommandQueue>()) );
     prof.tic_cpu("Run");
     for(size_t i = 0 ; i < runs ; i++)
         b = fft(a);
@@ -111,8 +111,8 @@ double test(Context &ctx, cl_float2 *data, size_t n, size_t m) {
 void info(double time, size_t size, size_t dim) {
     // FFT is O(n log n)
     double ops = dim == 1
-        ? size * std::log(size) // O(n log n)
-        : 2.0 * size * size * std::log(size); // O(n log n)[1D fft] * n[rows] * 2[transposed]
+        ? size * std::log(static_cast<double>(size)) // O(n log n)
+        : 2.0 * size * size * std::log(static_cast<double>(size)); // O(n log n)[1D fft] * n[rows] * 2[transposed]
     std::cout << '\t';
     if(time < 0) std::cout << '-';
     else std::cout << std::scientific << (ops / time);
