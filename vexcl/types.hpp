@@ -112,12 +112,19 @@ namespace vex { \
     template <> struct cl_vector_length<cl_##base_type> { enum { value = 1 }; }; \
 }
 
+#ifdef WIN32
+#  pragma warning(push)
+#  pragma warning(disable : 4146)
+#endif
 CL_TYPES(float);
 CL_TYPES(double);
 CL_TYPES(char);  CL_TYPES(uchar);
 CL_TYPES(short); CL_TYPES(ushort);
 CL_TYPES(int);   CL_TYPES(uint);
 CL_TYPES(long);  CL_TYPES(ulong);
+#ifdef WIN32
+#  pragma warning(pop)
+#endif
 
 
 #undef BIN_OP

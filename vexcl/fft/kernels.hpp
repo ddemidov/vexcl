@@ -145,7 +145,7 @@ void kernel_radix(std::ostringstream &o, bool invert, size_t radix, size_t p, si
         o << "\treal2_t v" << i << " = x[" << (i * threads) << "];\n";
     // twiddle
     for(size_t i = 1 ; i < radix ; i++) {
-        const T alpha = -M_PI * i / (p * radix / 2);
+        const T alpha = -static_cast<T>(M_PI) * i / (p * radix / 2);
         o << "\tv" << i << "=twiddle(v" << i << ",(real_t)" << std::setprecision(25) << alpha << " * k);\n";
     }
     // inplace DFT
