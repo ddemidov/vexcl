@@ -5797,6 +5797,7 @@ public:
         return err;
     }
 
+#if !defined(WIN32) || defined(WIN64)
     cl_int enqueueNativeKernel(
         void (CL_CALLBACK *userFptr)(void *),
         std::pair<void*, ::size_t> args,
@@ -5832,6 +5833,7 @@ public:
 
         return err;
     }
+#endif
 
 /**
  * Deprecated APIs for 1.2
