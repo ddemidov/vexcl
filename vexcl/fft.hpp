@@ -251,7 +251,7 @@ struct FFT {
     // User call
     template <class Expr>
     fft_expr<FFT<T0, T1, Planner>, Expr> operator()(const Expr &x) {
-        return {*this, x};
+        return fft_expr< FFT<T0, T1, Planner>, Expr>(*this, x);
     }
 };
 

@@ -31,6 +31,11 @@ THE SOFTWARE.
  * \brief  FFT plan, stores kernels and buffers for one configuration.
  */
 
+#include <cmath>
+
+#ifndef M_PI
+#  define M_PI 3.1415926535897932384626433832795
+#endif
 
 #include <vexcl/vector.hpp>
 #include <vexcl/fft/kernels.hpp>
@@ -160,8 +165,7 @@ struct plan {
         auto context = qctx(queue);
         auto device = qdev(queue);
 
-        size_t total_n = 1;
-        for(auto x : sizes) total_n *= x;
+	size_t total_n = std::accumulate(sizes.begin(), sizes.end(), 1, std::multiplies<size_t>());
         scale = inverse ? ((T)1 / total_n) : 1;
 
         temp[0] = vector<T2>(queues, total_n);
@@ -193,8 +197,6 @@ struct plan {
         }
         output = current;
     }
-
-
     
     /// Execute the complete transformation.
     /// Converts real-valued input and output, supports multiply-adding to output.
@@ -202,9 +204,9 @@ struct plan {
     void operator()(const Expr &in, vector<T1> &out, bool append, T ex_scale) {
         if(std::is_same<T0, T>::value) temp[input] = r2c(in);
         else temp[input] = in;
-        for(auto run : kernels)
-            queues[0].enqueueNDRangeKernel(run.kernel, cl::NullRange,
-                run.global, run.local);
+        for(auto run = kernels.begin(); run != kernels.end(); ++run)
+            queues[0].enqueueNDRangeKernel(run->kernel, cl::NullRange,
+                run->global, run->local);
         if(std::is_same<T1, T>::value) {
             if(append) out += c2r(temp[output]) * (ex_scale * scale);
             else out = c2r(temp[output]) * (ex_scale * scale);

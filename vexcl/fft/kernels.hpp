@@ -268,7 +268,7 @@ kernel_call transpose_kernel(cl::CommandQueue &queue, size_t width, size_t heigh
     std::ostringstream o;
     kernel_common<T>(o);
 
-    // determine max block size to fit into __local memory.
+    // determine max block size to fit into local memory.
     size_t block_size = 128;
     const auto local_size = qdev(queue).getInfo<CL_DEVICE_LOCAL_MEM_SIZE>();
     while(block_size * block_size * sizeof(T) * 2 > local_size) block_size /= 2;
@@ -296,6 +296,10 @@ kernel_call transpose_kernel(cl::CommandQueue &queue, size_t width, size_t heigh
       << "  if(range)\n"
       << "    output[target_x + target_y * height] = block[local_x + local_y * block_size];\n"
       << "}\n";
+
+#ifdef VEXCL_SHOW_KERNELS
+    std::cout << o.str() << std::endl;
+#endif
 
     auto program = build_sources(qctx(queue), o.str());
     cl::Kernel kernel(program, "transpose");

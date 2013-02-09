@@ -225,8 +225,10 @@ int main(int argc, char *argv[]) {
                 bool rc = true;
                 vex::vector<double> x(ctx.queue(), N);
                 x = 42;
-                rc = rc && std::all_of(x.begin(), x.end(),
-                    [](double a) { return a == 42; });
+                for(int i = 0; i < 100; ++i) {
+                    size_t idx = rand() % N;
+		    rc = rc && x[idx] == 42;
+		}
                 return rc;
                 });
 #endif
