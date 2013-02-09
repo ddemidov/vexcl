@@ -40,7 +40,92 @@ namespace vex {
 namespace fft {
 
 
-template <class T0, class T1>
+// for arbitrary x, return smallest y=a^b c^d e^f...>=x where a,c,e are iterated over (assumed to be prime)
+template<class Iterator>
+inline size_t next_prime_power(Iterator begin, Iterator end, size_t target, size_t n = 1, size_t best = -1) {
+    const size_t prime = *begin++;
+    for(; n < target ; n *= prime) {
+        if(begin != end)
+            best = next_prime_power(begin, end, target, n, best);
+    }
+    return std::min(n, best);
+}
+
+
+
+struct simple_planner {
+    const size_t max_size;
+    simple_planner(size_t s = 25) : max_size(s) {}
+
+    // prime factors to use
+    virtual std::vector<size_t> primes() const {
+        return {2, 3, 5, 7, 11};
+    }
+
+    // returns the size the data must be padded to.
+    virtual size_t best_size(size_t n) const {
+        auto ps = primes();
+        return next_prime_power(ps.begin(), ps.end(), n);
+    }
+
+    // splits n into a list of powers 2^a 2^b 2^c 3^d 5^e...
+    virtual std::vector<pow> factor(size_t n) const {
+        std::vector<pow> fs;
+        for(auto p : primes())
+            if(n % p == 0) {
+                size_t e = 1;
+                while(n % size_t(std::pow(p, e + 1)) == 0) e += 1;
+                n /= std::pow(p, e);
+                // split exponent into reasonable parts.
+                for(auto q : stages(pow(p, e)))
+                    fs.push_back(q);
+            }
+        if(n != 1) throw std::runtime_error("Unsupported FFT size");
+        return fs;
+    }
+
+    // use largest radixes, i.e. 2^4 2^4 2^1
+    virtual std::vector<pow> stages(pow p) const {
+        size_t t = std::log(max_size + 1) / std::log(p.base);
+        std::vector<pow> fs;
+        for(size_t e = p.exponent ; ; ) {
+            if(e > t) {
+                fs.push_back(pow(p.base, t));
+                e -= t;
+            } else if(e <= t) {
+                fs.push_back(pow(p.base, e));
+                break;
+            }
+        }
+        return fs;
+    }
+};
+
+
+struct even_planner : simple_planner {
+    even_planner(size_t s = 25) : simple_planner(s) {}
+
+    // avoid very small radixes, i.e. 2^3 2^3 2^3
+    virtual std::vector<pow> stages(pow p) const {
+        size_t t = std::log(max_size + 1) / std::log(p.base);
+        // number of parts
+        size_t m = (p.exponent + t - 1) / t;
+        // two levels.
+        size_t r = t * m - p.exponent;
+        size_t u = m * (r / m);
+        size_t v = t - (r / m);
+        std::vector<pow> fs;
+        for(size_t i = 0 ; i < m - r + u ; i++)
+            fs.push_back(pow(p.base, v));
+        for(size_t i = 0 ; i < r - u ; i++)
+            fs.push_back(pow(p.base, v - 1));
+        return fs;
+    }
+};
+
+typedef even_planner default_planner;
+
+template <class T0, class T1, class Planner = default_planner>
 struct plan {
     typedef typename cl_scalar_of<T0>::type T0s;
     typedef typename cl_scalar_of<T1>::type T1s;
@@ -55,6 +140,7 @@ struct plan {
     VEX_FUNCTION(c2r, T(T2), "return prm1.x;");
 
     const std::vector<cl::CommandQueue> &queues;
+    Planner planner;
     T scale;
 
     std::vector<kernel_call> kernels;
@@ -66,8 +152,8 @@ struct plan {
     //  1D case: {n}.
     //  2D case: {h, w} in row-major format: x + y * w. (like FFTw)
     //  etc.
-    plan(const std::vector<cl::CommandQueue> &queues, const std::vector<size_t> sizes, bool inverse)
-        : queues(queues) {
+    plan(const std::vector<cl::CommandQueue> &queues, const std::vector<size_t> sizes, bool inverse, const Planner &planner = Planner())
+        : queues(queues), planner(planner) {
         assert(sizes.size() >= 1);
         assert(queues.size() == 1);
         auto queue = queues[0];
@@ -89,14 +175,12 @@ struct plan {
 
             // 1D, each row.
             if(w > 1) {
-                size_t p = 1, m = w;
-                while(m > 1) {
-                    pow radix = get_radix(m);
+                size_t p = 1;
+                for(auto radix : planner.factor(w)) {
                     kernels.push_back(radix_kernel<T>(queue, w, h,
                         inverse, radix, p, temp[current](0), temp[other](0)));
                     std::swap(current, other);
                     p *= radix.value;
-                    m /= radix.value;
                 }
             }
 
@@ -110,12 +194,7 @@ struct plan {
         output = current;
     }
 
-    // returns the next radix to use for remaining size m.
-    static pow get_radix(size_t m) {
-        static const pow rs[] = {pow(2,4), pow(2,3), pow(2,2), pow(2,2), pow(2,1), pow(3,1)};
-        for(auto r : rs) if(m % r.value == 0) return r;
-        throw std::runtime_error("Unsupported FFT size.");
-    }
+
     
     /// Execute the complete transformation.
     /// Converts real-valued input and output, supports multiply-adding to output.
