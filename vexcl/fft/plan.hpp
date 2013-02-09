@@ -216,6 +216,14 @@ struct plan {
 };
 
 
+template <class T0, class T1, class P>
+inline std::ostream &operator<<(std::ostream &o, const plan<T0,T1,P> &p) {
+    o << "FFT[\n";
+    for(auto k : p.kernels)
+        o << "  " << k.desc << "\n";
+    return o << "]";
 }
-}
+
+} // namespace fft
+} // namespace vex
 #endif
