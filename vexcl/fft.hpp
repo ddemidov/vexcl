@@ -215,28 +215,31 @@ enum direction {
     forward, inverse
 };
 
-template <typename T0, typename T1 = T0>
+template <typename T0, typename T1 = T0, class Planner = fft::default_planner>
 struct FFT {
     typedef T0 input_t;
     typedef T1 output_t;
     typedef typename cl_scalar_of<T1>::type value_type;
 
-    fft::plan<T0, T1> plan;
+    fft::plan<T0, T1, Planner> plan;
 
     /// 1D constructor
     FFT(const std::vector<cl::CommandQueue> &queues,
-        size_t length, direction dir = forward)
-        : plan(queues, {length}, dir == inverse) {}
+        size_t length, direction dir = forward,
+        const Planner &planner = Planner())
+        : plan(queues, {length}, dir == inverse, planner) {}
 
     /// N-D constructors
     FFT(const std::vector<cl::CommandQueue> &queues,
-        const std::vector<size_t> &lengths, direction dir = forward)
-        : plan(queues, lengths, dir == inverse) {}
+        const std::vector<size_t> &lengths, direction dir = forward,
+        const Planner &planner = Planner())
+        : plan(queues, lengths, dir == inverse, planner) {}
 
 #ifndef BOOST_NO_INITIALIZER_LISTS
     FFT(const std::vector<cl::CommandQueue> &queues,
-        const std::initializer_list<size_t> &lengths, direction dir = forward)
-        : plan(queues, lengths, dir == inverse) {}
+        const std::initializer_list<size_t> &lengths, direction dir = forward,
+        const Planner &planner = Planner())
+        : plan(queues, lengths, dir == inverse, planner) {}
 #endif
 
     template <bool negate, bool append, class Expr>
@@ -247,7 +250,7 @@ struct FFT {
 
     // User call
     template <class Expr>
-    fft_expr<FFT<T0, T1>, Expr> operator()(const Expr &x) {
+    fft_expr<FFT<T0, T1, Planner>, Expr> operator()(const Expr &x) {
         return {*this, x};
     }
 };
