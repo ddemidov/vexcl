@@ -21,7 +21,7 @@ std::vector<cl_float2> random_vec(size_t n, float range) {
 
 
 
-void test(Context &ctx, std::vector<size_t> ns) {
+bool test(Context &ctx, std::vector<size_t> ns) {
     std::ostringstream name;
     for(size_t i = 0 ; i < ns.size() ; i++) {
         if(i > 0) name << 'x';
@@ -57,52 +57,70 @@ void test(Context &ctx, std::vector<size_t> ns) {
     vector<cl_float2> ref(ctx.queue(), ref_h);
     vector<cl_float2> back(ctx.queue(), n);
 
+    Reductor<cl_float2, SUM> sum(ctx.queue());
+    #define rms(e) (100 * std::sqrt(hsum(sum(pow(e, 2))) / n) / range)
+
     try {
         FFT<cl_float2>  fft(ctx.queue(), ns);
         output = fft(input);
 
+        bool rc = true;
+        const float rms_fft = rms(output - ref);
+        rc &= rms_fft < 0.1;
+
         FFT<cl_float2> ifft(ctx.queue(), ns, inverse);
         back = ifft(output);
+        const float rms_inv = rms(input - back);
+        rc &= rms_inv < 1e-4;
+
+        std::cout << (rc ? " success." : " failed.") << '\n';
+
+        std::cout << "  fftw-clfft      " << rms_fft << "%" << '\n';
+        std::cout << "  x-ifft(fft(x))  " << rms_inv << "%" << '\n';
+
+        std::cout << fft.plan << '\n';
+
+        return rc;
+
     } catch(cl::Error e) {
-        std::cerr << e << std::endl;
+        std::cerr << "FFT error " << ": " << e << std::endl;
         throw;
     }
+}
 
-    if(n < 20 && n % 3 == 0)
-        std::cerr << "ref " << ref << "\nout " << output << std::endl;
 
-    Reductor<cl_float2, SUM> sum(ctx.queue());
-    #define rms(e) (100 * std::sqrt(hsum(sum(pow(e, 2))) / n) / range)
-
-    const float rms_fft = rms(output - ref);
-    const float rms_inv = rms(input - back);
-
-    const bool rc = rms_fft < 0.02 && rms_inv < 1e-4;
-
-    std::cout << (rc ? " success." : " failed.") << std::endl;
-
-    if(!rc) {
-        std::cout << "  fftw-clfft      " << rms_fft << "%" << std::endl;
-        std::cout << "  x-ifft(fft(x))  " << rms_inv << "%" << std::endl;
-    }
+double skew_rand(double p) {
+    return std::pow(1.0 * rand() / RAND_MAX, p);
 }
 
 int main() {
     Context ctx(Filter::Env && Filter::Count(1), CL_QUEUE_PROFILING_ENABLE);
     std::cout << ctx << std::endl;
 
-    test(ctx, {16 * 16 * 2});
-    test(ctx, {16 * 16 * 4});
-    test(ctx, {16 * 16 * 8});
-    test(ctx, {16 * 16 * 16});
-    test(ctx, {4, 4});
-    test(ctx, {16 * 4, 16 * 4});
-    test(ctx, {16 * 16 * 2, 16 * 16 * 4});
-    test(ctx, {2, 4});
-    test(ctx, {2 * 16, 4 * 16, 8 * 16});
-    test(ctx, {2 * 16, 4 * 16, 8 * 16, 2});
-    test(ctx, {3});
-    test(ctx, {3 * 3}); // TODO: wrong.
-    return 0;
+    bool rc = true;
+
+    const size_t max = 1 << 20;
+
+    fft::default_planner p;
+    for(size_t i = 0 ; i < 20 ; i++) {
+        // random number of dimensions, mostly 1.
+        size_t dims = 1 + size_t(skew_rand(3) * 5);
+        // random size.
+        std::vector<size_t> n;
+        size_t d_max = std::pow(max, 1.0 / dims);
+        size_t total = 1;
+        for(size_t d = 0 ; d < dims ; d++) {
+            size_t sz = 1 + size_t(skew_rand(dims == 1 ? 3 : 1) * d_max);
+            sz = p.best_size(sz);
+            n.push_back(sz);
+            total *= sz;
+        }
+        // run
+        if(total <= max)
+            rc &= test(ctx, n);
+    }
+
+
+    return rc ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
