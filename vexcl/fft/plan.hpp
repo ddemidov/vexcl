@@ -76,14 +76,15 @@ struct simple_planner {
     // splits n into a list of powers 2^a 2^b 2^c 3^d 5^e...
     virtual std::vector<pow> factor(size_t n) const {
         std::vector<pow> fs;
-        for(auto p : primes())
-            if(n % p == 0) {
+        auto ps = primes();
+        for(auto p = ps.begin() ; p != ps.end() ; p++)
+            if(n % *p == 0) {
                 size_t e = 1;
-                while(n % size_t(std::pow(p, e + 1)) == 0) e += 1;
-                n /= std::pow(p, e);
+                while(n % size_t(std::pow(*p, e + 1)) == 0) e += 1;
+                n /= std::pow(*p, e);
                 // split exponent into reasonable parts.
-                for(auto q : stages(pow(p, e)))
-                    fs.push_back(q);
+                auto qs = stages(pow(*p, e));
+                std::copy(qs.begin(), qs.end(), std::back_inserter(fs));
             }
         if(n != 1) throw std::runtime_error("Unsupported FFT size");
         return fs;
@@ -180,11 +181,12 @@ struct plan {
             // 1D, each row.
             if(w > 1) {
                 size_t p = 1;
-                for(auto radix : planner.factor(w)) {
+                auto rs = planner.factor(w);
+                for(auto r = rs.begin() ; r != rs.end() ; r++) {
                     kernels.push_back(radix_kernel<T>(queue, w, h,
-                        inverse, radix, p, temp[current](0), temp[other](0)));
+                        inverse, *r, p, temp[current](0), temp[other](0)));
                     std::swap(current, other);
-                    p *= radix.value;
+                    p *= r->value;
                 }
             }
 
@@ -221,8 +223,8 @@ struct plan {
 template <class T0, class T1, class P>
 inline std::ostream &operator<<(std::ostream &o, const plan<T0,T1,P> &p) {
     o << "FFT[\n";
-    for(auto k : p.kernels)
-        o << "  " << k.desc << "\n";
+    for(auto k = p.kernels.begin() ; k != p.kernels.end() ; k++)
+        o << "  " << k->desc << "\n";
     return o << "]";
 }
 
