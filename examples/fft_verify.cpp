@@ -41,13 +41,11 @@ bool test(Context &ctx, std::vector<size_t> ns) {
 
     // reference.
     std::vector<cl_float2> ref_h(n);
-    int *ns_ = new int[ns.size()];
-    std::copy(ns.begin(), ns.end(), ns_);
-    fftwf_plan p1 = fftwf_plan_dft(ns.size(), ns_,
+    std::vector<int> ns_(ns.begin(), ns.end());
+    fftwf_plan p1 = fftwf_plan_dft(ns_.size(), ns_.data(),
         reinterpret_cast<fftwf_complex *>(&input_h[0]),
         reinterpret_cast<fftwf_complex *>(&ref_h[0]),
         FFTW_FORWARD, FFTW_ESTIMATE);
-    delete [] ns_;
     fftwf_execute(p1);
     fftwf_destroy_plan(p1);
 
