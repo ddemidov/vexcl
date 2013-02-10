@@ -51,7 +51,7 @@ inline std::ostream &operator<<(std::ostream &o, const pow &p) {
 /** 0 <= i < m,
  * i is converted into a base m.base-number,
  * its digits reversed, and converted back into an integer. */
-size_t digit_reverse(size_t i, pow m) {
+inline size_t digit_reverse(size_t i, pow m) {
     assert(i < m.value);
     // convert to other base, digits[0]=least significant
     // convert back with digits[0]=most significant.
@@ -63,16 +63,8 @@ size_t digit_reverse(size_t i, pow m) {
     return j;
 }
 
-/// a is a power of 2, b is an arbitrary number.
-/** returns a power of 2 <= a that is <= b. */
-size_t min_pow2(size_t a, size_t b) {
-    while(a > b)
-        a >>= 1;
-    return a;
-}
-
 /// ceil(x/m) * m
-size_t int_ceil(size_t x, size_t m) {
+inline size_t int_ceil(size_t x, size_t m) {
     return (x + m - 1) / m * m;
 }
 
@@ -105,7 +97,7 @@ inline typename cl_vector_of<T,2>::type omega(int k, int n) {
 }
 
 template <class T>
-void in_place_dft(std::ostringstream &o, pow radix) {
+inline void in_place_dft(std::ostringstream &o, pow radix) {
     typedef typename cl_vector_of<T,2>::type T2;
     o << "void dft" << radix.value;
     param_list(o, "real2_t *", 0, radix.value);
@@ -164,7 +156,7 @@ void in_place_dft(std::ostringstream &o, pow radix) {
 
 
 template <class T>
-void kernel_radix(std::ostringstream &o, pow radix) {
+inline void kernel_radix(std::ostringstream &o, pow radix) {
     for(size_t e = 1 ; e <= radix.exponent ; e++)
         in_place_dft<T>(o, pow(radix.base, e));
     // kernel.
@@ -204,7 +196,7 @@ void kernel_radix(std::ostringstream &o, pow radix) {
 
 
 template <class T>
-void kernel_common(std::ostringstream &o) {
+inline void kernel_common(std::ostringstream &o) {
     if(std::is_same<T, cl_double>::value) {
         o << standard_kernel_header
           << "typedef double real_t;\n"
@@ -217,7 +209,7 @@ void kernel_common(std::ostringstream &o) {
 
 
 template <class T>
-kernel_call radix_kernel(cl::CommandQueue &queue, size_t n, size_t batch, bool invert, pow radix, size_t p, cl::Buffer in, cl::Buffer out) {
+inline kernel_call radix_kernel(cl::CommandQueue &queue, size_t n, size_t batch, bool invert, pow radix, size_t p, cl::Buffer in, cl::Buffer out) {
     std::ostringstream o;
     o << std::setprecision(25);
     kernel_common<T>(o);
@@ -264,7 +256,7 @@ kernel_call radix_kernel(cl::CommandQueue &queue, size_t n, size_t batch, bool i
 
 
 template <class T>
-kernel_call transpose_kernel(cl::CommandQueue &queue, size_t width, size_t height, cl::Buffer in, cl::Buffer out) {
+inline kernel_call transpose_kernel(cl::CommandQueue &queue, size_t width, size_t height, cl::Buffer in, cl::Buffer out) {
     std::ostringstream o;
     kernel_common<T>(o);
 
