@@ -1,5 +1,4 @@
 #include <vexcl/vexcl.hpp>
-#include <vexcl/fft.hpp>
 #include <random>
 #include <fftw3.h>
 

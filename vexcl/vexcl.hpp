@@ -543,6 +543,8 @@ there, you can download it from <a href="http://www.khronos.org/registry/cl">Kro
 #include <vexcl/spmat.hpp>
 #include <vexcl/stencil.hpp>
 #include <vexcl/gather.hpp>
+#include <vexcl/random.hpp>
+#include <vexcl/fft.hpp>
 #include <vexcl/generator.hpp>
 #include <vexcl/profiler.hpp>
 

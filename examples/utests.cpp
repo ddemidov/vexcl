@@ -9,8 +9,6 @@
 
 //#define VEXCL_SHOW_KERNELS
 #include <vexcl/vexcl.hpp>
-#include <vexcl/random.hpp>
-#include <vexcl/fft.hpp>
 
 using namespace vex;
 

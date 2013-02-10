@@ -3,7 +3,6 @@
 #include <random>
 
 #include <vexcl/vexcl.hpp>
-#include <vexcl/fft.hpp>
 
 using namespace vex;
 
