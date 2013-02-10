@@ -268,11 +268,15 @@ kernel_call transpose_kernel(cl::CommandQueue &queue, size_t width, size_t heigh
     std::ostringstream o;
     kernel_common<T>(o);
 
-    // determine max block size to fit into local memory.
+    // determine max block size to fit into local memory/workgroup
     size_t block_size = 128;
-    const auto local_size = qdev(queue).getInfo<CL_DEVICE_LOCAL_MEM_SIZE>();
-    while(block_size * block_size * sizeof(T) * 2 > local_size) block_size /= 2;
-    block_size /= 2;
+    {
+        const auto dev = qdev(queue);
+        const auto local_size = dev.getInfo<CL_DEVICE_LOCAL_MEM_SIZE>();
+        const auto workgroup = dev.getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>();
+        while(block_size * block_size * sizeof(T) * 2 > local_size) block_size /= 2;
+        while(block_size * block_size > workgroup) block_size /= 2;
+    }
 
     // from NVIDIA SDK.
     o << "__kernel void transpose("
