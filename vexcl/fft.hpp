@@ -227,7 +227,7 @@ struct FFT {
     FFT(const std::vector<cl::CommandQueue> &queues,
         size_t length, direction dir = forward,
         const Planner &planner = Planner())
-        : plan(queues, {length}, dir == inverse, planner) {}
+        : plan(queues, std::vector<size_t>(1, length), dir == inverse, planner) {}
 
     /// N-D constructors
     FFT(const std::vector<cl::CommandQueue> &queues,

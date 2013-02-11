@@ -29,10 +29,11 @@ THE SOFTWARE.
  * \file   fft/kernels.hpp
  * \author Pascal Germroth <pascal@ensieve.org>
  * \brief  Kernel generator for FFT.
+ *
+ * OpenCL FFT kernels, original by Eric Bainville
  */
 
-
-// OpenCL FFT kernels, original by Eric Bainville
+#include <cmath>
 
 namespace vex {
 namespace fft {
@@ -40,7 +41,8 @@ namespace fft {
 // Store v=b^e as components.
 struct pow {
     size_t base, exponent, value;
-    pow(size_t b, size_t e) : base(b), exponent(e), value(std::pow(b, e)) {}
+    pow(size_t b, size_t e) : base(b), exponent(e),
+	value(static_cast<size_t>(std::pow(static_cast<double>(b), static_cast<double>(e)))) {}
 };
 
 inline std::ostream &operator<<(std::ostream &o, const pow &p) {
@@ -92,8 +94,9 @@ inline void param_list(std::ostringstream &o, std::string prefix, size_t from, s
 // omega(n,k) = exp(-i 2 pi k / n)
 template<class T>
 inline typename cl_vector_of<T,2>::type omega(int k, int n) {
-    const T alpha = -2 * M_PI * (k % n) / n;
-    return {{std::cos(alpha), std::sin(alpha)}};
+    const T alpha = -2 * static_cast<T>(M_PI) * (k % n) / n;
+    typename cl_vector_of<T,2>::type result = {{std::cos(alpha), std::sin(alpha)}};
+    return result;
 }
 
 template <class T>
@@ -175,7 +178,7 @@ inline void kernel_radix(std::ostringstream &o, pow radix) {
     // twiddle
     o << "  if(p != 1) {\n";
     for(size_t i = 1 ; i < radix.value ; i++) {
-        const T alpha = -2 * M_PI * i / radix.value;
+        const T alpha = -2 * static_cast<T>(M_PI) * i / radix.value;
         o << "    v" << i << " = twiddle(v" << i << ", "
           << "(real_t)" << alpha << " * k / p);\n";
     }

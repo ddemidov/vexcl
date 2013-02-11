@@ -228,8 +228,8 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
             std::ostringstream source;
             source << standard_kernel_header;
 
-            typename RDC::template function<real> fun;
-            fun.define(source, "reduce_operation");
+            typedef typename RDC::template function<real> fun;
+            fun::define(source, "reduce_operation");
 
             extract_user_functions()( expr, declare_user_function(source) );
 

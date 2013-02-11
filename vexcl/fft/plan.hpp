@@ -33,16 +33,13 @@ THE SOFTWARE.
 
 #include <cmath>
 
-#ifndef M_PI
-#  define M_PI 3.1415926535897932384626433832795
-#endif
-
 #include <vexcl/vector.hpp>
 #include <vexcl/fft/kernels.hpp>
 #include <boost/lexical_cast.hpp>
 
 namespace vex {
 namespace fft {
+
 
 
 // for arbitrary x, return smallest y=a^b c^d e^f...>=x where a,c,e are iterated over (assumed to be prime)
@@ -64,7 +61,8 @@ struct simple_planner {
 
     // prime factors to use
     virtual std::vector<size_t> primes() const {
-        return {2, 3, 5, 7, 11};
+	static const size_t data[] = {2, 3, 5, 7, 11};
+	return std::vector<size_t>(data, data + sizeof(data)/sizeof(data[0]));
     }
 
     // returns the size the data must be padded to.
@@ -80,8 +78,8 @@ struct simple_planner {
         for(auto p = ps.begin() ; p != ps.end() ; p++)
             if(n % *p == 0) {
                 size_t e = 1;
-                while(n % size_t(std::pow(*p, e + 1)) == 0) e += 1;
-                n /= std::pow(*p, e);
+                while(n % size_t(std::pow(static_cast<double>(*p), static_cast<double>(e + 1))) == 0) e += 1;
+                n /= static_cast<size_t>(std::pow(static_cast<double>(*p), static_cast<double>(e)));
                 // split exponent into reasonable parts.
                 auto qs = stages(pow(*p, e));
                 std::copy(qs.begin(), qs.end(), std::back_inserter(fs));
@@ -92,7 +90,7 @@ struct simple_planner {
 
     // use largest radixes, i.e. 2^4 2^4 2^1
     virtual std::vector<pow> stages(pow p) const {
-        size_t t = std::log(max_size + 1) / std::log(p.base);
+        size_t t = static_cast<size_t>(std::log(max_size + 1.0) / std::log(static_cast<double>(p.base)));
         std::vector<pow> fs;
         for(size_t e = p.exponent ; ; ) {
             if(e > t) {
@@ -113,7 +111,7 @@ struct even_planner : simple_planner {
 
     // avoid very small radixes, i.e. 2^3 2^3 2^3
     virtual std::vector<pow> stages(pow p) const {
-        size_t t = std::log(max_size + 1) / std::log(p.base);
+        size_t t = static_cast<size_t>(std::log(max_size + 1.0) / std::log(static_cast<double>(p.base)));
         // number of parts
         size_t m = (p.exponent + t - 1) / t;
         // two levels.

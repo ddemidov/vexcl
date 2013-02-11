@@ -525,7 +525,7 @@ there, you can download it from <a href="http://www.khronos.org/registry/cl">Kro
 
 #ifdef WIN32
 #  pragma warning(push)
-#  pragma warning(disable : 4290)
+#  pragma warning(disable : 4290 4503)
 #  define NOMINMAX
 #endif
 
