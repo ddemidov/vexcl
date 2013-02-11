@@ -247,20 +247,20 @@ class vector : public vector_terminal_expression {
 
                 element_type operator*() const {
                     return element_type(
-                            vec.queue[part], vec.buf[part],
-                            pos - vec.part[part]
+                            vec->queue[part], vec->buf[part],
+                            pos - vec->part[part]
                             );
                 }
 
                 iterator_type& operator++() {
                     pos++;
-                    while (part < vec.nparts() && pos >= vec.part[part + 1])
+                    while (part < vec->nparts() && pos >= vec->part[part + 1])
                         part++;
                     return *this;
                 }
 
                 iterator_type operator+(ptrdiff_t d) const {
-                    return iterator_type(vec, pos + d);
+                    return iterator_type(*vec, pos + d);
                 }
 
                 ptrdiff_t operator-(iterator_type it) const {
@@ -275,13 +275,13 @@ class vector : public vector_terminal_expression {
                     return pos != it.pos;
                 }
 
-                vector_type &vec;
+                vector_type *vec;
                 size_t  pos;
                 size_t  part;
 
             private:
                 iterator_type(vector_type &vec, size_t pos)
-                    : vec(vec), pos(pos), part(0)
+                    : vec(&vec), pos(pos), part(0)
                 {
                     if (!vec.part.empty()) {
                         part = std::upper_bound(
@@ -780,7 +780,7 @@ typename std::enable_if<
 copy(InputIterator first, InputIterator last,
         OutputIterator result, cl_bool blocking = CL_TRUE)
 {
-    first.vec.read_data(first.pos, last - first, &result[0], blocking);
+    first.vec->read_data(first.pos, last - first, &result[0], blocking);
     return result + (last - first);
 }
 
@@ -798,7 +798,7 @@ typename std::enable_if<
 copy(InputIterator first, InputIterator last,
         OutputIterator result, cl_bool blocking = CL_TRUE)
 {
-    result.vec.write_data(result.pos, last - first, &first[0], blocking);
+    result.vec->write_data(result.pos, last - first, &first[0], blocking);
     return result + (last - first);
 }
 
