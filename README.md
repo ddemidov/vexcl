@@ -258,13 +258,13 @@ by adjusting the element_index (or a seed):
 vex::vector<double> x(ctx, n);
 vex::vector<double> y(ctx, n);
 
-RandomNormal<double, random::threefry> rnd;
+Random<double, random::threefry> rnd;
 Reductor<size_t, SUM> sum(ctx);
 
 x = rnd(element_index(0), seed);
 y = rnd(element_index(n), seed);
 
-double pi = 8.0 * sum(x * x + y * y < 1) / n;
+double pi = 4.0 * sum(x * x + y * y < 1) / n;
 ```
 [rnd123]: http://www.deshawresearch.com/resources_random123.html
 
