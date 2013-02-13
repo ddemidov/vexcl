@@ -317,6 +317,15 @@ class vector : public vector_terminal_expression {
             *this = v;
         }
 
+        /// Wrap a native buffer
+        vector(const cl::CommandQueue &q, const cl::Buffer &buffer)
+            : queue(), part(), buf(), event(1) {
+            queue.push_back(q);
+            part.push_back(0);
+            part.push_back(buffer.getInfo<CL_MEM_SIZE>() / sizeof(T));
+            buf.push_back(buffer);
+        }
+
         /// Copy host data to the new buffer.
         vector(const std::vector<cl::CommandQueue> &queue,
                 size_t size, const T *host = 0,
