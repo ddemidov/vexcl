@@ -54,7 +54,7 @@ int main(int argc, char *argv[]) {
                 const size_t n = 1024;
                 bool rc = true;
 
-                vex::mpi::vector<double> x(mpi.comm, ctx.queue(), n);
+                vex::mpi::vector<double> x(mpi.comm, ctx, n);
 
                 rc = rc && x.local_size() == n;
                 rc = rc && x.global_size() == n * mpi.size;
@@ -66,7 +66,7 @@ int main(int argc, char *argv[]) {
                 const size_t n = 1024;
                 bool rc = true;
 
-                vex::mpi::vector<double> x(mpi.comm, ctx.queue(), n);
+                vex::mpi::vector<double> x(mpi.comm, ctx, n);
 
                 x = 42;
 
@@ -79,7 +79,7 @@ int main(int argc, char *argv[]) {
                 const size_t n = 1024;
                 bool rc = true;
 
-                vex::mpi::vector<double> x(mpi.comm, ctx.queue(), n);
+                vex::mpi::vector<double> x(mpi.comm, ctx, n);
                 x = 42;
 
                 vex::mpi::vector<double> y = x;
@@ -93,8 +93,8 @@ int main(int argc, char *argv[]) {
                 const size_t n = 1024;
                 bool rc = true;
 
-                vex::mpi::vector<double> x(mpi.comm, ctx.queue(), n);
-                vex::mpi::vector<double> y(mpi.comm, ctx.queue(), n);
+                vex::mpi::vector<double> x(mpi.comm, ctx, n);
+                vex::mpi::vector<double> y(mpi.comm, ctx, n);
 
                 x = 42;
                 y = vex::cos(x / 7);
@@ -108,8 +108,8 @@ int main(int argc, char *argv[]) {
                 const size_t n = 1024;
                 bool rc = true;
 
-                vex::mpi::vector<double> x(mpi.comm, ctx.queue(), n);
-                vex::mpi::Reductor<double, vex::SUM> sum(mpi.comm, ctx.queue());
+                vex::mpi::vector<double> x(mpi.comm, ctx, n);
+                vex::mpi::Reductor<double, vex::SUM> sum(mpi.comm, ctx);
 
                 x = 1;
 
@@ -123,7 +123,7 @@ int main(int argc, char *argv[]) {
                 const size_t m = 3;
                 bool rc = true;
 
-                vex::mpi::multivector<double,m> x(mpi.comm, ctx.queue(), n);
+                vex::mpi::multivector<double,m> x(mpi.comm, ctx, n);
 
                 rc = rc && x.local_size() == n;
                 rc = rc && x.global_size() == n * mpi.size;
@@ -136,7 +136,7 @@ int main(int argc, char *argv[]) {
                 const size_t m = 3;
                 bool rc = true;
 
-                vex::mpi::multivector<double,m> x(mpi.comm, ctx.queue(), n);
+                vex::mpi::multivector<double,m> x(mpi.comm, ctx, n);
 
                 x = 42;
 
@@ -158,8 +158,8 @@ int main(int argc, char *argv[]) {
                 const size_t m = 3;
                 bool rc = true;
 
-                vex::mpi::multivector<double,m> x(mpi.comm, ctx.queue(), n);
-                vex::mpi::multivector<double,m> y(mpi.comm, ctx.queue(), n);
+                vex::mpi::multivector<double,m> x(mpi.comm, ctx, n);
+                vex::mpi::multivector<double,m> y(mpi.comm, ctx, n);
 
                 x = std::make_tuple(6, 7, 42);
                 y = vex::cos(x / 7);
@@ -176,8 +176,8 @@ int main(int argc, char *argv[]) {
                 const size_t m = 3;
                 bool rc = true;
 
-                vex::mpi::multivector<double, m> x(mpi.comm, ctx.queue(), n);
-                vex::mpi::Reductor<double, vex::SUM> sum(mpi.comm, ctx.queue());
+                vex::mpi::multivector<double, m> x(mpi.comm, ctx, n);
+                vex::mpi::Reductor<double, vex::SUM> sum(mpi.comm, ctx);
 
                 x = std::make_tuple(1, 2, 3);
 
@@ -195,9 +195,9 @@ int main(int argc, char *argv[]) {
                 const size_t m = 3;
                 bool rc = true;
 
-                vex::mpi::multivector<double, m> x(mpi.comm, ctx.queue(), n);
-                vex::mpi::vector<double> y0(mpi.comm, ctx.queue(), n);
-                vex::mpi::vector<double> y1(mpi.comm, ctx.queue(), n);
+                vex::mpi::multivector<double, m> x(mpi.comm, ctx, n);
+                vex::mpi::vector<double> y0(mpi.comm, ctx, n);
+                vex::mpi::vector<double> y1(mpi.comm, ctx, n);
 
                 y0 = 1;
                 y1 = 2;
@@ -217,12 +217,12 @@ int main(int argc, char *argv[]) {
                 const size_t n = 1024;
                 bool rc = true;
 
-                vex::mpi::vector<double> x0(mpi.comm, ctx.queue(), n);
-                vex::mpi::vector<double> x1(mpi.comm, ctx.queue(), n);
-                vex::mpi::vector<double> x2(mpi.comm, ctx.queue(), n);
+                vex::mpi::vector<double> x0(mpi.comm, ctx, n);
+                vex::mpi::vector<double> x1(mpi.comm, ctx, n);
+                vex::mpi::vector<double> x2(mpi.comm, ctx, n);
 
-                vex::mpi::vector<double> y0(mpi.comm, ctx.queue(), n);
-                vex::mpi::vector<double> y1(mpi.comm, ctx.queue(), n);
+                vex::mpi::vector<double> y0(mpi.comm, ctx, n);
+                vex::mpi::vector<double> y1(mpi.comm, ctx, n);
 
                 y0 = 1;
                 y1 = 2;
@@ -288,16 +288,16 @@ int main(int argc, char *argv[]) {
                     row.push_back(col.size());
                 }
 
-                vex::mpi::SpMat<double, int, int> A(mpi.comm, ctx.queue(),
+                vex::mpi::SpMat<double, int, int> A(mpi.comm, ctx,
                         chunk_size, chunk_size,
                         row.data(), col.data(), val.data()
                         );
 
-                vex::mpi::vector<double> x(mpi.comm, ctx.queue(), chunk_size);
-                vex::mpi::vector<double> y(mpi.comm, ctx.queue(), chunk_size);
+                vex::mpi::vector<double> x(mpi.comm, ctx, chunk_size);
+                vex::mpi::vector<double> y(mpi.comm, ctx, chunk_size);
 
-                vex::mpi::multivector<double, m> mx(mpi.comm, ctx.queue(), chunk_size);
-                vex::mpi::multivector<double, m> my(mpi.comm, ctx.queue(), chunk_size);
+                vex::mpi::multivector<double, m> mx(mpi.comm, ctx, chunk_size);
+                vex::mpi::multivector<double, m> my(mpi.comm, ctx, chunk_size);
 
                 x = 1;
                 y = A * x;
@@ -305,9 +305,9 @@ int main(int argc, char *argv[]) {
                 mx = std::make_tuple(1, 2, 3);
                 my = A * mx;
 
-                vex::mpi::Reductor<double, vex::MIN> min(mpi.comm, ctx.queue());
-                vex::mpi::Reductor<double, vex::MAX> max(mpi.comm, ctx.queue());
-                vex::mpi::Reductor<double, vex::SUM> sum(mpi.comm, ctx.queue());
+                vex::mpi::Reductor<double, vex::MIN> min(mpi.comm, ctx);
+                vex::mpi::Reductor<double, vex::MAX> max(mpi.comm, ctx);
+                vex::mpi::Reductor<double, vex::SUM> sum(mpi.comm, ctx);
 
                 rc = rc && min(y) == 0;
                 rc = rc && max(y) == 0.5;
@@ -330,7 +330,7 @@ int main(int argc, char *argv[]) {
                 const size_t n = 1024;
                 bool rc = true;
 
-                vex::mpi::vector<double> x(mpi.comm, ctx.queue(), n);
+                vex::mpi::vector<double> x(mpi.comm, ctx, n);
 
                 auto part = mpi.restore_partitioning(n);
 

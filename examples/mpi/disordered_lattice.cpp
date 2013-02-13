@@ -90,7 +90,7 @@ class ham_lattice {
             }
 
             A.reset(new vex::mpi::SpMat<value_type>(
-                        mpi.comm, ctx.queue(), chunk_size, chunk_size,
+                        mpi.comm, ctx, chunk_size, chunk_size,
                         row.data(), col.data(), val.data()
                         ));
         }
@@ -149,8 +149,8 @@ int main( int argc , char *argv[] ) {
         }
 
         std::pair<state_type, state_type> X(
-                state_type( mpi.comm, ctx.queue() , chunk_size ),
-                state_type( mpi.comm, ctx.queue() , chunk_size )
+                state_type( mpi.comm, ctx , chunk_size ),
+                state_type( mpi.comm, ctx , chunk_size )
                 );
 
         X.first  = 0.0;

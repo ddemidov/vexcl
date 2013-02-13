@@ -496,11 +496,11 @@ int main() {
 
         double gflops, bwidth;
 
-        profiler prof(ctx.queue());
+        profiler prof(ctx);
 
 #ifdef BENCHMARK_VECTOR
         prof.tic_cpu("Vector arithmetic");
-        std::tie(gflops, bwidth) = benchmark_vector(ctx.queue(), prof);
+        std::tie(gflops, bwidth) = benchmark_vector(ctx, prof);
         prof.toc("Vector arithmetic");
 
         log << gflops << " " << bwidth << " ";
@@ -508,7 +508,7 @@ int main() {
 
 #ifdef BENCHMARK_REDUCTOR
         prof.tic_cpu("Reduction");
-        std::tie(gflops, bwidth) = benchmark_reductor(ctx.queue(), prof);
+        std::tie(gflops, bwidth) = benchmark_reductor(ctx, prof);
         prof.toc("Reduction");
 
         log << gflops << " " << bwidth << " ";
@@ -516,7 +516,7 @@ int main() {
 
 #ifdef BENCHMARK_STENCIL
         prof.tic_cpu("Stencil");
-        std::tie(gflops, bwidth) = benchmark_stencil(ctx.queue(), prof);
+        std::tie(gflops, bwidth) = benchmark_stencil(ctx, prof);
         prof.toc("Stencil");
 
         log << gflops << " " << bwidth << " ";
@@ -524,13 +524,13 @@ int main() {
 
 #ifdef BENCHMARK_SPMAT
         prof.tic_cpu("SpMV");
-        std::tie(gflops, bwidth) = benchmark_spmv(ctx.queue(), prof);
+        std::tie(gflops, bwidth) = benchmark_spmv(ctx, prof);
         prof.toc("SpMV");
 
         log << gflops << " " << bwidth << std::endl;
 
         prof.tic_cpu("SpMV (CCSR)");
-        std::tie(gflops, bwidth) = benchmark_spmv_ccsr(ctx.queue(), prof);
+        std::tie(gflops, bwidth) = benchmark_spmv_ccsr(ctx, prof);
         prof.toc("SpMV (CCSR)");
 #endif
 

@@ -575,6 +575,10 @@ class Context {
             return q;
         }
 
+        operator const std::vector<cl::CommandQueue>&() const {
+            return q;
+        }
+
         const cl::CommandQueue& queue(uint d) const {
             return q[d];
         }

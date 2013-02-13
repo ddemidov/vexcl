@@ -81,7 +81,7 @@ int main( int argc , char **argv )
     sys_func sys(10.0, 8.0 / 3.0, sym_R);
     sym_stepper.do_step(std::ref(sys), sym_S, 0, dt);
 
-    auto kernel = vex::generator::build_kernel(ctx.queue(), "lorenz", body.str(),
+    auto kernel = vex::generator::build_kernel(ctx, "lorenz", body.str(),
             sym_S[0], sym_S[1], sym_S[2], sym_R
             );
 
@@ -90,10 +90,10 @@ int main( int argc , char **argv )
     std::vector<value_type> r( n );
     for( size_t i=0 ; i<n ; ++i ) r[i] = Rmin + dR * value_type( i );
 
-    vex::vector<value_type> X(ctx.queue(), n);
-    vex::vector<value_type> Y(ctx.queue(), n);
-    vex::vector<value_type> Z(ctx.queue(), n);
-    vex::vector<value_type> R(ctx.queue(), r);
+    vex::vector<value_type> X(ctx, n);
+    vex::vector<value_type> Y(ctx, n);
+    vex::vector<value_type> Z(ctx, n);
+    vex::vector<value_type> R(ctx, r);
 
     X = 10.0;
     Y = 10.0;

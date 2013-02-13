@@ -55,13 +55,12 @@ int main(int argc, char *argv[]) {
         vex::Context ctx(Filter::DoublePrecision && Filter::Env);
         std::cout << ctx << std::endl;
 
-        if (ctx.queue().empty()) {
+        if (ctx.empty()) {
             std::cerr << "No OpenCL devices found." << std::endl;
             return 1;
         }
 
-        std::vector<cl::CommandQueue> single_queue(
-                ctx.queue().begin(), ctx.queue().begin() + 1);
+        std::vector<cl::CommandQueue> single_queue(1, ctx.queue(0));
 
         uint seed = argc > 1 ? atoi(argv[1]) : static_cast<uint>(time(0));
         std::cout << "seed: " << seed << std::endl << std::endl;
@@ -81,7 +80,7 @@ int main(int argc, char *argv[]) {
         run_test("Vector construction from size", [&]() -> bool {
                 const size_t N = 1024;
                 bool rc = true;
-                vex::vector<double> x(ctx.queue(), N);
+                vex::vector<double> x(ctx, N);
                 rc = rc && (x.size() == N);
                 rc = rc && (x.end() == x.begin() + N);
                 return rc;
@@ -94,7 +93,7 @@ int main(int argc, char *argv[]) {
                 bool rc = true;
                 std::vector<double> x(N, 42);
                 std::vector<double> y(N);
-                vex::vector<double> X(ctx.queue(), x);
+                vex::vector<double> X(ctx, x);
                 rc = rc && (X.size() == x.size());
                 rc = rc && (X.end() == X.begin() + x.size());
                 copy(X, y);
@@ -112,7 +111,7 @@ int main(int argc, char *argv[]) {
                 bool rc = true;
                 std::vector<double> x(N, 42);
                 std::vector<double> y(N);
-                vex::vector<double> X(ctx.queue(), N, x.data());
+                vex::vector<double> X(ctx, N, x.data());
                 rc = rc && (X.size() == x.size());
                 rc = rc && (X.end() == X.begin() + x.size());
                 copy(X, y);
@@ -131,7 +130,7 @@ int main(int argc, char *argv[]) {
                 vex::vector<double> x1;
                 vex::vector<double> x2(x1);
 
-                vex::vector<double> y1(ctx.queue(), N);
+                vex::vector<double> y1(ctx, N);
                 vex::vector<double> y2(y1);
                 rc = rc && (x1.size() == x2.size() && x1.size() == 0);
                 rc = rc && (y1.size() == y2.size() && y1.size() == N);
@@ -143,13 +142,13 @@ int main(int argc, char *argv[]) {
         run_test("Vector move construction from vex::vector", [&]() -> bool {
                 const size_t N = 1024;
                 bool rc = true;
-                vex::vector<double> x(ctx.queue(), N);
+                vex::vector<double> x(ctx, N);
                 x = 42;
                 vex::vector<double> y = std::move(x);
                 rc = rc && (y.size() == N);
                 rc = rc && (y.end() == y.begin() + N);
-                Reductor<double,MIN> min(ctx.queue());
-                Reductor<double,MAX> max(ctx.queue());
+                Reductor<double,MIN> min(ctx);
+                Reductor<double,MAX> max(ctx);
                 rc = rc && min(y) == 42;
                 rc = rc && max(y) == 42;
                 return rc;
@@ -161,10 +160,10 @@ int main(int argc, char *argv[]) {
                 const size_t N = 1024;
                 bool rc = true;
                 std::vector<double> x(N, 42);
-                vex::vector<double> X(ctx.queue(), x);
+                vex::vector<double> X(ctx, x);
                 vex::vector<double> Y = std::move(X);
                 rc = rc && (Y.size() == x.size());
-                Reductor<size_t,SUM> sum(ctx.queue());
+                Reductor<size_t,SUM> sum(ctx);
                 rc = rc && sum(Y != x[0]) == 0;
                 return rc;
                 });
@@ -174,14 +173,14 @@ int main(int argc, char *argv[]) {
         run_test("Vector swap", [&]() -> bool {
                 const size_t N = 1024;
                 bool rc = true;
-                vex::vector<double> x(ctx.queue(), N);
-                vex::vector<double> y(ctx.queue(), N/2);
+                vex::vector<double> x(ctx, N);
+                vex::vector<double> y(ctx, N/2);
                 x = 42;
                 y = 67;
                 swap(x, y);
                 rc = rc && (y.size() == N);
                 rc = rc && (x.size() == N/2);
-                Reductor<size_t,SUM> sum(ctx.queue());
+                Reductor<size_t,SUM> sum(ctx);
                 rc = rc && sum(y != 42) == 0;
                 rc = rc && sum(x != 67) == 0;
                 return rc;
@@ -194,9 +193,9 @@ int main(int argc, char *argv[]) {
                 bool rc = true;
                 std::vector<double> x(N, 42);
                 vex::vector<double> X;
-                X.resize(ctx.queue(), x);
+                X.resize(ctx, x);
                 rc = rc && (X.size() == x.size());
-                Reductor<size_t,SUM> sum(ctx.queue());
+                Reductor<size_t,SUM> sum(ctx);
                 rc = rc && sum(X != 42) == 0;
                 return rc;
                 });
@@ -206,12 +205,12 @@ int main(int argc, char *argv[]) {
         run_test("Vector resize vex::vector", [&]() -> bool {
                 const size_t N = 1024;
                 bool rc = true;
-                vex::vector<double> x(ctx.queue(), N);
+                vex::vector<double> x(ctx, N);
                 x = 42;
                 vex::vector<double> y;
                 y.resize(x);
                 rc = rc && (y.size() == x.size());
-                Reductor<size_t,SUM> sum(ctx.queue());
+                Reductor<size_t,SUM> sum(ctx);
                 rc = rc && sum(x != y) == 0;
                 return rc;
                 });
@@ -220,7 +219,7 @@ int main(int argc, char *argv[]) {
 #if 1
         run_test("Iterate over vex::vector", [&]() -> bool {
                 const size_t N = 1024;
-                vex::vector<double> x(ctx.queue(), N);
+                vex::vector<double> x(ctx, N);
                 x = 42;
                 return 42 == *std::min_element(x.begin(), x.end());
                 });
@@ -230,7 +229,7 @@ int main(int argc, char *argv[]) {
         run_test("Access vex::vector elements", [&]() -> bool {
                 const size_t N = 1024;
                 bool rc = true;
-                vex::vector<double> x(ctx.queue(), N);
+                vex::vector<double> x(ctx, N);
                 for(uint i = 0; i < N; i++)
                     x[i] = 42;
                 for(uint i = 0; i < N; i++)
@@ -244,7 +243,7 @@ int main(int argc, char *argv[]) {
                 const size_t N = 1024;
                 bool rc = true;
                 std::vector<double> x(N);
-                vex::vector<double> X(ctx.queue(), N);
+                vex::vector<double> X(ctx, N);
                 X = 42;
                 copy(X, x);
                 rc = rc && std::all_of(x.begin(), x.end(),
@@ -262,9 +261,9 @@ int main(int argc, char *argv[]) {
                 const size_t N = 1024;
                 bool rc = true;
                 std::vector<double> x(N, 42);
-                vex::vector<double> X(ctx.queue(), N);
+                vex::vector<double> X(ctx, N);
                 copy(x, X);
-                Reductor<size_t,SUM> sum(ctx.queue());
+                Reductor<size_t,SUM> sum(ctx);
                 rc = rc && sum(X != 42) == 0;
                 std::fill(x.begin(), x.end(), 67);
                 vex::copy(x.begin(), x.end(), X.begin());
@@ -277,13 +276,13 @@ int main(int argc, char *argv[]) {
         run_test("Assign expression to vex::vector", [&]() -> bool {
                 const size_t N = 1024;
                 bool rc = true;
-                vex::vector<double> x(ctx.queue(), N);
-                vex::vector<double> y(ctx.queue(), N);
-                vex::vector<double> z(ctx.queue(), N);
+                vex::vector<double> x(ctx, N);
+                vex::vector<double> y(ctx, N);
+                vex::vector<double> z(ctx, N);
                 y = 42;
                 z = 67;
                 x = 5 * sin(y) + z;
-                Reductor<double,MAX> max(ctx.queue());
+                Reductor<double,MAX> max(ctx);
                 rc = rc && max(fabs(x - (5 * sin(42.0) + 67))) < 1e-12;
                 return rc;
                 });
@@ -296,10 +295,10 @@ int main(int argc, char *argv[]) {
                 bool rc = true;
                 std::vector<double> x(N);
                 std::generate(x.begin(), x.end(), []() { return (double)rand() / RAND_MAX; });
-                vex::vector<double> X(ctx.queue(), x);
-                Reductor<double,SUM> sum(ctx.queue());
-                Reductor<double,MIN> min(ctx.queue());
-                Reductor<double,MAX> max(ctx.queue());
+                vex::vector<double> X(ctx, x);
+                Reductor<double,SUM> sum(ctx);
+                Reductor<double,MIN> min(ctx);
+                Reductor<double,MAX> max(ctx);
                 rc = rc && fabs(sum(X) - std::accumulate(x.begin(), x.end(), 0.0)) < 1e-6;
                 rc = rc && fabs(min(X) - *std::min_element(x.begin(), x.end())) < 1e-6;
                 rc = rc && fabs(max(X) - *std::max_element(x.begin(), x.end())) < 1e-6;
@@ -367,9 +366,9 @@ int main(int argc, char *argv[]) {
                 std::vector<double> y(n * n * n);
                 std::generate(x.begin(), x.end(), []() { return (double)rand() / RAND_MAX; });
 
-                vex::SpMat <double> A(ctx.queue(), x.size(), x.size(), row.data(), col.data(), val.data());
-                vex::vector<double> X(ctx.queue(), x);
-                vex::vector<double> Y(ctx.queue(), x.size());
+                vex::SpMat <double> A(ctx, x.size(), x.size(), row.data(), col.data(), val.data());
+                vex::vector<double> X(ctx, x);
+                vex::vector<double> Y(ctx, x.size());
 
                 Y = A * X;
                 copy(Y, y);
@@ -448,9 +447,9 @@ int main(int argc, char *argv[]) {
                 std::vector<double> y(n);
                 std::generate(x.begin(), x.end(), []() { return (double)rand() / RAND_MAX; });
 
-                vex::SpMat <double> A(ctx.queue(), y.size(), x.size(), row.data(), col.data(), val.data());
-                vex::vector<double> X(ctx.queue(), x);
-                vex::vector<double> Y(ctx.queue(), y.size());
+                vex::SpMat <double> A(ctx, y.size(), x.size(), row.data(), col.data(), val.data());
+                vex::vector<double> X(ctx, x);
+                vex::vector<double> Y(ctx, y.size());
 
                 Y = A * X;
                 copy(Y, y);
@@ -501,9 +500,9 @@ int main(int argc, char *argv[]) {
                 std::vector<double> y(n);
                 std::generate(x.begin(), x.end(), []() { return (double)rand() / RAND_MAX; });
 
-                vex::SpMat <double,unsigned int, unsigned int> A(ctx.queue(), y.size(), x.size(), row.data(), col.data(), val.data());
-                vex::vector<double> X(ctx.queue(), x);
-                vex::vector<double> Y(ctx.queue(), y.size());
+                vex::SpMat <double,unsigned int, unsigned int> A(ctx, y.size(), x.size(), row.data(), col.data(), val.data());
+                vex::vector<double> X(ctx, x);
+                vex::vector<double> Y(ctx, y.size());
 
                 Y = A * X;
                 copy(Y, y);
@@ -560,9 +559,9 @@ int main(int argc, char *argv[]) {
                 std::vector<double> y(n);
                 std::generate(x.begin(), x.end(), []() { return (double)rand() / RAND_MAX; });
 
-                vex::SpMat <double> A(ctx.queue(), y.size(), x.size(), row.data(), col.data(), val.data());
-                vex::vector<double> X(ctx.queue(), x);
-                vex::vector<double> Y(ctx.queue(), y.size());
+                vex::SpMat <double> A(ctx, y.size(), x.size(), row.data(), col.data(), val.data());
+                vex::vector<double> X(ctx, x);
+                vex::vector<double> Y(ctx, y.size());
 
                 Y = A * X;
                 copy(Y, y);
@@ -638,13 +637,11 @@ int main(int argc, char *argv[]) {
                 std::vector<double> y(n * n * n);
                 std::generate(x.begin(), x.end(), []() { return (double)rand() / RAND_MAX; });
 
-                std::vector<cl::CommandQueue> q1(1, ctx.queue()[0]);
-
-                vex::SpMatCCSR<double,int> A(q1[0], x.size(), row.size() - 1,
+                vex::SpMatCCSR<double,int> A(ctx.queue(0), x.size(), row.size() - 1,
                         idx.data(), row.data(), col.data(), val.data());
 
-                vex::vector<double> X(q1, x);
-                vex::vector<double> Y(q1, x.size());
+                vex::vector<double> X(single_queue, x);
+                vex::vector<double> Y(single_queue, x.size());
 
                 Y = A * X;
                 copy(Y, y);
@@ -682,8 +679,8 @@ int main(int argc, char *argv[]) {
                 bool rc = true;
                 std::vector<double> x(N);
                 std::generate(x.begin(), x.end(), [](){ return (double)rand() / RAND_MAX; });
-                vex::vector<double> X(ctx.queue(), x);
-                Reductor<double,SUM> sum(ctx.queue());
+                vex::vector<double> X(ctx, x);
+                Reductor<double,SUM> sum(ctx);
                 rc = rc && 1e-8 > fabs(sum(sin(X)) -
                     std::accumulate(x.begin(), x.end(), 0.0, [](double s, double v) {
                         return s + sin(v);
@@ -710,7 +707,7 @@ int main(int argc, char *argv[]) {
         run_test("Multivector construction from a copy", [&]() -> bool {
                 bool rc = true;
                 const size_t n = 1024;
-                vex::multivector<double,3> m(ctx.queue(), n);
+                vex::multivector<double,3> m(ctx, n);
 
                 m(0) = 1;
                 m(1) = 2;
@@ -720,7 +717,7 @@ int main(int argc, char *argv[]) {
 
                 c -= m;
 
-                Reductor<double,SUM> sum(ctx.queue());
+                Reductor<double,SUM> sum(ctx);
 
                 rc = rc && m.size() == c.size();
                 rc = rc && fabs(sum(c(1))) < 1e-8;
@@ -736,7 +733,7 @@ int main(int argc, char *argv[]) {
                 std::vector<float> host(n * m);
                 std::generate(host.begin(), host.end(),
                     [](){ return (float)rand() / RAND_MAX; });
-                multivector<float, m> x(ctx.queue(), n);
+                multivector<float, m> x(ctx, n);
                 copy(host, x);
                 for(size_t i = 0; i < n; i++) {
                     std::array<float,m> val = x[i];
@@ -761,11 +758,11 @@ int main(int argc, char *argv[]) {
                 std::vector<float> host(n * m);
                 std::generate(host.begin(), host.end(),
                     [](){ return (float)rand() / RAND_MAX; });
-                multivector<float, m> x(ctx.queue(), n);
-                multivector<float, m> y(ctx.queue(), host);
-                multivector<float, m> z(ctx.queue(), host);
-                Reductor<float,MIN> min(ctx.queue());
-                Reductor<float,MAX> max(ctx.queue());
+                multivector<float, m> x(ctx, n);
+                multivector<float, m> y(ctx, host);
+                multivector<float, m> z(ctx, host);
+                Reductor<float,MIN> min(ctx);
+                Reductor<float,MAX> max(ctx);
 
                 std::array<int, m> v;
                 for(uint i = 0; i < m; i++) v[i] = i;
@@ -799,11 +796,11 @@ int main(int argc, char *argv[]) {
                 std::vector<float> host(n * m);
                 std::generate(host.begin(), host.end(),
                     [](){ return (float)rand() / RAND_MAX; });
-                multivector<float, m> x(ctx.queue(), n);
-                multivector<float, m> y(ctx.queue(), host);
-                multivector<float, m> z(ctx.queue(), host);
-                Reductor<float,MIN> min(ctx.queue());
-                Reductor<float,MAX> max(ctx.queue());
+                multivector<float, m> x(ctx, n);
+                multivector<float, m> y(ctx, host);
+                multivector<float, m> z(ctx, host);
+                Reductor<float,MIN> min(ctx);
+                Reductor<float,MAX> max(ctx);
 
                 std::array<int, m> v;
                 for(uint i = 0; i < m; i++) v[i] = i;
@@ -843,11 +840,11 @@ int main(int argc, char *argv[]) {
                 std::generate(host.begin(), host.end(),
                     [](){ return (double)rand() / RAND_MAX; });
 
-                vex::vector<double> x(ctx.queue(), host);
-                vex::vector<double> y(ctx.queue(), host);
+                vex::vector<double> x(ctx, host);
+                vex::vector<double> y(ctx, host);
 
-                vex::vector<double> a(ctx.queue(), n);
-                vex::vector<double> b(ctx.queue(), n);
+                vex::vector<double> a(ctx, n);
+                vex::vector<double> b(ctx, n);
 
                 vex::tie(a, b) = std::tie(x + y, x - y);
 
@@ -878,8 +875,8 @@ int main(int argc, char *argv[]) {
                 std::vector<double> host(n * m);
                 std::generate(host.begin(), host.end(),
                     [](){ return (double)rand() / RAND_MAX; });
-                multivector<double, m> x(ctx.queue(), n);
-                multivector<double, m> y(ctx.queue(), host);
+                multivector<double, m> x(ctx, n);
+                multivector<double, m> y(ctx, host);
                 x = cos(y);
                 for(size_t k = 0; k < 10; k++) {
                     size_t i = rand() % n;
@@ -899,8 +896,8 @@ int main(int argc, char *argv[]) {
                 std::vector<double> host(n * m);
                 std::generate(host.begin(), host.end(),
                     [](){ return (double)rand() / RAND_MAX; });
-                multivector<double, m> x(ctx.queue(), host);
-                Reductor<double,SUM> sum(ctx.queue());
+                multivector<double, m> x(ctx, host);
+                Reductor<double,SUM> sum(ctx);
                 std::array<double,m> s = sum(x);
                 for(uint i = 0; i < m; i++) {
                     rc = rc && fabs(
@@ -975,11 +972,11 @@ int main(int argc, char *argv[]) {
                         return (double)rand() / RAND_MAX;
                         });
 
-                vex::SpMat <double> A(ctx.queue(), N, N,
+                vex::SpMat <double> A(ctx, N, N,
                         row.data(), col.data(), val.data());
 
-                vex::multivector<double,m> X(ctx.queue(), x);
-                vex::multivector<double,m> Y(ctx.queue(), N);
+                vex::multivector<double,m> X(ctx, x);
+                vex::multivector<double,m> Y(ctx, N);
 
                 Y = A * X;
                 copy(Y, y);
@@ -1074,13 +1071,11 @@ int main(int argc, char *argv[]) {
                         return (double)rand() / RAND_MAX;
                         });
 
-                std::vector<cl::CommandQueue> q1(1, ctx.queue()[0]);
-
-                vex::SpMatCCSR<double,int> A(q1[0], N, row.size() - 1,
+                vex::SpMatCCSR<double,int> A(ctx.queue(0), N, row.size() - 1,
                         idx.data(), row.data(), col.data(), val.data());
 
-                vex::multivector<double,m> X(q1, x);
-                vex::multivector<double,m> Y(q1, N);
+                vex::multivector<double,m> X(single_queue, x);
+                vex::multivector<double,m> Y(single_queue, N);
 
                 Y = A * X;
                 copy(Y, y);
@@ -1120,8 +1115,8 @@ int main(int argc, char *argv[]) {
                 bool rc = true;
                 std::vector<double> x(N);
                 std::generate(x.begin(), x.end(), [](){ return (double)rand() / RAND_MAX; });
-                vex::vector<double> X(ctx.queue(), x);
-                Reductor<double,SUM> sum(ctx.queue());
+                vex::vector<double> X(ctx, x);
+                Reductor<double,SUM> sum(ctx);
                 rc = rc && 1e-8 > fabs(sum(pow(X, 2.0)) -
                     std::accumulate(x.begin(), x.end(), 0.0, [](double s, double v) {
                         return s + pow(v, 2.0);
@@ -1134,11 +1129,11 @@ int main(int argc, char *argv[]) {
         run_test("Custom function", [&]() -> bool {
                 const size_t N = 1024;
                 bool rc = true;
-                vex::vector<double> x(ctx.queue(), N);
-                vex::vector<double> y(ctx.queue(), N);
+                vex::vector<double> x(ctx, N);
+                vex::vector<double> y(ctx, N);
                 x = 1;
                 y = 2;
-                Reductor<size_t,SUM> sum(ctx.queue());
+                Reductor<size_t,SUM> sum(ctx);
                 rc = rc && sum(greater(x, y)) == 0;
                 rc = rc && sum(greater(y, x)) == N;
                 rc = rc && sum(x > y) == 0;
@@ -1151,8 +1146,8 @@ int main(int argc, char *argv[]) {
         run_test("Custom functions with same signature", [&]() -> bool {
                 const size_t N = 1024;
                 bool rc = true;
-                vex::vector<double> x(ctx.queue(), N);
-                Reductor<size_t,SUM> sum(ctx.queue());
+                vex::vector<double> x(ctx, N);
+                Reductor<size_t,SUM> sum(ctx);
                 x = 1;
                 VEX_FUNCTION(times2, double(double), "return prm1 * 2;");
                 VEX_FUNCTION(times4, double(double), "return prm1 * 4;");
@@ -1170,8 +1165,8 @@ int main(int argc, char *argv[]) {
                 std::vector<double> host(n * m);
                 std::generate(host.begin(), host.end(),
                     [](){ return (double)rand() / RAND_MAX; });
-                multivector<double, m> x(ctx.queue(), n);
-                multivector<double, m> y(ctx.queue(), host);
+                multivector<double, m> x(ctx, n);
+                multivector<double, m> y(ctx, host);
                 x = pow(y, 2.0);
                 for(size_t k = 0; k < 10; k++) {
                     size_t i = rand() % n;
@@ -1188,8 +1183,8 @@ int main(int argc, char *argv[]) {
                 bool rc = true;
                 const size_t n = 1024;
                 const size_t m = 4;
-                multivector<double, m> x(ctx.queue(), n);
-                multivector<double, m> y(ctx.queue(), n);
+                multivector<double, m> x(ctx, n);
+                multivector<double, m> y(ctx, n);
                 x = 1;
                 y = 2;
                 x = greater(x, y);
@@ -1213,14 +1208,14 @@ int main(int argc, char *argv[]) {
 
                 int center = rand() % s.size();
 
-                stencil<double> S(ctx.queue(), s, center);
+                stencil<double> S(ctx, s, center);
 
                 std::vector<double> x(n);
                 std::vector<double> y(n, 1);
                 std::generate(x.begin(), x.end(), [](){ return (double)rand() / RAND_MAX; });
 
-                vex::vector<double> X(ctx.queue(), x);
-                vex::vector<double> Y(ctx.queue(), y);
+                vex::vector<double> X(ctx, x);
+                vex::vector<double> Y(ctx, y);
 
                 Y += X * S;
 
@@ -1256,9 +1251,9 @@ int main(int argc, char *argv[]) {
         run_test("Two Stencil convolutions in one expression", [&]() -> bool {
                 const int n = 32;
                 std::vector<double> s(5);
-                stencil<double> S(ctx.queue(), s, 3);
-                vex::vector<double> X(ctx.queue(), n);
-                vex::vector<double> Y(ctx.queue(), n);
+                stencil<double> S(ctx, s, 3);
+                vex::vector<double> X(ctx, n);
+                vex::vector<double> Y(ctx, n);
                 Y = X * S + X * S;
                 return true;
             });
@@ -1274,14 +1269,14 @@ int main(int argc, char *argv[]) {
 
                 int center = rand() % s.size();
 
-                stencil<double> S(ctx.queue(), s, center);
+                stencil<double> S(ctx, s, center);
 
                 std::vector<double> x(n);
                 std::vector<double> y(n, 1);
                 std::generate(x.begin(), x.end(), [](){ return (double)rand() / RAND_MAX; });
 
-                vex::vector<double> X(ctx.queue(), x);
-                vex::vector<double> Y(ctx.queue(), y);
+                vex::vector<double> X(ctx, x);
+                vex::vector<double> Y(ctx, y);
 
                 Y += X * S;
 
@@ -1310,14 +1305,14 @@ int main(int argc, char *argv[]) {
 
                 int center = rand() % s.size();
 
-                stencil<double> S(ctx.queue(), s.begin(), s.end(), center);
+                stencil<double> S(ctx, s.begin(), s.end(), center);
 
                 std::vector<double> x(m * n);
                 std::vector<double> y(m * n, 1);
                 std::generate(x.begin(), x.end(), [](){ return (double)rand() / RAND_MAX; });
 
-                vex::multivector<double,m> X(ctx.queue(), x);
-                vex::multivector<double,m> Y(ctx.queue(), y);
+                vex::multivector<double,m> X(ctx, x);
+                vex::multivector<double,m> Y(ctx, y);
 
                 Y += X * S;
 
@@ -1363,14 +1358,14 @@ int main(int argc, char *argv[]) {
 
                 int center = rand() % s.size();
 
-                stencil<double> S(ctx.queue(), s, center);
+                stencil<double> S(ctx, s, center);
 
                 std::vector<double> x(n);
                 std::vector<double> y(n);
                 std::generate(x.begin(), x.end(), [](){ return (double)rand() / RAND_MAX; });
 
-                vex::vector<double> X(ctx.queue(), x);
-                vex::vector<double> Y(ctx.queue(), n);
+                vex::vector<double> X(ctx, x);
+                vex::vector<double> Y(ctx, n);
 
                 Y = X * S;
 
@@ -1395,14 +1390,14 @@ int main(int argc, char *argv[]) {
 
                 VEX_STENCIL_OPERATOR(pow3_op,
                     double, 3, 1,  "return X[0] + pow(X[-1] + X[1], 3.0);",
-                    ctx.queue());
+                    ctx);
 
                 std::vector<double> x(n);
                 std::vector<double> y(n);
                 std::generate(x.begin(), x.end(), [](){ return (double)rand() / RAND_MAX; });
 
-                vex::vector<double> X(ctx.queue(), x);
-                vex::vector<double> Y(ctx.queue(), n);
+                vex::vector<double> X(ctx, x);
+                vex::vector<double> Y(ctx, n);
 
                 Y = pow3_op(X);
 
@@ -1452,13 +1447,13 @@ int main(int argc, char *argv[]) {
                 runge_kutta_4(sys_func<sym_state>, sym_x, dt);
 
                 // Build kernel.
-                auto kernel = generator::build_kernel(ctx.queue(),
+                auto kernel = generator::build_kernel(ctx,
                     "rk4_stepper", body.str(), sym_x);
 
                 std::vector<double> x(n);
                 std::generate(x.begin(), x.end(), [](){ return (double)rand() / RAND_MAX; });
 
-                vex::vector<double> X(ctx.queue(), x);
+                vex::vector<double> X(ctx, x);
 
                 // Make 100 iterations on CPU with x[0].
                 for(int i = 0; i < 100; i++)
@@ -1483,7 +1478,7 @@ int main(int argc, char *argv[]) {
                 std::vector<double> x(N);
                 std::generate(x.begin(), x.end(), [](){ return (double)rand() / RAND_MAX; });
 
-                vex::vector<double> X(ctx.queue(), x);
+                vex::vector<double> X(ctx, x);
 
                 std::vector<size_t> i(M);
                 std::generate(i.begin(), i.end(), [N](){ return rand() % N; });
@@ -1492,7 +1487,7 @@ int main(int argc, char *argv[]) {
 
                 std::vector<double> data(i.size());
 
-                vex::gather<double> get(ctx.queue(), x.size(), i);
+                vex::gather<double> get(ctx, x.size(), i);
 
                 get(X, data);
 
@@ -1507,7 +1502,7 @@ int main(int argc, char *argv[]) {
         run_test("Use element index in a vector expression", [&]() -> bool {
                 const size_t N = 16 * 1024;
                 bool rc = true;
-                vex::vector<double> x(ctx.queue(), N);
+                vex::vector<double> x(ctx, N);
                 x = sin(0.5 * element_index());
                 for(int i = 0; i < 100; ++i) {
                     size_t idx = rand() % N;
@@ -1521,8 +1516,8 @@ int main(int argc, char *argv[]) {
         run_test("Use element index in a multivector expression", [&]() -> bool {
                 const size_t N = 16 * 1024;
                 bool rc = true;
-                vex::multivector<double, 2> x(ctx.queue(), N);
-                vex::multivector<double, 2> y(ctx.queue(), N);
+                vex::multivector<double, 2> x(ctx, N);
+                vex::multivector<double, 2> y(ctx, N);
                 x = std::tie(
                     sin(0.5 * element_index()),
                     cos(0.5 * element_index())
@@ -1550,7 +1545,7 @@ int main(int argc, char *argv[]) {
                 const size_t N = 16 * 1024;
                 bool rc = true;
 
-                vex::vector<cl_int4> X(ctx.queue(), N);
+                vex::vector<cl_int4> X(ctx, N);
 
                 cl_int4 c = {{1, 2, 3, 4}};
                 VEX_FUNCTION(make_int4, cl_int4(int), "return (int4)(prm1, prm1, prm1, prm1);");
@@ -1573,22 +1568,22 @@ int main(int argc, char *argv[]) {
         run_test("Random generator", [&]() -> bool {
                 const size_t N = 1024 * 1024;
                 bool rc = true;
-                Reductor<size_t,SUM> sumi(ctx.queue());
-                Reductor<double,SUM> sumd(ctx.queue());
+                Reductor<size_t,SUM> sumi(ctx);
+                Reductor<double,SUM> sumd(ctx);
 
-                vex::vector<cl_uint> x0(ctx.queue(), N);
+                vex::vector<cl_uint> x0(ctx, N);
                 Random<cl_int> rand0;
                 x0 = rand0(element_index(), rand());
 
-                vex::vector<cl_float8> x1(ctx.queue(), N);
+                vex::vector<cl_float8> x1(ctx, N);
                 Random<cl_float8> rand1;
                 x1 = rand1(element_index(), rand());
 
-                vex::vector<cl_double4> x2(ctx.queue(), N);
+                vex::vector<cl_double4> x2(ctx, N);
                 Random<cl_double4> rand2;
                 x2 = rand2(element_index(), rand());
 
-                vex::vector<cl_double> x3(ctx.queue(), N);
+                vex::vector<cl_double> x3(ctx, N);
                 Random<cl_double> rand3;
                 x3 = rand3(element_index(), rand());
                 // X in [0,1]
@@ -1597,7 +1592,7 @@ int main(int argc, char *argv[]) {
                 // mean = 0.5
                 rc = rc && std::abs((sumd(x3) / N) - 0.5) < 1e-2;
 
-                vex::vector<cl_double> x4(ctx.queue(), N);
+                vex::vector<cl_double> x4(ctx, N);
                 RandomNormal<cl_double> rand4;
                 x4 = rand4(element_index(), rand());
                 // E(X ~ N(0,s)) = 0
@@ -1605,12 +1600,12 @@ int main(int argc, char *argv[]) {
                 // E(abs(X) ~ N(0,s)) = sqrt(2/M_PI) * s
                 rc = rc && std::abs(sumd(fabs(x4))/N - std::sqrt(2 / M_PI)) < 1e-2;
 
-                vex::vector<cl_double> x5(ctx.queue(), N);
+                vex::vector<cl_double> x5(ctx, N);
                 Random<cl_double, random::threefry> rand5;
                 x5 = rand5(element_index(), rand());
                 rc = rc && std::abs(sumd(x5)/N - 0.5) < 1e-2;
 
-                vex::vector<cl_double4> x6(ctx.queue(), N);
+                vex::vector<cl_double4> x6(ctx, N);
                 Random<cl_double, random::threefry> rand6;
                 x6 = rand6(element_index(), rand());
                 return rc;
@@ -1624,7 +1619,7 @@ int main(int argc, char *argv[]) {
                 VEX_FUNCTION(f, int(int), "return 2 * prm1;");
                 VEX_FUNCTION(g, int(int), "return 3 * prm1;");
 
-                vex::vector<int> data(ctx.queue(), N);
+                vex::vector<int> data(ctx, N);
 
                 data = 1;
                 data = f(f(data));

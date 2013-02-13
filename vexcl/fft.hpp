@@ -107,7 +107,7 @@ std::unique_ptr<typename amd_context<dummy>::ctx_t> amd_context<dummy>::ctx;
  * 1-3 dimensions.
  * Usage:
  * \code
- * FFT<cl_float2> fft(ctx.queue(), {width, height});
+ * FFT<cl_float2> fft(ctx, {width, height});
  * output = fft(input); // out-of-place transform
  * data = fft(data); // in-place transform
  * \endcode

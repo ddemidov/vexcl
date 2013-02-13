@@ -729,8 +729,8 @@ void copy(const std::vector<T> &hv, multivector<T,N,own> &mv) {
 /**
  * The following example results in a single kernel:
  * \code
- * vex::vector<double> x(ctx.queue(), 1024);
- * vex::vector<double> y(ctx.queue(), 1024);
+ * vex::vector<double> x(ctx, 1024);
+ * vex::vector<double> y(ctx, 1024);
  *
  * vex::tie(x,y) = std::tie( x + y, y - x );
  * \endcode

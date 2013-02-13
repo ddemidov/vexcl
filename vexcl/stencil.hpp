@@ -570,7 +570,7 @@ operator*( const multivector<T, N, own> &x, const stencil<T> &s ) {
  * one has to write:
  * \code
  * extern const char pow3_oper_body[] = "return X[0] + pow(X[-1] + X[1], 3);";
- * StencilOperator<double, 3, 1, pow3_oper_body> pow3_oper(ctx.queue());
+ * StencilOperator<double, 3, 1, pow3_oper_body> pow3_oper(ctx);
  *
  * y = pow3_oper(x);
  * \endcode
@@ -781,7 +781,7 @@ void StencilOperator<T, width, center, Impl>::convolve(
 /**
  * \code
  * VEX_STENCIL_OPERATOR_TYPE(pow3_oper_t, double, 3, 1, "return X[0] + pow(X[-1] + X[1], 3.0);");
- * pow3_oper_t pow3_oper(ctx.queue());
+ * pow3_oper_t pow3_oper(ctx);
  * output = pow3_oper(input);
  * \endcode
  *

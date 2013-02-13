@@ -73,10 +73,10 @@ int main() {
 
         std::cout << ctx << std::endl;
 
-        vex::SpMat <real> A(ctx.queue(), n, n, row.data(), col.data(), val.data());
-        vex::vector<real> f(ctx.queue(), rhs);
+        vex::SpMat <real> A(ctx, n, n, row.data(), col.data(), val.data());
+        vex::vector<real> f(ctx, rhs);
 
-        vex::profiler prof(ctx.queue());
+        vex::profiler prof(ctx);
 
         // Solve problem with ViennaCL's solvers:
         std::cout << "CG" << std::endl;

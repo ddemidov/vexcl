@@ -92,18 +92,18 @@ double test_fftw(cl_float2 *, size_t, size_t) {
 
 
 double test(Context &ctx, cl_float2 *data, size_t n, size_t m) {
-    vector<cl_float2> a(ctx.queue(), n * m, data);
-    vector<cl_float2> b(ctx.queue(), n * m);
+    vector<cl_float2> a(ctx, n * m, data);
+    vector<cl_float2> b(ctx, n * m);
     std::vector<size_t> sz; sz.push_back(n); if(m > 1) sz.push_back(m);
-    FFT<cl_float2> fft(ctx.queue(), sz);
-    ctx.queue()[0].finish();
+    FFT<cl_float2> fft(ctx, sz);
+    ctx.queue(0).finish();
 
     // Run some
     profiler prof( (std::vector<cl::CommandQueue>()) );
     prof.tic_cpu("Run");
     for(size_t i = 0 ; i < runs ; i++)
         b = fft(a);
-    ctx.queue()[0].finish();
+    ctx.queue(0).finish();
     return prof.toc("Run");
 }
 

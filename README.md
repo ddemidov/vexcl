@@ -79,9 +79,9 @@ std::generate(x.begin(), x.end(), [](){ return (double)rand() / RAND_MAX; });
 
 vex::Context ctx(Filter::Type(CL_DEVICE_TYPE_GPU));
 
-vex::vector<double> X(ctx.queue(), x);
-vex::vector<double> Y(ctx.queue(), n);
-vex::vector<double> Z(ctx.queue(), n);
+vex::vector<double> X(ctx, x);
+vex::vector<double> Y(ctx, n);
+vex::vector<double> Z(ctx, n);
 ```
 
 You can now use simple vector arithmetic with device vectors. For every
@@ -114,8 +114,8 @@ assert(x[42] == Z[42]);
 Another frequently performed operation is reduction of a vector expression to
 single value, such as summation. This can be done with `Reductor` class:
 ```C++
-Reductor<double,SUM> sum(ctx.queue());
-Reductor<double,MAX> max(ctx.queue());
+Reductor<double,SUM> sum(ctx);
+Reductor<double,MAX> max(ctx);
 
 std::cout << max(fabs(X) - 0.5) << std::endl;
 std::cout << sum(sqrt(2 * X) + cos(Y)) << std::endl;
@@ -130,10 +130,10 @@ is to construct a `vex::stencil` object:
 ```C++
 // Moving average with 5-points window.
 std::vector<double> sdata(5, 0.2);
-stencil(ctx.queue(), sdata, sdata.size() / 2);
+stencil(ctx, sdata, sdata.size() / 2);
 
-vex::vector<double> x(ctx.queue(), 1024 * 1024);
-vex::vector<double> y(ctx.queue(), 1024 * 1024);
+vex::vector<double> x(ctx, 1024 * 1024);
+vex::vector<double> y(ctx, 1024 * 1024);
 
 x = 1;
 y = x * s; // convolve x with s
@@ -163,15 +163,15 @@ void cg_gpu(
 
     // Move data to compute devices.
     size_t n = x.size();
-    vex::SpMat<real>  A(ctx.queue(), n, n, row.data(), col.data(), val.data());
-    vex::vector<real> f(ctx.queue(), rhs);
-    vex::vector<real> u(ctx.queue(), x);
-    vex::vector<real> r(ctx.queue(), n);
-    vex::vector<real> p(ctx.queue(), n);
-    vex::vector<real> q(ctx.queue(), n);
+    vex::SpMat<real>  A(ctx, n, n, row.data(), col.data(), val.data());
+    vex::vector<real> f(ctx, rhs);
+    vex::vector<real> u(ctx, x);
+    vex::vector<real> r(ctx, n);
+    vex::vector<real> p(ctx, n);
+    vex::vector<real> q(ctx, n);
 
-    Reductor<real,MAX> max(ctx.queue());
-    Reductor<real,SUM> sum(ctx.queue());
+    Reductor<real,MAX> max(ctx);
+    Reductor<real,SUM> sum(ctx);
 
     // Solve equation Au = f with conjugate gradients method.
     real rho1, rho2;
@@ -246,7 +246,7 @@ declare either `vex::Random` or `vex::RandomNormal` class template instance as
 in the following example:
 ```C++
 RandomNormal<cl_double2, random::philox> rnd;
-vex::vector<cl_double2> x(ctx.queue(), size);
+vex::vector<cl_double2> x(ctx, size);
 unsigned seed = std::rand();
 
 x = rnd(element_index(), seed);
@@ -255,11 +255,11 @@ Note that `element_index()` here provides the random number generator with a
 sequence position N. You also can generate several independent random vectors
 by adjusting the element_index (or a seed):
 ```C++
-vex::vector<double> x(ctx.queue(), n);
-vex::vector<double> y(ctx.queue(), n);
+vex::vector<double> x(ctx, n);
+vex::vector<double> y(ctx, n);
 
 RandomNormal<double, random::threefry> rnd;
-Reductor<size_t, SUM> sum(ctx.queue());
+Reductor<size_t, SUM> sum(ctx);
 
 x = rnd(element_index(0), seed);
 y = rnd(element_index(n), seed);
@@ -282,8 +282,8 @@ const size_t n = 1 << 20;
 std::vector<double> host(n * 3);
 std::generate(host.begin(), host.end(), rand);
 
-vex::multivector<double,3> x(ctx.queue(), host);
-vex::multivector<double,3> y(ctx.queue(), n);
+vex::multivector<double,3> x(ctx, host);
+vex::multivector<double,3> y(ctx, n);
 
 std::array<int, 3> c = {4, 5, 6};
 
@@ -391,13 +391,13 @@ double dt = 0.01;
 runge_kutta_4(sys_func<sym_state>, sym_x, dt);
 
 // Build kernel.
-auto kernel = vex::generator::build_kernel(ctx.queue(),
+auto kernel = vex::generator::build_kernel(ctx,
     "rk4_stepper", body.str(), sym_x);
 
 // Create and initialize vector of states.
 std::vector<double> xinit(n);
 std::generate(xinit.begin(), xinit.end(), drand48 );
-vex::vector<double> x(ctx.queue(), xinit);
+vex::vector<double> x(ctx, xinit);
 
 // Make 100 rk4 steps.
 for(int i = 0; i < 100; i++) kernel(x);
@@ -434,7 +434,7 @@ for(uint d = 0; d < ctx.size(); d++) {
 
 // Allocate device vector.
 const size_t n = 1 << 20;
-vex::vector<float> x(ctx.queue(), n);
+vex::vector<float> x(ctx, n);
 
 // Process each partition of the vector with the corresponding kernel:
 for(uint d = 0; d < ctx.size(); d++) {

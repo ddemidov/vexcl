@@ -100,10 +100,10 @@ int main( int argc , char **argv ) {
         for(size_t i = part[mpi.rank], j = 0; i < part[mpi.rank + 1]; ++i, ++j)
             r[j] = Rmin + i * dR;
 
-        state_type X(mpi.comm, ctx.queue(), chunk_size);
+        state_type X(mpi.comm, ctx, chunk_size);
         X = 10.0;
 
-        vector_type R(mpi.comm, ctx.queue(), r);
+        vector_type R(mpi.comm, ctx, r);
 
         odeint::runge_kutta4<
             state_type, value_type, state_type, value_type,

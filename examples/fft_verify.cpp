@@ -49,23 +49,23 @@ bool test(Context &ctx, std::vector<size_t> ns) {
     fftwf_destroy_plan(p1);
 
     // test
-    vector<cl_float2> input(ctx.queue(), input_h);
-    vector<cl_float2> output(ctx.queue(), n);
-    vector<cl_float2> ref(ctx.queue(), ref_h);
-    vector<cl_float2> back(ctx.queue(), n);
+    vector<cl_float2> input(ctx, input_h);
+    vector<cl_float2> output(ctx, n);
+    vector<cl_float2> ref(ctx, ref_h);
+    vector<cl_float2> back(ctx, n);
 
-    Reductor<cl_float2, SUM> sum(ctx.queue());
+    Reductor<cl_float2, SUM> sum(ctx);
     #define rms(e) (100 * std::sqrt(hsum(sum(pow(e, 2))) / n) / range)
 
     try {
-        FFT<cl_float2>  fft(ctx.queue(), ns);
+        FFT<cl_float2>  fft(ctx, ns);
         output = fft(input);
 
         bool rc = true;
         const float rms_fft = rms(output - ref);
         rc &= rms_fft < 0.1;
 
-        FFT<cl_float2> ifft(ctx.queue(), ns, inverse);
+        FFT<cl_float2> ifft(ctx, ns, inverse);
         back = ifft(output);
         const float rms_inv = rms(input - back);
         rc &= rms_inv < 1e-4;
