@@ -531,10 +531,6 @@ class vector : public vector_terminal_expression {
 
                     kernel << ";\n\t}\n}\n";
 
-#ifdef VEXCL_SHOW_KERNELS
-                    std::cout << kernel.str() << std::endl;
-#endif
-
                     auto program = build_sources(context, kernel.str());
 
                     exdata<Expr>::kernel[context()]   = cl::Kernel(program, kernel_name.str().c_str());

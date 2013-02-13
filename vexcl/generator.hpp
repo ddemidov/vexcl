@@ -446,10 +446,6 @@ class Kernel {
 
             source << "\t}\n}\n";
 
-#ifdef VEXCL_SHOW_KERNELS
-            std::cout << source.str() << std::endl;
-#endif
-
             for(auto q = queue.begin(); q != queue.end(); q++) {
                 cl::Context context = qctx(*q);
                 cl::Device  device  = qdev(*q);

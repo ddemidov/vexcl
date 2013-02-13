@@ -241,10 +241,6 @@ inline kernel_call radix_kernel(cl::CommandQueue &queue, size_t n, size_t batch,
     const size_t m = n / radix.value;
     kernel_radix<T>(o, radix);
 
-#ifdef VEXCL_SHOW_KERNELS
-    std::cout << o.str() << std::endl;
-#endif
-
     auto program = build_sources(qctx(queue), o.str(), "-cl-mad-enable -cl-fast-relaxed-math");
     cl::Kernel kernel(program, "radix");
     kernel.setArg(0, in);
@@ -295,10 +291,6 @@ inline kernel_call transpose_kernel(cl::CommandQueue &queue, size_t width, size_
       << "  if(range)\n"
       << "    output[target_x + target_y * height] = block[local_x + local_y * block_size];\n"
       << "}\n";
-
-#ifdef VEXCL_SHOW_KERNELS
-    std::cout << o.str() << std::endl;
-#endif
 
     auto program = build_sources(qctx(queue), o.str());
     cl::Kernel kernel(program, "transpose");

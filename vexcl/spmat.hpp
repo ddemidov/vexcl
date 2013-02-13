@@ -389,10 +389,6 @@ SpMat<real,column_t,idx_t>::SpMat(
                 "    if (i < n) vals_to_send[i] = vals[cols_to_send[i]];\n"
                 "}\n";
 
-#ifdef VEXCL_SHOW_KERNELS
-            std::cout << source.str() << std::endl;
-#endif
-
             auto program = build_sources(context, source.str());
 
             gather_vals_to_send[context()] = cl::Kernel(program, "gather_vals_to_send");
@@ -894,10 +890,6 @@ void SpMat<real,column_t,idx_t>::SpMatELL::prepare_kernels(const cl::Context &co
             "    }\n"
             "}\n";
 
-#ifdef VEXCL_SHOW_KERNELS
-        std::cout << source.str() << std::endl;
-#endif
-
         auto program = build_sources(context, source.str());
 
         zero[context()]     = cl::Kernel(program, "zero");
@@ -1237,10 +1229,6 @@ void SpMat<real,column_t,idx_t>::SpMatCSR::prepare_kernels(const cl::Context &co
             "    }\n"
             "}\n";
 
-#ifdef VEXCL_SHOW_KERNELS
-        std::cout << source.str() << std::endl;
-#endif
-
         auto program = build_sources(context, source.str());
 
         zero[context()]     = cl::Kernel(program, "zero");
@@ -1492,10 +1480,6 @@ void SpMatCCSR<real,column_t,idx_t>::prepare_kernels(const cl::Context &context)
             "        y[i] += alpha * sum;\n"
             "    }\n"
             "}\n";
-
-#ifdef VEXCL_SHOW_KERNELS
-        std::cout << source.str() << std::endl;
-#endif
 
         auto program = build_sources(context, source.str());
 

@@ -293,10 +293,6 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
                     "}\n";
             }
 
-#ifdef VEXCL_SHOW_KERNELS
-            std::cout << source.str() << std::endl;
-#endif
-
             auto program = build_sources(context, source.str());
 
             exdata<Expr>::kernel[context()]   = cl::Kernel(program, kernel_name.str().c_str());

@@ -453,10 +453,6 @@ void stencil<T>::init(uint width) {
                 "    }\n"
                 "}\n";
 
-#ifdef VEXCL_SHOW_KERNELS
-            std::cout << source.str() << std::endl;
-#endif
-
             auto program = build_sources(context, source.str());
 
             slow_conv[context()] = cl::Kernel(program, "slow_conv");
@@ -713,10 +709,6 @@ StencilOperator<T, width, center, Impl>::StencilOperator(
                 "        barrier(CLK_LOCAL_MEM_FENCE);\n"
                 "    }\n"
                 "}\n";
-
-#ifdef VEXCL_SHOW_KERNELS
-            std::cout << source.str() << std::endl;
-#endif
 
             auto program = build_sources(context, source.str());
 

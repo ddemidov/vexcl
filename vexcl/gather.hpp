@@ -78,10 +78,6 @@ class gather {
                         "    if (i < n) dst[i] = src[col[i]];\n"
                         "}\n";
 
-#ifdef VEXCL_SHOW_KERNELS
-                    std::cout << source.str() << std::endl;
-#endif
-
                     auto program = build_sources(context, source.str());
 
                     krn[context()] = cl::Kernel(program, "gather");

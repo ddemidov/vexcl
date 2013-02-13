@@ -375,10 +375,6 @@ class multivector : public multivector_terminal_expression {
 
                     kernel << "\t}\n}\n";
 
-#ifdef VEXCL_SHOW_KERNELS
-                    std::cout << kernel.str() << std::endl;
-#endif
-
                     auto program = build_sources(context, kernel.str());
 
                     exdata<Expr>::kernel[context()]   = cl::Kernel(program, kernel_name.str().c_str());
@@ -485,10 +481,6 @@ class multivector : public multivector_terminal_expression {
                         kernel << "\t\tres_" << i << "[idx] = buf_" << i << ";\n";
 
                     kernel << "\t}\n}\n";
-
-#ifdef VEXCL_SHOW_KERNELS
-                    std::cout << kernel.str() << std::endl;
-#endif
 
                     auto program = build_sources(context, kernel.str());
 

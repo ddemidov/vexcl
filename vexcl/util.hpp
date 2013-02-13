@@ -214,6 +214,10 @@ inline cl::Program build_sources(
         const std::string &options = ""
         )
 {
+#ifdef VEXCL_SHOW_KERNELS
+    std::cout << source << std::endl;
+#endif
+
     cl::Program program(context, cl::Program::Sources(
                 1, std::make_pair(source.c_str(), source.size())
                 ));
