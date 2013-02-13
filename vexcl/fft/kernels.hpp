@@ -70,11 +70,13 @@ inline size_t int_ceil(size_t x, size_t m) {
 
 
 struct kernel_call {
+    bool once;
+    size_t count;
     std::string desc;
     cl::Program program;
     cl::Kernel kernel;
     cl::NDRange global, local;
-    kernel_call(std::string d, cl::Program p, cl::Kernel k, cl::NDRange g, cl::NDRange l) : desc(d), program(p), kernel(k), global(g), local(l) {}
+    kernel_call(bool o, std::string d, cl::Program p, cl::Kernel k, cl::NDRange g, cl::NDRange l) : once(o), count(0), desc(d), program(p), kernel(k), global(g), local(l) {}
 };
 
 
@@ -176,8 +178,8 @@ inline void kernel_radix(std::ostringstream &o, pow radix) {
     o << "  if(p != 1) {\n";
     for(size_t i = 1 ; i < radix.value ; i++) {
         const T alpha = -2 * M_PI * i / radix.value;
-        o << "    v" << i << " = twiddle(v" << i << ", "
-          << "(real_t)" << alpha << " * k / p);\n";
+        o << "    v" << i << " = mul(v" << i << ", twiddle("
+          << "(real_t)" << alpha << " * k / p));\n";
     }
     o << "  }\n";
 
@@ -207,13 +209,7 @@ inline void kernel_common(std::ostringstream &o) {
     }
 }
 
-
-template <class T>
-inline kernel_call radix_kernel(cl::CommandQueue &queue, size_t n, size_t batch, bool invert, pow radix, size_t p, cl::Buffer in, cl::Buffer out) {
-    std::ostringstream o;
-    o << std::setprecision(25);
-    kernel_common<T>(o);
-
+inline void mul_code(std::ostringstream &o, bool invert) {
     // Return A*B (complex multiplication)
     o << "real2_t mul(real2_t a, real2_t b) {\n";
     if(invert) // conjugate b
@@ -221,19 +217,31 @@ inline kernel_call radix_kernel(cl::CommandQueue &queue, size_t n, size_t batch,
     else
         o << "  return (real2_t)(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x);\n";
     o << "}\n";
+}
 
+template <class T>
+inline void twiddle_code(std::ostringstream &o) {
     // A * exp(alpha * I) == A  * (cos(alpha) + I * sin(alpha))
     // native_cos(), native_sin() is a *lot* faster than sincos, on nVidia.
-    o << "real2_t twiddle(real2_t a, real_t alpha) {\n";
-    o << "  real_t cs, sn;\n";
+    o << "real2_t twiddle(real_t alpha) {\n";
     if(std::is_same<T, cl_double>::value)
         // use sincos with double since we probably want higher precision
-        o << "  sn = sincos(alpha, &cs);\n";
+        o << "  real_t cs, sn = sincos(alpha, &cs);\n"
+          << "  return (real2_t)(cs, sn);\n";
     else
         // use native with float since we probably want higher performance
-        o << "  cs = native_cos(alpha); sn = native_sin(alpha);\n";
-    o << "  return mul(a, (real2_t)(cs, sn));\n"
-      << "}\n";
+        o << "  return (real2_t)(native_cos(alpha), native_sin(alpha));\n";
+    o << "}\n";
+}
+
+
+template <class T>
+inline kernel_call radix_kernel(bool once, const cl::CommandQueue &queue, size_t n, size_t batch, bool invert, pow radix, size_t p, const cl::Buffer &in, const cl::Buffer &out) {
+    std::ostringstream o;
+    o << std::setprecision(25);
+    kernel_common<T>(o);
+    mul_code(o, invert);
+    twiddle_code<T>(o);
 
     const size_t m = n / radix.value;
     kernel_radix<T>(o, radix);
@@ -251,12 +259,12 @@ inline kernel_call radix_kernel(cl::CommandQueue &queue, size_t n, size_t batch,
     std::ostringstream desc;
     desc << "dft{r=" << radix << ", p=" << p << ", n=" << n << ", batch=" << batch << ", threads=" << m << "}";
 
-    return kernel_call(desc.str(), program, kernel, cl::NDRange(m, batch), cl::NullRange);
+    return kernel_call(once, desc.str(), program, kernel, cl::NDRange(m, batch), cl::NullRange);
 }
 
 
 template <class T>
-inline kernel_call transpose_kernel(cl::CommandQueue &queue, size_t width, size_t height, cl::Buffer in, cl::Buffer out) {
+inline kernel_call transpose_kernel(const cl::CommandQueue &queue, size_t width, size_t height, const cl::Buffer &in, const cl::Buffer &out) {
     std::ostringstream o;
     kernel_common<T>(o);
 
@@ -314,10 +322,110 @@ inline kernel_call transpose_kernel(cl::CommandQueue &queue, size_t width, size_
          << "h=" << height << "(" << r_h << "), "
          << "bs=" << block_size << "}";
 
-    return kernel_call(desc.str(), program, kernel, cl::NDRange(r_w, r_h),
+    return kernel_call(false, desc.str(), program, kernel, cl::NDRange(r_w, r_h),
         cl::NDRange(block_size, block_size));
 }
 
+
+
+template <class T>
+inline kernel_call bluestein_twiddle(const cl::CommandQueue &queue, size_t n, bool inverse, const cl::Buffer &out) {
+    std::ostringstream o;
+    kernel_common<T>(o);
+    twiddle_code<T>(o);
+
+    o << standard_kernel_header;
+
+    o << "__kernel void bluestein_twiddle("
+      << "uint n, __global real2_t *output) {\n"
+      << "  const size_t x = get_global_id(0);\n"
+      << "  if(x < n)\n"
+      << "    output[x] = twiddle(" << (inverse ? "" : "-") << "M_PI * x * x / n);\n"
+      << "}\n";
+
+#ifdef VEXCL_SHOW_KERNELS
+    std::cout << o.str() << std::endl;
+#endif
+
+    auto program = build_sources(qctx(queue), o.str());
+    cl::Kernel kernel(program, "bluestein_twiddle");
+    kernel.setArg<cl_uint>(0, n);
+    kernel.setArg(1, out);
+
+    std::ostringstream desc;
+    desc << "bluestein_twiddle{n=" << n << ", inverse=" << inverse << "}";
+    return kernel_call(true, desc.str(), program, kernel, cl::NDRange(n,1), cl::NullRange);
+}
+
+template <class T>
+inline kernel_call bluestein_pad_kernel(const cl::CommandQueue &queue, size_t n, size_t m, const cl::Buffer &in, const cl::Buffer &out) {
+    std::ostringstream o;
+    kernel_common<T>(o);
+    twiddle_code<T>(o);
+
+    o << "real2_t conj(real2_t v) {\n"
+      << "  return (real2_t)(v.x, -v.y);\n"
+      << "}\n";
+    o << "__kernel void bluestein_pad_kernel("
+      << "__global real2_t *input, __global real2_t *output, uint n, uint m) {\n"
+      << "  const size_t x = get_global_id(0);\n"
+      << "  if(x < n || m - x < n)\n"
+      << "    output[x] = conj(input[min(x, m - x)]);\n"
+      << "  else\n"
+      << "    output[x] = (real2_t)(0,0);\n"
+      << "}\n";
+
+#ifdef VEXCL_SHOW_KERNELS
+    std::cout << o.str() << std::endl;
+#endif
+
+    auto program = build_sources(qctx(queue), o.str());
+    cl::Kernel kernel(program, "bluestein_pad_kernel");
+    kernel.setArg(0, in);
+    kernel.setArg(1, out);
+    kernel.setArg<cl_uint>(2, n);
+    kernel.setArg<cl_uint>(3, m);
+
+    std::ostringstream desc;
+    desc << "bluestein_pad_kernel{n=" << n << ", m=" << m << "}";
+    return kernel_call(true, desc.str(), program, kernel, cl::NDRange(m), cl::NullRange);
+}
+
+
+template <class T>
+inline kernel_call bluestein_mul(const cl::CommandQueue &queue, size_t n, size_t batch, size_t pad_x, size_t in_stride, size_t out_stride, const cl::Buffer &data, const cl::Buffer &exp, const cl::Buffer &out, size_t div = 1) {
+    std::ostringstream o;
+    kernel_common<T>(o);
+    mul_code(o, false);
+
+    o << "__kernel void bluestein_mul("
+      << "__global const real2_t *data, __global const real2_t *exp, __global real2_t *output, "
+      << "uint pad_x, uint in_stride, uint out_stride, real_t div) {\n"
+      << "  const size_t x = get_global_id(0), y = get_global_id(1);\n"
+      << "  if(x < pad_x)\n"
+      << "    output[x + out_stride * y] = mul(data[x + in_stride * y] * div, exp[x]);\n"
+      << "  else\n"
+      << "    output[x + out_stride * y] = (real2_t)(0, 0);\n"
+      << "}\n";
+
+#ifdef VEXCL_SHOW_KERNELS
+    std::cout << o.str() << std::endl;
+#endif
+
+    auto program = build_sources(qctx(queue), o.str());
+    cl::Kernel kernel(program, "bluestein_mul");
+    kernel.setArg(0, data);
+    kernel.setArg(1, exp);
+    kernel.setArg(2, out);
+    kernel.setArg<cl_uint>(3, pad_x);
+    kernel.setArg<cl_uint>(4, in_stride);
+    kernel.setArg<cl_uint>(5, out_stride);
+    kernel.setArg<T>(6, 1.0 / div);
+
+    std::ostringstream desc;
+    desc << "bluestein_mul{n=" << n << ", batch=" << batch << ", pad_x=" << pad_x << ", in_stride=" << in_stride << ", out_stride=" << out_stride << ", div=" << div << "}";
+    return kernel_call(false, desc.str(), program, kernel, cl::NDRange(n, batch), cl::NullRange);
+}
 
 
 } // namespace fft
