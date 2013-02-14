@@ -88,27 +88,22 @@ if (FFT_EXAMPLES)
         add_definitions(-DUSE_AMD_FFT)
     endif()
 
-    # Verification, compare against FFTw
+    # Verification, compare against FFTw (double)
     if (FFT_FFTW)
-        find_library(FFTW_LIBRARY NAMES "fftw3f")
+        find_library(FFTW_LIBRARY NAMES "fftw3")
+        find_library(FFTWF_LIBRARY NAMES "fftw3f")
         find_path(FFTW_INCLUDE_DIR "fftw3.h")
-        set(FFT_LIBS ${FFT_LIBS} ${FFTW_LIBRARY})
+        set(FFT_LIBS ${FFT_LIBS} ${FFTW_LIBRARY} ${FFTWF_LIBRARY})
         include_directories(${FFTW_INCLUDE_DIR})
         add_definitions(-DUSE_FFTW)
         add_executable(fft_verify fft_verify.cpp)
         target_link_libraries(fft_verify ${FFT_LIBS})
-
-        # Use multi threaded FFTw in benchmark if available
-        if(OpenMP_FOUND)
-            find_library(FFTW_OMP_LIBRARY NAMES "fftw3f_omp")
-            set(FFT_LIBS ${FFT_LIBS} ${FFTW_OMP_LIBRARY})
-        endif(OpenMP_FOUND)
     endif (FFT_FFTW)
 
     # Benchmark, 
     add_executable(fft_benchmark fft_benchmark.cpp)
 
-    # Use multi threaded FFTw in benchmark if available
+    # Use multi threaded FFTw (float) in benchmark if available
     if (FFT_FFTW AND OPENMP_FOUND)
         find_library(FFTW_OMP_LIBRARY NAMES "fftw3f_omp")
         set(FFT_LIBS ${FFT_LIBS} ${FFTW_OMP_LIBRARY})

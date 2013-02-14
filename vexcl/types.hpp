@@ -132,4 +132,20 @@ CL_TYPES(long);  CL_TYPES(ulong);
 #undef CL_TYPES
 
 
+namespace vex {
+
+/// Convert each element of the vector to another type.
+template<class To, class From>
+inline To cl_convert(const From &val) {
+    const size_t n = cl_vector_length<To>::value;
+    static_assert(n == cl_vector_length<From>::value, "Vectors must be same length.");
+    To out;
+    for(size_t i = 0 ; i != n ; i++)
+        out.s[i] = val.s[i];
+    return out;
+}
+
+}
+
+
 #endif
