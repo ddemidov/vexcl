@@ -167,9 +167,8 @@ struct plan {
         size_t total_n = std::accumulate(sizes.begin(), sizes.end(), 1, std::multiplies<size_t>());
         scale = inverse ? ((T)1 / total_n) : 1;
 
-        bufs.reserve(2);
         size_t current = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * total_n));
-        size_t other   = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * total_n));
+        size_t other = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * total_n));
 
         // Build the list of kernels.
         input = current;
@@ -212,12 +211,11 @@ struct plan {
         size_t conv_n = planner.best_size(2 * n - 1);
         auto context = qctx(queues[0]);
 
-        bufs.reserve(5);
         size_t b_original = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * n));
-        size_t b_other    = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * conv_n));
-        size_t b_current  = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * conv_n));
-        size_t a_current  = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * conv_n * batch));
-        size_t a_other    = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * conv_n * batch));
+        size_t b_other = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * conv_n));
+        size_t b_current = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * conv_n));
+        size_t a_current = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * conv_n * batch));
+        size_t a_other = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * conv_n * batch));
 
         kernels.push_back(bluestein_twiddle<T>(queues[0], n, inverse,
             bufs[b_original])); // once
