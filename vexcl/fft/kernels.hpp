@@ -338,10 +338,6 @@ inline kernel_call bluestein_twiddle(const cl::CommandQueue &queue, size_t n, bo
       << "    output[x] = twiddle(" << (inverse ? "" : "-") << "M_PI * x * x / n);\n"
       << "}\n";
 
-#ifdef VEXCL_SHOW_KERNELS
-    std::cout << o.str() << std::endl;
-#endif
-
     auto program = build_sources(qctx(queue), o.str());
     cl::Kernel kernel(program, "bluestein_twiddle");
     kernel.setArg<cl_uint>(0, n);
@@ -369,10 +365,6 @@ inline kernel_call bluestein_pad_kernel(const cl::CommandQueue &queue, size_t n,
       << "  else\n"
       << "    output[x] = (real2_t)(0,0);\n"
       << "}\n";
-
-#ifdef VEXCL_SHOW_KERNELS
-    std::cout << o.str() << std::endl;
-#endif
 
     auto program = build_sources(qctx(queue), o.str());
     cl::Kernel kernel(program, "bluestein_pad_kernel");
@@ -402,10 +394,6 @@ inline kernel_call bluestein_mul(const cl::CommandQueue &queue, size_t n, size_t
       << "  else\n"
       << "    output[x + out_stride * y] = (real2_t)(0, 0);\n"
       << "}\n";
-
-#ifdef VEXCL_SHOW_KERNELS
-    std::cout << o.str() << std::endl;
-#endif
 
     auto program = build_sources(qctx(queue), o.str());
     cl::Kernel kernel(program, "bluestein_mul");
