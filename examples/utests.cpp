@@ -288,6 +288,26 @@ int main(int argc, char *argv[]) {
                 });
 #endif
 
+#if 1
+        run_test("STL container of vex::vectors", [&]() -> bool {
+                const size_t N = 1024;
+                const size_t M = 5;
+                bool rc = true;
+
+                std::vector< vex::vector<unsigned> > x;
+
+                for(size_t i = 0; i < M; ++i) {
+                    x.push_back( vex::vector<unsigned>(ctx, N) );
+                    x.back() = i;
+                }
+
+                for(size_t i = 0; i < M; ++i) {
+                    rc = rc && x[i][42] == i;
+                }
+
+                return rc;
+        });
+#endif
 
 #if 1
         run_test("Reduction", [&]() -> bool {
