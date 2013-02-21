@@ -34,6 +34,7 @@ THE SOFTWARE.
 #include <cmath>
 
 #include <vexcl/vector.hpp>
+#include <vexcl/fft/unrolled_dft.hpp>
 #include <vexcl/fft/kernels.hpp>
 #include <boost/lexical_cast.hpp>
 
@@ -61,8 +62,7 @@ struct simple_planner {
 
     // prime factors to use
     virtual std::vector<size_t> primes() const {
-	static const size_t data[] = {2, 3, 5, 7, 11};
-	return std::vector<size_t>(data, data + sizeof(data)/sizeof(data[0]));
+        return supported_primes();
     }
 
     // returns the size the data must be padded to.

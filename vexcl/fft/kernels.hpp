@@ -29,8 +29,6 @@ THE SOFTWARE.
  * \file   fft/kernels.hpp
  * \author Pascal Germroth <pascal@ensieve.org>
  * \brief  Kernel generator for FFT.
- *
- * OpenCL FFT kernels, original by Eric Bainville
  */
 
 #include <cmath>
@@ -47,22 +45,6 @@ struct pow {
 
 inline std::ostream &operator<<(std::ostream &o, const pow &p) {
     return o << p.base << '^' << p.exponent << '=' << p.value;
-}
-
-/// Reverse the digits of a number in the base given.
-/** 0 <= i < m,
- * i is converted into a base m.base-number,
- * its digits reversed, and converted back into an integer. */
-inline size_t digit_reverse(size_t i, pow m) {
-    assert(i < m.value);
-    // convert to other base, digits[0]=least significant
-    // convert back with digits[0]=most significant.
-    size_t j = 0;
-    for(size_t k = 0 ; k < m.exponent ; k++) {
-        j = j * m.base + (i % m.base);
-        i /= m.base;
-    }
-    return j;
 }
 
 /// ceil(x/m) * m
@@ -93,77 +75,10 @@ inline void param_list(std::ostringstream &o, std::string prefix, size_t from, s
     } o << ')';
 }
 
-// omega(n,k) = exp(-i 2 pi k / n)
-template<class T>
-inline typename cl_vector_of<T,2>::type omega(int k, int n) {
-    const T alpha = -2 * static_cast<T>(M_PI) * (k % n) / n;
-    typename cl_vector_of<T,2>::type result = {{std::cos(alpha), std::sin(alpha)}};
-    return result;
-}
-
 template <class T>
-inline void in_place_dft(std::ostringstream &o, pow radix) {
-    typedef typename cl_vector_of<T,2>::type T2;
-    o << "void dft" << radix.value;
-    param_list(o, "real2_t *", 0, radix.value);
-    o << "{\n";
+inline void kernel_radix(std::ostringstream &o, pow radix, bool invert) {
+    o << in_place_dft(radix.value, invert);
 
-    if(radix.exponent == 1) { // prime bases
-        if(radix.value == 2) {
-            o << "  real2_t tmp = *v0 - *v1;\n"
-              << "  *v0 += *v1;\n"
-              << "  *v1 = tmp;\n";
-        } else {
-            // naive DFT
-            for(size_t i = 1 ; i < radix.base ; i++)
-                o << "  real2_t w" << i << " = " << omega<T>(i, radix.base) << ";\n";
-            for(size_t i = 0 ; i < radix.base ; i++) {
-                o << "  real2_t t" << i << " = *v0";
-                for(size_t j = 1 ; j < radix.base ; j++) {
-                    o << " + ";
-                    if(i == 0)
-                        o << "*v" << j;
-                    else
-                        o << "mul(*v" << j << ", w" << ((i * j) % radix.base) << ")";
-                }
-                o << ";\n";
-            }
-            // write back
-            for(size_t i = 0 ; i < radix.base ; i++)
-                o << "  *v" << i << " = t" << i << ";\n";
-        }
-    } else { // recursive prime power DFTs
-        const size_t prev_radix = radix.value / radix.base;
-        // leaves
-        for(size_t i = 0 ; i < prev_radix ; i++) {
-            o << "  dft" << radix.base;
-            param_list(o, "", i, i + radix.value, prev_radix);
-            o << ";\n";
-        }
-        // twiddle
-        for(size_t i = 1 ; i <= (prev_radix-1) * (radix.base-1) ; i++)
-            o << "  real2_t w" << i << " = " << omega<T>(i, radix.value) << ";\n";
-        for(size_t i = 1 ; i < prev_radix ; i++) {
-            for(size_t j = 1 ; j < radix.base ; j++) {
-                const size_t k = i + j * prev_radix;
-                o << "  *v" << k << " = mul(*v" << k << ", w" << ((i * j) % radix.value) << ");\n";
-            }
-        }
-        // next stage
-        for(size_t i = 0 ; i < radix.base ; i++) {
-            o << "  dft" << prev_radix;
-            param_list(o, "", i * prev_radix, (i + 1) * prev_radix);
-            o << ";\n";
-        }
-    }
-    o << "}\n";
-}
-
-
-template <class T>
-inline void kernel_radix(std::ostringstream &o, pow radix) {
-    for(size_t e = 1 ; e <= radix.exponent ; e++)
-        in_place_dft<T>(o, pow(radix.base, e));
     // kernel.
     o << "__kernel void radix(__global const real2_t *x, __global real2_t *y, uint p) {\n"
       << "  const size_t i = get_global_id(0);\n"
@@ -195,7 +110,7 @@ inline void kernel_radix(std::ostringstream &o, pow radix) {
     o << "  const size_t j = k + (i - k) * " << radix.value << ";\n";
     o << "  y += j + batch_offset;\n";
     for(size_t i = 0 ; i < radix.value ; i++)
-        o << "  y[" << i << " * p] = v" << digit_reverse(i, radix) << ";\n";
+        o << "  y[" << i << " * p] = v" << i << ";\n";
     o << "}\n";
 }
 
@@ -247,7 +162,7 @@ inline kernel_call radix_kernel(bool once, const cl::CommandQueue &queue, size_t
     twiddle_code<T>(o);
 
     const size_t m = n / radix.value;
-    kernel_radix<T>(o, radix);
+    kernel_radix<T>(o, radix, invert);
 
     auto program = build_sources(qctx(queue), o.str(), "-cl-mad-enable -cl-fast-relaxed-math");
     cl::Kernel kernel(program, "radix");
