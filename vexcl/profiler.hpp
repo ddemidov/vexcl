@@ -45,6 +45,10 @@ THE SOFTWARE.
 #include <stack>
 #include <vector>
 #include <cassert>
+#include <boost/multi_index_container.hpp>
+#include <boost/multi_index/ordered_index.hpp>
+#include <boost/multi_index/sequenced_index.hpp>
+#include <boost/multi_index/global_fun.hpp>
 
 #ifndef __CL_ENABLE_EXCEPTIONS
 #  define __CL_ENABLE_EXCEPTIONS
@@ -65,33 +69,46 @@ class profiler {
     private:
         class profile_unit {
             public:
-                profile_unit() : length(0) {}
+                profile_unit(std::string name) : length(0), hit(0), name(name) {}
                 virtual ~profile_unit() {}
                 virtual void tic() = 0;
                 virtual double toc() = 0;
 
                 double length;
-                std::map<std::string, std::unique_ptr<profile_unit>> children;
+                size_t hit;
+                std::string name;
+
+                static std::string _name(const std::shared_ptr<profile_unit> &u) {
+                    return u->name;
+                }
+                boost::multi_index_container<
+                    std::shared_ptr<profile_unit>,
+                    boost::multi_index::indexed_by<
+                        boost::multi_index::sequenced<>,
+                        boost::multi_index::ordered_unique<boost::multi_index::global_fun<
+                                const std::shared_ptr<profile_unit> &, std::string, _name>>
+                    >
+                > children;
 
                 double children_time() const {
                     double tm = 0;
 
                     for(auto c = children.begin(); c != children.end(); c++)
-                        tm += c->second->length;
+                        tm += (*c)->length;
 
                     return tm;
                 }
 
-                uint max_line_width(const std::string &name, uint level) const {
+                uint max_line_width(uint level) const {
                     uint w = name.size() + level;
 
                     for(auto c = children.begin(); c != children.end(); c++)
-                        w = std::max(w, c->second->max_line_width(c->first, level + shift_width));
+                        w = std::max(w, (*c)->max_line_width(level + shift_width));
 
                     return w;
                 }
 
-                void print(std::ostream &out, const std::string &name,
+                void print(std::ostream &out,
                         uint level, double total, uint width) const
                 {
                     using namespace std;
@@ -109,7 +126,7 @@ class profiler {
                     }
 
                     for(auto c = children.begin(); c != children.end(); c++)
-                        c->second->print(out, c->first, level + shift_width, total, width);
+                        (*c)->print(out, level + shift_width, total, width);
                 }
 
                 void print_line(std::ostream &out, const std::string &name,
@@ -120,7 +137,9 @@ class profiler {
                     out << setw(width - name.size()) << "";
                     out << setiosflags(ios::fixed);
                     out << setw(10) << setprecision(3) << time << " sec.";
-                    out << "] (" << setprecision(2) << setw(6) << perc << "%)" << endl;
+                    out << "] (" << setprecision(2) << setw(6) << perc << "%)";
+                    if(hit > 1) out << " (" << hit << "x)";
+                    out << endl;
                 }
             private:
                 static const uint shift_width = 2U;
@@ -128,6 +147,8 @@ class profiler {
 
         class cpu_profile_unit : public profile_unit {
             public:
+                cpu_profile_unit(const std::string &name) : profile_unit(name) {}
+
                 void tic() {
 #ifdef WIN32
                     ftime(&start);
@@ -147,6 +168,7 @@ class profiler {
 #endif
 
                     length += delta;
+                    hit++;
 
                     return delta;
                 }
@@ -161,8 +183,8 @@ class profiler {
 
         class cl_profile_unit : public profile_unit {
             public:
-                cl_profile_unit(const std::vector<cl::CommandQueue> &queue)
-                    : queue(queue), start(queue.size()), stop(queue.size()),
+                cl_profile_unit(const std::string &name, const std::vector<cl::CommandQueue> &queue)
+                    : profile_unit(name), queue(queue), start(queue.size()), stop(queue.size()),
                       dbuf(queue.size()), hbuf(queue.size())
                 {
                     for(uint d = 0; d < queue.size(); d++) {
@@ -192,6 +214,7 @@ class profiler {
                     double delta = max_delta * 1.0e-9;
 
                     length += delta;
+                    hit++;
 
                     return delta;
                 }
@@ -208,32 +231,36 @@ class profiler {
         /**
          * \param queue vector of command queues. Each queue should have been
          *              initialized with CL_QUEUE_PROFILING_ENABLE property.
-         * \param name  Opional name to be used when profiling info is printed.
+         * \param name  Optional name to be used when profiling info is printed.
          */
         profiler(
                 const std::vector<cl::CommandQueue> &queue,
                 const std::string &name = "Profile"
-                ) : name(name), queue(queue)
+                ) : queue(queue)
         {
-            root.tic();
-            stack.push(&root);
+            auto root = std::shared_ptr<profile_unit>(new cpu_profile_unit(name));
+            root->tic();
+            stack.push_back(root);
         }
 
+    private:
+        void tic(profile_unit *u) {
+            assert(!stack.empty());
+            auto top = stack.back();
+            auto new_unit = std::shared_ptr<profile_unit>(u);
+            auto unit = *top->children.push_back(new_unit).first;
+            unit->tic();
+            stack.push_back(unit);
+        }
+
+    public:
         /// Starts a CPU timer.
         /**
          * Also pushes named interval to the top of the profiler hierarchy.
          * \param name name of the measured interval.
          */
         void tic_cpu(const std::string &name) {
-            assert(!stack.empty());
-
-            profile_unit *top  = stack.top();
-            cpu_profile_unit *unit = new cpu_profile_unit();
-            unit->tic();
-
-            top->children[name].reset(unit);
-
-            stack.push(unit);
+            tic(new cpu_profile_unit(name));
         }
 
         /// Enqueues a marker into each of the provided queues.
@@ -242,15 +269,7 @@ class profiler {
          * \param name name of the measured interval.
          */
         void tic_cl(const std::string &name) {
-            assert(!stack.empty());
-
-            profile_unit *top  = stack.top();
-            cl_profile_unit *unit = new cl_profile_unit(queue);
-            unit->tic();
-
-            top->children[name].reset(unit);
-
-            stack.push(unit);
+            tic(new cl_profile_unit(name, queue));
         }
 
         /// Returns time since last tic.
@@ -258,32 +277,28 @@ class profiler {
          * Also removes interval from the top of the profiler hierarchy.
          */
         double toc(const std::string &) {
-            assert(!stack.empty());
-            assert(stack.top() != &root);
+            assert(stack.size() > 1);
 
-            profile_unit *top = stack.top();
-            double delta = top->toc();
-            stack.pop();
+            double delta = stack.back()->toc();
+            stack.pop_back();
 
             return delta;
         }
 
         /// Outputs profile to the provided stream.
         void print(std::ostream &out) {
-            if (stack.top() != &root)
+            if(stack.size() != 1)
                 out << "Warning! Profile is incomplete." << std::endl;
 
-            double length = root.toc();
-
+            auto root = stack.front();
+            double length = root->toc();
             out << std::endl;
-            root.print(out, name, 0, length, root.max_line_width(name, 0));
+            root->print(out, 0, length, root->max_line_width(0));
         }
 
     private:
-        std::string name;
         const std::vector<cl::CommandQueue> &queue;
-        cpu_profile_unit root;
-        std::stack<profile_unit*> stack;
+        std::deque<std::shared_ptr<profile_unit>> stack;
 };
 
 } // namespace vex
