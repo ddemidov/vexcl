@@ -59,15 +59,15 @@ bool test(Context &ctx, std::vector<size_t> ns) {
     Reductor<T, SUM> sum(ctx);
     #define rms(a,b) (std::sqrt(sum(dot(a - b, a - b))) / std::sqrt(sum(dot(b, b))))
 
+    FFT<T2> fft(ctx, ns);
+    FFT<T2> ifft(ctx, ns, inverse);
     try {
-        FFT<T2>  fft(ctx, ns);
         output = fft(input);
 
         bool rc = true;
         const T rms_fft = rms(output, ref);
         rc &= rms_fft < 0.1;
 
-        FFT<T2> ifft(ctx, ns, inverse);
         back = ifft(output);
         const T rms_inv = rms(back, input);
         rc &= rms_inv < 1e-3;
@@ -83,7 +83,7 @@ bool test(Context &ctx, std::vector<size_t> ns) {
         return rc;
 
     } catch(cl::Error e) {
-        std::cerr << "FFT error " << ": " << e << std::endl;
+        std::cerr << "\n" << fft.plan << "\nFFT error " << ": " << e << std::endl;
         throw;
     }
 }

@@ -104,7 +104,14 @@ double test(Context &ctx, cl_float2 *data, size_t n, size_t m) {
     for(size_t i = 0 ; i < runs ; i++)
         b = fft(a);
     ctx.queue(0).finish();
-    return prof.toc("Run");
+    double t = prof.toc("Run");
+
+#ifdef FFT_PROFILE
+    std::cerr << fft.plan.profile;
+#else
+    std::cerr << fft.plan;
+#endif
+    return t;
 }
 
 void info(double time, size_t size, size_t dim) {
@@ -124,10 +131,10 @@ int main() {
     fftwf_plan_with_nthreads(omp_get_max_threads());
 #endif
     Context ctx(Filter::Env && Filter::Count(1), CL_QUEUE_PROFILING_ENABLE);
-    std::cout << ctx << std::endl;
+    std::cerr << ctx << std::endl;
 
     // random data
-    const size_t k_max = 10, n_max = 1 << k_max;
+    const size_t k_max = 11, n_max = 1 << k_max;
     const size_t max_len = n_max * n_max;
 #ifdef USE_FFTW
     cl_float2 *data = reinterpret_cast<cl_float2 *>(
