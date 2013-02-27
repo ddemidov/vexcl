@@ -59,7 +59,7 @@ inline size_t next_prime_power(Iterator begin, Iterator end, size_t target, size
 
 struct simple_planner {
     const size_t max_size;
-    simple_planner(size_t s = 25) : max_size(s) {}
+    simple_planner(size_t s = 25) : max_size(std::min(s, supported_kernel_sizes().back())) {}
 
     // prime factors to use
     virtual std::vector<size_t> primes() const {
@@ -83,7 +83,8 @@ struct simple_planner {
                 n /= static_cast<size_t>(std::pow(static_cast<double>(*p), static_cast<double>(e)));
                 // split exponent into reasonable parts.
                 auto qs = stages(pow(*p, e));
-                std::copy(qs.begin(), qs.end(), std::back_inserter(fs));
+                // use smallest radix first
+                std::copy(qs.rbegin(), qs.rend(), std::back_inserter(fs));
             }
         if(n != 1) throw std::runtime_error("Unsupported FFT size");
         return fs;
