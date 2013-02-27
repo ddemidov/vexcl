@@ -32,6 +32,7 @@ THE SOFTWARE.
  */
 
 #include <cmath>
+#include <queue>
 
 #include <vexcl/profiler.hpp>
 #include <vexcl/vector.hpp>
@@ -43,6 +44,48 @@ namespace vex {
 namespace fft {
 
 
+/// Returns successive prime numbers on each call.
+struct prime_generator {
+    typedef std::pair<size_t, size_t> P;
+
+    std::priority_queue<P, std::vector<P>, std::greater<P>> cross;
+    size_t x;
+    prime_generator() : x(2) {}
+
+    size_t operator()() {
+        for(;; x++) {
+            if(cross.empty() || cross.top().first != x) { // is a prime.
+                cross.push(P(x * x, x));
+                return x++;
+            } else { // has prime factor. cross out.
+                while(cross.top().first == x) {
+                    size_t prime = cross.top().second;
+                    cross.pop();
+                    cross.push(P(x + prime, prime));
+                }
+            }
+        }
+    }
+};
+
+/// Returns the prime factors of a number.
+inline std::vector<pow> prime_factors(size_t n) {
+    std::vector<pow> fs;
+    if(n != 0) {
+        prime_generator next;
+        while(n != 1) {
+            const auto prime = next();
+            size_t exp = 0;
+            while(n % prime == 0) {
+                n /= prime;
+                exp++;
+            }
+            if(exp != 0)
+                fs.push_back(pow(prime, exp));
+        }
+    }
+    return fs;
+}
 
 // for arbitrary x, return smallest y=a^b c^d e^f...>=x where a,c,e are iterated over (assumed to be prime)
 template<class Iterator>
@@ -73,21 +116,24 @@ struct simple_planner {
     }
 
     // splits n into a list of powers 2^a 2^b 2^c 3^d 5^e...
+    // exponents are limited by available kernels,
+    // if no kernel for prime is available, exponent will be 0, interpret as 1.
     virtual std::vector<pow> factor(size_t n) const {
-        std::vector<pow> fs;
-        auto ps = primes();
-        for(auto p = ps.begin() ; p != ps.end() ; p++)
-            if(n % *p == 0) {
-                size_t e = 1;
-                while(n % size_t(std::pow(static_cast<double>(*p), static_cast<double>(e + 1))) == 0) e += 1;
-                n /= static_cast<size_t>(std::pow(static_cast<double>(*p), static_cast<double>(e)));
+        std::vector<pow> out, factors = prime_factors(n);
+        const auto ps = primes();
+        for(auto f = factors.begin() ; f != factors.end() ; f++) {
+            if(std::find(ps.begin(), ps.end(), f->base) != ps.end()) {
                 // split exponent into reasonable parts.
-                auto qs = stages(pow(*p, e));
+                auto qs = stages(*f);
                 // use smallest radix first
-                std::copy(qs.rbegin(), qs.rend(), std::back_inserter(fs));
+                std::copy(qs.rbegin(), qs.rend(), std::back_inserter(out));
+            } else {
+                // unsupported prime.
+                for(size_t i = 0 ; i != f->exponent ; i++)
+                    out.push_back(pow(f->base, 0));
             }
-        if(n != 1) throw std::runtime_error("Unsupported FFT size");
-        return fs;
+        }
+        return out;
     }
 
     // use largest radixes, i.e. 2^4 2^4 2^1
