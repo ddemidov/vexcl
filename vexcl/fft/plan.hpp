@@ -33,6 +33,7 @@ THE SOFTWARE.
 
 #include <cmath>
 
+#include <vexcl/profiler.hpp>
 #include <vexcl/vector.hpp>
 #include <vexcl/fft/unrolled_dft.hpp>
 #include <vexcl/fft/kernels.hpp>
@@ -146,18 +147,27 @@ struct plan {
     const std::vector<cl::CommandQueue> &queues;
     Planner planner;
     T scale;
+    const std::vector<size_t> sizes;
 
     std::vector<kernel_call> kernels;
 
     size_t input, output;
     std::vector<cl::Buffer> bufs;
 
+#ifdef FFT_PROFILE
+    profiler profile;
+#endif
+
     // \param sizes
     //  1D case: {n}.
     //  2D case: {h, w} in row-major format: x + y * w. (like FFTw)
     //  etc.
     plan(const std::vector<cl::CommandQueue> &_queues, const std::vector<size_t> sizes, bool inverse, const Planner &planner = Planner())
-        : queues(_queues), planner(planner) {
+        : queues(_queues), planner(planner), sizes(sizes)
+#ifdef FFT_PROFILE
+          , profile(_queues)
+#endif
+    {
         assert(sizes.size() >= 1);
         assert(queues.size() == 1);
         auto queue = queues[0];
@@ -245,18 +255,44 @@ struct plan {
     /// Converts real-valued input and output, supports multiply-adding to output.
     template<class Expr>
     void operator()(const Expr &in, vector<T1> &out, bool append, T ex_scale) {
+#ifdef FFT_PROFILE
+        std::ostringstream prof_name;
+        prof_name << "fft(n={";
+        for(size_t i = 0 ; i < sizes.size() ; i++) {
+            if(i != 0) prof_name << ", ";
+            prof_name << sizes[i];
+        }
+        prof_name << "}, append=" << append << ", scale=" << (ex_scale * scale) << ")";
+        profile.tic_cpu(prof_name.str());
+
+        profile.tic_cpu("in");
+#endif
         vector<T2> in_c(queues[0], bufs[input]);
         if(std::is_same<T0, T>::value) in_c = r2c(in);
         else in_c = in;
+#ifdef FFT_PROFILE
+        queues[0].finish();
+        profile.toc("in");
+#endif
 
         for(auto run = kernels.begin(); run != kernels.end(); ++run) {
             if(!run->once || run->count == 0) {
+#ifdef FFT_PROFILE
+                profile.tic_cpu(run->desc);
+#endif
                 queues[0].enqueueNDRangeKernel(run->kernel, cl::NullRange,
                     run->global, run->local);
                 run->count++;
+#ifdef FFT_PROFILE
+                queues[0].finish();
+                profile.toc(run->desc);
+#endif
             }
         }
 
+#ifdef FFT_PROFILE
+        profile.tic_cpu("out");
+#endif
         vector<T2> out_c(queues[0], bufs[output]);
         if(std::is_same<T1, T>::value) {
             if(append) out += c2r(out_c) * (ex_scale * scale);
@@ -265,6 +301,11 @@ struct plan {
             if(append) out += out_c * (ex_scale * scale);
             else out = out_c * (ex_scale * scale);
         }
+#ifdef FFT_PROFILE
+        queues[0].finish();
+        profile.toc("out");
+        profile.toc(prof_name.str());
+#endif
     }
 };
 
