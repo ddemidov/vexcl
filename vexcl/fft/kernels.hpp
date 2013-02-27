@@ -80,9 +80,9 @@ inline void kernel_radix(std::ostringstream &o, pow radix, bool invert) {
     o << in_place_dft(radix.value, invert);
 
     // kernel.
-    o << "__kernel void radix(__global const real2_t *x, __global real2_t *y, uint p) {\n"
+    o << "__kernel void radix(__global const real2_t *x, __global real2_t *y, uint p, uint threads) {\n"
       << "  const size_t i = get_global_id(0);\n"
-      << "  const size_t threads = get_global_size(0);\n"
+      << "  if(i >= threads) return;\n"
         // index in input sequence, in 0..P-1
       << "  const size_t k = i % p;\n"
       << "  const size_t batch_offset = get_global_id(1) * threads * " << radix.value << ";\n";
@@ -169,11 +169,21 @@ inline kernel_call radix_kernel(bool once, const cl::CommandQueue &queue, size_t
     kernel.setArg(0, in);
     kernel.setArg(1, out);
     kernel.setArg<cl_uint>(2, p);
+    kernel.setArg<cl_uint>(3, m);
+
+    const auto device = qdev(queue);
+    const size_t wg_mul = kernel.getWorkGroupInfo<CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE>(device);
+    //const size_t max_cu = device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>();
+    //const size_t max_wg = device.getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>();
+    size_t wg = wg_mul;
+    //while(wg * max_cu < max_wg) wg += wg_mul;
+    //wg -= wg_mul;
+    const size_t threads = int_ceil(m, wg);
 
     std::ostringstream desc;
-    desc << "dft{r=" << radix << ", p=" << p << ", n=" << n << ", batch=" << batch << ", threads=" << m << "}";
+    desc << "dft{r=" << radix << ", p=" << p << ", n=" << n << ", batch=" << batch << ", threads=" << m << "(" << threads << "), wg=" << wg << "}";
 
-    return kernel_call(once, desc.str(), program, kernel, cl::NDRange(m, batch), cl::NullRange);
+    return kernel_call(once, desc.str(), program, kernel, cl::NDRange(threads, batch), cl::NDRange(wg, 1));
 }
 
 
