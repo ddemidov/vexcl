@@ -7,6 +7,9 @@ using namespace vex;
 typedef double T;
 typedef cl_vector_of<T, 2>::type T2;
 
+const bool always_show_plan = false;
+const bool error_benchmark = true;
+
 std::vector<cl_double2> random_vec(size_t n) {
     std::vector<cl_double2> data(n);
     for(size_t i = 0 ; i < n ; i++) {
@@ -75,10 +78,13 @@ bool test(Context &ctx, std::vector<size_t> ns) {
         std::cout << (rc ? " success." : " failed.") << '\n';
 
         if(!rc) {
-            std::cout << "  fftw-clfft      " << rms_fft << "%" << '\n';
-            std::cout << "  x-ifft(fft(x))  " << rms_inv << "%" << '\n';
-            std::cout << fft.plan << '\n';
+            std::cout << "  fftw-clfft      " << rms_fft << '\n';
+            std::cout << "  x-ifft(fft(x))  " << rms_inv << '\n';
         }
+        if(!rc || always_show_plan)
+            std::cout << fft.plan << '\n';
+        else
+            std::cout << "  " << fft.plan.desc() << '\n';
 
         return rc;
 
@@ -102,7 +108,7 @@ int main() {
 
     const size_t max = 1 << 20;
 
-    fft::default_planner p;
+    fft::planner p;
     for(size_t i = 0 ; i < 100 ; i++) {
         // random number of dimensions, mostly 1.
         size_t dims = 1 + size_t(skew_rand(3) * 5);
@@ -112,7 +118,7 @@ int main() {
         size_t total = 1;
         for(size_t d = 0 ; d < dims ; d++) {
             size_t sz = 1 + size_t(skew_rand(dims == 1 ? 3 : 1) * d_max);
-            if(rand() % 7 != 0)
+            if(rand() % 3 != 0)
                 sz = p.best_size(sz);
             n.push_back(sz);
             total *= sz;
