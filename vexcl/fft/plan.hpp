@@ -100,29 +100,28 @@ inline size_t next_prime_power(Iterator begin, Iterator end, size_t target, size
 
 
 
-struct simple_planner {
+struct planner {
     const size_t max_size;
-    simple_planner(size_t s = 25) : max_size(std::min(s, supported_kernel_sizes().back())) {}
+    std::vector<size_t> primes;
 
-    // prime factors to use
-    virtual std::vector<size_t> primes() const {
-        return supported_primes();
+    planner(size_t s = 25) : max_size(std::min(s, supported_kernel_sizes().back())) {
+        auto ps = supported_primes();
+        for(auto i = ps.begin() ; i != ps.end() ; i++)
+            if(*i <= s) primes.push_back(*i);
     }
 
     // returns the size the data must be padded to.
-    virtual size_t best_size(size_t n) const {
-        auto ps = primes();
-        return next_prime_power(ps.begin(), ps.end(), n);
+    size_t best_size(size_t n) const {
+        return next_prime_power(primes.begin(), primes.end(), n);
     }
 
     // splits n into a list of powers 2^a 2^b 2^c 3^d 5^e...
     // exponents are limited by available kernels,
     // if no kernel for prime is available, exponent will be 0, interpret as 1.
-    virtual std::vector<pow> factor(size_t n) const {
+    std::vector<pow> factor(size_t n) const {
         std::vector<pow> out, factors = prime_factors(n);
-        const auto ps = primes();
         for(auto f = factors.begin() ; f != factors.end() ; f++) {
-            if(std::find(ps.begin(), ps.end(), f->base) != ps.end()) {
+            if(std::find(primes.begin(), primes.end(), f->base) != primes.end()) {
                 // split exponent into reasonable parts.
                 auto qs = stages(*f);
                 // use smallest radix first
@@ -136,10 +135,12 @@ struct simple_planner {
         return out;
     }
 
-    // use largest radixes, i.e. 2^4 2^4 2^1
-    virtual std::vector<pow> stages(pow p) const {
+  private:
+    std::vector<pow> stages(pow p) const {
         size_t t = static_cast<size_t>(std::log(max_size + 1.0) / std::log(static_cast<double>(p.base)));
         std::vector<pow> fs;
+#ifdef FFT_SIMPLE_PLANNER
+        // use largest radixes, i.e. 2^4 2^4 2^1
         for(size_t e = p.exponent ; ; ) {
             if(e > t) {
                 fs.push_back(pow(p.base, t));
@@ -149,35 +150,25 @@ struct simple_planner {
                 break;
             }
         }
-        return fs;
-    }
-};
-
-
-struct even_planner : simple_planner {
-    even_planner(size_t s = 25) : simple_planner(s) {}
-
-    // avoid very small radixes, i.e. 2^3 2^3 2^3
-    virtual std::vector<pow> stages(pow p) const {
-        size_t t = static_cast<size_t>(std::log(max_size + 1.0) / std::log(static_cast<double>(p.base)));
+#else
+        // avoid very small radixes, i.e. 2^3 2^3 2^3
         // number of parts
         size_t m = (p.exponent + t - 1) / t;
         // two levels.
         size_t r = t * m - p.exponent;
         size_t u = m * (r / m);
         size_t v = t - (r / m);
-        std::vector<pow> fs;
         for(size_t i = 0 ; i < m - r + u ; i++)
             fs.push_back(pow(p.base, v));
         for(size_t i = 0 ; i < r - u ; i++)
             fs.push_back(pow(p.base, v - 1));
+#endif
         return fs;
     }
 };
 
-typedef even_planner default_planner;
 
-template <class T0, class T1, class Planner = default_planner>
+template <class T0, class T1, class Planner = planner>
 struct plan {
     typedef typename cl_scalar_of<T0>::type T0s;
     typedef typename cl_scalar_of<T1>::type T1s;

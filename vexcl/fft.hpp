@@ -215,7 +215,7 @@ enum direction {
     forward, inverse
 };
 
-template <typename T0, typename T1 = T0, class Planner = fft::default_planner>
+template <typename T0, typename T1 = T0, class Planner = fft::planner>
 struct FFT {
     typedef T0 input_t;
     typedef T1 output_t;
