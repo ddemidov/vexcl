@@ -222,20 +222,15 @@ struct plan {
         input = current;
         for(auto d = sizes.rbegin() ; d != sizes.rend() ; d++) {
             const size_t w = *d, h = total_n / w;
-
-            // 1D, each row.
             if(w > 1) {
-                if(w == planner.best_size(w)) { // use Cooley-Tukey.
-                    plan_cooley_tukey(inverse, w, h, current, other, false);
-                } else { // use Bluestein Z-Chirp.
-                    plan_bluestein(inverse, w, h, current, other);
-                }
-            }
+                // 1D, each row.
+                plan_cooley_tukey(inverse, w, h, current, other, false);
 
-            // transpose.
-            if(w > 1 && h > 1) {
-                kernels.push_back(transpose_kernel<T>(queue, w, h, bufs[current], bufs[other]));
-                std::swap(current, other);
+                // transpose.
+                if(h > 1) {
+                    kernels.push_back(transpose_kernel<T>(queue, w, h, bufs[current], bufs[other]));
+                    std::swap(current, other);
+                }
             }
         }
         output = current;
@@ -245,47 +240,58 @@ struct plan {
         size_t p = 1;
         auto rs = planner.factor(n);
         for(auto r = rs.begin() ; r != rs.end() ; r++) {
-            kernels.push_back(radix_kernel<T>(once, queues[0], n, batch,
-                inverse, *r, p, bufs[current], bufs[other]));
-            std::swap(current, other);
-            p *= r->value;
+            if(r->exponent == 0) {
+                plan_bluestein(n, batch, inverse, r->base, p, current, other);
+                p *= r->base;
+            } else {
+                kernels.push_back(radix_kernel<T>(once, queues[0], n, batch,
+                    inverse, *r, p, bufs[current], bufs[other]));
+                std::swap(current, other);
+                p *= r->value;
+            }
         }
     }
 
     // this as a numeric error in O(exp(n)), as opposed to O(sqrt(n)),
     // which means it's a very bad idea to use this with float for sizes > 100,
     // double's worst case is still better than float's best case though.
-    void plan_bluestein(bool inverse, size_t n, size_t batch, size_t &current, size_t &other) {
-        size_t conv_n = planner.best_size(2 * n - 1);
+    void plan_bluestein(size_t width, size_t batch, bool inverse, size_t n, size_t p, size_t &current, size_t &other) {
+        size_t conv_n = planner.best_size(2 * n);
+        size_t threads = width / n;
         auto context = qctx(queues[0]);
 
-        size_t b_original = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * n));
+        size_t b_twiddle = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * n));
         size_t b_other = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * conv_n));
         size_t b_current = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * conv_n));
-        size_t a_current = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * conv_n * batch));
-        size_t a_other = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * conv_n * batch));
+        size_t a_current = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * conv_n * batch * threads));
+        size_t a_other = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * conv_n * batch * threads));
 
+        // calculate twiddle factors
         kernels.push_back(bluestein_twiddle<T>(queues[0], n, inverse,
-            bufs[b_original])); // once
+            bufs[b_twiddle])); // once
 
+        // first part of the convolution
         kernels.push_back(bluestein_pad_kernel<T>(queues[0], n, conv_n,
-            bufs[b_original], bufs[b_current])); // once
+            bufs[b_twiddle], bufs[b_current])); // once
 
         plan_cooley_tukey(false, conv_n, 1, b_current, b_other, /*once*/true);
 
-        kernels.push_back(bluestein_mul<T>(queues[0], conv_n, batch, /*pad*/n, /*in s*/n, /*out s*/conv_n,
-            bufs[current], bufs[b_original], bufs[a_current]));
+        // other part of convolution
+        kernels.push_back(bluestein_mul_in<T>(queues[0], inverse, batch, n, p, threads, conv_n,
+            bufs[current], bufs[b_twiddle], bufs[a_current]));
 
-        plan_cooley_tukey(false, conv_n, batch, a_current, a_other, false);
+        plan_cooley_tukey(false, conv_n, threads * batch, a_current, a_other, false);
 
-        kernels.push_back(bluestein_mul<T>(queues[0], conv_n, batch, /*pad*/conv_n, /*in s*/conv_n, /*outs*/conv_n,
+        // calculate convolution
+        kernels.push_back(bluestein_mul<T>(queues[0], conv_n, threads * batch,
             bufs[a_current], bufs[b_current], bufs[a_other]));
         std::swap(a_current, a_other);
 
-        plan_cooley_tukey(true, conv_n, batch, a_current, a_other, false);
+        plan_cooley_tukey(true, conv_n, threads * batch, a_current, a_other, false);
 
-        kernels.push_back(bluestein_mul<T>(queues[0], n, batch, /*pad*/n, /*in s*/conv_n, /*out s*/n,
-            bufs[a_current], bufs[b_original], bufs[other], /*div*/conv_n));
+        // twiddle again
+        kernels.push_back(bluestein_mul_out<T>(queues[0], batch, p, n, threads, conv_n,
+            bufs[a_current], bufs[b_twiddle], bufs[other]));
         std::swap(current, other);
     }
 
