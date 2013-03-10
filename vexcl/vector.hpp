@@ -319,11 +319,10 @@ class vector : public vector_terminal_expression {
 
         /// Wrap a native buffer
         vector(const cl::CommandQueue &q, const cl::Buffer &buffer)
-            : queue(), part(), buf(), event(1) {
-            queue.push_back(q);
-            part.push_back(0);
-            part.push_back(buffer.getInfo<CL_MEM_SIZE>() / sizeof(T));
-            buf.push_back(buffer);
+            : queue(1, q), part(2), buf(1, buffer), event(1)
+        {
+            part[0] = 0;
+            part[1] = buffer.getInfo<CL_MEM_SIZE>() / sizeof(T);
         }
 
         /// Copy host data to the new buffer.

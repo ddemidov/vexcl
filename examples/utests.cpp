@@ -10,6 +10,8 @@
 //#define VEXCL_SHOW_KERNELS
 #include <vexcl/vexcl.hpp>
 
+#define TESTS_ON
+
 using namespace vex;
 
 static bool all_passed = true;
@@ -66,7 +68,7 @@ int main(int argc, char *argv[]) {
         std::cout << "seed: " << seed << std::endl << std::endl;
         srand(seed);
 
-#if 1
+#ifdef TESTS_ON
         run_test("Empty vector construction", [&]() -> bool {
                 bool rc = true;
                 vex::vector<double> x;
@@ -76,7 +78,7 @@ int main(int argc, char *argv[]) {
                 });
 #endif
 
-#if 1
+#ifdef TESTS_ON
         run_test("Vector construction from size", [&]() -> bool {
                 const size_t N = 1024;
                 bool rc = true;
@@ -87,7 +89,7 @@ int main(int argc, char *argv[]) {
                 });
 #endif
 
-#if 1
+#ifdef TESTS_ON
         run_test("Vector construction from std::vector", [&]() -> bool {
                 const size_t N = 1024;
                 bool rc = true;
@@ -105,7 +107,7 @@ int main(int argc, char *argv[]) {
                 });
 #endif
 
-#if 1
+#ifdef TESTS_ON
         run_test("Vector construction from size and host pointer", [&]() -> bool {
                 const size_t N = 1024;
                 bool rc = true;
@@ -123,7 +125,7 @@ int main(int argc, char *argv[]) {
                 });
 #endif
 
-#if 1
+#ifdef TESTS_ON
         run_test("Vector copy construction", [&]() -> bool {
                 const size_t N = 1024;
                 bool rc = true;
@@ -138,7 +140,7 @@ int main(int argc, char *argv[]) {
                 });
 #endif
 
-#if 1
+#ifdef TESTS_ON
         run_test("Vector move construction from vex::vector", [&]() -> bool {
                 const size_t N = 1024;
                 bool rc = true;
@@ -155,7 +157,7 @@ int main(int argc, char *argv[]) {
                 });
 #endif
 
-#if 1
+#ifdef TESTS_ON
         run_test("Vector move assignment", [&]() -> bool {
                 const size_t N = 1024;
                 bool rc = true;
@@ -169,7 +171,7 @@ int main(int argc, char *argv[]) {
                 });
 #endif
 
-#if 1
+#ifdef TESTS_ON
         run_test("Vector swap", [&]() -> bool {
                 const size_t N = 1024;
                 bool rc = true;
@@ -187,7 +189,7 @@ int main(int argc, char *argv[]) {
                 });
 #endif
 
-#if 1
+#ifdef TESTS_ON
         run_test("Vector resize from std::vector", [&]() -> bool {
                 const size_t N = 1024;
                 bool rc = true;
@@ -201,7 +203,7 @@ int main(int argc, char *argv[]) {
                 });
 #endif
 
-#if 1
+#ifdef TESTS_ON
         run_test("Vector resize vex::vector", [&]() -> bool {
                 const size_t N = 1024;
                 bool rc = true;
@@ -216,7 +218,7 @@ int main(int argc, char *argv[]) {
                 });
 #endif
 
-#if 1
+#ifdef TESTS_ON
         run_test("Iterate over vex::vector", [&]() -> bool {
                 const size_t N = 1024;
                 vex::vector<double> x(ctx, N);
@@ -225,7 +227,7 @@ int main(int argc, char *argv[]) {
                 });
 #endif
 
-#if 1
+#ifdef TESTS_ON
         run_test("Access vex::vector elements", [&]() -> bool {
                 const size_t N = 1024;
                 bool rc = true;
@@ -238,7 +240,7 @@ int main(int argc, char *argv[]) {
                 });
 #endif
 
-#if 1
+#ifdef TESTS_ON
         run_test("Copy vex::vector to std::vector", [&]() -> bool {
                 const size_t N = 1024;
                 bool rc = true;
@@ -256,7 +258,7 @@ int main(int argc, char *argv[]) {
                 });
 #endif
 
-#if 1
+#ifdef TESTS_ON
         run_test("Copy std::vector to vex::vector", [&]() -> bool {
                 const size_t N = 1024;
                 bool rc = true;
@@ -272,7 +274,7 @@ int main(int argc, char *argv[]) {
                 });
 #endif
 
-#if 1
+#ifdef TESTS_ON
         run_test("Assign expression to vex::vector", [&]() -> bool {
                 const size_t N = 1024;
                 bool rc = true;
@@ -288,8 +290,28 @@ int main(int argc, char *argv[]) {
                 });
 #endif
 
+#ifdef TESTS_ON
+        run_test("STL container of vex::vectors", [&]() -> bool {
+                const size_t N = 1024;
+                const size_t M = 5;
+                bool rc = true;
 
-#if 1
+                std::vector< vex::vector<unsigned> > x;
+
+                for(size_t i = 0; i < M; ++i) {
+                    x.push_back( vex::vector<unsigned>(ctx, N) );
+                    x.back() = i;
+                }
+
+                for(size_t i = 0; i < M; ++i) {
+                    rc = rc && x[i][42] == i;
+                }
+
+                return rc;
+        });
+#endif
+
+#ifdef TESTS_ON
         run_test("Reduction", [&]() -> bool {
                 const size_t N = 1024;
                 bool rc = true;
@@ -307,7 +329,7 @@ int main(int argc, char *argv[]) {
 #endif
 
 
-#if 1
+#ifdef TESTS_ON
         run_test("Sparse matrix-vector product", [&]() -> bool {
                 bool rc = true;
                 const size_t n   = 32;
@@ -414,7 +436,7 @@ int main(int argc, char *argv[]) {
 #endif
 
 
-#if 1
+#ifdef TESTS_ON
         run_test("Sparse matrix-vector product for non-square matrix", [&]() -> bool {
                 bool rc = true;
                 const size_t n = 1 << 10;
@@ -468,7 +490,7 @@ int main(int argc, char *argv[]) {
         });
 #endif
 
-#if 1
+#ifdef TESTS_ON
         run_test("Sparse matrix-vector product with nondefault types", [&]() -> bool {
                 bool rc = true;
                 const size_t n = 1 << 10;
@@ -521,7 +543,7 @@ int main(int argc, char *argv[]) {
         });
 #endif
 
-#if 1
+#ifdef TESTS_ON
         run_test("Sparse matrix-vector product for empty-row matrix", [&]() -> bool {
                 bool rc = true;
                 const size_t n = 1 << 20;
@@ -580,7 +602,7 @@ int main(int argc, char *argv[]) {
         });
 #endif
 
-#if 1
+#ifdef TESTS_ON
         run_test("Sparse matrix-vector product (CCSR format)", [&]() -> bool {
                 bool rc = true;
                 const uint n   = 32;
@@ -673,7 +695,7 @@ int main(int argc, char *argv[]) {
         });
 #endif
 
-#if 1
+#ifdef TESTS_ON
         run_test("Builtin function with one argument", [&]() -> bool {
                 const size_t N = 1024;
                 bool rc = true;
@@ -693,7 +715,7 @@ int main(int argc, char *argv[]) {
                 });
 #endif
 
-#if 1
+#ifdef TESTS_ON
         run_test("Empty multivector construction", [&]() -> bool {
                 bool rc = true;
                 vex::multivector<double,3> m;
@@ -703,7 +725,7 @@ int main(int argc, char *argv[]) {
         });
 #endif
 
-#if 1
+#ifdef TESTS_ON
         run_test("Multivector construction from a copy", [&]() -> bool {
                 bool rc = true;
                 const size_t n = 1024;
@@ -725,7 +747,7 @@ int main(int argc, char *argv[]) {
         });
 #endif
 
-#if 1
+#ifdef TESTS_ON
         run_test("Access multivector's elements, copy data", [&]() -> bool {
                 bool rc = true;
                 const size_t n = 1024;
@@ -750,7 +772,7 @@ int main(int argc, char *argv[]) {
         });
 #endif
 
-#if 1
+#ifdef TESTS_ON
         run_test("Simple arithmetic with multivectors", [&]() -> bool {
                 bool rc = true;
                 const size_t n = 1024;
@@ -788,7 +810,7 @@ int main(int argc, char *argv[]) {
         });
 #endif
 
-#if 1
+#ifdef TESTS_ON
         run_test("Multiexpressions with multivectors", [&]() -> bool {
                 bool rc = true;
                 const size_t n = 1024;
@@ -832,7 +854,7 @@ int main(int argc, char *argv[]) {
         });
 #endif
 
-#if 1
+#ifdef TESTS_ON
         run_test("Tie vectors into a multivector", [&]() -> bool {
                 bool rc = true;
                 const size_t n = 1024;
@@ -867,7 +889,7 @@ int main(int argc, char *argv[]) {
         });
 #endif
 
-#if 1
+#ifdef TESTS_ON
         run_test("One-argument builtin function call for multivector", [&]() -> bool {
                 bool rc = true;
                 const size_t n = 1024;
@@ -888,7 +910,7 @@ int main(int argc, char *argv[]) {
         });
 #endif
 
-#if 1
+#ifdef TESTS_ON
         run_test("Reduction of multivector", [&]() -> bool {
                 bool rc = true;
                 const size_t n = 1024;
@@ -909,7 +931,7 @@ int main(int argc, char *argv[]) {
                 });
 #endif
 
-#if 1
+#ifdef TESTS_ON
         run_test("Sparse matrix-multivector product", [&]() -> bool {
                 bool rc = true;
                 const size_t n   = 32;
@@ -1010,7 +1032,7 @@ int main(int argc, char *argv[]) {
         });
 #endif
 
-#if 1
+#ifdef TESTS_ON
         run_test("Sparse matrix-multivector product (CCSR format)", [&]() -> bool {
                 bool rc = true;
                 const uint n     = 32;
@@ -1109,7 +1131,7 @@ int main(int argc, char *argv[]) {
         });
 #endif
 
-#if 1
+#ifdef TESTS_ON
         run_test("Builtin function with two arguments", [&]() -> bool {
                 const size_t N = 1024;
                 bool rc = true;
@@ -1125,7 +1147,7 @@ int main(int argc, char *argv[]) {
                 });
 #endif
 
-#if 1
+#ifdef TESTS_ON
         run_test("Custom function", [&]() -> bool {
                 const size_t N = 1024;
                 bool rc = true;
@@ -1142,7 +1164,7 @@ int main(int argc, char *argv[]) {
                 });
 #endif
 
-#if 1
+#ifdef TESTS_ON
         run_test("Custom functions with same signature", [&]() -> bool {
                 const size_t N = 1024;
                 bool rc = true;
@@ -1157,7 +1179,7 @@ int main(int argc, char *argv[]) {
             });
 #endif
 
-#if 1
+#ifdef TESTS_ON
         run_test("Two-arguments builtin function call for multivector", [&]() -> bool {
                 bool rc = true;
                 const size_t n = 1024;
@@ -1178,7 +1200,7 @@ int main(int argc, char *argv[]) {
         });
 #endif
 
-#if 1
+#ifdef TESTS_ON
         run_test("Custom function for multivector", [&]() -> bool {
                 bool rc = true;
                 const size_t n = 1024;
@@ -1198,7 +1220,7 @@ int main(int argc, char *argv[]) {
                 });
 #endif
 
-#if 1
+#ifdef TESTS_ON
         run_test("Stencil convolution", [&]() -> bool {
                 bool rc = true;
                 const int n = 1 << 20;
@@ -1247,7 +1269,7 @@ int main(int argc, char *argv[]) {
                 });
 #endif
 
-#if 1
+#ifdef TESTS_ON
         run_test("Two Stencil convolutions in one expression", [&]() -> bool {
                 const int n = 32;
                 std::vector<double> s(5);
@@ -1259,7 +1281,7 @@ int main(int argc, char *argv[]) {
             });
 #endif
 
-#if 1
+#ifdef TESTS_ON
         run_test("Stencil convolution with small vector", [&]() -> bool {
                 bool rc = true;
                 const int n = 1 << 7;
@@ -1294,7 +1316,7 @@ int main(int argc, char *argv[]) {
                 });
 #endif
 
-#if 1
+#ifdef TESTS_ON
         run_test("Stencil convolution with multivector", [&]() -> bool {
                 bool rc = true;
                 const int n = 1 << 16;
@@ -1348,7 +1370,7 @@ int main(int argc, char *argv[]) {
                 });
 #endif
 
-#if 1
+#ifdef TESTS_ON
         run_test("Big stencil convolution", [&]() -> bool {
                 bool rc = true;
                 const int n = 1 << 16;
@@ -1383,7 +1405,7 @@ int main(int argc, char *argv[]) {
                 });
 #endif
 
-#if 1
+#ifdef TESTS_ON
         run_test("User-defined stencil operator", [&]() -> bool {
                 bool rc = true;
                 const int n = 1 << 20;
@@ -1430,7 +1452,7 @@ int main(int argc, char *argv[]) {
                 });
 #endif
 
-#if 1
+#ifdef TESTS_ON
         run_test("Kernel auto-generation", [&]() -> bool {
                 bool rc = true;
                 const int n = 1 << 20;
@@ -1469,7 +1491,7 @@ int main(int argc, char *argv[]) {
                 });
 #endif
 
-#if 1
+#ifdef TESTS_ON
         run_test("Gather scattered points from vector", [&]() -> bool {
                 const size_t N = 1 << 20;
                 const size_t M = 100;
@@ -1498,7 +1520,7 @@ int main(int argc, char *argv[]) {
                 });
 #endif
 
-#if 1
+#ifdef TESTS_ON
         run_test("Use element index in a vector expression", [&]() -> bool {
                 const size_t N = 16 * 1024;
                 bool rc = true;
@@ -1512,7 +1534,7 @@ int main(int argc, char *argv[]) {
                 });
 #endif
 
-#if 1
+#ifdef TESTS_ON
         run_test("Use element index in a multivector expression", [&]() -> bool {
                 const size_t N = 16 * 1024;
                 bool rc = true;
@@ -1540,7 +1562,7 @@ int main(int argc, char *argv[]) {
                 });
 #endif
 
-#if 1
+#ifdef TESTS_ON
         run_test("Arithmetic with OpenCL vector values", [&]() -> bool {
                 const size_t N = 16 * 1024;
                 bool rc = true;
@@ -1564,7 +1586,7 @@ int main(int argc, char *argv[]) {
                 });
 #endif
 
-#if 1
+#ifdef TESTS_ON
         run_test("Random generator", [&]() -> bool {
                 const size_t N = 1024 * 1024;
                 bool rc = true;
@@ -1612,7 +1634,7 @@ int main(int argc, char *argv[]) {
                 });
 #endif
 
-#if 1
+#ifdef TESTS_ON
         run_test("Nested function invocation", [&]() -> bool {
                 bool rc = true;
                 const size_t N = 1024;
@@ -1633,7 +1655,7 @@ int main(int argc, char *argv[]) {
                 }); 
 #endif
 
-#if 1
+#ifdef TESTS_ON
         run_test("FFT", [&]() -> bool {
                bool rc = true;
                const size_t N = 1024;
