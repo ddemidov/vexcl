@@ -38,13 +38,15 @@ namespace fft {
 
 // Store v=b^e as components.
 struct pow {
-    size_t base, exponent, value;
+    const size_t base, exponent, value;
     pow(size_t b, size_t e) : base(b), exponent(e),
 	value(static_cast<size_t>(std::pow(static_cast<double>(b), static_cast<double>(e)))) {}
 };
 
 inline std::ostream &operator<<(std::ostream &o, const pow &p) {
-    return o << p.base << '^' << p.exponent << '=' << p.value;
+    o << p.base;
+    if(p.exponent != 1) o << '^' << p.exponent;
+    return o;
 }
 
 /// ceil(x/m) * m
@@ -181,7 +183,7 @@ inline kernel_call radix_kernel(bool once, const cl::CommandQueue &queue, size_t
     const size_t threads = int_ceil(m, wg);
 
     std::ostringstream desc;
-    desc << "dft{r=" << radix << ", p=" << p << ", n=" << n << ", batch=" << batch << ", threads=" << m << "(" << threads << "), wg=" << wg << "}";
+    desc << "dft{r=" << radix << ", p=" << p << ", n=" << n << ", batch=" << batch << ", threads=" << m << "(" << threads << "), wg=" << wg << ", in=" << in() << ", out=" << out() << "}";
 
     return kernel_call(once, desc.str(), program, kernel, cl::NDRange(threads, batch), cl::NDRange(wg, 1));
 }
@@ -240,7 +242,7 @@ inline kernel_call transpose_kernel(const cl::CommandQueue &queue, size_t width,
     desc << "transpose{"
          << "w=" << width << "(" << r_w << "), "
          << "h=" << height << "(" << r_h << "), "
-         << "bs=" << block_size << "}";
+         << "bs=" << block_size << ", in=" << in() << ", out=" << out() << "}";
 
     return kernel_call(false, desc.str(), program, kernel, cl::NDRange(r_w, r_h),
         cl::NDRange(block_size, block_size));
@@ -269,8 +271,8 @@ inline kernel_call bluestein_twiddle(const cl::CommandQueue &queue, size_t n, bo
     kernel.setArg(1, out);
 
     std::ostringstream desc;
-    desc << "bluestein_twiddle{n=" << n << ", inverse=" << inverse << "}";
-    return kernel_call(true, desc.str(), program, kernel, cl::NDRange(n,1), cl::NullRange);
+    desc << "bluestein_twiddle{n=" << n << ", inverse=" << inverse << ", out=" << out() << "}";
+    return kernel_call(true, desc.str(), program, kernel, cl::NDRange(n), cl::NullRange);
 }
 
 template <class T>
@@ -331,7 +333,7 @@ inline kernel_call bluestein_mul(const cl::CommandQueue &queue, size_t n, size_t
     kernel.setArg<T>(6, 1.0 / div);
 
     std::ostringstream desc;
-    desc << "bluestein_mul{n=" << n << ", batch=" << batch << ", pad_x=" << pad_x << ", in_stride=" << in_stride << ", out_stride=" << out_stride << ", div=" << div << "}";
+    desc << "bluestein_mul{n=" << n << ", batch=" << batch << ", data=" << data() << ", exp=" << exp() << ", out=" << out() << "}";
     return kernel_call(false, desc.str(), program, kernel, cl::NDRange(n, batch), cl::NullRange);
 }
 

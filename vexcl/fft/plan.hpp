@@ -312,9 +312,15 @@ struct plan {
         queues[0].finish();
         profile.toc("in");
 #endif
-
         for(auto run = kernels.begin(); run != kernels.end(); ++run) {
             if(!run->once || run->count == 0) {
+#ifdef FFT_DUMP_ARRAYS
+                for(size_t i = 0 ; i != bufs.size() ; i++) {
+                    vector<T2> b(queues[0], bufs[i]);
+                    std::cerr << "   " << std::setprecision(2) << bufs[i]() << " = " << b << std::endl;
+                }
+                std::cerr << "run " << run->desc << std::endl;
+#endif
 #ifdef FFT_PROFILE
                 profile.tic_cpu(run->desc);
 #endif
@@ -327,6 +333,12 @@ struct plan {
 #endif
             }
         }
+#ifdef FFT_DUMP_ARRAYS
+        for(size_t i = 0 ; i != bufs.size() ; i++) {
+            vector<T2> b(queues[0], bufs[i]);
+            std::cerr << "   " << bufs[i]() << " = " << b << std::endl;
+        }
+#endif
 
 #ifdef FFT_PROFILE
         profile.tic_cpu("out");
@@ -345,18 +357,38 @@ struct plan {
         profile.toc(prof_name.str());
 #endif
     }
+
+    std::string desc() const {
+        std::ostringstream o;
+        o << "FFT(";
+        // sizes
+        for(auto n = sizes.begin() ; n != sizes.end() ; n++) {
+            if(n != sizes.begin()) o << " x ";
+            o << *n;
+            auto fs = prime_factors(*n);
+            if(fs.size() > 1) {
+                o << '=';
+                for(auto f = fs.begin() ; f != fs.end() ; f++) {
+                    if(f != fs.begin()) o << '*';
+                    o << *f;
+                }
+            }
+        }
+        o << ")";
+        return o.str();
+    }
 };
 
 
 template <class T0, class T1, class P>
 inline std::ostream &operator<<(std::ostream &o, const plan<T0,T1,P> &p) {
-    o << "FFT[\n";
+    o << p.desc() << "{\n";
     for(auto k = p.kernels.begin() ; k != p.kernels.end() ; k++) {
         o << "  ";
         if(k->once) o << "once: ";
         o << k->desc << "\n";
     }
-    return o << "]";
+    return o << "}";
 }
 
 } // namespace fft
