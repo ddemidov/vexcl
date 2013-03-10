@@ -133,9 +133,17 @@ int main() {
     Context ctx(Filter::Env && Filter::Count(1), CL_QUEUE_PROFILING_ENABLE);
     std::cerr << ctx << std::endl;
 
+    // sizes to test
+    std::vector<size_t> ns;
+    const size_t max_len = 1 << 20;
+    vex::fft::prime_generator prime;
+    for(size_t n = 2, k = prime() ; n <= max_len ; n *= 2) {
+        ns.push_back(n);
+        while(k < n) k = prime();
+        if(k <= max_len) ns.push_back(k);
+    }
+
     // random data
-    const size_t k_max = 11, n_max = 1 << k_max;
-    const size_t max_len = n_max * n_max;
 #ifdef USE_FFTW
     cl_float2 *data = reinterpret_cast<cl_float2 *>(
         fftwf_malloc(sizeof(cl_float2) * max_len));
@@ -144,33 +152,32 @@ int main() {
 #endif
     std::minstd_rand gen;
     std::uniform_real_distribution<float> dist(-1000, 1000);
-    for(size_t i = 0 ; i < max_len ; i++)
+    for(size_t i = 0 ; i < 2 * max_len ; i++)
         reinterpret_cast<float*>(data)[i] = dist(gen);
 
     std::cout << "# prints `n log n / time` for n = 2^k\n";
 
     // 1D
     std::cout << "#n\tfftw^1\tclfft^1\tcufft^1" << std::endl;
-    for(size_t k = 1 ; k < k_max * 2 ; k++) {
-        size_t n = 1 << k;
-        std::cout << n;
-        info(test_fftw(data, n, 1), n, 1);
-        info(test(ctx, data, n, 1), n, 1);
-        info(test_cufft(data, n, 1), n, 1);
+    for(auto n = ns.begin() ; n != ns.end() ; n++) {
+        std::cout << *n;
+        info(test_fftw(data, *n, 1), *n, 1);
+        info(test(ctx, data, *n, 1), *n, 1);
+        info(test_cufft(data, *n, 1), *n, 1);
         std::cout << std::endl;
     }
     std::cout << "\n\n";
 
     // 2D
     std::cout << "#n\tfftw^2\tclfft^2\tcufft^2" << std::endl;
-    for(size_t k = 1 ; k < k_max ; k++) {
-        size_t n = 1 << k;
-        std::cout << n;
-        info(test_fftw(data, n, n), n, 2);
-        info(test(ctx, data, n, n), n, 2);
-        info(test_cufft(data, n, n), n, 2);
-        std::cout << std::endl;
-    }
+    for(auto n = ns.begin() ; n != ns.end() ; n++)
+        if(*n * *n <= max_len) {
+            std::cout << *n;
+            info(test_fftw(data, *n, *n), *n, 2);
+            info(test(ctx, data, *n, *n), *n, 2);
+            info(test_cufft(data, *n, *n), *n, 2);
+            std::cout << std::endl;
+        }
 
     return 0;
 }
