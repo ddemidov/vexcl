@@ -234,7 +234,7 @@ class profiler {
          * \param name  Optional name to be used when profiling info is printed.
          */
         profiler(
-                const std::vector<cl::CommandQueue> &queue,
+                const std::vector<cl::CommandQueue> &queue = std::vector<cl::CommandQueue>(),
                 const std::string &name = "Profile"
                 ) : queue(queue)
         {
