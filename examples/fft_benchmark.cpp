@@ -41,7 +41,7 @@ double test_cufft(cl_float2 *data, size_t n, size_t m) {
     // Send X to device
     check(cudaMemcpy(inData, data, dataSize, cudaMemcpyHostToDevice), "cudaMemcpy");
 
-    profiler prof( (std::vector<cl::CommandQueue>()) );
+    profiler prof;
     prof.tic_cpu("Run");
     for(size_t i = 0 ; i < runs ; i++)
         cufftExecC2C(plan, inData, outData, CUFFT_FORWARD);
@@ -74,7 +74,7 @@ double test_fftw(cl_float2 *data, size_t n, size_t m) {
         reinterpret_cast<fftwf_complex *>(data),
         out, FFTW_FORWARD, FFTW_MEASURE);
 
-    profiler prof({});
+    profiler prof;
     prof.tic_cpu("Run");
     for(size_t i = 0 ; i < runs ; i++)
         fftwf_execute(p1);
@@ -99,7 +99,7 @@ double test(Context &ctx, cl_float2 *data, size_t n, size_t m) {
     ctx.queue(0).finish();
 
     // Run some
-    profiler prof( (std::vector<cl::CommandQueue>()) );
+    profiler prof;
     prof.tic_cpu("Run");
     for(size_t i = 0 ; i < runs ; i++)
         b = fft(a);
