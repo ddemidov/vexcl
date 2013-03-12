@@ -478,9 +478,7 @@ std::pair<double,double> benchmark_spmv_ccsr(
 //---------------------------------------------------------------------------
 int main() {
     try {
-        vex::Context ctx(
-                Filter::DoublePrecision && Filter::Env
-                );
+        vex::Context ctx(Filter::DoublePrecision && Filter::Env);
 
         if (!ctx.size()) {
             std::cerr << "No compute devices found" << std::endl;

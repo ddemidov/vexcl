@@ -100,7 +100,7 @@ double skew_rand(double p) {
 }
 
 int main() {
-    Context ctx(Filter::Env && Filter::Count(1), CL_QUEUE_PROFILING_ENABLE);
+    Context ctx(Filter::Env && Filter::Count(1));
     std::cout << ctx << std::endl;
     srand(23);
 

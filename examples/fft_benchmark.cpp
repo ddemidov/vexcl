@@ -96,14 +96,12 @@ double test(Context &ctx, cl_float2 *data, size_t n, size_t m) {
     vector<cl_float2> b(ctx, n * m);
     std::vector<size_t> sz; sz.push_back(n); if(m > 1) sz.push_back(m);
     FFT<cl_float2> fft(ctx, sz);
-    ctx.queue(0).finish();
 
     // Run some
     profiler prof;
-    prof.tic_cpu("Run");
+    prof.tic_cl("Run");
     for(size_t i = 0 ; i < runs ; i++)
         b = fft(a);
-    ctx.queue(0).finish();
     double t = prof.toc("Run");
 
 #ifdef FFT_PROFILE
@@ -130,12 +128,7 @@ int main() {
     fftwf_init_threads();
     fftwf_plan_with_nthreads(omp_get_max_threads());
 #endif
-#ifdef FFT_PROFILE
-    const auto flags = CL_QUEUE_PROFILING_ENABLE;
-#else
-    const auto flags = 0;
-#endif
-    Context ctx(Filter::Env && Filter::Count(1), flags);
+    Context ctx(Filter::Env && Filter::Count(1));
     std::cerr << ctx << std::endl;
 
     // sizes to test

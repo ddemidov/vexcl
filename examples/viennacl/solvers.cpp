@@ -65,8 +65,7 @@ int main() {
         // Move data to GPU(s).
         vex::Context ctx(
                 vex::Filter::Type(CL_DEVICE_TYPE_GPU) &&
-                vex::Filter::DoublePrecision,
-                CL_QUEUE_PROFILING_ENABLE
+                vex::Filter::DoublePrecision
                 );
 
         if (!ctx) throw std::runtime_error("No GPUs with double precision found");

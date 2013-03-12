@@ -309,13 +309,12 @@ struct plan {
         prof_name << "}, append=" << append << ", scale=" << (ex_scale * scale) << ")";
         profile.tic_cpu(prof_name.str());
 
-        profile.tic_cpu("in");
+        profile.tic_cl("in");
 #endif
         vector<T2> in_c(queues[0], bufs[input]);
         if(std::is_same<T0, T>::value) in_c = r2c(in);
         else in_c = in;
 #ifdef FFT_PROFILE
-        queues[0].finish();
         profile.toc("in");
 #endif
         for(auto run = kernels.begin(); run != kernels.end(); ++run) {
@@ -328,13 +327,12 @@ struct plan {
                 std::cerr << "run " << run->desc << std::endl;
 #endif
 #ifdef FFT_PROFILE
-                profile.tic_cpu(run->desc);
+                profile.tic_cl(run->desc);
 #endif
                 queues[0].enqueueNDRangeKernel(run->kernel, cl::NullRange,
                     run->global, run->local);
                 run->count++;
 #ifdef FFT_PROFILE
-                queues[0].finish();
                 profile.toc(run->desc);
 #endif
             }
@@ -347,7 +345,7 @@ struct plan {
 #endif
 
 #ifdef FFT_PROFILE
-        profile.tic_cpu("out");
+        profile.tic_cl("out");
 #endif
         vector<T2> out_c(queues[0], bufs[output]);
         if(std::is_same<T1, T>::value) {
@@ -358,7 +356,6 @@ struct plan {
             else out = out_c * (ex_scale * scale);
         }
 #ifdef FFT_PROFILE
-        queues[0].finish();
         profile.toc("out");
         profile.toc(prof_name.str());
 #endif
