@@ -61,9 +61,7 @@ namespace vex {
  * domain. Each device gets portion of the vector proportional to the
  * performance of this operation.
  */
-inline double device_spmv_perf(
-        const cl::Context &context, const cl::Device &device
-        );
+inline double device_spmv_perf(const cl::CommandQueue&);
 
 /// \cond INTERNAL
 
@@ -1535,15 +1533,10 @@ void SpMatCCSR<real,column_t,idx_t>::mul(
 }
 
 /// Returns device weight after spmv test
-inline double device_spmv_perf(
-        const cl::Context &context, const cl::Device &device
-        )
-{
+inline double device_spmv_perf(const cl::CommandQueue &q) {
     static const size_t test_size = 64U;
 
-    std::vector<cl::CommandQueue> queue(1,
-            cl::CommandQueue(context, device, CL_QUEUE_PROFILING_ENABLE)
-            );
+    std::vector<cl::CommandQueue> queue(1, q);
 
     // Construct matrix for 3D Poisson problem in cubic domain.
     const size_t n   = test_size;

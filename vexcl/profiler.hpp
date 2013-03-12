@@ -182,8 +182,7 @@ class profiler {
     public:
         /// Constructor.
         /**
-         * \param queue vector of command queues. Each queue should have been
-         *              initialized with CL_QUEUE_PROFILING_ENABLE property.
+         * \param queue vector of command queues.
          * \param name  Optional name to be used when profiling info is printed.
          */
         profiler(

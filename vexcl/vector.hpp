@@ -63,18 +63,13 @@ namespace vex {
  * where a, b and c are device vectors. Each device gets portion of the vector
  * proportional to the performance of this operation.
  */
-inline double device_vector_perf(
-        const cl::Context &context, const cl::Device &device
-        );
+inline double device_vector_perf(const cl::CommandQueue&);
 
 /// Assigns equal weight to each device.
 /**
  * This results in equal partitioning.
  */
-inline double equal_weights(
-        const cl::Context &, const cl::Device &
-        )
-{
+inline double equal_weights(const cl::CommandQueue&) {
     return 1;
 }
 
@@ -83,9 +78,8 @@ inline double equal_weights(
 template <bool dummy = true>
 struct partitioning_scheme {
     static_assert(dummy, "dummy parameter should be true");
-    typedef std::function<
-        double(const cl::Context&, const cl::Device&)
-        > weight_function;
+
+    typedef std::function< double(const cl::CommandQueue&) > weight_function;
 
     static void set(weight_function f) {
         if (!is_set) {
@@ -132,13 +126,12 @@ std::vector<size_t> partitioning_scheme<dummy>::get(size_t n,
         cumsum.push_back(0);
 
         for(auto q = queue.begin(); q != queue.end(); q++) {
-            cl::Context context = qctx(*q);
             cl::Device  device  = qdev(*q);
 
             auto dw = device_weight.find(device());
 
             double w = (dw == device_weight.end()) ?
-                (device_weight[device()] = weight(context, device)) :
+                (device_weight[device()] = weight(*q)) :
                 dw->second;
 
             cumsum.push_back(cumsum.back() + w);
@@ -168,7 +161,7 @@ typename partitioning_scheme<dummy>::weight_function partitioning_scheme<dummy>:
  * selected.
  */
 inline void set_partitioning(
-        std::function< double(const cl::Context&, const cl::Device&) > f
+        std::function< double(const cl::CommandQueue&) > f
         )
 {
     partitioning_scheme<>::set(f);
@@ -813,14 +806,9 @@ void swap(vector<T> &x, vector<T> &y) {
 }
 
 /// Returns device weight after simple bandwidth test
-inline double device_vector_perf(
-        const cl::Context &context, const cl::Device &device
-        )
-{
+inline double device_vector_perf(const cl::CommandQueue &q) {
     static const size_t test_size = 1024U * 1024U;
-    std::vector<cl::CommandQueue> queue(1,
-            cl::CommandQueue(context, device, CL_QUEUE_PROFILING_ENABLE)
-            );
+    std::vector<cl::CommandQueue> queue(1, q);
 
     // Allocate test vectors on current device and measure execution
     // time of a simple kernel.
