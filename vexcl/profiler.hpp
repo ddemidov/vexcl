@@ -176,7 +176,6 @@ class profiler {
                 }
             private:
                 const std::vector<cl::CommandQueue> &queue;
-                boost::chrono::time_point<boost::chrono::high_resolution_clock> start;
         };
 
     public:
