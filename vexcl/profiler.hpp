@@ -45,6 +45,7 @@ THE SOFTWARE.
 #include <stack>
 #include <vector>
 #include <cassert>
+#include <boost/chrono.hpp>
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/sequenced_index.hpp>
@@ -56,11 +57,6 @@ THE SOFTWARE.
 
 #include <CL/cl.hpp>
 
-#ifdef WIN32
-#  include <sys/timeb.h>
-#else
-#  include <chrono>
-#endif
 
 namespace vex {
 
@@ -150,22 +146,12 @@ class profiler {
                 cpu_profile_unit(const std::string &name) : profile_unit(name) {}
 
                 void tic() {
-#ifdef WIN32
-                    ftime(&start);
-#else
-                    start = std::chrono::high_resolution_clock::now();
-#endif
+                    start = boost::chrono::high_resolution_clock::now();
                 }
 
                 double toc() {
-#ifdef WIN32
-                    timeb now;
-                    ftime(&now);
-                    double delta = now.time - start.time + 1e-3 * (now.millitm - start.millitm);
-#else
-                    double delta = std::chrono::duration<double>(
-                            std::chrono::high_resolution_clock::now() - start).count();
-#endif
+                    double delta = boost::chrono::duration<double>(
+                            boost::chrono::high_resolution_clock::now() - start).count();
 
                     length += delta;
                     hit++;
@@ -174,11 +160,7 @@ class profiler {
                 }
 
             private:
-#ifdef WIN32
-                timeb start;
-#else
-                std::chrono::time_point<std::chrono::high_resolution_clock> start;
-#endif
+                boost::chrono::time_point<boost::chrono::high_resolution_clock> start;
         };
 
         class cl_profile_unit : public profile_unit {
