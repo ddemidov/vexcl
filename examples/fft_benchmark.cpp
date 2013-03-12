@@ -130,7 +130,12 @@ int main() {
     fftwf_init_threads();
     fftwf_plan_with_nthreads(omp_get_max_threads());
 #endif
-    Context ctx(Filter::Env && Filter::Count(1), CL_QUEUE_PROFILING_ENABLE);
+#ifdef FFT_PROFILE
+    const auto flags = CL_QUEUE_PROFILING_ENABLE;
+#else
+    const auto flags = 0;
+#endif
+    Context ctx(Filter::Env && Filter::Count(1), flags);
     std::cerr << ctx << std::endl;
 
     // sizes to test
