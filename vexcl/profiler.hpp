@@ -67,16 +67,31 @@ class profiler {
             public:
                 profile_unit(std::string name) : length(0), hit(0), name(name) {}
                 virtual ~profile_unit() {}
-                virtual void tic() = 0;
-                virtual double toc() = 0;
 
                 double length;
                 size_t hit;
                 std::string name;
 
+                boost::chrono::time_point<boost::chrono::high_resolution_clock> start;
+
                 static std::string _name(const std::shared_ptr<profile_unit> &u) {
                     return u->name;
                 }
+
+                virtual void tic() {
+                    start = boost::chrono::high_resolution_clock::now();
+                }
+
+                virtual double toc() {
+                    double delta = boost::chrono::duration<double>(
+                            boost::chrono::high_resolution_clock::now() - start).count();
+
+                    length += delta;
+                    hit++;
+
+                    return delta;
+                }
+
                 boost::multi_index_container<
                     std::shared_ptr<profile_unit>,
                     boost::multi_index::indexed_by<
@@ -141,71 +156,27 @@ class profiler {
                 static const uint shift_width = 2U;
         };
 
-        class cpu_profile_unit : public profile_unit {
-            public:
-                cpu_profile_unit(const std::string &name) : profile_unit(name) {}
-
-                void tic() {
-                    start = boost::chrono::high_resolution_clock::now();
-                }
-
-                double toc() {
-                    double delta = boost::chrono::duration<double>(
-                            boost::chrono::high_resolution_clock::now() - start).count();
-
-                    length += delta;
-                    hit++;
-
-                    return delta;
-                }
-
-            private:
-                boost::chrono::time_point<boost::chrono::high_resolution_clock> start;
-        };
-
         class cl_profile_unit : public profile_unit {
             public:
                 cl_profile_unit(const std::string &name, const std::vector<cl::CommandQueue> &queue)
-                    : profile_unit(name), queue(queue), start(queue.size()), stop(queue.size()),
-                      dbuf(queue.size()), hbuf(queue.size())
-                {
-                    for(uint d = 0; d < queue.size(); d++) {
-                        dbuf[d] = cl::Buffer(qctx(queue[d]), CL_MEM_READ_WRITE, 1);
-                    }
-                }
+                    : profile_unit(name), queue(queue) {}
 
                 void tic() {
-                    for(uint d = 0; d < queue.size(); d++)
-                        queue[d].enqueueReadBuffer(dbuf[d], CL_FALSE, 0, 1, &hbuf[d], 0, &start[d]);
+                    for(auto q = queue.begin(); q != queue.end(); ++q)
+                        q->finish();
+
+                    profile_unit::tic();
                 }
 
                 double toc() {
-                    for(uint d = 0; d < queue.size(); d++)
-                        queue[d].enqueueReadBuffer(dbuf[d], CL_FALSE, 0, 1, &hbuf[d], 0, &stop[d]);
+                    for(auto q = queue.begin(); q != queue.end(); ++q)
+                        q->finish();
 
-                    // Measured time ends before marker is in the queue.
-                    cl_long max_delta = 0;
-                    for(uint d = 0; d < queue.size(); d++) {
-                        stop[d].wait();
-                        max_delta = std::max<cl_long>(max_delta,
-                                stop [d].getProfilingInfo<CL_PROFILING_COMMAND_START>() -
-                                start[d].getProfilingInfo<CL_PROFILING_COMMAND_END>()
-                                );
-                    }
-
-                    double delta = max_delta * 1.0e-9;
-
-                    length += delta;
-                    hit++;
-
-                    return delta;
+                    return profile_unit::toc();
                 }
             private:
                 const std::vector<cl::CommandQueue> &queue;
-                std::vector<cl::Event> start;
-                std::vector<cl::Event> stop;
-                std::vector<cl::Buffer> dbuf;
-                std::vector<char> hbuf;
+                boost::chrono::time_point<boost::chrono::high_resolution_clock> start;
         };
 
     public:
@@ -220,7 +191,7 @@ class profiler {
                 const std::string &name = "Profile"
                 ) : queue(queue)
         {
-            auto root = std::shared_ptr<profile_unit>(new cpu_profile_unit(name));
+            auto root = std::shared_ptr<profile_unit>(new profile_unit(name));
             root->tic();
             stack.push_back(root);
         }
@@ -242,7 +213,7 @@ class profiler {
          * \param name name of the measured interval.
          */
         void tic_cpu(const std::string &name) {
-            tic(new cpu_profile_unit(name));
+            tic(new profile_unit(name));
         }
 
         /// Enqueues a marker into each of the provided queues.

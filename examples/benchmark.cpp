@@ -479,8 +479,7 @@ std::pair<double,double> benchmark_spmv_ccsr(
 int main() {
     try {
         vex::Context ctx(
-                Filter::DoublePrecision && Filter::Env,
-                CL_QUEUE_PROFILING_ENABLE
+                Filter::DoublePrecision && Filter::Env
                 );
 
         if (!ctx.size()) {
