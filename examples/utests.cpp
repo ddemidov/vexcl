@@ -1685,6 +1685,29 @@ int main(int argc, char *argv[]) {
                return rc;
             });
 #endif
+
+#ifdef TESTS_ON
+        run_test("Map buffer", [&]() -> bool {
+               bool rc = true;
+               const size_t N = 1 << 20;
+
+               vex::vector<size_t> x(ctx, N);
+
+               for(unsigned d = 0; d < ctx.size(); ++d) {
+                    auto ptr = x.map(d);
+                    for(size_t i = 0; i < x.part_size(d); ++i)
+                        ptr[i] = i + x.part_start(d);
+               }
+
+               for(int i = 0; i < 100; ++i) {
+                   size_t idx = rand() % N;
+                   rc = rc && x[idx] == idx;
+               }
+
+               return rc;
+            });
+#endif
+
     } catch (const cl::Error &err) {
         std::cerr << "OpenCL error: " << err << std::endl;
         return 1;

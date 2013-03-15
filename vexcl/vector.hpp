@@ -478,6 +478,35 @@ class vector : public vector_terminal_expression {
             return *this;
         }
 
+        struct buffer_unmapper {
+            const cl::CommandQueue &queue;
+            const cl::Buffer       &buffer;
+
+            buffer_unmapper(const cl::CommandQueue &q, const cl::Buffer &b)
+                : queue(q), buffer(b)
+            {}
+
+            void operator()(T* ptr) const {
+                queue.enqueueUnmapMemObject(buffer, ptr);
+            }
+        };
+
+        /// Host array mapped to device buffer.
+        /**
+         * Unmaps automatically when goes out of scope.
+         */
+        typedef std::unique_ptr<T[], buffer_unmapper> mapped_array;
+
+        mapped_array
+        map(uint d = 0, cl_map_flags flags = CL_MAP_READ | CL_MAP_WRITE) {
+            return mapped_array(
+                    static_cast<T*>( queue[d].enqueueMapBuffer(
+                            buf[d], CL_TRUE, flags, 0, part_size(d) * sizeof(T))
+                        ),
+                    buffer_unmapper(queue[d], buf[d])
+                    );
+        }
+
         /** \name Expression assignments.
          * @{
          * The appropriate kernel is compiled first time the assignment is
