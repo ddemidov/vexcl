@@ -497,6 +497,7 @@ class vector : public vector_terminal_expression {
          */
         typedef std::unique_ptr<T[], buffer_unmapper> mapped_array;
 
+        /// Maps device buffer to host array.
         mapped_array
         map(uint d = 0, cl_map_flags flags = CL_MAP_READ | CL_MAP_WRITE) {
             return mapped_array(
