@@ -24,7 +24,7 @@ end(const vex::vector<T> x, unsigned d) {
 }
 
 template <typename T>
-void inclusive_scan(const vex::vector<T> &src, vex::vector<T> &dst) {
+void scan(const vex::vector<T> &src, vex::vector<T> &dst, bool exclusive = false) {
     auto queue = src.queue_list();
 
     // Scan partitions separately.
@@ -32,10 +32,10 @@ void inclusive_scan(const vex::vector<T> &src, vex::vector<T> &dst) {
         if (src.part_size(d)) {
             boost::compute::command_queue q( queue[d]() );
 
-            boost::compute::inclusive_scan(
+            boost::compute::detail::scan(
                     compute::begin(src, d), compute::end(src, d),
                     compute::begin(dst, d),
-                    q
+                    exclusive && (d == 0), q
                     );
         }
     }

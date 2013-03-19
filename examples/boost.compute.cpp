@@ -12,8 +12,11 @@ int main() {
     vex::vector<double> x(ctx, n);
     vex::vector<double> y(ctx, n);
     x = 1;
+    y = 0;
 
-    vex::inclusive_scan(x, y);
+    vex::scan(x, y, /*exclusive*/true);
+    std::cout << y[n - 1] << std::endl;
 
+    vex::scan(x, y, /*inclusive*/false);
     std::cout << y[n - 1] << std::endl;
 }
