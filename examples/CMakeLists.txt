@@ -120,6 +120,15 @@ if (FFT_EXAMPLES)
     target_link_libraries(fft_benchmark ${FFT_LIBS})
 endif (FFT_EXAMPLES)
 
+option(BOOST_COMPUTE "Use Boost.Compute algorithms" OFF)
+if (BOOST_COMPUTE)
+    find_path(BOOST_COMPUTE_INCLUDE boost/compute.hpp)
+    include_directories(${BOOST_COMPUTE_INCLUDE})
+
+    add_executable(boost.compute boost.compute.cpp)
+    target_link_libraries(boost.compute ${Boost_LIBRARIES} ${OPENCL_LIBRARIES})
+endif (BOOST_COMPUTE)
+
 foreach(file ${EXAMPLES})
     list(APPEND binaries "${CMAKE_CURRENT_BINARY_DIR}/${file}")
     list(APPEND source "${CMAKE_CURRENT_SOURCE_DIR}/${file}.cpp")
