@@ -37,15 +37,16 @@ void scan(const vex::vector<T> &src, vex::vector<T> &dst, bool exclusive = false
                     compute::begin(dst, d),
                     exclusive && (d == 0), q
                     );
+            q.finish();
         }
     }
 
     // If there are more than one partition,
     // update all of them except for the first.
     if (queue.size() > 1) {
-        std::vector<T> tail(queue.size(), T());
+        std::vector<T> tail(queue.size() - 1, T());
 
-        for(unsigned d = 0; d < queue.size(); ++d) {
+        for(unsigned d = 0; d < tail.size(); ++d) {
             if (src.part_size(d))
                 tail[d] = dst[src.part_start(d + 1) - 1];
         }
@@ -53,9 +54,11 @@ void scan(const vex::vector<T> &src, vex::vector<T> &dst, bool exclusive = false
         std::partial_sum(tail.begin(), tail.end(), tail.begin());
 
         for(unsigned d = 1; d < queue.size(); ++d) {
-            // Wrap partition into vector for ease of use:
-            vex::vector<T> part(queue[d], dst(d));
-            part += tail[d - 1];
+            if (src.part_size(d)) {
+                // Wrap partition into vector for ease of use:
+                vex::vector<T> part(queue[d], dst(d));
+                part += tail[d - 1];
+            }
         }
     }
 }
