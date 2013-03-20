@@ -14,6 +14,20 @@ int main() {
     x = 1;
     y = 0;
 
+    vex::Reductor<float, vex::SUM> sum(ctx);
+
+    // This works:
+    float s = 0;
+    for(size_t d = 0; d < ctx.size(); ++d) {
+        boost::compute::command_queue q( ctx.queue(d)() );
+
+        s += boost::compute::accumulate(
+                vex::compute::begin(x, d), vex::compute::end(x, d), 0.0f, q
+                );
+    }
+    std::cout << sum(x) << " == " << s << std::endl;
+
+    // And these don't:
     vex::scan(x, y, /*exclusive*/true);
     std::cout << y[n-1] << std::endl;
 
