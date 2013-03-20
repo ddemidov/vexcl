@@ -12,3 +12,6 @@ target_link_libraries(vecsum_vexcl ${Boost_LIBRARIES} ${OPENCL_LIBRARIES})
 
 add_executable(vecsum_compute vecsum_compute.cpp)
 target_link_libraries(vecsum_compute ${Boost_LIBRARIES} ${OPENCL_LIBRARIES})
+
+add_executable(rowapi rowapi.cpp)
+target_link_libraries(rowapi ${Boost_LIBRARIES} ${OPENCL_LIBRARIES})
