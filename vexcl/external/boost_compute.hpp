@@ -7,22 +7,6 @@
 
 namespace vex {
 
-namespace compute {
-
-template <typename T>
-boost::compute::buffer_iterator<T>
-begin(const vex::vector<T> &x, unsigned d) {
-    return boost::compute::make_buffer_iterator<T>( x(d)(), 0 );
-}
-
-template <typename T>
-boost::compute::buffer_iterator<T>
-end(const vex::vector<T> &x, unsigned d) {
-    return boost::compute::make_buffer_iterator<T>( x(d)(), x.part_size(d) );
-}
-
-}
-
 template <typename T>
 void scan(const vex::vector<T> &src, vex::vector<T> &dst, bool exclusive = false) {
     auto queue = src.queue_list();
@@ -31,13 +15,16 @@ void scan(const vex::vector<T> &src, vex::vector<T> &dst, bool exclusive = false
     for(unsigned d = 0; d < queue.size(); ++d) {
         if (src.part_size(d)) {
             boost::compute::command_queue q( queue[d]() );
+            
+            cl::Buffer sbuf = src(d);
+            cl::Buffer dbuf = dst(d);
 
             boost::compute::detail::scan(
-                    compute::begin(src, d), compute::end(src, d),
-                    compute::begin(dst, d),
+                    boost::compute::make_buffer_iterator<T>(sbuf(), 0),
+                    boost::compute::make_buffer_iterator<T>(sbuf(), src.part_size(d)),
+                    boost::compute::make_buffer_iterator<T>(dbuf(), 0),
                     exclusive && (d == 0), q
                     );
-            q.finish();
         }
     }
 

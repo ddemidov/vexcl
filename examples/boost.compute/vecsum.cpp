@@ -23,11 +23,17 @@ int main() {
     }
     prof.toc("vexcl");
 
+    std::cout << x[0] << std::endl;
+    x = 0;
+
     boost::compute::command_queue q( ctx.queue(0)() );
 
-    auto x_begin = vex::compute::begin(x, 0);
-    auto x_end   = vex::compute::end  (x, 0);
-    auto y_begin = vex::compute::begin(y, 0);
+    cl::Buffer xbuf = x(0);
+    cl::Buffer ybuf = y(0);
+
+    auto x_begin = boost::compute::make_buffer_iterator<float>(xbuf(), 0);
+    auto x_end   = boost::compute::make_buffer_iterator<float>(xbuf(), n);
+    auto y_begin = boost::compute::make_buffer_iterator<float>(ybuf(), 0);
 
     prof.tic_cl("compute");
     for(size_t i = 0; i < m; ++i) {
@@ -36,6 +42,8 @@ int main() {
                 );
     }
     prof.toc("compute");
+
+    std::cout << x[0] << std::endl;
 
     std::cout << prof << std::endl;
 }
