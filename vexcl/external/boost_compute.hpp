@@ -92,6 +92,60 @@ void exclusive_scan(const vex::vector<T> &src, vex::vector<T> &dst) {
     scan(src, dst, true);
 }
 
+/// Sort.
+/**
+ * If there are more than one device in vector's queue list, then all
+ * partitions are sorted individually on GPUs and then merged on CPU.
+ */
+template <typename T>
+void sort(vex::vector<T> &x) {
+    auto queue = x.queue_list();
+
+    for(unsigned d = 0; d < queue.size(); ++d) {
+        if (x.part_size(d)) {
+            boost::compute::command_queue q( queue[d]() );
+            cl::Buffer buf = x(d);
+
+            boost::compute::sort(
+                    boost::compute::make_buffer_iterator<T>(buf(), 0),
+                    boost::compute::make_buffer_iterator<T>(buf(), x.part_size(d)),
+                    q
+                    );
+        }
+    }
+
+    if (queue.size() > 1) {
+        // Get sorted partitions to host side and do multiway merge sort.
+
+        std::vector<T> src(x.size()), dst(x.size());
+        vex::copy(x, src);
+
+        std::vector< typename std::vector<T>::const_iterator > begin(queue.size());
+        std::vector< typename std::vector<T>::const_iterator > end  (queue.size());
+
+        for(unsigned d = 0; d < queue.size(); ++d) {
+            begin[d] = src.begin() + x.part_start(d);
+            end  [d] = src.begin() + x.part_start(d + 1);
+        }
+
+
+        for(auto pos = dst.begin(); pos != dst.end(); ++pos) {
+            int winner = -1;
+            for(unsigned d = 0; d < queue.size(); ++d) {
+                if (begin[d] == end[d])
+                    continue;
+
+                if (winner < 0 || *begin[d] < *begin[winner])
+                    winner = d;
+            }
+
+            *pos = *begin[winner]++;
+        }
+
+        vex::copy(dst, x);
+    }
+}
+
 }
 
 #endif
