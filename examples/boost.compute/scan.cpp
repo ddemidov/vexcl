@@ -1,5 +1,3 @@
-#define BOOST_COMPUTE_DEBUG_KERNEL_COMPILATION
-
 #include <vexcl/vexcl.hpp>
 #include <vexcl/external/boost_compute.hpp>
 
@@ -14,9 +12,10 @@ int main() {
     x = 1;
     y = 0;
 
-    vex::scan(x, y, /*exclusive*/true);
+    vex::exclusive_scan(x, y);
     std::cout << y[n-1] << std::endl;
 
-    vex::scan(x, y, /*inclusive*/false);
+    vex::inclusive_scan(x, y);
     std::cout << y[n-1] << std::endl;
 }
+
