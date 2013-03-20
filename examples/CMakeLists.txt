@@ -122,11 +122,7 @@ endif (FFT_EXAMPLES)
 
 option(BOOST_COMPUTE "Use Boost.Compute algorithms" OFF)
 if (BOOST_COMPUTE)
-    find_path(BOOST_COMPUTE_INCLUDE boost/compute.hpp)
-    include_directories(${BOOST_COMPUTE_INCLUDE})
-
-    add_executable(boost.compute boost.compute.cpp)
-    target_link_libraries(boost.compute ${Boost_LIBRARIES} ${OPENCL_LIBRARIES})
+    add_subdirectory(boost.compute)
 endif (BOOST_COMPUTE)
 
 foreach(file ${EXAMPLES})

@@ -4,7 +4,7 @@
 #include <vexcl/external/boost_compute.hpp>
 
 int main() {
-    const size_t n = 1024;
+    const size_t n = 1 << 20;
 
     vex::Context ctx( vex::Filter::Env );
     std::cout << ctx << std::endl;
