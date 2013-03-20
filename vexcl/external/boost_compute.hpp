@@ -37,6 +37,7 @@ THE SOFTWARE.
 
 namespace vex {
 
+/// \cond INTERNAL
 template <typename T>
 void scan(const vex::vector<T> &src, vex::vector<T> &dst, bool exclusive = false) {
     auto queue = src.queue_list();
@@ -46,13 +47,13 @@ void scan(const vex::vector<T> &src, vex::vector<T> &dst, bool exclusive = false
         if (src.part_size(d)) {
             boost::compute::command_queue q( queue[d]() );
             
-            cl::Buffer sbuf = src(d);
-            cl::Buffer dbuf = dst(d);
+            boost::compute::buffer sbuf( src(d)() );
+            boost::compute::buffer dbuf( dst(d)() );
 
             boost::compute::detail::scan(
-                    boost::compute::make_buffer_iterator<T>(sbuf(), 0),
-                    boost::compute::make_buffer_iterator<T>(sbuf(), src.part_size(d)),
-                    boost::compute::make_buffer_iterator<T>(dbuf(), 0),
+                    boost::compute::make_buffer_iterator<T>(sbuf, 0),
+                    boost::compute::make_buffer_iterator<T>(sbuf, src.part_size(d)),
+                    boost::compute::make_buffer_iterator<T>(dbuf, 0),
                     exclusive && (d == 0), q
                     );
         }
@@ -79,6 +80,7 @@ void scan(const vex::vector<T> &src, vex::vector<T> &dst, bool exclusive = false
         }
     }
 }
+/// \endcond
 
 /// Inclusive scan.
 template <typename T>
@@ -104,11 +106,11 @@ void sort(vex::vector<T> &x) {
     for(unsigned d = 0; d < queue.size(); ++d) {
         if (x.part_size(d)) {
             boost::compute::command_queue q( queue[d]() );
-            cl::Buffer buf = x(d);
+            boost::compute::buffer buf( x(d)() );
 
             boost::compute::sort(
-                    boost::compute::make_buffer_iterator<T>(buf(), 0),
-                    boost::compute::make_buffer_iterator<T>(buf(), x.part_size(d)),
+                    boost::compute::make_buffer_iterator<T>(buf, 0),
+                    boost::compute::make_buffer_iterator<T>(buf, x.part_size(d)),
                     q
                     );
         }

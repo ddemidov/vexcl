@@ -1,5 +1,3 @@
-#define BOOST_COMPUTE_DEBUG_KERNEL_COMPILATION
-
 #include <vexcl/vexcl.hpp>
 #include <vexcl/external/boost_compute.hpp>
 
@@ -28,12 +26,12 @@ int main() {
 
     boost::compute::command_queue q( ctx.queue(0)() );
 
-    cl::Buffer xbuf = x(0);
-    cl::Buffer ybuf = y(0);
+    boost::compute::buffer xbuf( x(0)() );
+    boost::compute::buffer ybuf( y(0)() );
 
-    auto x_begin = boost::compute::make_buffer_iterator<float>(xbuf(), 0);
-    auto x_end   = boost::compute::make_buffer_iterator<float>(xbuf(), n);
-    auto y_begin = boost::compute::make_buffer_iterator<float>(ybuf(), 0);
+    auto x_begin = boost::compute::make_buffer_iterator<float>(xbuf, 0);
+    auto x_end   = boost::compute::make_buffer_iterator<float>(xbuf, n);
+    auto y_begin = boost::compute::make_buffer_iterator<float>(ybuf, 0);
 
     prof.tic_cl("compute");
     for(size_t i = 0; i < m; ++i) {
