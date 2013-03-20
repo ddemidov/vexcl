@@ -11,13 +11,13 @@ namespace compute {
 
 template <typename T>
 boost::compute::buffer_iterator<T>
-begin(const vex::vector<T> x, unsigned d) {
+begin(const vex::vector<T> &x, unsigned d) {
     return boost::compute::make_buffer_iterator<T>( x(d)(), 0 );
 }
 
 template <typename T>
 boost::compute::buffer_iterator<T>
-end(const vex::vector<T> x, unsigned d) {
+end(const vex::vector<T> &x, unsigned d) {
     return boost::compute::make_buffer_iterator<T>( x(d)(), x.part_size(d) );
 }
 
