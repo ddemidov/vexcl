@@ -302,8 +302,10 @@ namespace Filter {
                             if (flock->try_lock())
                                 return true;
 
+#if BOOST_VERSION >= 105000
                             boost::this_thread::sleep_for(
                                     boost::chrono::milliseconds( rnd(rng) ) );
+#endif
                         }
                         return false;
                     }
