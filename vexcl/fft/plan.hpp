@@ -41,6 +41,8 @@ THE SOFTWARE.
 #include <boost/lexical_cast.hpp>
 
 namespace vex {
+
+/// Fast Fourier Transform
 namespace fft {
 
 
