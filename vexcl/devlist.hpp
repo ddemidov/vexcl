@@ -44,6 +44,7 @@ THE SOFTWARE.
 #include <cstdlib>
 #include <vexcl/util.hpp>
 #include <boost/interprocess/sync/file_lock.hpp>
+#include <boost/filesystem.hpp>
 
 #ifdef __GNUC__
 #  ifndef _GLIBCXX_USE_NANOSLEEP
@@ -271,6 +272,13 @@ namespace Filter {
                             << std::endl;
                     } else {
                         flock.reset(new boost::interprocess::file_lock(fname.c_str()));
+                        // In case we created the lock file,
+                        // lets make it writable by others:
+                        try {
+                            boost::filesystem::permissions(fname, boost::filesystem::all_all);
+                        } catch (const boost::filesystem::filesystem_error &e) {
+                            (void)0;
+                        }
                     }
                 }
 

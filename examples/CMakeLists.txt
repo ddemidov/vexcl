@@ -8,12 +8,10 @@ set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 
 if (WIN32)
     set(Boost_USE_STATIC_LIBS ON)
-    find_package(Boost COMPONENTS system date_time thread chrono)
-
     add_definitions(-D_USE_MATH_DEFINES)
-else (WIN32)
-    find_package(Boost COMPONENTS system thread chrono)
 endif (WIN32)
+
+find_package(Boost COMPONENTS system date_time thread chrono filesystem)
 
 find_package(OpenCL REQUIRED)
 
