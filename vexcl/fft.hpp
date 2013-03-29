@@ -215,6 +215,15 @@ enum direction {
     forward, inverse
 };
 
+/// Fast Fourier Transform.
+/**
+ * Usage:
+ * \code
+ * FFT<cl_double2> fft(ctx, length);
+ * output = fft(input); // out-of-place transform
+ * data = fft(data);    // in-place transform
+ * \endcode
+ */
 template <typename T0, typename T1 = T0, class Planner = fft::planner>
 struct FFT {
     typedef T0 input_t;
