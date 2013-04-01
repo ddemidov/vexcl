@@ -553,10 +553,20 @@ class vector : public vector_terminal_expression {
                             declare_expression_parameter(kernel)
                             );
 
-                    kernel <<
-                        "\n)\n{\n\t"
-                        "for(size_t idx = get_global_id(0); idx < n; idx += get_global_size(0)) {\n"
-                        "\t\tres[idx] = ";
+                    kernel << "\n)\n{\n";
+
+                    if ( is_cpu(device) ) {
+                        kernel <<
+                            "\tsize_t chunk_size  = (n + get_global_size(0) - 1) / get_global_size(0);\n"
+                            "\tsize_t chunk_start = get_global_id(0) * chunk_size;\n"
+                            "\tsize_t chunk_end   = min(n, chunk_start + chunk_size);\n"
+                            "\tfor(size_t idx = chunk_start; idx < chunk_end; ++idx) {\n";
+                    } else {
+                        kernel <<
+                            "\tfor(size_t idx = get_global_id(0); idx < n; idx += get_global_size(0)) {\n";
+                    }
+
+                    kernel << "\t\tres[idx] = ";
 
                     boost::proto::eval(boost::proto::as_child(expr), expr_ctx);
 
@@ -576,9 +586,8 @@ class vector : public vector_terminal_expression {
                     cl::Context context = qctx(queue[d]);
                     cl::Device  device  = qdev(queue[d]);
 
-                    size_t g_size = device.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU ?
-                        alignup(psize, exdata<Expr>::wgsize[context()]) :
-                        device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() * exdata<Expr>::wgsize[context()] * 4;
+                    size_t g_size = device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>()
+                        * exdata<Expr>::wgsize[context()] * 4;
 
                     uint pos = 0;
                     exdata<Expr>::kernel[context()].setArg(pos++, psize);
