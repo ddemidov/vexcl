@@ -421,34 +421,42 @@ class Kernel {
                     "Wrong number of kernel parameters"
                     );
 
-            std::ostringstream source;
-
-            source
-                << standard_kernel_header
-                << "kernel void " << name << "(\n"
-                << "\t" << type_name<size_t>() << " n";
-
-            declare_params declprm(source);
-            for_each<0>(args, declprm);
-
-            source <<
-                "\n)\n{\n\t"
-                "for(size_t idx = get_global_id(0); idx < n; "
-                "idx += get_global_size(0)) {\n";
-
-            read_params readprm(source);
-            for_each<0>(args, readprm);
-
-            source << body;
-
-            write_params writeprm(source);
-            for_each<0>(args, writeprm);
-
-            source << "\t}\n}\n";
-
             for(auto q = queue.begin(); q != queue.end(); q++) {
                 cl::Context context = qctx(*q);
                 cl::Device  device  = qdev(*q);
+
+                std::ostringstream source;
+
+                source
+                    << standard_kernel_header
+                    << "kernel void " << name << "(\n"
+                    << "\t" << type_name<size_t>() << " n";
+
+                declare_params declprm(source);
+                for_each<0>(args, declprm);
+
+                source << "\n)\n{\n";
+
+                if ( is_cpu(device) ) {
+                    source <<
+                        "\tsize_t chunk_size  = (n + get_global_size(0) - 1) / get_global_size(0);\n"
+                        "\tsize_t chunk_start = get_global_id(0) * chunk_size;\n"
+                        "\tsize_t chunk_end   = min(n, chunk_start + chunk_size);\n"
+                        "\tfor(size_t idx = chunk_start; idx < chunk_end; ++idx) {\n";
+                } else {
+                    source <<
+                        "\tfor(size_t idx = get_global_id(0); idx < n; idx += get_global_size(0)) {\n";
+                }
+
+                read_params readprm(source);
+                for_each<0>(args, readprm);
+
+                source << body;
+
+                write_params writeprm(source);
+                for_each<0>(args, writeprm);
+
+                source << "\t}\n}\n";
 
                 auto program = build_sources(context, source.str());
 
@@ -498,9 +506,8 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, FUNCALL_OPERATOR, ~)
                     set_params setprm(krn[context()], d, pos);
                     for_each<0>(param, setprm);
 
-                    size_t g_size = is_cpu(device) ?
-                        alignup(psize, wgs[context()]) :
-                        device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() * wgs[context()] * 4;
+                    size_t g_size = device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>()
+                        * wgs[context()] * 4;
 
                     queue[d].enqueueNDRangeKernel(krn[context()],
                             cl::NullRange, g_size, wgs[context()]
