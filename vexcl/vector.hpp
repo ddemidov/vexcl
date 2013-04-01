@@ -587,7 +587,7 @@ class vector : public vector_terminal_expression {
                     cl::Device  device  = qdev(queue[d]);
 
                     size_t g_size = device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>()
-                        * exdata<Expr>::wgsize[context()] * 4;
+                        * exdata<Expr>::wgsize[context()] * (is_cpu(device) ? 1 : 4);
 
                     uint pos = 0;
                     exdata<Expr>::kernel[context()].setArg(pos++, psize);

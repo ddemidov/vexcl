@@ -507,7 +507,7 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, FUNCALL_OPERATOR, ~)
                     for_each<0>(param, setprm);
 
                     size_t g_size = device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>()
-                        * wgs[context()] * 4;
+                        * wgs[context()] * (is_cpu(device) ? 1 : 4);
 
                     queue[d].enqueueNDRangeKernel(krn[context()],
                             cl::NullRange, g_size, wgs[context()]
