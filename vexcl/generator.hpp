@@ -498,7 +498,7 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, FUNCALL_OPERATOR, ~)
                     set_params setprm(krn[context()], d, pos);
                     for_each<0>(param, setprm);
 
-                    size_t g_size = device.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU ?
+                    size_t g_size = is_cpu(device) ?
                         alignup(psize, wgs[context()]) :
                         device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() * wgs[context()] * 4;
 

@@ -356,8 +356,6 @@ void stencil<T>::init(uint width) {
         cl::Context context = qctx(queue[d]);
         cl::Device  device  = qdev(queue[d]);
 
-        bool device_is_cpu = device.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU;
-
         if (!compiled[context()]) {
             std::ostringstream source;
 
@@ -400,7 +398,7 @@ void stencil<T>::init(uint width) {
                 "    local real *loc_x\n"
                 "    )\n"
                 "{\n";
-            if (device_is_cpu)
+            if ( is_cpu(device) )
                 source <<
                 "    long g_id = get_global_id(0);\n"
                 "    if (g_id < n) {\n";
@@ -470,7 +468,7 @@ void stencil<T>::init(uint width) {
                 fast_conv[context()].getWorkGroupInfo<CL_KERNEL_LOCAL_MEM_SIZE>(device)
                 ) / sizeof(T);
 
-        if (device_is_cpu || available_lmem < width + 64 + lhalo + rhalo) {
+        if (is_cpu(device) || available_lmem < width + 64 + lhalo + rhalo) {
             conv[d]  = slow_conv[context()];
             wgs[d]   = wgsize[context()];
             loc_s[d] = cl::Local(1);
@@ -499,12 +497,10 @@ void stencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y,
             cl::Context context = qctx(queue[d]);
             cl::Device  device  = qdev(queue[d]);
 
-            bool device_is_cpu = device.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU;
-
             char has_left  = d > 0;
             char has_right = d + 1 < queue.size();
 
-            size_t g_size = device_is_cpu ? alignup(psize, wgs[d])
+            size_t g_size = is_cpu(device) ? alignup(psize, wgs[d])
                 : device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() * wgs[d] * 4;
 
             uint pos = 0;
@@ -631,8 +627,6 @@ StencilOperator<T, width, center, Impl>::StencilOperator(
         cl::Device  device  = qdev(queue[d]);
 
         if (!compiled[context()]) {
-            bool device_is_cpu = device.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU;
-
             std::ostringstream source;
 
             source << standard_kernel_header <<
@@ -675,7 +669,7 @@ StencilOperator<T, width, center, Impl>::StencilOperator(
                 "    local real *X\n"
                 "    )\n"
                 "{\n";
-            if (device_is_cpu)
+            if ( is_cpu(device) ) {
                 source <<
                 "    int l_id       = get_local_id(0);\n"
                 "    int block_size = get_local_size(0);\n"
@@ -690,7 +684,7 @@ StencilOperator<T, width, center, Impl>::StencilOperator(
                 "            y[g_id] = beta * sum;\n"
                 "    }\n"
                 "}\n";
-            else
+            } else {
                 source <<
                 "    size_t grid_size = get_global_size(0);\n"
                 "    int l_id         = get_local_id(0);\n"
@@ -709,6 +703,7 @@ StencilOperator<T, width, center, Impl>::StencilOperator(
                 "        barrier(CLK_LOCAL_MEM_FENCE);\n"
                 "    }\n"
                 "}\n";
+            }
 
             auto program = build_sources(context, source.str());
 
@@ -742,9 +737,7 @@ void StencilOperator<T, width, center, Impl>::convolve(
             cl::Context context = qctx(queue[d]);
             cl::Device  device  = qdev(queue[d]);
 
-            bool device_is_cpu = device.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU;
-
-            size_t g_size = device_is_cpu ? alignup(psize, wgsize[context()]) :
+            size_t g_size = is_cpu(device) ? alignup(psize, wgsize[context()]) :
                 device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() * wgsize[context()] * 4;
 
             char has_left  = d > 0;

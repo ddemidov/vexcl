@@ -410,7 +410,7 @@ SpMat<real,column_t,idx_t>::SpMat(
         if (part[d + 1] > part[d]) {
             cl::Device device = qdev(queue[d]);
 
-            if (device.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU)
+            if ( is_cpu(device) )
                 mtx[d].reset(
                         new SpMatCSR(queue[d],
                             part[d], part[d + 1],

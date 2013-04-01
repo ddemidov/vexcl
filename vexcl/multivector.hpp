@@ -465,10 +465,18 @@ class multivector : public multivector_terminal_expression {
                         for_each<0>(expr, f);
                     }
 
-                    kernel <<
-                        "\n)\n{\n\t"
-                        "for(size_t idx = get_global_id(0); idx < n; "
-                        "idx += get_global_size(0)) {\n";
+                    kernel << "\n)\n{\n";
+
+                    if ( is_cpu(device) ) {
+                        kernel <<
+                            "\tsize_t chunk_size  = (n + get_global_size(0) - 1) / get_global_size(0);\n"
+                            "\tsize_t chunk_start = get_global_id(0) * chunk_size;\n"
+                            "\tsize_t chunk_end   = min(n, chunk_start + chunk_size);\n"
+                            "\tfor(size_t idx = chunk_start; idx < chunk_end; ++idx) {\n";
+                    } else {
+                        kernel <<
+                            "\tfor(size_t idx = get_global_id(0); idx < n; idx += get_global_size(0)) {\n";
+                    }
 
                     {
                         get_expressions f(kernel);

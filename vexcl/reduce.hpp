@@ -210,8 +210,6 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
 
         if (!exdata<Expr>::compiled[context()]) {
 
-            bool device_is_cpu = device.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU;
-
             std::ostringstream kernel_name;
             vector_name_context name_ctx(kernel_name);
 
@@ -242,7 +240,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
                 "\tlocal  " << type_name<real>() << " *sdata\n"
                 "\t)\n"
                 "{\n";
-            if (device_is_cpu) {
+            if ( is_cpu(device) ) {
                 source <<
                     "    size_t grid_size  = get_global_size(0);\n"
                     "    size_t chunk_size = (n + grid_size - 1) / grid_size;\n"
@@ -298,7 +296,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
             exdata<Expr>::kernel[context()]   = cl::Kernel(program, kernel_name.str().c_str());
             exdata<Expr>::compiled[context()] = true;
 
-            if (device_is_cpu) {
+            if (is_cpu(device)) {
                 exdata<Expr>::wgsize[context()] = 1;
             } else {
                 exdata<Expr>::wgsize[context()] = kernel_workgroup_size(

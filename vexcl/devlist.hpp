@@ -125,11 +125,7 @@ namespace Filter {
         DoublePrecisionFilter() {}
 
         bool operator()(const cl::Device &d) const {
-            if (d.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU)
-                return true;
-
             std::string ext = d.getInfo<CL_DEVICE_EXTENSIONS>();
-
             return (
                     ext.find("cl_khr_fp64") != std::string::npos ||
                     ext.find("cl_amd_fp64") != std::string::npos

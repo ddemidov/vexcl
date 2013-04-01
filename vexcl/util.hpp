@@ -265,6 +265,11 @@ inline cl::Device qdev(const cl::CommandQueue& q) {
     return dev;
 }
 
+/// Checks if the compute device is CPU.
+inline bool is_cpu(const cl::Device &d) {
+    return d.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU;
+}
+
 struct column_owner {
     const std::vector<size_t> &part;
 
