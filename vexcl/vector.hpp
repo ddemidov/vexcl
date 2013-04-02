@@ -524,9 +524,9 @@ class vector : public vector_terminal_expression {
             const vector&
         >::type
         operator=(const Expr &expr) {
-            for(auto q = queue.begin(); q != queue.end(); q++) {
-                cl::Context context = qctx(*q);
-                cl::Device  device  = qdev(*q);
+            for(uint d = 0; d < queue.size(); d++) {
+                cl::Context context = qctx(queue[d]);
+                cl::Device  device  = qdev(queue[d]);
 
                 if (!exdata<Expr>::compiled[context()]) {
                     std::ostringstream kernel;
@@ -579,13 +579,8 @@ class vector : public vector_terminal_expression {
                     exdata<Expr>::wgsize[context()]   = kernel_workgroup_size(
                             exdata<Expr>::kernel[context()], device);
                 }
-            }
 
-            for(uint d = 0; d < queue.size(); d++) {
                 if (size_t psize = part[d + 1] - part[d]) {
-                    cl::Context context = qctx(queue[d]);
-                    cl::Device  device  = qdev(queue[d]);
-
                     size_t g_size = device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>()
                         * exdata<Expr>::wgsize[context()] * 4;
 
