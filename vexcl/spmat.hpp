@@ -1196,8 +1196,10 @@ void SpMat<real,column_t,idx_t>::SpMatCSR::prepare_kernels(const cl::Context &co
             "    real alpha\n"
             "    )\n"
             "{\n"
-            "    size_t i = get_global_id(0);\n"
-            "    if (i < n) {\n"
+            "    size_t chunk_size  = (n + get_global_size(0) - 1) / get_global_size(0);\n"
+            "    size_t chunk_start = get_global_id(0) * chunk_size;\n"
+            "    size_t chunk_end   = min(n, chunk_start + chunk_size);\n"
+            "    for (size_t i = chunk_start; i < chunk_end; ++i) {\n"
             "        real sum = 0;\n"
             "        size_t beg = row[i];\n"
             "        size_t end = row[i + 1];\n"
@@ -1216,8 +1218,10 @@ void SpMat<real,column_t,idx_t>::SpMatCSR::prepare_kernels(const cl::Context &co
             "    real alpha\n"
             "    )\n"
             "{\n"
-            "    size_t i = get_global_id(0);\n"
-            "    if (i < n) {\n"
+            "    size_t chunk_size  = (n + get_global_size(0) - 1) / get_global_size(0);\n"
+            "    size_t chunk_start = get_global_id(0) * chunk_size;\n"
+            "    size_t chunk_end   = min(n, chunk_start + chunk_size);\n"
+            "    for (size_t i = chunk_start; i < chunk_end; ++i) {\n"
             "        real sum = 0;\n"
             "        size_t beg = row[i];\n"
             "        size_t end = row[i + 1];\n"
@@ -1251,8 +1255,12 @@ void SpMat<real,column_t,idx_t>::SpMatCSR::mul_local(
         ) const
 {
     cl::Context context = qctx(queue);
+    cl::Device  device  = qdev(queue);
 
     if (has_loc) {
+        size_t g_size = device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>()
+            * wgsize[context()] * 4;
+
         if (append) {
             uint pos = 0;
             spmv_add[context()].setArg(pos++, n);
@@ -1264,7 +1272,7 @@ void SpMat<real,column_t,idx_t>::SpMatCSR::mul_local(
             spmv_add[context()].setArg(pos++, alpha);
 
             queue.enqueueNDRangeKernel(spmv_add[context()],
-                    cl::NullRange, n, cl::NullRange);
+                    cl::NullRange, g_size, wgsize[context()]);
         } else {
             uint pos = 0;
             spmv_set[context()].setArg(pos++, n);
@@ -1276,7 +1284,7 @@ void SpMat<real,column_t,idx_t>::SpMatCSR::mul_local(
             spmv_set[context()].setArg(pos++, alpha);
 
             queue.enqueueNDRangeKernel(spmv_set[context()],
-                    cl::NullRange, n, cl::NullRange);
+                    cl::NullRange, g_size, wgsize[context()]);
         }
     } else if (!append) {
         uint pos = 0;
@@ -1297,6 +1305,10 @@ void SpMat<real,column_t,idx_t>::SpMatCSR::mul_remote(
     if (!has_rem) return;
 
     cl::Context context = qctx(queue);
+    cl::Device  device  = qdev(queue);
+
+    size_t g_size = device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>()
+        * wgsize[context()] * 4;
 
     uint pos = 0;
     spmv_add[context()].setArg(pos++, n);
@@ -1308,7 +1320,7 @@ void SpMat<real,column_t,idx_t>::SpMatCSR::mul_remote(
     spmv_add[context()].setArg(pos++, alpha);
 
     queue.enqueueNDRangeKernel(spmv_add[context()],
-            cl::NullRange, n, cl::NullRange, &event
+            cl::NullRange, g_size, wgsize[context()], &event
             );
 }
 
