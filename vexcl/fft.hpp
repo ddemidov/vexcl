@@ -135,7 +135,7 @@ struct FFT {
 
     template <class Array>
     FFT(const Array &lengths, fft_direction dir = forward)
-        : queues(current_context().queues()), plan(0), dir(dir) {
+        : queues(current_context().queue()), plan(0), dir(dir) {
         init(lengths);
     }
 
@@ -147,7 +147,7 @@ struct FFT {
     }
 
     FFT(size_t length, fft_direction dir = forward)
-        : queues(current_context().queues()), plan(0), dir(dir) {
+        : queues(current_context().queue()), plan(0), dir(dir) {
         std::array<size_t, 1> lengths = {{length}};
         init(lengths);
     }
@@ -160,7 +160,7 @@ struct FFT {
     }
 
     FFT(std::initializer_list<size_t> lengths, fft_direction dir = forward)
-        : queues(current_context().queues()), plan(0), dir(dir) {
+        : queues(current_context().queue()), plan(0), dir(dir) {
         init(lengths);
     }
 #endif
