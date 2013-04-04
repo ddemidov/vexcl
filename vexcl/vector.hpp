@@ -328,11 +328,29 @@ class vector : public vector_terminal_expression {
             if (size) allocate_buffers(flags, host);
         }
 
+        /// Copy host data to the new buffer, use static context.
+        vector(size_t size, const T *host,
+                cl_mem_flags flags = CL_MEM_READ_WRITE
+              ) : queue(current_context().queue()), part(vex::partition(size, queue)),
+                  buf(queue.size()), event(queue.size())
+        {
+            if (size) allocate_buffers(flags, host);
+        }
+
         /// Copy host data to the new buffer.
         vector(const std::vector<cl::CommandQueue> &queue,
                 const std::vector<T> &host,
                 cl_mem_flags flags = CL_MEM_READ_WRITE
               ) : queue(queue), part(vex::partition(host.size(), queue)),
+                  buf(queue.size()), event(queue.size())
+        {
+            if (!host.empty()) allocate_buffers(flags, host.data());
+        }
+
+        /// Copy host data to the new buffer, use static context.
+        vector(const std::vector<T> &host,
+                cl_mem_flags flags = CL_MEM_READ_WRITE
+              ) : queue(current_context().queue()), part(vex::partition(host.size(), queue)),
                   buf(queue.size()), event(queue.size())
         {
             if (!host.empty()) allocate_buffers(flags, host.data());

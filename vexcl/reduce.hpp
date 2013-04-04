@@ -117,7 +117,7 @@ template <typename real, class RDC>
 class Reductor {
     public:
         /// Constructor.
-        Reductor(const std::vector<cl::CommandQueue> &queue);
+        Reductor(const std::vector<cl::CommandQueue> &queue = current_context().queue());
 
         /// Compute reduction of the input expression.
         /**
