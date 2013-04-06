@@ -1,7 +1,7 @@
 VexCL
 =======
 
-VexCL is vector expression template library for OpenCL. It has been created for
+VexCL is a vector expression template library for OpenCL. It has been created for
 ease of OpenCL developement with C++. VexCL strives to reduce amount of
 boilerplate code needed to develop OpenCL applications. The library provides
 convenient and intuitive notation for vector arithmetic, reduction, and sparse
@@ -9,9 +9,9 @@ matrix-vector multiplication. Multi-device and even multi-platform computations
 are supported. VexCL also provides MPI wrapper [classes][mpi_namespace] for
 its types.
 
-See Doxygen-generated documentation at http://ddemidov.github.com/vexcl.
+See Doxygen-generated documentation at http://ddemidov.github.io/vexcl.
 
-[mpi_namespace]: http://ddemidov.github.com/vexcl/namespacevex_1_1mpi.html
+[mpi_namespace]: http://ddemidov.github.io/vexcl/namespacevex_1_1mpi.html
 
 Motivation
 ----------

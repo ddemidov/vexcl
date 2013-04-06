@@ -34,7 +34,7 @@ THE SOFTWARE.
 /**
 \mainpage VexCL
 
-VexCL is vector expression template library for OpenCL. It has been created for
+VexCL is a vector expression template library for OpenCL. It has been created for
 ease of OpenCL developement with C++. VexCL strives to reduce amount of
 boilerplate code needed to develop OpenCL applications. The library provides
 convenient and intuitive notation for vector arithmetic, reduction, and sparse
