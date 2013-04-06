@@ -338,85 +338,78 @@ class multivector : public multivector_terminal_expression {
         operator=(const Expr& expr) {
             const std::vector<cl::CommandQueue> &queue = vec[0]->queue_list();
 
+            // If any device in context is CPU, then do not fuse the kernel,
+            // but assign components individually.
+            if (std::any_of(queue.begin(), queue.end(), [](const cl::CommandQueue &q) { return is_cpu(qdev(q)); })) {
+                assign_subexpressions<0, N>(boost::proto::as_child(expr));
+                return *this;
+            }
+
             for(uint d = 0; d < queue.size(); d++) {
                 cl::Context context = qctx(queue[d]);
                 cl::Device  device  = qdev(queue[d]);
 
-                if ( is_cpu(device) ) {
-                    // Assign subexpressions individually on a CPU.
-                    assign_subexpressions<0, N>(boost::proto::as_child(expr));
-                } else {
-                    if (!exdata<Expr>::compiled[context()]) {
-                        std::ostringstream kernel_name;
-                        kernel_name << "multi_";
-                        vector_name_context name_ctx(kernel_name);
-                        boost::proto::eval(boost::proto::as_child(expr), name_ctx);
+                if (!exdata<Expr>::compiled[context()]) {
+                    std::ostringstream kernel_name;
+                    kernel_name << "multi_";
+                    vector_name_context name_ctx(kernel_name);
+                    boost::proto::eval(boost::proto::as_child(expr), name_ctx);
 
-                        std::ostringstream kernel;
-                        kernel << standard_kernel_header;
+                    std::ostringstream kernel;
+                    kernel << standard_kernel_header;
 
-                        extract_user_functions()(
-                                boost::proto::as_child(expr),
-                                declare_user_function(kernel)
-                                );
+                    extract_user_functions()(
+                            boost::proto::as_child(expr),
+                            declare_user_function(kernel)
+                            );
 
-                        kernel << "kernel void " << kernel_name.str()
-                               << "(\n\t" << type_name<size_t>() << " n";
+                    kernel << "kernel void " << kernel_name.str()
+                           << "(\n\t" << type_name<size_t>() << " n";
 
-                        for(size_t i = 0; i < N; )
-                            kernel << ",\n\tglobal " << type_name<T>()
-                                   << " *res_" << ++i;
+                    for(size_t i = 0; i < N; )
+                        kernel << ",\n\tglobal " << type_name<T>()
+                               << " *res_" << ++i;
 
-                        build_param_list<N>(boost::proto::as_child(expr), kernel);
+                    build_param_list<N>(boost::proto::as_child(expr), kernel);
 
-                        kernel << "\n)\n{\n";
+                    kernel <<
+                        "\n)\n{\n"
+                        "\tfor(size_t idx = get_global_id(0); idx < n; idx += get_global_size(0)) {\n";
 
-                        if ( is_cpu(device) ) {
-                            kernel <<
-                                "\tsize_t chunk_size  = (n + get_global_size(0) - 1) / get_global_size(0);\n"
-                                "\tsize_t chunk_start = get_global_id(0) * chunk_size;\n"
-                                "\tsize_t chunk_end   = min(n, chunk_start + chunk_size);\n"
-                                "\tfor(size_t idx = chunk_start; idx < chunk_end; ++idx) {\n";
-                        } else {
-                            kernel <<
-                                "\tfor(size_t idx = get_global_id(0); idx < n; idx += get_global_size(0)) {\n";
-                        }
+                    build_expr_list(boost::proto::as_child(expr), kernel);
 
-                        build_expr_list(boost::proto::as_child(expr), kernel);
+                    kernel << "\t}\n}\n";
 
-                        kernel << "\t}\n}\n";
+                    auto program = build_sources(context, kernel.str());
 
-                        auto program = build_sources(context, kernel.str());
+                    exdata<Expr>::kernel[context()]   = cl::Kernel(program, kernel_name.str().c_str());
+                    exdata<Expr>::compiled[context()] = true;
+                    exdata<Expr>::wgsize[context()]   = kernel_workgroup_size(
+                            exdata<Expr>::kernel[context()], device);
 
-                        exdata<Expr>::kernel[context()]   = cl::Kernel(program, kernel_name.str().c_str());
-                        exdata<Expr>::compiled[context()] = true;
-                        exdata<Expr>::wgsize[context()]   = kernel_workgroup_size(
-                                exdata<Expr>::kernel[context()], device);
+                }
 
-                    }
+                if (size_t psize = vec[0]->part_size(d)) {
+                    size_t g_size = device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>()
+                        * exdata<Expr>::wgsize[context()] * 4;
 
-                    if (size_t psize = vec[0]->part_size(d)) {
-                        size_t g_size = device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>()
-                            * exdata<Expr>::wgsize[context()] * 4;
+                    uint pos = 0;
+                    exdata<Expr>::kernel[context()].setArg(pos++, psize);
 
-                        uint pos = 0;
-                        exdata<Expr>::kernel[context()].setArg(pos++, psize);
+                    for(uint i = 0; i < N; i++)
+                        exdata<Expr>::kernel[context()].setArg(pos++, vec[i]->operator()(d));
 
-                        for(uint i = 0; i < N; i++)
-                            exdata<Expr>::kernel[context()].setArg(pos++, vec[i]->operator()(d));
+                    set_kernel_args<N>(
+                            boost::proto::as_child(expr),
+                            exdata<Expr>::kernel[context()],
+                            d, pos, vec[0]->part_start(d)
+                            );
 
-                        set_kernel_args<N>(
-                                boost::proto::as_child(expr),
-                                exdata<Expr>::kernel[context()],
-                                d, pos, vec[0]->part_start(d)
-                                );
-
-                        queue[d].enqueueNDRangeKernel(
-                                exdata<Expr>::kernel[context()],
-                                cl::NullRange,
-                                g_size, exdata<Expr>::wgsize[context()]
-                                );
-                    }
+                    queue[d].enqueueNDRangeKernel(
+                            exdata<Expr>::kernel[context()],
+                            cl::NullRange,
+                            g_size, exdata<Expr>::wgsize[context()]
+                            );
                 }
             }
 
