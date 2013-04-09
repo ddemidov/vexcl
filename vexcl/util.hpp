@@ -199,6 +199,25 @@ for_each(const Tuple &v, Function &f)
     for_each<I + 1>(v, f);
 }
 
+/// Shortcut for q.getInfo<CL_QUEUE_CONTEXT>()
+inline cl::Context qctx(const cl::CommandQueue& q) {
+    cl::Context ctx;
+    q.getInfo(CL_QUEUE_CONTEXT, &ctx);
+    return ctx;
+}
+
+/// Shortcut for q.getInfo<CL_QUEUE_DEVICE>()
+inline cl::Device qdev(const cl::CommandQueue& q) {
+    cl::Device dev;
+    q.getInfo(CL_QUEUE_DEVICE, &dev);
+    return dev;
+}
+
+/// Checks if the compute device is CPU.
+inline bool is_cpu(const cl::Device &d) {
+    return d.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU;
+}
+
 /// Global program options holder
 template <bool dummy>
 struct program_options {
@@ -239,14 +258,26 @@ inline std::string get_program_header(const cl::Device &dev) {
     return program_options<true>::get_header(dev);
 }
 
-/// Set global OpenCL compilation options.
+/// Set global OpenCL compilation options for a given device.
 inline void set_program_options(const cl::Device &dev, const std::string &str) {
     program_options<true>::set_options(dev, str);
 }
 
-/// Set global OpenCL program header.
+/// Set global OpenCL program header for a given device.
 inline void set_program_header(const cl::Device &dev, const std::string &str) {
     program_options<true>::set_header(dev, str);
+}
+
+/// Set global OpenCL compilation options for each device in queue list.
+inline void set_program_options(const std::vector<cl::CommandQueue> &queue, const std::string &str) {
+    for(auto q = queue.begin(); q != queue.end(); ++q)
+        program_options<true>::set_options(qdev(*q), str);
+}
+
+/// Set global OpenCL program header for each device in queue list.
+inline void set_program_header(const std::vector<cl::CommandQueue> &queue, const std::string &str) {
+    for(auto q = queue.begin(); q != queue.end(); ++q)
+        program_options<true>::set_header(qdev(*q), str);
 }
 
 inline std::string standard_kernel_header(const cl::Device &dev) {
@@ -300,25 +331,6 @@ inline uint kernel_workgroup_size(
     while(wgsz > dev_wgsz) wgsz /= 2;
 
     return wgsz;
-}
-
-/// Shortcut for q.getInfo<CL_QUEUE_CONTEXT>()
-inline cl::Context qctx(const cl::CommandQueue& q) {
-    cl::Context ctx;
-    q.getInfo(CL_QUEUE_CONTEXT, &ctx);
-    return ctx;
-}
-
-/// Shortcut for q.getInfo<CL_QUEUE_DEVICE>()
-inline cl::Device qdev(const cl::CommandQueue& q) {
-    cl::Device dev;
-    q.getInfo(CL_QUEUE_DEVICE, &dev);
-    return dev;
-}
-
-/// Checks if the compute device is CPU.
-inline bool is_cpu(const cl::Device &d) {
-    return d.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU;
 }
 
 struct column_owner {
