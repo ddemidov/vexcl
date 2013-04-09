@@ -677,6 +677,7 @@ StencilOperator<T, width, center, Impl>::StencilOperator(
                 "    if (g_id < n) {\n"
                 "        for(int i = 0, j = g_id - lhalo; i < 1 + lhalo + rhalo; i++, j++)\n"
                 "            X[i] = read_x(j, n, has_left, has_right, lhalo, rhalo, xloc, xrem);\n"
+                "        barrier(CLK_LOCAL_MEM_FENCE);\n"
                 "        real sum = stencil_oper(X + lhalo);\n"
                 "        if (alpha)\n"
                 "            y[g_id] = alpha * y[g_id] + beta * sum;\n"
