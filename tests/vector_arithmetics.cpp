@@ -1,4 +1,4 @@
-#define BOOST_TEST_MODULE VectorConstruct
+#define BOOST_TEST_MODULE VectorArithmetics
 #include <boost/test/unit_test.hpp>
 
 #include "context_setup.hpp"
@@ -15,13 +15,9 @@ BOOST_AUTO_TEST_CASE(assign_expression)
     z = 67;
     x = 5 * sin(y) + z;
 
-    for(size_t i = 0; i < 100; ++i) {
-        size_t idx = rand() % N;
-        BOOST_CHECK_EQUAL(
-                true,
-                fabs(x[idx] - (5 * sin(42.0) + 67)) < 1e-12
-                );
-    }
+    check_sample(x, [](size_t, double a) {
+            BOOST_CHECK_CLOSE(a, 5 * sin(42.0) + 67, 1e-12);
+            });
 }
 
 BOOST_AUTO_TEST_CASE(reduce_expression)
@@ -35,25 +31,12 @@ BOOST_AUTO_TEST_CASE(reduce_expression)
     vex::Reductor<double,vex::MIN> min(ctx);
     vex::Reductor<double,vex::MAX> max(ctx);
 
-    BOOST_CHECK_EQUAL(
-            true,
-            fabs(sum(X) - std::accumulate(x.begin(), x.end(), 0.0)) < 1e-6
-            );
+    BOOST_CHECK_CLOSE(sum(X), std::accumulate(x.begin(), x.end(), 0.0), 1e-6);
 
-    BOOST_CHECK_EQUAL(
-            true,
-            fabs(min(X) - *std::min_element(x.begin(), x.end())) < 1e-6
-            );
+    BOOST_CHECK_CLOSE(min(X), *std::min_element(x.begin(), x.end()), 1e-6);
+    BOOST_CHECK_CLOSE(max(X), *std::max_element(x.begin(), x.end()), 1e-6);
 
-    BOOST_CHECK_EQUAL(
-            true,
-            fabs(max(X) - *std::max_element(x.begin(), x.end())) < 1e-6
-            );
-
-    BOOST_CHECK_EQUAL(
-            true,
-            max(fabs(X - X)) < 1e-12
-            );
+    BOOST_CHECK_CLOSE(max(fabs(X - X)), 0.0, 1e-12);
 }
 
 BOOST_AUTO_TEST_CASE(builtin_functions)
@@ -65,10 +48,7 @@ BOOST_AUTO_TEST_CASE(builtin_functions)
 
     Y = pow(sin(X), 2.0) + pow(cos(X), 2.0);
 
-    for(size_t i = 0; i < 100; ++i) {
-        size_t idx = rand() % N;
-        BOOST_CHECK_EQUAL(true, fabs(Y[idx] - 1) < 1e-8);
-    }
+    check_sample(Y, [](size_t, double a) { BOOST_CHECK_CLOSE(a, 1, 1e-8); });
 }
 
 BOOST_AUTO_TEST_CASE(user_defined_functions)
@@ -85,8 +65,8 @@ BOOST_AUTO_TEST_CASE(user_defined_functions)
 
     vex::Reductor<size_t,vex::SUM> sum(ctx);
 
-    BOOST_CHECK_EQUAL( sum( greater(x, y) ), 0U);
-    BOOST_CHECK_EQUAL( sum( greater(y, x) ), N);
+    BOOST_CHECK( sum( greater(x, y) ) == 0U);
+    BOOST_CHECK( sum( greater(y, x) ) == N);
 }
 
 BOOST_AUTO_TEST_CASE(user_defined_functions_same_signature)
@@ -101,8 +81,8 @@ BOOST_AUTO_TEST_CASE(user_defined_functions_same_signature)
 
     vex::Reductor<size_t,vex::SUM> sum(ctx);
 
-    BOOST_CHECK_EQUAL( sum( times2(x) ), 2 * N );
-    BOOST_CHECK_EQUAL( sum( times4(x) ), 4 * N );
+    BOOST_CHECK( sum( times2(x) ) == 2 * N );
+    BOOST_CHECK( sum( times4(x) ) == 4 * N );
 }
 
 BOOST_AUTO_TEST_CASE(element_index)
@@ -113,10 +93,7 @@ BOOST_AUTO_TEST_CASE(element_index)
 
     x = sin(0.5 * vex::element_index());
 
-    for(int i = 0; i < 100; ++i) {
-        size_t idx = rand() % N;
-        BOOST_CHECK_EQUAL(true, fabs(x[idx] - sin(0.5 * idx)) < 1e-8);
-    }
+    check_sample(x, [](size_t idx, double a) { BOOST_CHECK_CLOSE(a, sin(0.5 * idx), 1e-8); });
 }
 
 BOOST_AUTO_TEST_CASE(vector_values)
@@ -130,14 +107,10 @@ BOOST_AUTO_TEST_CASE(vector_values)
     vex::vector<cl_int4> X(ctx, N);
     X = c * (make_int4(5 + vex::element_index()));
 
-    for(int i = 0; i < 100; ++i) {
-        size_t idx = rand() % N;
-
-        cl_int4 v = X[idx];
-
-        for(int j = 0; j < 4; ++j)
-            BOOST_CHECK_EQUAL(v.s[j] - c.s[j] * (5 + static_cast<int>(idx)), 0);
-    }
+    check_sample(X, [c](long idx, cl_int4 v) {
+            for(int j = 0; j < 4; ++j)
+                BOOST_CHECK(v.s[j] == c.s[j] * (5 + idx));
+            });
 }
 
 BOOST_AUTO_TEST_CASE(nested_functions)
@@ -147,23 +120,15 @@ BOOST_AUTO_TEST_CASE(nested_functions)
     VEX_FUNCTION(f, int(int), "return 2 * prm1;");
     VEX_FUNCTION(g, int(int), "return 3 * prm1;");
 
-    vex::vector<int> data(ctx, N);
+    vex::vector<int> x(ctx, N);
 
-    data = 1;
-    data = f(f(data));
+    x = 1;
+    x = f(f(x));
+    check_sample(x, [](size_t, int a) { BOOST_CHECK(a == 4); });
 
-    for(int i = 0; i < 100; ++i) {
-        size_t idx = rand() % N;
-        BOOST_CHECK_EQUAL(data[idx], 4);
-    }
-
-    data = 1;
-    data = g(f(data));
-
-    for(int i = 0; i < 100; ++i) {
-        size_t idx = rand() % N;
-        BOOST_CHECK_EQUAL(data[idx], 6);
-    }
+    x = 1;
+    x = g(f(x));
+    check_sample(x, [](size_t, int a) { BOOST_CHECK(a == 6); });
 }
 
 BOOST_AUTO_TEST_SUITE_END()

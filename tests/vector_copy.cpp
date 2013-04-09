@@ -10,7 +10,7 @@ BOOST_AUTO_TEST_CASE(iterate_over_vector)
     vex::vector<double> x(ctx, N);
     x = 42;
 
-    BOOST_CHECK_EQUAL(42, *std::min_element(x.begin(), x.end()));
+    BOOST_CHECK(42 == *std::min_element(x.begin(), x.end()));
 }
 
 BOOST_AUTO_TEST_CASE(element_access)
@@ -21,10 +21,7 @@ BOOST_AUTO_TEST_CASE(element_access)
     for(size_t i = 0; i < N; i++)
         x[i] = 42;
 
-    for(size_t i = 0; i < 100; ++i) {
-        size_t idx = rand() % N;
-        BOOST_CHECK_EQUAL(static_cast<double>(x[idx]), 42);
-    }
+    check_sample(x, [](size_t, double a) { BOOST_CHECK(a == 42); });
 }
 
 BOOST_AUTO_TEST_CASE(copy_to_std_vector)
@@ -35,19 +32,11 @@ BOOST_AUTO_TEST_CASE(copy_to_std_vector)
 
     X = 42;
     copy(X, x);
-
-    for(size_t i = 0; i < 100; ++i) {
-        size_t idx = rand() % N;
-        BOOST_CHECK_EQUAL(x[idx], 42);
-    }
+    check_sample(x, [](size_t, double a) { BOOST_CHECK(a == 42); });
 
     X = 67;
     vex::copy(X.begin(), X.end(), x.begin());
-
-    for(size_t i = 0; i < 100; ++i) {
-        size_t idx = rand() % N;
-        BOOST_CHECK_EQUAL(x[idx], 67);
-    }
+    check_sample(x, [](size_t, double a) { BOOST_CHECK(a == 67); });
 }
 
 BOOST_AUTO_TEST_CASE(copy_from_std_vector)
@@ -58,17 +47,11 @@ BOOST_AUTO_TEST_CASE(copy_from_std_vector)
     vex::vector<double> X(ctx, N);
 
     copy(x, X);
-    for(size_t i = 0; i < 100; ++i) {
-        size_t idx = rand() % N;
-        BOOST_CHECK_EQUAL(X[idx], x[idx]);
-    }
+    check_sample(X, x, [](size_t, double a, double b) { BOOST_CHECK(a == b); });
 
-    std::fill(x.begin(), x.end(), 67);
+    std::fill(x.begin(), x.end(), 42);
     vex::copy(x.begin(), x.end(), X.begin());
-    for(size_t i = 0; i < 100; ++i) {
-        size_t idx = rand() % N;
-        BOOST_CHECK_EQUAL(X[idx], 67);
-    }
+    check_sample(X, [](size_t, double a) { BOOST_CHECK(a == 42); });
 }
 
 BOOST_AUTO_TEST_SUITE_END()
