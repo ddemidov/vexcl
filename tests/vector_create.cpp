@@ -162,18 +162,4 @@ BOOST_AUTO_TEST_CASE(stl_container_of_vex_vector)
         check_sample(x[j], [j](size_t, unsigned a) { BOOST_CHECK(a == j); });
 }
 
-BOOST_AUTO_TEST_CASE(map_buffer)
-{
-    const size_t N = 1 << 20;
-    vex::vector<size_t> x(ctx, N);
-
-    for(unsigned d = 0; d < ctx.size(); ++d) {
-        auto ptr = x.map(d);
-        for(size_t i = 0; i < x.part_size(d); ++i)
-            ptr[i] = i + x.part_start(d);
-    }
-
-    check_sample(x, [](size_t idx, size_t a) { BOOST_CHECK(a == idx); });
-}
-
 BOOST_AUTO_TEST_SUITE_END()
