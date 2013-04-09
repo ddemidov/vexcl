@@ -47,7 +47,9 @@ int main(int argc, char *argv[]) {
             MPI_Barrier(mpi.comm);
         }
 
+#if BOOST_VERSION >= 105000
         boost::this_thread::sleep_for(boost::chrono::milliseconds(100));
+#endif
         if (mpi.rank == 0) std::cout << std::endl;
 
         run_test("Allocate mpi::vector", [&]() -> bool {
