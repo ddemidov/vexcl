@@ -374,7 +374,7 @@ SpMat<real,column_t,idx_t>::SpMat(
         if (!compiled[context()]) {
             std::ostringstream source;
 
-            source << standard_kernel_header <<
+            source << standard_kernel_header(device) <<
                 "typedef " << type_name<real>() << " real;\n"
                 "kernel void gather_vals_to_send(\n"
                 "    " << type_name<size_t>() << " n,\n"
@@ -814,9 +814,11 @@ SpMat<real,column_t,idx_t>::SpMatELL::SpMatELL(
 template <typename real, typename column_t, typename idx_t>
 void SpMat<real,column_t,idx_t>::SpMatELL::prepare_kernels(const cl::Context &context) const {
     if (!compiled[context()]) {
+        std::vector<cl::Device> device = context.getInfo<CL_CONTEXT_DEVICES>();
+
         std::ostringstream source;
 
-        source << standard_kernel_header <<
+        source << standard_kernel_header(device[0]) <<
             "typedef " << type_name<real>() << " real;\n"
             "#define NCOL ((" << type_name<column_t>() << ")(-1))\n"
             "kernel void zero(\n"
@@ -894,8 +896,6 @@ void SpMat<real,column_t,idx_t>::SpMatELL::prepare_kernels(const cl::Context &co
         spmv_set[context()] = cl::Kernel(program, "spmv_set");
         spmv_add[context()] = cl::Kernel(program, "spmv_add");
         csr_add[context()]  = cl::Kernel(program, "csr_add");
-
-        std::vector<cl::Device> device = context.getInfo<CL_CONTEXT_DEVICES>();
 
         wgsize[context()] = std::min(
                 kernel_workgroup_size(spmv_set[context()], device[0]),
@@ -1174,9 +1174,11 @@ SpMat<real,column_t,idx_t>::SpMatCSR::SpMatCSR(
 template <typename real, typename column_t, typename idx_t>
 void SpMat<real,column_t,idx_t>::SpMatCSR::prepare_kernels(const cl::Context &context) const {
     if (!compiled[context()]) {
+        std::vector<cl::Device> device = context.getInfo<CL_CONTEXT_DEVICES>();
+
         std::ostringstream source;
 
-        source << standard_kernel_header <<
+        source << standard_kernel_header(device[0]) <<
             "typedef " << type_name<real>() << " real;\n"
             "kernel void zero(\n"
             "    " << type_name<size_t>() << " n,\n"
@@ -1236,8 +1238,6 @@ void SpMat<real,column_t,idx_t>::SpMatCSR::prepare_kernels(const cl::Context &co
         zero[context()]     = cl::Kernel(program, "zero");
         spmv_set[context()] = cl::Kernel(program, "spmv_set");
         spmv_add[context()] = cl::Kernel(program, "spmv_add");
-
-        std::vector<cl::Device> device = context.getInfo<CL_CONTEXT_DEVICES>();
 
         wgsize[context()] = std::min(
                 kernel_workgroup_size(spmv_set[context()], device[0]),
@@ -1442,9 +1442,11 @@ SpMatCCSR<real,column_t,idx_t>::SpMatCCSR(
 template <typename real, typename column_t, typename idx_t>
 void SpMatCCSR<real,column_t,idx_t>::prepare_kernels(const cl::Context &context) const {
     if (!compiled[context()]) {
+        std::vector<cl::Device> device = context.getInfo<CL_CONTEXT_DEVICES>();
+
         std::ostringstream source;
 
-        source << standard_kernel_header <<
+        source << standard_kernel_header(device[0]) <<
             "typedef " << type_name<real>() << " real;\n"
             "kernel void spmv_set(\n"
             "    " << type_name<size_t>() << " n,\n"
@@ -1495,8 +1497,6 @@ void SpMatCCSR<real,column_t,idx_t>::prepare_kernels(const cl::Context &context)
 
         spmv_set[context()] = cl::Kernel(program, "spmv_set");
         spmv_add[context()] = cl::Kernel(program, "spmv_add");
-
-        std::vector<cl::Device> device = context.getInfo<CL_CONTEXT_DEVICES>();
 
         wgsize[context()] = std::min(
                 kernel_workgroup_size(spmv_set[context()], device[0]),

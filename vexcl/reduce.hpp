@@ -224,7 +224,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
             increment_line << ");\n";
 
             std::ostringstream source;
-            source << standard_kernel_header;
+            source << standard_kernel_header(device);
 
             typedef typename RDC::template function<real> fun;
             fun::define(source, "reduce_operation");

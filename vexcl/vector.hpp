@@ -555,7 +555,7 @@ class vector : public vector_terminal_expression {
                     vector_name_context name_ctx(kernel_name);
                     boost::proto::eval(boost::proto::as_child(expr), name_ctx);
 
-                    kernel << standard_kernel_header;
+                    kernel << standard_kernel_header(device);
 
                     extract_user_functions()(
                             boost::proto::as_child(expr),

@@ -110,14 +110,6 @@ template <> inline std::string type_name<ptrdiff_t>() {
 template <> struct is_cl_native<ptrdiff_t> : std::true_type {};
 #endif
 
-const std::string standard_kernel_header = std::string(
-        "#if defined(cl_khr_fp64)\n"
-        "#  pragma OPENCL EXTENSION cl_khr_fp64: enable\n"
-        "#elif defined(cl_amd_fp64)\n"
-        "#  pragma OPENCL EXTENSION cl_amd_fp64: enable\n"
-        "#endif\n"
-        );
-
 /// \cond INTERNAL
 
 /// Binary operations with their traits.
@@ -207,6 +199,65 @@ for_each(const Tuple &v, Function &f)
     for_each<I + 1>(v, f);
 }
 
+/// Global program options holder
+template <bool dummy>
+struct program_options {
+    static_assert(dummy, "dummy parameter should be true");
+
+    static const std::string& get_options(const cl::Device &dev) {
+        return options[dev()];
+    }
+
+    static const std::string& get_header(const cl::Device &dev) {
+        return header[dev()];
+    }
+
+    static void set_options(const cl::Device &dev, const std::string &str) {
+        options[dev()] = str;
+    }
+
+    static void set_header(const cl::Device &dev, const std::string &str) {
+        header[dev()] = str;
+    }
+
+    private:
+        static std::map<cl_device_id, std::string> options;
+        static std::map<cl_device_id, std::string> header;
+};
+
+template <bool dummy>
+std::map<cl_device_id, std::string> program_options<dummy>::options;
+
+template <bool dummy>
+std::map<cl_device_id, std::string> program_options<dummy>::header;
+
+inline std::string get_program_options(const cl::Device &dev) {
+    return program_options<true>::get_options(dev);
+}
+
+inline std::string get_program_header(const cl::Device &dev) {
+    return program_options<true>::get_header(dev);
+}
+
+/// Set global OpenCL compilation options.
+inline void set_program_options(const cl::Device &dev, const std::string &str) {
+    program_options<true>::set_options(dev, str);
+}
+
+/// Set global OpenCL program header.
+inline void set_program_header(const cl::Device &dev, const std::string &str) {
+    program_options<true>::set_header(dev, str);
+}
+
+inline std::string standard_kernel_header(const cl::Device &dev) {
+    return std::string(
+        "#if defined(cl_khr_fp64)\n"
+        "#  pragma OPENCL EXTENSION cl_khr_fp64: enable\n"
+        "#elif defined(cl_amd_fp64)\n"
+        "#  pragma OPENCL EXTENSION cl_amd_fp64: enable\n"
+        "#endif\n"
+        ) + get_program_header(dev);
+}
 
 /// Create and build a program from source string.
 inline cl::Program build_sources(
@@ -225,7 +276,7 @@ inline cl::Program build_sources(
     auto device = context.getInfo<CL_CONTEXT_DEVICES>();
 
     try {
-        program.build(device, options.c_str());
+        program.build(device, (options + " " + get_program_options(device[0])).c_str());
     } catch(const cl::Error&) {
         std::cerr << source
                   << std::endl

@@ -428,7 +428,7 @@ class Kernel {
                 std::ostringstream source;
 
                 source
-                    << standard_kernel_header
+                    << standard_kernel_header(device)
                     << "kernel void " << name << "(\n"
                     << "\t" << type_name<size_t>() << " n";
 

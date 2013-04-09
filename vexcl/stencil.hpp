@@ -359,7 +359,7 @@ void stencil<T>::init(uint width) {
         if (!compiled[context()]) {
             std::ostringstream source;
 
-            source << standard_kernel_header <<
+            source << standard_kernel_header(device) <<
                 "typedef " << type_name<T>() << " real;\n"
                 "real read_x(\n"
                 "    long g_id,\n"
@@ -629,7 +629,7 @@ StencilOperator<T, width, center, Impl>::StencilOperator(
         if (!compiled[context()]) {
             std::ostringstream source;
 
-            source << standard_kernel_header <<
+            source << standard_kernel_header(device) <<
                 "typedef " << type_name<T>() << " real;\n"
                 "real read_x(\n"
                 "    long g_id,\n"

@@ -65,7 +65,7 @@ class gather {
                 if (!compiled[context()]) {
                     std::ostringstream source;
 
-                    source << standard_kernel_header <<
+                    source << standard_kernel_header(device) <<
                         "typedef " << type_name<T>() << " real;\n"
                         "kernel void gather(\n"
                         "    " << type_name<size_t>() << " n,\n"

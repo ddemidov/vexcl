@@ -356,7 +356,7 @@ class multivector : public multivector_terminal_expression {
                     boost::proto::eval(boost::proto::as_child(expr), name_ctx);
 
                     std::ostringstream kernel;
-                    kernel << standard_kernel_header;
+                    kernel << standard_kernel_header(device);
 
                     extract_user_functions()(
                             boost::proto::as_child(expr),
@@ -445,7 +445,7 @@ class multivector : public multivector_terminal_expression {
                 if (!exdata<ExprTuple>::compiled[context()]) {
                     std::ostringstream kernel;
 
-                    kernel << standard_kernel_header;
+                    kernel << standard_kernel_header(device);
 
                     {
                         get_header f(kernel);
