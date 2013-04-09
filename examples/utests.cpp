@@ -1708,6 +1708,28 @@ int main(int argc, char *argv[]) {
             });
 #endif
 
+#ifdef TESTS_ON
+        run_test("Test global program header", [&]() -> bool {
+               bool rc = true;
+               const size_t N = 1 << 20;
+
+               vex::vector<int> x(ctx, N);
+
+               vex::set_program_header(ctx, "#define THE_ANSWER 42\n");
+
+               VEX_FUNCTION(answer, int(int), "return prm1 * THE_ANSWER;");
+
+               x = answer(1);
+
+               for(int i = 0; i < 100; ++i) {
+                   size_t idx = rand() % N;
+                   rc = rc && x[idx] == 42;
+               }
+
+               return rc;
+            });
+#endif
+
     } catch (const cl::Error &err) {
         std::cerr << "OpenCL error: " << err << std::endl;
         return 1;
