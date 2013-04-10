@@ -142,8 +142,11 @@ BOOST_AUTO_TEST_CASE(empty_rows)
     std::vector<size_t> col;
     std::vector<double> val;
 
+    row.reserve(n + 1);
+
     random_matrix(non_empty_part, n, 16, row, col, val);
-    row.resize(n, row.back());
+
+    while(row.size() < n + 1) row.push_back(col.size());
 
     std::vector<double> x = random_vector(n);
 
@@ -226,22 +229,24 @@ BOOST_AUTO_TEST_CASE(ccsr_vector_product)
 
     Y = A * X;
 
-    check_sample(Y, [&](size_t idx, double a) {
+    check_sample(Y, [&](long ii, double a) {
             double sum = 0;
-            for(size_t j = row[idx]; j < row[idx + 1]; j++)
-                sum += val[j] * x[col[j]];
+            size_t i = idx[ii];
+            for(size_t j = row[i]; j < row[i + 1]; j++)
+                sum += val[j] * x[ii + col[j]];
 
             BOOST_CHECK_CLOSE(a, sum, 1e-8);
             });
 
     Y = X + A * X;
 
-    check_sample(Y, [&](size_t idx, double a) {
+    check_sample(Y, [&](long ii, double a) {
             double sum = 0;
-            for(size_t j = row[idx]; j < row[idx + 1]; j++)
-                sum += val[j] * x[col[j]];
+            size_t i = idx[ii];
+            for(size_t j = row[i]; j < row[i + 1]; j++)
+                sum += val[j] * x[ii + col[j]];
 
-            BOOST_CHECK_CLOSE(a, x[idx] + sum, 1e-8);
+            BOOST_CHECK_CLOSE(a, x[ii] + sum, 1e-8);
             });
 }
 
@@ -294,12 +299,11 @@ BOOST_AUTO_TEST_CASE(multivector_product)
 
 BOOST_AUTO_TEST_CASE(ccsr_multivector_product)
 {
-    const size_t n = 32;
-    const size_t N = n * n * n;
-    const size_t m = 2;
+    const long n = 32;
+    const long N = n * n * n;
     const double h2i = (n - 1) * (n - 1);
 
-    typedef std::array<double, m> elem_t;
+    typedef std::array<double, 2> elem_t;
 
     std::vector<size_t> idx;
     std::vector<size_t> row(3);
@@ -331,9 +335,9 @@ BOOST_AUTO_TEST_CASE(ccsr_multivector_product)
     val[6] = -h2i;
     val[7] = -h2i;
 
-    for(size_t k = 0; k < n; k++) {
-        for(size_t j = 0; j < n; j++) {
-            for(size_t i = 0; i < n; i++) {
+    for(long k = 0; k < n; k++) {
+        for(long j = 0; j < n; j++) {
+            for(long i = 0; i < n; i++) {
                 if (
                         i == 0 || i == (n - 1) ||
                         j == 0 || j == (n - 1) ||
@@ -348,23 +352,24 @@ BOOST_AUTO_TEST_CASE(ccsr_multivector_product)
         }
     }
 
-    std::vector<double> x = random_vector(N * m);
+    std::vector<double> x = random_vector(N * 2);
 
     std::vector<cl::CommandQueue> queue(1, ctx.queue(0));
 
     vex::SpMatCCSR<double,int> A(queue[0], N, row.size() - 1,
             idx.data(), row.data(), col.data(), val.data());
 
-    vex::multivector<double,m> X(queue, x);
-    vex::multivector<double,m> Y(queue, N);
+    vex::multivector<double,2> X(queue, x);
+    vex::multivector<double,2> Y(queue, N);
 
     Y = A * X;
 
-    check_sample(Y, [&](size_t idx, elem_t a) {
+    check_sample(Y, [&](long ii, elem_t a) {
             double sum[] = {0, 0};
-            for(size_t j = row[idx]; j < row[idx + 1]; j++) {
-                sum[0] += val[j] * x[0 + col[j]];
-                sum[1] += val[j] * x[n + col[j]];
+            size_t i = idx[ii];
+            for(size_t j = row[i]; j < row[i + 1]; j++) {
+                sum[0] += val[j] * x[0 + ii + col[j]];
+                sum[1] += val[j] * x[N + ii + col[j]];
             }
 
             BOOST_CHECK_CLOSE(a[0], sum[0], 1e-8);
@@ -373,15 +378,16 @@ BOOST_AUTO_TEST_CASE(ccsr_multivector_product)
 
     Y = X + A * X;
 
-    check_sample(Y, [&](size_t idx, elem_t a) {
+    check_sample(Y, [&](long ii, elem_t a) {
             double sum[] = {0, 0};
-            for(size_t j = row[idx]; j < row[idx + 1]; j++) {
-                sum[0] += val[j] * x[0 + col[j]];
-                sum[1] += val[j] * x[n + col[j]];
+            size_t i = idx[ii];
+            for(size_t j = row[i]; j < row[i + 1]; j++) {
+                sum[0] += val[j] * x[0 + ii + col[j]];
+                sum[1] += val[j] * x[N + ii + col[j]];
             }
 
-            BOOST_CHECK_CLOSE(a[0], x[0 + idx] + sum[0], 1e-8);
-            BOOST_CHECK_CLOSE(a[1], x[n + idx] + sum[1], 1e-8);
+            BOOST_CHECK_CLOSE(a[0], x[0 + ii] + sum[0], 1e-8);
+            BOOST_CHECK_CLOSE(a[1], x[N + ii] + sum[1], 1e-8);
             });
 }
 
