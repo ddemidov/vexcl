@@ -60,9 +60,13 @@ template <class F, class E>
 struct is_scalable<fft_expr<F, E>> : std::true_type {};
 
 
+namespace fft {
+
 enum direction {
     forward, inverse
 };
+
+}
 
 /// Fast Fourier Transform.
 /**
@@ -83,33 +87,33 @@ struct FFT {
 
     /// 1D constructor
     FFT(const std::vector<cl::CommandQueue> &queues,
-        size_t length, direction dir = forward,
+        size_t length, fft::direction dir = fft::forward,
         const Planner &planner = Planner())
-        : plan(queues, std::vector<size_t>(1, length), dir == inverse, planner) {}
+        : plan(queues, std::vector<size_t>(1, length), dir == fft::inverse, planner) {}
 
-    FFT(size_t length, direction dir = forward,
+    FFT(size_t length, fft::direction dir = fft::forward,
         const Planner &planner = Planner())
-        : plan(current_context().queue(), std::vector<size_t>(1, length), dir == inverse, planner) {}
+        : plan(current_context().queue(), std::vector<size_t>(1, length), dir == fft::inverse, planner) {}
 
     /// N-D constructors
     FFT(const std::vector<cl::CommandQueue> &queues,
-        const std::vector<size_t> &lengths, direction dir = forward,
+        const std::vector<size_t> &lengths, fft::direction dir = fft::forward,
         const Planner &planner = Planner())
-        : plan(queues, lengths, dir == inverse, planner) {}
+        : plan(queues, lengths, dir == fft::inverse, planner) {}
 
-    FFT(const std::vector<size_t> &lengths, direction dir = forward,
+    FFT(const std::vector<size_t> &lengths, fft::direction dir = fft::forward,
         const Planner &planner = Planner())
-        : plan(current_context().queue(), lengths, dir == inverse, planner) {}
+        : plan(current_context().queue(), lengths, dir == fft::inverse, planner) {}
 
 #ifndef BOOST_NO_INITIALIZER_LISTS
     FFT(const std::vector<cl::CommandQueue> &queues,
-        const std::initializer_list<size_t> &lengths, direction dir = forward,
+        const std::initializer_list<size_t> &lengths, fft::direction dir = fft::forward,
         const Planner &planner = Planner())
-        : plan(queues, lengths, dir == inverse, planner) {}
+        : plan(queues, lengths, dir == fft::inverse, planner) {}
 
-    FFT(const std::initializer_list<size_t> &lengths, direction dir = forward,
+    FFT(const std::initializer_list<size_t> &lengths, fft::direction dir = fft::forward,
         const Planner &planner = Planner())
-        : plan(current_context().queue(), lengths, dir == inverse, planner) {}
+        : plan(current_context().queue(), lengths, dir == fft::inverse, planner) {}
 #endif
 
     template <bool negate, bool append, class Expr>

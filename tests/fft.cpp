@@ -31,7 +31,7 @@ BOOST_AUTO_TEST_CASE(check_correctness)
     in = rnd(vex::element_index(), std::rand());
 
     vex::FFT<cl_float,  cl_float2> fft (queue, N);
-    vex::FFT<cl_float2, cl_float > ifft(queue, N, vex::inverse);
+    vex::FFT<cl_float2, cl_float > ifft(queue, N, vex::fft::inverse);
 
     out  = fft (in );
     back = ifft(out);
@@ -76,7 +76,7 @@ void test(const vex::Context &ctx, std::vector<size_t> ns) {
     vex::vector<cl_double2> back(queue, n);
 
     vex::FFT<cl_double2> fft (queue, ns);
-    vex::FFT<cl_double2> ifft(queue, ns, vex::inverse);
+    vex::FFT<cl_double2> ifft(queue, ns, vex::fft::inverse);
 
     out  = fft (inp);
     back = ifft(out);
