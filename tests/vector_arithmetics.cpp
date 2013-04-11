@@ -1,6 +1,5 @@
 #define BOOST_TEST_MODULE VectorArithmetics
 #include <boost/test/unit_test.hpp>
-
 #include "context_setup.hpp"
 
 BOOST_AUTO_TEST_CASE(assign_expression)
@@ -129,6 +128,23 @@ BOOST_AUTO_TEST_CASE(nested_functions)
     x = 1;
     x = g(f(x));
     check_sample(x, [](size_t, int a) { BOOST_CHECK(a == 6); });
+}
+
+BOOST_AUTO_TEST_CASE(custom_header)
+{
+    const size_t n = 1024;
+
+    vex::vector<int> x(ctx, n);
+
+    vex::set_program_header(ctx, "#define THE_ANSWER 42\n");
+
+    VEX_FUNCTION(answer, int(int), "return prm1 * THE_ANSWER;");
+
+    x = answer(1);
+
+    check_sample(x, [](size_t, int a) {
+            BOOST_CHECK(a == 42);
+            });
 }
 
 BOOST_AUTO_TEST_SUITE_END()

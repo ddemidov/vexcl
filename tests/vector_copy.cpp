@@ -1,6 +1,5 @@
 #define BOOST_TEST_MODULE VectorCopy
 #include <boost/test/unit_test.hpp>
-
 #include "context_setup.hpp"
 
 BOOST_AUTO_TEST_CASE(iterate_over_vector)
@@ -66,6 +65,28 @@ BOOST_AUTO_TEST_CASE(map_buffer)
     }
 
     check_sample(x, [](size_t idx, size_t a) { BOOST_CHECK(a == idx); });
+}
+
+BOOST_AUTO_TEST_CASE(gather)
+{
+    const size_t n = 1 << 20;
+    const size_t m = 100;
+
+    std::vector<double> x = random_vector(n);
+    vex::vector<double> X(ctx, x);
+
+    std::vector<size_t> i(m);
+    std::generate(i.begin(), i.end(), [n](){ return rand() % n; });
+    std::sort(i.begin(), i.end());
+    i.resize( std::unique(i.begin(), i.end()) - i.begin() );
+
+    std::vector<double> data(i.size());
+    vex::gather<double> get(ctx, x.size(), i);
+
+    get(X, data);
+
+    for(size_t p = 0; p < i.size(); ++p)
+        BOOST_CHECK(data[p] == x[i[p]]);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

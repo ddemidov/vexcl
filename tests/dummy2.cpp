@@ -1,4 +1,6 @@
 /* Dummy file to test for multiple definition problems */
 #include <vexcl/vexcl.hpp>
 
-void dummy() { }
+bool empty_context() {
+    return vex::current_context().empty();
+}

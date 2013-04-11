@@ -1,6 +1,5 @@
-#define BOOST_TEST_MODULE VectorArithmetics
+#define BOOST_TEST_MODULE SparesMatrixVectorProduct
 #include <boost/test/unit_test.hpp>
-
 #include "context_setup.hpp"
 
 template <typename RT, typename CT, typename VT>

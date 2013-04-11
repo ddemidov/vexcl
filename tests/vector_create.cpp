@@ -1,6 +1,5 @@
 #define BOOST_TEST_MODULE VectorCreate
 #include <boost/test/unit_test.hpp>
-
 #include "context_setup.hpp"
 
 BOOST_AUTO_TEST_CASE(empty)

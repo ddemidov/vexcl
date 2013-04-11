@@ -46,9 +46,6 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     endif (USE_LIBCPP)
 endif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
 
-add_executable(utests utests.cpp dummy.cpp)
-target_link_libraries(utests ${OPENCL_LIBRARIES} ${Boost_LIBRARIES})
-
 foreach(example ${EXAMPLES})
     add_executable(${example} ${example}.cpp)
     target_link_libraries(${example} ${OPENCL_LIBRARIES} ${Boost_LIBRARIES})
