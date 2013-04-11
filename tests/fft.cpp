@@ -100,11 +100,11 @@ size_t random_dim(double p, double s) {
 
 BOOST_AUTO_TEST_CASE(test_dimensions)
 {
-    const size_t max = 1 << 20;
+    const size_t max = vex::is_cpu(ctx.device(0)) ? 1 << 10 : 1 << 20;
 
     vex::fft::planner p;
 
-    for(size_t i = 0; i < 100 ; ++i) {
+    for(size_t i = 0; i < 32; ++i) {
         // random number of dimensions, mostly 1.
         size_t dims = random_dim(3, 5);
 
