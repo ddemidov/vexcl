@@ -50,6 +50,7 @@ void test(const vex::Context &ctx, std::vector<size_t> ns) {
     }
     std::cout << std::endl;
 
+    std::vector<cl::CommandQueue> queue(1, ctx.queue(0));
 
     size_t n = std::accumulate(ns.begin(), ns.end(), 1UL, std::multiplies<size_t>());
 
@@ -69,19 +70,19 @@ void test(const vex::Context &ctx, std::vector<size_t> ns) {
     }
 
     // test
-    vex::vector<cl_double2> inp (ctx, n, reinterpret_cast<cl_double2*>(inp_h.data()));
-    vex::vector<cl_double2> ref (ctx, n, reinterpret_cast<cl_double2*>(ref_h.data()));
-    vex::vector<cl_double2> out (ctx, n);
-    vex::vector<cl_double2> back(ctx, n);
+    vex::vector<cl_double2> inp (queue, n, reinterpret_cast<cl_double2*>(inp_h.data()));
+    vex::vector<cl_double2> ref (queue, n, reinterpret_cast<cl_double2*>(ref_h.data()));
+    vex::vector<cl_double2> out (queue, n);
+    vex::vector<cl_double2> back(queue, n);
 
-    vex::FFT<cl_double2> fft (ctx, ns);
-    vex::FFT<cl_double2> ifft(ctx, ns, vex::inverse);
+    vex::FFT<cl_double2> fft (queue, ns);
+    vex::FFT<cl_double2> ifft(queue, ns, vex::inverse);
 
     out  = fft (inp);
     back = ifft(out);
 
     auto rms = [&](const vex::vector<cl_double2> &a, const vex::vector<cl_double2> &b) {
-        static vex::Reductor<double, vex::SUM> sum(ctx);
+        static vex::Reductor<double, vex::SUM> sum(queue);
         return std::sqrt(sum(dot(a - b, a - b))) / std::sqrt(sum(dot(b, b)));
     };
 
