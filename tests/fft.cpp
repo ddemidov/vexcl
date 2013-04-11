@@ -57,6 +57,17 @@ void test(const vex::Context &ctx, std::vector<size_t> ns) {
     // random data.
     std::vector<double> inp_h = random_vector(2 * n);
 
+    // test
+    vex::vector<cl_double2> inp (queue, n, reinterpret_cast<cl_double2*>(inp_h.data()));
+    vex::vector<cl_double2> out (queue, n);
+    vex::vector<cl_double2> back(queue, n);
+
+    vex::FFT<cl_double2> fft (queue, ns);
+    vex::FFT<cl_double2> ifft(queue, ns, vex::fft::inverse);
+
+    out  = fft (inp);
+    back = ifft(out);
+
     // reference.
     std::vector<double> ref_h(2 * n);
     {
@@ -69,17 +80,7 @@ void test(const vex::Context &ctx, std::vector<size_t> ns) {
         fftw_destroy_plan(p1);
     }
 
-    // test
-    vex::vector<cl_double2> inp (queue, n, reinterpret_cast<cl_double2*>(inp_h.data()));
     vex::vector<cl_double2> ref (queue, n, reinterpret_cast<cl_double2*>(ref_h.data()));
-    vex::vector<cl_double2> out (queue, n);
-    vex::vector<cl_double2> back(queue, n);
-
-    vex::FFT<cl_double2> fft (queue, ns);
-    vex::FFT<cl_double2> ifft(queue, ns, vex::fft::inverse);
-
-    out  = fft (inp);
-    back = ifft(out);
 
     auto rms = [&](const vex::vector<cl_double2> &a, const vex::vector<cl_double2> &b) {
         static vex::Reductor<double, vex::SUM> sum(queue);
