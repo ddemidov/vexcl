@@ -11,7 +11,6 @@ struct ContextSetup {
         std::cout << "seed: " << seed << std::endl;
 
         srand(seed);
-        srand48(seed);
 
         std::cout << context << std::endl;
     }
@@ -28,8 +27,11 @@ struct ContextReference {
 };
 
 std::vector<double> random_vector(size_t n) {
+    static std::default_random_engine rng( std::rand() );
+    static std::uniform_real_distribution<double> rnd(0.0, 1.0);
+
     std::vector<double> x(n);
-    std::generate(x.begin(), x.end(), drand48);
+    std::generate(x.begin(), x.end(), [](){ return rnd(rng); });
     return x;
 }
 

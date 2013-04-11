@@ -3,6 +3,8 @@ set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 if (WIN32)
     set(Boost_USE_STATIC_LIBS ON)
     add_definitions(-D_USE_MATH_DEFINES)
+else (WIN32)
+    add_definitions(-DBOOST_TEST_DYN_LINK)
 endif (WIN32)
 
 find_package(Boost COMPONENTS
@@ -13,7 +15,6 @@ find_package(Boost COMPONENTS
     thread
     unit_test_framework
     )
-add_definitions(-DBOOST_TEST_DYN_LINK)
 
 find_package(OpenCL REQUIRED)
 
