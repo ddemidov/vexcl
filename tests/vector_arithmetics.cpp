@@ -35,7 +35,7 @@ BOOST_AUTO_TEST_CASE(reduce_expression)
     BOOST_CHECK_CLOSE(min(X), *std::min_element(x.begin(), x.end()), 1e-6);
     BOOST_CHECK_CLOSE(max(X), *std::max_element(x.begin(), x.end()), 1e-6);
 
-    BOOST_CHECK_CLOSE(max(fabs(X - X)), 0.0, 1e-12);
+    BOOST_CHECK_SMALL(max(fabs(X - X)), 1e-12);
 }
 
 BOOST_AUTO_TEST_CASE(builtin_functions)
@@ -97,7 +97,7 @@ BOOST_AUTO_TEST_CASE(element_index)
 
 BOOST_AUTO_TEST_CASE(vector_values)
 {
-    const size_t N = 16 * 1024;
+    const size_t N = 1024;
 
     VEX_FUNCTION(make_int4, cl_int4(int), "return (int4)(prm1, prm1, prm1, prm1);");
 

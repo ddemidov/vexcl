@@ -1,47 +1,3 @@
-set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
-
-if (WIN32)
-    set(Boost_USE_STATIC_LIBS ON)
-    add_definitions(-D_USE_MATH_DEFINES)
-else (WIN32)
-    add_definitions(-DBOOST_TEST_DYN_LINK)
-endif (WIN32)
-
-find_package(Boost COMPONENTS
-    chrono
-    date_time
-    filesystem
-    system
-    thread
-    unit_test_framework
-    )
-
-find_package(OpenCL REQUIRED)
-
-include_directories(
-    ${CMAKE_SOURCE_DIR}
-    ${OPENCL_INCLUDE_DIRS}
-    ${Boost_INCLUDE_DIRS}
-    )
-
-find_package(OpenMP)
-if (OpenMP_CXX_FLAGS)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-endif (OpenMP_CXX_FLAGS)
-
-if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -std=c++0x -Wall -Wclobbered -Wempty-body -Wignored-qualifiers -Wmissing-field-initializers -Wsign-compare -Wtype-limits -Wuninitialized -Wunused-parameter -Wunused-but-set-parameter -Werror")
-endif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-
-if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -std=c++0x")
-
-    option(USE_LIBCPP "Use libc++ with Clang" OFF)
-    if (USE_LIBCPP)
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
-    endif (USE_LIBCPP)
-endif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-
 function(add_vexcl_test TEST_NAME TEST_SOURCE)
     add_executable(${TEST_NAME} ${TEST_SOURCE})
     target_link_libraries(${TEST_NAME}
@@ -51,6 +7,9 @@ function(add_vexcl_test TEST_NAME TEST_SOURCE)
     add_test(${TEST_NAME} ${TEST_NAME})
 endfunction()
 
+#----------------------------------------------------------------------------
+# General tests
+#----------------------------------------------------------------------------
 add_vexcl_test(vector_create            vector_create.cpp)
 add_vexcl_test(vector_copy              vector_copy.cpp)
 add_vexcl_test(vector_arithmetics       vector_arithmetics.cpp)
@@ -60,5 +19,33 @@ add_vexcl_test(spmv                     spmv.cpp)
 add_vexcl_test(stencil                  stencil.cpp)
 add_vexcl_test(generator                generator.cpp)
 add_vexcl_test(random                   random.cpp)
-add_vexcl_test(fft                      fft.cpp)
 add_vexcl_test(multiple_objects         "dummy1.cpp;dummy2.cpp")
+
+#----------------------------------------------------------------------------
+# Test interoperation with Boost.compute
+#----------------------------------------------------------------------------
+option(BOOST_COMPUTE "Use Boost.Compute algorithms" OFF)
+
+if (BOOST_COMPUTE)
+    find_path(BOOST_COMPUTE_INCLUDE boost/compute.hpp)
+    include_directories(${BOOST_COMPUTE_INCLUDE})
+
+    add_vexcl_test(boost_compute_sort boost_compute_sort.cpp)
+    add_vexcl_test(boost_compute_scan boost_compute_scan.cpp)
+endif (BOOST_COMPUTE)
+
+#----------------------------------------------------------------------------
+# Test Fast Fourier Transform
+#----------------------------------------------------------------------------
+find_package(FFTW QUIET)
+
+if (FFTW_FOUND)
+    include_directories(${FFTW_INCLUDES})
+    add_definitions(-DHAVE_FFTW)
+endif (FFTW_FOUND)
+
+add_vexcl_test(fft fft.cpp)
+
+if (FFTW_FOUND)
+    target_link_libraries(fft ${FFTW_LIBRARIES})
+endif (FFTW_FOUND)

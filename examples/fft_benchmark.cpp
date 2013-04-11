@@ -8,10 +8,9 @@ using namespace vex;
 
 const size_t runs = 1000;
 
-
-#ifdef USE_CUDA
-#include <cufft.h>
-#include <cuda_runtime.h>
+#ifdef HAVE_CUDA
+#  include <cufft.h>
+#  include <cuda_runtime.h>
 
 void check(cudaError_t status, const char *msg) {
     if (status != cudaSuccess)
@@ -60,7 +59,7 @@ double test_cufft(cl_float2 *, size_t, size_t) {
 #endif
 
 
-#ifdef USE_FFTW
+#ifdef HAVE_FFTW
 #  ifdef _OPENMP
 #    include <omp.h>
 #  endif
@@ -142,7 +141,7 @@ int main() {
     }
 
     // random data
-#ifdef USE_FFTW
+#ifdef HAVE_FFTW
     cl_float2 *data = reinterpret_cast<cl_float2 *>(
         fftwf_malloc(sizeof(cl_float2) * max_len));
 #else
