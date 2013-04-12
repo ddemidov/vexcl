@@ -3,6 +3,7 @@
 #include <random>
 
 #include <vexcl/vexcl.hpp>
+#include <vexcl/fft/plan.hpp>
 
 using namespace vex;
 
@@ -92,24 +93,23 @@ double test_fftw(cl_float2 *, size_t, size_t) {
 
 
 double test(Context &ctx, cl_float2 *data, size_t n, size_t m) {
-    vector<cl_float2> a(ctx, n * m, data);
-    vector<cl_float2> b(ctx, n * m);
-    std::vector<size_t> sz; sz.push_back(n); if(m > 1) sz.push_back(m);
-    FFT<cl_float2> fft(ctx, sz);
+    try {
+        vector<cl_float2> a(ctx, n * m, data);
+        vector<cl_float2> b(ctx, n * m);
+        std::vector<size_t> sz; sz.push_back(n); if(m > 1) sz.push_back(m);
+        FFT<cl_float2> fft(ctx, sz);
 
-    // Run some
-    profiler prof;
-    prof.tic_cl("Run");
-    for(size_t i = 0 ; i < runs ; i++)
-        b = fft(a);
-    double t = prof.toc("Run");
+        // Run some
+        profiler prof;
+        prof.tic_cl("Run");
+        for(size_t i = 0 ; i < runs ; i++)
+            b = fft(a);
+        double t = prof.toc("Run");
 
-#ifdef FFT_PROFILE
-    std::cerr << fft.plan.profile;
-#else
-    std::cerr << fft.plan;
-#endif
-    return t;
+        return t;
+    } catch (...) {
+        return 0;
+    }
 }
 
 void info(double time, size_t size, size_t dim) {
