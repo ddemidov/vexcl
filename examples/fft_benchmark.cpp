@@ -101,9 +101,11 @@ double test(Context &ctx, cl_float2 *data, size_t n, size_t m) {
 
         // Run some
         profiler prof;
-        prof.tic_cl("Run");
-        for(size_t i = 0 ; i < runs ; i++)
+        prof.tic_cpu("Run");
+        for(size_t i = 0 ; i < runs ; i++) {
             b = fft(a);
+            ctx.queue(0).finish();
+        }
         double t = prof.toc("Run");
 
         return t;
@@ -133,7 +135,7 @@ int main() {
 
     // sizes to test
     std::vector<size_t> ns;
-    const size_t max_len = 1 << 20;
+    const size_t max_len = 1 << 22;
     vex::fft::prime_generator prime;
     for(size_t n = 2, k = prime() ; n <= max_len ; n *= 2) {
         ns.push_back(n);
@@ -159,9 +161,9 @@ int main() {
     std::cout << "#n\tfftw^1\tclfft^1\tcufft^1" << std::endl;
     for(auto n = ns.begin() ; n != ns.end() ; n++) {
         std::cout << *n;
-        info(test_fftw(data, *n, 1), *n, 1);
+        //info(test_fftw(data, *n, 1), *n, 1);
         info(test(ctx, data, *n, 1), *n, 1);
-        info(test_cufft(data, *n, 1), *n, 1);
+        //info(test_cufft(data, *n, 1), *n, 1);
         std::cout << std::endl;
     }
     std::cout << "\n\n";
@@ -171,9 +173,9 @@ int main() {
     for(auto n = ns.begin() ; n != ns.end() ; n++)
         if(*n * *n <= max_len) {
             std::cout << *n;
-            info(test_fftw(data, *n, *n), *n, 2);
+            //info(test_fftw(data, *n, *n), *n, 2);
             info(test(ctx, data, *n, *n), *n, 2);
-            info(test_cufft(data, *n, *n), *n, 2);
+            //info(test_cufft(data, *n, *n), *n, 2);
             std::cout << std::endl;
         }
 
