@@ -42,7 +42,7 @@ THE SOFTWARE.
 #include <boost/mpl/max.hpp>
 
 
-// Include boost.preprocessor header if variadic templates are not vailable.
+// Include boost.preprocessor header if variadic templates are not available.
 // Also include it if we use gcc v4.6.
 // This is required due to bug http://gcc.gnu.org/bugzilla/show_bug.cgi?id=35722
 #if defined(BOOST_NO_VARIADIC_TEMPLATES) || (defined(__GNUC__) && !defined(__clang__) && __GNUC__ == 4 && __GNUC_MINOR__ == 6)
