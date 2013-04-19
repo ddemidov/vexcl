@@ -333,6 +333,13 @@ inline uint kernel_workgroup_size(
     return wgsz;
 }
 
+/// Standard number of workgroups to launch on a device.
+inline size_t num_workgroups(const cl::Device &device) {
+    // This is a simple heuristic-based estimate. More advanced technique may
+    // be employed later.
+    return 4 * device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>();
+}
+
 struct kernel_cache_entry {
     cl::Kernel kernel;
     size_t     wgsize;

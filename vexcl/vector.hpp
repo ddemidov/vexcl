@@ -606,7 +606,7 @@ class vector : public vector_terminal_expression {
 
                 if (size_t psize = part[d + 1] - part[d]) {
                     size_t w_size = kernel->second.wgsize;
-                    size_t g_size = 4 * device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() * w_size;
+                    size_t g_size = num_workgroups(device) * w_size;
 
                     uint pos = 0;
                     kernel->second.kernel.setArg(pos++, psize);

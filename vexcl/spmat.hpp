@@ -919,8 +919,7 @@ void SpMat<real,column_t,idx_t>::SpMatELL::mul_local(
     cl::Context context = qctx(queue);
     cl::Device  device  = qdev(queue);
 
-    size_t g_size = device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>()
-        * wgsize[context()] * 4;
+    size_t g_size = num_workgroups(device) * wgsize[context()];
 
     if (loc_ell.w) {
         if (append) {
@@ -983,8 +982,7 @@ void SpMat<real,column_t,idx_t>::SpMatELL::mul_remote(
     cl::Context context = qctx(queue);
     cl::Device  device  = qdev(queue);
 
-    size_t g_size = device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>()
-        * wgsize[context()] * 4;
+    size_t g_size = num_workgroups(device) * wgsize[context()];
 
     if (rem_ell.w) {
         uint pos = 0;
@@ -1258,8 +1256,7 @@ void SpMat<real,column_t,idx_t>::SpMatCSR::mul_local(
     cl::Device  device  = qdev(queue);
 
     if (has_loc) {
-        size_t g_size = device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>()
-            * wgsize[context()] * 4;
+        size_t g_size = num_workgroups(device) * wgsize[context()];
 
         if (append) {
             uint pos = 0;
@@ -1307,8 +1304,7 @@ void SpMat<real,column_t,idx_t>::SpMatCSR::mul_remote(
     cl::Context context = qctx(queue);
     cl::Device  device  = qdev(queue);
 
-    size_t g_size = device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>()
-        * wgsize[context()] * 4;
+    size_t g_size = num_workgroups(device) * wgsize[context()];
 
     uint pos = 0;
     spmv_add[context()].setArg(pos++, n);

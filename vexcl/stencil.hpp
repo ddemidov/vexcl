@@ -500,8 +500,8 @@ void stencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y,
             char has_left  = d > 0;
             char has_right = d + 1 < queue.size();
 
-            size_t g_size = is_cpu(device) ? alignup(psize, wgs[d])
-                : device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() * wgs[d] * 4;
+            size_t g_size = is_cpu(device) ?
+                alignup(psize, wgs[d]) : num_workgroups(device) * wgs[d];
 
             uint pos = 0;
 
@@ -745,7 +745,7 @@ void StencilOperator<T, width, center, Impl>::convolve(
             cl::Device  device  = qdev(queue[d]);
 
             size_t g_size = is_cpu(device) ? alignup(psize, wgsize[context()]) :
-                device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() * wgsize[context()] * 4;
+                num_workgroups(device) * wgsize[context()];
 
             char has_left  = d > 0;
             char has_right = d + 1 < queue.size();

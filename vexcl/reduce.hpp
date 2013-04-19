@@ -173,7 +173,7 @@ Reductor<real,RDC>::Reductor(const std::vector<cl::CommandQueue> &queue)
         cl::Context context = qctx(*q);
         cl::Device  device  = qdev(*q);
 
-        size_t bufsize = device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() * 2U;
+        size_t bufsize = num_workgroups(device);
         idx.push_back(idx.back() + bufsize);
 
         dbuf.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, bufsize * sizeof(real)));
