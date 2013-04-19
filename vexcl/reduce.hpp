@@ -147,13 +147,6 @@ class Reductor {
         mutable std::vector<real> hbuf;
         mutable std::vector<cl::Event> event;
 
-        template <class Expr>
-        struct exdata {
-            static std::map<cl_context, bool>       compiled;
-            static std::map<cl_context, cl::Kernel> kernel;
-            static std::map<cl_context, size_t>     wgsize;
-        };
-
         template <size_t I, size_t N, class Expr>
         typename std::enable_if<I == N, void>::type
         assign_subexpressions(std::array<real, N> &, const Expr &) const
@@ -168,15 +161,6 @@ class Reductor {
             assign_subexpressions<I + 1, N, Expr>(result, expr);
         }
 };
-
-template <typename real, class RDC> template <class Expr>
-std::map<cl_context, bool> Reductor<real,RDC>::exdata<Expr>::compiled;
-
-template <typename real, class RDC> template <class Expr>
-std::map<cl_context, cl::Kernel> Reductor<real,RDC>::exdata<Expr>::kernel;
-
-template <typename real, class RDC> template <class Expr>
-std::map<cl_context, size_t> Reductor<real,RDC>::exdata<Expr>::wgsize;
 
 template <typename real, class RDC>
 Reductor<real,RDC>::Reductor(const std::vector<cl::CommandQueue> &queue)
@@ -204,12 +188,18 @@ typename std::enable_if<
     real
 >::type
 Reductor<real,RDC>::operator()(const Expr &expr) const {
-    for(auto q = queue.begin(); q != queue.end(); q++) {
-        cl::Context context = qctx(*q);
-        cl::Device  device  = qdev(*q);
+    static kernel_cache cache;
 
-        if (!exdata<Expr>::compiled[context()]) {
+    get_expression_properties prop;
+    extract_terminals()(expr, prop);
 
+    for(unsigned d = 0; d < queue.size(); ++d) {
+        cl::Context context = qctx(queue[d]);
+        cl::Device  device  = qdev(queue[d]);
+
+        auto kernel = cache.find( context() );
+
+        if (kernel == cache.end()) {
             std::ostringstream kernel_name;
             vector_name_context name_ctx(kernel_name);
 
@@ -293,49 +283,42 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
 
             auto program = build_sources(context, source.str());
 
-            exdata<Expr>::kernel[context()]   = cl::Kernel(program, kernel_name.str().c_str());
-            exdata<Expr>::compiled[context()] = true;
-
+            cl::Kernel krn(program, kernel_name.str().c_str());
+            size_t wgs;
             if (is_cpu(device)) {
-                exdata<Expr>::wgsize[context()] = 1;
+                wgs = 1;
             } else {
-                exdata<Expr>::wgsize[context()] = kernel_workgroup_size(
-                        exdata<Expr>::kernel[context()], device);
+                wgs = kernel_workgroup_size(krn, device);
 
                 size_t smem = device.getInfo<CL_DEVICE_LOCAL_MEM_SIZE>() -
-                    static_cast<cl::Kernel>(
-                            exdata<Expr>::kernel[context()]
-                            ).getWorkGroupInfo<CL_KERNEL_LOCAL_MEM_SIZE>(device);
-                while(exdata<Expr>::wgsize[context()] * sizeof(real) > smem)
-                    exdata<Expr>::wgsize[context()] /= 2;
+                    krn.getWorkGroupInfo<CL_KERNEL_LOCAL_MEM_SIZE>(device);
+                while(wgs * sizeof(real) > smem)
+                    wgs /= 2;
             }
+
+            kernel = cache.insert(std::make_pair(
+                        context(), kernel_cache_entry(krn, wgs)
+                        )).first;
         }
-    }
 
-
-    get_expression_properties prop;
-    extract_terminals()(expr, prop);
-
-    for(uint d = 0; d < queue.size(); d++) {
         if (size_t psize = prop.part_size(d)) {
-            cl::Context context = qctx(queue[d]);
-
-            size_t g_size = (idx[d + 1] - idx[d]) * exdata<Expr>::wgsize[context()];
-            auto lmem = cl::Local(exdata<Expr>::wgsize[context()] * sizeof(real));
+            size_t w_size = kernel->second.wgsize;
+            size_t g_size = (idx[d + 1] - idx[d]) * w_size;
+            auto   lmem   = cl::Local(w_size * sizeof(real));
 
             uint pos = 0;
-            exdata<Expr>::kernel[context()].setArg(pos++, psize);
+            kernel->second.kernel.setArg(pos++, psize);
 
             extract_terminals()(
                     expr,
-                    set_expression_argument(exdata<Expr>::kernel[context()], d, pos, prop.part_start(d))
+                    set_expression_argument(kernel->second.kernel, d, pos, prop.part_start(d))
                     );
 
-            exdata<Expr>::kernel[context()].setArg(pos++, dbuf[d]);
-            exdata<Expr>::kernel[context()].setArg(pos++, lmem);
+            kernel->second.kernel.setArg(pos++, dbuf[d]);
+            kernel->second.kernel.setArg(pos++, lmem);
 
-            queue[d].enqueueNDRangeKernel(exdata<Expr>::kernel[context()],
-                    cl::NullRange, g_size, exdata<Expr>::wgsize[context()]);
+            queue[d].enqueueNDRangeKernel(kernel->second.kernel,
+                    cl::NullRange, g_size, w_size);
         }
     }
 

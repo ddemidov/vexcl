@@ -60,33 +60,6 @@ class gather {
 
             for(uint d = 0; d < queue.size(); d++) {
                 cl::Context context = qctx(queue[d]);
-                cl::Device  device  = qdev(queue[d]);
-
-                if (!compiled[context()]) {
-                    std::ostringstream source;
-
-                    source << standard_kernel_header(device) <<
-                        "typedef " << type_name<T>() << " real;\n"
-                        "kernel void gather(\n"
-                        "    " << type_name<size_t>() << " n,\n"
-                        "    global const real *src,\n"
-                        "    global const " << type_name<size_t>() << " *col,\n"
-                        "    global real *dst\n"
-                        "    )\n"
-                        "{\n"
-                        "    size_t i = get_global_id(0);\n"
-                        "    if (i < n) dst[i] = src[col[i]];\n"
-                        "}\n";
-
-                    auto program = build_sources(context, source.str());
-
-                    krn[context()] = cl::Kernel(program, "gather");
-
-                    wgsize[context()] = kernel_workgroup_size(
-                            krn[context()], device);
-
-                    compiled[context()] = true;
-                }
 
                 if (size_t n = ptr[d + 1] - ptr[d]) {
                     idx[d] = cl::Buffer(context, CL_MEM_READ_ONLY,  n * sizeof(size_t));
@@ -103,20 +76,51 @@ class gather {
 
         template <class HostVector>
         void operator()(const vex::vector<T> &src, HostVector &dst) {
-            for(uint d = 0; d < queue.size(); d++) {
-                if (size_t n = ptr[d + 1] - ptr[d]) {
-                    cl::Context context = qctx(queue[d]);
+            static kernel_cache cache;
 
-                    size_t g_size = alignup(n, wgsize[context()]);
+            for(uint d = 0; d < queue.size(); d++) {
+                cl::Context context = qctx(queue[d]);
+                cl::Device  device  = qdev(queue[d]);
+
+                auto kernel = cache.find(context());
+
+                if (kernel == cache.end()) {
+                    std::ostringstream source;
+
+                    source << standard_kernel_header(device) <<
+                        "typedef " << type_name<T>() << " real;\n"
+                        "kernel void gather(\n"
+                        "    " << type_name<size_t>() << " n,\n"
+                        "    global const real *src,\n"
+                        "    global const " << type_name<size_t>() << " *col,\n"
+                        "    global real *dst\n"
+                        "    )\n"
+                        "{\n"
+                        "    size_t i = get_global_id(0);\n"
+                        "    if (i < n) dst[i] = src[col[i]];\n"
+                        "}\n";
+
+                    auto program = build_sources(context, source.str());
+                    cl::Kernel krn(program, "gather");
+                    size_t wgs = kernel_workgroup_size(krn, device);
+
+                    kernel = cache.insert(std::make_pair(
+                                context(), kernel_cache_entry(krn, wgs)
+                                )).first;
+                }
+
+                if (size_t n = ptr[d + 1] - ptr[d]) {
+                    size_t w_size = kernel->second.wgsize;
+                    size_t g_size = alignup(n, w_size);
 
                     uint pos = 0;
-                    krn[context()].setArg(pos++, n);
-                    krn[context()].setArg(pos++, src(d));
-                    krn[context()].setArg(pos++, idx[d]);
-                    krn[context()].setArg(pos++, val[d]);
+                    kernel->second.kernel.setArg(pos++, n);
+                    kernel->second.kernel.setArg(pos++, src(d));
+                    kernel->second.kernel.setArg(pos++, idx[d]);
+                    kernel->second.kernel.setArg(pos++, val[d]);
 
-                    queue[d].enqueueNDRangeKernel(krn[context()],
-                            cl::NullRange, g_size, wgsize[context()]);
+                    queue[d].enqueueNDRangeKernel(kernel->second.kernel,
+                            cl::NullRange, g_size, w_size);
 
                     queue[d].enqueueReadBuffer(
                             val[d], CL_FALSE, 0, n * sizeof(T), &dst[ptr[d]],
@@ -133,15 +137,8 @@ class gather {
         std::vector<cl::Buffer> idx;
         std::vector<cl::Buffer> val;
         std::vector<cl::Event>  ev;
-
-        static std::map<cl_context, bool>       compiled;
-        static std::map<cl_context, cl::Kernel> krn;
-        static std::map<cl_context, uint>       wgsize;
 };
 
-template<typename T> std::map<cl_context, bool>       gather<T>::compiled;
-template<typename T> std::map<cl_context, cl::Kernel> gather<T>::krn;
-template<typename T> std::map<cl_context, uint>       gather<T>::wgsize;
 } // namespace vex
 
 #endif

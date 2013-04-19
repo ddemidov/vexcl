@@ -542,79 +542,83 @@ class vector : public vector_terminal_expression {
             const vector&
         >::type
         operator=(const Expr &expr) {
+            static kernel_cache cache;
+
             for(uint d = 0; d < queue.size(); d++) {
                 cl::Context context = qctx(queue[d]);
                 cl::Device  device  = qdev(queue[d]);
 
-                if (!exdata<Expr>::compiled[context()]) {
-                    std::ostringstream kernel;
+                auto kernel = cache.find(context());
 
-                    vector_expr_context expr_ctx(kernel);
+                if (kernel == cache.end()) {
+                    std::ostringstream source;
+
+                    vector_expr_context expr_ctx(source);
 
                     std::ostringstream kernel_name;
                     vector_name_context name_ctx(kernel_name);
                     boost::proto::eval(boost::proto::as_child(expr), name_ctx);
 
-                    kernel << standard_kernel_header(device);
+                    source << standard_kernel_header(device);
 
                     extract_user_functions()(
                             boost::proto::as_child(expr),
-                            declare_user_function(kernel)
+                            declare_user_function(source)
                             );
 
-                    kernel << "kernel void " << kernel_name.str()
+                    source << "kernel void " << kernel_name.str()
                            << "(\n\t" << type_name<size_t>()
                            << " n,\n\tglobal " << type_name<T>() << " *res";
 
                     extract_terminals()(
                             boost::proto::as_child(expr),
-                            declare_expression_parameter(kernel)
+                            declare_expression_parameter(source)
                             );
 
-                    kernel << "\n)\n{\n";
+                    source << "\n)\n{\n";
 
                     if ( is_cpu(device) ) {
-                        kernel <<
+                        source <<
                             "\tsize_t chunk_size  = (n + get_global_size(0) - 1) / get_global_size(0);\n"
                             "\tsize_t chunk_start = get_global_id(0) * chunk_size;\n"
                             "\tsize_t chunk_end   = min(n, chunk_start + chunk_size);\n"
                             "\tfor(size_t idx = chunk_start; idx < chunk_end; ++idx) {\n";
                     } else {
-                        kernel <<
+                        source <<
                             "\tfor(size_t idx = get_global_id(0); idx < n; idx += get_global_size(0)) {\n";
                     }
 
-                    kernel << "\t\tres[idx] = ";
+                    source << "\t\tres[idx] = ";
 
                     boost::proto::eval(boost::proto::as_child(expr), expr_ctx);
 
-                    kernel << ";\n\t}\n}\n";
+                    source << ";\n\t}\n}\n";
 
-                    auto program = build_sources(context, kernel.str());
+                    auto program = build_sources(context, source.str());
 
-                    exdata<Expr>::kernel[context()]   = cl::Kernel(program, kernel_name.str().c_str());
-                    exdata<Expr>::compiled[context()] = true;
-                    exdata<Expr>::wgsize[context()]   = kernel_workgroup_size(
-                            exdata<Expr>::kernel[context()], device);
+                    cl::Kernel krn(program, kernel_name.str().c_str());
+                    size_t wgs = kernel_workgroup_size(krn, device);
+
+                    kernel = cache.insert(std::make_pair(
+                                context(), kernel_cache_entry(krn, wgs)
+                                )).first;
                 }
 
                 if (size_t psize = part[d + 1] - part[d]) {
-                    size_t g_size = device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>()
-                        * exdata<Expr>::wgsize[context()] * 4;
+                    size_t w_size = kernel->second.wgsize;
+                    size_t g_size = 4 * device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() * w_size;
 
                     uint pos = 0;
-                    exdata<Expr>::kernel[context()].setArg(pos++, psize);
-                    exdata<Expr>::kernel[context()].setArg(pos++, buf[d]);
+                    kernel->second.kernel.setArg(pos++, psize);
+                    kernel->second.kernel.setArg(pos++, buf[d]);
 
                     extract_terminals()(
                             boost::proto::as_child(expr),
-                            set_expression_argument(exdata<Expr>::kernel[context()], d, pos, part[d])
+                            set_expression_argument(kernel->second.kernel, d, pos, part[d])
                             );
 
                     queue[d].enqueueNDRangeKernel(
-                            exdata<Expr>::kernel[context()],
-                            cl::NullRange,
-                            g_size, exdata<Expr>::wgsize[context()]
+                            kernel->second.kernel, cl::NullRange, g_size, w_size
                             );
                 }
             }
@@ -746,13 +750,6 @@ class vector : public vector_terminal_expression {
         }
 
     private:
-        template <class Expr>
-        struct exdata {
-            static std::map<cl_context,bool>       compiled;
-            static std::map<cl_context,cl::Kernel> kernel;
-            static std::map<cl_context,size_t>     wgsize;
-        };
-
         std::vector<cl::CommandQueue>   queue;
         std::vector<size_t>             part;
         std::vector<cl::Buffer>         buf;
@@ -769,15 +766,6 @@ class vector : public vector_terminal_expression {
             if (hostptr) write_data(0, size(), hostptr, CL_TRUE);
         }
 };
-
-template <class T> template <class Expr>
-std::map<cl_context, bool> vector<T>::exdata<Expr>::compiled;
-
-template <class T> template <class Expr>
-std::map<cl_context, cl::Kernel> vector<T>::exdata<Expr>::kernel;
-
-template <class T> template <class Expr>
-std::map<cl_context, size_t> vector<T>::exdata<Expr>::wgsize;
 
 /// Copy device vector to host vector.
 template <class T>

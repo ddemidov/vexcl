@@ -336,6 +336,8 @@ class multivector : public multivector_terminal_expression {
             const multivector&
         >::type
         operator=(const Expr& expr) {
+            static kernel_cache cache;
+
             const std::vector<cl::CommandQueue> &queue = vec[0]->queue_list();
 
             // If any device in context is CPU, then do not fuse the kernel,
@@ -349,66 +351,66 @@ class multivector : public multivector_terminal_expression {
                 cl::Context context = qctx(queue[d]);
                 cl::Device  device  = qdev(queue[d]);
 
-                if (!exdata<Expr>::compiled[context()]) {
+                auto kernel = cache.find( context() );
+
+                if (kernel == cache.end()) {
                     std::ostringstream kernel_name;
                     kernel_name << "multi_";
                     vector_name_context name_ctx(kernel_name);
                     boost::proto::eval(boost::proto::as_child(expr), name_ctx);
 
-                    std::ostringstream kernel;
-                    kernel << standard_kernel_header(device);
+                    std::ostringstream source;
+                    source << standard_kernel_header(device);
 
                     extract_user_functions()(
                             boost::proto::as_child(expr),
-                            declare_user_function(kernel)
+                            declare_user_function(source)
                             );
 
-                    kernel << "kernel void " << kernel_name.str()
+                    source << "kernel void " << kernel_name.str()
                            << "(\n\t" << type_name<size_t>() << " n";
 
                     for(size_t i = 0; i < N; )
-                        kernel << ",\n\tglobal " << type_name<T>()
+                        source << ",\n\tglobal " << type_name<T>()
                                << " *res_" << ++i;
 
-                    build_param_list<N>(boost::proto::as_child(expr), kernel);
+                    build_param_list<N>(boost::proto::as_child(expr), source);
 
-                    kernel <<
+                    source <<
                         "\n)\n{\n"
                         "\tfor(size_t idx = get_global_id(0); idx < n; idx += get_global_size(0)) {\n";
 
-                    build_expr_list(boost::proto::as_child(expr), kernel);
+                    build_expr_list(boost::proto::as_child(expr), source);
 
-                    kernel << "\t}\n}\n";
+                    source << "\t}\n}\n";
 
-                    auto program = build_sources(context, kernel.str());
+                    auto program = build_sources(context, source.str());
 
-                    exdata<Expr>::kernel[context()]   = cl::Kernel(program, kernel_name.str().c_str());
-                    exdata<Expr>::compiled[context()] = true;
-                    exdata<Expr>::wgsize[context()]   = kernel_workgroup_size(
-                            exdata<Expr>::kernel[context()], device);
+                    cl::Kernel krn(program, kernel_name.str().c_str());
+                    size_t wgs = kernel_workgroup_size(krn, device);
 
+                    kernel = cache.insert(std::make_pair(
+                                context(), kernel_cache_entry(krn, wgs)
+                                )).first;
                 }
 
                 if (size_t psize = vec[0]->part_size(d)) {
-                    size_t g_size = device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>()
-                        * exdata<Expr>::wgsize[context()] * 4;
+                    size_t w_size = kernel->second.wgsize;
+                    size_t g_size = 4 * device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() * w_size;
 
                     uint pos = 0;
-                    exdata<Expr>::kernel[context()].setArg(pos++, psize);
+                    kernel->second.kernel.setArg(pos++, psize);
 
                     for(uint i = 0; i < N; i++)
-                        exdata<Expr>::kernel[context()].setArg(pos++, vec[i]->operator()(d));
+                        kernel->second.kernel.setArg(pos++, vec[i]->operator()(d));
 
                     set_kernel_args<N>(
                             boost::proto::as_child(expr),
-                            exdata<Expr>::kernel[context()],
-                            d, pos, vec[0]->part_start(d)
+                            kernel->second.kernel, d, pos, vec[0]->part_start(d)
                             );
 
                     queue[d].enqueueNDRangeKernel(
-                            exdata<Expr>::kernel[context()],
-                            cl::NullRange,
-                            g_size, exdata<Expr>::wgsize[context()]
+                            kernel->second.kernel, cl::NullRange, g_size, w_size
                             );
                 }
             }
@@ -436,87 +438,90 @@ class multivector : public multivector_terminal_expression {
         >::type
         operator=(const ExprTuple &expr) {
 #endif
+            static kernel_cache cache;
+
             const std::vector<cl::CommandQueue> &queue = vec[0]->queue_list();
 
             for(uint d = 0; d < queue.size(); d++) {
                 cl::Context context = qctx(queue[d]);
                 cl::Device  device  = qdev(queue[d]);
 
-                if (!exdata<ExprTuple>::compiled[context()]) {
-                    std::ostringstream kernel;
+                auto kernel = cache.find( context() );
 
-                    kernel << standard_kernel_header(device);
+                if (kernel == cache.end()) {
+                    std::ostringstream source;
+
+                    source << standard_kernel_header(device);
 
                     {
-                        get_header f(kernel);
+                        get_header f(source);
                         for_each<0>(expr, f);
                     }
 
-                    kernel <<
+                    source <<
                         "kernel void multi_expr_tuple(\n"
                         "\t" << type_name<size_t>() << " n";
 
                     for(uint i = 1; i <= N; i++)
-                        kernel << ",\n\tglobal " << type_name<T>() << " *res_" << i;
+                        source << ",\n\tglobal " << type_name<T>() << " *res_" << i;
 
                     {
-                        get_params f(kernel);
+                        get_params f(source);
                         for_each<0>(expr, f);
                     }
 
-                    kernel << "\n)\n{\n";
+                    source << "\n)\n{\n";
 
                     if ( is_cpu(device) ) {
-                        kernel <<
+                        source <<
                             "\tsize_t chunk_size  = (n + get_global_size(0) - 1) / get_global_size(0);\n"
                             "\tsize_t chunk_start = get_global_id(0) * chunk_size;\n"
                             "\tsize_t chunk_end   = min(n, chunk_start + chunk_size);\n"
                             "\tfor(size_t idx = chunk_start; idx < chunk_end; ++idx) {\n";
                     } else {
-                        kernel <<
+                        source <<
                             "\tfor(size_t idx = get_global_id(0); idx < n; idx += get_global_size(0)) {\n";
                     }
 
                     {
-                        get_expressions f(kernel);
+                        get_expressions f(source);
                         for_each<0>(expr, f);
                     }
 
-                    kernel << "\n";
+                    source << "\n";
 
                     for(uint i = 1; i <= N; i++)
-                        kernel << "\t\tres_" << i << "[idx] = buf_" << i << ";\n";
+                        source << "\t\tres_" << i << "[idx] = buf_" << i << ";\n";
 
-                    kernel << "\t}\n}\n";
+                    source << "\t}\n}\n";
 
-                    auto program = build_sources(context, kernel.str());
+                    auto program = build_sources(context, source.str());
 
-                    exdata<ExprTuple>::kernel[context()]   = cl::Kernel(program, "multi_expr_tuple");
-                    exdata<ExprTuple>::compiled[context()] = true;
-                    exdata<ExprTuple>::wgsize[context()]   = kernel_workgroup_size(
-                            exdata<ExprTuple>::kernel[context()], device);
+                    cl::Kernel krn(program, "multi_expr_tuple");
+                    size_t wgs = kernel_workgroup_size(krn, device);
 
+                    kernel = cache.insert(std::make_pair(
+                                context(), kernel_cache_entry(krn, wgs)
+                                )).first;
                 }
 
                 if (size_t psize = vec[0]->part_size(d)) {
-                    size_t g_size = device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>()
-                        * exdata<ExprTuple>::wgsize[context()] * 4;
+                    size_t w_size = kernel->second.wgsize;
+                    size_t g_size = 4 * device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() * w_size;
 
                     uint pos = 0;
-                    exdata<ExprTuple>::kernel[context()].setArg(pos++, psize);
+                    kernel->second.kernel.setArg(pos++, psize);
 
                     for(uint i = 0; i < N; i++)
-                        exdata<ExprTuple>::kernel[context()].setArg(pos++, (*vec[i])(d));
+                        kernel->second.kernel.setArg(pos++, (*vec[i])(d));
 
                     {
-                        set_arguments f(exdata<ExprTuple>::kernel[context()], d, pos, vec[0]->part_start(d));
+                        set_arguments f(kernel->second.kernel, d, pos, vec[0]->part_start(d));
                         for_each<0>(expr, f);
                     }
 
                     queue[d].enqueueNDRangeKernel(
-                            exdata<ExprTuple>::kernel[context()],
-                            cl::NullRange,
-                            g_size, exdata<ExprTuple>::wgsize[context()]
+                            kernel->second.kernel, cl::NullRange, g_size, w_size
                             );
                 }
             }
@@ -696,23 +701,7 @@ class multivector : public multivector_terminal_expression {
         }
 
         std::array<typename multivector_storage<T, own>::type,N> vec;
-
-        template <class Expr>
-        struct exdata {
-            static std::map<cl_context,bool>       compiled;
-            static std::map<cl_context,cl::Kernel> kernel;
-            static std::map<cl_context,size_t>     wgsize;
-        };
 };
-
-template <class T, size_t N, bool own> template <class Expr>
-std::map<cl_context,bool> multivector<T,N,own>::exdata<Expr>::compiled;
-
-template <class T, size_t N, bool own> template <class Expr>
-std::map<cl_context,cl::Kernel> multivector<T,N,own>::exdata<Expr>::kernel;
-
-template <class T, size_t N, bool own> template <class Expr>
-std::map<cl_context,size_t> multivector<T,N,own>::exdata<Expr>::wgsize;
 
 /// Copy multivector to host vector.
 template <class T, size_t N, bool own>

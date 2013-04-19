@@ -333,6 +333,17 @@ inline uint kernel_workgroup_size(
     return wgsz;
 }
 
+struct kernel_cache_entry {
+    cl::Kernel kernel;
+    size_t     wgsize;
+
+    kernel_cache_entry(const cl::Kernel &kernel, size_t wgsize)
+        : kernel(kernel), wgsize(wgsize)
+    {}
+};
+
+typedef std::map< cl_context, kernel_cache_entry > kernel_cache;
+
 struct column_owner {
     const std::vector<size_t> &part;
 
