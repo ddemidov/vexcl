@@ -6,13 +6,13 @@ BOOST_AUTO_TEST_CASE(stencil_convolution)
 {
     const int n = 1024;
 
-    std::vector<double> s = random_vector(rand() % 64 + 1);
+    std::vector<double> s = random_vector<double>(rand() % 64 + 1);
 
     int center = rand() % s.size();
 
     vex::stencil<double> S(ctx, s, center);
 
-    std::vector<double> x = random_vector(n);
+    std::vector<double> x = random_vector<double>(n);
     std::generate(x.begin(), x.end(), [](){ return (double)rand() / RAND_MAX; });
 
     vex::vector<double> X(ctx, x);
@@ -62,13 +62,13 @@ BOOST_AUTO_TEST_CASE(small_vector)
 {
     const int n = 128;
 
-    std::vector<double> s = random_vector(rand() % 64 + 1);
+    std::vector<double> s = random_vector<double>(rand() % 64 + 1);
 
     int center = rand() % s.size();
 
     vex::stencil<double> S(ctx, s, center);
 
-    std::vector<double> x = random_vector(n);
+    std::vector<double> x = random_vector<double>(n);
 
     vex::vector<double> X(ctx, x);
     vex::vector<double> Y(ctx, n);
@@ -91,12 +91,12 @@ BOOST_AUTO_TEST_CASE(multivector)
     typedef std::array<double, 2> elem_t;
     const int n = 1024;
 
-    std::vector<double> s = random_vector(rand() % 64 + 1);
+    std::vector<double> s = random_vector<double>(rand() % 64 + 1);
     int center = rand() % s.size();
 
     vex::stencil<double> S(ctx, s.begin(), s.end(), center);
 
-    std::vector<double> x = random_vector(2 * n);
+    std::vector<double> x = random_vector<double>(2 * n);
 
     vex::multivector<double,2> X(ctx, x);
     vex::multivector<double,2> Y(ctx, n);
@@ -137,12 +137,12 @@ BOOST_AUTO_TEST_CASE(big_stencil)
 {
     const int n = 1 << 16;
 
-    std::vector<double> s = random_vector(2048);
+    std::vector<double> s = random_vector<double>(2048);
     int center = rand() % s.size();
 
     vex::stencil<double> S(ctx, s, center);
 
-    std::vector<double> x = random_vector(n);
+    std::vector<double> x = random_vector<double>(n);
 
     vex::vector<double> X(ctx, x);
     vex::vector<double> Y(ctx, n);
@@ -166,7 +166,7 @@ BOOST_AUTO_TEST_CASE(user_defined_stencil)
             double, 3, 1,  "return sin(X[1] - X[0]) + sin(X[0] - X[-1]);",
             ctx);
 
-    std::vector<double> x = random_vector(n);
+    std::vector<double> x = random_vector<double>(n);
 
     vex::vector<double> X(ctx, x);
     vex::vector<double> Y(ctx, n);

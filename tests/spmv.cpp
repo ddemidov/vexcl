@@ -27,7 +27,7 @@ void random_matrix(size_t n, size_t m, size_t nnz_per_row,
         row.push_back(col.size());
     }
 
-    random_vector( col.size() ).swap(val);
+    random_vector<double>( col.size() ).swap(val);
 }
 
 BOOST_AUTO_TEST_CASE(vector_product)
@@ -40,7 +40,7 @@ BOOST_AUTO_TEST_CASE(vector_product)
 
     random_matrix(n, n, 16, row, col, val);
 
-    std::vector<double> x = random_vector(n);
+    std::vector<double> x = random_vector<double>(n);
 
     vex::SpMat <double> A(ctx, n, n, row.data(), col.data(), val.data());
     vex::vector<double> X(ctx, x);
@@ -88,7 +88,7 @@ BOOST_AUTO_TEST_CASE(non_square_matrix)
 
     random_matrix(n, m, 16, row, col, val);
 
-    std::vector<double> x = random_vector(m);
+    std::vector<double> x = random_vector<double>(m);
 
     vex::SpMat <double> A(ctx, n, m, row.data(), col.data(), val.data());
     vex::vector<double> X(ctx, x);
@@ -115,7 +115,7 @@ BOOST_AUTO_TEST_CASE(non_default_types)
 
     random_matrix(n, n, 16, row, col, val);
 
-    std::vector<double> x = random_vector(n);
+    std::vector<double> x = random_vector<double>(n);
 
     vex::SpMat <double, int, unsigned> A(ctx, n, n, row.data(), col.data(), val.data());
     vex::vector<double> X(ctx, x);
@@ -147,7 +147,7 @@ BOOST_AUTO_TEST_CASE(empty_rows)
 
     while(row.size() < n + 1) row.push_back(col.size());
 
-    std::vector<double> x = random_vector(n);
+    std::vector<double> x = random_vector<double>(n);
 
     vex::SpMat <double> A(ctx, n, n, row.data(), col.data(), val.data());
     vex::vector<double> X(ctx, x);
@@ -216,7 +216,7 @@ BOOST_AUTO_TEST_CASE(ccsr_vector_product)
         }
     }
 
-    std::vector<double> x = random_vector(n * n * n);
+    std::vector<double> x = random_vector<double>(n * n * n);
 
     std::vector<cl::CommandQueue> queue(1, ctx.queue(0));
 
@@ -262,7 +262,7 @@ BOOST_AUTO_TEST_CASE(multivector_product)
 
     random_matrix(n, n, 16, row, col, val);
 
-    std::vector<double> x = random_vector(n * m);
+    std::vector<double> x = random_vector<double>(n * m);
 
     vex::SpMat <double> A(ctx, n, n, row.data(), col.data(), val.data());
 
@@ -351,7 +351,7 @@ BOOST_AUTO_TEST_CASE(ccsr_multivector_product)
         }
     }
 
-    std::vector<double> x = random_vector(N * 2);
+    std::vector<double> x = random_vector<double>(N * 2);
 
     std::vector<cl::CommandQueue> queue(1, ctx.queue(0));
 

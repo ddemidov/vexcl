@@ -23,7 +23,7 @@ BOOST_AUTO_TEST_CASE(std_vector)
 {
     const size_t N = 1024;
 
-    std::vector<double> x = random_vector(N);
+    std::vector<double> x = random_vector<double>(N);
     vex::vector<double> X(ctx, x);
 
     BOOST_CHECK(X.size() == x.size());
@@ -38,7 +38,7 @@ BOOST_AUTO_TEST_CASE(host_pointer)
 {
     const size_t N = 1024;
 
-    std::vector<double> x = random_vector(N);
+    std::vector<double> x = random_vector<double>(N);
     vex::vector<double> X(ctx, N, x.data());
 
     BOOST_CHECK(X.size() == x.size());
@@ -59,7 +59,7 @@ BOOST_AUTO_TEST_CASE(copy_constructor)
     BOOST_CHECK(x1.size() == 0U);
     BOOST_CHECK(x1.size() == x2.size());
 
-    vex::vector<double> y1(ctx, random_vector(N));
+    vex::vector<double> y1(ctx, random_vector<double>(N));
     vex::vector<double> y2(y1);
 
     BOOST_CHECK(y1.size() == N);
@@ -86,7 +86,7 @@ BOOST_AUTO_TEST_CASE(move_constructor)
 BOOST_AUTO_TEST_CASE(move_assign)
 {
     const size_t N = 1024;
-    std::vector<double> x = random_vector(N);
+    std::vector<double> x = random_vector<double>(N);
     vex::vector<double> X(ctx, x);
 
     vex::vector<double> Y;
@@ -121,7 +121,7 @@ BOOST_AUTO_TEST_CASE(vector_resize_to_std_vector)
 {
     const size_t N = 1024;
 
-    std::vector<double> x = random_vector(N);
+    std::vector<double> x = random_vector<double>(N);
     vex::vector<double> X;
 
     X.resize(ctx, x);

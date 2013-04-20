@@ -9,8 +9,8 @@ BOOST_AUTO_TEST_CASE(arithmetics)
     const size_t n = 1024;
 
     vex::multivector<double, 4> x(ctx, n);
-    vex::multivector<double, 4> y(ctx, random_vector(n * 4));
-    vex::multivector<double, 4> z(ctx, random_vector(n * 4));
+    vex::multivector<double, 4> y(ctx, random_vector<double>(n * 4));
+    vex::multivector<double, 4> z(ctx, random_vector<double>(n * 4));
 
     vex::Reductor<double,vex::MIN> min(ctx);
     vex::Reductor<double,vex::MAX> max(ctx);
@@ -36,7 +36,7 @@ BOOST_AUTO_TEST_CASE(multivector_multiexpressions)
     const size_t n = 1024;
 
     vex::multivector<double, 2> x(ctx, n);
-    vex::multivector<double, 2> y(ctx, random_vector(n * 2));
+    vex::multivector<double, 2> y(ctx, random_vector<double>(n * 2));
 
     x = std::tie(
             sin( y(0) ) + cos( y(1) ),
@@ -53,8 +53,8 @@ BOOST_AUTO_TEST_CASE(tied_vectors)
 {
     const size_t n = 1024;
 
-    vex::vector<double> X(ctx, random_vector(n));
-    vex::vector<double> Y(ctx, random_vector(n));
+    vex::vector<double> X(ctx, random_vector<double>(n));
+    vex::vector<double> Y(ctx, random_vector<double>(n));
 
     vex::vector<double> A(ctx, n);
     vex::vector<double> B(ctx, n);
@@ -75,7 +75,7 @@ BOOST_AUTO_TEST_CASE(builtin_functions)
     typedef std::array<double, 2> elem_t;
     const size_t n = 1024;
 
-    vex::multivector<double, 2> x(ctx, random_vector(n * 2));
+    vex::multivector<double, 2> x(ctx, random_vector<double>(n * 2));
     vex::multivector<double, 2> y(ctx, n);
 
     y = pow(sin(x), 2.0) + pow(cos(x), 2.0);
@@ -118,8 +118,8 @@ BOOST_AUTO_TEST_CASE(reduction)
 
     const size_t n = 1024;
 
-    std::vector<double> x = random_vector(n);
-    std::vector<double> y = random_vector(n);
+    std::vector<double> x = random_vector<double>(n);
+    std::vector<double> y = random_vector<double>(n);
 
     vex::multivector<double, 2> m(ctx, n);
     copy(x, m(0));

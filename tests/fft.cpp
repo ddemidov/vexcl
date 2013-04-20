@@ -55,7 +55,7 @@ void test(const vex::Context &ctx, std::vector<size_t> ns) {
     size_t n = std::accumulate(ns.begin(), ns.end(), 1UL, std::multiplies<size_t>());
 
     // random data.
-    std::vector<double> inp_h = random_vector(2 * n);
+    std::vector<double> inp_h = random_vector<double>(2 * n);
 
     // test
     vex::vector<cl_double2> inp (queue, n, reinterpret_cast<cl_double2*>(inp_h.data()));

@@ -26,11 +26,22 @@ struct ContextReference {
     const vex::Context &ctx;
 };
 
-std::vector<double> random_vector(size_t n) {
+template<class T>
+typename std::enable_if<std::is_floating_point<T>::value, std::vector<T>>::type
+random_vector(size_t n) {
     static std::default_random_engine rng( std::rand() );
-    static std::uniform_real_distribution<double> rnd(0.0, 1.0);
+    static std::uniform_real_distribution<T> rnd((T)0, (T)1);
+    std::vector<T> x(n);
+    std::generate(x.begin(), x.end(), [](){ return rnd(rng); });
+    return x;
+}
 
-    std::vector<double> x(n);
+template<class T>
+typename std::enable_if<std::is_integral<T>::value, std::vector<T>>::type
+random_vector(size_t n) {
+    static std::default_random_engine rng( std::rand() );
+    static std::uniform_int_distribution<T> rnd(0, 100);
+    std::vector<T> x(n);
     std::generate(x.begin(), x.end(), [](){ return rnd(rng); });
     return x;
 }

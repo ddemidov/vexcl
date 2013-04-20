@@ -23,7 +23,7 @@ BOOST_AUTO_TEST_CASE(reduce_expression)
 {
     const size_t N = 1024;
 
-    std::vector<double> x = random_vector(N);
+    std::vector<double> x = random_vector<double>(N);
     vex::vector<double> X(ctx, x);
 
     vex::Reductor<double,vex::SUM> sum(ctx);
@@ -41,7 +41,7 @@ BOOST_AUTO_TEST_CASE(reduce_expression)
 BOOST_AUTO_TEST_CASE(builtin_functions)
 {
     const size_t N = 1024;
-    std::vector<double> x = random_vector(N);
+    std::vector<double> x = random_vector<double>(N);
     vex::vector<double> X(ctx, x);
     vex::vector<double> Y(ctx, N);
 

@@ -46,7 +46,7 @@ BOOST_AUTO_TEST_CASE(kernel_generator)
     auto kernel = vex::generator::build_kernel(
             ctx, "rk4_stepper", body.str(), sym_x);
 
-    std::vector<double> x = random_vector(n);
+    std::vector<double> x = random_vector<double>(n);
     vex::vector<double> X(ctx, x);
 
     for(int i = 0; i < 100; i++) kernel(X);

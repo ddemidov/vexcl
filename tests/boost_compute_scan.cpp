@@ -8,7 +8,7 @@ BOOST_AUTO_TEST_CASE(boost_compute_scan)
 {
     const size_t n = 1024;
 
-    std::vector<double> x = random_vector(n);
+    std::vector<double> x = random_vector<double>(n);
 
     vex::vector<double> X(ctx, x);
     vex::vector<double> Y(ctx, n);

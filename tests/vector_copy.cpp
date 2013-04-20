@@ -42,7 +42,7 @@ BOOST_AUTO_TEST_CASE(copy_from_std_vector)
 {
     const size_t N = 1024;
 
-    std::vector<double> x = random_vector(N);
+    std::vector<double> x = random_vector<double>(N);
     vex::vector<double> X(ctx, N);
 
     copy(x, X);
@@ -72,7 +72,7 @@ BOOST_AUTO_TEST_CASE(gather)
     const size_t n = 1 << 20;
     const size_t m = 100;
 
-    std::vector<double> x = random_vector(n);
+    std::vector<double> x = random_vector<double>(n);
     vex::vector<double> X(ctx, x);
 
     std::vector<size_t> i(m);

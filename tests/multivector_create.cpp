@@ -39,7 +39,7 @@ BOOST_AUTO_TEST_CASE(element_access)
 
     typedef std::array<double, m> elem_t;
 
-    std::vector<double> host = random_vector(n * m);
+    std::vector<double> host = random_vector<double>(n * m);
     vex::multivector<double, m> x(ctx, n);
 
     copy(host, x);
