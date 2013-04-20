@@ -48,6 +48,7 @@ THE SOFTWARE.
 #include <vexcl/util.hpp>
 #include <vexcl/profiler.hpp>
 #include <vexcl/operations.hpp>
+#include <vexcl/devlist.hpp>
 
 /// Vector expression template library for OpenCL.
 namespace vex {
