@@ -9,11 +9,7 @@ if (VIENNACL_EXAMPLES)
         ${VIENNACL_INCLUDE}
         )
 
-    set(EXAMPLES solvers)
-
-    foreach(example ${EXAMPLES})
-        add_executable(${example} ${example}.cpp)
-        target_link_libraries(${example} ${OPENCL_LIBRARIES} ${Boost_LIBRARIES})
-        set_target_properties(${example} PROPERTIES COMPILE_FLAGS -Wno-comment)
-    endforeach(example)
+    add_executable(solvers solvers.cpp)
+    target_link_libraries(solvers ${OPENCL_LIBRARIES} ${Boost_LIBRARIES})
+    set_target_properties(solvers PROPERTIES COMPILE_FLAGS -Wno-comment)
 endif (VIENNACL_EXAMPLES)
