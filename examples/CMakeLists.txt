@@ -1,23 +1,25 @@
+function(add_vexcl_example example)
+    add_executable(${example} ${example}.cpp)
+    target_link_libraries(${example} ${OPENCL_LIBRARIES} ${Boost_LIBRARIES})
+
+    list(APPEND binaries "${CMAKE_CURRENT_BINARY_DIR}/${example}")
+    list(APPEND sources  "${CMAKE_CURRENT_SOURCE_DIR}/${example}.cpp")
+endfunction()
+
 #----------------------------------------------------------------------------
 # General examples
 #----------------------------------------------------------------------------
-set(EXAMPLES
-    devlist
-    exclusive
-    benchmark
-    fft_benchmark
-    )
+add_vexcl_example(devlist)
+add_vexcl_example(exclusive)
+add_vexcl_example(benchmark)
+add_vexcl_example(fft_benchmark)
 
-find_path(ODEINT boost/numeric/odeint.hpp)
-if (ODEINT)
-    include_directories(${ODEINT})
-    set(EXAMPLES ${EXAMPLES} symbolic)
-endif (ODEINT)
-
-foreach(example ${EXAMPLES})
-    add_executable(${example} ${example}.cpp)
-    target_link_libraries(${example} ${OPENCL_LIBRARIES} ${Boost_LIBRARIES})
-endforeach(example)
+#----------------------------------------------------------------------------
+# Symbolic example uses Boost.odeint available since Boost v1.53
+#----------------------------------------------------------------------------
+if (NOT ${Boost_VERSION} STRLESS "105300")
+    add_vexcl_example(symbolic)
+endif (NOT ${Boost_VERSION} STRLESS "105300")
 
 #----------------------------------------------------------------------------
 # FFT benchmark
@@ -41,13 +43,8 @@ target_link_libraries(fft_benchmark ${FFT_BENCHMARK_LIBS})
 #----------------------------------------------------------------------------
 # Install compiled examples and sources
 #----------------------------------------------------------------------------
-foreach(file ${EXAMPLES})
-    list(APPEND binaries "${CMAKE_CURRENT_BINARY_DIR}/${file}")
-    list(APPEND source "${CMAKE_CURRENT_SOURCE_DIR}/${file}.cpp")
-endforeach()
-
 install(PROGRAMS ${binaries} DESTINATION share/vexcl/examples)
-install(FILES ${source} DESTINATION share/vexcl/examples/src)
+install(FILES    ${sources}  DESTINATION share/vexcl/examples/src)
 
 #----------------------------------------------------------------------------
 add_subdirectory(viennacl)
