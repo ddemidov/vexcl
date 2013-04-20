@@ -27,22 +27,25 @@ struct ContextReference {
 };
 
 template<class T>
-typename std::enable_if<std::is_floating_point<T>::value, std::vector<T>>::type
-random_vector(size_t n) {
+typename std::enable_if<std::is_floating_point<T>::value, T>::type
+generator() {
     static std::default_random_engine rng( std::rand() );
     static std::uniform_real_distribution<T> rnd((T)0, (T)1);
-    std::vector<T> x(n);
-    std::generate(x.begin(), x.end(), [](){ return rnd(rng); });
-    return x;
+    return rnd(rng);
 }
 
 template<class T>
-typename std::enable_if<std::is_integral<T>::value, std::vector<T>>::type
-random_vector(size_t n) {
+typename std::enable_if<std::is_integral<T>::value, T>::type
+generator() {
     static std::default_random_engine rng( std::rand() );
     static std::uniform_int_distribution<T> rnd(0, 100);
+    return rnd(rng);
+}
+
+template<class T>
+std::vector<T> random_vector(size_t n) {
     std::vector<T> x(n);
-    std::generate(x.begin(), x.end(), [](){ return rnd(rng); });
+    std::generate(x.begin(), x.end(), generator<T>);
     return x;
 }
 
