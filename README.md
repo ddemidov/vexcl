@@ -9,7 +9,13 @@ matrix-vector multiplication. Multi-device and even multi-platform computations
 are supported. VexCL also provides MPI wrapper [classes][mpi_namespace] for
 its types.
 
-See Doxygen-generated documentation at http://ddemidov.github.io/vexcl.
+Doxygen-generated documentation is available at
+http://ddemidov.github.io/vexcl.
+
+Slides from my VexCL-related talks:
+
+* [Meeting C++ 2012, Dusseldorf](https://github.com/ddemidov/vexcl/blob/master/doc/mcpp_vexcl_2012_slides.pdf?raw=true)
+* [SIAM CSE 2013, Boston](https://github.com/ddemidov/vexcl/blob/master/doc/vexcl_cse13_slides.pdf?raw=true)
 
 [mpi_namespace]: http://ddemidov.github.io/vexcl/namespacevex_1_1mpi.html
 
