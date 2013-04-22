@@ -18,6 +18,10 @@ Slides from VexCL-related talks:
 * [SIAM CSE 2013, Boston](https://github.com/ddemidov/vexcl/blob/master/doc/vexcl_cse13_slides.pdf?raw=true)
 * [FOSDEM 2013, Brussels](https://fosdem.org/2013/schedule/event/odes_cuda_opencl)
 
+The paper [Programming CUDA and OpenCL: A Case Study Using Modern C++
+Libraries](http://arxiv.org/abs/1212.6326) compares both convenience and
+performance of several libraries, including VexCL.
+
 [mpi_namespace]: http://ddemidov.github.io/vexcl/namespacevex_1_1mpi.html
 
 Motivation
