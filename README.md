@@ -12,10 +12,11 @@ its types.
 Doxygen-generated documentation is available at
 http://ddemidov.github.io/vexcl.
 
-Slides from my VexCL-related talks:
+Slides from VexCL-related talks:
 
 * [Meeting C++ 2012, Dusseldorf](https://github.com/ddemidov/vexcl/blob/master/doc/mcpp_vexcl_2012_slides.pdf?raw=true)
 * [SIAM CSE 2013, Boston](https://github.com/ddemidov/vexcl/blob/master/doc/vexcl_cse13_slides.pdf?raw=true)
+* [FOSDEM 2013, Brussels](https://fosdem.org/2013/schedule/event/odes_cuda_opencl)
 
 [mpi_namespace]: http://ddemidov.github.io/vexcl/namespacevex_1_1mpi.html
 
