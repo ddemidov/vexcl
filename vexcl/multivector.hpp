@@ -423,7 +423,6 @@ class multivector : public multivector_terminal_expression {
         template <class... Args>
         typename std::enable_if<N == sizeof...(Args), const multivector&>::type
         operator=(const std::tuple<Args...> &expr) {
-            typedef std::tuple<Args...> ExprTuple;
 #else
         template <class ExprTuple>
         typename std::enable_if<
