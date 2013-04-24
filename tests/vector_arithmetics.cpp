@@ -147,4 +147,19 @@ BOOST_AUTO_TEST_CASE(custom_header)
             });
 }
 
+BOOST_AUTO_TEST_CASE(combine_expressions)
+{
+
+    const size_t n = 1024;
+
+    vex::vector<int> x(ctx, n);
+
+    auto sine = sin(2 * M_PI * vex::element_index());
+    auto cosine = cos(2 * M_PI * vex::element_index());
+
+    x = pow(sine, 2.0) + pow(cosine, 2.0);
+
+    check_sample(x, [](size_t, double v) { BOOST_CHECK_CLOSE(v, 1.0, 1e-8); });
+}
+
 BOOST_AUTO_TEST_SUITE_END()
