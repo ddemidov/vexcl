@@ -297,7 +297,7 @@ class symbolic
             : num(var_id()), scope(scope), constness(constness)
         {
             if (scope == LocalVar) {
-                get_recorder() << type_name<T>() << " " << *this << ";\n";
+                get_recorder() << "\t\t" << type_name<T>() << " " << *this << ";\n";
             }
         }
 
@@ -306,7 +306,7 @@ class symbolic
         explicit symbolic(const Expr &expr)
             : num(var_id()), scope(LocalVar), constness(NonConst)
         {
-            get_recorder() << type_name<T>() << " " << *this << " = ";
+            get_recorder() << "\t\t" << type_name<T>() << " " << *this << " = ";
             record(expr);
             get_recorder() << ";\n";
         }
@@ -314,7 +314,7 @@ class symbolic
         /// Assignment operator. Results in assignment written to recorder.
         template <class Expr>
         const symbolic& operator=(const Expr &expr) const {
-            get_recorder() << *this << " = ";
+            get_recorder() << "\t\t" << *this << " = ";
             record(expr);
             get_recorder() << ";\n";
             return *this;
@@ -348,7 +348,7 @@ class symbolic
             std::ostringstream s;
 
             if (scope != LocalVar) {
-                s << type_name<T>() << " " << *this << " = p_" << *this;
+                s << "\t\t" << type_name<T>() << " " << *this << " = p_" << *this;
 
                 switch (scope) {
                     case VectorParameter:
@@ -370,7 +370,7 @@ class symbolic
             std::ostringstream s;
 
             if (scope == VectorParameter && constness == NonConst)
-                s << "p_" << *this << "[idx] = " << *this << ";\n";
+                s << "\t\tp_" << *this << "[idx] = " << *this << ";\n";
 
             return s.str();
         }
