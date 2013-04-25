@@ -10,21 +10,15 @@ void sys_func(const state_type &x, state_type &dx, double dt) {
 }
 
 template <class state_type, class SysFunction>
-void runge_kutta_4(SysFunction sys, state_type &x, double dt) {
-    state_type xtmp, k1, k2, k3, k4;
+void runge_kutta_2(SysFunction sys, state_type &x, double dt) {
+    state_type xtmp, k1, k2;
 
     sys(x, k1, dt);
 
     xtmp = x + 0.5 * k1;
     sys(xtmp, k2, dt);
 
-    xtmp = x + 0.5 * k2;
-    sys(xtmp, k3, dt);
-
-    xtmp = x + k3;
-    sys(xtmp, k4, dt);
-
-    x += (k1 + 2 * k2 + 2 * k3 + k4) / 6;
+    x += k2;
 }
 
 BOOST_AUTO_TEST_CASE(kernel_generator)
@@ -40,7 +34,7 @@ BOOST_AUTO_TEST_CASE(kernel_generator)
     sym_state sym_x(sym_state::VectorParameter);
 
     // Record expression sequience.
-    runge_kutta_4(sys_func<sym_state>, sym_x, dt);
+    runge_kutta_2(sys_func<sym_state>, sym_x, dt);
 
     // Build kernel.
     auto kernel = vex::generator::build_kernel(
@@ -54,7 +48,7 @@ BOOST_AUTO_TEST_CASE(kernel_generator)
     check_sample(X, [&](size_t idx, double a) {
             double s = x[idx];
             for(int i = 0; i < 100; i++)
-                runge_kutta_4(sys_func<double>, s, dt);
+                runge_kutta_2(sys_func<double>, s, dt);
 
             BOOST_CHECK_CLOSE(a, s, 1e-8);
             });
@@ -76,30 +70,24 @@ BOOST_AUTO_TEST_CASE(lazy_evaluation)
     const size_t n  = 1024;
     const double dt = 0.01;
 
-    auto rk4 = [](vex::vector<double> &x, double dt) {
+    auto rk2 = [](vex::vector<double> &x, double dt) {
         auto k1 = dt * sin(x);
         auto x1 = x + 0.5 * k1;
 
         auto k2 = dt * sin(x1);
-        auto x2 = x + 0.5 * k2;
 
-        auto k3 = dt * sin(x2);
-        auto x3 = x + k3;
-
-        auto k4 = dt * sin(x3);
-
-        x += (k1 + 2 * k2 + 2 * k3 + k4) / 6;
+        x += k2;
     };
 
     std::vector<double> x = random_vector<double>(n);
     vex::vector<double> X(ctx, x);
 
-    for(int i = 0; i < 100; i++) rk4(X, dt);
+    for(int i = 0; i < 100; i++) rk2(X, dt);
 
     check_sample(X, [&](size_t idx, double a) {
             double s = x[idx];
             for(int i = 0; i < 100; i++)
-                runge_kutta_4(sys_func<double>, s, dt);
+                runge_kutta_2(sys_func<double>, s, dt);
 
             BOOST_CHECK_CLOSE(a, s, 1e-8);
             });
