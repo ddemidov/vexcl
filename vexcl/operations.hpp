@@ -611,7 +611,19 @@ struct vector_domain
         boost::proto::generator<vector_expression>,
         vector_full_grammar
         >
-{ };
+{
+    // Store everything by reference inside expressions...
+    template <typename T, class Enable = void>
+    struct as_child
+        : proto_base_domain::as_child<T>
+    {};
+
+    // ... except for arithmetic types.
+    template <typename T>
+    struct as_child< T, typename std::enable_if< std::is_arithmetic<T>::value >::type >
+        : proto_base_domain::as_expr<T>
+    {};
+};
 
 template <class Expr>
 struct vector_expression
