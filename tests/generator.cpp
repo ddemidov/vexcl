@@ -33,12 +33,12 @@ BOOST_AUTO_TEST_CASE(kernel_generator)
 
     sym_state sym_x(sym_state::VectorParameter);
 
-    // Record expression sequience.
+    // Record expression sequence.
     runge_kutta_2(sys_func<sym_state>, sym_x, dt);
 
     // Build kernel.
     auto kernel = vex::generator::build_kernel(
-            ctx, "rk4_stepper", body.str(), sym_x);
+            ctx, "rk2_stepper", body.str(), sym_x);
 
     std::vector<double> x = random_vector<double>(n);
     vex::vector<double> X(ctx, x);
@@ -56,7 +56,7 @@ BOOST_AUTO_TEST_CASE(kernel_generator)
 
 /*
 An alternative variant, which does not use the generator facility.
-Intermediate subexpression are cuptured with help of 'auto' keyword, and
+Intermediate subexpression are captured with help of 'auto' keyword, and
 are combined into larger expression.
 
 This is not as effective as generated kernel, because same input vector
