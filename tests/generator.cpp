@@ -29,14 +29,14 @@ void runge_kutta_4(SysFunction sys, state_type &x, double dt) {
 
 BOOST_AUTO_TEST_CASE(kernel_generator)
 {
-    const int n = 1024;
+    typedef vex::generator::symbolic<double> sym_state;
+
+    const size_t n  = 1024;
+    const double dt = 0.01;
 
     std::ostringstream body;
     vex::generator::set_recorder(body);
 
-    typedef vex::generator::symbolic<double> sym_state;
-
-    double dt = 0.01;
     sym_state sym_x(sym_state::VectorParameter);
 
     // Record expression sequience.
@@ -50,6 +50,51 @@ BOOST_AUTO_TEST_CASE(kernel_generator)
     vex::vector<double> X(ctx, x);
 
     for(int i = 0; i < 100; i++) kernel(X);
+
+    check_sample(X, [&](size_t idx, double a) {
+            double s = x[idx];
+            for(int i = 0; i < 100; i++)
+                runge_kutta_4(sys_func<double>, s, dt);
+
+            BOOST_CHECK_CLOSE(a, s, 1e-8);
+            });
+}
+
+/*
+An alternative variant, which does not use the generator facility.
+Intermediate subexpression are cuptured with help of 'auto' keyword, and
+are combined into larger expression.
+
+This is not as effective as generated kernel, because same input vector
+(here 'x') is passed as several different parameters. This specific example
+takes about twice as long to execute as the above variant.
+
+Nevertheless, this may be more convenient in some cases.
+*/
+BOOST_AUTO_TEST_CASE(lazy_evaluation)
+{
+    const size_t n  = 1024;
+    const double dt = 0.01;
+
+    auto rk4 = [](vex::vector<double> &x, double dt) {
+        auto k1 = dt * sin(x);
+        auto x1 = x + 0.5 * k1;
+
+        auto k2 = dt * sin(x1);
+        auto x2 = x + 0.5 * k2;
+
+        auto k3 = dt * sin(x2);
+        auto x3 = x + k3;
+
+        auto k4 = dt * sin(x3);
+
+        x += (k1 + 2 * k2 + 2 * k3 + k4) / 6;
+    };
+
+    std::vector<double> x = random_vector<double>(n);
+    vex::vector<double> X(ctx, x);
+
+    for(int i = 0; i < 100; i++) rk4(X, dt);
 
     check_sample(X, [&](size_t idx, double a) {
             double s = x[idx];
