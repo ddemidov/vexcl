@@ -612,16 +612,22 @@ struct vector_domain
         vector_full_grammar
         >
 {
-    // Store everything by reference inside expressions...
+    // Store everything by value inside expressions...
     template <typename T, class Enable = void>
-    struct as_child
-        : proto_base_domain::as_child<T>
+    struct as_child : proto_base_domain::as_expr<T>
     {};
 
-    // ... except for arithmetic types.
+    // ... except for vectors to avoid data copying.
     template <typename T>
-    struct as_child< T, typename std::enable_if< std::is_arithmetic<T>::value >::type >
-        : proto_base_domain::as_expr<T>
+    struct as_child< T,
+        typename std::enable_if<
+                boost::proto::matches<
+                    typename boost::proto::result_of::as_expr<T>::type,
+                    boost::proto::terminal< vector_terminal >
+                >::value
+            >::type
+        >
+        : proto_base_domain::as_child< T >
     {};
 };
 
@@ -1326,7 +1332,25 @@ struct multivector_domain
         boost::proto::generator<multivector_expression>,
         multivector_full_grammar
       >
-{ };
+{
+    // Store everything by value inside expressions...
+    template <typename T, class Enable = void>
+    struct as_child : proto_base_domain::as_expr<T>
+    {};
+
+    // ... except for vectors to avoid data copying.
+    template <typename T>
+    struct as_child< T,
+        typename std::enable_if<
+                boost::proto::matches<
+                    typename boost::proto::result_of::as_expr<T>::type,
+                    boost::proto::terminal< multivector_terminal >
+                >::value
+            >::type
+        >
+        : proto_base_domain::as_child< T >
+    {};
+};
 
 template <class Expr>
 struct multivector_expression
