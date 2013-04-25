@@ -66,15 +66,6 @@ template <>
 inline std::string type_name<elem_index>() {
     return type_name<size_t>();
 }
-/// \endcond
-
-/// When used in vector expression, returns current element index plus offset.
-inline boost::proto::result_of::as_expr<elem_index>::type
-element_index(size_t offset = 0) {
-    return boost::proto::as_expr(elem_index(offset));
-}
-
-/// \cond INTERNAL
 
 /// Type trait to determine if an expression is scalable.
 /**
@@ -639,6 +630,15 @@ struct vector_expression
         : boost::proto::extends< Expr, vector_expression<Expr>, vector_domain>(expr) {}
 };
 
+/// \endcond
+
+/// When used in vector expression, returns current element index plus offset.
+inline boost::proto::result_of::as_expr<elem_index, vector_domain>::type
+element_index(size_t offset = 0) {
+    return boost::proto::as_expr<vector_domain>(elem_index(offset));
+}
+
+/// \cond INTERNAL
 //--- Vector contexts and transform helpers ---------------------------------
 
 // Builds kernel name for a vector expression.
