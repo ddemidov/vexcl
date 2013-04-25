@@ -154,10 +154,7 @@ BOOST_AUTO_TEST_CASE(combine_expressions)
 
     vex::vector<int> x(ctx, n);
 
-    double scale = 2 * M_PI;
-    auto   idx   = vex::element_index();
-
-    auto alpha  = scale * idx;
+    auto alpha  = 2 * M_PI * vex::element_index();
     auto sine   = sin(alpha);
     auto cosine = cos(alpha);
 
