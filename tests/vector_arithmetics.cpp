@@ -19,6 +19,22 @@ BOOST_AUTO_TEST_CASE(assign_expression)
             });
 }
 
+BOOST_AUTO_TEST_CASE(compound_assignment)
+{
+    const size_t n = 1024;
+
+    vex::vector<double> x(ctx, n);
+
+    x = 0;
+    x += 1;
+
+    check_sample(x, [](size_t, double a) { BOOST_CHECK(a == 1); });
+
+    x -= 2;
+
+    check_sample(x, [](size_t, double a) { BOOST_CHECK(a == -1); });
+}
+
 BOOST_AUTO_TEST_CASE(reduce_expression)
 {
     const size_t N = 1024;

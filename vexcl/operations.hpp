@@ -67,6 +67,31 @@ inline std::string type_name<elem_index>() {
     return type_name<size_t>();
 }
 
+/// Assignment operators.
+namespace assign {
+
+#define ASSIGN_OP(name, op) \
+    struct name { \
+        static std::string string() { \
+            return #op; \
+        } \
+    };
+
+    ASSIGN_OP(SET, =);
+    ASSIGN_OP(ADD, +=);
+    ASSIGN_OP(SUB, -=);
+    ASSIGN_OP(MUL, *=);
+    ASSIGN_OP(DIV, /=);
+    ASSIGN_OP(MOD, %=);
+    ASSIGN_OP(AND, &=);
+    ASSIGN_OP(OR,  |=);
+    ASSIGN_OP(XOR, ^=);
+    ASSIGN_OP(LSH, <<=);
+    ASSIGN_OP(RSH, >>=);
+
+#undef ASSIGN_OP
+}
+
 /// Type trait to determine if an expression is scalable.
 /**
  * It must have a type `value_type` and a field `scale` of that type, this

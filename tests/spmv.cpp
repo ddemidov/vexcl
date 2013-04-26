@@ -56,7 +56,11 @@ BOOST_AUTO_TEST_CASE(vector_product)
             BOOST_CHECK_CLOSE(a, sum, 1e-8);
             });
 
-    Y = 42 * (A * X);
+    Y -= A * X;
+
+    check_sample(Y, [&](size_t, double a) { BOOST_CHECK_SMALL(a, 1e-8); });
+
+    Y += 42 * (A * X);
 
     check_sample(Y, [&](size_t idx, double a) {
             double sum = 0;
