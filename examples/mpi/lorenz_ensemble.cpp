@@ -64,20 +64,24 @@ struct lorenz_system {
 };
 
 int main( int argc , char **argv ) {
+    const size_t n = argc > 1 ? atoi(argv[1]) : 1024;
+
     const value_type dt    = 0.01;
     const value_type t_max = 100.0;
     const value_type Rmin  = 0.1;
     const value_type Rmax  = 50.0;
+    const value_type dR    = (Rmax - Rmin) / (n - 1);
+
 
     MPI_Init(&argc, &argv);
     vex::mpi::comm_data mpi(MPI_COMM_WORLD);
-
-    const size_t n = argc > 1 ? atoi(argv[1]) : 1024;
 
     size_t chunk_size = (n + mpi.size - 1) / mpi.size;
     size_t chunk_start = mpi.rank * chunk_size;
     size_t chunk_end   = std::min(n, chunk_start + chunk_size);
     chunk_size = chunk_end - chunk_start;
+
+    auto part = mpi.restore_partitioning(chunk_size);
 
     try {
         vex::Context ctx( vex::Filter::Exclusive(
@@ -92,18 +96,11 @@ int main( int argc , char **argv ) {
             MPI_Barrier(mpi.comm);
         }
 
-        auto part = mpi.restore_partitioning(chunk_size);
+        state_type  X(mpi.comm, ctx, chunk_size);
+        vector_type R(mpi.comm, ctx, chunk_size);
 
-        const value_type dR = (Rmax - Rmin) / (part.back() - 1);
-
-        std::vector<value_type> r( chunk_size );
-        for(size_t i = part[mpi.rank], j = 0; i < part[mpi.rank + 1]; ++i, ++j)
-            r[j] = Rmin + i * dR;
-
-        state_type X(mpi.comm, ctx, chunk_size);
         X = 10.0;
-
-        vector_type R(mpi.comm, ctx, r);
+        R = Rmin + dR * vex::element_index(part[mpi.rank]);
 
         odeint::runge_kutta4<
             state_type, value_type, state_type, value_type,

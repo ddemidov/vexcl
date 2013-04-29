@@ -19,6 +19,16 @@ typedef double real;
 #  pragma warning(disable : 4267)
 #endif
 
+std::vector<double> random_vector(size_t n) {
+    static std::default_random_engine rng( std::rand() );
+    static std::uniform_real_distribution<double> rnd(0.0, 1.0);
+
+    std::vector<double> x(n);
+    std::generate(x.begin(), x.end(), []() { return rnd(rng); });
+
+    return x;
+}
+
 //---------------------------------------------------------------------------
 std::pair<double,double> benchmark_vector(
         const std::vector<cl::CommandQueue> &queue, profiler &prof
@@ -29,13 +39,9 @@ std::pair<double,double> benchmark_vector(
     double time_elapsed;
 
     std::vector<real> A(N, 0);
-    std::vector<real> B(N);
-    std::vector<real> C(N);
-    std::vector<real> D(N);
-
-    std::generate(B.begin(), B.end(), [](){ return (double)rand() / RAND_MAX; });
-    std::generate(C.begin(), C.end(), [](){ return (double)rand() / RAND_MAX; });
-    std::generate(D.begin(), D.end(), [](){ return (double)rand() / RAND_MAX; });
+    std::vector<real> B = random_vector(N);
+    std::vector<real> C = random_vector(N);
+    std::vector<real> D = random_vector(N);
 
     vex::vector<real> a(queue, A);
     vex::vector<real> b(queue, B);
@@ -98,11 +104,8 @@ std::pair<double, double> benchmark_reductor(
     const size_t M = 1024 / 16;
     double time_elapsed;
 
-    std::vector<real> A(N);
-    std::vector<real> B(N);
-
-    std::generate(A.begin(), A.end(), [](){ return (double)rand() / RAND_MAX; });
-    std::generate(B.begin(), B.end(), [](){ return (double)rand() / RAND_MAX; });
+    std::vector<real> A = random_vector(N);
+    std::vector<real> B = random_vector(N);
 
     vex::vector<real> a(queue, A);
     vex::vector<real> b(queue, B);
@@ -161,9 +164,8 @@ std::pair<double, double> benchmark_stencil(
     const long M = 1024;
     double time_elapsed;
 
-    std::vector<real> A(N);
+    std::vector<real> A = random_vector(N);
     std::vector<real> B(N);
-    std::generate(A.begin(), A.end(), [](){ return (real)rand() / RAND_MAX; });
 
     std::vector<real> S(21, 1.0 / 21);
     long center = S.size() / 2;

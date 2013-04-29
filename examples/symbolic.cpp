@@ -86,18 +86,19 @@ int main( int argc , char **argv )
             );
 
     // Real state initialization:
-    value_type Rmin = 0.1 , Rmax = 50.0 , dR = ( Rmax - Rmin ) / value_type( n - 1 );
-    std::vector<value_type> r( n );
-    for( size_t i=0 ; i<n ; ++i ) r[i] = Rmin + dR * value_type( i );
+    value_type Rmin = 0.1;
+    value_type Rmax = 50.0;
+    value_type dR   = (Rmax - Rmin) / (n - 1);
 
     vex::vector<value_type> X(ctx, n);
     vex::vector<value_type> Y(ctx, n);
     vex::vector<value_type> Z(ctx, n);
-    vex::vector<value_type> R(ctx, r);
+    vex::vector<value_type> R(ctx, n);
 
     X = 10.0;
     Y = 10.0;
     Z = 10.0;
+    R = Rmin + dR * vex::element_index();
 
     // Integration loop:
     for(value_type t = 0; t < t_max; t += dt)

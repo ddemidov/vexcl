@@ -149,8 +149,8 @@ int main( int argc , char *argv[] ) {
         }
 
         std::pair<state_type, state_type> X(
-                state_type( mpi.comm, ctx , chunk_size ),
-                state_type( mpi.comm, ctx , chunk_size )
+                state_type( mpi.comm, ctx, chunk_size ),
+                state_type( mpi.comm, ctx, chunk_size )
                 );
 
         X.first  = 0.0;
