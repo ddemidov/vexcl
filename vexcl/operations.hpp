@@ -395,8 +395,13 @@ struct UserFunction<Impl, RetType(ArgType...)> : user_function
                 );
     }
 
+    static std::string preamble() {
+        return "";
+    }
+
     static void define(std::ostream &os, const std::string &name) {
-        os << type_name<RetType>() << " " << name << "(";
+        os << Impl::preamble() << "\n"
+           << type_name<RetType>() << " " << name << "(";
         show_arg<ArgType...>(os, 1);
         os << "\n)\n{\n" << Impl::body() << "\n}\n\n";
     }
@@ -440,8 +445,12 @@ struct UserFunction<Impl, RetType( BOOST_PP_ENUM_PARAMS(n, ArgType) )> : user_fu
                 Impl(), BOOST_PP_ENUM(n, PRINT_BOOST_REF, ~) \
                 ); \
     } \
+    static std::string preamble() { \
+        return ""; \
+    } \
     static void define(std::ostream &os, const std::string &name) { \
-        os << type_name<RetType>() << " " << name << "(" \
+        os << Impl::preamble() << "\n" \
+           << type_name<RetType>() << " " << name << "(" \
            BOOST_PP_REPEAT(n, PRINT_PRM_DEF, n) \
            << "\n)\n{\n" << Impl::body() << "\n}\n\n"; \
     } \
@@ -462,7 +471,7 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, USER_FUNCTION, ~)
 /// Macro to declare a user function type.
 /**
  * \code
- * VEX_FUNCTION_TYPE(pow3_t, double(double), "return pow(prm1, 3.0);");
+ * VEX_FUNCTION_TYPE(pow3_t, double(double), "", "return pow(prm1, 3.0);");
  * pow3_t pow3;
  * output = pow3(input);
  * \endcode
@@ -471,9 +480,10 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, USER_FUNCTION, ~)
  * save on OpenCL kernel recompilations). Otherwise VEX_FUNCTION should
  * be used locally.
  */
-#define VEX_FUNCTION_TYPE(name, signature, body_str) \
+#define VEX_FUNCTION_TYPE(name, signature, preamble_str, body_str) \
     struct name : vex::UserFunction<name, signature> { \
-        static std::string body() { return body_str; } \
+        static std::string preamble() { return preamble_str; } \
+        static std::string body()     { return body_str;     } \
     }
 
 /// Macro to declare a user function.
@@ -484,7 +494,22 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, USER_FUNCTION, ~)
  * \endcode
  */
 #define VEX_FUNCTION(name, signature, body) \
-    VEX_FUNCTION_TYPE(user_function_##name##_body, signature, body) name
+    VEX_FUNCTION_TYPE(user_function_##name##_body, signature, "", body) name
+
+
+/// Macro to declare a user function with preamble.
+/**
+ * The preamble may be used to define helper functions or macro defines.
+ * \code
+ * VEX_FUNCTION_WITH_PREAMBLE(pow3, double(double),
+ *   "return pow(dummy(prm1), 3.0);",
+ *   "double dummy(double v) {return v;}"
+ *   );
+ * output = pow3(input);
+ * \endcode
+ */
+#define VEX_FUNCTION_WITH_PREAMBLE(name, signature, preamble, body) \
+    VEX_FUNCTION_TYPE(user_function_##name##_body, signature, preamble, body) name
 
 
 /// \cond INTERNAL

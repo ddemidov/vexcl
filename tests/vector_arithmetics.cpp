@@ -163,6 +163,26 @@ BOOST_AUTO_TEST_CASE(custom_header)
             });
 }
 
+BOOST_AUTO_TEST_CASE(function_with_preamble)
+{
+    const size_t n = 1024;
+
+    vex::vector<double> x(ctx, random_vector<double>(n));
+    vex::vector<double> y(ctx, n);
+
+    VEX_FUNCTION_WITH_PREAMBLE(one, double(double),
+            "double sin2(double x) { return pow(sin(x), 2.0); }\n"
+            "double cos2(double x) { return pow(cos(x), 2.0); }\n",
+            "return sin2(prm1) + cos2(prm1);"
+            );
+
+    y = one(x);
+
+    check_sample(y, [](size_t, double a) {
+            BOOST_CHECK_CLOSE(a, 1.0, 1e-8);
+            });
+}
+
 BOOST_AUTO_TEST_CASE(combine_expressions)
 {
 
