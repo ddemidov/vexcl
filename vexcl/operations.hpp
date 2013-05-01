@@ -499,13 +499,14 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, USER_FUNCTION, ~)
 
 /// Macro to declare a user function with preamble.
 /**
- * The preamble may be used to define helper functions or macro defines.
+ * The preamble may be used to define helper functions or macros.
  * \code
- * VEX_FUNCTION_WITH_PREAMBLE(pow3, double(double),
- *   "return pow(dummy(prm1), 3.0);",
- *   "double dummy(double v) {return v;}"
- *   );
- * output = pow3(input);
+ * VEX_FUNCTION_WITH_PREAMBLE(one, double(double),
+ *         "double sin2(double x) { return pow(sin(x), 2.0); }\n"
+ *         "double cos2(double x) { return pow(cos(x), 2.0); }\n",
+ *         "return sin2(prm1) + cos2(prm1);"
+ *         );
+ * y = one(x);
  * \endcode
  */
 #define VEX_FUNCTION_WITH_PREAMBLE(name, signature, preamble, body) \
