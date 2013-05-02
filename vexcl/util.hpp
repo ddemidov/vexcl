@@ -97,7 +97,7 @@ CL_TYPES(long);  CL_TYPES(ulong);
 #undef CL_VEC_TYPE
 #undef STRINGIFY
 
-#if defined(__clang__) && defined(__APPLE__)
+#if defined(__APPLE__)
 template <> inline std::string type_name<size_t>() {
     return std::numeric_limits<std::size_t>::max() ==
         std::numeric_limits<uint>::max() ? "uint" : "ulong";
