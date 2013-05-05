@@ -8,8 +8,9 @@ matrix-vector products, etc. Multi-device and even multi-platform computations
 are supported. The source code of the library is distributed under very
 permissive MIT license.
 
-Doxygen-generated documentation is available at
-http://ddemidov.github.io/vexcl.
+The code is available at https://github.com/ddemidov/vexcl.
+
+Doxygen-generated documentation: http://ddemidov.github.io/vexcl.
 
 Slides from VexCL-related talks:
 
