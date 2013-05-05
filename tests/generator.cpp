@@ -1,3 +1,4 @@
+#define VEXCL_SHOW_KERNELS
 #define BOOST_TEST_MODULE KernelGenerator
 #include <boost/test/unit_test.hpp>
 #include "context_setup.hpp"
@@ -5,18 +6,14 @@
 using namespace vex;
 
 template <class state_type>
-void sys_func(const state_type &x, state_type &dx, double dt) {
-    dx = dt * sin(x);
+state_type sys_func(const state_type &x) {
+    return sin(x);
 }
 
 template <class state_type, class SysFunction>
 void runge_kutta_2(SysFunction sys, state_type &x, double dt) {
-    state_type xtmp, k1, k2;
-
-    sys(x, k1, dt);
-
-    xtmp = x + 0.5 * k1;
-    sys(xtmp, k2, dt);
+    state_type k1 = dt * sys(x);
+    state_type k2 = dt * sys(x + 0.5 * k1);
 
     x += k2;
 }

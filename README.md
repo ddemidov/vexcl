@@ -1,13 +1,12 @@
-VexCL
-=======
+# VexCL
 
-VexCL is a vector expression template library for OpenCL. It has been created for
-ease of OpenCL developement with C++. VexCL strives to reduce amount of
+VexCL is a vector expression template library for OpenCL. It has been created
+for ease of OpenCL development with C++. VexCL strives to reduce amount of
 boilerplate code needed to develop OpenCL applications. The library provides
-convenient and intuitive notation for vector arithmetic, reduction, and sparse
-matrix-vector multiplication. Multi-device and even multi-platform computations
-are supported. VexCL also provides MPI wrapper [classes][mpi_namespace] for
-its types.
+convenient and intuitive notation for vector arithmetic, reduction, sparse
+matrix-vector products, etc. Multi-device and even multi-platform computations
+are supported. The source code of the library is distributed under very
+permissive MIT license.
 
 Doxygen-generated documentation is available at
 http://ddemidov.github.io/vexcl.
@@ -20,373 +19,462 @@ Slides from VexCL-related talks:
 
 The paper [Programming CUDA and OpenCL: A Case Study Using Modern C++
 Libraries](http://arxiv.org/abs/1212.6326) compares both convenience and
-performance of several libraries, including VexCL.
+performance of several GPGPU libraries, including VexCL.
 
-[mpi_namespace]: http://ddemidov.github.io/vexcl/namespacevex_1_1mpi.html
+### Table of contents
 
-Motivation
-----------
+* [Context initialization](#context-initialization)
+* [Memory allocation](#memory-allocation)
+* [Copies between host and devices](#copies-between-host-and-devices)
+* [Vector expressions](#vector-expressions)
+    * [Builtin operations](#builtin-operations)
+    * [Element indices](#element-indices)
+    * [User-defined functions](#user-defined-functions)
+    * [Random number generation](#random-number-generation)
+* [Reductions](#reductions)
+* [Sparse matrix-vector products](#sparse-matrix-vector-products)
+* [Stencil convolutions](#stencil-convolutions)
+* [Fast Fourier Transform](#fast-fourier-transform)
+* [Multivectors](#multivectors)
+* [Converting generic C++ algorithms to OpenCL](#converting-generic-c-algorithms-to-opencl)
+* [Custom kernels](#custom-kernels)
+* [Interoperability with other libraries](#interoperability-with-other-libraries)
+* [Supported compilers](#supported-compilers)
 
-Consider classical hello world problem for OpenCL: addition of two vectors.
-[This][hello_cl] is pure OpenCL implementation. Note that I used official C++
-bindings here; C variant would be much more verbose. And [this][hello_vex] is
-the same problem solved with VexCL. I rest my case :).
+## Context initialization
 
-[hello_cl]: https://gist.github.com/2925717
-[hello_vex]: https://gist.github.com/2925718
-
-Selection of compute devices
-----------------------------
-
-You can select any number of available compute devices, which satisfy provided
-filters. Filter is a functor returning bool and acting on a `cl::Device`
-parameter. Several standard filters are provided, such as device type or name
-filter, double precision support etc. Filters can be combined with logical
-operators. In the example below all devices with names matching "Radeon" and
-supporting double precision are selected:
+VexCL can transparently work with multiple compute devices that are present in
+the system. VexCL context is initialized with a device filter, which is just a
+functor that takes a reference to `cl::Device` and returns a `bool`. Several
+[standard filters][filters] are provided, but one can easily add a custom
+functor. Filters may be combined with logical operators. All compute devices
+that satisfy the provided filter are added to the created context. In the
+example below all GPU devices that support double precision arithmetics are
+selected:
 ```C++
+#include <iostream>
+#include <stdexcept>
 #include <vexcl/vexcl.hpp>
-using namespace vex;
+
 int main() {
-    vex::Context ctx(Filter::Name("Radeon") && Filter::DoublePrecision);
+    vex::Context ctx( vex::Filter::Type(CL_DEVICE_TYPE_GPU) && vex::Filter::DoublePrecision );
+
+    if (!ctx) throw std::runtime_error("No devices available.");
+
+    // Print out list of selected devices:
     std::cout << ctx << std::endl;
 }
 ```
-`vex::Context` object holds list of initialized OpenCL contexts and command
-queues for each filtered device. If you just need list of available devices
-without creating contexts and queues on them, then look for `device_list()`
-function in documentation.
 
-If you wish to obtain an exclusive access to your devices (across all processes
-that use VexCL library), just wrap your device filter in `Filter::Exclusive`
-function call:
+One of the most convenient filters is [vex::Filter::Env][env-filter] which
+selects compute devices based on environment variables. It allows to switch
+compute device without need to recompile the program.
+
+[filters]:    http://ddemidov.github.io/vexcl/namespacevex_1_1Filter.html
+[env-filter]: http://ddemidov.github.io/vexcl/structvex_1_1Filter_1_1EnvFilter.html
+
+## Memory allocation
+
+`vex::vector<T>` class constructor accepts a const reference to
+`std::vector<cl::CommandQueue>`. A `vex::Context` instance may be conveniently
+converted to the type, but it is also possible to initialize the command queues
+elsewhere, thus completely eliminating the need to create a `vex::Context`.
+Each command queue in the list should uniquely identify a single compute
+device.
+
+The contents of the created vector will be partitioned across all devices that
+were present in the queue list.  Size of each partition will be proportional to
+the device bandwidth, which is measured the first time the device is used. All
+vectors of the same size are guaranteed to be partitioned consistently, which
+allows to minimize inter-device communication.
+
+In the example below, three device vectors of the same size are allocated.
+Vector `A` is copied from host vector `a`, and the other vectors are created
+uninitialized:
 ```C++
-vex::Context ctx( Filter::Exclusive( Filter::Platform("NVIDIA") && Filter::DoublePrecision ) );
+const size_t n = 1024 * 1024;
+vex::Context ctx( vex::Filter::All );
+
+std::vector<double> a(n, 1.0);
+
+vex::vector<double> A(ctx, a);
+vex::vector<double> B(ctx, n);
+vex::vector<double> C(ctx, n);
+```
+Assuming that the current system has an NVIDIA and an AMD GPUs along with an
+Intel CPU installed, possible partitioning may look as in the following figure:
+
+![Partitioning](doc/figures/partitioning.png?raw=true)
+
+## Copies between host and devices
+
+Function `vex::copy()` allows to copy data between host and device memories.
+There are two forms of the function -- simple one and an STL-like:
+```C++
+std::vector<double> h(n);       // Host vector.
+vex::vector<double> d(ctx, n);  // Device vector.
+
+// Simple form:
+vex::copy(h, d);    // Copy data from host to device.
+vex::copy(d, h);    // Copy data from device to host.
+
+// STL-like form:
+vex::copy(h.begin(), h.end(), d.begin()); // Copy data from host to device.
+vex::copy(d.begin(), d.end(), h.begin()); // Copy data from device to host.
 ```
 
-Memory allocation and vector arithmetic
----------------------------------------
+The STL-like variant allows to copy sub-ranges of the vectors, or copy data
+from/to raw host pointers.
 
-Once you initialized VexCL context, you can allocate OpenCL buffers on the
-associated devices. `vex::vector` constructor accepts `std::vector` of
-`cl::CommandQueue`.  The contents of the created vector will be partitioned
-between each queue (presumably, each of the provided queues is linked with
-separate device).  Size of each partition will be proportional to relative
-device bandwidth. Device bandwidth is measured first time it is requested by
-launch of small test kernel.
+Vectors also overload array subscript operator, so that users may have direct
+read or write access to individual vector elements. But this operation is
+highly ineffective and should be used with caution. Iterators allow for element
+access as well, so that STL algorithms may in principle be used with device
+vectors. This would be very slow but may be used as a temporary building
+blocks.
 
-Multi-platform computation is supported (that is, you
-can spread your vectors across devices by different vendors), but should be
-used with caution: all computations will be performed with the speed of the
-slowest device selected.
+## Vector expressions
 
-In the example below host vector is allocated and initialized, then copied to
-all GPU devices found in the system. A couple of empty device vectors are
-allocated as well:
+VexCL allows to use convenient and intuitive notation for vector operations. In
+order to be used in the same expression, all vectors have to be _compatible_:
+* Have same size;
+* Span same set of compute devices.
+
+If the conditions are satisfied, then vectors may be combined with rich set of
+available expressions. Vector expressions are processed in parallel across all
+devices they were allocated on. One should keep in mind that in case several
+OpenCL command queues are used, then the queues of the vector that is being
+assigned to will be employed. Each vector expression results in launch of a
+single OpenCL kernel. The kernel is automatically generated and launched the
+first time the expression is encountered in the program. If
+`VEXCL_SHOW_KERNELS` macro is defined, then the sources of all generated
+kernels will be dumped to the standard output. For example, the expression:
 ```C++
-const size_t n = 1 << 20;
-std::vector<double> x(n);
-std::generate(x.begin(), x.end(), [](){ return (double)rand() / RAND_MAX; });
-
-vex::Context ctx(Filter::Type(CL_DEVICE_TYPE_GPU));
-
-vex::vector<double> X(ctx, x);
-vex::vector<double> Y(ctx, n);
-vex::vector<double> Z(ctx, n);
+X = 2 * Y - sin(Z);
 ```
-
-You can now use simple vector arithmetic with device vectors. For every
-expression you use, appropriate kernel is compiled (first time it is
-encountered in your program) and called automagically. If you want to see
-sources of the generated kernels on the standard output, define
-`VEXCL_SHOW_KERNELS` macro before including VexCL headers.
-
-Vectors are processed in parallel across all devices they were allocated on:
-```C++
-Y = 42;
-Z = sqrt(2 * X) + cos(Y);
-```
-
-If values of vector elements should depend on their positions in the vector,
-then you can use `element_index()` function in vector expresion. For example,
-to assign one period of sine function to a vector, you could
-```C++
-X = sin(2 * M_PI / X.size() * element_index());
-```
-
-You can copy the result back to host or you can use `vector::operator[]` to
-read (or write) vector elements directly. Though latter technique is very
-ineffective and should be used for debugging purposes only.
-```C++
-copy(Z, x);
-assert(x[42] == Z[42]);
-```
-
-Another frequently performed operation is reduction of a vector expression to
-single value, such as summation. This can be done with `Reductor` class:
-```C++
-Reductor<double,SUM> sum(ctx);
-Reductor<double,MAX> max(ctx);
-
-std::cout << max(fabs(X) - 0.5) << std::endl;
-std::cout << sum(sqrt(2 * X) + cos(Y)) << std::endl;
-```
-
-Stencil convolution
--------------------
-
-Stencil convolution operation comes in handy in many situations. For example,
-it allows us to apply a moving average filter to a device vector. All you need
-is to construct a `vex::stencil` object:
-```C++
-// Moving average with 5-points window.
-std::vector<double> sdata(5, 0.2);
-stencil(ctx, sdata, sdata.size() / 2);
-
-vex::vector<double> x(ctx, 1024 * 1024);
-vex::vector<double> y(ctx, 1024 * 1024);
-
-x = 1;
-y = x * s; // convolve x with s
-```
-
-Sparse matrix-vector multiplication
------------------------------------
-
-One of the most common operations in linear algebra is matrix-vector
-multiplication. Class `SpMat` holds representation of a sparse matrix,
-spanning several devices. In the example below it is used for solution of a
-system of linear equations with conjugate gradients method:
-```C++
-typedef double real;
-// Solve system of linear equations A u = f with conjugate gradients method.
-// Input matrix is represented in CSR format (parameters row, col, and val).
-void cg_gpu(
-        const std::vector<size_t> &row,   // Indices to col and val vectors.
-        const std::vector<size_t> &col,   // Column numbers of non-zero elements.
-        const std::vector<real>   &val,   // Values of non-zero elements.
-        const std::vector<real>   &rhs,   // Right-hand side.
-        std::vector<real> &x              // In: initial approximation; out: result.
-        )
+will lead to the launch of the following OpenCL kernel:
+```C
+kernel void minus_multiplies_term_term_sin_term_(
+    ulong n,
+    global double *res,
+    int prm_1,
+    global double *prm_2,
+    global double *prm_3
+)
 {
-    // Init OpenCL.
-    vex::Context ctx(Filter::Type(CL_DEVICE_TYPE_GPU));
-
-    // Move data to compute devices.
-    size_t n = x.size();
-    vex::SpMat<real>  A(ctx, n, n, row.data(), col.data(), val.data());
-    vex::vector<real> f(ctx, rhs);
-    vex::vector<real> u(ctx, x);
-    vex::vector<real> r(ctx, n);
-    vex::vector<real> p(ctx, n);
-    vex::vector<real> q(ctx, n);
-
-    Reductor<real,MAX> max(ctx);
-    Reductor<real,SUM> sum(ctx);
-
-    // Solve equation Au = f with conjugate gradients method.
-    real rho1, rho2;
-    r = f - A * u;
-
-    for(uint iter = 0; max(fabs(r)) > 1e-8 && iter < n; iter++) {
-        rho1 = sum(r * r);
-
-        if (iter == 0) {
-            p = r;
-        } else {
-            real beta = rho1 / rho2;
-            p = r + beta * p;
-        }
-
-        q = A * p;
-
-        real alpha = rho1 / sum(p * q);
-
-        u += alpha * p;
-        r -= alpha * q;
-
-        rho2 = rho1;
+    for(size_t idx = get_global_id(0); idx < n; idx += get_global_size(0)) {
+        res[idx] = ( ( prm_1 * prm_2[idx] ) - sin( prm_3[idx] ) );
     }
-
-    // Get result to host.
-    copy(u, x);
 }
 ```
+Here and in the rest of examples `X`, `Y`, and `Z` are compatible instances
+of `vex::vector<double>`.
 
-VexCL also provides support for [ViennaCL][viennacl] iterative solvers. See
-examples/viennacl/solvers.cpp.
+### Builtin operations
 
-[viennacl]: http://viennacl.sourceforge.net
+VexCL expressions may combine device vectors and scalars with arithmetic,
+logic, or bitwise operators as well as with builtin OpenCL functions. If some
+builtin operator or function is unavailable, it should be considered a bug.
+Please do not hesitate to open an issue in this case.
 
-User-defined functions
-----------------------
-
-Simple arithmetic expressions are sometimes not enough. Imagine that you need
-to count how many elements in vector `x` are greater that their counterparts in
-vector `y`. This may be achieved by introduction of custom function. In order
-to build such a function, you need to supply its body, its return type and
-types of its arguments. After that, you can apply the function to any valid
-vector expressions:
 ```C++
-VEX_FUNCTION(greater, size_t(float, float), "return prm1 > prm2 ? 1 : 0;");
-
-size_t count_if_greater(
-    const Reductor<size_t, SUM> &sum,
-    const vex::vector<float> &x,
-    const vex::vector<float> &y
-    )
-{
-    return sum(greater(x, y));
-}
+Z = sqrt(2 * X) + pow(cos(Y), 2.0);
 ```
-You could also write `sum(greater(x + y, 5 * y))`, or use any other expressions
-as parameters to the `greater()` call. Note that in the function body
-parameters are always named as `prm1`, `prm2`, etc.
 
-Random number generation
-------------------------
+### Element indices
 
-VexCL provides random number generators from [Random123][rnd123] suite, in
-which  Nth random number can be obtained by applying a stateless mixing
-function to N instead of the conventional approach of using N iterations of a
-stateful transformation. This technique is easily parallelizable and is well
-suited for use in GPGPU applications.
+Function `vex::element_index(size_t offset = 0)` allows to use an index of each
+vector element inside vector expressions. The numbering is continuous across
+the compute devices and starts with an optional `offset`.
+
+```C++
+// Linear function:
+double x0 = 0.0, dx = 1.0 / (X.size() - 1);
+X = x0 + dx * vex::element_index();
+
+// Single period of sine function:
+Y = sin(2 * M_PI * vex::element_index() / Y.size());
+```
+
+### User-defined functions
+
+Users may define custom functions to use in vector expressions. One has to
+define function signature and function body. The body may contain any number of
+lines of valid OpenCL code. Function parameters are named `prm1`, `prm2`, etc.
+The most convenient way to define a function is `VEX_FUNCTION` macro:
+
+```C++
+VEX_FUNCTION(squared_radius, double(double, double), "return prm1 * prm1 + prm2 * prm2;");
+Z = sqrt(squared_radius(X, Y));
+```
+The resulting `squared_radius` function object is stateless; only its type is
+used for kernel generation. Hence, it is safe to put commonly used functions in
+global scope.
+
+Custom functions may be used not only for convenience, but also for performance
+reasons. The above example could in principle be rewritten as:
+```C++
+Z = sqrt(X * X + Y * Y);
+```
+The drawback of the latter variant is that `X` and `Y` will be read _twice_.
+
+Note that any valid vector expression may be passed as a function parameter:
+```C++
+Z = squared_radius(sin(X + Y), cos(X - Y));
+```
+
+### Random number generation
+
+VexCL provides counter-based random number generators from [Random123][] suite,
+in which  Nth random number is obtained by applying a stateless mixing function
+to N instead of the conventional approach of using N iterations of a stateful
+transformation. This technique is easily parallelizable and is well suited for
+use in GPGPU applications.
+
+[Random123]: http://www.deshawresearch.com/resources_random123.html
+
+For integral types, generated values span the complete range;
+for floating point types, generated values are in [0,1] interval.
 
 In order to use a random number sequence in a vector expression, user has to
-declare either `vex::Random` or `vex::RandomNormal` class template instance as
-in the following example:
+declare an instance of either `vex::Random` or `vex::RandomNormal` class
+template as in the following example:
 ```C++
-RandomNormal<cl_double2, random::philox> rnd;
-vex::vector<cl_double2> x(ctx, size);
-unsigned seed = std::rand();
+vex::Random<double, vex::random::threefry> rnd;
 
-x = rnd(element_index(), seed);
+// X will contain random numbers from [-1, 1]:
+X = 2 * rnd(vex::element_index(), std::rand()) - 1;
 ```
-Note that `element_index()` here provides the random number generator with a
-sequence position N. You also can generate several independent random vectors
-by adjusting the element_index (or a seed):
+Note that `vex::element_index()` here provides the random number generator with
+a sequence position N.
+
+## Reductions
+
+An instance of `vex::Reductor<T, OP>` allows to reduce an arbitrary vector
+expression to a single value of type T. Supported reduction operations are
+`SUM`, `MIN`, and `MAX`. Reductor objects receive a list of command queues at
+construction and should only be applied to vectors residing on the same
+compute devices.
+
+In the following example an inner product of two vectors is computed:
 ```C++
-vex::vector<double> x(ctx, n);
-vex::vector<double> y(ctx, n);
+vex::Reductor<double, vex::SUM> sum(ctx);
 
-Random<double, random::threefry> rnd;
-Reductor<size_t, SUM> sum(ctx);
-
-x = rnd(element_index(0), seed);
-y = rnd(element_index(n), seed);
-
-double pi = 4.0 * sum(x * x + y * y < 1) / n;
+double s = sum(x * y);
 ```
-[rnd123]: http://www.deshawresearch.com/resources_random123.html
+And here is an easy way to compute an approximate value of π with Monte-Carlo
+method:
+```C++
+VEX_FUNCTION(squared_radius, double(double, double), "return prm1 * prm1 + prm2 * prm2;");
 
-Multi-component vectors
------------------------
+vex::Reductor<size_t, vex::SUM> sum(ctx);
+vex::Random<double, vex::random::threefry> rnd;
 
-Class template `vex::multivector` allows to store several equally sized
-device vectors and perform computations on all components synchronously.
-Operations are delegated to the underlying vectors. Expressions may include
-`std::array<T,N>` values, where N is equal to the number of multivector
+X = 2 * rnd(vex::element_index(), std::rand()) - 1;
+Y = 2 * rnd(vex::element_index(), std::rand()) - 1;
+
+double pi = 4.0 * sum(squared_radius(X, Y) < 1) / X.size();
+```
+
+## Sparse matrix-vector products
+
+One of the most common operations in linear algebra is matrix-vector
+multiplication. An instance of `vex::SpMat` class holds representation of a
+sparse matrix. Its constructor accepts sparse matrix in common [CRS][] format.
+In the example below a `vex::SpMat` is constructed from an [Eigen][] [sparse
+matrix][eigen-spmat]:
+
+[CRS]: http://en.wikipedia.org/wiki/Sparse_matrix#Compressed_sparse_row_.28CSR_or_CRS.29
+[Eigen]: http://eigen.tuxfamily.org/
+[eigen-spmat]: http://eigen.tuxfamily.org/dox/TutorialSparse.html
+
+```C++
+Eigen::SparseMatrix<double, Eigen::RowMajor, int> E;
+
+vex::SpMat<double, int> A(ctx, E.rows(), E.cols(),
+    E.outerIndexPtr(), E.innerIndexPtr(), E.valuesPtr());
+```
+
+The matrix-vector products may be used in vector expressions. The only
+restriction is that the expressions have to be additive. This is due to the
+fact that matrix representation may span several compute devices. Hence,
+a matrix-vector product operation may require several kernel launches and
+inter-device communication.
+
+```C++
+// Compute residual value for a system of linear equations:
+Z = Y - A * X;
+```
+
+## Stencil convolutions
+
+Stencil convolution is another common operation that may be used, for example,
+to represent a signal filter, or a (one-dimensional) differential operator.
+VexCL implements two stencil kinds. The first one is a simple linear stencil
+that holds linear combination coefficients. The example below computes moving
+average of a vector with a 5-point window:
+```C++
+vex::stencil<double> S(ctx, /*coefficients:*/{0.2, 0.2, 0.2, 0.2, 0.2}, /*center:*/2);
+
+Y = X * S;
+```
+
+Users may also define custom stencil operators. This may be of use if, for
+example, the operator is nonlinear. The definition of a stencil operator looks
+very similar to a definition of a custom function. The only difference is that
+stencil operator constructor accepts vector of OpenCL command queues. The
+following example implement non-linear operator `y(i) = sin(x(i) - x(i - 1)) +
+sin(x(i+1) - sin(x(i))`:
+```C++
+VEX_STENCIL_OPERATOR(S, /*return type:*/double, /*window width:*/3, /*center:*/1,
+    "return sin(X[0] - X[-1]) + sin(X[1] - X[0]);"
+    );
+
+Z = S(Y);
+```
+
+The current window is available inside the body of the operator through the `X`
+array that is indexed relatively to the stencil center.
+
+Stencil convolution operations, similar to the matrix-vector products, are only
+allowed in additive expressions.
+
+## Fast Fourier Transform
+
+VexCL provides implementation of Fast Fourier Transform (FFT) that accepts
+arbitrary vector expressions as input, allows to perform multidimensional
+transforms (of any number of dimensions), and supports arbitrary sized vectors:
+
+```C++
+vex::FFT<double, cl_double2> fft(ctx, n);
+vex::FFT<cl_double2, double> ifft(ctx, n, vex::fft::inverse);
+
+vex::vector<double> in(ctx, n), back(ctx, n);
+vex::vector<cl_double2> out(ctx, n);
+
+// ...
+
+out  = fft (in);
+back = ifft(out);
+
+Z = fft(sin(X) + cos(Y));
+```
+
+FFT is another example of operation that is only available in additive
+expressions. Another restriction is that FFT currently only supports contexts
+with single compute device.
+
+## Multivectors
+
+Class template `vex::multivector<T,N>` allows to store several equally sized
+device vectors and perform computations on all components synchronously.  Each
+operation is delegated to the underlying vectors, but usually results in the
+launch of a single fused kernel. Expressions may include values of
+`std::array<T,N>` type, where N is equal to the number of multivector
 components. Each component gets corresponding element of `std::array<>` when
-expression is applied.
+expression is applied. Similarly, array subscript operator or reduction of a
+multivector returns an `std::array<T,N>`.  In order to access k-th component of
+a multivector, one can use overloaded `operator()`:
+
 ```C++
-const size_t n = 1 << 20;
-std::vector<double> host(n * 3);
-std::generate(host.begin(), host.end(), rand);
+VEX_FUNCTION(between, bool(double, double, double), "return prm1 <= prm2 && prm2 <= prm3;");
 
-vex::multivector<double,3> x(ctx, host);
-vex::multivector<double,3> y(ctx, n);
+vex::Reductor<double, vex::SUM> sum(ctx);
+vex::SpMat<double> A(ctx, ... );
+std::array<double, 2> v = {6.0, 7.0};
 
-std::array<int, 3> c = {4, 5, 6};
+vex::multivector<double, 2> X(ctx, N), Y(ctx, N);
 
-y = 2 * cos(x) - c;
+// ...
 
-std::array<double,3> v = y[42];
-assert(fabs(v[1] - (2 * cos(host[n + 42]) - c[1])) < 1e-8);
+X = sin(v * Y + 1);             // X(k) = sin(v[k] * Y(k) + 1);
+v = sum( between(0, X, Y) );    // v[k] = sum( between( 0, X(k), Y(k) ) );
+X = A * Y;                      // X(k) = A * Y(k);
 ```
 
-Components of a multivector may be accessed with operator():
+Some operations can not be expressed with simple multivector arithmetics. For
+example, an operation of two dimensional rotation mixes components in the right
+hand side expressions:
+```
+y0 = x0 * cos(alpha) - x1 * sin(alpha);
+y1 = x0 * sin(alpha) + x1 * cos(alpha);
+```
+
+This may in principle be implemented as:
 ```C++
-vex::vector<double> z = y(1);
+double alpha;
+vex::multivector<double, 2> X(ctx, N), Y(ctx, N);
+
+Y(0) = X(0) * cos(alpha) - X(1) * sin(alpha);
+Y(1) = X(0) * sin(alpha) + X(1) * cos(alpha);
+```
+But this would result in two kernel launches. VexCL allows to assign a tuple of
+expressions to a multivector, which will lead to the launch of a single fused
+kernel:
+```
+Y = std::tie( X(0) * cos(alpha) - X(1) * sin(alpha),
+              X(0) * sin(alpha) + X(1) * cos(alpha) );
 ```
 
-Sometimes operations with multicomponent vector cannot be expressed with simple
-arithmetic operations. Imagine that you need to solve the following system of
-ordinary differential equations:
-```
-dx/dt = x + y;
-dy/dx = x - y;
-```
+## Converting generic C++ algorithms to OpenCL
 
-If the system state is represented as `vex::multivector<double,2>`, then the
-system function for this ODE could be implemented as
+CUDA and OpenCL differ in their handling of compute kernels compilation. In
+NVIDIA's framework the compute kernels are compiled to PTX code together with
+the host program. In OpenCL the compute kernels are compiled at runtime from
+high-level C-like sources, adding an overhead which is particularly noticeable
+for smaller sized problems. This distinction leads to higher initialization
+cost of OpenCL programs, but at the same time it allows to generate better
+optimized kernels for the problem at hand. VexCL allows to exploit the
+possibility with help of its kernel generator mechanism.
+
+An instance of `vex::generator::symbolic<T>` dumps to output stream any
+arithmetic operations it is being subjected to. For example, this code snippet:
 ```C++
-// vex::multivector<double,2> dxdt, x;
-dxdt(0) = x(0) + x(1);
-dxdt(1) = x(0) - x(1);
+vex::generator::symbolic<double> x = 6, y = 7;
+x = sin(x * y);
+```
+results in the following output:
+```
+double var1 = 6;
+double var2 = 7;
+var1 = sin( ( var1 * var2 ) );
 ```
 
-This results in two kernel launches. Instead, you can use the following form:
-```C++
-dxdt = std::tie(x(0) + x(1), x(0) - x(1));
-```
-This expression would generate and launch single combined kernel, which would
-be more effective. Multi-expressions like these may also be used with ordinary
-`vex::vectors` with help of `vex::tie()` function:
-```C++
-// vex::vector<double> dx, dy, x, y;
-vex::tie(dx,dy) = std::tie(x + y, x - y);
-```
-
-Converting existing algorithms to kernels
------------------------------------------------
-
-VexCL kernel generator allows to transparently convert existing CPU algorithm
-to an OpenCL kernel. In order to do this you need to record sequence of
-arithmetic expressions made by an algorithm and convert the recorded sequence
-to a kernel. The recording part is done with help of
-`vex::generator::symbolic<T>` class. The class supports arithmetic expression
-templates and simply outputs to provided stream any expressions it is being
-subjected to.
-
-To illustrate this, imagine that you have generic algorithm for a 4th order
-Runge-Kutta ODE stepper:
-
+The symbolic type allows to record a sequence of arithmetic operations made by
+a generic C++ algorithm. To illustrate the idea, consider the generic
+implementation of a 4th order Runge-Kutta ODE stepper:
 ```C++
 template <class state_type, class SysFunction>
 void runge_kutta_4(SysFunction sys, state_type &x, double dt) {
-    state_type xtmp, k1, k2, k3, k4;
-
-    sys(x, k1, dt);
-
-    xtmp = x + 0.5 * k1;
-    sys(xtmp, k2, dt);
-
-    xtmp = x + 0.5 * k2;
-    sys(xtmp, k3, dt);
-
-    xtmp = x + k3;
-    sys(xtmp, k4, dt);
+    state_type k1 = dt * sys(x);
+    state_type k2 = dt * sys(x + 0.5 * k1);
+    state_type k3 = dt * sys(x + 0.5 * k2);
+    state_type k4 = dt * sys(x + k3);
 
     x += (k1 + 2 * k2 + 2 * k3 + k4) / 6;
 }
 ```
-To model equation `dx/dt = sin(x)` we also provide the following system function:
+This function takes a system function `sys`, state variable `x`, and advances
+`x` by time step `dt`. For example, to model the equation `dx/dt = sin(x)`, one
+has to provide the following system function:
 ```C++
 template <class state_type>
-void sys_func(const state_type &x, state_type &dx, double dt) {
-    dx = dt * sin(x);
+state_type sys_func(const state_type &x) {
+    return sin(x);
 }
 ```
-Now, to make a hundred of RK4 iterations for a `double` value on CPU, all that
-we need to do is
+
+The following code snippet makes a hundred of RK4 iterations for a single
+`double` value on a CPU:
 ```C++
-double x  = 1;
-double dt = 0.01;
-for(int i = 0; i < 100; i++)
+double x = 1, dt = 0.01;
+
+for(int step = 0; step < 100; ++step)
     runge_kutta_4(sys_func<double>, x, dt);
 ```
-Let us now generate the kernel for single RK4 step and apply the kernel to a
-`vex::vector<double>` (by doing this we essentially simpultaneously solve big
+
+Let us now generate the kernel for a single RK4 step and apply the kernel to a
+`vex::vector<double>` (by doing this we essentially simultaneously solve big
 number of same ODEs with different initial conditions).
 ```C++
 // Set recorder for expression sequence.
@@ -397,114 +485,99 @@ vex::generator::set_recorder(body);
 typedef vex::generator::symbolic<double> sym_state;
 sym_state sym_x(sym_state::VectorParameter);
 
-// Record expression sequience.
+// Record expression sequience for a single RK4 step.
 double dt = 0.01;
 runge_kutta_4(sys_func<sym_state>, sym_x, dt);
 
-// Build kernel.
-auto kernel = vex::generator::build_kernel(ctx,
-    "rk4_stepper", body.str(), sym_x);
+// Build kernel from the recorded sequence.
+auto kernel = vex::generator::build_kernel(ctx, "rk4_stepper", body.str(), sym_x);
 
-// Create and initialize vector of states.
-std::vector<double> xinit(n);
-std::generate(xinit.begin(), xinit.end(), drand48 );
-vex::vector<double> x(ctx, xinit);
+// Create initial state.
+const size_t n = 1024 * 1024;
+vex::vector<double> x(ctx, n);
+x = 10.0 * vex::element_index() / n;
 
-// Make 100 rk4 steps.
+// Make 100 RK4 steps.
 for(int i = 0; i < 100; i++) kernel(x);
 ```
-This is much more effective than (for this to work correctly we would need to
-slightly change sys_func):
+
+This approach has some obvious restrictions. Namely, the C++ code has to be
+embarrassingly parallel and is not allowed to contain any branching or
+data-dependent loops. Nevertheless, the kernel generation facility may save
+substantial amount of both human and machine time when applicable.
+
+## Custom kernels
+
+As [Kozma Prutkov](http://en.wikipedia.org/wiki/Kozma_Prutkov) repeatedly said,
+"One cannot embrace the unembraceable". So in order to be usable, VexCL has to
+support custom kernels. `vex::vector::operator()(uint k)` returns `cl::Buffer`
+that holds vector data on k-th compute device.  If the result depends on the
+neighbor points, one has to keep in mind that these points are possibly located
+on a different compute device.  In this case the exchange of these halo points
+has to be arranged manually.
+
+The following example builds and launches a custom kernel for each device in
+the context:
 ```C++
-for(int i = 0; i < 100; i++)
-    runge_kutta_4(sys_func<vex::vector<double>>, x, dt);
-```
-The generated kernel is more effective because temporary values used in
-sys_func are now represented not as full-blown vex::vectors, but as fast
-register variables inside the kernel body. We have seen upto tenfold
-performance improvement with this technique.
+std::vector<cl::Kernel> kernel(ctx.size());
 
-Using custom kernels
---------------------
-
-Custom kernels are of course possible as well. `vector::operator(uint)` returns
-`cl::Buffer` object for a specified device:
-```C++
-vex::Context ctx(Filter::Vendor("NVIDIA"));
-
-std::vector< cl::Kernel > dummy;
-
-// Build kernel for each of the devices in context:
+// Compile and store the kernels for later use.
 for(uint d = 0; d < ctx.size(); d++) {
-    cl::Program program = build_sources(ctx.context(d),
-        "kernel void dummy(ulong size, global float *x) {\n"
-        "    x[get_global_id(0)] = 4.2;\n"
-        "}\n");
-    dummy.emplace_back(program, "dummy");
+    cl::Program program = vex::build_sources(ctx.context(d),
+	"kernel void dummy(ulong size, global float *x)\n"
+	"{\n"
+	"    size_t i = get_global_id(0);\n"
+	"    if (i < size) x[i] = 4.2;\n"
+	"}\n"
+	);
+    kernel[d] = cl::Kernel(program, "dummy");
 }
 
-// Allocate device vector.
-const size_t n = 1 << 20;
-vex::vector<float> x(ctx, n);
-
-// Process each partition of the vector with the corresponding kernel:
+// Apply the kernels to the vector partitions on each device.
 for(uint d = 0; d < ctx.size(); d++) {
-    dummy[d].setArg(0, static_cast<cl_ulong>(x.part_size(d)));
-    dummy[d].setArg(1, x(d));
-
-    ctx.queue(d).enqueueNDRangeKernel(dummy[d], cl::NullRange, x.part_size(d), cl::NullRange);
+    kernel[d].setArg(0, static_cast<cl_ulong>(x.part_size());
+    kernel[d].setArg(1, x(d));
+    ctx.queue(d).enqueueNDRangeKernel(kernel[d], cl::NullRange, n, cl::NullRange);
 }
 ```
 
-Scalability
------------
+## Interoperability with other libraries
 
-In the images below, scalability of the library with respect to number of
-compute devices is shown. Effective performance (GFLOPS) and bandwidth (GB/sec)
-were measured by launching big number of test kernels on one, two, or three
-Nvidia Tesla C2070 cards. Effect of adding fourth, slower, device (Intel Core
-i7) were tested as well. The results shown are averaged over 20 runs.
+Since VexCL is built upon standard Khronos OpenCL C++ bindings, it is
+easily interoperable with other OpenCL libraries. In particular, VexCL provides
+some glue code for [ViennaCL][] and for [Boost.compute][] libraries.
 
-The details of the experiments may be found in [benchmark.cpp][r1].
-Basically, performance of the following code was measured:
+[ViennaCL]: http://viennacl.sourceforge.net/
+[Boost.compute]: https://github.com/kylelutz/compute
 
-```C++
-// Vector arithmetic
-a += b + c * d;
+[ViennaCL][] (The Vienna Computing Library) is a scientific computing library
+written in C++.  It provides OpenCL, CUDA, and OpenMP compute backends.  The
+programming interface is compatible with Boost.uBLAS and allows for simple,
+high-level access to the vast computing resources available on parallel
+architectures such as GPUs.  The library's primary focus is on common linear
+algebra operations (BLAS levels 1, 2 and 3) and the solution of large sparse
+systems of equations by means of iterative methods with optional
+preconditioners.
 
-// Reduction
-double s = sum(a * b);
+It is possible to use generic ViennaCL's solvers with VexCL types. See
+[examples/viennacl/solvers.cpp](examples/viennacl/solvers.cpp) for an example.
 
-// Stencil convolution
-y = x * s;
+[Boost.compute][] is a GPU/parallel-computing library for C++ based on OpenCL.
+The core library is a thin C++ wrapper over the OpenCL C API and provides
+access to compute devices, contexts, command queues and memory buffers.  On top
+of the core library is a generic, STL-like interface providing common
+algorithms (e.g. `transform()`, `accumulate()`, `sort()`) along with common
+containers (e.g. `vector<T>`, `flat_set<T>`). It also features a number of
+extensions including parallel-computing algorithms (e.g. `exclusive_scan()`,
+`scatter()`, `reduce()`) and a number of fancy iterators (e.g.
+`transform_iterator<>`, `permutation_iterator<>`, `zip_iterator<>`).
 
-// SpMV
-y += A * x;
-```
+[vexcl/external/boost_compute.hpp](vexcl/external/boost_compute.hpp) provides
+an example of using Boost.compute algorithms with VexCL vectors. Namely, it
+implements parallel sort and scan primitives on top of the corresponding
+Boost.compute algorithms.
 
-![Performance][i1]
-
-As you can see, performance and bandwidth for stencil convolution operation are
-much higher than for other primitives. This is due to the fact that much faster
-local (shared) memory is used in this algorithm, and formulas for effective
-performance and bandwidth do not take this into account.
-
-Another thing worth noting is overall degradation of performance after Intel
-CPU is added to VexCL context. The only primitive gaining speed from this
-addition is vector arithmetic. This is probably because performance of vector
-arithmetic was used as a basis for problem partitioning.
-
-MPI wrappers
-------------
-
-VexCL provides thin layer of MPI wrappers for its types. Please see examples in
-examples/mpi folder for use cases.  Provided types are `vex::mpi::vector`,
-`vex::mpi::multivector`, `vex::mpi::SpMat`, `vex::mpi::Reductor`. Any
-operations with these types are dispatched to the underlying vexcl types. Ghost
-points are exchanged between neighbor MPI processes as needed.
-
-Supported compilers
--------------------
+## Supported compilers
 
 VexCL makes heavy use of C++11 features, so your compiler has to be modern
 enough. The compilers that have been tested and supported:
@@ -514,18 +587,13 @@ enough. The compilers that have been tested and supported:
 * Microsoft Visual C++ 2010 and higher.
 
 VexCL uses standard OpenCL bindings for C++ from Khronos group. The cl.hpp file
-should be included with the OpenCL implementation on your system. If it is not
-there, you can download it from [Khronos site][clhpp].
+should be included with the OpenCL implementation on your system, but it is
+also provided with the library.
 
 ----------------------------
 _This work is a joint effort of [Supercomputer Center of Russian Academy of
-Sciences][r2] (Kazan branch) and [Kazan Federal University][r3]. It is
+Sciences][jscc] (Kazan branch) and [Kazan Federal University][kpfu]. It is
 partially supported by RFBR grants No 12-07-0007 and 12-01-00033._
 
-[r1]: https://github.com/ddemidov/vexcl/blob/master/examples/benchmark.cpp
-[r2]: http://www.jscc.ru/eng/index.shtml
-[r3]: http://www.kpfu.ru
-
-[i1]: https://github.com/ddemidov/vexcl/raw/master/doc/figures/perf.png
-
-[clhpp]: http://www.khronos.org/registry/cl
+[jscc]: http://www.jscc.ru/eng/index.shtml
+[kpfu]: http://www.kpfu.ru
