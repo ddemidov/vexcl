@@ -362,7 +362,7 @@ Z = fft(sin(X) + cos(Y));
 
 FFT is another example of operation that is only available in additive
 expressions. Another restriction is that FFT currently only supports contexts
-with single compute device.
+with a single compute device.
 
 ## Multivectors
 
