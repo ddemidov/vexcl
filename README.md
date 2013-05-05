@@ -575,8 +575,8 @@ extensions including parallel-computing algorithms (e.g. `exclusive_scan()`,
 
 [vexcl/external/boost_compute.hpp](vexcl/external/boost_compute.hpp) provides
 an example of using Boost.compute algorithms with VexCL vectors. Namely, it
-implements parallel sort and scan primitives on top of the corresponding
-Boost.compute algorithms.
+implements parallel sort and inclusive scan primitives on top of the
+corresponding Boost.compute algorithms.
 
 ## Supported compilers
 

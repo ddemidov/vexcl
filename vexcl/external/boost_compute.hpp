@@ -37,16 +37,15 @@ THE SOFTWARE.
 
 namespace vex {
 
-/// \cond INTERNAL
 template <typename T>
-void scan(const vex::vector<T> &src, vex::vector<T> &dst, bool exclusive = false) {
+void inclusive_scan(const vex::vector<T> &src, vex::vector<T> &dst) {
     auto queue = src.queue_list();
 
     // Scan partitions separately.
     for(unsigned d = 0; d < queue.size(); ++d) {
         if (src.part_size(d)) {
             boost::compute::command_queue q( queue[d]() );
-            
+
             boost::compute::buffer sbuf( src(d)() );
             boost::compute::buffer dbuf( dst(d)() );
 
@@ -54,7 +53,7 @@ void scan(const vex::vector<T> &src, vex::vector<T> &dst, bool exclusive = false
                     boost::compute::make_buffer_iterator<T>(sbuf, 0),
                     boost::compute::make_buffer_iterator<T>(sbuf, src.part_size(d)),
                     boost::compute::make_buffer_iterator<T>(dbuf, 0),
-                    exclusive && (d == 0), q
+                    false, q
                     );
         }
     }
@@ -79,19 +78,6 @@ void scan(const vex::vector<T> &src, vex::vector<T> &dst, bool exclusive = false
             }
         }
     }
-}
-/// \endcond
-
-/// Inclusive scan.
-template <typename T>
-void inclusive_scan(const vex::vector<T> &src, vex::vector<T> &dst) {
-    scan(src, dst, false);
-}
-
-/// Exclusive scan.
-template <typename T>
-void exclusive_scan(const vex::vector<T> &src, vex::vector<T> &dst) {
-    scan(src, dst, true);
 }
 
 /// Sort.

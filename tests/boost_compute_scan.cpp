@@ -13,15 +13,9 @@ BOOST_AUTO_TEST_CASE(boost_compute_scan)
     vex::vector<double> X(ctx, x);
     vex::vector<double> Y(ctx, n);
 
-    vex::exclusive_scan(X, Y);
+    vex::inclusive_scan(X, Y);
 
     std::partial_sum(x.begin(), x.end(), x.begin());
-
-    check_sample(Y, [&](size_t idx, double a) {
-            BOOST_CHECK_CLOSE(a, idx ? x[idx - 1] : 0.0, 1e-8);
-            });
-
-    vex::inclusive_scan(X, Y);
 
     check_sample(Y, [&](size_t idx, double a) {
             BOOST_CHECK_CLOSE(a, x[idx], 1e-8);
