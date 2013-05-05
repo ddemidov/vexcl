@@ -561,7 +561,8 @@ systems of equations by means of iterative methods with optional
 preconditioners.
 
 It is possible to use generic ViennaCL's solvers with VexCL types. See
-[examples/viennacl/solvers.cpp](examples/viennacl/solvers.cpp) for an example.
+[examples/viennacl/solvers.cpp](https://github.com/ddemidov/vexcl/blob/master/examples/viennacl/solvers.cpp)
+for an example.
 
 [Boost.compute][] is a GPU/parallel-computing library for C++ based on OpenCL.
 The core library is a thin C++ wrapper over the OpenCL C API and provides
@@ -573,9 +574,9 @@ extensions including parallel-computing algorithms (e.g. `exclusive_scan()`,
 `scatter()`, `reduce()`) and a number of fancy iterators (e.g.
 `transform_iterator<>`, `permutation_iterator<>`, `zip_iterator<>`).
 
-[vexcl/external/boost_compute.hpp](vexcl/external/boost_compute.hpp) provides
-an example of using Boost.compute algorithms with VexCL vectors. Namely, it
-implements parallel sort and inclusive scan primitives on top of the
+[vexcl/external/boost_compute.hpp](https://github.com/ddemidov/vexcl/blob/master/vexcl/external/boost_compute.hpp)
+provides an example of using Boost.compute algorithms with VexCL vectors.
+Namely, it implements parallel sort and inclusive scan primitives on top of the
 corresponding Boost.compute algorithms.
 
 ## Supported compilers
