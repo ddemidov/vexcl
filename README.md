@@ -324,7 +324,7 @@ Users may also define custom stencil operators. This may be of use if, for
 example, the operator is nonlinear. The definition of a stencil operator looks
 very similar to a definition of a custom function. The only difference is that
 stencil operator constructor accepts vector of OpenCL command queues. The
-following example implement non-linear operator `y(i) = sin(x(i) - x(i - 1)) +
+following example implements non-linear operator `y(i) = sin(x(i) - x(i - 1)) +
 sin(x(i+1) - sin(x(i))`:
 ~~~{.cpp}
 VEX_STENCIL_OPERATOR(S, /*return type:*/double, /*window width:*/3, /*center:*/1,
@@ -525,12 +525,12 @@ std::vector<cl::Kernel> kernel(ctx.size());
 // Compile and store the kernels for later use.
 for(uint d = 0; d < ctx.size(); d++) {
     cl::Program program = vex::build_sources(ctx.context(d),
-	"kernel void dummy(ulong size, global float *x)\n"
-	"{\n"
-	"    size_t i = get_global_id(0);\n"
-	"    if (i < size) x[i] = 4.2;\n"
-	"}\n"
-	);
+        "kernel void dummy(ulong size, global float *x)\n"
+        "{\n"
+        "    size_t i = get_global_id(0);\n"
+        "    if (i < size) x[i] = 4.2;\n"
+        "}\n"
+        );
     kernel[d] = cl::Kernel(program, "dummy");
 }
 
