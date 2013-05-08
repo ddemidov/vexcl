@@ -17,6 +17,7 @@ int main() {
         std::cout << "    " << std::left << std::setw(32) << #name << " = " \
                   << d->getInfo< name >() << std::endl
 
+        SHOW_DEVPROP(CL_DEVICE_VENDOR);
         SHOW_DEVPROP(CL_DEVICE_MAX_COMPUTE_UNITS);
         SHOW_DEVPROP(CL_DEVICE_HOST_UNIFIED_MEMORY);
         SHOW_DEVPROP(CL_DEVICE_GLOBAL_MEM_SIZE);
