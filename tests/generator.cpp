@@ -1,4 +1,3 @@
-#define VEXCL_SHOW_KERNELS
 #define BOOST_TEST_MODULE KernelGenerator
 #include <boost/test/unit_test.hpp>
 #include "context_setup.hpp"
@@ -79,7 +78,13 @@ BOOST_AUTO_TEST_CASE(lazy_evaluation)
     std::vector<double> x = random_vector<double>(n);
     vex::vector<double> X(ctx, x);
 
-    for(int i = 0; i < 100; i++) rk2(X, dt);
+    for(int i = 0; i < 100; i++) {
+        rk2(X, dt);
+        // Temporary workaround for ati bug:
+        // http://devgurus.amd.com/message/1295503#1295503
+        for(unsigned d = 0; d < ctx.size(); ++d)
+            ctx.queue(d).finish();
+    }
 
     check_sample(X, [&](size_t idx, double a) {
             double s = x[idx];
