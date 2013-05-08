@@ -1,6 +1,8 @@
 #include <iostream>
 #include <sstream>
 #include <iterator>
+#include <set>
+#include <algorithm>
 #include <vexcl/devlist.hpp>
 using namespace vex;
 
@@ -32,8 +34,15 @@ int main() {
         cout << "    " << left << setw(32) << "CL_DEVICE_EXTENSIONS" << " = ";
         {
             istringstream iss(d->getInfo<CL_DEVICE_EXTENSIONS>());
+            set<string> extensions;
+            
+            extensions.insert(
+                    istream_iterator<string>(iss),
+                    istream_iterator<string>()
+                    );
+
             size_t w = 40;
-            for(auto s = istream_iterator<string>(iss); s != istream_iterator<string>(); ++s) {
+            for(auto s = extensions.begin(); s != extensions.end(); ++s) {
                 w += s->length() + 1;
                 if (w > 80) {
                     cout << endl << setw(w = 8) << "";
