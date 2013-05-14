@@ -37,6 +37,24 @@ THE SOFTWARE.
 
 namespace vex {
 
+namespace compute {
+
+/// Returns Boost.compute iterator to the begining of vector partition on the d-th device.
+template <typename T>
+boost::compute::buffer_iterator<T> begin(const vex::vector<T> &x, unsigned d) {
+    using namespace boost::compute;
+    return make_buffer_iterator<T>(buffer(x(d)()), 0);
+}
+
+/// Returns Boost.compute iterator to the end of vector partition on the d-th device.
+template <typename T>
+boost::compute::buffer_iterator<T> end(const vex::vector<T> &x, unsigned d) {
+    using namespace boost::compute;
+    return make_buffer_iterator<T>(buffer(x(d)()), x.part_size(d));
+}
+
+}
+
 template <typename T>
 void inclusive_scan(const vex::vector<T> &src, vex::vector<T> &dst) {
     auto queue = src.queue_list();
@@ -46,13 +64,9 @@ void inclusive_scan(const vex::vector<T> &src, vex::vector<T> &dst) {
         if (src.part_size(d)) {
             boost::compute::command_queue q( queue[d]() );
 
-            boost::compute::buffer sbuf( src(d)() );
-            boost::compute::buffer dbuf( dst(d)() );
-
             boost::compute::detail::scan(
-                    boost::compute::make_buffer_iterator<T>(sbuf, 0),
-                    boost::compute::make_buffer_iterator<T>(sbuf, src.part_size(d)),
-                    boost::compute::make_buffer_iterator<T>(dbuf, 0),
+                    compute::begin(src, d), compute::end(src, d),
+                    compute::begin(dst, d),
                     false, q
                     );
         }
@@ -92,13 +106,8 @@ void sort(vex::vector<T> &x) {
     for(unsigned d = 0; d < queue.size(); ++d) {
         if (x.part_size(d)) {
             boost::compute::command_queue q( queue[d]() );
-            boost::compute::buffer buf( x(d)() );
 
-            boost::compute::sort(
-                    boost::compute::make_buffer_iterator<T>(buf, 0),
-                    boost::compute::make_buffer_iterator<T>(buf, x.part_size(d)),
-                    q
-                    );
+            boost::compute::sort(compute::begin(x, d), compute::end(x, d), q);
         }
     }
 
