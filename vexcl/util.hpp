@@ -215,7 +215,7 @@ inline cl::Device qdev(const cl::CommandQueue& q) {
 
 /// Checks if the compute device is CPU.
 inline bool is_cpu(const cl::Device &d) {
-    return d.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU;
+    return d.getInfo<CL_DEVICE_TYPE>() & CL_DEVICE_TYPE_CPU;
 }
 
 /// Global program options holder
