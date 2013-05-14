@@ -152,7 +152,7 @@ BOOST_AUTO_TEST_CASE(custom_header)
 
     vex::vector<int> x(ctx, n);
 
-    vex::set_program_header(ctx, "#define THE_ANSWER 42\n");
+    vex::push_program_header(ctx, "#define THE_ANSWER 42\n");
 
     VEX_FUNCTION(answer, int(int), "return prm1 * THE_ANSWER;");
 
@@ -161,6 +161,8 @@ BOOST_AUTO_TEST_CASE(custom_header)
     check_sample(x, [](size_t, int a) {
             BOOST_CHECK(a == 42);
             });
+
+    vex::pop_program_header(ctx);
 }
 
 BOOST_AUTO_TEST_CASE(function_with_preamble)
