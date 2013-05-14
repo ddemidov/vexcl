@@ -42,6 +42,7 @@ THE SOFTWARE.
 #include <fstream>
 #include <tuple>
 #include <cstdlib>
+#include <random>
 #include <vexcl/util.hpp>
 #include <boost/interprocess/sync/file_lock.hpp>
 #include <boost/filesystem.hpp>
