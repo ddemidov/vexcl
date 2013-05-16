@@ -254,9 +254,6 @@ struct plan {
         }
     }
 
-    // this as a numeric error in O(exp(n)), as opposed to O(sqrt(n)),
-    // which means it's a very bad idea to use this with float for sizes > 100,
-    // double's worst case is still better than float's best case though.
     void plan_bluestein(size_t width, size_t batch, bool inverse, size_t n, size_t p, size_t &current, size_t &other) {
         size_t conv_n = planner.best_size(2 * n);
         size_t threads = width / n;
