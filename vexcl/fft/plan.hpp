@@ -170,6 +170,11 @@ struct planner {
 };
 
 
+enum direction {
+    forward, inverse, none
+};
+
+
 template <class T0, class T1, class Planner = planner>
 struct plan {
     typedef typename cl_scalar_of<T0>::type T0s;
@@ -202,34 +207,40 @@ struct plan {
     //  1D case: {n}.
     //  2D case: {h, w} in row-major format: x + y * w. (like FFTw)
     //  etc.
-    plan(const std::vector<cl::CommandQueue> &_queues, const std::vector<size_t> sizes, bool inverse, const Planner &planner = Planner())
+    plan(const std::vector<cl::CommandQueue> &_queues, const std::vector<size_t> sizes, const std::vector<direction> dirs, const Planner &planner = Planner())
         : queues(_queues), planner(planner), sizes(sizes)
 #ifdef FFT_PROFILE
           , profile(_queues)
 #endif
     {
         assert(sizes.size() >= 1);
+        assert(sizes.size() == dirs.size());
         assert(queues.size() == 1);
         auto queue = queues[0];
         auto context = qctx(queue);
         auto device = qdev(queue);
 
         size_t total_n = std::accumulate(sizes.begin(), sizes.end(), 1, std::multiplies<size_t>());
-        scale = inverse ? ((T)1 / total_n) : 1;
-
         size_t current = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * total_n));
         size_t other = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * total_n));
 
+        size_t inv_n = 1;
+        for(size_t i = 0 ; i < sizes.size() ; i++)
+            if(dirs[i] == inverse)
+                inv_n *= sizes[i];
+        scale = (T)1 / inv_n;
+
         // Build the list of kernels.
         input = current;
-        for(auto d = sizes.rbegin() ; d != sizes.rend() ; d++) {
-            const size_t w = *d, h = total_n / w;
+        for(size_t i = 1 ; i <= sizes.size() ; i++) {
+            const size_t j = sizes.size() - i;
+            const size_t w = sizes[j], h = total_n / w;
             if(w > 1) {
                 // 1D, each row.
-                plan_cooley_tukey(inverse, w, h, current, other, false);
+                if(dirs[j] != none)
+                    plan_cooley_tukey(dirs[j] == inverse, w, h, current, other, false);
 
-                // transpose.
-                if(h > 1) {
+                if(h > 1 && !(dirs.size() == 2 && dirs[0] == none)) {
                     kernels.push_back(transpose_kernel<T>(queue, w, h, bufs[current], bufs[other]));
                     std::swap(current, other);
                 }
