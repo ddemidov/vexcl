@@ -13,6 +13,7 @@ add_vexcl_example(devlist)
 add_vexcl_example(exclusive)
 add_vexcl_example(benchmark)
 add_vexcl_example(fft_benchmark)
+add_vexcl_example(fft_profile)
 
 #----------------------------------------------------------------------------
 # Symbolic example uses Boost.odeint available since Boost v1.53
