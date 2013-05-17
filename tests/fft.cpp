@@ -54,10 +54,7 @@ void test(const vex::Context &ctx, std::vector<size_t> ns, size_t batch) {
     size_t n = n1 * batch;
 
     // random data.
-    std::vector<cl_double2> inp_h(n);
-    static std::default_random_engine rng( std::rand() );
-    static std::uniform_real_distribution<double> rnd(0, 1);
-    std::generate(inp_h.begin(), inp_h.end(), [](){ return cl_double2{{rnd(rng), rnd(rng)}}; });
+    std::vector<cl_double2> inp_h = random_vector<cl_double2>(n);
 
     // test
     vex::vector<cl_double2> inp (queue, inp_h);
