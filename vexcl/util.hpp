@@ -389,6 +389,16 @@ struct column_owner {
     }
 };
 
+/// Helper function for generating LocalSpaceArg objects.
+/**
+ * This is a copy of cl::Local that is absent is some of cl.hpp versions.
+ */
+inline cl::LocalSpaceArg
+Local(size_t size) {
+    cl::LocalSpaceArg ret = { size };
+    return ret;
+}
+
 } // namespace vex
 
 /// Output description of an OpenCL error to a stream.

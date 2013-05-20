@@ -304,7 +304,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
         if (size_t psize = prop.part_size(d)) {
             size_t w_size = kernel->second.wgsize;
             size_t g_size = (idx[d + 1] - idx[d]) * w_size;
-            auto   lmem   = cl::Local(w_size * sizeof(real));
+            auto   lmem   = vex::Local(w_size * sizeof(real));
 
             uint pos = 0;
             kernel->second.kernel.setArg(pos++, psize);
