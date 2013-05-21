@@ -536,7 +536,8 @@ for(uint d = 0; d < ctx.size(); d++) {
 
 // Apply the kernels to the vector partitions on each device.
 for(uint d = 0; d < ctx.size(); d++) {
-    kernel[d].setArg(0, static_cast<cl_ulong>(x.part_size());
+    cl_ulong n = x.part_size();
+    kernel[d].setArg(0, n);
     kernel[d].setArg(1, x(d));
     ctx.queue(d).enqueueNDRangeKernel(kernel[d], cl::NullRange, n, cl::NullRange);
 }
