@@ -668,31 +668,7 @@ StencilOperator<T, width, center, Impl>::StencilOperator(
                 "    real alpha, real beta,\n"
                 "    local real *X\n"
                 "    )\n"
-                "{\n";
-            if ( is_cpu(device) ) {
-                source <<
-                "    int l_id       = get_local_id(0);\n"
-                "    int block_size = get_local_size(0);\n"
-                "    long g_id      = get_global_id(0);\n"
-                "    for(int i = 0, j = g_id - lhalo; i < 1 + lhalo + rhalo; i++, j++)\n"
-                "        X[i] = read_x(j, n, has_left, has_right, lhalo, rhalo, xloc, xrem);\n";
-#if defined(__APPLE__)
-                // TODO: this is only a temporary hack. Need to look at
-                // stencils on CPUs anyway.
-                source <<
-                "    barrier(CLK_LOCAL_MEM_FENCE);\n";
-#endif
-                source <<
-                "    if (g_id < n) {\n"
-                "        real sum = stencil_oper(X + lhalo);\n"
-                "        if (alpha)\n"
-                "            y[g_id] = alpha * y[g_id] + beta * sum;\n"
-                "        else\n"
-                "            y[g_id] = beta * sum;\n"
-                "    }\n"
-                "}\n";
-            } else {
-                source <<
+                "{\n"
                 "    size_t grid_size = get_global_size(0);\n"
                 "    int l_id         = get_local_id(0);\n"
                 "    int block_size   = get_local_size(0);\n"
@@ -710,7 +686,6 @@ StencilOperator<T, width, center, Impl>::StencilOperator(
                 "        barrier(CLK_LOCAL_MEM_FENCE);\n"
                 "    }\n"
                 "}\n";
-            }
 
             auto program = build_sources(context, source.str());
 
