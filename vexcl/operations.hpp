@@ -1039,21 +1039,21 @@ struct declare_expression_parameter {
 
 template <class Term, class Enable = void>
 struct kernel_arg_setter {
-    static void set(cl::Kernel &kernel, uint device, size_t index_offset, uint &position, const Term &term) {
+    static void set(cl::Kernel &kernel, uint/*device*/, size_t/*index_offset*/, uint &position, const Term &term) {
         kernel.setArg(position++, boost::proto::value(term));
     }
 };
 
 template <typename T>
 struct kernel_arg_setter< vector<T> > {
-    static void set(cl::Kernel &kernel, uint device, size_t index_offset, uint &position, const vector<T> &term) {
+    static void set(cl::Kernel &kernel, uint device, size_t/*index_offset*/, uint &position, const vector<T> &term) {
         kernel.setArg(position++, term(device));
     }
 };
 
 template <>
 struct kernel_arg_setter< element_index_type > {
-    static void set(cl::Kernel &kernel, uint device, size_t index_offset, uint &position, const element_index_type &term) {
+    static void set(cl::Kernel &kernel, uint/*device*/, size_t index_offset, uint &position, const element_index_type &term) {
         kernel.setArg(position++, boost::proto::value(term).offset + index_offset);
     }
 };
