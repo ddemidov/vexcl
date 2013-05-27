@@ -1037,6 +1037,26 @@ struct declare_expression_parameter {
     }
 };
 
+template <class Term, class Enable = void>
+struct kernel_arg_setter {
+    static void set(cl::Kernel &kernel, uint device, size_t index_offset, uint &position, const Term &term) {
+        kernel.setArg(position++, boost::proto::value(term));
+    }
+};
+
+template <typename T>
+struct kernel_arg_setter< vector<T> > {
+    static void set(cl::Kernel &kernel, uint device, size_t index_offset, uint &position, const vector<T> &term) {
+        kernel.setArg(position++, term(device));
+    }
+};
+
+template <>
+struct kernel_arg_setter< element_index_type > {
+    static void set(cl::Kernel &kernel, uint device, size_t index_offset, uint &position, const element_index_type &term) {
+        kernel.setArg(position++, boost::proto::value(term).offset + index_offset);
+    }
+};
 
 struct set_expression_argument {
     cl::Kernel &krn;
@@ -1047,26 +1067,8 @@ struct set_expression_argument {
         : krn(krn), dev(dev), pos(pos), part_start(part_start) {}
 
     template <typename T>
-    void operator()(const vector<T> &term) const {
-        krn.setArg(pos++, term(dev));
-    }
-
-    template <typename Term>
-    typename std::enable_if<
-        !std::is_same<typename boost::proto::result_of::value<Term>::type, elem_index>::value,
-        void
-    >::type
-    operator()(const Term &term) const {
-        krn.setArg(pos++, boost::proto::value(term));
-    }
-
-    template <typename Term>
-    typename std::enable_if<
-        std::is_same<typename boost::proto::result_of::value<Term>::type, elem_index>::value,
-        void
-    >::type
-    operator()(const Term &term) const {
-        krn.setArg(pos++, boost::proto::value(term).offset + part_start);
+    void operator()(const T &term) const {
+        kernel_arg_setter<T>::set(krn, dev, part_start, pos, term);
     }
 };
 
