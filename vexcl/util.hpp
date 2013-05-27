@@ -93,6 +93,11 @@ CL_TYPES(char);  CL_TYPES(uchar);
 CL_TYPES(short); CL_TYPES(ushort);
 CL_TYPES(int);   CL_TYPES(uint);
 CL_TYPES(long);  CL_TYPES(ulong);
+
+// char and cl_char are different types. Hence, special handling is required:
+template <> inline std::string type_name<char>() { return "char"; } \
+template <> struct is_cl_native<char> : std::true_type {};
+
 #undef CL_TYPES
 #undef CL_VEC_TYPE
 #undef STRINGIFY
