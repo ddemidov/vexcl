@@ -62,6 +62,11 @@ struct elem_index {
     elem_index(size_t offset = 0) : offset(offset) {}
 };
 
+template <>
+inline std::string type_name<elem_index>() {
+    return type_name<size_t>();
+}
+
 /// Assignment operators.
 namespace assign {
 
