@@ -10,6 +10,7 @@ endfunction()
 #----------------------------------------------------------------------------
 # General tests
 #----------------------------------------------------------------------------
+add_vexcl_test(types                    types.cpp)
 add_vexcl_test(vector_create            vector_create.cpp)
 add_vexcl_test(vector_copy              vector_copy.cpp)
 add_vexcl_test(vector_arithmetics       vector_arithmetics.cpp)

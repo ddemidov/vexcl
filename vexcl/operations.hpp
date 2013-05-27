@@ -599,16 +599,39 @@ struct extract_user_functions
 struct vector_terminal {};
 template <typename T> class vector;
 
+// Terminals allowed in vector expressions.
+template <class Term, class Enable = void>
+struct is_vector_expr_terminal
+    : std::false_type
+{ };
+
+template <>
+struct is_vector_expr_terminal< vector_terminal >
+    : std::true_type
+{ };
+
+template <typename T>
+struct is_vector_expr_terminal< vector<T> >
+    : std::true_type
+{ };
+
+template <>
+struct is_vector_expr_terminal< elem_index >
+    : std::true_type
+{ };
+
+template <class T>
+struct is_vector_expr_terminal< T, typename std::enable_if< is_cl_native< T >::value >::type >
+    : std::true_type
+{ };
+
+
 //--- Vector grammar --------------------------------------------------------
 struct vector_expr_grammar
     : boost::proto::or_<
-          boost::proto::or_<
-              boost::proto::or_< boost::proto::terminal< elem_index > >, \
-              boost::proto::terminal< vector_terminal >,
-              boost::proto::and_<
-                  boost::proto::terminal< boost::proto::_ >,
-                  boost::proto::if_< is_cl_native< boost::proto::_value >() >
-              >
+          boost::proto::and_<
+              boost::proto::terminal< boost::proto::_ >,
+              boost::proto::if_< is_vector_expr_terminal< boost::proto::_value >() >
           >,
           BUILTIN_OPERATIONS(vector_expr_grammar),
           USER_FUNCTIONS(vector_expr_grammar)
