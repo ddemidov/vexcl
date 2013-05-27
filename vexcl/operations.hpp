@@ -62,11 +62,6 @@ struct elem_index {
     elem_index(size_t offset = 0) : offset(offset) {}
 };
 
-template <>
-inline std::string type_name<elem_index>() {
-    return type_name<size_t>();
-}
-
 /// Assignment operators.
 namespace assign {
 
@@ -1000,27 +995,48 @@ struct declare_user_function {
         }
 };
 
+template <class Term, class Enable = void>
+struct kernel_param_declaration {
+    static std::string get(int component, int &position) {
+        std::ostringstream s;
+        s << type_name<typename boost::proto::result_of::value<Term>::type>()
+          << " prm_" << component << "_" << ++position;
+        return s.str();
+    }
+};
+
+template <typename T>
+struct kernel_param_declaration< vector<T> > {
+    static std::string get(int component, int &position) {
+        std::ostringstream s;
+        s << "global " << type_name<T>() << " * prm_" << component << "_" << ++position;
+        return s.str();
+    }
+};
+
+template <>
+struct kernel_param_declaration< element_index_type > {
+    static std::string get(int component, int &position) {
+        std::ostringstream s;
+        s << "ulong prm_" << component << "_" << ++position;
+        return s.str();
+    }
+};
+
 struct declare_expression_parameter {
     std::ostream &os;
     int cmp_idx;
     mutable int prm_idx;
 
     declare_expression_parameter(std::ostream &os, int cmp_idx = 1)
-    : os(os), cmp_idx(cmp_idx), prm_idx(0) {}
+        : os(os), cmp_idx(cmp_idx), prm_idx(0) {}
 
     template <typename T>
-    void operator()(const vector<T> &) const {
-        os << ",\n\tglobal " << type_name<T>() << " *prm_"
-           << cmp_idx << "_" << ++prm_idx;
-    }
-
-    template <typename Term>
-    void operator()(const Term &) const {
-        os << ",\n\t"
-           << type_name< typename boost::proto::result_of::value<Term>::type >()
-           << " prm_" << cmp_idx << "_" << ++prm_idx;
+    void operator()(const T&) const {
+        os << ",\n\t" << kernel_param_declaration<T>::get(cmp_idx, prm_idx);
     }
 };
+
 
 struct set_expression_argument {
     cl::Kernel &krn;
