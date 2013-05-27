@@ -715,6 +715,29 @@ element_index(size_t offset = 0) {
 /// \cond INTERNAL
 //--- Vector contexts and transform helpers ---------------------------------
 
+// Representation of a terminal in a kernel name
+template <class T>
+struct kernel_name {
+    static std::string get() {
+        return "term_";
+    }
+};
+
+template <>
+struct kernel_name<elem_index> {
+    static std::string get() {
+        return "index_";
+    }
+};
+
+template <>
+struct kernel_name< vector_terminal > {
+    static std::string get() {
+        return "vector_";
+    }
+};
+
+
 // Builds kernel name for a vector expression.
 struct vector_name_context {
     std::ostream &os;
@@ -779,12 +802,12 @@ struct vector_name_context {
     struct eval<Expr, boost::proto::tag::terminal> {
         typedef void result_type;
 
-        void operator()(const Expr &, vector_name_context &ctx) const {
-            ctx.os << "term_";
+        void operator()(const Expr &expr, vector_name_context &ctx) const {
+            boost::proto::display_expr(expr);
+            ctx.os << kernel_name<typename boost::proto::result_of::value<Expr>::type>::get();
         }
     };
 };
-
 
 // Builds textual representation for a vector expression.
 struct vector_expr_context {
