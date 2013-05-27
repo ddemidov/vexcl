@@ -704,11 +704,11 @@ struct vector_expression
         : boost::proto::extends< Expr, vector_expression<Expr>, vector_domain>(expr) {}
 };
 
+typedef boost::proto::result_of::as_expr<elem_index, vector_domain>::type element_index_type;
 /// \endcond
 
 /// When used in vector expression, returns current element index plus offset.
-inline boost::proto::result_of::as_expr<elem_index, vector_domain>::type
-element_index(size_t offset = 0) {
+inline element_index_type element_index(size_t offset = 0) {
     return boost::proto::as_expr<vector_domain>(elem_index(offset));
 }
 
@@ -724,14 +724,14 @@ struct kernel_name {
 };
 
 template <>
-struct kernel_name<elem_index> {
+struct kernel_name< element_index_type > {
     static std::string get() {
         return "index_";
     }
 };
 
-template <>
-struct kernel_name< vector_terminal > {
+template <typename T>
+struct kernel_name< vector<T> > {
     static std::string get() {
         return "vector_";
     }
@@ -802,11 +802,39 @@ struct vector_name_context {
     struct eval<Expr, boost::proto::tag::terminal> {
         typedef void result_type;
 
-        void operator()(const Expr &expr, vector_name_context &ctx) const {
-            boost::proto::display_expr(expr);
-            ctx.os << kernel_name<typename boost::proto::result_of::value<Expr>::type>::get();
+        template <typename Term>
+        void operator()(const Term&, vector_name_context &ctx) const {
+            ctx.os << kernel_name<Term>::get();
         }
     };
+};
+
+// Partial expression for a terminal:
+template <class Term, class Enable = void>
+struct partial_vector_expr {
+    static std::string get(int component, int &position) {
+        std::ostringstream s;
+        s << "prm_" << component << "_" << ++position;
+        return s.str();
+    }
+};
+
+template <typename T>
+struct partial_vector_expr< vector<T> > {
+    static std::string get(int component, int &position) {
+        std::ostringstream s;
+        s << "prm_" << component << "_" << ++position << "[idx]";
+        return s.str();
+    }
+};
+
+template <>
+struct partial_vector_expr< element_index_type > {
+    static std::string get(int component, int &position) {
+        std::ostringstream s;
+        s << "(prm_" << component << "_" << ++position << " + idx)";
+        return s.str();
+    }
 };
 
 // Builds textual representation for a vector expression.
@@ -947,28 +975,9 @@ struct vector_expr_context {
     struct eval<Expr, boost::proto::tag::terminal> {
         typedef void result_type;
 
-        template <typename T>
-        void operator()(const vector<T> &, vector_expr_context &ctx) const {
-            ctx.os << "prm_" << ctx.cmp_idx << "_" << ++ctx.prm_idx << "[idx]";
-        }
-
         template <typename Term>
-        typename std::enable_if<
-            !std::is_same<typename boost::proto::result_of::value<Term>::type, elem_index>::value,
-            void
-        >::type
-        operator()(const Term &, vector_expr_context &ctx) const {
-            ctx.os << "prm_" << ctx.cmp_idx << "_" << ++ctx.prm_idx;
-        }
-
-        template <typename Term>
-        typename std::enable_if<
-            std::is_same<typename boost::proto::result_of::value<Term>::type, elem_index>::value,
-            void
-        >::type
-        operator()(const Term &, vector_expr_context &ctx) const {
-            ctx.os << "( prm_" << ctx.cmp_idx << "_" << ++ctx.prm_idx
-                   << " + idx )";
+        void operator()(const Term&, vector_expr_context &ctx) const {
+            ctx.os << partial_vector_expr<Term>::get(ctx.cmp_idx, ctx.prm_idx);
         }
     };
 };
