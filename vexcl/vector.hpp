@@ -769,10 +769,7 @@ class vector : public vector_terminal_expression {
 
                     source << standard_kernel_header(device);
 
-                    extract_user_functions()(
-                            boost::proto::as_child(expr),
-                            declare_user_function(source)
-                            );
+                    construct_preamble(expr, source);
 
                     source << "kernel void " << kernel_name.str()
                            << "(\n\t" << type_name<size_t>()

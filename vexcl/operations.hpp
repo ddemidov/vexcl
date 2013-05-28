@@ -1000,6 +1000,42 @@ struct declare_user_function {
         }
 };
 
+// Some terminals need preamble (e.g. struct declaration or helper function).
+// But most of them do not:
+template <class T>
+struct terminal_preamble {
+    static std::string get(int/*component*/, int/*position*/) { return ""; }
+};
+
+struct output_terminal_preamble {
+    std::ostream &os;
+    int cmp_idx;
+    mutable int prm_idx;
+
+    output_terminal_preamble(std::ostream &os, int cmp_idx = 1)
+        : os(os), cmp_idx(cmp_idx), prm_idx(0) {}
+
+        template <class Term>
+        void operator()(const Term&) const {
+            os << terminal_preamble<Term>::get(cmp_idx, ++prm_idx) << std::endl;
+        }
+};
+
+template <class Expr>
+void construct_preamble(const Expr &expr, std::ostream &kernel_source) {
+
+    extract_user_functions()(
+            boost::proto::as_child(expr),
+            declare_user_function(kernel_source)
+            );
+
+    extract_terminals()(
+            boost::proto::as_child(expr),
+            output_terminal_preamble(kernel_source)
+            );
+
+}
+
 template <class Term, class Enable = void>
 struct kernel_param_declaration {
     static std::string get(int component, int &position) {
