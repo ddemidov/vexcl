@@ -812,27 +812,27 @@ struct vector_name_context {
 // Partial expression for a terminal:
 template <class Term, class Enable = void>
 struct partial_vector_expr {
-    static std::string get(int component, int &position) {
+    static std::string get(int component, int position) {
         std::ostringstream s;
-        s << "prm_" << component << "_" << ++position;
+        s << "prm_" << component << "_" << position;
         return s.str();
     }
 };
 
 template <typename T>
 struct partial_vector_expr< vector<T> > {
-    static std::string get(int component, int &position) {
+    static std::string get(int component, int position) {
         std::ostringstream s;
-        s << "prm_" << component << "_" << ++position << "[idx]";
+        s << "prm_" << component << "_" << position << "[idx]";
         return s.str();
     }
 };
 
 template <>
 struct partial_vector_expr< element_index_type > {
-    static std::string get(int component, int &position) {
+    static std::string get(int component, int position) {
         std::ostringstream s;
-        s << "(prm_" << component << "_" << ++position << " + idx)";
+        s << "(prm_" << component << "_" << position << " + idx)";
         return s.str();
     }
 };
@@ -977,7 +977,7 @@ struct vector_expr_context {
 
         template <typename Term>
         void operator()(const Term&, vector_expr_context &ctx) const {
-            ctx.os << partial_vector_expr<Term>::get(ctx.cmp_idx, ctx.prm_idx);
+            ctx.os << partial_vector_expr<Term>::get(ctx.cmp_idx, ++ctx.prm_idx);
         }
     };
 };
@@ -1038,28 +1038,28 @@ void construct_preamble(const Expr &expr, std::ostream &kernel_source) {
 
 template <class Term, class Enable = void>
 struct kernel_param_declaration {
-    static std::string get(int component, int &position) {
+    static std::string get(int component, int position) {
         std::ostringstream s;
         s << type_name<typename boost::proto::result_of::value<Term>::type>()
-          << " prm_" << component << "_" << ++position;
+          << " prm_" << component << "_" << position;
         return s.str();
     }
 };
 
 template <typename T>
 struct kernel_param_declaration< vector<T> > {
-    static std::string get(int component, int &position) {
+    static std::string get(int component, int position) {
         std::ostringstream s;
-        s << "global " << type_name<T>() << " * prm_" << component << "_" << ++position;
+        s << "global " << type_name<T>() << " * prm_" << component << "_" << position;
         return s.str();
     }
 };
 
 template <>
 struct kernel_param_declaration< element_index_type > {
-    static std::string get(int component, int &position) {
+    static std::string get(int component, int position) {
         std::ostringstream s;
-        s << "ulong prm_" << component << "_" << ++position;
+        s << "ulong prm_" << component << "_" << position;
         return s.str();
     }
 };
@@ -1074,7 +1074,7 @@ struct declare_expression_parameter {
 
     template <typename T>
     void operator()(const T&) const {
-        os << ",\n\t" << kernel_param_declaration<T>::get(cmp_idx, prm_idx);
+        os << ",\n\t" << kernel_param_declaration<T>::get(cmp_idx, ++prm_idx);
     }
 };
 
