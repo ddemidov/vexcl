@@ -90,11 +90,10 @@ struct kernel_param_declaration< vector_view<T, Slice> > {
 
 template <typename T, class Slice>
 struct kernel_arg_setter< vector_view<T, Slice> > {
-    static void set(cl::Kernel &kernel, uint device, size_t/*index_offset*/, uint &position, const vector_view<T, Slice> &term) {
+    static void set(cl::Kernel &kernel, uint device, size_t index_offset, uint &position, const vector_view<T, Slice> &term) {
         assert(device == 0);
 
-        kernel.setArg(position++, term.base(device));
-        kernel.setArg(position++, term.slice);
+        Slice::setArgs(kernel, device, index_offset, position, term);
     }
 };
 
@@ -195,7 +194,14 @@ struct gslice {
     }
 
     template <typename T>
+    static void setArgs(cl::Kernel &kernel, uint device, size_t/*index_offset*/, uint &position, const vector_view<T, gslice> &term) {
+        kernel.setArg(position++, term.base(device));
+        kernel.setArg(position++, sizeof(gslice), const_cast<gslice*>(&term.slice));
+    }
+
+    template <typename T>
     vector_view<T, gslice> operator()(const vector<T> &base) const {
+        assert(start + (size[0] - 1) * stride[0] < base.size());
         return vector_view<T, gslice>(base, *this);
     }
 };
