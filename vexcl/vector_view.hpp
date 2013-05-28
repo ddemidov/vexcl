@@ -37,51 +37,6 @@ THE SOFTWARE.
 
 namespace vex {
 
-/// Generalized slice selector.
-/**
- * This is very similar to std::gslice. The only difference is the ordering of
- * components inside size and stride arrays. std::gslice specify slower
- * dimensions first, and vex::gslice -- faster dimensions first.
- *
- * Index to base vector is obtained as start + sum(i_k * stride[k]), where i_k
- * is coordinate along each dimension of gslice.
- */
-template <size_t NDIM>
-struct gslice {
-    size_t start;
-    std::array<size_t,    NDIM> size;
-    std::array<ptrdiff_t, NDIM> stride; // Signed type allows reverse slicing.
-
-#ifndef BOOST_NO_INITIALIZER_LISTS
-    gslice(size_t start,
-           const std::initializer_list<size_t>    &p_size,
-           const std::initializer_list<ptrdiff_t> &p_stride
-          ) : start(start)
-    {
-        assert(p_size.size()   == NDIM);
-        assert(p_stride.size() == NDIM);
-
-        std::copy(p_size.begin(),   p_size.end(),   size.begin());
-        std::copy(p_stride.begin(), p_stride.end(), stride.begin());
-    }
-#endif
-
-    gslice(size_t start,
-           const std::array<size_t,    NDIM> &size,
-           const std::array<ptrdiff_t, NDIM> &stride
-          ) : start(start), size(size), stride(stride)
-    { }
-
-    gslice(size_t start,
-           const size_t    *p_size,
-           const ptrdiff_t *p_stride
-          ) : start(start)
-    {
-        std::copy(p_size,   p_size   + NDIM, size.begin());
-        std::copy(p_stride, p_stride + NDIM, stride.begin());
-    }
-};
-
 struct vector_view_terminal {};
 
 typedef vector_expression<
@@ -112,37 +67,24 @@ struct kernel_name< vector_view<T, Slice> > {
     }
 };
 
-// TODO
 template <typename T, class Slice>
 struct partial_vector_expr< vector_view<T, Slice> > {
     static std::string get(int component, int position) {
-        std::ostringstream s;
-        s << "prm_" << component << "_" << position
-          << "[slice_" << component << "_" << position << "(idx)]";
-        return s.str();
+        return Slice::partial_expression(component, position);
     }
 };
 
-// TODO
 template <typename T, class Slice>
 struct terminal_preamble< vector_view<T, Slice> > {
     static std::string get(int component, int position) {
-        std::ostringstream s;
-        s <<
-            "ulong slice_" << component << "_" << position << "(ulong idx) {\n"
-            "  return idx;\n"
-            "}\n";
-        return s.str();
+        return Slice::indexing_function(component, position);
     }
 };
 
-// TODO
 template <typename T, class Slice>
 struct kernel_param_declaration< vector_view<T, Slice> > {
     static std::string get(int component, int position) {
-        std::ostringstream s;
-        s << "global " << type_name<T>() << " * prm_" << component << "_" << position;
-        return s.str();
+        return Slice::template parameter_declaration<T>(component, position);
     }
 };
 
@@ -150,7 +92,111 @@ template <typename T, class Slice>
 struct kernel_arg_setter< vector_view<T, Slice> > {
     static void set(cl::Kernel &kernel, uint device, size_t/*index_offset*/, uint &position, const vector_view<T, Slice> &term) {
         assert(device == 0);
+
         kernel.setArg(position++, term.base(device));
+        kernel.setArg(position++, term.slice);
+    }
+};
+
+/// Generalized slice selector.
+/**
+ * This is very similar to std::gslice. The only difference is the ordering of
+ * components inside size and stride arrays. std::gslice specify slower
+ * dimensions first, and vex::gslice -- faster dimensions first.
+ *
+ * Index to base vector is obtained as start + sum(i_k * stride[k]), where i_k
+ * is coordinate along each dimension of gslice.
+ */
+template <size_t NDIM>
+struct gslice {
+    static_assert(NDIM > 0, "Incorrect dimension for gslice");
+
+    cl_ulong start;
+    cl_ulong size[NDIM];
+    cl_long  stride[NDIM]; // Signed type allows reverse slicing.
+
+#ifndef BOOST_NO_INITIALIZER_LISTS
+    gslice(cl_ulong start,
+           const std::initializer_list<cl_ulong> &p_size,
+           const std::initializer_list<cl_long>  &p_stride
+          ) : start(start)
+    {
+        assert(p_size.size()   == NDIM);
+        assert(p_stride.size() == NDIM);
+
+        std::copy(p_size.begin(),   p_size.end(),   size);
+        std::copy(p_stride.begin(), p_stride.end(), stride);
+    }
+#endif
+
+    gslice(cl_ulong start,
+           const std::array<cl_ulong, NDIM> &p_size,
+           const std::array<cl_long,  NDIM> &p_stride
+          ) : start(start)
+    {
+        std::copy(p_size.begin(),   p_size.end(),   size);
+        std::copy(p_stride.begin(), p_stride.end(), stride);
+    }
+
+    gslice(cl_ulong start,
+           const cl_ulong *p_size,
+           const cl_long  *p_stride
+          ) : start(start)
+    {
+        std::copy(p_size,   p_size   + NDIM, size);
+        std::copy(p_stride, p_stride + NDIM, stride);
+    }
+
+    static std::string indexing_function(int component, int position) {
+        std::ostringstream s;
+
+        s << "typedef struct {\n"
+             "    ulong start;\n"
+             "    ulong size[" << NDIM << "];\n"
+             "    long  stride[" << NDIM << "];\n"
+             "} slice_data_" << component << "_" << position << ";\n\n"
+             "ulong slice_" << component << "_" << position << "("
+             "slice_data_" << component << "_" << position << " s, "
+             "ulong idx) {\n";
+
+        if (NDIM == 1) {
+            s << "    return s.start + idx * s.stride[0];\n";
+        } else {
+            s << "    size_t ptr = s.start + (idx % s.size[0]) * s.stride[0];\n";
+            for(size_t k = 1; k < NDIM; ++k) {
+                s << "    idx /= size[" << k - 1 << "];\n"
+                     "    ptr += (idx % s.size[" << k <<  "]) * s.stride[" << k <<  "];\n";
+            }
+        }
+        s << "}\n\n";
+
+        return s.str();
+    }
+
+    static std::string partial_expression(int component, int position) {
+        std::ostringstream s;
+
+        s << "prm_" << component << "_" << position << "_base["
+          << "slice_" << component << "_" << position << "("
+          << "prm_" << component << "_" << position << "_slice, idx)]";
+
+        return s.str();
+    }
+
+    template <typename T>
+    static std::string parameter_declaration(int component, int position) {
+        std::ostringstream s;
+
+        s << "global " << type_name<T>() << " * prm_" << component << "_" << position << "_base, "
+          << "slice_data_" << component << "_" << position
+          << " prm_" << component << "_" << position << "_slice";
+
+        return s.str();
+    }
+
+    template <typename T>
+    vector_view<T, gslice> operator()(const vector<T> &base) const {
+        return vector_view<T, gslice>(base, *this);
     }
 };
 

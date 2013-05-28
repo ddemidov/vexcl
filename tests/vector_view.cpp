@@ -8,21 +8,18 @@ BOOST_AUTO_TEST_CASE(vector_view)
 
     std::vector<cl::CommandQueue> queue(1, ctx.queue(0));
 
-    vex::vector<int> x(ctx, N * 2);
-    vex::vector<int> y(ctx, N);
+    std::vector<double> x = random_vector<double>(2 * N);
+    vex::vector<double> X(queue, x);
+    vex::vector<double> Y(queue, N);
 
-    x = vex::element_index();
-
-    size_t    size   = N;
-    ptrdiff_t stride = 2;
+    cl_ulong size   = N;
+    cl_long  stride = 2;
 
     vex::gslice<1> slice(0, &size, &stride);
-    vex::vector_view< int, vex::gslice<1> > view(x, slice);
 
-    // TODO: y = slice(x) would probably be of more use.
-    y = view;
+    Y = slice(X);
 
-    check_sample(y, [](size_t idx, int v) { BOOST_CHECK(v == idx * 2); });
+    check_sample(Y, [&](size_t idx, double v) { BOOST_CHECK(v == x[idx * 2]); });
 }
 
 BOOST_AUTO_TEST_SUITE_END()
