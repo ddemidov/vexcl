@@ -704,11 +704,11 @@ struct vector_expression
         : boost::proto::extends< Expr, vector_expression<Expr>, vector_domain>(expr) {}
 };
 
-typedef boost::proto::result_of::as_expr<elem_index, vector_domain>::type element_index_type;
 /// \endcond
 
 /// When used in vector expression, returns current element index plus offset.
-inline element_index_type element_index(size_t offset = 0) {
+inline boost::proto::result_of::as_expr<elem_index, vector_domain>::type
+element_index(size_t offset = 0) {
     return boost::proto::as_expr<vector_domain>(elem_index(offset));
 }
 
@@ -716,15 +716,21 @@ inline element_index_type element_index(size_t offset = 0) {
 //--- Vector contexts and transform helpers ---------------------------------
 
 // Representation of a terminal in a kernel name
-template <class T>
+template <class T, class Enable = void>
 struct kernel_name {
     static std::string get() {
         return "term_";
     }
 };
 
-template <>
-struct kernel_name< element_index_type > {
+template <class T>
+struct kernel_name< T, typename std::enable_if<
+        boost::proto::matches<
+            T,
+            boost::proto::terminal<elem_index>
+        >::value
+    >::type>
+{
     static std::string get() {
         return "index_";
     }
@@ -828,8 +834,14 @@ struct partial_vector_expr< vector<T> > {
     }
 };
 
-template <>
-struct partial_vector_expr< element_index_type > {
+template <class T>
+struct partial_vector_expr< T, typename std::enable_if<
+        boost::proto::matches<
+            T,
+            boost::proto::terminal<elem_index>
+        >::value
+    >::type >
+{
     static std::string get(int component, int position) {
         std::ostringstream s;
         s << "(prm_" << component << "_" << position << " + idx)";
@@ -1055,8 +1067,14 @@ struct kernel_param_declaration< vector<T> > {
     }
 };
 
-template <>
-struct kernel_param_declaration< element_index_type > {
+template <class T>
+struct kernel_param_declaration< T, typename std::enable_if<
+        boost::proto::matches<
+            T,
+            boost::proto::terminal<elem_index>
+        >::value
+    >::type>
+{
     static std::string get(int component, int position) {
         std::ostringstream s;
         s << "ulong prm_" << component << "_" << position;
@@ -1092,9 +1110,15 @@ struct kernel_arg_setter< vector<T> > {
     }
 };
 
-template <>
-struct kernel_arg_setter< element_index_type > {
-    static void set(cl::Kernel &kernel, uint/*device*/, size_t index_offset, uint &position, const element_index_type &term) {
+template <class T>
+struct kernel_arg_setter< T, typename std::enable_if<
+        boost::proto::matches<
+            T,
+            boost::proto::terminal<elem_index>
+        >::value
+    >::type>
+{
+    static void set(cl::Kernel &kernel, uint/*device*/, size_t index_offset, uint &position, const T &term) {
         kernel.setArg(position++, boost::proto::value(term).offset + index_offset);
     }
 };
