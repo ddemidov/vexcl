@@ -35,7 +35,7 @@ BOOST_AUTO_TEST_CASE(vector_view_2)
     // Select every even point from sub-block [(2,4) - (10,10)]:
     size_t start    = 2 * N + 4;
     size_t size[]   = {5, 4};
-    size_t stride[] = {2, 2};
+    size_t stride[] = {2 * N, 2};
 
     std::gslice std_slice(start, std::valarray<size_t>(size, 2), std::valarray<size_t>(stride, 2));
 
@@ -63,17 +63,20 @@ BOOST_AUTO_TEST_CASE(vector_slicer_2d)
     // Select every even point from sub-block [(2,4) - (10,10)]:
     size_t start    = 2 * N + 4;
     size_t size[]   = {5, 4};
-    size_t stride[] = {2, 2};
+    size_t stride[] = {2 * N, 2};
 
     std::gslice std_slice(start, std::valarray<size_t>(size, 2), std::valarray<size_t>(stride, 2));
     std::valarray<double> y = x[std_slice];
 
     vex::vector<double> X(queue, N * N, &x[0]);
     vex::vector<double> Y(queue, size[0] * size[1]);
+    vex::vector<double> Z(queue, N);
 
     size_t dim[2] = {N, N};
 
     vex::slicer<2> slicer(dim);
+
+
 
     auto slice = slicer[vex::range(2, 2, 11)][vex::range(4, 2, 11)];
 
@@ -81,11 +84,17 @@ BOOST_AUTO_TEST_CASE(vector_slicer_2d)
 
     check_sample(Y, [&](size_t idx, double v) { BOOST_CHECK_EQUAL(v, y[idx]); });
 
-    vex::vector<double> Z(queue, N);
+
 
     Z = slicer[5](X); // Put fith row of X into Z;
 
     check_sample(Z, [&](size_t idx, double v) { BOOST_CHECK_EQUAL(v, x[5 * N + idx]); });
+
+
+
+    Z = slicer[vex::range()][5](X); // Puth fith column of X into Z;
+
+    check_sample(Z, [&](size_t idx, double v) { BOOST_CHECK_EQUAL(v, x[5 + N * idx]); });
 }
 
 BOOST_AUTO_TEST_SUITE_END()

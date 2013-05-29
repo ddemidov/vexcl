@@ -228,11 +228,17 @@ struct range {
     size_t stride;
     size_t stop;
 
+    range () : start(0), stride(0), stop(0) {}
+
     range(size_t start, size_t stride, size_t stop)
         : start(start), stride(stride), stop(stop) {}
 
     range(size_t start, size_t stop)
         : start(start), stride(1), stop(stop) {}
+
+    bool empty() const {
+        return !(start || stride || stop);
+    }
 };
 
 template <size_t NDIM>
@@ -270,17 +276,18 @@ class slicer {
             slice(const slice<CDIM - 1> &parent, const range &r)
                 : gslice<NDIM>(parent.start, parent.size, parent.stride), dim(parent.dim)
             {
-                this->start += r.start * std::accumulate(
-                        dim.begin() + CDIM + 1, dim.end(), 1UL, std::multiplies<size_t>());
-
+                this->start += r.start * this->stride[CDIM];
                 this->size[CDIM] = (r.stop - r.start + r.stride - 1) / r.stride;
-                this->stride[CDIM] = r.stride;
+                this->stride[CDIM] *= r.stride;
             }
 
             slice<CDIM + 1> operator[](const range &r) const {
                 static_assert(CDIM + 1 < NDIM, "Incorrect dimensions in vex::slicer[]");
 
-                return slice<CDIM + 1>(*this, r);
+                if (r.empty())
+                    return slice<CDIM + 1>(*this, range(0, dim[CDIM + 1]));
+                else
+                    return slice<CDIM + 1>(*this, r);
             };
 
             slice<CDIM + 1> operator[](size_t i) const {
@@ -305,20 +312,30 @@ class slicer {
         }
 
         slice<0> operator[](const range &r) const {
-            size_t start = r.start * std::accumulate(
-                    dim.begin() + 1, dim.end(), 1UL, std::multiplies<size_t>());
-
-            std::array<size_t, NDIM> size = {{(r.stop - r.start + r.stride - 1) / r.stride}};
-            std::copy(dim.begin() + 1, dim.end(), size.begin() + 1);
-
-            std::array<size_t, NDIM> stride = {{r.stride}};
-            std::fill(stride.begin() + 1, stride.end(), 1);
-
-            return slice<0>(start, size, stride, dim);
+            if (r.empty())
+                return get_slice(range(0, dim[0]));
+            else
+                return get_slice(r);
         }
 
         slice<0> operator[](size_t i) const {
             return this->operator[](range(i, i + 1));
+        }
+    private:
+        slice<0> get_slice(const range &r) const {
+            std::array<size_t, NDIM> stride;
+
+            stride[NDIM - 1] = 1;
+            for(size_t j = 1, i = NDIM - 2; j < NDIM; ++j, --i)
+                stride[i] = stride[i + 1] * dim[j - 1];
+
+            size_t start = r.start * stride[0];
+            stride[0] *= r.stride;
+
+            std::array<size_t, NDIM> size = {{(r.stop - r.start + r.stride - 1) / r.stride}};
+            std::copy(dim.begin() + 1, dim.end(), size.begin() + 1);
+
+            return slice<0>(start, size, stride, dim);
         }
 };
 
