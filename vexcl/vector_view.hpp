@@ -282,6 +282,10 @@ class slicer {
 
                 return slice<CDIM + 1>(*this, r);
             };
+
+            slice<CDIM + 1> operator[](size_t i) const {
+                return this->operator[](range(i, i + 1));
+            }
         };
 
 #ifndef BOOST_NO_INITIALIZER_LISTS
@@ -311,6 +315,10 @@ class slicer {
             std::fill(stride.begin() + 1, stride.end(), 1);
 
             return slice<0>(start, size, stride, dim);
+        }
+
+        slice<0> operator[](size_t i) const {
+            return this->operator[](range(i, i + 1));
         }
 };
 

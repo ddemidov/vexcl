@@ -80,6 +80,12 @@ BOOST_AUTO_TEST_CASE(vector_slicer_2d)
     Y = slice(X);
 
     check_sample(Y, [&](size_t idx, double v) { BOOST_CHECK_EQUAL(v, y[idx]); });
+
+    vex::vector<double> Z(queue, N);
+
+    Z = slicer[5](X); // Put fith row of X into Z;
+
+    check_sample(Z, [&](size_t idx, double v) { BOOST_CHECK_EQUAL(v, x[5 * N + idx]); });
 }
 
 BOOST_AUTO_TEST_SUITE_END()
