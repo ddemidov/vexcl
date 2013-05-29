@@ -266,6 +266,8 @@ vex::permutation reverse(I);
 Y = reverse(X);
 ~~~
 
+_Permutation operation is only supported in single-device contexts._
+
 ### Slicing
 
 An instance of `vex::slicer<NDIM>` class allows to conveniently access
@@ -300,6 +302,8 @@ Y = slice[range()][42](X); // Put 42-th column of X into Y;
 // Assign sub-block [10,20)x[30,40) of X to Z:
 Z = slice[range(10, 20)][range(30, 40)](X);
 ~~~
+
+_Slicong is only supported in single-device contexts._
 
 ## Reductions
 
