@@ -38,6 +38,8 @@ THE SOFTWARE.
 
 namespace vex {
 
+/// \cond INTERNAL
+
 struct vector_view_terminal {};
 
 typedef vector_expression<
@@ -97,6 +99,8 @@ struct kernel_arg_setter< vector_view<T, Slice> > {
         Slice::setArgs(kernel, device, index_offset, position, term);
     }
 };
+
+/// \endcond
 
 /// Generalized slice selector.
 /**
@@ -215,6 +219,7 @@ struct gslice {
         }
     }
 
+    /// Returns sliced vector.
     template <typename T>
     vector_view<T, gslice> operator()(const vector<T> &base) const {
         assert(base.queue_list().size() == 1);
@@ -223,16 +228,20 @@ struct gslice {
 };
 
 
+/// An index range for use with slicer class.
 struct range {
     size_t start;
     size_t stride;
     size_t stop;
 
+    /// All elements in this dimension.
     range () : start(0), stride(0), stop(0) {}
 
+    /// Elements from open interval with given stride.
     range(size_t start, size_t stride, size_t stop)
         : start(start), stride(stride), stop(stop) {}
 
+    /// Every element from open interval.
     range(size_t start, size_t stop)
         : start(start), stride(1), stop(stop) {}
 
@@ -241,10 +250,29 @@ struct range {
     }
 };
 
+/// Slicing operator.
+/**
+ * Slices multi-dimensional array stored in vex::vector in row-major order.
+ * Usage:
+ * \code
+ * using vex::range;
+ *
+ * vex::vector<double> x(ctx, n * n)
+ * vex::vector<double> y(ctx, n)
+ * vex::vector<double> z(ctx, n / 2);
+ *
+ * vex::slicer<2> slice({n, n});
+ *
+ * y = slice[42](x);                // Put 42-th row of x into y.
+ * y = slice[range()][42](x);       // Put 42-th column of x into y.
+ * z = slice[range(0, 2, n)][5](x); // Put even elements of 5-th column of x into z.
+ * \endcode
+ */
 template <size_t NDIM>
 class slicer {
     private:
         std::array<size_t, NDIM> dim;
+
     public:
         template <size_t CDIM>
         struct slice : public gslice<NDIM> {

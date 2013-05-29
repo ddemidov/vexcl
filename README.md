@@ -32,6 +32,8 @@ performance of several GPGPU libraries, including VexCL.
     * [Element indices](#element-indices)
     * [User-defined functions](#user-defined-functions)
     * [Random number generation](#random-number-generation)
+    * [Permutations](#permutations)
+    * [Slicing](#slicing)
 * [Reductions](#reductions)
 * [Sparse matrix-vector products](#sparse-matrix-vector-products)
 * [Stencil convolutions](#stencil-convolutions)
@@ -248,6 +250,56 @@ X = 2 * rnd(vex::element_index(), std::rand()) - 1;
 ~~~
 Note that `vex::element_index()` here provides the random number generator with
 a sequence position N.
+
+### Permutations
+
+`vex::permutation` allows to use permuted vector in a vector expression. The
+class constructor accepts `vex::vector<size_t>` of indices. The following
+example assigns reversed vector `X` to `Y`:
+
+~~~{.cpp}
+vex::vector<size_t> I(ctx, N);
+I = N - 1 - vex::element_index();
+
+vex::permutation reverse(I);
+
+Y = reverse(X);
+~~~
+
+### Slicing
+
+An instance of `vex::slicer<NDIM>` class allows to conveniently access
+sub-blocks of multi-dimensional arrays that are stored in `vex::vector` in
+row-major order. The constructor of the class accepts dimensions of an array to
+be sliced. The following examples extracts every other element from interval
+`[100, 200)` of one-dimensional vector X:
+
+~~~{.cpp}
+vex::vector<double> X(ctx, n);
+vex::vector<double> Y(ctx, 50);
+
+vex::slicer<1> slice({n});
+
+Y = slice[vex::range(100, 2, 200)](X);
+~~~
+
+And the example below shows how to work with two-dimensional matrix:
+
+~~~{.cpp}
+using vex::range;
+
+vex::vector<double> X(ctx, n * n); // n-by-n matrix stored in row-major order.
+vex::vector<double> Y(ctx, n);
+vex::vector<double> Z(ctx, 100);
+
+vex::slicer<2> slice({n, n});
+
+Y = slice[42](X);          // Put 42-th row of X into Y.
+Y = slice[range()][42](X); // Put 42-th column of X into Y;
+
+// Assign sub-block [10,20)x[30,40) of X to Z:
+Z = slice[range(10, 20)][range(30, 40)](X);
+~~~
 
 ## Reductions
 
