@@ -99,9 +99,7 @@ struct kernel_arg_setter< vector_view<T, Slice> > {
 
 /// Generalized slice selector.
 /**
- * This is very similar to std::gslice. The only difference is the ordering of
- * components inside size and stride arrays. std::gslice specify slower
- * dimensions first, and vex::gslice -- faster dimensions first.
+ * This is very similar to std::gslice.
  *
  * Index to base vector is obtained as start + sum(i_k * stride[k]), where i_k
  * is coordinate along each dimension of gslice.
@@ -115,9 +113,10 @@ struct gslice {
     cl_long  stride[NDIM]; // Signed type allows reverse slicing.
 
 #ifndef BOOST_NO_INITIALIZER_LISTS
+    template <typename T1, typename T2>
     gslice(cl_ulong start,
-           const std::initializer_list<cl_ulong> &p_size,
-           const std::initializer_list<cl_long>  &p_stride
+           const std::initializer_list<T1> &p_size,
+           const std::initializer_list<T2> &p_stride
           ) : start(start)
     {
         assert(p_size.size()   == NDIM);
@@ -128,18 +127,20 @@ struct gslice {
     }
 #endif
 
+    template <typename T1, typename T2>
     gslice(cl_ulong start,
-           const std::array<cl_ulong, NDIM> &p_size,
-           const std::array<cl_long,  NDIM> &p_stride
+           const std::array<T1, NDIM> &p_size,
+           const std::array<T2, NDIM> &p_stride
           ) : start(start)
     {
         std::copy(p_size.begin(),   p_size.end(),   size);
         std::copy(p_stride.begin(), p_stride.end(), stride);
     }
 
+    template <typename T1, typename T2>
     gslice(cl_ulong start,
-           const cl_ulong *p_size,
-           const cl_long  *p_stride
+           const T1 *p_size,
+           const T2 *p_stride
           ) : start(start)
     {
         std::copy(p_size,   p_size   + NDIM, size);
@@ -157,11 +158,12 @@ struct gslice {
         if (NDIM == 1) {
             s << "    return start + idx * stride0;\n";
         } else {
-            s << "    size_t ptr = start + (idx % size0) * stride0;\n";
-            for(size_t k = 1; k < NDIM; ++k) {
-                s << "    idx /= size" << k - 1 << ";\n"
+            s << "    size_t ptr = start + (idx % size" << NDIM - 1 <<  ") * stride" << NDIM - 1 << ";\n";
+            for(size_t k = NDIM - 1; k-- > 0;) {
+                s << "    idx /= size" << k + 1 << ";\n"
                      "    ptr += (idx % size" << k <<  ") * stride" << k <<  ";\n";
             }
+            s << "    return ptr;\n";
         }
         s << "}\n\n";
 
