@@ -303,7 +303,7 @@ Y = slice[range()][42](X); // Put 42-th column of X into Y;
 Z = slice[range(10, 20)][range(30, 40)](X);
 ~~~
 
-_Slicong is only supported in single-device contexts._
+_Slicing is only supported in single-device contexts._
 
 ## Reductions
 
