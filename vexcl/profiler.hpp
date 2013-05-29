@@ -50,6 +50,7 @@ THE SOFTWARE.
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/sequenced_index.hpp>
 #include <boost/multi_index/global_fun.hpp>
+#include <boost/io/ios_state.hpp>
 
 #ifndef __CL_ENABLE_EXCEPTIONS
 #  define __CL_ENABLE_EXCEPTIONS
@@ -144,11 +145,11 @@ class profiler {
                         double time, double perc, uint width) const
                 {
                     using namespace std;
-                    out << name << ":";
-                    out << setw(width - name.size()) << "";
-                    out << setiosflags(ios::fixed);
-                    out << setw(10) << setprecision(3) << time << " sec.";
-                    out << "] (" << setprecision(2) << setw(6) << perc << "%)";
+                    out << name << ":"
+                        << setw(width - name.size()) << ""
+                        << std::fixed
+                        << setw(10) << setprecision(3) << time << " sec."
+                        << "] (" << setprecision(2) << setw(6) << perc << "%)";
                     if(hit > 1) out << " (" << hit << "x)";
                     out << endl;
                 }
@@ -238,6 +239,8 @@ class profiler {
 
         /// Outputs profile to the provided stream.
         void print(std::ostream &out) {
+            boost::io::ios_all_saver stream_state(out);
+
             if(stack.size() != 1)
                 out << "Warning! Profile is incomplete." << std::endl;
 
