@@ -32,6 +32,7 @@ THE SOFTWARE.
  */
 
 #include <array>
+#include <numeric>
 #include <algorithm>
 #include <vexcl/vector.hpp>
 
@@ -219,6 +220,98 @@ struct gslice {
         assert(start + (size[0] - 1) * stride[0] < base.size());
         return vector_view<T, gslice>(base, *this);
     }
+};
+
+
+struct range {
+    size_t start;
+    size_t stride;
+    size_t stop;
+
+    range(size_t start, size_t stride, size_t stop)
+        : start(start), stride(stride), stop(stop) {}
+
+    range(size_t start, size_t stop)
+        : start(start), stride(1), stop(stop) {}
+};
+
+template <size_t NDIM>
+class slicer {
+    private:
+        std::array<size_t, NDIM> dim;
+    public:
+        template <size_t CDIM>
+        struct slice : public gslice<NDIM> {
+            std::array<size_t, NDIM> dim;
+
+#ifndef BOOST_NO_INITIALIZER_LISTS
+            template <typename T1, typename T2>
+            slice(size_t start,
+                  const std::initializer_list<T1> &size,
+                  const std::initializer_list<T2> &stride,
+                  const std::array<size_t, NDIM> &dim
+                 ) : gslice<NDIM>(start, size, stride), dim(dim) {}
+#endif
+
+            template <typename T1, typename T2>
+            slice(size_t start,
+                  const std::array<T1, NDIM> &size,
+                  const std::array<T2, NDIM> &stride,
+                  const std::array<size_t, NDIM> &dim
+                 ) : gslice<NDIM>(start, size, stride), dim(dim) {}
+
+            template <typename T1, typename T2>
+            slice(size_t start,
+                  const T1 *size,
+                  const T2 *stride,
+                  const std::array<size_t, NDIM> &dim
+                 ) : gslice<NDIM>(start, size, stride), dim(dim) {}
+
+            slice(const slice<CDIM - 1> &parent, const range &r)
+                : gslice<NDIM>(parent.start, parent.size, parent.stride), dim(parent.dim)
+            {
+                this->start += r.start * std::accumulate(
+                        dim.begin() + CDIM + 1, dim.end(), 1UL, std::multiplies<size_t>());
+
+                this->size[CDIM] = (r.stop - r.start + r.stride - 1) / r.stride;
+                this->stride[CDIM] = r.stride;
+            }
+
+            slice<CDIM + 1> operator[](const range &r) const {
+                static_assert(CDIM + 1 < NDIM, "Incorrect dimensions in vex::slicer[]");
+
+                return slice<CDIM + 1>(*this, r);
+            };
+        };
+
+#ifndef BOOST_NO_INITIALIZER_LISTS
+        template <typename T>
+        slicer(const std::initializer_list<T> &target_dimensions) {
+            std::copy(target_dimensions.begin(), target_dimensions.end(), dim.begin());
+        }
+#endif
+        template <typename T>
+        slicer(const std::array<T, NDIM> &target_dimensions) {
+            std::copy(target_dimensions.begin(), target_dimensions.end(), dim.begin());
+        }
+
+        template <typename T>
+        slicer(const T *target_dimensions) {
+            std::copy(target_dimensions, target_dimensions + NDIM, dim.begin());
+        }
+
+        slice<0> operator[](const range &r) const {
+            size_t start = r.start * std::accumulate(
+                    dim.begin() + 1, dim.end(), 1UL, std::multiplies<size_t>());
+
+            std::array<size_t, NDIM> size = {{(r.stop - r.start + r.stride - 1) / r.stride}};
+            std::copy(dim.begin() + 1, dim.end(), size.begin() + 1);
+
+            std::array<size_t, NDIM> stride = {{r.stride}};
+            std::fill(stride.begin() + 1, stride.end(), 1);
+
+            return slice<0>(start, size, stride, dim);
+        }
 };
 
 
