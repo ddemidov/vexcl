@@ -4,6 +4,14 @@ project(VexCL CXX)
 include_directories( ${CMAKE_SOURCE_DIR} )
 
 #----------------------------------------------------------------------------
+# Show generated kernels in tests and examples
+#----------------------------------------------------------------------------
+option(VEXCL_SHOW_KERNELS "Show generated kernels in tests and examples")
+if (VEXCL_SHOW_KERNELS)
+    add_definitions(-DVEXCL_SHOW_KERNELS)
+endif (VEXCL_SHOW_KERNELS)
+
+#----------------------------------------------------------------------------
 # Enable math constants in Win32
 #----------------------------------------------------------------------------
 if (WIN32)
