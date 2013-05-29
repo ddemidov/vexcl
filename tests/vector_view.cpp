@@ -117,4 +117,19 @@ BOOST_AUTO_TEST_CASE(vector_permutation)
     check_sample(Y, [&](size_t idx, double v) { BOOST_CHECK_EQUAL(v, x[N - 1 - idx]); });
 }
 
+BOOST_AUTO_TEST_CASE(reduce_slice)
+{
+    const size_t N = 1024;
+
+    std::vector<cl::CommandQueue> queue(1, ctx.queue(0));
+
+    vex::vector<int> X(queue, N);
+    vex::Reductor<int, vex::SUM> sum(queue);
+    vex::slicer<1> slice(&N);
+
+    X = 1;
+
+    BOOST_CHECK_EQUAL(N / 2, sum( slice[vex::range(0, 2, N)](X) ));
+}
+
 BOOST_AUTO_TEST_SUITE_END()

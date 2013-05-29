@@ -362,10 +362,7 @@ class multivector : public multivector_terminal_expression {
                     std::ostringstream source;
                     source << standard_kernel_header(device);
 
-                    extract_user_functions()(
-                            boost::proto::as_child(expr),
-                            declare_user_function(source)
-                            );
+                    construct_preamble(expr, source);
 
                     source << "kernel void " << kernel_name.str()
                            << "(\n\t" << type_name<size_t>() << " n";
@@ -633,10 +630,7 @@ class multivector : public multivector_terminal_expression {
 
             template <class Expr>
             void operator()(const Expr &expr) const {
-                extract_user_functions()(
-                        boost::proto::as_expr(expr),
-                        declare_user_function(os, ++cmp_idx)
-                        );
+                construct_preamble(expr, os, ++cmp_idx);
             }
         };
 

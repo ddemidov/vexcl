@@ -219,7 +219,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
             typedef typename RDC::template function<real> fun;
             fun::define(source, "reduce_operation");
 
-            extract_user_functions()( expr, declare_user_function(source) );
+            construct_preamble(expr, source);
 
             source << "kernel void " << kernel_name.str() << "(\n\t"
                 << type_name<size_t>() << " n";

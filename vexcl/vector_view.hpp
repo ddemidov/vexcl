@@ -100,6 +100,23 @@ struct kernel_arg_setter< vector_view<T, Slice> > {
     }
 };
 
+template <typename T, class Slice>
+struct expression_properties< vector_view<T, Slice> > {
+    static void get(const vector_view<T, Slice> &term,
+            std::vector<cl::CommandQueue> &queue_list,
+            std::vector<size_t> &partition,
+            size_t &size
+            )
+    {
+        queue_list = term.base.queue_list();
+        partition  = term.base.partition();
+        size       = term.slice.size();
+
+        assert(partition.size() == 2);
+        partition.back() = size;
+    }
+};
+
 /// \endcond
 
 /// Generalized slice selector.
@@ -114,42 +131,46 @@ struct gslice {
     static_assert(NDIM > 0, "Incorrect dimension for gslice");
 
     cl_ulong start;
-    cl_ulong size[NDIM];
+    cl_ulong length[NDIM];
     cl_long  stride[NDIM]; // Signed type allows reverse slicing.
 
 #ifndef BOOST_NO_INITIALIZER_LISTS
     template <typename T1, typename T2>
     gslice(cl_ulong start,
-           const std::initializer_list<T1> &p_size,
+           const std::initializer_list<T1> &p_length,
            const std::initializer_list<T2> &p_stride
           ) : start(start)
     {
-        assert(p_size.size()   == NDIM);
+        assert(p_length.size() == NDIM);
         assert(p_stride.size() == NDIM);
 
-        std::copy(p_size.begin(),   p_size.end(),   size);
+        std::copy(p_length.begin(), p_length.end(), length);
         std::copy(p_stride.begin(), p_stride.end(), stride);
     }
 #endif
 
     template <typename T1, typename T2>
     gslice(cl_ulong start,
-           const std::array<T1, NDIM> &p_size,
+           const std::array<T1, NDIM> &p_length,
            const std::array<T2, NDIM> &p_stride
           ) : start(start)
     {
-        std::copy(p_size.begin(),   p_size.end(),   size);
+        std::copy(p_length.begin(), p_length.end(), length);
         std::copy(p_stride.begin(), p_stride.end(), stride);
     }
 
     template <typename T1, typename T2>
     gslice(cl_ulong start,
-           const T1 *p_size,
+           const T1 *p_length,
            const T2 *p_stride
           ) : start(start)
     {
-        std::copy(p_size,   p_size   + NDIM, size);
+        std::copy(p_length, p_length + NDIM, length);
         std::copy(p_stride, p_stride + NDIM, stride);
+    }
+
+    size_t size() const {
+        return std::accumulate(length, length + NDIM, 1UL, std::multiplies<size_t>());
     }
 
     static std::string indexing_function(int component, int position) {
@@ -157,16 +178,16 @@ struct gslice {
 
         s << "ulong slice_" << component << "_" << position << "(\n\tulong start";
         for(size_t k = 0; k < NDIM; ++k)
-            s << ",\n\tulong size" << k << ",\n\tlong stride" << k;
+            s << ",\n\tulong length" << k << ",\n\tlong stride" << k;
         s << ",\n\tulong idx)\n{\n";
 
         if (NDIM == 1) {
             s << "    return start + idx * stride0;\n";
         } else {
-            s << "    size_t ptr = start + (idx % size" << NDIM - 1 <<  ") * stride" << NDIM - 1 << ";\n";
+            s << "    size_t ptr = start + (idx % length" << NDIM - 1 <<  ") * stride" << NDIM - 1 << ";\n";
             for(size_t k = NDIM - 1; k-- > 0;) {
-                s << "    idx /= size" << k + 1 << ";\n"
-                     "    ptr += (idx % size" << k <<  ") * stride" << k <<  ";\n";
+                s << "    idx /= length" << k + 1 << ";\n"
+                     "    ptr += (idx % length" << k <<  ") * stride" << k <<  ";\n";
             }
             s << "    return ptr;\n";
         }
@@ -185,7 +206,7 @@ struct gslice {
           << "slice_" << component << "_" << position << "("
           << prm.str() << "start";
         for(size_t k = 0; k < NDIM; ++k)
-            s << ", " << prm.str() << "size"   << k
+            s << ", " << prm.str() << "length" << k
               << ", " << prm.str() << "stride" << k;
         s << ", idx)]";
 
@@ -203,7 +224,7 @@ struct gslice {
           << ", ulong " << prm.str() << "start";
 
         for(size_t k = 0; k < NDIM; ++k)
-            s << ", ulong " << prm.str() << "size"   << k
+            s << ", ulong " << prm.str() << "length" << k
               << ", long  " << prm.str() << "stride" << k;
 
         return s.str();
@@ -214,7 +235,7 @@ struct gslice {
         kernel.setArg(position++, term.base(device));
         kernel.setArg(position++, term.slice.start);
         for(size_t k = 0; k < NDIM; ++k) {
-            kernel.setArg(position++, term.slice.size[k]);
+            kernel.setArg(position++, term.slice.length[k]);
             kernel.setArg(position++, term.slice.stride[k]);
         }
     }
@@ -281,31 +302,31 @@ class slicer {
 #ifndef BOOST_NO_INITIALIZER_LISTS
             template <typename T1, typename T2>
             slice(size_t start,
-                  const std::initializer_list<T1> &size,
+                  const std::initializer_list<T1> &length,
                   const std::initializer_list<T2> &stride,
                   const std::array<size_t, NDIM> &dim
-                 ) : gslice<NDIM>(start, size, stride), dim(dim) {}
+                 ) : gslice<NDIM>(start, length, stride), dim(dim) {}
 #endif
 
             template <typename T1, typename T2>
             slice(size_t start,
-                  const std::array<T1, NDIM> &size,
+                  const std::array<T1, NDIM> &length,
                   const std::array<T2, NDIM> &stride,
                   const std::array<size_t, NDIM> &dim
-                 ) : gslice<NDIM>(start, size, stride), dim(dim) {}
+                 ) : gslice<NDIM>(start, length, stride), dim(dim) {}
 
             template <typename T1, typename T2>
             slice(size_t start,
-                  const T1 *size,
+                  const T1 *length,
                   const T2 *stride,
                   const std::array<size_t, NDIM> &dim
-                 ) : gslice<NDIM>(start, size, stride), dim(dim) {}
+                 ) : gslice<NDIM>(start, length, stride), dim(dim) {}
 
             slice(const slice<CDIM - 1> &parent, const range &r)
-                : gslice<NDIM>(parent.start, parent.size, parent.stride), dim(parent.dim)
+                : gslice<NDIM>(parent.start, parent.length, parent.stride), dim(parent.dim)
             {
                 this->start += r.start * this->stride[CDIM];
-                this->size[CDIM] = (r.stop - r.start + r.stride - 1) / r.stride;
+                this->length[CDIM] = (r.stop - r.start + r.stride - 1) / r.stride;
                 this->stride[CDIM] *= r.stride;
             }
 
@@ -360,10 +381,10 @@ class slicer {
             size_t start = r.start * stride[0];
             stride[0] *= r.stride;
 
-            std::array<size_t, NDIM> size = {{(r.stop - r.start + r.stride - 1) / r.stride}};
-            std::copy(dim.begin() + 1, dim.end(), size.begin() + 1);
+            std::array<size_t, NDIM> length = {{(r.stop - r.start + r.stride - 1) / r.stride}};
+            std::copy(dim.begin() + 1, dim.end(), length.begin() + 1);
 
-            return slice<0>(start, size, stride, dim);
+            return slice<0>(start, length, stride, dim);
         }
 };
 
@@ -374,6 +395,10 @@ struct permutation {
 
     permutation(const vector<size_t> &index) : index(index) {
         assert(index.queue_list().size() == 1);
+    }
+
+    size_t size() const {
+        return index.size();
     }
 
     static std::string partial_expression(int component, int position) {

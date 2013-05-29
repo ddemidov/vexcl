@@ -1034,16 +1034,16 @@ struct output_terminal_preamble {
 };
 
 template <class Expr>
-void construct_preamble(const Expr &expr, std::ostream &kernel_source) {
+void construct_preamble(const Expr &expr, std::ostream &kernel_source, int component = 1) {
 
     extract_user_functions()(
             boost::proto::as_child(expr),
-            declare_user_function(kernel_source)
+            declare_user_function(kernel_source, component)
             );
 
     extract_terminals()(
             boost::proto::as_child(expr),
-            output_terminal_preamble(kernel_source)
+            output_terminal_preamble(kernel_source, component)
             );
 
 }
@@ -1137,32 +1137,50 @@ struct set_expression_argument {
     }
 };
 
+template <class T, class Enable = void>
+struct expression_properties {
+    static void get(const T &/*term*/,
+            std::vector<cl::CommandQueue> &/*queue_list*/,
+            std::vector<size_t> &/*partition*/,
+            size_t &/*size*/
+            )
+    { }
+};
+
+template <class T>
+struct expression_properties< vector<T> > {
+    static void get(const vector<T> &term,
+            std::vector<cl::CommandQueue> &queue_list,
+            std::vector<size_t> &partition,
+            size_t &size
+            )
+    {
+        queue_list = term.queue_list();
+        partition  = term.partition();
+        size       = term.size();
+    }
+};
+
 struct get_expression_properties {
-    mutable std::vector<cl::CommandQueue> const* queue;
-    mutable std::vector<size_t> const* part;
+    mutable std::vector<cl::CommandQueue> queue;
+    mutable std::vector<size_t> part;
     mutable size_t size;
 
-    get_expression_properties() : queue(0), part(0), size(0) {}
+    get_expression_properties() : size(0) {}
 
     size_t part_start(uint d) const {
-        return part ? (*part)[d] : 0;
+        return part.empty() ? 0 : part[d];
     }
 
     size_t part_size(uint d) const {
-        return part ? (*part)[d + 1] - (*part)[d] : 0;
+        return part.empty() ? 0 : part[d + 1] - part[d];
     }
 
     template <typename T>
-    void operator()(const vector<T> &term) const {
-        if (!queue) {
-            queue = &( term.queue_list() );
-            part  = &( term.partition() );
-            size  = term.size();
-        }
+    void operator()(const T &term) const {
+        if (queue.empty())
+            expression_properties<T>::get(term, queue, part, size);
     }
-
-    template <typename Term>
-    void operator()(const Term &) const { }
 };
 
 //---------------------------------------------------------------------------
