@@ -271,7 +271,7 @@ Y = reverse(X);
 An instance of `vex::slicer<NDIM>` class allows to conveniently access
 sub-blocks of multi-dimensional arrays that are stored in `vex::vector` in
 row-major order. The constructor of the class accepts dimensions of an array to
-be sliced. The following examples extracts every other element from interval
+be sliced. The following example extracts every other element from interval
 `[100, 200)` of one-dimensional vector X:
 
 ~~~{.cpp}
