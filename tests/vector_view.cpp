@@ -97,4 +97,24 @@ BOOST_AUTO_TEST_CASE(vector_slicer_2d)
     check_sample(Z, [&](size_t idx, double v) { BOOST_CHECK_EQUAL(v, x[5 + N * idx]); });
 }
 
+BOOST_AUTO_TEST_CASE(vector_permutation)
+{
+    const size_t N = 1024;
+
+    std::vector<cl::CommandQueue> queue(1, ctx.queue(0));
+
+    std::vector<double> x = random_vector<double>(N);
+    vex::vector<double> X(queue, x);
+    vex::vector<double> Y(queue, N);
+    vex::vector<size_t> I(queue, N);
+
+    I = N - 1 - vex::element_index();
+
+    vex::permutation reverse(I);
+
+    Y = reverse(X);
+
+    check_sample(Y, [&](size_t idx, double v) { BOOST_CHECK_EQUAL(v, x[N - 1 - idx]); });
+}
+
 BOOST_AUTO_TEST_SUITE_END()

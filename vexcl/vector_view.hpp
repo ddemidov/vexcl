@@ -217,7 +217,7 @@ struct gslice {
 
     template <typename T>
     vector_view<T, gslice> operator()(const vector<T> &base) const {
-        assert(start + (size[0] - 1) * stride[0] < base.size());
+        assert(base.queue_list().size() == 1);
         return vector_view<T, gslice>(base, *this);
     }
 };
@@ -339,6 +339,54 @@ class slicer {
         }
 };
 
+
+/// Permutation operator.
+struct permutation {
+    const vector<size_t> &index;
+
+    permutation(const vector<size_t> &index) : index(index) {
+        assert(index.queue_list().size() == 1);
+    }
+
+    static std::string partial_expression(int component, int position) {
+        std::ostringstream prm;
+        prm << "prm_" << component << "_" << position << "_";
+
+        std::ostringstream s;
+        s << prm.str() << "base[" << prm.str() << "index[idx]]";
+
+        return s.str();
+    }
+
+    static std::string indexing_function(int/*component*/, int/*position*/) {
+        return "";
+    }
+
+    template <typename T>
+    static std::string parameter_declaration(int component, int position) {
+        std::ostringstream prm;
+        prm << "prm_" << component << "_" << position << "_";
+
+        std::ostringstream s;
+
+        s << "global " << type_name<T>() << " * " << prm.str() << "base"
+          << ", global ulong * " << prm.str() << "index";
+
+        return s.str();
+    }
+
+    template <typename T>
+    static void setArgs(cl::Kernel &kernel, uint device, size_t/*index_offset*/, uint &position, const vector_view<T, permutation> &term) {
+        kernel.setArg(position++, term.base(device));
+        kernel.setArg(position++, term.slice.index(device));
+    }
+
+    template <typename T>
+    vector_view<T, permutation> operator()(const vector<T> &base) const {
+        assert(base.queue_list().size() == 1);
+        return vector_view<T, permutation>(base, *this);
+    }
+};
 
 } // namespace vex
 
