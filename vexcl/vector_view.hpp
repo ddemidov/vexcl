@@ -149,22 +149,18 @@ struct gslice {
     static std::string indexing_function(int component, int position) {
         std::ostringstream s;
 
-        s << "typedef struct {\n"
-             "    ulong start;\n"
-             "    ulong size[" << NDIM << "];\n"
-             "    long  stride[" << NDIM << "];\n"
-             "} slice_data_" << component << "_" << position << ";\n\n"
-             "ulong slice_" << component << "_" << position << "("
-             "slice_data_" << component << "_" << position << " s, "
-             "ulong idx) {\n";
+        s << "ulong slice_" << component << "_" << position << "(\n\tulong start";
+        for(size_t k = 0; k < NDIM; ++k)
+            s << ",\n\tulong size" << k << ",\n\tlong stride" << k;
+        s << ",\n\tulong idx)\n{\n";
 
         if (NDIM == 1) {
-            s << "    return s.start + idx * s.stride[0];\n";
+            s << "    return start + idx * stride0;\n";
         } else {
-            s << "    size_t ptr = s.start + (idx % s.size[0]) * s.stride[0];\n";
+            s << "    size_t ptr = start + (idx % size0) * stride0;\n";
             for(size_t k = 1; k < NDIM; ++k) {
-                s << "    idx /= size[" << k - 1 << "];\n"
-                     "    ptr += (idx % s.size[" << k <<  "]) * s.stride[" << k <<  "];\n";
+                s << "    idx /= size" << k - 1 << ";\n"
+                     "    ptr += (idx % size" << k <<  ") * stride" << k <<  ";\n";
             }
         }
         s << "}\n\n";
@@ -173,22 +169,35 @@ struct gslice {
     }
 
     static std::string partial_expression(int component, int position) {
+        std::ostringstream prm;
+        prm << "prm_" << component << "_" << position << "_";
+
         std::ostringstream s;
 
-        s << "prm_" << component << "_" << position << "_base["
+        s << prm.str() << "base["
           << "slice_" << component << "_" << position << "("
-          << "prm_" << component << "_" << position << "_slice, idx)]";
+          << prm.str() << "start";
+        for(size_t k = 0; k < NDIM; ++k)
+            s << ", " << prm.str() << "size"   << k
+              << ", " << prm.str() << "stride" << k;
+        s << ", idx)]";
 
         return s.str();
     }
 
     template <typename T>
     static std::string parameter_declaration(int component, int position) {
+        std::ostringstream prm;
+        prm << "prm_" << component << "_" << position << "_";
+
         std::ostringstream s;
 
-        s << "global " << type_name<T>() << " * prm_" << component << "_" << position << "_base, "
-          << "slice_data_" << component << "_" << position
-          << " prm_" << component << "_" << position << "_slice";
+        s << "global " << type_name<T>() << " * " << prm.str() << "base"
+          << ", ulong " << prm.str() << "start";
+
+        for(size_t k = 0; k < NDIM; ++k)
+            s << ", ulong " << prm.str() << "size"   << k
+              << ", long  " << prm.str() << "stride" << k;
 
         return s.str();
     }
@@ -196,7 +205,11 @@ struct gslice {
     template <typename T>
     static void setArgs(cl::Kernel &kernel, uint device, size_t/*index_offset*/, uint &position, const vector_view<T, gslice> &term) {
         kernel.setArg(position++, term.base(device));
-        kernel.setArg(position++, sizeof(gslice), const_cast<gslice*>(&term.slice));
+        kernel.setArg(position++, term.slice.start);
+        for(size_t k = 0; k < NDIM; ++k) {
+            kernel.setArg(position++, term.slice.size[k]);
+            kernel.setArg(position++, term.slice.stride[k]);
+        }
     }
 
     template <typename T>
