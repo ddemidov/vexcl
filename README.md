@@ -295,8 +295,8 @@ vex::vector<double> Y(ctx, n);
 
 vex::slicer<2> slice({n, n});
 
-Y = slice[42](X);          // Put 42-th row of X into Y.
-Y = slice[range()][42](X); // Put 42-th column of X into Y;
+Y = slice[42](X);          // Put 42-nd row of X into Y.
+Y = slice[range()][42](X); // Put 42-nd column of X into Y;
 
 // Assign sub-block [10,20)x[30,40) of X to Z:
 vex::vector<double> Z = slice[range(10, 20)][range(30, 40)](X);
