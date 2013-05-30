@@ -292,7 +292,6 @@ using vex::range;
 
 vex::vector<double> X(ctx, n * n); // n-by-n matrix stored in row-major order.
 vex::vector<double> Y(ctx, n);
-vex::vector<double> Z(ctx, 100);
 
 vex::slicer<2> slice({n, n});
 
@@ -300,7 +299,8 @@ Y = slice[42](X);          // Put 42-th row of X into Y.
 Y = slice[range()][42](X); // Put 42-th column of X into Y;
 
 // Assign sub-block [10,20)x[30,40) of X to Z:
-Z = slice[range(10, 20)][range(30, 40)](X);
+vex::vector<double> Z = slice[range(10, 20)][range(30, 40)](X);
+assert(Z.size() == 100);
 ~~~
 
 _Slicing is only supported in single-device contexts._
