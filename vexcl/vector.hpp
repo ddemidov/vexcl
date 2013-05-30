@@ -367,16 +367,14 @@ class vector : public vector_terminal_expression {
          * Vector expression should contain at least one vector for the
          * constructor to be able to determine queues and size to use.
          */
-        template <class Expr>
-        vector(const Expr &expr) {
-            static_assert(
+        template <class Expr, class Enable = typename std::enable_if<
+            !std::is_integral<Expr>::value &&
                 boost::proto::matches<
                     typename boost::proto::result_of::as_expr<Expr>::type,
                     vector_expr_grammar
-                >::value,
-                "Only vector expressions can be used to initialize a vector"
-                );
-
+                >::value
+            >::type >
+        vector(const Expr &expr) {
             get_expression_properties prop;
             extract_terminals()(expr, prop);
 
