@@ -44,7 +44,7 @@ performance of several GPGPU libraries, including VexCL.
 * [Interoperability with other libraries](#interoperability-with-other-libraries)
 * [Supported compilers](#supported-compilers)
 
-## Context initialization
+## <a name="context-initialization"></a>Context initialization
 
 VexCL can transparently work with multiple compute devices that are present in
 the system. VexCL context is initialized with a device filter, which is just a
@@ -76,7 +76,7 @@ One of the most convenient filters is [vex::Filter::Env][env-filter] which
 selects compute devices based on environment variables. It allows to switch
 compute device without need to recompile the program.
 
-## Memory allocation
+## <a name="memory-allocation"></a>Memory allocation
 
 The `vex::vector<T>` class constructor accepts a const reference to
 `std::vector<cl::CommandQueue>`. A `vex::Context` instance may be conveniently
@@ -109,7 +109,7 @@ Intel CPU installed, possible partitioning may look as in the following figure:
 
 ![Partitioning](https://raw.github.com/ddemidov/vexcl/master/doc/figures/partitioning.png)
 
-## Copies between host and devices
+## <a name="copies-between-host-and-devices"></a>Copies between host and devices
 
 Function `vex::copy()` allows to copy data between host and device memories.
 There are two forms of the function -- simple one and an STL-like:
@@ -136,7 +136,7 @@ access as well, so that STL algorithms may in principle be used with device
 vectors. This would be very slow but may be used as a temporary building
 blocks.
 
-## Vector expressions
+## <a name="vector-expressions"></a>Vector expressions
 
 VexCL allows to use convenient and intuitive notation for vector operations. In
 order to be used in the same expression, all vectors have to be _compatible_:
@@ -173,7 +173,7 @@ kernel void minus_multiplies_term_term_sin_term_(
 Here and in the rest of examples `X`, `Y`, and `Z` are compatible instances
 of `vex::vector<double>`.
 
-### Builtin operations
+### <a name="builtin-operations"></a>Builtin operations
 
 VexCL expressions may combine device vectors and scalars with arithmetic,
 logic, or bitwise operators as well as with builtin OpenCL functions. If some
@@ -184,7 +184,7 @@ Please do not hesitate to open an issue in this case.
 Z = sqrt(2 * X) + pow(cos(Y), 2.0);
 ~~~
 
-### Element indices
+### <a name="element-indices"></a>Element indices
 
 Function `vex::element_index(size_t offset = 0)` allows to use an index of each
 vector element inside vector expressions. The numbering is continuous across
@@ -199,7 +199,7 @@ X = x0 + dx * vex::element_index();
 Y = sin(2 * M_PI * vex::element_index() / Y.size());
 ~~~
 
-### User-defined functions
+### <a name="user-defined-functions"></a>User-defined functions
 
 Users may define custom functions to use in vector expressions. One has to
 define function signature and function body. The body may contain any number of
@@ -226,7 +226,7 @@ Note that any valid vector expression may be passed as a function parameter:
 Z = squared_radius(sin(X + Y), cos(X - Y));
 ~~~
 
-### Random number generation
+### <a name="random-number-generation"></a>Random number generation
 
 VexCL provides counter-based random number generators from [Random123][] suite,
 in which  Nth random number is obtained by applying a stateless mixing function
@@ -251,7 +251,7 @@ X = 2 * rnd(vex::element_index(), std::rand()) - 1;
 Note that `vex::element_index()` here provides the random number generator with
 a sequence position N.
 
-### Permutations
+### <a name="permutations"></a>Permutations
 
 `vex::permutation` allows to use permuted vector in a vector expression. The
 class constructor accepts `vex::vector<size_t>` of indices. The following
@@ -268,7 +268,7 @@ Y = reverse(X);
 
 _Permutation operation is only supported in single-device contexts._
 
-### Slicing
+### <a name="slicing"></a>Slicing
 
 An instance of `vex::slicer<NDIM>` class allows to conveniently access
 sub-blocks of multi-dimensional arrays that are stored in `vex::vector` in
@@ -305,7 +305,7 @@ assert(Z.size() == 100);
 
 _Slicing is only supported in single-device contexts._
 
-## Reductions
+## <a name="reductions"></a>Reductions
 
 An instance of `vex::Reductor<T, OP>` allows to reduce an arbitrary vector
 expression to a single value of type T. Supported reduction operations are
@@ -333,7 +333,7 @@ Y = 2 * rnd(vex::element_index(), std::rand()) - 1;
 double pi = 4.0 * sum(squared_radius(X, Y) < 1) / X.size();
 ~~~
 
-## Sparse matrix-vector products
+## <a name="sparse-matrix-vector-products"></a>Sparse matrix-vector products
 
 One of the most common operations in linear algebra is matrix-vector
 multiplication. An instance of `vex::SpMat` class holds representation of a
@@ -363,7 +363,7 @@ inter-device communication.
 Z = Y - A * X;
 ~~~
 
-## Stencil convolutions
+## <a name="stencil-convolutions"></a>Stencil convolutions
 
 Stencil convolution is another common operation that may be used, for example,
 to represent a signal filter, or a (one-dimensional) differential operator.
@@ -396,7 +396,7 @@ array that is indexed relatively to the stencil center.
 Stencil convolution operations, similar to the matrix-vector products, are only
 allowed in additive expressions.
 
-## Fast Fourier Transform
+## <a name="fast-fourier-transform"></a>Fast Fourier Transform
 
 VexCL provides implementation of Fast Fourier Transform (FFT) that accepts
 arbitrary vector expressions as input, allows to perform multidimensional
@@ -421,7 +421,7 @@ FFT is another example of operation that is only available in additive
 expressions. Another restriction is that FFT currently only supports contexts
 with a single compute device.
 
-## Multivectors
+## <a name="multivectors"></a>Multivectors
 
 Class template `vex::multivector<T,N>` allows to store several equally sized
 device vectors and perform computations on all components synchronously.  Each
@@ -473,7 +473,7 @@ Y = std::tie( X(0) * cos(alpha) - X(1) * sin(alpha),
               X(0) * sin(alpha) + X(1) * cos(alpha) );
 ~~~
 
-## Converting generic C++ algorithms to OpenCL
+## <a name="converting-generic-c-algorithms-to-opencl"></a>Converting generic C++ algorithms to OpenCL
 
 CUDA and OpenCL differ in their handling of compute kernels compilation. In
 NVIDIA's framework the compute kernels are compiled to PTX code together with
@@ -563,7 +563,7 @@ embarrassingly parallel and is not allowed to contain any branching or
 data-dependent loops. Nevertheless, the kernel generation facility may save
 substantial amount of both human and machine time when applicable.
 
-## Custom kernels
+## <a name="custom-kernels"></a>Custom kernels
 
 As [Kozma Prutkov](http://en.wikipedia.org/wiki/Kozma_Prutkov) repeatedly said,
 "One cannot embrace the unembraceable". So in order to be usable, VexCL has to
@@ -599,7 +599,7 @@ for(uint d = 0; d < ctx.size(); d++) {
 }
 ~~~
 
-## Interoperability with other libraries
+## <a name="interoperability-with-other-libraries"></a>Interoperability with other libraries
 
 Since VexCL is built upon standard Khronos OpenCL C++ bindings, it is
 easily interoperable with other OpenCL libraries. In particular, VexCL provides
@@ -636,7 +636,7 @@ provides an example of using Boost.compute algorithms with VexCL vectors.
 Namely, it implements parallel sort and inclusive scan primitives on top of the
 corresponding Boost.compute algorithms.
 
-## Supported compilers
+## <a name="supported-compilers"></a>Supported compilers
 
 VexCL makes heavy use of C++11 features, so your compiler has to be modern
 enough. The compilers that have been tested and supported:
