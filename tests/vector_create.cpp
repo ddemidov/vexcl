@@ -161,4 +161,16 @@ BOOST_AUTO_TEST_CASE(stl_container_of_vex_vector)
         check_sample(x[j], [j](size_t, unsigned a) { BOOST_CHECK(a == j); });
 }
 
+BOOST_AUTO_TEST_CASE(initialize_with_expression)
+{
+    const size_t n = 1024;
+
+    std::vector<double> x = random_vector<double>(n);
+
+    vex::vector<double> X(ctx, x);
+    vex::vector<double> Y = sin(X);
+
+    check_sample(Y, [&](size_t idx, double v) { BOOST_CHECK_CLOSE(v, sin(x[idx]), 1e-8); });
+}
+
 BOOST_AUTO_TEST_SUITE_END()

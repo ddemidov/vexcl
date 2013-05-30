@@ -362,6 +362,41 @@ class vector : public vector_terminal_expression {
             swap(v);
         }
 
+        /// Construct new vector from vector expression.
+        /**
+         * Vector expression should contain at least one vector for the
+         * constructor to be able to determine queues and size to use.
+         */
+        template <class Expr>
+        vector(const Expr &expr) {
+            static_assert(
+                boost::proto::matches<
+                    typename boost::proto::result_of::as_expr<Expr>::type,
+                    vector_expr_grammar
+                >::value,
+                "Only vector expressions can be used to initialize a vector"
+                );
+
+            get_expression_properties prop;
+            extract_terminals()(expr, prop);
+
+            if (prop.queue.empty())
+                throw std::logic_error(
+                        "Can not determine vector size and "
+                        "queue list from expression"
+                        );
+
+            queue = prop.queue;
+            part  = prop.part;
+
+            buf.resize(queue.size());
+            event.resize(queue.size());
+
+            allocate_buffers(CL_MEM_READ_WRITE, 0);
+
+            *this = expr;
+        }
+
         /// Move assignment
         const vector& operator=(vector &&v) {
             swap(v);
