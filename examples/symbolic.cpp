@@ -28,6 +28,11 @@ struct sys_func
     sys_func(value_type sigma, value_type b, const sym_value &R)
         : sigma(sigma), b(b), R(R) {}
 
+    template <class Sig>
+    struct result {
+        typedef void type;
+    };
+
     void operator()( const sym_state &x , sym_state &dxdt , value_type ) const
     {
         dxdt[0] = sigma * (x[1] - x[0]);

@@ -33,7 +33,7 @@ THE SOFTWARE.
 
 #ifdef WIN32
 #  pragma warning(push)
-#  pragma warning(disable : 4267 4290)
+#  pragma warning(disable : 4267 4290 4800)
 #  define NOMINMAX
 #endif
 

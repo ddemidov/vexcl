@@ -46,6 +46,11 @@ typedef vex::mpi::vector< value_type > state_type;
 
 class ham_lattice {
     public:
+        template <class Sig>
+        struct result {
+            typedef void type;
+        };
+
         ham_lattice(
                 vex::mpi::comm_data &mpi, vex::Context &ctx,
                 size_t n1, size_t n2, value_type beta, value_type K
@@ -58,7 +63,8 @@ class ham_lattice {
             size_t chunk_end   = std::min(n, chunk_start + chunk_size);
             chunk_size = chunk_end - chunk_start;
 
-            srand48(mpi.rank);
+            std::default_random_engine rng( static_cast<std::default_random_engine::result_type>(mpi.rank) );
+            std::uniform_real_distribution<double> rnd(0, 1);
 
             auto part = mpi.restore_partitioning(chunk_size);
 
@@ -81,7 +87,7 @@ class ham_lattice {
                 for( int k = 0 ; k < 5 ; ++k ) {
                     col.push_back( is[k] );
                     if( is[k] == idx )
-                        val.push_back( -drand48() - 4.0 * K );
+                        val.push_back( -rnd(rng) - 4.0 * K );
                     else
                         val.push_back( K );
                 }
@@ -173,9 +179,9 @@ int main( int argc , char *argv[] ) {
         std::cout << mpi.rank << ": " << X.first[0] << "\t" << X.second[0] << std::endl;
 
     } catch(const cl::Error &e) {
-	std::cout << e << std::endl;
+        std::cout << e << std::endl;
     } catch(const std::exception &e) {
-	std::cout << e.what() << std::endl;
+        std::cout << e.what() << std::endl;
     }
 
     MPI_Finalize();

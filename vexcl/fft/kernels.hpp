@@ -369,7 +369,7 @@ inline kernel_call bluestein_mul_out(const cl::CommandQueue &queue, cl_uint batc
     kernel.setArg(0, data);
     kernel.setArg(1, exp);
     kernel.setArg(2, out);
-    kernel.setArg<T>(3, 1.0 / stride);
+    kernel.setArg<T>(3, static_cast<T>(1) / stride);
     kernel.setArg(4, p);
     kernel.setArg(5, stride);
 

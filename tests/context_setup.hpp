@@ -64,7 +64,7 @@ struct generator<cl_double2>
 template<class T>
 std::vector<T> random_vector(size_t n) {
     std::vector<T> x(n);
-    std::generate(x.begin(), x.end(), generator<T>::get);
+    std::generate(x.begin(), x.end(), ::generator<T>::get);
     return x;
 }
 
