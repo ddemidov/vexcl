@@ -45,6 +45,7 @@ THE SOFTWARE.
 #include <iostream>
 
 #include <vexcl/devlist.hpp>
+#include <vexcl/element_index.hpp>
 #include <vexcl/vector.hpp>
 #include <vexcl/vector_view.hpp>
 #include <vexcl/multivector.hpp>

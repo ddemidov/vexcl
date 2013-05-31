@@ -56,17 +56,6 @@ THE SOFTWARE.
 namespace vex {
 
 /// \cond INTERNAL
-struct elem_index {
-    size_t offset;
-
-    elem_index(size_t offset = 0) : offset(offset) {}
-};
-
-template <>
-inline std::string type_name<elem_index>() {
-    return type_name<size_t>();
-}
-
 /// Assignment operators.
 namespace assign {
 
@@ -598,16 +587,12 @@ struct extract_user_functions
 
 struct vector_terminal {};
 template <typename T> class vector;
+struct elem_index;
 
 // Terminals allowed in vector expressions.
 template <class Term, class Enable = void>
 struct is_vector_expr_terminal
     : std::false_type
-{ };
-
-template <>
-struct is_vector_expr_terminal< elem_index >
-    : std::true_type
 { };
 
 template <class T>
@@ -696,12 +681,6 @@ struct vector_expression
 
 /// \endcond
 
-/// When used in vector expression, returns current element index plus offset.
-inline boost::proto::result_of::as_expr<elem_index, vector_domain>::type
-element_index(size_t offset = 0) {
-    return boost::proto::as_expr<vector_domain>(elem_index(offset));
-}
-
 /// \cond INTERNAL
 //--- Vector contexts and transform helpers ---------------------------------
 
@@ -710,19 +689,6 @@ template <class T, class Enable = void>
 struct kernel_name {
     static std::string get() {
         return "term_";
-    }
-};
-
-template <class T>
-struct kernel_name< T, typename std::enable_if<
-        boost::proto::matches<
-            T,
-            boost::proto::terminal<elem_index>
-        >::value
-    >::type>
-{
-    static std::string get() {
-        return "index_";
     }
 };
 
@@ -804,21 +770,6 @@ struct partial_vector_expr {
     static std::string get(int component, int position) {
         std::ostringstream s;
         s << "prm_" << component << "_" << position;
-        return s.str();
-    }
-};
-
-template <class T>
-struct partial_vector_expr< T, typename std::enable_if<
-        boost::proto::matches<
-            T,
-            boost::proto::terminal<elem_index>
-        >::value
-    >::type >
-{
-    static std::string get(int component, int position) {
-        std::ostringstream s;
-        s << "(prm_" << component << "_" << position << " + idx)";
         return s.str();
     }
 };
@@ -1032,21 +983,6 @@ struct kernel_param_declaration {
     }
 };
 
-template <class T>
-struct kernel_param_declaration< T, typename std::enable_if<
-        boost::proto::matches<
-            T,
-            boost::proto::terminal<elem_index>
-        >::value
-    >::type>
-{
-    static std::string get(int component, int position) {
-        std::ostringstream s;
-        s << "ulong prm_" << component << "_" << position;
-        return s.str();
-    }
-};
-
 struct declare_expression_parameter {
     std::ostream &os;
     int cmp_idx;
@@ -1065,19 +1001,6 @@ template <class Term, class Enable = void>
 struct kernel_arg_setter {
     static void set(cl::Kernel &kernel, uint/*device*/, size_t/*index_offset*/, uint &position, const Term &term) {
         kernel.setArg(position++, boost::proto::value(term));
-    }
-};
-
-template <class T>
-struct kernel_arg_setter< T, typename std::enable_if<
-        boost::proto::matches<
-            T,
-            boost::proto::terminal<elem_index>
-        >::value
-    >::type>
-{
-    static void set(cl::Kernel &kernel, uint/*device*/, size_t index_offset, uint &position, const T &term) {
-        kernel.setArg(position++, boost::proto::value(term).offset + index_offset);
     }
 };
 
