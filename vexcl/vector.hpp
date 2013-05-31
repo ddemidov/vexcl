@@ -45,9 +45,10 @@ THE SOFTWARE.
 #include <type_traits>
 #include <functional>
 #include <boost/proto/proto.hpp>
+
+#include <vexcl/operations.hpp>
 #include <vexcl/util.hpp>
 #include <vexcl/profiler.hpp>
-#include <vexcl/operations.hpp>
 #include <vexcl/devlist.hpp>
 
 /// Vector expression template library for OpenCL.
@@ -876,6 +877,66 @@ class vector : public vector_terminal_expression {
         }
 };
 
+//---------------------------------------------------------------------------
+// Support for vector expressions
+//---------------------------------------------------------------------------
+template <>
+struct is_vector_expr_terminal< vector_terminal >
+    : std::true_type
+{ };
+
+template <typename T>
+struct is_vector_expr_terminal< vector<T> >
+    : std::true_type
+{ };
+
+template <typename T>
+struct kernel_name< vector<T> > {
+    static std::string get() {
+        return "vector_";
+    }
+};
+
+template <typename T>
+struct partial_vector_expr< vector<T> > {
+    static std::string get(int component, int position) {
+        std::ostringstream s;
+        s << "prm_" << component << "_" << position << "[idx]";
+        return s.str();
+    }
+};
+
+template <typename T>
+struct kernel_param_declaration< vector<T> > {
+    static std::string get(int component, int position) {
+        std::ostringstream s;
+        s << "global " << type_name<T>() << " * prm_" << component << "_" << position;
+        return s.str();
+    }
+};
+
+template <typename T>
+struct kernel_arg_setter< vector<T> > {
+    static void set(cl::Kernel &kernel, uint device, size_t/*index_offset*/, uint &position, const vector<T> &term) {
+        kernel.setArg(position++, term(device));
+    }
+};
+
+template <class T>
+struct expression_properties< vector<T> > {
+    static void get(const vector<T> &term,
+            std::vector<cl::CommandQueue> &queue_list,
+            std::vector<size_t> &partition,
+            size_t &size
+            )
+    {
+        queue_list = term.queue_list();
+        partition  = term.partition();
+        size       = term.size();
+    }
+};
+//---------------------------------------------------------------------------
+
 /// Copy device vector to host vector.
 template <class T>
 void copy(const vex::vector<T> &dv, std::vector<T> &hv, cl_bool blocking = CL_TRUE) {
@@ -998,6 +1059,7 @@ struct is_sequence< vex::vector<T> > : std::false_type
 {};
 
 } } }
+
 
 #ifdef WIN32
 #  pragma warning(pop)

@@ -606,16 +606,6 @@ struct is_vector_expr_terminal
 { };
 
 template <>
-struct is_vector_expr_terminal< vector_terminal >
-    : std::true_type
-{ };
-
-template <typename T>
-struct is_vector_expr_terminal< vector<T> >
-    : std::true_type
-{ };
-
-template <>
 struct is_vector_expr_terminal< elem_index >
     : std::true_type
 { };
@@ -736,13 +726,6 @@ struct kernel_name< T, typename std::enable_if<
     }
 };
 
-template <typename T>
-struct kernel_name< vector<T> > {
-    static std::string get() {
-        return "vector_";
-    }
-};
-
 
 // Builds kernel name for a vector expression.
 struct vector_name_context {
@@ -821,15 +804,6 @@ struct partial_vector_expr {
     static std::string get(int component, int position) {
         std::ostringstream s;
         s << "prm_" << component << "_" << position;
-        return s.str();
-    }
-};
-
-template <typename T>
-struct partial_vector_expr< vector<T> > {
-    static std::string get(int component, int position) {
-        std::ostringstream s;
-        s << "prm_" << component << "_" << position << "[idx]";
         return s.str();
     }
 };
@@ -1058,15 +1032,6 @@ struct kernel_param_declaration {
     }
 };
 
-template <typename T>
-struct kernel_param_declaration< vector<T> > {
-    static std::string get(int component, int position) {
-        std::ostringstream s;
-        s << "global " << type_name<T>() << " * prm_" << component << "_" << position;
-        return s.str();
-    }
-};
-
 template <class T>
 struct kernel_param_declaration< T, typename std::enable_if<
         boost::proto::matches<
@@ -1100,13 +1065,6 @@ template <class Term, class Enable = void>
 struct kernel_arg_setter {
     static void set(cl::Kernel &kernel, uint/*device*/, size_t/*index_offset*/, uint &position, const Term &term) {
         kernel.setArg(position++, boost::proto::value(term));
-    }
-};
-
-template <typename T>
-struct kernel_arg_setter< vector<T> > {
-    static void set(cl::Kernel &kernel, uint device, size_t/*index_offset*/, uint &position, const vector<T> &term) {
-        kernel.setArg(position++, term(device));
     }
 };
 
@@ -1145,20 +1103,6 @@ struct expression_properties {
             size_t &/*size*/
             )
     { }
-};
-
-template <class T>
-struct expression_properties< vector<T> > {
-    static void get(const vector<T> &term,
-            std::vector<cl::CommandQueue> &queue_list,
-            std::vector<size_t> &partition,
-            size_t &size
-            )
-    {
-        queue_list = term.queue_list();
-        partition  = term.partition();
-        size       = term.size();
-    }
 };
 
 struct get_expression_properties {
