@@ -30,8 +30,8 @@ int main() {
         Context ctx(Filter::Env && Filter::Count(1));
         std::cerr << ctx << std::endl;
 
-        profile(ctx, {512, 512});
-        profile(ctx, {521, 521});
+        profile(ctx, std::vector<size_t>(2, 512));
+        profile(ctx, std::vector<size_t>(2, 521));
     } catch(cl::Error &e) {
         std::cerr << e << std::endl;
     }
