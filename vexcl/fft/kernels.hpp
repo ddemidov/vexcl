@@ -49,12 +49,6 @@ inline std::ostream &operator<<(std::ostream &o, const pow &p) {
     return o;
 }
 
-/// ceil(x/m) * m
-inline size_t int_ceil(size_t x, size_t m) {
-    return (x + m - 1) / m * m;
-}
-
-
 struct kernel_call {
     bool once;
     size_t count;
@@ -180,7 +174,7 @@ inline kernel_call radix_kernel(bool once, const cl::CommandQueue &queue, size_t
     size_t wg = wg_mul;
     //while(wg * max_cu < max_wg) wg += wg_mul;
     //wg -= wg_mul;
-    const size_t threads = int_ceil(m, wg);
+    const size_t threads = alignup(m, wg);
 
     std::ostringstream desc;
     desc << "dft{r=" << radix << ", p=" << p << ", n=" << n << ", batch=" << batch << ", threads=" << m << "(" << threads << "), wg=" << wg << "}";
@@ -235,8 +229,8 @@ inline kernel_call transpose_kernel(const cl::CommandQueue &queue, size_t width,
     kernel.setArg<cl_uint>(3, height);
 
     // range multiple of wg size, last block maybe not completely filled.
-    size_t r_w = int_ceil(width, block_size);
-    size_t r_h = int_ceil(height, block_size);
+    size_t r_w = alignup(width, block_size);
+    size_t r_h = alignup(height, block_size);
 
     std::ostringstream desc;
     desc << "transpose{"
@@ -344,7 +338,7 @@ inline kernel_call bluestein_mul_in(const cl::CommandQueue &queue, bool inverse,
     kernel.setArg(5, stride);
 
     const size_t wg = kernel.getWorkGroupInfo<CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE>(qdev(queue));
-    const size_t stride_pad = int_ceil(stride, wg);
+    const size_t stride_pad = alignup(stride, wg);
 
     std::ostringstream desc;
     desc << "bluestein_mul_in{batch=" << batch << ", radix=" << radix << ", p=" << p << ", threads=" << threads << ", stride=" << stride << "(" << stride_pad << "), wg=" << wg << "}";
@@ -385,7 +379,7 @@ inline kernel_call bluestein_mul_out(const cl::CommandQueue &queue, cl_uint batc
     kernel.setArg(6, radix);
 
     const size_t wg = kernel.getWorkGroupInfo<CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE>(qdev(queue));
-    const size_t radix_pad = int_ceil(radix, wg);
+    const size_t radix_pad = alignup(radix, wg);
 
     std::ostringstream desc;
     desc << "bluestein_mul_out{r=" << radix << "(" << radix_pad << "), wg=" << wg << ", batch=" << batch << ", p=" << p << ", thr=" << threads << ", stride=" << stride << "}";
@@ -415,7 +409,7 @@ inline kernel_call bluestein_mul(const cl::CommandQueue &queue, cl_uint n, cl_ui
     kernel.setArg(3, n);
 
     const size_t wg = kernel.getWorkGroupInfo<CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE>(qdev(queue));
-    const size_t threads = int_ceil(n, wg);
+    const size_t threads = alignup(n, wg);
 
     std::ostringstream desc;
     desc << "bluestein_mul{n=" << n << "(" << threads << "), wg=" << wg << ", batch=" << batch << "}";

@@ -185,7 +185,7 @@ inline size_t nextpow2(size_t x) {
 
 /// Align n to the next multiple of m.
 inline size_t alignup(size_t n, size_t m = 16U) {
-    return n % m ? n - n % m + m : n;
+    return (n + m - 1) / m * m;
 }
 
 /// Iterate over tuple elements.
