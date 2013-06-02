@@ -183,7 +183,7 @@ inline kernel_call radix_kernel(bool once, const cl::CommandQueue &queue, size_t
     const size_t threads = int_ceil(m, wg);
 
     std::ostringstream desc;
-    desc << "dft{r=" << radix << ", p=" << p << ", n=" << n << ", batch=" << batch << ", threads=" << m << "(" << threads << "), wg=" << wg << ", in=" << in() << ", out=" << out() << "}";
+    desc << "dft{r=" << radix << ", p=" << p << ", n=" << n << ", batch=" << batch << ", threads=" << m << "(" << threads << "), wg=" << wg << "}";
 
     return kernel_call(once, desc.str(), program, kernel, cl::NDRange(threads, batch), cl::NDRange(wg, 1));
 }
@@ -242,7 +242,7 @@ inline kernel_call transpose_kernel(const cl::CommandQueue &queue, size_t width,
     desc << "transpose{"
          << "w=" << width << "(" << r_w << "), "
          << "h=" << height << "(" << r_h << "), "
-         << "bs=" << block_size << ", in=" << in() << ", out=" << out() << "}";
+         << "bs=" << block_size << "}";
 
     return kernel_call(false, desc.str(), program, kernel, cl::NDRange(r_w, r_h),
         cl::NDRange(block_size, block_size));
@@ -268,7 +268,7 @@ inline kernel_call bluestein_twiddle(const cl::CommandQueue &queue, cl_uint n, b
     kernel.setArg(0, out);
 
     std::ostringstream desc;
-    desc << "bluestein_twiddle{n=" << n << ", inverse=" << inverse << ", out=" << out() << "}";
+    desc << "bluestein_twiddle{n=" << n << ", inverse=" << inverse << "}";
     return kernel_call(true, desc.str(), program, kernel, cl::NDRange(n), cl::NullRange);
 }
 
@@ -297,7 +297,7 @@ inline kernel_call bluestein_pad_kernel(const cl::CommandQueue &queue, size_t n,
     kernel.setArg<cl_uint>(3, m);
 
     std::ostringstream desc;
-    desc << "bluestein_pad_kernel{n=" << n << ", m=" << m << ", in=" << in() << ", out=" << out() << "}";
+    desc << "bluestein_pad_kernel{n=" << n << ", m=" << m << "}";
     return kernel_call(true, desc.str(), program, kernel, cl::NDRange(m), cl::NullRange);
 }
 
@@ -340,7 +340,7 @@ inline kernel_call bluestein_mul_in(const cl::CommandQueue &queue, bool inverse,
     kernel.setArg(4, p);
 
     std::ostringstream desc;
-    desc << "bluestein_mul_in{batch=" << batch << ", radix=" << radix << ", p=" << p << ", threads=" << threads << ", stride=" << stride << ", data=" << data() << ", exp=" << exp() << ", out=" << out() << "}";
+    desc << "bluestein_mul_in{batch=" << batch << ", radix=" << radix << ", p=" << p << ", threads=" << threads << ", stride=" << stride << "}";
     return kernel_call(false, desc.str(), program, kernel, cl::NDRange(threads, batch, stride), cl::NullRange);
 }
 
@@ -374,7 +374,7 @@ inline kernel_call bluestein_mul_out(const cl::CommandQueue &queue, cl_uint batc
     kernel.setArg(5, stride);
 
     std::ostringstream desc;
-    desc << "bluestein_mul_out{r=" << radix << ", batch=" << batch << ", p=" << p << ", rx=" << radix << ", thr=" << threads << ", stride=" << stride << ", data=" << data() << ", exp=" << exp() << ", out=" << out() << "}";
+    desc << "bluestein_mul_out{r=" << radix << ", batch=" << batch << ", p=" << p << ", rx=" << radix << ", thr=" << threads << ", stride=" << stride << "}";
     return kernel_call(false, desc.str(), program, kernel, cl::NDRange(threads, batch, radix), cl::NullRange);
 }
 
@@ -399,7 +399,7 @@ inline kernel_call bluestein_mul(const cl::CommandQueue &queue, cl_uint n, cl_ui
     kernel.setArg(2, out);
 
     std::ostringstream desc;
-    desc << "bluestein_mul{n=" << n << ", batch=" << batch << ", data=" << data() << ", exp=" << exp() << ", out=" << out() << "}";
+    desc << "bluestein_mul{n=" << n << ", batch=" << batch << "}";
     return kernel_call(false, desc.str(), program, kernel, cl::NDRange(n, batch), cl::NullRange);
 }
 

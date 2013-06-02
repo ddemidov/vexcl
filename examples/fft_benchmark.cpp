@@ -103,11 +103,7 @@ double test(Context &ctx, cl_float2 *data, size_t n, size_t m) {
         b = fft(a);
     double t = prof.toc("Run");
 
-#ifdef FFT_PROFILE
-    std::cerr << fft.plan.profile;
-#else
     std::cerr << fft.plan;
-#endif
     return t;
 }
 
