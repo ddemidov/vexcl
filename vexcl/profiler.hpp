@@ -230,6 +230,7 @@ class profiler {
          * \param name name of the measured interval.
          */
         void tic_cl(const std::string &name) {
+            assert(!queue.empty());
             tic(new cl_profile_unit(name, queue));
         }
 
