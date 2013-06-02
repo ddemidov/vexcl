@@ -69,6 +69,7 @@ class profiler {
                 profile_unit(std::string name) : length(0), hit(0), name(name) {}
                 virtual ~profile_unit() {}
 
+                std::vector<double> deltas;
                 double length;
                 size_t hit;
                 std::string name;
@@ -88,6 +89,8 @@ class profiler {
                             boost::chrono::high_resolution_clock::now() - start).count();
 
                     length += delta;
+                    deltas.push_back(delta);
+                    std::stable_sort(deltas.begin(), deltas.end());
                     hit++;
 
                     return delta;
@@ -150,7 +153,13 @@ class profiler {
                         << std::fixed
                         << setw(10) << setprecision(3) << time << " sec."
                         << "] (" << setprecision(2) << setw(6) << perc << "%)";
-                    if(hit > 1) out << " (" << hit << "x)";
+                    if(hit > 1)
+                        out << " (" << setw(6) << hit
+                            << "x; mean:"
+                            << setprecision(2) << setw(10) << (time * 1e6 / hit)
+                            << "; med:"
+                            << setw(10) << (deltas[(deltas.size() - 1) / 2] * 1e6)
+                            << " usec.)";
                     out << endl;
                 }
             private:
