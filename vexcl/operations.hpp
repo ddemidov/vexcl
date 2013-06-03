@@ -66,10 +66,6 @@ namespace assign {
         static std::string string() { \
             return #op; \
         } \
-        template <class LHS, class RHS> \
-        static void apply(LHS &lhs, const RHS &rhs) { \
-            lhs op rhs; \
-        } \
     };
 
     ASSIGN_OP(SET, =);
