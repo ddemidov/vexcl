@@ -169,4 +169,40 @@ BOOST_AUTO_TEST_CASE(element_index)
             });
 }
 
+BOOST_AUTO_TEST_CASE(compound_assignment)
+{
+    const size_t n = 1024;
+    const size_t m = 2;
+
+    typedef std::array<double, m> elem_t;
+
+    vex::multivector<double, m> x(ctx, n);
+    vex::multivector<double, m> y(ctx, random_vector<double>(n * m));
+
+    x = 0;
+
+    x += sin(2 * y);
+
+    check_sample(x, y, [](size_t, elem_t a, elem_t b) {
+            for(size_t i = 0; i < m; ++i)
+                BOOST_CHECK_CLOSE(a[i], sin(2 * b[i]), 1e-8);
+            });
+
+    x = 0;
+    x -= sin(2 * y);
+
+    check_sample(x, y, [](size_t, elem_t a, elem_t b) {
+            for(size_t i = 0; i < m; ++i)
+                BOOST_CHECK_CLOSE(a[i], -sin(2 * b[i]), 1e-8);
+            });
+
+    x = 1;
+    x *= std::tie(y(1), sin(y(0)));
+
+    check_sample(x, y, [](size_t, elem_t a, elem_t b) {
+            BOOST_CHECK_CLOSE(a[0], b[1], 1e-8);
+            BOOST_CHECK_CLOSE(a[1], sin(b[0]), 1e-8);
+            });
+}
+
 BOOST_AUTO_TEST_SUITE_END()

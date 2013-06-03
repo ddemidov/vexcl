@@ -188,6 +188,27 @@ inline size_t alignup(size_t n, size_t m = 16U) {
     return (n + m - 1) / m * m;
 }
 
+
+template <class T>
+struct is_tuple : std::false_type {};
+
+#ifndef BOOST_NO_VARIADIC_TEMPLATES
+template <class... Elem>
+struct is_tuple < std::tuple<Elem...> > : std::true_type {};
+#else
+
+#define TUPLE_SPEC(z, n, unused)                                \
+  template <BOOST_PP_ENUM_PARAMS(n, class Elem)>                \
+  struct is_tuple< std::tuple <                                 \
+      BOOST_PP_ENUM_PARAMS(n, Elem)                             \
+  > > : mpl::int_<n> {};
+
+BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, TUPLE_SPEC, ~)
+
+#undef TUPLE_SPEC
+
+#endif
+
 /// Iterate over tuple elements.
 template <size_t I, class Function, class Tuple>
 typename std::enable_if<(I == std::tuple_size<Tuple>::value), void>::type
@@ -203,6 +224,29 @@ for_each(const Tuple &v, Function &f)
 
     for_each<I + 1>(v, f);
 }
+
+// Static for loop
+template <long Begin, long End>
+class static_for {
+    public:
+        template <class Func>
+        static void loop(Func &&f) {
+            iterate<Begin>(f);
+        }
+
+    private:
+        template <long I, class Func>
+        static typename std::enable_if<(I < End)>::type
+        iterate(Func &&f) {
+            f.template apply<I>();
+            iterate<I + 1>(f);
+        }
+
+        template <long I, class Func>
+        static typename std::enable_if<(I >= End)>::type
+        iterate(Func&&)
+        { }
+};
 
 /// Shortcut for q.getInfo<CL_QUEUE_CONTEXT>()
 inline cl::Context qctx(const cl::CommandQueue& q) {

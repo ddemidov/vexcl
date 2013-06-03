@@ -531,7 +531,6 @@ class vector : public vector_terminal_expression {
             return part;
         }
 
-        /// Copies data from device vector.
         const vector& operator=(const vector &x) {
             if (&x != this) {
                 for(uint d = 0; d < queue.size(); d++)
@@ -808,8 +807,6 @@ class vector : public vector_terminal_expression {
                 if (kernel == cache.end()) {
                     std::ostringstream source;
 
-                    vector_expr_context expr_ctx(source);
-
                     std::ostringstream kernel_name;
                     vector_name_context name_ctx(kernel_name);
                     boost::proto::eval(boost::proto::as_child(expr), name_ctx);
@@ -842,6 +839,7 @@ class vector : public vector_terminal_expression {
 
                     source << "\t\tres[idx] " << OP::string() << " ";
 
+                    vector_expr_context expr_ctx(source);
                     boost::proto::eval(boost::proto::as_child(expr), expr_ctx);
 
                     source << ";\n\t}\n}\n";
@@ -875,6 +873,9 @@ class vector : public vector_terminal_expression {
                 }
             }
         }
+
+        template <typename S, size_t N, bool own>
+        friend class multivector;
 };
 
 //---------------------------------------------------------------------------

@@ -327,203 +327,33 @@ class multivector : public multivector_terminal_expression {
          * @{
          * All operations are delegated to components of the multivector.
          */
-        template <class Expr>
-        typename std::enable_if<
-            boost::proto::matches<
-                typename boost::proto::result_of::as_expr<Expr>::type,
-                multivector_expr_grammar
-            >::value,
-            const multivector&
-        >::type
-        operator=(const Expr& expr) {
-            static kernel_cache cache;
-
-            const std::vector<cl::CommandQueue> &queue = vec[0]->queue_list();
-
-            // If any device in context is CPU, then do not fuse the kernel,
-            // but assign components individually.
-            if (std::any_of(queue.begin(), queue.end(), [](const cl::CommandQueue &q) { return is_cpu(qdev(q)); })) {
-                assign_subexpressions<0, N>(boost::proto::as_child(expr));
-                return *this;
-            }
-
-            for(uint d = 0; d < queue.size(); d++) {
-                cl::Context context = qctx(queue[d]);
-                cl::Device  device  = qdev(queue[d]);
-
-                auto kernel = cache.find( context() );
-
-                if (kernel == cache.end()) {
-                    std::ostringstream kernel_name;
-                    kernel_name << "multi_";
-                    vector_name_context name_ctx(kernel_name);
-                    boost::proto::eval(boost::proto::as_child(expr), name_ctx);
-
-                    std::ostringstream source;
-                    source << standard_kernel_header(device);
-
-                    construct_preamble(expr, source);
-
-                    source << "kernel void " << kernel_name.str()
-                           << "(\n\t" << type_name<size_t>() << " n";
-
-                    for(size_t i = 0; i < N; )
-                        source << ",\n\tglobal " << type_name<T>()
-                               << " *res_" << ++i;
-
-                    build_param_list<N>(boost::proto::as_child(expr), source);
-
-                    source <<
-                        "\n)\n{\n"
-                        "\tfor(size_t idx = get_global_id(0); idx < n; idx += get_global_size(0)) {\n";
-
-                    build_expr_list(boost::proto::as_child(expr), source);
-
-                    source << "\t}\n}\n";
-
-                    auto program = build_sources(context, source.str());
-
-                    cl::Kernel krn(program, kernel_name.str().c_str());
-                    size_t wgs = kernel_workgroup_size(krn, device);
-
-                    kernel = cache.insert(std::make_pair(
-                                context(), kernel_cache_entry(krn, wgs)
-                                )).first;
-                }
-
-                if (size_t psize = vec[0]->part_size(d)) {
-                    size_t w_size = kernel->second.wgsize;
-                    size_t g_size = num_workgroups(device) * w_size;
-
-                    uint pos = 0;
-                    kernel->second.kernel.setArg(pos++, psize);
-
-                    for(uint i = 0; i < N; i++)
-                        kernel->second.kernel.setArg(pos++, vec[i]->operator()(d));
-
-                    set_kernel_args<N>(
-                            boost::proto::as_child(expr),
-                            kernel->second.kernel, d, pos, vec[0]->part_start(d)
-                            );
-
-                    queue[d].enqueueNDRangeKernel(
-                            kernel->second.kernel, cl::NullRange, g_size, w_size
-                            );
-                }
-            }
-
-            return *this;
+#define ASSIGNMENT(cop, op) \
+        template <class Expr> \
+        typename std::enable_if< \
+            boost::proto::matches< \
+                typename boost::proto::result_of::as_expr<Expr>::type, \
+                multivector_expr_grammar \
+            >::value || is_tuple<Expr>::value, \
+            const multivector& \
+        >::type \
+        operator cop(const Expr &expr) { \
+            assign_expression<op>(expr); \
+            return *this; \
         }
 
-        /// Multi-expression assignments.
-#ifndef BOOST_NO_VARIADIC_TEMPLATES
-        template <class... Args>
-        typename std::enable_if<N == sizeof...(Args), const multivector&>::type
-        operator=(const std::tuple<Args...> &expr) {
-#else
-        template <class ExprTuple>
-        typename std::enable_if<
-            !boost::proto::matches<
-                typename boost::proto::result_of::as_expr<ExprTuple>::type,
-                multivector_full_grammar
-            >::value
-#if !defined(_MSC_VER) || _MSC_VER >= 1700
-            && N == std::tuple_size<ExprTuple>::value
-#endif
-            , const multivector&
-        >::type
-        operator=(const ExprTuple &expr) {
-#endif
-            static kernel_cache cache;
+        ASSIGNMENT(=,   assign::SET);
+        ASSIGNMENT(+=,  assign::ADD);
+        ASSIGNMENT(-=,  assign::SUB);
+        ASSIGNMENT(*=,  assign::MUL);
+        ASSIGNMENT(/=,  assign::DIV);
+        ASSIGNMENT(%=,  assign::MOD);
+        ASSIGNMENT(&=,  assign::AND);
+        ASSIGNMENT(|=,  assign::OR);
+        ASSIGNMENT(^=,  assign::XOR);
+        ASSIGNMENT(<<=, assign::LSH);
+        ASSIGNMENT(>>=, assign::RSH);
 
-            const std::vector<cl::CommandQueue> &queue = vec[0]->queue_list();
-
-            for(uint d = 0; d < queue.size(); d++) {
-                cl::Context context = qctx(queue[d]);
-                cl::Device  device  = qdev(queue[d]);
-
-                auto kernel = cache.find( context() );
-
-                if (kernel == cache.end()) {
-                    std::ostringstream source;
-
-                    source << standard_kernel_header(device);
-
-                    {
-                        get_header f(source);
-                        for_each<0>(expr, f);
-                    }
-
-                    source <<
-                        "kernel void multi_expr_tuple(\n"
-                        "\t" << type_name<size_t>() << " n";
-
-                    for(uint i = 1; i <= N; i++)
-                        source << ",\n\tglobal " << type_name<T>() << " *res_" << i;
-
-                    {
-                        get_params f(source);
-                        for_each<0>(expr, f);
-                    }
-
-                    source << "\n)\n{\n";
-
-                    if ( is_cpu(device) ) {
-                        source <<
-                            "\tsize_t chunk_size  = (n + get_global_size(0) - 1) / get_global_size(0);\n"
-                            "\tsize_t chunk_start = get_global_id(0) * chunk_size;\n"
-                            "\tsize_t chunk_end   = min(n, chunk_start + chunk_size);\n"
-                            "\tfor(size_t idx = chunk_start; idx < chunk_end; ++idx) {\n";
-                    } else {
-                        source <<
-                            "\tfor(size_t idx = get_global_id(0); idx < n; idx += get_global_size(0)) {\n";
-                    }
-
-                    {
-                        get_expressions f(source);
-                        for_each<0>(expr, f);
-                    }
-
-                    source << "\n";
-
-                    for(uint i = 1; i <= N; i++)
-                        source << "\t\tres_" << i << "[idx] = buf_" << i << ";\n";
-
-                    source << "\t}\n}\n";
-
-                    auto program = build_sources(context, source.str());
-
-                    cl::Kernel krn(program, "multi_expr_tuple");
-                    size_t wgs = kernel_workgroup_size(krn, device);
-
-                    kernel = cache.insert(std::make_pair(
-                                context(), kernel_cache_entry(krn, wgs)
-                                )).first;
-                }
-
-                if (size_t psize = vec[0]->part_size(d)) {
-                    size_t w_size = kernel->second.wgsize;
-                    size_t g_size = num_workgroups(device) * w_size;
-
-                    uint pos = 0;
-                    kernel->second.kernel.setArg(pos++, psize);
-
-                    for(uint i = 0; i < N; i++)
-                        kernel->second.kernel.setArg(pos++, (*vec[i])(d));
-
-                    {
-                        set_arguments f(kernel->second.kernel, d, pos, vec[0]->part_start(d));
-                        for_each<0>(expr, f);
-                    }
-
-                    queue[d].enqueueNDRangeKernel(
-                            kernel->second.kernel, cl::NullRange, g_size, w_size
-                            );
-                }
-            }
-
-            return *this;
-        }
+#undef ASSIGNMENT
 
         template <class Expr>
         typename std::enable_if<
@@ -543,6 +373,34 @@ class multivector : public multivector_terminal_expression {
         typename std::enable_if<
             boost::proto::matches<
                 typename boost::proto::result_of::as_expr<Expr>::type,
+                additive_multivector_transform_grammar
+            >::value,
+            const multivector&
+        >::type
+        operator+=(const Expr &expr) {
+            apply_additive_transform</*append=*/true>(*this,
+                    simplify_additive_transform()( expr ));
+            return *this;
+        }
+
+        template <class Expr>
+        typename std::enable_if<
+            boost::proto::matches<
+                typename boost::proto::result_of::as_expr<Expr>::type,
+                additive_multivector_transform_grammar
+            >::value,
+            const multivector&
+        >::type
+        operator-=(const Expr &expr) {
+            apply_additive_transform</*append=*/true>(*this,
+                    simplify_additive_transform()( -expr ));
+            return *this;
+        }
+
+        template <class Expr>
+        typename std::enable_if<
+            boost::proto::matches<
+                typename boost::proto::result_of::as_expr<Expr>::type,
                 multivector_full_grammar
             >::value &&
             !boost::proto::matches<
@@ -556,58 +414,60 @@ class multivector : public multivector_terminal_expression {
             const multivector&
         >::type
         operator=(const Expr &expr) {
-            *this = extract_multivector_expressions()( expr );
+            *this  = extract_multivector_expressions()( expr );
+            *this += extract_additive_multivector_transforms()( expr );
 
-            apply_additive_transform</*append=*/true>(*this,
-                    simplify_additive_transform()(
-                        extract_additive_multivector_transforms()( expr )
-                        )
-                    );
             return *this;
         }
 
-#define COMPOUND_ASSIGNMENT(cop, op) \
-        template <class Expr> \
-        const multivector& operator cop(const Expr &expr) { \
-            return *this = *this op expr; \
+        template <class Expr>
+        typename std::enable_if<
+            boost::proto::matches<
+                typename boost::proto::result_of::as_expr<Expr>::type,
+                multivector_full_grammar
+            >::value &&
+            !boost::proto::matches<
+                typename boost::proto::result_of::as_expr<Expr>::type,
+                multivector_expr_grammar
+            >::value &&
+            !boost::proto::matches<
+                typename boost::proto::result_of::as_expr<Expr>::type,
+                additive_multivector_transform_grammar
+            >::value,
+            const multivector&
+        >::type
+        operator+=(const Expr &expr) {
+            *this += extract_multivector_expressions()( expr );
+            *this += extract_additive_multivector_transforms()( expr );
+
+            return *this;
         }
 
-        COMPOUND_ASSIGNMENT(+=, +);
-        COMPOUND_ASSIGNMENT(-=, -);
-        COMPOUND_ASSIGNMENT(*=, *);
-        COMPOUND_ASSIGNMENT(/=, /);
-        COMPOUND_ASSIGNMENT(%=, %);
-        COMPOUND_ASSIGNMENT(&=, &);
-        COMPOUND_ASSIGNMENT(|=, |);
-        COMPOUND_ASSIGNMENT(^=, ^);
-        COMPOUND_ASSIGNMENT(<<=, <<);
-        COMPOUND_ASSIGNMENT(>>=, >>);
+        template <class Expr>
+        typename std::enable_if<
+            boost::proto::matches<
+                typename boost::proto::result_of::as_expr<Expr>::type,
+                multivector_full_grammar
+            >::value &&
+            !boost::proto::matches<
+                typename boost::proto::result_of::as_expr<Expr>::type,
+                multivector_expr_grammar
+            >::value &&
+            !boost::proto::matches<
+                typename boost::proto::result_of::as_expr<Expr>::type,
+                additive_multivector_transform_grammar
+            >::value,
+            const multivector&
+        >::type
+        operator-=(const Expr &expr) {
+            *this -= extract_multivector_expressions()( expr );
+            *this -= extract_additive_multivector_transforms()( expr );
 
-#undef COMPOUND_ASSIGNMENT
+            return *this;
+        }
 
         /** @} */
     private:
-        template <size_t I, class Expr>
-            typename std::enable_if<I == N>::type
-            expr_list_loop(const Expr &, std::ostream &) { }
-
-        template <size_t I, class Expr>
-            typename std::enable_if<I < N>::type
-            expr_list_loop(const Expr &expr, std::ostream &os) {
-                multivector_expr_context<N, I> ctx(os);
-                os << "\t\tres_" << I + 1 << "[idx] = ";
-                boost::proto::eval(expr, ctx);
-                os << ";\n";
-
-                expr_list_loop<I+1, Expr>(expr, os);
-            }
-
-        template <class Expr>
-            void build_expr_list(const Expr &expr, std::ostream &os) {
-                expr_list_loop<0, Expr>(expr, os);
-            }
-
-
         template <bool own_components>
         typename std::enable_if<own_components,void>::type
         copy_components(const multivector &mv) {
@@ -622,75 +482,183 @@ class multivector : public multivector_terminal_expression {
                 vec[i] = mv.vec[i];
         }
 
-        struct get_header {
-            std::ostream &os;
-            mutable int cmp_idx;
+        template <class OP, class Expr>
+        struct subexpression_assigner {
+            multivector &result;
+            const Expr &expr;
 
-            get_header(std::ostream &os) : os(os), cmp_idx(0) {}
+            subexpression_assigner(multivector &result, const Expr &expr)
+                : result(result), expr(expr) { }
 
-            template <class Expr>
-            void operator()(const Expr &expr) const {
-                construct_preamble(expr, os, ++cmp_idx);
+            template <long I>
+            void apply() const {
+                result(I).assign_expression<OP>(subexpression<I>::get(expr));
             }
         };
 
-        struct get_params {
-            std::ostream &os;
-            mutable int cmp_idx;
+        template <class Expr>
+        struct preamble_constructor {
+            const Expr   &expr;
+            std::ostream &source;
 
-            get_params(std::ostream &os) : os(os), cmp_idx(0) {}
+            preamble_constructor(const Expr &expr, std::ostream &source)
+                : expr(expr), source(source) { }
 
-            template <class Expr>
-            void operator()(const Expr &expr) const {
+            template <long I>
+            void apply() const {
+                construct_preamble(subexpression<I>::get(expr), source, I + 1);
+            }
+        };
+
+        template <class Expr>
+        struct parameter_declarator {
+            const Expr   &expr;
+            std::ostream &source;
+
+            parameter_declarator(const Expr &expr, std::ostream &source)
+                : expr(expr), source(source) { }
+
+            template <long I>
+            void apply() const {
                 extract_terminals()(
-                        boost::proto::as_child(expr),
-                        declare_expression_parameter(os, ++cmp_idx)
+                        boost::proto::as_child(subexpression<I>::get(expr)),
+                        declare_expression_parameter(source, I + 1)
                         );
             }
         };
 
-        struct get_expressions {
-            std::ostream &os;
-            mutable int cmp_idx;
+        template <class Expr>
+        struct expression_builder {
+            const Expr   &expr;
+            std::ostream &source;
 
-            get_expressions(std::ostream &os) : os(os), cmp_idx(0) {}
+            expression_builder(const Expr &expr, std::ostream &source)
+                : expr(expr), source(source) { }
 
-            template <class Expr>
-            void operator()(const Expr &expr) const {
-                vector_expr_context ctx(os, ++cmp_idx);
-                os << "\t\t" << type_name<T>() << " buf_" << cmp_idx << " = ";
-                boost::proto::eval(boost::proto::as_child(expr), ctx);
-                os << ";\n";
+            template <long I>
+            void apply() const {
+                source << "\t\t" << type_name<T>() << " buf_" << I + 1 << " = ";
+
+                vector_expr_context expr_ctx(source, I + 1);
+                boost::proto::eval(
+                        boost::proto::as_child(subexpression<I>::get(expr)),
+                        expr_ctx);
+
+                source << ";\n";
             }
         };
 
-        struct set_arguments {
-            cl::Kernel &krn;
-            uint d, &pos;
-            size_t part_start;
+        template <class Expr>
+        struct kernel_arg_setter {
+            const Expr   &expr;
+            cl::Kernel   &krn;
+            unsigned     dev;
+            size_t       offset;
+            unsigned     &pos;
 
-            set_arguments(cl::Kernel &krn, uint d, uint &pos, size_t part_start)
-                : krn(krn), d(d), pos(pos), part_start(part_start) {}
+            kernel_arg_setter(const Expr &expr, cl::Kernel &krn, unsigned dev, size_t offset, unsigned &pos)
+                : expr(expr), krn(krn), dev(dev), offset(offset), pos(pos) { }
 
-            template <class Expr>
-            void operator()(const Expr &expr) const {
-                extract_terminals()(
-                        boost::proto::as_child(expr),
-                        set_expression_argument(krn, d, pos, part_start)
+            template <long I>
+            void apply() const {
+                    extract_terminals()(
+                            boost::proto::as_child(subexpression<I>::get(expr)),
+                            set_expression_argument(krn, dev, pos, offset)
+                            );
+
+            }
+        };
+
+        template <class OP, class Expr>
+        void assign_expression(const Expr &expr) {
+            static kernel_cache cache;
+
+            const std::vector<cl::CommandQueue> &queue = vec[0]->queue_list();
+
+            // If any device in context is CPU, then do not fuse the kernel,
+            // but assign components individually.
+            if (
+                    std::any_of(queue.begin(), queue.end(),
+                        [](const cl::CommandQueue &q) {
+                            return is_cpu(qdev(q));\
+                        })
+               )
+            {
+                static_for<0, N>::loop(
+                        subexpression_assigner<OP, Expr>(*this, expr)
                         );
             }
-        };
 
-        template <size_t I, size_t M, class Expr>
-        typename std::enable_if<I == M, void>::type
-        assign_subexpressions(const Expr &)
-        { }
+            for(uint d = 0; d < queue.size(); d++) {
+                cl::Context context = qctx(queue[d]);
+                cl::Device  device  = qdev(queue[d]);
 
-        template <size_t I, size_t M, class Expr>
-        typename std::enable_if<(I < M), void>::type
-        assign_subexpressions(const Expr &expr) {
-            (*vec[I]) = extract_subexpression<I>()(expr);
-            assign_subexpressions<I + 1, M>(expr);
+                auto kernel = cache.find( context() );
+
+                if (kernel == cache.end()) {
+                    std::ostringstream source;
+
+                    source << standard_kernel_header(device);
+
+                    static_for<0, N>::loop(
+                            preamble_constructor<Expr>(expr, source)
+                            );
+
+                    source << "kernel void multiex_kernel(\n\t"
+                           << type_name<size_t>() << " n";
+
+                    for(size_t i = 0; i < N; )
+                        source << ",\n\tglobal " << type_name<T>()
+                               << " *res_" << ++i;
+
+                    static_for<0, N>::loop(
+                            parameter_declarator<Expr>(expr, source)
+                            );
+
+                    source <<
+                        "\n)\n{\n"
+                        "\tfor(size_t idx = get_global_id(0); idx < n; idx += get_global_size(0)) {\n";
+
+                    static_for<0, N>::loop(
+                            expression_builder<Expr>(expr, source)
+                            );
+
+                    source << "\n";
+
+                    for(uint i = 1; i <= N; ++i)
+                        source << "\t\tres_" << i << "[idx] " << OP::string() << " buf_" << i << ";\n";
+
+                    source << "\t}\n}\n";
+
+                    auto program = build_sources(context, source.str());
+
+                    cl::Kernel krn(program, "multiex_kernel");
+                    size_t wgs = kernel_workgroup_size(krn, device);
+
+                    kernel = cache.insert(std::make_pair(
+                                context(), kernel_cache_entry(krn, wgs)
+                                )).first;
+                }
+
+                if (size_t psize = vec[0]->part_size(d)) {
+                    size_t w_size = kernel->second.wgsize;
+                    size_t g_size = num_workgroups(device) * w_size;
+
+                    uint pos = 0;
+                    kernel->second.kernel.setArg(pos++, psize);
+
+                    for(uint i = 0; i < N; i++)
+                        kernel->second.kernel.setArg(pos++, vec[i]->operator()(d));
+
+                    static_for<0, N>::loop(
+                            kernel_arg_setter<Expr>(expr, kernel->second.kernel, d, vec[0]->part_start(d), pos)
+                            );
+
+                    queue[d].enqueueNDRangeKernel(
+                            kernel->second.kernel, cl::NullRange, g_size, w_size
+                            );
+                }
+            }
         }
 
         std::array<typename multivector_storage<T, own>::type,N> vec;
