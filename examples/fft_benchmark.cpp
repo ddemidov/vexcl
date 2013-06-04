@@ -97,7 +97,7 @@ double test(Context &ctx, cl_float2 *data, size_t n, size_t m) {
     FFT<cl_float2> fft(ctx, sz);
 
     // Run some
-    profiler prof;
+    profiler prof(ctx);
     prof.tic_cl("Run");
     for(size_t i = 0 ; i < runs ; i++)
         b = fft(a);
@@ -132,7 +132,7 @@ int main() {
     vex::fft::prime_generator prime;
     for(size_t n = 2, k = prime() ; n <= max_len ; n *= 2) {
         ns.push_back(n);
-        while(k < n) k = prime();
+        while(k <= n) k = prime();
         if(k <= max_len) ns.push_back(k);
     }
 
