@@ -492,7 +492,7 @@ class multivector : public multivector_terminal_expression {
 
             template <long I>
             void apply() const {
-                result(I).assign_expression<OP>(subexpression<I>::get(expr));
+                result(I).template assign_expression<OP>(subexpression<I>::get(expr));
             }
         };
 
