@@ -198,7 +198,7 @@ struct expression_properties< tagged_terminal<Tag, Term> > {
 };
 /// \endcond
 
-/// Taggs terminal with a unique (in a single expression) tag.
+/// Tags terminal with a unique (in a single expression) tag.
 /**
  * By tagging terminals user guarantees that the terminals with same tags
  * actually refer to the same data. VexCL is able to use this information in
