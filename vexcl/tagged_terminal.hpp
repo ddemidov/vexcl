@@ -33,6 +33,7 @@ THE SOFTWARE.
 
 namespace vex {
 
+/// \cond INTERNAL
 struct tagged_terminal_terminal {};
 
 typedef vector_expression<
@@ -195,14 +196,14 @@ struct expression_properties< tagged_terminal<Tag, Term> > {
         expression_properties<TermType>::get(boost::proto::as_child(term.term), queue_list, partition, size);
     }
 };
-
+/// \endcond
 
 /// Taggs terminal with a unique (in a single expression) tag.
 /**
- * By tagging terminals with same tags user guarantees that the terminals
- * actually refer to the same data. VexCL should be able to use this
- * information to reduce number of kernel parameters and unnecessary global
- * memory I/O.
+ * By tagging terminals user guarantees that the terminals with same tags
+ * actually refer to the same data. VexCL is able to use this information in
+ * order to reduce number of kernel parameters and unnecessary global memory
+ * I/O operations.
  *
  * Example:
  * \code
@@ -210,7 +211,14 @@ struct expression_properties< tagged_terminal<Tag, Term> > {
  * \endcode
  */
 template <size_t Tag, class Expr>
-tagged_terminal<Tag, Expr> tag(const Expr &expr) {
+typename std::enable_if<
+    boost::proto::matches<
+        typename boost::proto::result_of::as_expr<Expr>::type,
+        boost::proto::terminal<boost::proto::_>
+    >::value,
+    tagged_terminal<Tag, Expr>
+>::type
+tag(const Expr &expr) {
     return tagged_terminal<Tag, Expr>(expr);
 }
 
