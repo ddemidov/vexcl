@@ -968,10 +968,13 @@ struct declare_user_function {
 // But most of them do not:
 template <class T>
 struct terminal_preamble {
-    static std::string get(int/*component*/, int/*position*/) { return ""; }
+    static std::string get(int/*component*/, int/*position*/, kernel_generator_state&)
+    {
+        return "";
+    }
 };
 
-struct output_terminal_preamble {
+struct output_terminal_preamble : expression_context {
     std::ostream &os;
     int cmp_idx;
     mutable int prm_idx;
@@ -981,7 +984,7 @@ struct output_terminal_preamble {
 
         template <class Term>
         void operator()(const Term&) const {
-            os << terminal_preamble<Term>::get(cmp_idx, ++prm_idx) << std::endl;
+            os << terminal_preamble<Term>::get(cmp_idx, ++prm_idx, state) << std::endl;
         }
 };
 
@@ -1004,8 +1007,8 @@ template <class Term, class Enable = void>
 struct kernel_param_declaration {
     static std::string get(int component, int position, kernel_generator_state&) {
         std::ostringstream s;
-        s << type_name<typename boost::proto::result_of::value<Term>::type>()
-          << ",\n\t prm_" << component << "_" << position;
+        s << ",\n\t" << type_name<typename boost::proto::result_of::value<Term>::type>()
+          << " prm_" << component << "_" << position;
         return s.str();
     }
 };

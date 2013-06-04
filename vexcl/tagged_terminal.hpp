@@ -52,6 +52,38 @@ struct is_vector_expr_terminal< tagged_terminal_terminal >
 { };
 
 template <size_t Tag, class Term>
+struct terminal_preamble< tagged_terminal<Tag, Term> > {
+    static std::string get(int component, int position, kernel_generator_state &state) {
+        auto s = state.find("tagged_terminal");
+
+        if (s == state.end()) {
+            s = state.insert(std::make_pair(
+                        std::string("tagged_terminal"),
+                        boost::any(std::map<size_t, int>())
+                        )).first;
+        }
+
+        auto &pos = boost::any_cast< std::map<size_t, int>& >(s->second);
+        auto p = pos.find(Tag);
+
+        typedef
+            typename boost::remove_const<
+                typename boost::remove_reference<
+                    typename boost::proto::result_of::as_child<Term>::type
+                >::type
+            >::type TermType;
+
+        if (p == pos.end()) {
+            pos[Tag] = position;
+
+            return terminal_preamble<TermType>::get(component, position, state);
+        } else {
+            return "";
+        }
+    }
+};
+
+template <size_t Tag, class Term>
 struct kernel_param_declaration< tagged_terminal<Tag, Term> > {
     static std::string get(int component, int position, kernel_generator_state &state) {
         auto s = state.find("tagged_terminal");
@@ -66,9 +98,17 @@ struct kernel_param_declaration< tagged_terminal<Tag, Term> > {
         auto &pos = boost::any_cast< std::map<size_t, int>& >(s->second);
         auto p = pos.find(Tag);
 
+        typedef
+            typename boost::remove_const<
+                typename boost::remove_reference<
+                    typename boost::proto::result_of::as_child<Term>::type
+                >::type
+            >::type TermType;
+
         if (p == pos.end()) {
             pos[Tag] = position;
-            return kernel_param_declaration<Term>::get(component, position, state);
+
+            return kernel_param_declaration<TermType>::get(component, position, state);
         } else {
             return "";
         }
@@ -90,11 +130,18 @@ struct partial_vector_expr< tagged_terminal<Tag, Term> > {
         auto &pos = boost::any_cast< std::map<size_t, int>& >(s->second);
         auto p = pos.find(Tag);
 
+        typedef
+            typename boost::remove_const<
+                typename boost::remove_reference<
+                    typename boost::proto::result_of::as_child<Term>::type
+                >::type
+            >::type TermType;
+
         if (p == pos.end()) {
             pos[Tag] = position;
-            return partial_vector_expr<Term>::get(component, position, state);
+            return partial_vector_expr<TermType>::get(component, position, state);
         } else {
-            return partial_vector_expr<Term>::get(component, p->second, state);
+            return partial_vector_expr<TermType>::get(component, p->second, state);
         }
     }
 };
@@ -116,9 +163,16 @@ struct kernel_arg_setter< tagged_terminal<Tag, Term> > {
         auto &pos = boost::any_cast< std::map<size_t, uint>& >(s->second);
         auto p = pos.find(Tag);
 
+        typedef
+            typename boost::remove_const<
+                typename boost::remove_reference<
+                    decltype(boost::proto::as_child(term.term))
+                >::type
+            >::type TermType;
+
         if (p == pos.end()) {
             pos[Tag] = position;
-            kernel_arg_setter<Term>::set(kernel, device, index_offset, position, term.term, state);
+            kernel_arg_setter<TermType>::set(kernel, device, index_offset, position, boost::proto::as_child(term.term), state);
         }
     }
 };
@@ -131,7 +185,14 @@ struct expression_properties< tagged_terminal<Tag, Term> > {
             size_t &size
             )
     {
-        expression_properties<Term>::get(term.term, queue_list, partition, size);
+        typedef
+            typename boost::remove_const<
+                typename boost::remove_reference<
+                    decltype(boost::proto::as_child(term.term))
+                >::type
+            >::type TermType;
+
+        expression_properties<TermType>::get(boost::proto::as_child(term.term), queue_list, partition, size);
     }
 };
 

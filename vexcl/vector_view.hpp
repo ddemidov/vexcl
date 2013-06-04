@@ -79,7 +79,7 @@ struct partial_vector_expr< vector_view<T, Slice> > {
 
 template <typename T, class Slice>
 struct terminal_preamble< vector_view<T, Slice> > {
-    static std::string get(int component, int position) {
+    static std::string get(int component, int position, kernel_generator_state&) {
         return Slice::indexing_function(component, position);
     }
 };
