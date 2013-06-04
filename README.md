@@ -232,9 +232,8 @@ The drawback of the latter variant is that `X` and `Y` will be read _twice_.
 Code snippet from the last paragraph is ineffective because compiler can not
 tell if any two terminals in an expression tree are actually referring to the
 same data. But programmers often have this information. VexCL allows to pass
-this knowledge to compiler by tagging terminals that with unique tags.
-Programmer guarantees that any two terminals with matching tags are referencing
-same data.
+this knowledge to compiler by tagging terminals with unique tags.  Programmer
+guarantees that any two terminals with matching tags are referencing same data.
 
 Below is more effective variant of the above example:
 ~~~{.cpp}
