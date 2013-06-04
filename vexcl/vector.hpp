@@ -900,7 +900,7 @@ struct kernel_name< vector<T> > {
 
 template <typename T>
 struct partial_vector_expr< vector<T> > {
-    static std::string get(int component, int position) {
+    static std::string get(int component, int position, kernel_generator_state&) {
         std::ostringstream s;
         s << "prm_" << component << "_" << position << "[idx]";
         return s.str();
@@ -909,16 +909,18 @@ struct partial_vector_expr< vector<T> > {
 
 template <typename T>
 struct kernel_param_declaration< vector<T> > {
-    static std::string get(int component, int position) {
+    static std::string get(int component, int position, kernel_generator_state&) {
         std::ostringstream s;
-        s << "global " << type_name<T>() << " * prm_" << component << "_" << position;
+        s << ",\n\tglobal " << type_name<T>() << " * prm_" << component << "_" << position;
         return s.str();
     }
 };
 
 template <typename T>
 struct kernel_arg_setter< vector<T> > {
-    static void set(cl::Kernel &kernel, uint device, size_t/*index_offset*/, uint &position, const vector<T> &term) {
+    static void set(cl::Kernel &kernel, uint device, size_t/*index_offset*/,
+            uint &position, const vector<T> &term, kernel_generator_state&)
+    {
         kernel.setArg(position++, term(device));
     }
 };

@@ -40,6 +40,7 @@ THE SOFTWARE.
 #include <tuple>
 #include <boost/proto/proto.hpp>
 #include <boost/mpl/max.hpp>
+#include <boost/any.hpp>
 
 
 // Include boost.preprocessor header if variadic templates are not available.
@@ -783,10 +784,17 @@ struct vector_name_context {
     };
 };
 
+// Used as a state parameter in kernel generation functions.
+typedef std::map<std::string, boost::any> kernel_generator_state;
+
+struct expression_context {
+    mutable kernel_generator_state state;
+};
+
 // Partial expression for a terminal:
 template <class Term, class Enable = void>
 struct partial_vector_expr {
-    static std::string get(int component, int position) {
+    static std::string get(int component, int position, kernel_generator_state&) {
         std::ostringstream s;
         s << "prm_" << component << "_" << position;
         return s.str();
@@ -794,7 +802,7 @@ struct partial_vector_expr {
 };
 
 // Builds textual representation for a vector expression.
-struct vector_expr_context {
+struct vector_expr_context : public expression_context {
     std::ostream &os;
     int cmp_idx, prm_idx, fun_idx;
 
@@ -933,7 +941,7 @@ struct vector_expr_context {
 
         template <typename Term>
         void operator()(const Term&, vector_expr_context &ctx) const {
-            ctx.os << partial_vector_expr<Term>::get(ctx.cmp_idx, ++ctx.prm_idx);
+            ctx.os << partial_vector_expr<Term>::get(ctx.cmp_idx, ++ctx.prm_idx, ctx.state);
         }
     };
 };
@@ -994,15 +1002,15 @@ void construct_preamble(const Expr &expr, std::ostream &kernel_source, int compo
 
 template <class Term, class Enable = void>
 struct kernel_param_declaration {
-    static std::string get(int component, int position) {
+    static std::string get(int component, int position, kernel_generator_state&) {
         std::ostringstream s;
         s << type_name<typename boost::proto::result_of::value<Term>::type>()
-          << " prm_" << component << "_" << position;
+          << ",\n\t prm_" << component << "_" << position;
         return s.str();
     }
 };
 
-struct declare_expression_parameter {
+struct declare_expression_parameter : expression_context {
     std::ostream &os;
     int cmp_idx;
     mutable int prm_idx;
@@ -1012,18 +1020,20 @@ struct declare_expression_parameter {
 
     template <typename T>
     void operator()(const T&) const {
-        os << ",\n\t" << kernel_param_declaration<T>::get(cmp_idx, ++prm_idx);
+        os << kernel_param_declaration<T>::get(cmp_idx, ++prm_idx, state);
     }
 };
 
 template <class Term, class Enable = void>
 struct kernel_arg_setter {
-    static void set(cl::Kernel &kernel, uint/*device*/, size_t/*index_offset*/, uint &position, const Term &term) {
+    static void set(cl::Kernel &kernel, uint/*device*/, size_t/*index_offset*/,
+            uint &position, const Term &term, kernel_generator_state&)
+    {
         kernel.setArg(position++, boost::proto::value(term));
     }
 };
 
-struct set_expression_argument {
+struct set_expression_argument : expression_context {
     cl::Kernel &krn;
     uint dev, &pos;
     size_t part_start;
@@ -1033,7 +1043,7 @@ struct set_expression_argument {
 
     template <typename T>
     void operator()(const T &term) const {
-        kernel_arg_setter<T>::set(krn, dev, part_start, pos, term);
+        kernel_arg_setter<T>::set(krn, dev, part_start, pos, term, state);
     }
 };
 

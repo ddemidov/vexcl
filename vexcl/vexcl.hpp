@@ -48,6 +48,7 @@ THE SOFTWARE.
 #include <vexcl/element_index.hpp>
 #include <vexcl/vector.hpp>
 #include <vexcl/vector_view.hpp>
+#include <vexcl/tagged_terminal.hpp>
 #include <vexcl/multivector.hpp>
 #include <vexcl/reduce.hpp>
 #include <vexcl/spmat.hpp>

@@ -72,7 +72,7 @@ struct kernel_name< vector_view<T, Slice> > {
 
 template <typename T, class Slice>
 struct partial_vector_expr< vector_view<T, Slice> > {
-    static std::string get(int component, int position) {
+    static std::string get(int component, int position, kernel_generator_state&) {
         return Slice::partial_expression(component, position);
     }
 };
@@ -86,14 +86,16 @@ struct terminal_preamble< vector_view<T, Slice> > {
 
 template <typename T, class Slice>
 struct kernel_param_declaration< vector_view<T, Slice> > {
-    static std::string get(int component, int position) {
+    static std::string get(int component, int position, kernel_generator_state&) {
         return Slice::template parameter_declaration<T>(component, position);
     }
 };
 
 template <typename T, class Slice>
 struct kernel_arg_setter< vector_view<T, Slice> > {
-    static void set(cl::Kernel &kernel, uint device, size_t index_offset, uint &position, const vector_view<T, Slice> &term) {
+    static void set(cl::Kernel &kernel, uint device, size_t index_offset,
+            uint &position, const vector_view<T, Slice> &term, kernel_generator_state&)
+    {
         assert(device == 0);
 
         Slice::setArgs(kernel, device, index_offset, position, term);
@@ -220,7 +222,7 @@ struct gslice {
 
         std::ostringstream s;
 
-        s << "global " << type_name<T>() << " * " << prm.str() << "base"
+        s << ",\n\tglobal " << type_name<T>() << " * " << prm.str() << "base"
           << ", ulong " << prm.str() << "start";
 
         for(size_t k = 0; k < NDIM; ++k)
@@ -422,7 +424,7 @@ struct permutation {
 
         std::ostringstream s;
 
-        s << "global " << type_name<T>() << " * " << prm.str() << "base"
+        s << ",\n\tglobal " << type_name<T>() << " * " << prm.str() << "base"
           << ", global ulong * " << prm.str() << "index";
 
         return s.str();
