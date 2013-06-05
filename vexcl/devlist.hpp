@@ -269,6 +269,7 @@ namespace Filter {
                             << std::endl;
                     } else {
                         flock.reset(new boost::interprocess::file_lock(fname.c_str()));
+#if BOOST_VERSION >= 105000
                         // In case we created the lock file,
                         // lets make it writable by others:
                         try {
@@ -276,6 +277,7 @@ namespace Filter {
                         } catch (const boost::filesystem::filesystem_error&) {
                             (void)0;
                         }
+#endif
                     }
                 }
 
