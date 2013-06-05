@@ -4,5 +4,5 @@ compiler:
     - clang
 before_install:
     - sudo apt-get update -qq
-    - sudo apt-get install -qq nvidia-opencl-dev libboost-chrono-dev libboost-date-time-dev libboost-filesystem-dev libboost-system-dev libboost-thread-dev libboost-program-options-dev
+    - sudo apt-get install -qq nvidia-opencl-dev libboost-chrono-dev libboost-date-time-dev libboost-filesystem-dev libboost-system-dev libboost-thread-dev libboost-program-options-dev libboost-test-dev
 script: mkdir -p build && (cd build && cmake .. && make)
