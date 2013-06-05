@@ -201,7 +201,7 @@ class profiler {
                     boost::multi_index::indexed_by<
                         boost::multi_index::sequenced<>,
                         boost::multi_index::ordered_unique<boost::multi_index::global_fun<
-                                const std::shared_ptr<profile_unit> &, std::string, _name>>
+                                const std::shared_ptr<profile_unit> &, std::string, profiler::profile_unit::_name>>
                     >
                 > children;
 
