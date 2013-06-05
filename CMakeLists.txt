@@ -34,6 +34,7 @@ find_package(Boost COMPONENTS
     system
     thread
     unit_test_framework
+    program_options
     )
 
 include_directories( ${Boost_INCLUDE_DIRS} )
