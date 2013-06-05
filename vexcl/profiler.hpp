@@ -61,46 +61,127 @@ THE SOFTWARE.
 
 namespace vex {
 
+enum AvgKind {
+    AvgMean,
+    AvgMedian
+};
+
+template <AvgKind Avg>
+struct averager {};
+
+template <>
+struct averager<AvgMean> {
+    double sum;
+    size_t n;
+
+    averager() : sum(0), n(0) {}
+
+    inline void push(double val) {
+        sum += val;
+        ++n;
+    }
+
+    inline double value() const {
+        return sum / n;
+    }
+
+    inline double total() const {
+        return sum;
+    }
+
+    inline size_t size() const {
+        return n;
+    }
+};
+
+template <>
+struct averager<AvgMedian> {
+    double sum;
+    std::vector<double> values;
+
+    averager() : sum(0) {
+        values.reserve(32);
+    }
+
+    inline void push(double val) {
+        sum += val;
+        values.push_back(val);
+        std::stable_sort(values.begin(), values.end());
+    }
+
+    inline double value() const {
+        if (values.empty()) return 0;
+
+        return values[(values.size() - 1) / 2];
+    }
+
+    inline double total() const {
+        return sum;
+    }
+
+    inline size_t size() const {
+        return values.size();
+    }
+};
+
 /// A stopwatch that computes the median and mean of individual timings.
+/**
+ * \param Clock class that provides interface compatible with either
+ *              boost::chrono or std::chrono clocks.
+ * \param Avg   Kind of averaging used. AvgMedian is more stable, but may
+ *              have high overhead when profiling is made in a loop.
+ */
+template <class Clock = boost::chrono::high_resolution_clock, AvgKind Avg = AvgMedian>
 class stopwatch {
     public:
-        std::vector<double> deltas;
-        double length;
+        averager<Avg> avg;
 
-        stopwatch() : deltas(), length(0) {
-            tic();
-        }
+        stopwatch() { tic(); }
 
         /// Start timer.
-        void tic() {
-            start = boost::chrono::high_resolution_clock::now();
+        inline void tic() {
+            start = Clock::now();
         }
 
         /// Stop timer, return elapsed time in seconds.
-        double toc() {
-            const double delta = boost::chrono::duration<double>(
-                boost::chrono::high_resolution_clock::now() - start).count();
-            length += delta;
-            deltas.push_back(delta);
-            std::stable_sort(deltas.begin(), deltas.end());
+        inline double toc() {
+            const double delta = seconds(start, Clock::now());
+
+            avg.push(delta);
+
             return delta;
         }
 
         /// Return the average measured time in seconds.
-        double mean() const {
-            return length / deltas.size();
+        inline double average() const {
+            return avg.value();
         }
 
-        /// Return the median measured time in seconds.
-        double median() const {
-            return deltas[(deltas.size() - 1) / 2];
+        inline double total() const {
+            return avg.total();
         }
 
+        inline size_t tics() const {
+            return avg.size();
+        }
     private:
-        boost::chrono::time_point<boost::chrono::high_resolution_clock> start;
+        static double seconds(typename Clock::time_point begin, typename Clock::time_point end) {
+            return typename Clock::duration(end - begin).count() * 
+                static_cast<double>(Clock::duration::period::num) /
+                    Clock::duration::period::den;
+        }
+
+        typename Clock::time_point start;
 };
 
 /// Class for gathering and printing OpenCL and Host profiling info.
+/**
+ * \param Clock class that provides interface compatible with either
+ *              boost::chrono or std::chrono clocks.
+ * \param Avg   Kind of averaging used. AvgMedian is more stable, but may
+ *              have high overhead when profiling is made in a loop.
+ */
+template <class Clock = boost::chrono::high_resolution_clock, AvgKind Avg = AvgMedian>
 class profiler {
     private:
         class profile_unit {
@@ -108,7 +189,7 @@ class profiler {
                 profile_unit(std::string name) : watch(), name(name), children() {}
                 virtual ~profile_unit() {}
 
-                stopwatch watch;
+                stopwatch<Clock, Avg> watch;
                 std::string name;
 
                 static std::string _name(const std::shared_ptr<profile_unit> &u) {
@@ -136,7 +217,7 @@ class profiler {
                     double tm = 0;
 
                     for(auto c = children.begin(); c != children.end(); c++)
-                        tm += (*c)->watch.length;
+                        tm += (*c)->watch.total();
 
                     return tm;
                 }
@@ -154,18 +235,15 @@ class profiler {
                         uint level, double total, uint width) const
                 {
                     using namespace std;
-                    print_line(out, name, watch.length, 100 * watch.length / total, width, level);
-                    if(watch.deltas.size() > 1)
-                        out << " (" << setw(6) << watch.deltas.size()
-                            << "x; mean:"
-                            << setprecision(2) << setw(10) << (watch.mean() * 1e6)
-                            << "; med:"
-                            << setw(10) << (watch.median() * 1e6)
-                            << " usec.)";
-                    out << endl;
+                    print_line(out, name, watch.total(), 100 * watch.total() / total, width, level);
+
+                    out << " (" << setw(6) << watch.tics()
+                        << "x; average:"
+                        << setprecision(2) << setw(10) << (watch.average() * 1e6)
+                        << " usec.)" << endl;
 
                     if (!children.empty()) {
-                        double sec = watch.length - children_time();
+                        double sec = watch.total() - children_time();
                         double perc = 100 * sec / total;
                         if(perc > 1e-1) {
                             print_line(out, "self", sec, perc, width, level + 1);
@@ -291,7 +369,8 @@ class profiler {
 
 } // namespace vex
 
-inline std::ostream& operator<<(std::ostream &os, vex::profiler &prof) {
+template <class Clock, vex::AvgKind Avg>
+inline std::ostream& operator<<(std::ostream &os, vex::profiler<Clock, Avg> &prof) {
     prof.print(os);
     return os;
 }

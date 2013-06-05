@@ -1610,7 +1610,7 @@ inline double device_spmv_perf(const cl::CommandQueue &q) {
     A.mul(x, y);
 
     // Measure performance.
-    profiler prof(queue);
+    profiler<> prof(queue);
     prof.tic_cl("");
     A.mul(x, y);
     double time = prof.toc("");

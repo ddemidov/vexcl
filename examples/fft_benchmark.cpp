@@ -7,6 +7,7 @@
 
 using namespace vex;
 
+typedef stopwatch<boost::chrono::high_resolution_clock, AvgMedian> watch;
 
 #ifdef HAVE_CUDA
 #  include <cufft.h>
@@ -22,7 +23,7 @@ void check(cufftResult status, const char *msg) {
         throw std::runtime_error(msg);
 }
 
-stopwatch test_cufft(cl_float2 *data, size_t n, size_t m, size_t runs, bool) {
+watch test_cufft(cl_float2 *data, size_t n, size_t m, size_t runs, bool) {
     size_t dataSize = sizeof(cufftComplex) * n * m;
 
     cufftHandle plan;
@@ -40,7 +41,7 @@ stopwatch test_cufft(cl_float2 *data, size_t n, size_t m, size_t runs, bool) {
     // Send X to device
     check(cudaMemcpy(inData, data, dataSize, cudaMemcpyHostToDevice), "cudaMemcpy");
 
-    stopwatch w;
+    watch w;
     for(size_t i = 0 ; i < runs ; i++) {
         cudaDeviceSynchronize();
         w.tic();
@@ -55,8 +56,8 @@ stopwatch test_cufft(cl_float2 *data, size_t n, size_t m, size_t runs, bool) {
     return w;
 }
 #else
-stopwatch test_cufft(cl_float2 *, size_t, size_t, size_t, bool) {
-    return stopwatch();
+watch test_cufft(cl_float2 *, size_t, size_t, size_t, bool) {
+    return watch();
 }
 #endif
 
@@ -67,7 +68,7 @@ stopwatch test_cufft(cl_float2 *, size_t, size_t, size_t, bool) {
 #  endif
 #  include <fftw3.h>
 
-stopwatch test_fftw(cl_float2 *data, size_t n, size_t m, size_t runs, bool dump_plan) {
+watch test_fftw(cl_float2 *data, size_t n, size_t m, size_t runs, bool dump_plan) {
     int sz[2] = {(int)n, (int)m};
     fftwf_complex *out = reinterpret_cast<fftwf_complex *>(
         fftwf_malloc(sizeof(fftwf_complex) * n * m));
@@ -75,7 +76,7 @@ stopwatch test_fftw(cl_float2 *data, size_t n, size_t m, size_t runs, bool dump_
         reinterpret_cast<fftwf_complex *>(data),
         out, FFTW_FORWARD, FFTW_MEASURE);
 
-    stopwatch w;
+    watch w;
     for(size_t i = 0 ; i < runs ; i++) {
         w.tic();
         fftwf_execute(p1);
@@ -88,19 +89,19 @@ stopwatch test_fftw(cl_float2 *data, size_t n, size_t m, size_t runs, bool dump_
     return w;
 }
 #else
-stopwatch test_fftw(cl_float2 *, size_t, size_t, size_t, bool) {
-    return stopwatch();
+watch test_fftw(cl_float2 *, size_t, size_t, size_t, bool) {
+    return watch();
 }
 #endif
 
 
-stopwatch test_clfft(Context &ctx, cl_float2 *data, size_t n, size_t m, size_t runs, bool dump_plan) {
+watch test_clfft(Context &ctx, cl_float2 *data, size_t n, size_t m, size_t runs, bool dump_plan) {
     vector<cl_float2> a(ctx, n * m, data);
     vector<cl_float2> b(ctx, n * m);
     std::vector<size_t> sz; sz.push_back(n); if(m > 1) sz.push_back(m);
     FFT<cl_float2> fft(ctx, sz);
 
-    stopwatch w;
+    watch w;
     for(size_t i = 0 ; i < runs ; i++) {
         ctx.queue()[0].finish();
         w.tic();
@@ -113,17 +114,17 @@ stopwatch test_clfft(Context &ctx, cl_float2 *data, size_t n, size_t m, size_t r
     return w;
 }
 
-void info(stopwatch w, size_t size, size_t dim, bool dump_times) {
+void info(watch w, size_t size, size_t dim, bool dump_times) {
     // FFT is O(n log n)
     double ops = dim == 1
         ? size * std::log(static_cast<double>(size)) // O(n log n)
         : 2.0 * size * size * std::log(static_cast<double>(size)); // O(n log n)[1D fft] * n[rows] * 2[transposed]
     std::cout << '\t';
-    if(w.length == 0) std::cout << '-';
+    if(w.tics() == 0) std::cout << '-';
     else {
-        std::cout << std::scientific << (ops / w.median());
+        std::cout << std::scientific << (ops / w.average());
         if(dump_times) {
-            for(auto t = w.deltas.begin() ; t != w.deltas.end() ; t++)
+            for(auto t = w.avg.values.begin() ; t != w.avg.values.end() ; t++)
                 std::cerr << '\t' << std::scientific << *t;
             std::cerr << std::endl;
         }

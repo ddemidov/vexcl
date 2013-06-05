@@ -1033,7 +1033,7 @@ inline double device_vector_perf(const cl::CommandQueue &q) {
     a = b + c;
 
     // Measure the second run.
-    profiler prof(queue);
+    profiler<> prof(queue);
     prof.tic_cl("");
     a = b + c;
     return 1.0 / prof.toc("");

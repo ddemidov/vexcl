@@ -199,7 +199,7 @@ struct plan {
     size_t input, output;
     std::vector<cl::Buffer> bufs;
 
-    profiler *profile;
+    profiler<> *profile;
 
     // \param sizes
     //  1D case: {n}.

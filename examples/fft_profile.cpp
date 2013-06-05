@@ -12,7 +12,7 @@ void profile(Context &ctx, std::vector<size_t> size) {
     vector<cl_float2> a(ctx, n);
     vector<cl_float2> b(ctx, n);
 
-    profiler prof(ctx);
+    profiler<> prof(ctx);
     for(size_t i = 0 ; i < repeats ; i++) {
         prof.tic_cl("init");
         FFT<cl_float2> fft(ctx, size);
