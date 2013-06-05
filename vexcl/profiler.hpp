@@ -61,39 +61,58 @@ THE SOFTWARE.
 
 namespace vex {
 
+/// A stopwatch that computes the median and mean of individual timings.
+class stopwatch {
+    public:
+        std::vector<double> deltas;
+        double length;
+
+        stopwatch() : deltas(), length(0) {
+            tic();
+        }
+
+        /// Start timer.
+        void tic() {
+            start = boost::chrono::high_resolution_clock::now();
+        }
+
+        /// Stop timer, return elapsed time in seconds.
+        double toc() {
+            const double delta = boost::chrono::duration<double>(
+                boost::chrono::high_resolution_clock::now() - start).count();
+            length += delta;
+            deltas.push_back(delta);
+            std::stable_sort(deltas.begin(), deltas.end());
+            return delta;
+        }
+
+        /// Return the average measured time in seconds.
+        double mean() const {
+            return length / deltas.size();
+        }
+
+        /// Return the median measured time in seconds.
+        double median() const {
+            return deltas[(deltas.size() - 1) / 2];
+        }
+
+    private:
+        boost::chrono::time_point<boost::chrono::high_resolution_clock> start;
+};
+
 /// Class for gathering and printing OpenCL and Host profiling info.
 class profiler {
     private:
         class profile_unit {
             public:
-                profile_unit(std::string name) : length(0), hit(0), name(name) {}
+                profile_unit(std::string name) : watch(), name(name), children() {}
                 virtual ~profile_unit() {}
 
-                std::vector<double> deltas;
-                double length;
-                size_t hit;
+                stopwatch watch;
                 std::string name;
-
-                boost::chrono::time_point<boost::chrono::high_resolution_clock> start;
 
                 static std::string _name(const std::shared_ptr<profile_unit> &u) {
                     return u->name;
-                }
-
-                virtual void tic() {
-                    start = boost::chrono::high_resolution_clock::now();
-                }
-
-                virtual double toc() {
-                    double delta = boost::chrono::duration<double>(
-                            boost::chrono::high_resolution_clock::now() - start).count();
-
-                    length += delta;
-                    deltas.push_back(delta);
-                    std::stable_sort(deltas.begin(), deltas.end());
-                    hit++;
-
-                    return delta;
                 }
 
                 boost::multi_index_container<
@@ -105,11 +124,19 @@ class profiler {
                     >
                 > children;
 
+                virtual void tic() {
+                    watch.tic();
+                }
+
+                virtual double toc() {
+                    return watch.toc();
+                }
+
                 double children_time() const {
                     double tm = 0;
 
                     for(auto c = children.begin(); c != children.end(); c++)
-                        tm += (*c)->length;
+                        tm += (*c)->watch.length;
 
                     return tm;
                 }
@@ -127,16 +154,22 @@ class profiler {
                         uint level, double total, uint width) const
                 {
                     using namespace std;
-                    out << "[" << setw(level) << "";
-                    print_line(out, name, length, 100 * length / total, width - level);
+                    print_line(out, name, watch.length, 100 * watch.length / total, width, level);
+                    if(watch.deltas.size() > 1)
+                        out << " (" << setw(6) << watch.deltas.size()
+                            << "x; mean:"
+                            << setprecision(2) << setw(10) << (watch.mean() * 1e6)
+                            << "; med:"
+                            << setw(10) << (watch.median() * 1e6)
+                            << " usec.)";
+                    out << endl;
 
                     if (!children.empty()) {
-                        double sec = length - children_time();
+                        double sec = watch.length - children_time();
                         double perc = 100 * sec / total;
-
-                        if (perc > 1e-1) {
-                            out << "[" << setw(level + 1) << "";
-                            print_line(out, "self", sec, perc, width - level - 1);
+                        if(perc > 1e-1) {
+                            print_line(out, "self", sec, perc, width, level + 1);
+                            out << endl;
                         }
                     }
 
@@ -145,23 +178,14 @@ class profiler {
                 }
 
                 void print_line(std::ostream &out, const std::string &name,
-                        double time, double perc, uint width) const
-                {
+                        double time, double perc, uint width, uint indent) const {
                     using namespace std;
-                    out << name << ":"
-                        << setw(width - name.size()) << ""
-                        << std::fixed
-                        << setw(10) << setprecision(3) << time << " sec."
+                    out << "[" << setw(indent) << "" << name << ":"
+                        << setw(width - indent - name.size()) << ""
+                        << fixed << setw(10) << setprecision(3) << time << " sec."
                         << "] (" << setprecision(2) << setw(6) << perc << "%)";
-                    if(hit > 1)
-                        out << " (" << setw(6) << hit
-                            << "x; mean:"
-                            << setprecision(2) << setw(10) << (time * 1e6 / hit)
-                            << "; med:"
-                            << setw(10) << (deltas[(deltas.size() - 1) / 2] * 1e6)
-                            << " usec.)";
-                    out << endl;
                 }
+
             private:
                 static const uint shift_width = 2U;
         };
