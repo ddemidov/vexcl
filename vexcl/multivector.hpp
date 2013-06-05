@@ -587,6 +587,7 @@ class multivector : public multivector_terminal_expression {
                 static_for<0, N>::loop(
                         subexpression_assigner<OP, Expr>(*this, expr)
                         );
+                return;
             }
 
             for(uint d = 0; d < queue.size(); d++) {
