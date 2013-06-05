@@ -67,12 +67,15 @@ BOOST_AUTO_TEST_CASE(lazy_evaluation)
     const double dt = 0.01;
 
     auto rk2 = [](vex::vector<double> &x, double dt) {
-        auto k1 = dt * sin(x);
-        auto x1 = x + 0.5 * k1;
+        auto X  = vex::tag<1>(x);
+        auto DT = vex::tag<2>(dt);
 
-        auto k2 = dt * sin(x1);
+        auto k1 = DT * sin(X);
+        auto x1 = X + 0.5 * k1;
 
-        x += k2;
+        auto k2 = DT * sin(x1);
+
+        x = X + k2;
     };
 
     std::vector<double> x = random_vector<double>(n);
