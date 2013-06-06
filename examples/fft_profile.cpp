@@ -8,7 +8,8 @@ const size_t repeats = 10;
 
 
 void profile(Context &ctx, std::vector<size_t> size) {
-    size_t n = std::accumulate(size.begin(), size.end(), 1, std::multiplies<size_t>());
+    size_t n = std::accumulate(size.begin(), size.end(),
+	static_cast<size_t>(1), std::multiplies<size_t>());
     vector<cl_float2> a(ctx, n);
     vector<cl_float2> b(ctx, n);
 

@@ -215,7 +215,8 @@ struct plan {
         auto context = qctx(queue);
         auto device = qdev(queue);
 
-        size_t total_n = std::accumulate(sizes.begin(), sizes.end(), 1, std::multiplies<size_t>());
+        size_t total_n = std::accumulate(sizes.begin(), sizes.end(),
+	    static_cast<size_t>(1), std::multiplies<size_t>());
         size_t current = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * total_n));
         size_t other = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * total_n));
 

@@ -1,6 +1,7 @@
 #ifndef CONTEXT_SETUP_HPP
 #define CONTEXT_SETUP_HPP
 
+#include <random>
 #include <vexcl/vexcl.hpp>
 
 struct ContextSetup {

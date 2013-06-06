@@ -183,7 +183,7 @@ BOOST_AUTO_TEST_CASE(compound_assignment)
 
     x += sin(2 * y);
 
-    check_sample(x, y, [](size_t, elem_t a, elem_t b) {
+    check_sample(x, y, [&](size_t, elem_t a, elem_t b) {
             for(size_t i = 0; i < m; ++i)
                 BOOST_CHECK_CLOSE(a[i], sin(2 * b[i]), 1e-8);
             });
@@ -191,7 +191,7 @@ BOOST_AUTO_TEST_CASE(compound_assignment)
     x = 0;
     x -= sin(2 * y);
 
-    check_sample(x, y, [](size_t, elem_t a, elem_t b) {
+    check_sample(x, y, [&](size_t, elem_t a, elem_t b) {
             for(size_t i = 0; i < m; ++i)
                 BOOST_CHECK_CLOSE(a[i], -sin(2 * b[i]), 1e-8);
             });

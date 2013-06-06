@@ -15,7 +15,6 @@ BOOST_AUTO_TEST_CASE(cl_native_types)
     CHECK_IS_NATIVE( char   );
     CHECK_IS_NATIVE( short  );
     CHECK_IS_NATIVE( int    );
-    CHECK_IS_NATIVE( long   );
     CHECK_IS_NATIVE( uchar  );
     CHECK_IS_NATIVE( uint   );
     CHECK_IS_NATIVE( float  );

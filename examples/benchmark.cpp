@@ -3,6 +3,7 @@
 #include <vector>
 #include <tuple>
 #include <numeric>
+#include <random>
 #include <vexcl/vexcl.hpp>
 
 using namespace vex;

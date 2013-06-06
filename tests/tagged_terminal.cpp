@@ -21,7 +21,7 @@ BOOST_AUTO_TEST_CASE(tagged_terminal)
 
     BOOST_CHECK_CLOSE(
             sum(tag<3>(2) * tag<1>(X) * tag<1>(X) + tag<3>(2) * tag<2>(Y) * tag<2>(Y)),
-            std::accumulate(x.begin(), x.end(), 0.0, [](double sum, double v) {
+            std::accumulate(x.begin(), x.end(), 0.0, [](double sum, double v) -> double {
                 double y = v * v;
                 return sum + 2 * (y + y * y);
                 }),

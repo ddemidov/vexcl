@@ -172,7 +172,8 @@ struct gslice {
     }
 
     size_t size() const {
-        return std::accumulate(length, length + NDIM, 1UL, std::multiplies<size_t>());
+        return std::accumulate(length, length + NDIM,
+	    static_cast<size_t>(1), std::multiplies<size_t>());
     }
 
     static std::string indexing_function(int component, int position) {

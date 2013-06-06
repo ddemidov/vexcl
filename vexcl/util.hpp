@@ -51,6 +51,14 @@ THE SOFTWARE.
 #include <boost/config.hpp>
 #include <boost/type_traits/is_same.hpp>
 
+#ifdef BOOST_NO_VARIADIC_TEMPLATES
+#  include <boost/proto/proto.hpp>
+#  include <boost/preprocessor/repetition.hpp>
+#  ifndef VEXCL_MAX_ARITY
+#    define VEXCL_MAX_ARITY BOOST_PROTO_MAX_ARITY
+#  endif
+#endif
+
 #ifndef __CL_ENABLE_EXCEPTIONS
 #  define __CL_ENABLE_EXCEPTIONS
 #endif
@@ -192,20 +200,23 @@ inline size_t alignup(size_t n, size_t m = 16U) {
 template <class T>
 struct is_tuple : std::false_type {};
 
+
 #ifndef BOOST_NO_VARIADIC_TEMPLATES
+
 template <class... Elem>
 struct is_tuple < std::tuple<Elem...> > : std::true_type {};
+
 #else
 
-#define TUPLE_SPEC(z, n, unused)                                \
-  template <BOOST_PP_ENUM_PARAMS(n, class Elem)>                \
-  struct is_tuple< std::tuple <                                 \
-      BOOST_PP_ENUM_PARAMS(n, Elem)                             \
-  > > : mpl::int_<n> {};
+#define IS_TUPLE(z, n, unused)                                    \
+  template < BOOST_PP_ENUM_PARAMS(n, class Elem) >                \
+  struct is_tuple< std::tuple < BOOST_PP_ENUM_PARAMS(n, Elem) > > \
+    : std::true_type                                              \
+  {};
 
-BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, TUPLE_SPEC, ~)
+BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, IS_TUPLE, ~)
 
-#undef TUPLE_SPEC
+#undef IS_TUPLE
 
 #endif
 
