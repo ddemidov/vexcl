@@ -1,6 +1,6 @@
 # VexCL
 
-[![Build Status](https://travis-ci.org/ddemidov/vexcl.png?branch=master)](https://travis-ci.org/ddemidov/vexcl)
+[<img src="https://travis-ci.org/ddemidov/vexcl.png?branch=master">](https://travis-ci.org/ddemidov/vexcl)
 
 VexCL is a vector expression template library for OpenCL. It has been created
 for ease of OpenCL development with C++. VexCL strives to reduce amount of
