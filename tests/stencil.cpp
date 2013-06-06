@@ -183,6 +183,7 @@ BOOST_AUTO_TEST_CASE(user_defined_stencil)
         BOOST_CHECK_CLOSE(a, s, 1e-8);
     });
 
+#if BOOST_VERSION >= 105000
     Y = 41 * oscillate(X) + oscillate(X);
 
     check_sample(Y, [&](int i, double a) {
@@ -191,7 +192,7 @@ BOOST_AUTO_TEST_CASE(user_defined_stencil)
         double s = sin(x[right] - x[i]) + sin(x[i] - x[left]);
         BOOST_CHECK_CLOSE(a, 42 * s, 1e-8);
     });
-
+#endif
 }
 
 BOOST_AUTO_TEST_SUITE_END()
