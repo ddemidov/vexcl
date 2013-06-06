@@ -42,6 +42,8 @@ BOOST_AUTO_TEST_CASE(stencil_convolution)
     });
 }
 
+#if BOOST_VERSION >= 105000
+// Boost upto v1.49 segfoults on this test
 BOOST_AUTO_TEST_CASE(two_stencils)
 {
     const int n = 32;
@@ -57,6 +59,7 @@ BOOST_AUTO_TEST_CASE(two_stencils)
     BOOST_CHECK(Y[16] == 0);
     BOOST_CHECK(Y[31] == 0);
 }
+#endif
 
 BOOST_AUTO_TEST_CASE(small_vector)
 {
