@@ -43,7 +43,7 @@ BOOST_AUTO_TEST_CASE(stencil_convolution)
 }
 
 #if BOOST_VERSION >= 105000
-// Boost upto v1.49 segfoults on this test
+// Boost upto v1.49 segfaults on this test
 BOOST_AUTO_TEST_CASE(two_stencils)
 {
     const int n = 32;
