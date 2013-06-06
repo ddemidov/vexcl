@@ -42,21 +42,17 @@ THE SOFTWARE.
 #include <fstream>
 #include <tuple>
 #include <cstdlib>
-#include <random>
-#include <vexcl/util.hpp>
+
 #include <boost/interprocess/sync/file_lock.hpp>
 #include <boost/filesystem.hpp>
+
+#include <vexcl/util.hpp>
 
 #ifdef __GNUC__
 #  ifndef _GLIBCXX_USE_NANOSLEEP
 #    define _GLIBCXX_USE_NANOSLEEP
 #  endif
 #endif
-
-#include <boost/thread.hpp>
-#include <boost/chrono.hpp>
-
-#include <random>
 
 namespace vex {
 
@@ -291,25 +287,13 @@ namespace Filter {
                         //    checking the device. If device is not good (for
                         //    them) they will release the lock in a few
                         //    moments.
-                        // To process case 2 correctly, we try to lock the
-                        // device a couple of times with a random pause.
+                        // To process case 2 correctly, we use timed_lock().
 
-                        std::mt19937 rng(static_cast<unsigned long>(reinterpret_cast<size_t>(this)));
-                        std::uniform_int_distribution<uint> rnd(0, 30);
-
-                        for(int try_num = 0; try_num < 3; ++try_num) {
-                            if (flock->try_lock())
-                                return true;
-
-#if BOOST_VERSION >= 105000
-                            boost::this_thread::sleep_for(
-                                    boost::chrono::milliseconds( rnd(rng) ) );
-#endif
-                        }
-                        return false;
-                    }
-                    else
-                        return true;
+                        return flock->timed_lock(
+                                boost::posix_time::microsec_clock::universal_time() +
+                                boost::posix_time::milliseconds(100)
+                                );
+                    } else return true;
                 }
 
                 std::ofstream file;
