@@ -45,6 +45,39 @@ struct tagged_terminal : tagged_terminal_expression
 {
     const Term & term;
     tagged_terminal(const Term &term) : term(term) {}
+
+    // Expression assignments.
+#define ASSIGNMENT(cop, op) \
+    template <class Expr> \
+    typename std::enable_if< \
+        boost::proto::matches< \
+            typename boost::proto::result_of::as_expr<Expr>::type, \
+            vector_expr_grammar \
+        >::value, \
+        const tagged_terminal& \
+    >::type \
+    operator cop(const Expr &expr) { \
+        std::vector<cl::CommandQueue> queue; \
+        std::vector<size_t> part; \
+        size_t size; \
+        expression_properties<tagged_terminal>::get(*this, queue, part, size); \
+        assign_expression<op>(*this, expr, queue, part); \
+        return *this; \
+    }
+
+    ASSIGNMENT(=,   assign::SET);
+    ASSIGNMENT(+=,  assign::ADD);
+    ASSIGNMENT(-=,  assign::SUB);
+    ASSIGNMENT(*=,  assign::MUL);
+    ASSIGNMENT(/=,  assign::DIV);
+    ASSIGNMENT(%=,  assign::MOD);
+    ASSIGNMENT(&=,  assign::AND);
+    ASSIGNMENT(|=,  assign::OR);
+    ASSIGNMENT(^=,  assign::XOR);
+    ASSIGNMENT(<<=, assign::LSH);
+    ASSIGNMENT(>>=, assign::RSH);
+
+#undef ASSIGNMENT
 };
 
 template <>

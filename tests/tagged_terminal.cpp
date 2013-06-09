@@ -34,6 +34,12 @@ BOOST_AUTO_TEST_CASE(tagged_terminal)
 
     check_sample(Y, [&](size_t idx, double v) {
             BOOST_CHECK_CLOSE(v, 42 * x[idx], 1e-8); });
+
+    tag<1>(X) = 1;
+    check_sample(X, [&](size_t idx, double v) { BOOST_CHECK_CLOSE(v, 1, 1e-8); });
+
+    tag<1>(X) = tag<1>(X) + vex::element_index();
+    check_sample(X, [&](size_t idx, double v) { BOOST_CHECK_CLOSE(v, 1 + idx, 1e-8); });
 }
 
 BOOST_AUTO_TEST_SUITE_END()
