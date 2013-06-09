@@ -1564,7 +1564,7 @@ VEXCL_ADDITIVE_EXPR_EXTRACTOR(extract_additive_multivector_transforms,
 
 
 //---------------------------------------------------------------------------
-// Assign expression to a lhs
+// Assign expression to lhs
 //---------------------------------------------------------------------------
 template <class OP, class LHS, class Expr>
 void assign_expression(LHS &lhs, const Expr &expr,
@@ -1589,13 +1589,14 @@ void assign_expression(LHS &lhs, const Expr &expr,
 
             source << standard_kernel_header(device);
 
-            declare_user_function    declfun(source);
-            output_terminal_preamble termpream(source);
+            declare_user_function declfun(source);
 
             extract_user_functions()(boost::proto::as_child(lhs),  declfun);
             extract_user_functions()(boost::proto::as_child(expr), declfun);
 
-            termpream(boost::proto::as_child(lhs));
+            output_terminal_preamble termpream(source);
+
+            extract_terminals()(boost::proto::as_child(lhs),  termpream);
             extract_terminals()(boost::proto::as_child(expr), termpream);
 
             source << "kernel void " << kernel_name.str()
@@ -1603,7 +1604,7 @@ void assign_expression(LHS &lhs, const Expr &expr,
 
             declare_expression_parameter declare(source);
 
-            declare(boost::proto::as_child(lhs));
+            extract_terminals()(boost::proto::as_child(lhs),  declare);
             extract_terminals()(boost::proto::as_child(expr), declare);
 
             source << "\n)\n{\n";
@@ -1648,8 +1649,7 @@ void assign_expression(LHS &lhs, const Expr &expr,
 
             set_expression_argument setarg(kernel->second.kernel, d, pos, part[d]);
 
-            setarg(boost::proto::as_child(lhs));
-
+            extract_terminals()( boost::proto::as_child(lhs),  setarg);
             extract_terminals()( boost::proto::as_child(expr), setarg);
 
             queue[d].enqueueNDRangeKernel(
