@@ -229,8 +229,6 @@ class SpMat : matrix_terminal {
                     const std::set<column_t> &remote_cols
                     );
 
-            void prepare_kernels(const cl::Context &context) const;
-
             void mul_local(
                     const cl::Buffer &x, const cl::Buffer &y,
                     real alpha, bool append
@@ -259,12 +257,9 @@ class SpMat : matrix_terminal {
                 cl::Buffer val;
             } loc_csr, rem_csr;
 
-            static std::map<cl_context, bool>       compiled;
-            static std::map<cl_context, cl::Kernel> zero;
-            static std::map<cl_context, cl::Kernel> spmv_set;
-            static std::map<cl_context, cl::Kernel> spmv_add;
-            static std::map<cl_context, cl::Kernel> csr_add;
-            static std::map<cl_context, uint>       wgsize;
+            static const kernel_cache_entry& spmv_set(const cl::CommandQueue &queue);
+            static const kernel_cache_entry& spmv_add(const cl::CommandQueue &queue);
+            static const kernel_cache_entry& csr_add(const cl::CommandQueue &queue);
         };
 
         struct SpMatCSR : public sparse_matrix {
@@ -274,8 +269,6 @@ class SpMat : matrix_terminal {
                     const idx_t *row, const column_t *col, const real *val,
                     const std::set<column_t> &remote_cols
                     );
-
-            void prepare_kernels(const cl::Context &context) const;
 
             void mul_local(
                     const cl::Buffer &x, const cl::Buffer &y,
@@ -300,11 +293,8 @@ class SpMat : matrix_terminal {
                 cl::Buffer val;
             } loc, rem;
 
-            static std::map<cl_context, bool>       compiled;
-            static std::map<cl_context, cl::Kernel> zero;
-            static std::map<cl_context, cl::Kernel> spmv_set;
-            static std::map<cl_context, cl::Kernel> spmv_add;
-            static std::map<cl_context, uint>       wgsize;
+            static const kernel_cache_entry& spmv_set(const cl::CommandQueue& queue);
+            static const kernel_cache_entry& spmv_add(const cl::CommandQueue& queue);
         };
 
         struct exdata {
@@ -333,25 +323,11 @@ class SpMat : matrix_terminal {
         size_t ncols;
         size_t nnz;
 
-
-        static std::map<cl_context, bool>       compiled;
-        static std::map<cl_context, cl::Kernel> gather_vals_to_send;
-        static std::map<cl_context, uint>       wgsize;
-
         std::vector<std::set<column_t>> setup_exchange(
                 size_t n, const std::vector<size_t> &xpart,
                 const idx_t *row, const column_t *col, const real *val
                 );
 };
-
-template <typename real, typename column_t, typename idx_t>
-std::map<cl_context, bool> SpMat<real,column_t,idx_t>::compiled;
-
-template <typename real, typename column_t, typename idx_t>
-std::map<cl_context, cl::Kernel> SpMat<real,column_t,idx_t>::gather_vals_to_send;
-
-template <typename real, typename column_t, typename idx_t>
-std::map<cl_context, uint> SpMat<real,column_t,idx_t>::wgsize;
 
 template <typename real, typename column_t, typename idx_t>
 SpMat<real,column_t,idx_t>::SpMat(
@@ -366,41 +342,9 @@ SpMat<real,column_t,idx_t>::SpMat(
 {
     auto xpart = partition(m, queue);
 
-    for(auto q = queue.begin(); q != queue.end(); q++) {
-        cl::Context context = qctx(*q);
-        cl::Device  device  = qdev(*q);
-
-        // Compile kernels.
-        if (!compiled[context()]) {
-            std::ostringstream source;
-
-            source << standard_kernel_header(device) <<
-                "typedef " << type_name<real>() << " real;\n"
-                "kernel void gather_vals_to_send(\n"
-                "    " << type_name<size_t>() << " n,\n"
-                "    global const real *vals,\n"
-                "    global const " << type_name<column_t>() << " *cols_to_send,\n"
-                "    global real *vals_to_send\n"
-                "    )\n"
-                "{\n"
-                "    size_t i = get_global_id(0);\n"
-                "    if (i < n) vals_to_send[i] = vals[cols_to_send[i]];\n"
-                "}\n";
-
-            auto program = build_sources(context, source.str());
-
-            gather_vals_to_send[context()] = cl::Kernel(program, "gather_vals_to_send");
-
-            wgsize[context()] = kernel_workgroup_size(
-                    gather_vals_to_send[context()], device
-                    );
-
-            compiled[context()] = true;
-        }
-
-        // Create secondary queues.
-        squeue.push_back(cl::CommandQueue(context, device));
-    }
+    // Create secondary queues.
+    for(auto q = queue.begin(); q != queue.end(); q++)
+        squeue.push_back(cl::CommandQueue(qctx(*q), qdev(*q)));
 
     std::vector<std::set<column_t>> remote_cols = setup_exchange(n, xpart, row, col, val);
 
@@ -432,22 +376,53 @@ template <typename real, typename column_t, typename idx_t>
 void SpMat<real,column_t,idx_t>::mul(const vex::vector<real> &x, vex::vector<real> &y,
         real alpha, bool append) const
 {
+    static kernel_cache cache;
+
     if (rx.size()) {
         // Transfer remote parts of the input vector.
         for(uint d = 0; d < queue.size(); d++) {
             cl::Context context = qctx(queue[d]);
+            cl::Device  device  = qdev(queue[d]);
+
+            auto gather = cache.find(context());
+
+            if (gather == cache.end()) {
+                std::ostringstream source;
+
+                source << standard_kernel_header(device) <<
+                    "typedef " << type_name<real>() << " real;\n"
+                    "kernel void gather_vals_to_send(\n"
+                    "    " << type_name<size_t>() << " n,\n"
+                    "    global const real *vals,\n"
+                    "    global const " << type_name<column_t>() << " *cols_to_send,\n"
+                    "    global real *vals_to_send\n"
+                    "    )\n"
+                    "{\n"
+                    "    size_t i = get_global_id(0);\n"
+                    "    if (i < n) vals_to_send[i] = vals[cols_to_send[i]];\n"
+                    "}\n";
+
+                auto program = build_sources(context, source.str());
+
+                cl::Kernel krn(program, "gather_vals_to_send");
+                size_t wgs = kernel_workgroup_size(krn, device);
+
+                gather = cache.insert(std::make_pair(
+                            context(), kernel_cache_entry(krn, wgs)
+                            )).first;
+            }
 
             if (size_t ncols = cidx[d + 1] - cidx[d]) {
-                size_t g_size = alignup(ncols, wgsize[context()]);
+                size_t g_size = alignup(ncols, gather->second.wgsize);
 
                 uint pos = 0;
-                gather_vals_to_send[context()].setArg(pos++, ncols);
-                gather_vals_to_send[context()].setArg(pos++, x(d));
-                gather_vals_to_send[context()].setArg(pos++, exc[d].cols_to_send);
-                gather_vals_to_send[context()].setArg(pos++, exc[d].vals_to_send);
+                gather->second.kernel.setArg(pos++, ncols);
+                gather->second.kernel.setArg(pos++, x(d));
+                gather->second.kernel.setArg(pos++, exc[d].cols_to_send);
+                gather->second.kernel.setArg(pos++, exc[d].vals_to_send);
 
-                queue[d].enqueueNDRangeKernel(gather_vals_to_send[context()],
-                        cl::NullRange, g_size, wgsize[context()], 0, &event1[d][0]);
+                queue[d].enqueueNDRangeKernel(gather->second.kernel,
+                        cl::NullRange, g_size, gather->second.wgsize, 0, &event1[d][0]);
 
                 squeue[d].enqueueReadBuffer(exc[d].vals_to_send, CL_FALSE,
                         0, ncols * sizeof(real), &rx[cidx[d]], &event1[d], &event2[d][0]
@@ -572,24 +547,6 @@ template <typename real, typename column_t, typename idx_t>
 const column_t SpMat<real,column_t,idx_t>::SpMatELL::ncol;
 
 template <typename real, typename column_t, typename idx_t>
-std::map<cl_context, bool> SpMat<real,column_t,idx_t>::SpMatELL::compiled;
-
-template <typename real, typename column_t, typename idx_t>
-std::map<cl_context, cl::Kernel> SpMat<real,column_t,idx_t>::SpMatELL::zero;
-
-template <typename real, typename column_t, typename idx_t>
-std::map<cl_context, cl::Kernel> SpMat<real,column_t,idx_t>::SpMatELL::spmv_set;
-
-template <typename real, typename column_t, typename idx_t>
-std::map<cl_context, cl::Kernel> SpMat<real,column_t,idx_t>::SpMatELL::spmv_add;
-
-template <typename real, typename column_t, typename idx_t>
-std::map<cl_context, cl::Kernel> SpMat<real,column_t,idx_t>::SpMatELL::csr_add;
-
-template <typename real, typename column_t, typename idx_t>
-std::map<cl_context, uint> SpMat<real,column_t,idx_t>::SpMatELL::wgsize;
-
-template <typename real, typename column_t, typename idx_t>
 SpMat<real,column_t,idx_t>::SpMatELL::SpMatELL(
         const cl::CommandQueue &queue,
         size_t beg, size_t end, column_t xbeg, column_t xend,
@@ -599,8 +556,6 @@ SpMat<real,column_t,idx_t>::SpMatELL::SpMatELL(
     : queue(queue), n(end - beg), pitch(alignup(n, 16U))
 {
     cl::Context context = qctx(queue);
-
-    prepare_kernels(context);
 
     // Get optimal ELL widths for local and remote parts.
     {
@@ -812,24 +767,20 @@ SpMat<real,column_t,idx_t>::SpMatELL::SpMatELL(
 }
 
 template <typename real, typename column_t, typename idx_t>
-void SpMat<real,column_t,idx_t>::SpMatELL::prepare_kernels(const cl::Context &context) const {
-    if (!compiled[context()]) {
-        std::vector<cl::Device> device = context.getInfo<CL_CONTEXT_DEVICES>();
+const kernel_cache_entry& SpMat<real,column_t,idx_t>::SpMatELL::spmv_set(const cl::CommandQueue &queue) {
+    static kernel_cache cache;
 
+    cl::Context context = qctx(queue);
+    cl::Device  device  = qdev(queue);
+
+    auto kernel = cache.find(context());
+
+    if (kernel == cache.end()) {
         std::ostringstream source;
 
-        source << standard_kernel_header(device[0]) <<
+        source << standard_kernel_header(device) <<
             "typedef " << type_name<real>() << " real;\n"
             "#define NCOL ((" << type_name<column_t>() << ")(-1))\n"
-            "kernel void zero(\n"
-            "    " << type_name<size_t>() << " n,\n"
-            "    global real *y\n"
-            "    )\n"
-            "{\n"
-            "    size_t grid_size = get_global_size(0);\n"
-            "    for (size_t row = get_global_id(0); row < n; row += grid_size)\n"
-            "        y[row] = 0;\n"
-            "}\n"
             "kernel void spmv_set(\n"
             "    " << type_name<size_t>() << " n, uint w, " << type_name<size_t>() << " pitch,\n"
             "    global const " << type_name<column_t>() << " *col,\n"
@@ -848,7 +799,36 @@ void SpMat<real,column_t,idx_t>::SpMatELL::prepare_kernels(const cl::Context &co
             "        }\n"
             "        y[row] = alpha * sum;\n"
             "    }\n"
-            "}\n"
+            "}\n";
+
+        auto program = build_sources(context, source.str());
+
+        cl::Kernel krn(program, "spmv_set");
+        size_t     wgs = kernel_workgroup_size(krn, device);
+
+        kernel = cache.insert(std::make_pair(
+                    context(), kernel_cache_entry(krn, wgs)
+                    )).first;
+    }
+
+    return kernel->second;
+}
+
+template <typename real, typename column_t, typename idx_t>
+const kernel_cache_entry& SpMat<real,column_t,idx_t>::SpMatELL::spmv_add(const cl::CommandQueue &queue) {
+    static kernel_cache cache;
+
+    cl::Context context = qctx(queue);
+    cl::Device  device  = qdev(queue);
+
+    auto kernel = cache.find(context());
+
+    if (kernel == cache.end()) {
+        std::ostringstream source;
+
+        source << standard_kernel_header(device) <<
+            "typedef " << type_name<real>() << " real;\n"
+            "#define NCOL ((" << type_name<column_t>() << ")(-1))\n"
             "kernel void spmv_add(\n"
             "    " << type_name<size_t>() << " n, uint w, " << type_name<size_t>() << " pitch,\n"
             "    global const " << type_name<column_t>() << " *col,\n"
@@ -867,7 +847,35 @@ void SpMat<real,column_t,idx_t>::SpMatELL::prepare_kernels(const cl::Context &co
             "        }\n"
             "        y[row] += alpha * sum;\n"
             "    }\n"
-            "}\n"
+            "}\n";
+
+        auto program = build_sources(context, source.str());
+
+        cl::Kernel krn(program, "spmv_add");
+        size_t     wgs = kernel_workgroup_size(krn, device);
+
+        kernel = cache.insert(std::make_pair(
+                    context(), kernel_cache_entry(krn, wgs)
+                    )).first;
+    }
+
+    return kernel->second;
+}
+
+template <typename real, typename column_t, typename idx_t>
+const kernel_cache_entry& SpMat<real,column_t,idx_t>::SpMatELL::csr_add(const cl::CommandQueue &queue) {
+    static kernel_cache cache;
+
+    cl::Context context = qctx(queue);
+    cl::Device  device  = qdev(queue);
+
+    auto kernel = cache.find(context());
+
+    if (kernel == cache.end()) {
+        std::ostringstream source;
+
+        source << standard_kernel_header(device) <<
+            "typedef " << type_name<real>() << " real;\n"
             "kernel void csr_add(\n"
             "    " << type_name<size_t>() << " n,\n"
             "    global const " << type_name<idx_t>() << " *idx,\n"
@@ -892,22 +900,15 @@ void SpMat<real,column_t,idx_t>::SpMatELL::prepare_kernels(const cl::Context &co
 
         auto program = build_sources(context, source.str());
 
-        zero[context()]     = cl::Kernel(program, "zero");
-        spmv_set[context()] = cl::Kernel(program, "spmv_set");
-        spmv_add[context()] = cl::Kernel(program, "spmv_add");
-        csr_add[context()]  = cl::Kernel(program, "csr_add");
+        cl::Kernel krn(program, "csr_add");
+        size_t     wgs = kernel_workgroup_size(krn, device);
 
-        wgsize[context()] = std::min(
-                kernel_workgroup_size(spmv_set[context()], device[0]),
-                kernel_workgroup_size(spmv_add[context()], device[0])
-                );
-
-        wgsize[context()] = std::min<uint>(wgsize[context()],
-                kernel_workgroup_size(csr_add[context()], device[0])
-                );
-
-        compiled[context()] = true;
+        kernel = cache.insert(std::make_pair(
+                    context(), kernel_cache_entry(krn, wgs)
+                    )).first;
     }
+
+    return kernel->second;
 }
 
 template <typename real, typename column_t, typename idx_t>
@@ -919,58 +920,57 @@ void SpMat<real,column_t,idx_t>::SpMatELL::mul_local(
     cl::Context context = qctx(queue);
     cl::Device  device  = qdev(queue);
 
-    size_t g_size = num_workgroups(device) * wgsize[context()];
-
     if (loc_ell.w) {
         if (append) {
-            uint pos = 0;
-            spmv_add[context()].setArg(pos++, n);
-            spmv_add[context()].setArg(pos++, loc_ell.w);
-            spmv_add[context()].setArg(pos++, pitch);
-            spmv_add[context()].setArg(pos++, loc_ell.col);
-            spmv_add[context()].setArg(pos++, loc_ell.val);
-            spmv_add[context()].setArg(pos++, x);
-            spmv_add[context()].setArg(pos++, y);
-            spmv_add[context()].setArg(pos++, alpha);
+            auto add = spmv_add(queue);
+            size_t g_size = num_workgroups(device) * add.wgsize;
 
-            queue.enqueueNDRangeKernel(spmv_add[context()],
-                    cl::NullRange, g_size, wgsize[context()]);
+            uint pos = 0;
+            add.kernel.setArg(pos++, n);
+            add.kernel.setArg(pos++, loc_ell.w);
+            add.kernel.setArg(pos++, pitch);
+            add.kernel.setArg(pos++, loc_ell.col);
+            add.kernel.setArg(pos++, loc_ell.val);
+            add.kernel.setArg(pos++, x);
+            add.kernel.setArg(pos++, y);
+            add.kernel.setArg(pos++, alpha);
+
+            queue.enqueueNDRangeKernel(add.kernel, cl::NullRange, g_size, add.wgsize);
         } else {
-            uint pos = 0;
-            spmv_set[context()].setArg(pos++, n);
-            spmv_set[context()].setArg(pos++, loc_ell.w);
-            spmv_set[context()].setArg(pos++, pitch);
-            spmv_set[context()].setArg(pos++, loc_ell.col);
-            spmv_set[context()].setArg(pos++, loc_ell.val);
-            spmv_set[context()].setArg(pos++, x);
-            spmv_set[context()].setArg(pos++, y);
-            spmv_set[context()].setArg(pos++, alpha);
+            auto set = spmv_set(queue);
+            size_t g_size = num_workgroups(device) * set.wgsize;
 
-            queue.enqueueNDRangeKernel(spmv_set[context()],
-                    cl::NullRange, g_size, wgsize[context()]);
+            uint pos = 0;
+            set.kernel.setArg(pos++, n);
+            set.kernel.setArg(pos++, loc_ell.w);
+            set.kernel.setArg(pos++, pitch);
+            set.kernel.setArg(pos++, loc_ell.col);
+            set.kernel.setArg(pos++, loc_ell.val);
+            set.kernel.setArg(pos++, x);
+            set.kernel.setArg(pos++, y);
+            set.kernel.setArg(pos++, alpha);
+
+            queue.enqueueNDRangeKernel(set.kernel, cl::NullRange, g_size, set.wgsize);
         }
     } else if (!append) {
-        uint pos = 0;
-        zero[context()].setArg(pos++, n);
-        zero[context()].setArg(pos++, y);
-
-        queue.enqueueNDRangeKernel(zero[context()],
-                cl::NullRange, g_size, wgsize[context()]);
+        vector<real>(queue, y) = 0;
     }
 
     if (loc_csr.n) {
-        uint pos = 0;
-        csr_add[context()].setArg(pos++, loc_csr.n);
-        csr_add[context()].setArg(pos++, loc_csr.idx);
-        csr_add[context()].setArg(pos++, loc_csr.row);
-        csr_add[context()].setArg(pos++, loc_csr.col);
-        csr_add[context()].setArg(pos++, loc_csr.val);
-        csr_add[context()].setArg(pos++, x);
-        csr_add[context()].setArg(pos++, y);
-        csr_add[context()].setArg(pos++, alpha);
+        auto csr = csr_add(queue);
+        size_t g_size = num_workgroups(device) * csr.wgsize;
 
-        queue.enqueueNDRangeKernel(csr_add[context()],
-                cl::NullRange, g_size, wgsize[context()]);
+        uint pos = 0;
+        csr.kernel.setArg(pos++, loc_csr.n);
+        csr.kernel.setArg(pos++, loc_csr.idx);
+        csr.kernel.setArg(pos++, loc_csr.row);
+        csr.kernel.setArg(pos++, loc_csr.col);
+        csr.kernel.setArg(pos++, loc_csr.val);
+        csr.kernel.setArg(pos++, x);
+        csr.kernel.setArg(pos++, y);
+        csr.kernel.setArg(pos++, alpha);
+
+        queue.enqueueNDRangeKernel(csr.kernel, cl::NullRange, g_size, csr.wgsize);
     }
 }
 template <typename real, typename column_t, typename idx_t>
@@ -982,58 +982,44 @@ void SpMat<real,column_t,idx_t>::SpMatELL::mul_remote(
     cl::Context context = qctx(queue);
     cl::Device  device  = qdev(queue);
 
-    size_t g_size = num_workgroups(device) * wgsize[context()];
-
     if (rem_ell.w) {
-        uint pos = 0;
-        spmv_add[context()].setArg(pos++, n);
-        spmv_add[context()].setArg(pos++, rem_ell.w);
-        spmv_add[context()].setArg(pos++, pitch);
-        spmv_add[context()].setArg(pos++, rem_ell.col);
-        spmv_add[context()].setArg(pos++, rem_ell.val);
-        spmv_add[context()].setArg(pos++, x);
-        spmv_add[context()].setArg(pos++, y);
-        spmv_add[context()].setArg(pos++, alpha);
+        auto add = spmv_add(queue);
+        size_t g_size = num_workgroups(device) * add.wgsize;
 
-        queue.enqueueNDRangeKernel(spmv_add[context()],
-                cl::NullRange, g_size, wgsize[context()], &event
-                );
+        uint pos = 0;
+        add.kernel.setArg(pos++, n);
+        add.kernel.setArg(pos++, rem_ell.w);
+        add.kernel.setArg(pos++, pitch);
+        add.kernel.setArg(pos++, rem_ell.col);
+        add.kernel.setArg(pos++, rem_ell.val);
+        add.kernel.setArg(pos++, x);
+        add.kernel.setArg(pos++, y);
+        add.kernel.setArg(pos++, alpha);
+
+        queue.enqueueNDRangeKernel(add.kernel, cl::NullRange, g_size, add.wgsize, &event);
     }
 
     if (rem_csr.n) {
-        uint pos = 0;
-        csr_add[context()].setArg(pos++, rem_csr.n);
-        csr_add[context()].setArg(pos++, rem_csr.idx);
-        csr_add[context()].setArg(pos++, rem_csr.row);
-        csr_add[context()].setArg(pos++, rem_csr.col);
-        csr_add[context()].setArg(pos++, rem_csr.val);
-        csr_add[context()].setArg(pos++, x);
-        csr_add[context()].setArg(pos++, y);
-        csr_add[context()].setArg(pos++, alpha);
+        auto csr = csr_add(queue);
+        size_t g_size = num_workgroups(device) * csr.wgsize;
 
-        queue.enqueueNDRangeKernel(csr_add[context()],
-                cl::NullRange, g_size, wgsize[context()], &event);
+        uint pos = 0;
+        csr.kernel.setArg(pos++, rem_csr.n);
+        csr.kernel.setArg(pos++, rem_csr.idx);
+        csr.kernel.setArg(pos++, rem_csr.row);
+        csr.kernel.setArg(pos++, rem_csr.col);
+        csr.kernel.setArg(pos++, rem_csr.val);
+        csr.kernel.setArg(pos++, x);
+        csr.kernel.setArg(pos++, y);
+        csr.kernel.setArg(pos++, alpha);
+
+        queue.enqueueNDRangeKernel(csr.kernel, cl::NullRange, g_size, csr.wgsize, &event);
     }
 }
 
 //---------------------------------------------------------------------------
 // SpMat::SpMatCSR
 //---------------------------------------------------------------------------
-template <typename real, typename column_t, typename idx_t>
-std::map<cl_context, bool> SpMat<real,column_t,idx_t>::SpMatCSR::compiled;
-
-template <typename real, typename column_t, typename idx_t>
-std::map<cl_context, cl::Kernel> SpMat<real,column_t,idx_t>::SpMatCSR::zero;
-
-template <typename real, typename column_t, typename idx_t>
-std::map<cl_context, cl::Kernel> SpMat<real,column_t,idx_t>::SpMatCSR::spmv_set;
-
-template <typename real, typename column_t, typename idx_t>
-std::map<cl_context, cl::Kernel> SpMat<real,column_t,idx_t>::SpMatCSR::spmv_add;
-
-template <typename real, typename column_t, typename idx_t>
-std::map<cl_context, uint> SpMat<real,column_t,idx_t>::SpMatCSR::wgsize;
-
 template <typename real, typename column_t, typename idx_t>
 SpMat<real,column_t,idx_t>::SpMatCSR::SpMatCSR(
         const cl::CommandQueue &queue,
@@ -1044,8 +1030,6 @@ SpMat<real,column_t,idx_t>::SpMatCSR::SpMatCSR(
     : queue(queue), n(end - beg), has_loc(false), has_rem(false)
 {
     cl::Context context = qctx(queue);
-
-    prepare_kernels(context);
 
     if (beg == 0 && remote_cols.empty()) {
         if (row[n]) {
@@ -1170,22 +1154,19 @@ SpMat<real,column_t,idx_t>::SpMatCSR::SpMatCSR(
 }
 
 template <typename real, typename column_t, typename idx_t>
-void SpMat<real,column_t,idx_t>::SpMatCSR::prepare_kernels(const cl::Context &context) const {
-    if (!compiled[context()]) {
-        std::vector<cl::Device> device = context.getInfo<CL_CONTEXT_DEVICES>();
+const kernel_cache_entry& SpMat<real,column_t,idx_t>::SpMatCSR::spmv_set(const cl::CommandQueue &queue) {
+    static kernel_cache cache;
 
+    cl::Context context = qctx(queue);
+    cl::Device  device  = qdev(queue);
+
+    auto kernel = cache.find(context());
+
+    if (kernel == cache.end()) {
         std::ostringstream source;
 
-        source << standard_kernel_header(device[0]) <<
+        source << standard_kernel_header(device) <<
             "typedef " << type_name<real>() << " real;\n"
-            "kernel void zero(\n"
-            "    " << type_name<size_t>() << " n,\n"
-            "    global real *y\n"
-            "    )\n"
-            "{\n"
-            "    size_t i = get_global_id(0);\n"
-            "    if (i < n) y[i] = 0;\n"
-            "}\n"
             "kernel void spmv_set(\n"
             "    " << type_name<size_t>() << " n,\n"
             "    global const " << type_name<idx_t>() << " *row,\n"
@@ -1207,7 +1188,35 @@ void SpMat<real,column_t,idx_t>::SpMatCSR::prepare_kernels(const cl::Context &co
             "            sum += val[j] * x[col[j]];\n"
             "        y[i] = alpha * sum;\n"
             "    }\n"
-            "}\n"
+            "}\n";
+
+        auto program = build_sources(context, source.str());
+
+        cl::Kernel krn(program, "spmv_set");
+        size_t     wgs = kernel_workgroup_size(krn, device);
+
+        kernel = cache.insert(std::make_pair(
+                    context(), kernel_cache_entry(krn, wgs)
+                    )).first;
+    }
+
+    return kernel->second;
+}
+
+template <typename real, typename column_t, typename idx_t>
+const kernel_cache_entry& SpMat<real,column_t,idx_t>::SpMatCSR::spmv_add(const cl::CommandQueue &queue) {
+    static kernel_cache cache;
+
+    cl::Context context = qctx(queue);
+    cl::Device  device  = qdev(queue);
+
+    auto kernel = cache.find(context());
+
+    if (kernel == cache.end()) {
+        std::ostringstream source;
+
+        source << standard_kernel_header(device) <<
+            "typedef " << type_name<real>() << " real;\n"
             "kernel void spmv_add(\n"
             "    " << type_name<size_t>() << " n,\n"
             "    global const " << type_name<idx_t>() << " *row,\n"
@@ -1233,17 +1242,15 @@ void SpMat<real,column_t,idx_t>::SpMatCSR::prepare_kernels(const cl::Context &co
 
         auto program = build_sources(context, source.str());
 
-        zero[context()]     = cl::Kernel(program, "zero");
-        spmv_set[context()] = cl::Kernel(program, "spmv_set");
-        spmv_add[context()] = cl::Kernel(program, "spmv_add");
+        cl::Kernel krn(program, "spmv_add");
+        size_t     wgs = kernel_workgroup_size(krn, device);
 
-        wgsize[context()] = std::min(
-                kernel_workgroup_size(spmv_set[context()], device[0]),
-                kernel_workgroup_size(spmv_add[context()], device[0])
-                );
-
-        compiled[context()] = true;
+        kernel = cache.insert(std::make_pair(
+                    context(), kernel_cache_entry(krn, wgs)
+                    )).first;
     }
+
+    return kernel->second;
 }
 
 template <typename real, typename column_t, typename idx_t>
@@ -1256,40 +1263,37 @@ void SpMat<real,column_t,idx_t>::SpMatCSR::mul_local(
     cl::Device  device  = qdev(queue);
 
     if (has_loc) {
-        size_t g_size = num_workgroups(device) * wgsize[context()];
-
         if (append) {
-            uint pos = 0;
-            spmv_add[context()].setArg(pos++, n);
-            spmv_add[context()].setArg(pos++, loc.row);
-            spmv_add[context()].setArg(pos++, loc.col);
-            spmv_add[context()].setArg(pos++, loc.val);
-            spmv_add[context()].setArg(pos++, x);
-            spmv_add[context()].setArg(pos++, y);
-            spmv_add[context()].setArg(pos++, alpha);
+            auto add = spmv_add(queue);
+            size_t g_size = num_workgroups(device) * add.wgsize;
 
-            queue.enqueueNDRangeKernel(spmv_add[context()],
-                    cl::NullRange, g_size, wgsize[context()]);
+            uint pos = 0;
+            add.kernel.setArg(pos++, n);
+            add.kernel.setArg(pos++, loc.row);
+            add.kernel.setArg(pos++, loc.col);
+            add.kernel.setArg(pos++, loc.val);
+            add.kernel.setArg(pos++, x);
+            add.kernel.setArg(pos++, y);
+            add.kernel.setArg(pos++, alpha);
+
+            queue.enqueueNDRangeKernel(add.kernel, cl::NullRange, g_size, add.wgsize);
         } else {
-            uint pos = 0;
-            spmv_set[context()].setArg(pos++, n);
-            spmv_set[context()].setArg(pos++, loc.row);
-            spmv_set[context()].setArg(pos++, loc.col);
-            spmv_set[context()].setArg(pos++, loc.val);
-            spmv_set[context()].setArg(pos++, x);
-            spmv_set[context()].setArg(pos++, y);
-            spmv_set[context()].setArg(pos++, alpha);
+            auto set = spmv_set(queue);
+            size_t g_size = num_workgroups(device) * set.wgsize;
 
-            queue.enqueueNDRangeKernel(spmv_set[context()],
-                    cl::NullRange, g_size, wgsize[context()]);
+            uint pos = 0;
+            set.kernel.setArg(pos++, n);
+            set.kernel.setArg(pos++, loc.row);
+            set.kernel.setArg(pos++, loc.col);
+            set.kernel.setArg(pos++, loc.val);
+            set.kernel.setArg(pos++, x);
+            set.kernel.setArg(pos++, y);
+            set.kernel.setArg(pos++, alpha);
+
+            queue.enqueueNDRangeKernel(set.kernel, cl::NullRange, g_size, set.wgsize);
         }
     } else if (!append) {
-        uint pos = 0;
-        zero[context()].setArg(pos++, n);
-        zero[context()].setArg(pos++, y);
-
-        queue.enqueueNDRangeKernel(zero[context()],
-                cl::NullRange, n, cl::NullRange);
+        vector<real>(queue, y) = 0;
     }
 }
 
@@ -1304,20 +1308,19 @@ void SpMat<real,column_t,idx_t>::SpMatCSR::mul_remote(
     cl::Context context = qctx(queue);
     cl::Device  device  = qdev(queue);
 
-    size_t g_size = num_workgroups(device) * wgsize[context()];
+    auto add = spmv_add(queue);
+    size_t g_size = num_workgroups(device) * add.wgsize;
 
     uint pos = 0;
-    spmv_add[context()].setArg(pos++, n);
-    spmv_add[context()].setArg(pos++, rem.row);
-    spmv_add[context()].setArg(pos++, rem.col);
-    spmv_add[context()].setArg(pos++, rem.val);
-    spmv_add[context()].setArg(pos++, x);
-    spmv_add[context()].setArg(pos++, y);
-    spmv_add[context()].setArg(pos++, alpha);
+    add.kernel.setArg(pos++, n);
+    add.kernel.setArg(pos++, rem.row);
+    add.kernel.setArg(pos++, rem.col);
+    add.kernel.setArg(pos++, rem.val);
+    add.kernel.setArg(pos++, x);
+    add.kernel.setArg(pos++, y);
+    add.kernel.setArg(pos++, alpha);
 
-    queue.enqueueNDRangeKernel(spmv_add[context()],
-            cl::NullRange, g_size, wgsize[context()], &event
-            );
+    queue.enqueueNDRangeKernel(add.kernel, cl::NullRange, g_size, add.wgsize, &event);
 }
 
 /// Sparse matrix in CCSR format.
@@ -1373,8 +1376,6 @@ class SpMatCCSR : matrix_terminal {
         void mul(const vex::vector<real> &x, vex::vector<real> &y,
                 real alpha = 1, bool append = false) const;
     private:
-        void prepare_kernels(const cl::Context &context) const;
-
         void mul_local(
                 const cl::Buffer &x, const cl::Buffer &y,
                 real alpha, bool append
@@ -1391,23 +1392,9 @@ class SpMatCCSR : matrix_terminal {
             cl::Buffer val;
         } mtx;
 
-        static std::map<cl_context, bool>       compiled;
-        static std::map<cl_context, cl::Kernel> spmv_set;
-        static std::map<cl_context, cl::Kernel> spmv_add;
-        static std::map<cl_context, uint>       wgsize;
+        const kernel_cache_entry& spmv_set() const;
+        const kernel_cache_entry& spmv_add() const;
 };
-
-template <typename real, typename column_t, typename idx_t>
-std::map<cl_context, bool> SpMatCCSR<real,column_t,idx_t>::compiled;
-
-template <typename real, typename column_t, typename idx_t>
-std::map<cl_context, cl::Kernel> SpMatCCSR<real,column_t,idx_t>::spmv_set;
-
-template <typename real, typename column_t, typename idx_t>
-std::map<cl_context, cl::Kernel> SpMatCCSR<real,column_t,idx_t>::spmv_add;
-
-template <typename real, typename column_t, typename idx_t>
-std::map<cl_context, uint> SpMatCCSR<real,column_t,idx_t>::wgsize;
 
 template <typename real, typename column_t, typename idx_t>
 SpMatCCSR<real,column_t,idx_t>::SpMatCCSR(
@@ -1422,8 +1409,6 @@ SpMatCCSR<real,column_t,idx_t>::SpMatCCSR(
 
     cl::Context context = qctx(queue);
 
-    prepare_kernels(context);
-
     mtx.idx = cl::Buffer(context, CL_MEM_READ_ONLY, n * sizeof(idx_t));
     mtx.row = cl::Buffer(context, CL_MEM_READ_ONLY, (m + 1) * sizeof(idx_t));
     mtx.col = cl::Buffer(context, CL_MEM_READ_ONLY, row[m] * sizeof(column_t));
@@ -1436,13 +1421,18 @@ SpMatCCSR<real,column_t,idx_t>::SpMatCCSR(
 }
 
 template <typename real, typename column_t, typename idx_t>
-void SpMatCCSR<real,column_t,idx_t>::prepare_kernels(const cl::Context &context) const {
-    if (!compiled[context()]) {
-        std::vector<cl::Device> device = context.getInfo<CL_CONTEXT_DEVICES>();
+const kernel_cache_entry& SpMatCCSR<real,column_t,idx_t>::spmv_set() const {
+    static kernel_cache cache;
 
+    cl::Context context = qctx(queue);
+    cl::Device  device  = qdev(queue);
+
+    auto kernel = cache.find(context());
+
+    if (kernel == cache.end()) {
         std::ostringstream source;
 
-        source << standard_kernel_header(device[0]) <<
+        source << standard_kernel_header(device) <<
             "typedef " << type_name<real>() << " real;\n"
             "kernel void spmv_set(\n"
             "    " << type_name<size_t>() << " n,\n"
@@ -1455,8 +1445,7 @@ void SpMatCCSR<real,column_t,idx_t>::prepare_kernels(const cl::Context &context)
             "    real alpha\n"
             "    )\n"
             "{\n"
-            "    size_t i = get_global_id(0);\n"
-            "    if (i < n) {\n"
+            "    for(size_t i = get_global_id(0); i < n; i += get_global_size(0)) {\n"
             "        real sum = 0;\n"
             "        size_t pos = idx[i];\n"
             "        size_t beg = row[pos];\n"
@@ -1465,7 +1454,35 @@ void SpMatCCSR<real,column_t,idx_t>::prepare_kernels(const cl::Context &context)
             "            sum += val[j] * x[i + col[j]];\n"
             "        y[i] = alpha * sum;\n"
             "    }\n"
-            "}\n"
+            "}\n";
+
+        auto program = build_sources(context, source.str());
+
+        cl::Kernel krn(program, "spmv_set");
+        size_t     wgs = kernel_workgroup_size(krn, device);
+
+        kernel = cache.insert(std::make_pair(
+                    context(), kernel_cache_entry(krn, wgs)
+                    )).first;
+    }
+
+    return kernel->second;
+}
+
+template <typename real, typename column_t, typename idx_t>
+const kernel_cache_entry& SpMatCCSR<real,column_t,idx_t>::spmv_add() const {
+    static kernel_cache cache;
+
+    cl::Context context = qctx(queue);
+    cl::Device  device  = qdev(queue);
+
+    auto kernel = cache.find(context());
+
+    if (kernel == cache.end()) {
+        std::ostringstream source;
+
+        source << standard_kernel_header(device) <<
+            "typedef " << type_name<real>() << " real;\n"
             "kernel void spmv_add(\n"
             "    " << type_name<size_t>() << " n,\n"
             "    global const " << type_name<idx_t>() << " *idx,\n"
@@ -1477,8 +1494,7 @@ void SpMatCCSR<real,column_t,idx_t>::prepare_kernels(const cl::Context &context)
             "    real alpha\n"
             "    )\n"
             "{\n"
-            "    size_t i = get_global_id(0);\n"
-            "    if (i < n) {\n"
+            "    for(size_t i = get_global_id(0); i < n; i += get_global_size(0)) {\n"
             "        real sum = 0;\n"
             "        size_t pos = idx[i];\n"
             "        size_t beg = row[pos];\n"
@@ -1491,16 +1507,15 @@ void SpMatCCSR<real,column_t,idx_t>::prepare_kernels(const cl::Context &context)
 
         auto program = build_sources(context, source.str());
 
-        spmv_set[context()] = cl::Kernel(program, "spmv_set");
-        spmv_add[context()] = cl::Kernel(program, "spmv_add");
+        cl::Kernel krn(program, "spmv_add");
+        size_t     wgs = kernel_workgroup_size(krn, device);
 
-        wgsize[context()] = std::min(
-                kernel_workgroup_size(spmv_set[context()], device[0]),
-                kernel_workgroup_size(spmv_add[context()], device[0])
-                );
-
-        compiled[context()] = true;
+        kernel = cache.insert(std::make_pair(
+                    context(), kernel_cache_entry(krn, wgs)
+                    )).first;
     }
+
+    return kernel->second;
 }
 
 template <typename real, typename column_t, typename idx_t>
@@ -1509,34 +1524,38 @@ void SpMatCCSR<real,column_t,idx_t>::mul(
         real alpha, bool append
         ) const
 {
-    cl::Context context = qctx(queue);
+    cl::Device device = qdev(queue);
 
     if (append) {
-        uint pos = 0;
-        spmv_add[context()].setArg(pos++, n);
-        spmv_add[context()].setArg(pos++, mtx.idx);
-        spmv_add[context()].setArg(pos++, mtx.row);
-        spmv_add[context()].setArg(pos++, mtx.col);
-        spmv_add[context()].setArg(pos++, mtx.val);
-        spmv_add[context()].setArg(pos++, x());
-        spmv_add[context()].setArg(pos++, y());
-        spmv_add[context()].setArg(pos++, alpha);
+        auto add = spmv_add();
+        size_t g_size = num_workgroups(device) * add.wgsize;
 
-        queue.enqueueNDRangeKernel(spmv_add[context()],
-                cl::NullRange, n, cl::NullRange);
+        uint pos = 0;
+        add.kernel.setArg(pos++, n);
+        add.kernel.setArg(pos++, mtx.idx);
+        add.kernel.setArg(pos++, mtx.row);
+        add.kernel.setArg(pos++, mtx.col);
+        add.kernel.setArg(pos++, mtx.val);
+        add.kernel.setArg(pos++, x());
+        add.kernel.setArg(pos++, y());
+        add.kernel.setArg(pos++, alpha);
+
+        queue.enqueueNDRangeKernel(add.kernel, cl::NullRange, g_size, add.wgsize);
     } else {
-        uint pos = 0;
-        spmv_set[context()].setArg(pos++, n);
-        spmv_set[context()].setArg(pos++, mtx.idx);
-        spmv_set[context()].setArg(pos++, mtx.row);
-        spmv_set[context()].setArg(pos++, mtx.col);
-        spmv_set[context()].setArg(pos++, mtx.val);
-        spmv_set[context()].setArg(pos++, x());
-        spmv_set[context()].setArg(pos++, y());
-        spmv_set[context()].setArg(pos++, alpha);
+        auto set = spmv_set();
+        size_t g_size = num_workgroups(device) * set.wgsize;
 
-        queue.enqueueNDRangeKernel(spmv_set[context()],
-                cl::NullRange, n, cl::NullRange);
+        uint pos = 0;
+        set.kernel.setArg(pos++, n);
+        set.kernel.setArg(pos++, mtx.idx);
+        set.kernel.setArg(pos++, mtx.row);
+        set.kernel.setArg(pos++, mtx.col);
+        set.kernel.setArg(pos++, mtx.val);
+        set.kernel.setArg(pos++, x());
+        set.kernel.setArg(pos++, y());
+        set.kernel.setArg(pos++, alpha);
+
+        queue.enqueueNDRangeKernel(set.kernel, cl::NullRange, g_size, set.wgsize);
     }
 }
 

@@ -332,23 +332,177 @@ class stencil : private stencil_base<T> {
 
         void init(uint width);
 
-        static std::map<cl_context, bool>              compiled;
-        static std::map<cl_context, cl::Kernel>        slow_conv;
-        static std::map<cl_context, cl::Kernel>        fast_conv;
-        static std::map<cl_context, uint>              wgsize;
+        static const kernel_cache_entry& slow_conv(const cl::CommandQueue &queue);
+        static const kernel_cache_entry& fast_conv(const cl::CommandQueue &queue);
 };
 
 template <typename T>
-std::map<cl_context, bool> stencil<T>::compiled;
+const kernel_cache_entry& stencil<T>::slow_conv(const cl::CommandQueue &queue) {
+    static kernel_cache cache;
+
+    cl::Context context = qctx(queue);
+    cl::Device  device  = qdev(queue);
+
+    auto kernel = cache.find(context());
+
+    if (kernel == cache.end()) {
+        std::ostringstream source;
+
+        source << standard_kernel_header(device) <<
+            "typedef " << type_name<T>() << " real;\n"
+            "real read_x(\n"
+            "    long g_id,\n"
+            "    " << type_name<size_t>() << " n,\n"
+            "    char has_left, char has_right,\n"
+            "    int lhalo, int rhalo,\n"
+            "    global const real *xloc,\n"
+            "    global const real *xrem\n"
+            "    )\n"
+            "{\n"
+            "    if (g_id >= 0 && g_id < n) {\n"
+            "        return xloc[g_id];\n"
+            "    } else if (g_id < 0) {\n"
+            "        if (has_left)\n"
+            "            return (lhalo + g_id >= 0) ? xrem[lhalo + g_id] : 0;\n"
+            "        else\n"
+            "            return xloc[0];\n"
+            "    } else {\n"
+            "        if (has_right)\n"
+            "            return (g_id < n + rhalo) ? xrem[lhalo + g_id - n] : 0;\n"
+            "        else\n"
+            "            return xloc[n - 1];\n"
+            "    }\n"
+            "}\n"
+            "kernel void slow_conv(\n"
+            "    " << type_name<size_t>() << " n,\n"
+            "    char has_left,\n"
+            "    char has_right,\n"
+            "    int lhalo, int rhalo,\n"
+            "    global const real *s,\n"
+            "    global const real *xloc,\n"
+            "    global const real *xrem,\n"
+            "    global real *y,\n"
+            "    real alpha, real beta,\n"
+            "    local real *loc_s,\n"
+            "    local real *loc_x\n"
+            "    )\n"
+            "{\n";
+        if ( is_cpu(device) )
+            source <<
+            "    long g_id = get_global_id(0);\n"
+            "    if (g_id < n) {\n";
+        else
+            source <<
+            "    size_t grid_size = get_global_size(0);\n"
+            "    for(long g_id = get_global_id(0); g_id < n; g_id += grid_size) {\n";
+        source <<
+            "        real sum = 0;\n"
+            "        for(int j = -lhalo; j <= rhalo; j++)\n"
+            "            sum += s[lhalo + j] * read_x(g_id + j, n, has_left, has_right, lhalo, rhalo, xloc, xrem);\n"
+            "        if (alpha)\n"
+            "            y[g_id] = alpha * y[g_id] + beta * sum;\n"
+            "        else\n"
+            "            y[g_id] = beta * sum;\n"
+            "    }\n"
+            "}\n";
+
+        auto program = build_sources(context, source.str());
+
+        cl::Kernel krn(program, "slow_conv");
+        size_t     wgs = kernel_workgroup_size(krn, device);
+
+        kernel = cache.insert(std::make_pair(
+                    context(), kernel_cache_entry(krn, wgs)
+                    )).first;
+    }
+
+    return kernel->second;
+}
 
 template <typename T>
-std::map<cl_context, uint> stencil<T>::wgsize;
+const kernel_cache_entry& stencil<T>::fast_conv(const cl::CommandQueue &queue) {
+    static kernel_cache cache;
 
-template <typename T>
-std::map<cl_context, cl::Kernel> stencil<T>::slow_conv;
+    cl::Context context = qctx(queue);
+    cl::Device  device  = qdev(queue);
 
-template <typename T>
-std::map<cl_context, cl::Kernel> stencil<T>::fast_conv;
+    auto kernel = cache.find(context());
+
+    if (kernel == cache.end()) {
+        std::ostringstream source;
+
+        source << standard_kernel_header(device) <<
+            "typedef " << type_name<T>() << " real;\n"
+            "real read_x(\n"
+            "    long g_id,\n"
+            "    " << type_name<size_t>() << " n,\n"
+            "    char has_left, char has_right,\n"
+            "    int lhalo, int rhalo,\n"
+            "    global const real *xloc,\n"
+            "    global const real *xrem\n"
+            "    )\n"
+            "{\n"
+            "    if (g_id >= 0 && g_id < n) {\n"
+            "        return xloc[g_id];\n"
+            "    } else if (g_id < 0) {\n"
+            "        if (has_left)\n"
+            "            return (lhalo + g_id >= 0) ? xrem[lhalo + g_id] : 0;\n"
+            "        else\n"
+            "            return xloc[0];\n"
+            "    } else {\n"
+            "        if (has_right)\n"
+            "            return (g_id < n + rhalo) ? xrem[lhalo + g_id - n] : 0;\n"
+            "        else\n"
+            "            return xloc[n - 1];\n"
+            "    }\n"
+            "}\n"
+            "kernel void fast_conv(\n"
+            "    " << type_name<size_t>() << " n,\n"
+            "    char has_left,\n"
+            "    char has_right,\n"
+            "    int lhalo, int rhalo,\n"
+            "    global const real *s,\n"
+            "    global const real *xloc,\n"
+            "    global const real *xrem,\n"
+            "    global real *y,\n"
+            "    real alpha, real beta,\n"
+            "    local real *S,\n"
+            "    local real *X\n"
+            "    )\n"
+            "{\n"
+            "    size_t grid_size = get_global_size(0);\n"
+            "    int l_id       = get_local_id(0);\n"
+            "    int block_size = get_local_size(0);\n"
+            "    async_work_group_copy(S, s, lhalo + rhalo + 1, 0);\n"
+            "    for(long g_id = get_global_id(0), pos = 0; pos < n; g_id += grid_size, pos += grid_size) {\n"
+            "        for(int i = l_id, j = g_id - lhalo; i < block_size + lhalo + rhalo; i += block_size, j += block_size)\n"
+            "            X[i] = read_x(j, n, has_left, has_right, lhalo, rhalo, xloc, xrem);\n"
+            "        barrier(CLK_LOCAL_MEM_FENCE);\n"
+            "        if (g_id < n) {\n"
+            "            real sum = 0;\n"
+            "            for(int j = -lhalo; j <= rhalo; j++)\n"
+            "                sum += S[lhalo + j] * X[lhalo + l_id + j];\n"
+            "            if (alpha)\n"
+            "                y[g_id] = alpha * y[g_id] + beta * sum;\n"
+            "            else\n"
+            "                y[g_id] = beta * sum;\n"
+            "        }\n"
+            "        barrier(CLK_LOCAL_MEM_FENCE);\n"
+            "    }\n"
+            "}\n";
+
+        auto program = build_sources(context, source.str());
+
+        cl::Kernel krn(program, "fast_conv");
+        size_t     wgs = kernel_workgroup_size(krn, device);
+
+        kernel = cache.insert(std::make_pair(
+                    context(), kernel_cache_entry(krn, wgs)
+                    )).first;
+    }
+
+    return kernel->second;
+}
 
 template <typename T>
 void stencil<T>::init(uint width) {
@@ -356,132 +510,26 @@ void stencil<T>::init(uint width) {
         cl::Context context = qctx(queue[d]);
         cl::Device  device  = qdev(queue[d]);
 
-        if (!compiled[context()]) {
-            std::ostringstream source;
-
-            source << standard_kernel_header(device) <<
-                "typedef " << type_name<T>() << " real;\n"
-                "real read_x(\n"
-                "    long g_id,\n"
-                "    " << type_name<size_t>() << " n,\n"
-                "    char has_left, char has_right,\n"
-                "    int lhalo, int rhalo,\n"
-                "    global const real *xloc,\n"
-                "    global const real *xrem\n"
-                "    )\n"
-                "{\n"
-                "    if (g_id >= 0 && g_id < n) {\n"
-                "        return xloc[g_id];\n"
-                "    } else if (g_id < 0) {\n"
-                "        if (has_left)\n"
-                "            return (lhalo + g_id >= 0) ? xrem[lhalo + g_id] : 0;\n"
-                "        else\n"
-                "            return xloc[0];\n"
-                "    } else {\n"
-                "        if (has_right)\n"
-                "            return (g_id < n + rhalo) ? xrem[lhalo + g_id - n] : 0;\n"
-                "        else\n"
-                "            return xloc[n - 1];\n"
-                "    }\n"
-                "}\n"
-                "kernel void slow_conv(\n"
-                "    " << type_name<size_t>() << " n,\n"
-                "    char has_left,\n"
-                "    char has_right,\n"
-                "    int lhalo, int rhalo,\n"
-                "    global const real *s,\n"
-                "    global const real *xloc,\n"
-                "    global const real *xrem,\n"
-                "    global real *y,\n"
-                "    real alpha, real beta,\n"
-                "    local real *loc_s,\n"
-                "    local real *loc_x\n"
-                "    )\n"
-                "{\n";
-            if ( is_cpu(device) )
-                source <<
-                "    long g_id = get_global_id(0);\n"
-                "    if (g_id < n) {\n";
-            else
-                source <<
-                "    size_t grid_size = get_global_size(0);\n"
-                "    for(long g_id = get_global_id(0); g_id < n; g_id += grid_size) {\n";
-            source <<
-                "        real sum = 0;\n"
-                "        for(int j = -lhalo; j <= rhalo; j++)\n"
-                "            sum += s[lhalo + j] * read_x(g_id + j, n, has_left, has_right, lhalo, rhalo, xloc, xrem);\n"
-                "        if (alpha)\n"
-                "            y[g_id] = alpha * y[g_id] + beta * sum;\n"
-                "        else\n"
-                "            y[g_id] = beta * sum;\n"
-                "    }\n"
-                "}\n"
-                "kernel void fast_conv(\n"
-                "    " << type_name<size_t>() << " n,\n"
-                "    char has_left,\n"
-                "    char has_right,\n"
-                "    int lhalo, int rhalo,\n"
-                "    global const real *s,\n"
-                "    global const real *xloc,\n"
-                "    global const real *xrem,\n"
-                "    global real *y,\n"
-                "    real alpha, real beta,\n"
-                "    local real *S,\n"
-                "    local real *X\n"
-                "    )\n"
-                "{\n"
-                "    size_t grid_size = get_global_size(0);\n"
-                "    int l_id       = get_local_id(0);\n"
-                "    int block_size = get_local_size(0);\n"
-                "    async_work_group_copy(S, s, lhalo + rhalo + 1, 0);\n"
-                "    for(long g_id = get_global_id(0), pos = 0; pos < n; g_id += grid_size, pos += grid_size) {\n"
-                "        for(int i = l_id, j = g_id - lhalo; i < block_size + lhalo + rhalo; i += block_size, j += block_size)\n"
-                "            X[i] = read_x(j, n, has_left, has_right, lhalo, rhalo, xloc, xrem);\n"
-                "        barrier(CLK_LOCAL_MEM_FENCE);\n"
-                "        if (g_id < n) {\n"
-                "            real sum = 0;\n"
-                "            for(int j = -lhalo; j <= rhalo; j++)\n"
-                "                sum += S[lhalo + j] * X[lhalo + l_id + j];\n"
-                "            if (alpha)\n"
-                "                y[g_id] = alpha * y[g_id] + beta * sum;\n"
-                "            else\n"
-                "                y[g_id] = beta * sum;\n"
-                "        }\n"
-                "        barrier(CLK_LOCAL_MEM_FENCE);\n"
-                "    }\n"
-                "}\n";
-
-            auto program = build_sources(context, source.str());
-
-            slow_conv[context()] = cl::Kernel(program, "slow_conv");
-            fast_conv[context()] = cl::Kernel(program, "fast_conv");
-
-            wgsize[context()] = std::min(
-                    kernel_workgroup_size(slow_conv[context()], device),
-                    kernel_workgroup_size(fast_conv[context()], device)
-                    );
-
-            compiled[context()] = true;
-        }
+        auto slow_krn = slow_conv(queue[d]);
+        auto fast_krn = fast_conv(queue[d]);
 
         size_t available_lmem = (device.getInfo<CL_DEVICE_LOCAL_MEM_SIZE>() -
-                fast_conv[context()].getWorkGroupInfo<CL_KERNEL_LOCAL_MEM_SIZE>(device)
+                fast_krn.kernel.template getWorkGroupInfo<CL_KERNEL_LOCAL_MEM_SIZE>(device)
                 ) / sizeof(T);
 
         if (is_cpu(device) || available_lmem < width + 64 + lhalo + rhalo) {
-            conv[d]  = slow_conv[context()];
-            wgs[d]   = wgsize[context()];
+            conv[d]  = slow_krn.kernel;
+            wgs[d]   = slow_krn.wgsize;
             loc_s[d] = vex::Local(1);
             loc_x[d] = vex::Local(1);
         } else {
-            conv[d] = fast_conv[context()];
-            wgs[d]  = wgsize[context()];
+            conv[d] = fast_krn.kernel;
+            wgs[d]  = fast_krn.wgsize;
             while(available_lmem < width + wgs[d] + lhalo + rhalo)
                 wgs[d] /= 2;
             loc_s[d] = vex::Local(sizeof(T) * width);
             loc_x[d] = vex::Local(sizeof(T) * (wgs[d] + lhalo + rhalo));
         }
-
     }
 }
 
@@ -598,35 +646,30 @@ class StencilOperator : private stencil_base<T> {
         using Base::event;
         using Base::lhalo;
         using Base::rhalo;
-
-        static std::map<cl_context, bool>              compiled;
-        static std::map<cl_context, cl::Kernel>        kernel;
-        static std::map<cl_context, uint>              wgsize;
-        static std::map<cl_context, cl::LocalSpaceArg> lmem;
 };
-
-template <typename T, uint width, uint center, class Impl>
-std::map<cl_context, bool> StencilOperator<T, width, center, Impl>::compiled;
-
-template <typename T, uint width, uint center, class Impl>
-std::map<cl_context, cl::Kernel> StencilOperator<T, width, center, Impl>::kernel;
-
-template <typename T, uint width, uint center, class Impl>
-std::map<cl_context, uint> StencilOperator<T, width, center, Impl>::wgsize;
-
-template <typename T, uint width, uint center, class Impl>
-std::map<cl_context, cl::LocalSpaceArg> StencilOperator<T, width, center, Impl>::lmem;
 
 template <typename T, uint width, uint center, class Impl>
 StencilOperator<T, width, center, Impl>::StencilOperator(
         const std::vector<cl::CommandQueue> &queue)
     : Base(queue, width, center, static_cast<T*>(0), static_cast<T*>(0))
+{ }
+
+template <typename T, uint width, uint center, class Impl>
+void StencilOperator<T, width, center, Impl>::convolve(
+        const vex::vector<T> &x, vex::vector<T> &y, T alpha, T beta) const
 {
-    for (uint d = 0; d < queue.size(); d++) {
+    static kernel_cache cache;
+    static std::map<cl_context, cl::LocalSpaceArg> lmem;
+
+    Base::exchange_halos(x);
+
+    for(uint d = 0; d < queue.size(); d++) {
         cl::Context context = qctx(queue[d]);
         cl::Device  device  = qdev(queue[d]);
 
-        if (!compiled[context()]) {
+        auto kernel = cache.find(context());
+
+        if (kernel == cache.end()) {
             std::ostringstream source;
 
             source << standard_kernel_header(device) <<
@@ -687,59 +730,51 @@ StencilOperator<T, width, center, Impl>::StencilOperator(
                 "    }\n"
                 "}\n";
 
+
             auto program = build_sources(context, source.str());
 
-            kernel[context()]   = cl::Kernel(program, "convolve");
-            wgsize[context()]   = kernel_workgroup_size(kernel[context()], device);
-            compiled[context()] = true;
+            cl::Kernel krn(program, "convolve");
+            size_t wgs = kernel_workgroup_size(krn, device);
 
             size_t available_lmem = (device.getInfo<CL_DEVICE_LOCAL_MEM_SIZE>() -
-                    kernel[context()].getWorkGroupInfo<CL_KERNEL_LOCAL_MEM_SIZE>(device)
+                    krn.getWorkGroupInfo<CL_KERNEL_LOCAL_MEM_SIZE>(device)
                     ) / sizeof(T);
 
             assert(available_lmem >= width + 64);
 
-            while(available_lmem < width + wgsize[context()])
-                wgsize[context()] /= 2;
+            while(available_lmem < width + wgs) wgs /= 2;
 
-            lmem[context()] = vex::Local(sizeof(T) * (wgsize[context()] + width - 1));
+            kernel = cache.insert(std::make_pair(
+                        context(), kernel_cache_entry(krn, wgs)
+                        )).first;
+
+            lmem[context()] = vex::Local(sizeof(T) * (wgs + width - 1));
         }
 
-    }
-}
-
-template <typename T, uint width, uint center, class Impl>
-void StencilOperator<T, width, center, Impl>::convolve(
-        const vex::vector<T> &x, vex::vector<T> &y, T alpha, T beta) const
-{
-    Base::exchange_halos(x);
-
-    for(uint d = 0; d < queue.size(); d++) {
         if (size_t psize = x.part_size(d)) {
-            cl::Context context = qctx(queue[d]);
-            cl::Device  device  = qdev(queue[d]);
-
-            size_t g_size = is_cpu(device) ? alignup(psize, wgsize[context()]) :
-                num_workgroups(device) * wgsize[context()];
+            size_t wgsize = kernel->second.wgsize;
+            size_t g_size = is_cpu(device) ?
+                alignup(psize, wgsize) : num_workgroups(device) * wgsize;
 
             char has_left  = d > 0;
             char has_right = d + 1 < queue.size();
 
             uint pos = 0;
 
-            kernel[context()].setArg(pos++, psize);
-            kernel[context()].setArg(pos++, has_left);
-            kernel[context()].setArg(pos++, has_right);
-            kernel[context()].setArg(pos++, lhalo);
-            kernel[context()].setArg(pos++, rhalo);
-            kernel[context()].setArg(pos++, x(d));
-            kernel[context()].setArg(pos++, dbuf[d]);
-            kernel[context()].setArg(pos++, y(d));
-            kernel[context()].setArg(pos++, alpha);
-            kernel[context()].setArg(pos++, beta);
-            kernel[context()].setArg(pos++, lmem[context()]);
+            kernel->second.kernel.setArg(pos++, psize);
+            kernel->second.kernel.setArg(pos++, has_left);
+            kernel->second.kernel.setArg(pos++, has_right);
+            kernel->second.kernel.setArg(pos++, lhalo);
+            kernel->second.kernel.setArg(pos++, rhalo);
+            kernel->second.kernel.setArg(pos++, x(d));
+            kernel->second.kernel.setArg(pos++, dbuf[d]);
+            kernel->second.kernel.setArg(pos++, y(d));
+            kernel->second.kernel.setArg(pos++, alpha);
+            kernel->second.kernel.setArg(pos++, beta);
+            kernel->second.kernel.setArg(pos++, lmem[context()]);
 
-            queue[d].enqueueNDRangeKernel(kernel[context()], cl::NullRange, g_size, wgsize[context()]);
+            queue[d].enqueueNDRangeKernel(kernel->second.kernel,
+                    cl::NullRange, g_size, wgsize);
         }
     }
 }
