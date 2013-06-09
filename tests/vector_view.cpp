@@ -133,20 +133,42 @@ BOOST_AUTO_TEST_CASE(reduce_slice)
 }
 
 BOOST_AUTO_TEST_CASE(assign_to_view) {
-    const size_t n = 1024;
+    const size_t m = 32;
+    const size_t n = m * m;
+
+    std::array<size_t, 2> dim = {{m, m}};
 
     std::vector<cl::CommandQueue> queue(1, ctx.queue(0));
 
     vex::vector<int> x(queue, n);
-    vex::slicer<1> slicer(&n);
+    vex::slicer<1> slicer1(&n);
+    vex::slicer<2> slicer2(dim);
 
     x = 1;
 
-    slicer[vex::range(1, 2, n)](x) = 2;
+    slicer1[vex::range(1, 2, n)](x) = 2;
 
     check_sample(x, [&](size_t idx, int v) {
             BOOST_CHECK_EQUAL(v, idx % 2 + 1);
             });
+
+    for(int i = 0; i < m; ++i)
+        slicer2[vex::range()][i](x) = i;
+
+    check_sample(x, [&](size_t idx, int v) {
+            BOOST_CHECK_EQUAL(v, idx % m);
+            });
+
+    vex::vector<size_t> I(ctx, m);
+
+    I = vex::element_index() * m;
+
+    vex::permutation first_col(I);
+
+    first_col(x) = 42;
+
+    for(int i = 0; i < m; ++i)
+        BOOST_CHECK_EQUAL(x[i * m], 42);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
