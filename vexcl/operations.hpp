@@ -1562,6 +1562,103 @@ VEXCL_ADDITIVE_EXPR_EXTRACTOR(extract_additive_multivector_transforms,
         multivector_full_grammar
         );
 
+
+//---------------------------------------------------------------------------
+// Assign expression to a lhs
+//---------------------------------------------------------------------------
+template <class OP, class LHS, class Expr>
+void assign_expression(LHS &lhs, const Expr &expr,
+        const std::vector<cl::CommandQueue> &queue,
+        const std::vector<size_t> &part
+        )
+{
+    static kernel_cache cache;
+
+    for(uint d = 0; d < queue.size(); d++) {
+        cl::Context context = qctx(queue[d]);
+        cl::Device  device  = qdev(queue[d]);
+
+        auto kernel = cache.find(context());
+
+        if (kernel == cache.end()) {
+            std::ostringstream source;
+
+            std::ostringstream kernel_name;
+            vector_name_context name_ctx(kernel_name);
+            boost::proto::eval(boost::proto::as_child(expr), name_ctx);
+
+            source << standard_kernel_header(device);
+
+            declare_user_function    declfun(source);
+            output_terminal_preamble termpream(source);
+
+            extract_user_functions()(boost::proto::as_child(lhs),  declfun);
+            extract_user_functions()(boost::proto::as_child(expr), declfun);
+
+            termpream(boost::proto::as_child(lhs));
+            extract_terminals()(boost::proto::as_child(expr), termpream);
+
+            source << "kernel void " << kernel_name.str()
+                << "(\n\t" << type_name<size_t>() << " n";
+
+            declare_expression_parameter declare(source);
+
+            declare(boost::proto::as_child(lhs));
+            extract_terminals()(boost::proto::as_child(expr), declare);
+
+            source << "\n)\n{\n";
+
+            if ( is_cpu(device) ) {
+                source <<
+                    "\tsize_t chunk_size  = (n + get_global_size(0) - 1) / get_global_size(0);\n"
+                    "\tsize_t chunk_start = get_global_id(0) * chunk_size;\n"
+                    "\tsize_t chunk_end   = min(n, chunk_start + chunk_size);\n"
+                    "\tfor(size_t idx = chunk_start; idx < chunk_end; ++idx) {\n";
+            } else {
+                source <<
+                    "\tfor(size_t idx = get_global_id(0); idx < n; idx += get_global_size(0)) {\n";
+            }
+
+            vector_expr_context expr_ctx(source);
+
+            source << "\t\t";
+
+            boost::proto::eval(boost::proto::as_child(lhs), expr_ctx);
+            source << " " << OP::string() << " ";
+            boost::proto::eval(boost::proto::as_child(expr), expr_ctx);
+
+            source << ";\n\t}\n}\n";
+
+            auto program = build_sources(context, source.str());
+
+            cl::Kernel krn(program, kernel_name.str().c_str());
+            size_t wgs = kernel_workgroup_size(krn, device);
+
+            kernel = cache.insert(std::make_pair(
+                        context(), kernel_cache_entry(krn, wgs)
+                        )).first;
+        }
+
+        if (size_t psize = part[d + 1] - part[d]) {
+            size_t w_size = kernel->second.wgsize;
+            size_t g_size = num_workgroups(device) * w_size;
+
+            uint pos = 0;
+            kernel->second.kernel.setArg(pos++, psize);
+
+            set_expression_argument setarg(kernel->second.kernel, d, pos, part[d]);
+
+            setarg(boost::proto::as_child(lhs));
+
+            extract_terminals()( boost::proto::as_child(expr), setarg);
+
+            queue[d].enqueueNDRangeKernel(
+                    kernel->second.kernel, cl::NullRange, g_size, w_size
+                    );
+        }
+    }
+}
+
 /// \endcond
 
 } // namespace vex;

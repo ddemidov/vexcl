@@ -590,7 +590,7 @@ class vector : public vector_terminal_expression {
             const vector& \
         >::type \
         operator cop(const Expr &expr) { \
-            assign_expression<op>(expr); \
+            assign_expression<op>(*this, expr, queue, part); \
             return *this; \
         }
 
@@ -792,86 +792,6 @@ class vector : public vector_terminal_expression {
                 }
             }
             if (hostptr) write_data(0, size(), hostptr, CL_TRUE);
-        }
-
-        template <class OP, class Expr>
-        void assign_expression(const Expr &expr) {
-            static kernel_cache cache;
-
-            for(uint d = 0; d < queue.size(); d++) {
-                cl::Context context = qctx(queue[d]);
-                cl::Device  device  = qdev(queue[d]);
-
-                auto kernel = cache.find(context());
-
-                if (kernel == cache.end()) {
-                    std::ostringstream source;
-
-                    std::ostringstream kernel_name;
-                    vector_name_context name_ctx(kernel_name);
-                    boost::proto::eval(boost::proto::as_child(expr), name_ctx);
-
-                    source << standard_kernel_header(device);
-
-                    construct_preamble(expr, source);
-
-                    source << "kernel void " << kernel_name.str()
-                           << "(\n\t" << type_name<size_t>()
-                           << " n,\n\tglobal " << type_name<T>() << " *res";
-
-                    extract_terminals()(
-                            boost::proto::as_child(expr),
-                            declare_expression_parameter(source)
-                            );
-
-                    source << "\n)\n{\n";
-
-                    if ( is_cpu(device) ) {
-                        source <<
-                            "\tsize_t chunk_size  = (n + get_global_size(0) - 1) / get_global_size(0);\n"
-                            "\tsize_t chunk_start = get_global_id(0) * chunk_size;\n"
-                            "\tsize_t chunk_end   = min(n, chunk_start + chunk_size);\n"
-                            "\tfor(size_t idx = chunk_start; idx < chunk_end; ++idx) {\n";
-                    } else {
-                        source <<
-                            "\tfor(size_t idx = get_global_id(0); idx < n; idx += get_global_size(0)) {\n";
-                    }
-
-                    source << "\t\tres[idx] " << OP::string() << " ";
-
-                    vector_expr_context expr_ctx(source);
-                    boost::proto::eval(boost::proto::as_child(expr), expr_ctx);
-
-                    source << ";\n\t}\n}\n";
-
-                    auto program = build_sources(context, source.str());
-
-                    cl::Kernel krn(program, kernel_name.str().c_str());
-                    size_t wgs = kernel_workgroup_size(krn, device);
-
-                    kernel = cache.insert(std::make_pair(
-                                context(), kernel_cache_entry(krn, wgs)
-                                )).first;
-                }
-
-                if (size_t psize = part[d + 1] - part[d]) {
-                    size_t w_size = kernel->second.wgsize;
-                    size_t g_size = num_workgroups(device) * w_size;
-
-                    uint pos = 0;
-                    kernel->second.kernel.setArg(pos++, psize);
-                    kernel->second.kernel.setArg(pos++, buf[d]);
-
-                    extract_terminals()(
-                            boost::proto::as_child(expr),
-                            set_expression_argument(kernel->second.kernel, d, pos, part[d])
-                            );
-
-                    queue[d].enqueueNDRangeKernel(
-                            kernel->second.kernel, cl::NullRange, g_size, w_size
-                            );
-                }
-            }
         }
 
         template <typename S, size_t N, bool own>
