@@ -187,10 +187,9 @@ BOOST_AUTO_TEST_CASE(function_with_preamble)
 
 BOOST_AUTO_TEST_CASE(combine_expressions)
 {
-
     const size_t n = 1024;
 
-    vex::vector<int> x(ctx, n);
+    vex::vector<double> x(ctx, n);
 
     auto alpha  = vex::tag<1>(2 * M_PI) * vex::tag<2>(vex::element_index());
     auto sine   = sin(alpha);
