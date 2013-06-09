@@ -152,7 +152,7 @@ BOOST_AUTO_TEST_CASE(assign_to_view) {
             BOOST_CHECK_EQUAL(v, idx % 2 + 1);
             });
 
-    for(int i = 0; i < m; ++i)
+    for(size_t i = 0; i < m; ++i)
         slicer2[vex::range()][i](x) = i;
 
     check_sample(x, [&](size_t idx, int v) {
@@ -167,7 +167,7 @@ BOOST_AUTO_TEST_CASE(assign_to_view) {
 
     first_col(x) = 42;
 
-    for(int i = 0; i < m; ++i)
+    for(size_t i = 0; i < m; ++i)
         BOOST_CHECK_EQUAL(x[i * m], 42);
 }
 
