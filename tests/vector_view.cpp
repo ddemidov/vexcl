@@ -132,4 +132,21 @@ BOOST_AUTO_TEST_CASE(reduce_slice)
     BOOST_CHECK_EQUAL(N / 2, sum( slice[vex::range(0, 2, N)](X) ));
 }
 
+BOOST_AUTO_TEST_CASE(assign_to_view) {
+    const size_t n = 1024;
+
+    std::vector<cl::CommandQueue> queue(1, ctx.queue(0));
+
+    vex::vector<int> x(queue, n);
+    vex::slicer<1> slicer(&n);
+
+    x = 1;
+
+    slicer[vex::range(1, 2, n)](x) = 2;
+
+    check_sample(x, [&](size_t idx, int v) {
+            BOOST_CHECK_EQUAL(v, idx % 2 + 1);
+            });
+}
+
 BOOST_AUTO_TEST_SUITE_END()

@@ -55,6 +55,37 @@ struct vector_view : public vector_view_terminal_expression
     vector_view(const vector<T> &base, const Slice &slice)
         : base(base), slice(slice)
     { }
+
+    // Expression assignments.
+#define ASSIGNMENT(cop, op) \
+    template <class Expr> \
+    typename std::enable_if< \
+        boost::proto::matches< \
+            typename boost::proto::result_of::as_expr<Expr>::type, \
+            vector_expr_grammar \
+        >::value, \
+        const vector_view& \
+    >::type \
+    operator cop(const Expr &expr) { \
+        std::vector<size_t> part(2, 0); \
+        part.back() = slice.size(); \
+        assign_expression<op>(*this, expr, base.queue_list(), part); \
+        return *this; \
+    }
+
+    ASSIGNMENT(=,   assign::SET);
+    ASSIGNMENT(+=,  assign::ADD);
+    ASSIGNMENT(-=,  assign::SUB);
+    ASSIGNMENT(*=,  assign::MUL);
+    ASSIGNMENT(/=,  assign::DIV);
+    ASSIGNMENT(%=,  assign::MOD);
+    ASSIGNMENT(&=,  assign::AND);
+    ASSIGNMENT(|=,  assign::OR);
+    ASSIGNMENT(^=,  assign::XOR);
+    ASSIGNMENT(<<=, assign::LSH);
+    ASSIGNMENT(>>=, assign::RSH);
+
+#undef ASSIGNMENT
 };
 
 // Allow vector_view to participate in vector expressions:
