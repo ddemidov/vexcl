@@ -5,7 +5,6 @@
 BOOST_AUTO_TEST_CASE(tagged_terminal)
 {
     using vex::tag;
-    using vex::range;
 
     const size_t n = 1024;
 
@@ -28,18 +27,32 @@ BOOST_AUTO_TEST_CASE(tagged_terminal)
             1e-6
             );
 
-    vex::slicer<1> slice(&n);
-
-    Y = tag<1>(41) * tag<2>(X) + tag<3>(slice[range()](X));
-
-    check_sample(Y, [&](size_t idx, double v) {
-            BOOST_CHECK_CLOSE(v, 42 * x[idx], 1e-8); });
-
     tag<1>(X) = 1;
     check_sample(X, [&](size_t, double v) { BOOST_CHECK_CLOSE(v, 1, 1e-8); });
 
     tag<1>(X) = tag<1>(X) + vex::element_index();
     check_sample(X, [&](size_t idx, double v) { BOOST_CHECK_CLOSE(v, 1 + idx, 1e-8); });
+}
+
+BOOST_AUTO_TEST_CASE(tagged_slice)
+{
+    using vex::tag;
+    using vex::range;
+
+    const size_t n = 1024;
+
+    std::vector<cl::CommandQueue> queue(1, ctx.queue(0));
+
+    std::vector<double> x = random_vector<double>(n);
+
+    vex::vector<double> X(queue, x);
+
+    vex::slicer<1> slice(&n);
+
+    vex::vector<double> Y = tag<1>(41) * tag<2>(X) + tag<3>(slice[range()](X));
+
+    check_sample(Y, [&](size_t idx, double v) {
+            BOOST_CHECK_CLOSE(v, 42 * x[idx], 1e-8); });
 }
 
 BOOST_AUTO_TEST_SUITE_END()
