@@ -210,7 +210,12 @@ struct plan {
     {
         assert(sizes.size() >= 1);
         assert(sizes.size() == dirs.size());
-        assert(queues.size() == 1);
+
+        precondition(
+                queues.size() == 1,
+                "FFT is only supported for single-device contexts."
+                );
+
         auto queue = queues[0];
         auto context = qctx(queue);
         auto device = qdev(queue);

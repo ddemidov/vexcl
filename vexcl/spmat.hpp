@@ -1524,6 +1524,11 @@ void SpMatCCSR<real,column_t,idx_t>::mul(
         real alpha, bool append
         ) const
 {
+    precondition(x.nparts() == 1 && y.nparts() == 1,
+            "SpMV operation with matrix in CCSR format is only supported "
+            "for single-device vectors."
+            );
+
     cl::Device device = qdev(queue);
 
     if (append) {

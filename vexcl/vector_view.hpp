@@ -54,7 +54,12 @@ struct vector_view : public vector_view_terminal_expression
 
     vector_view(const vector<T> &base, const Slice &slice)
         : base(base), slice(slice)
-    { }
+    {
+        precondition(
+                base.nparts() == 1,
+                "Base vector should reside on a single compute device"
+                );
+    }
 
     // Expression assignments.
 #define ASSIGNMENT(cop, op) \
