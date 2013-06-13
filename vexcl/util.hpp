@@ -78,7 +78,7 @@ inline void precondition(bool condition, const std::string &fail_message) {
 
 /// Convert typename to string.
 template <class T> inline std::string type_name() {
-    precondition(false, "Trying to use an undefined type in a kernel.");
+    throw std::logic_error("Trying to use an undefined type in a kernel.");
 }
 
 /// Declares a type as CL native, allows using it as a literal.
