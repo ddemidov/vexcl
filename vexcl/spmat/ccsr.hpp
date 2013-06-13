@@ -43,7 +43,7 @@ namespace vex {
  * that matrix-vector multiplication may be performed as follows:
  * \code
  * for(uint i = 0; i < n; i++) {
- *     real sum = 0;
+ *     val_t sum = 0;
  *     for(uint j = row[idx[i]]; j < row[idx[i] + 1]; j++)
  *         sum += val[j] * x[i + col[j]];
  *     y[i] = sum;
@@ -53,7 +53,7 @@ namespace vex {
  * queue at initialization. Vectors x and y should also be single-queued and
  * reside on the same device with matrix.
  */
-template <typename real, typename col_t = ptrdiff_t, typename idx_t = size_t>
+template <typename val_t, typename col_t = ptrdiff_t, typename idx_t = size_t>
 struct SpMatCCSR {
     static_assert(std::is_signed<col_t>::value,
             "Column type for CCSR format has to be signed.");
@@ -70,13 +70,13 @@ struct SpMatCCSR {
      * \param val   values of nonzero elements of the matrix.
      */
     SpMatCCSR(const cl::CommandQueue &queue, size_t n, size_t m,
-            const idx_t *idx, const idx_t *row, const col_t *col, const real *val
+            const idx_t *idx, const idx_t *row, const col_t *col, const val_t *val
             )
         : queue(queue), n(n),
           idx(qctx(queue), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(idx_t) * n,      const_cast<idx_t*>(idx)),
           row(qctx(queue), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(idx_t) * (m+1),  const_cast<idx_t*>(row)),
           col(qctx(queue), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(col_t) * row[m], const_cast<col_t*>(col)),
-          val(qctx(queue), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(real)  * row[m], const_cast<real*> (val))
+          val(qctx(queue), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(val_t) * row[m], const_cast<val_t*>(val))
     { }
 
     cl::CommandQueue queue;
@@ -94,10 +94,10 @@ typedef vector_expression<
     typename boost::proto::terminal< ccsr_product_terminal >::type
     > ccsr_product_terminal_expression;
 
-template <typename real, typename col_t, typename idx_t, typename T>
+template <typename val_t, typename col_t, typename idx_t, typename T>
 struct ccsr_product : public ccsr_product_terminal_expression
 {
-    typedef SpMatCCSR<real, col_t, idx_t> matrix;
+    typedef SpMatCCSR<val_t, col_t, idx_t> matrix;
 
     const matrix    &A;
     const vector<T> &x;
@@ -105,12 +105,12 @@ struct ccsr_product : public ccsr_product_terminal_expression
     ccsr_product(const matrix &A, const vector<T> &x) : A(A), x(x) {}
 };
 
-template <typename real, typename col_t, typename idx_t, typename T>
-ccsr_product<real, col_t, idx_t, T> operator*(
-        const SpMatCCSR<real, col_t, idx_t> &A,
+template <typename val_t, typename col_t, typename idx_t, typename T>
+ccsr_product<val_t, col_t, idx_t, T> operator*(
+        const SpMatCCSR<val_t, col_t, idx_t> &A,
         const vector<T> &x)
 {
-    return ccsr_product<real, col_t, idx_t, T>(A, x);
+    return ccsr_product<val_t, col_t, idx_t, T>(A, x);
 }
 
 
@@ -120,15 +120,15 @@ struct is_vector_expr_terminal< ccsr_product_terminal >
     : std::true_type
 { };
 
-template <typename real, typename col_t, typename idx_t, typename T>
-struct kernel_name< ccsr_product<real, col_t, idx_t, T> > {
+template <typename val_t, typename col_t, typename idx_t, typename T>
+struct kernel_name< ccsr_product<val_t, col_t, idx_t, T> > {
     static std::string get() {
         return "spmv_";
     }
 };
 
-template <typename real, typename col_t, typename idx_t, typename T>
-struct partial_vector_expr< ccsr_product<real, col_t, idx_t, T> > {
+template <typename val_t, typename col_t, typename idx_t, typename T>
+struct partial_vector_expr< ccsr_product<val_t, col_t, idx_t, T> > {
     static std::string get(int component, int position, kernel_generator_state&) {
         std::ostringstream prm;
         prm << "prm_" << component << "_" << position << "_";
@@ -145,19 +145,19 @@ struct partial_vector_expr< ccsr_product<real, col_t, idx_t, T> > {
     }
 };
 
-template <typename real, typename col_t, typename idx_t, typename T>
-struct terminal_preamble< ccsr_product<real, col_t, idx_t, T> > {
+template <typename val_t, typename col_t, typename idx_t, typename T>
+struct terminal_preamble< ccsr_product<val_t, col_t, idx_t, T> > {
     static std::string get(int component, int position, kernel_generator_state&) {
         std::ostringstream s;
 
-        typedef decltype(real() * T()) res_t;
+        typedef decltype(val_t() * T()) res_t;
 
         s << type_name<res_t>() <<
           " spmv_" << component << "_" << position << "(\n"
           "\tglobal " << type_name<idx_t>() << " * idx,\n"
           "\tglobal " << type_name<idx_t>() << " * row,\n"
           "\tglobal " << type_name<col_t>() << " * col,\n"
-          "\tglobal " << type_name<real>()  << " * val,\n"
+          "\tglobal " << type_name<val_t>() << " * val,\n"
           "\tglobal " << type_name<T>()     << " * vec,\n"
           "\tulong i\n\t)\n{\n"
           "\t" << type_name<res_t>() << " sum = 0;\n"
@@ -169,8 +169,8 @@ struct terminal_preamble< ccsr_product<real, col_t, idx_t, T> > {
     }
 };
 
-template <typename real, typename col_t, typename idx_t, typename T>
-struct kernel_param_declaration< ccsr_product<real, col_t, idx_t, T> > {
+template <typename val_t, typename col_t, typename idx_t, typename T>
+struct kernel_param_declaration< ccsr_product<val_t, col_t, idx_t, T> > {
     static std::string get(int component, int position, kernel_generator_state&) {
         std::ostringstream prm;
         prm << "prm_" << component << "_" << position << "_";
@@ -179,17 +179,17 @@ struct kernel_param_declaration< ccsr_product<real, col_t, idx_t, T> > {
         s << ",\n\tglobal " << type_name<idx_t>() << " * " << prm.str() << "idx"
           << ",\n\tglobal " << type_name<idx_t>() << " * " << prm.str() << "row"
           << ",\n\tglobal " << type_name<col_t>() << " * " << prm.str() << "col"
-          << ",\n\tglobal " << type_name<real>()  << " * " << prm.str() << "val"
+          << ",\n\tglobal " << type_name<val_t>() << " * " << prm.str() << "val"
           << ",\n\tglobal " << type_name<T>()     << " * " << prm.str() << "vec";
 
         return s.str();
     }
 };
 
-template <typename real, typename col_t, typename idx_t, typename T>
-struct kernel_arg_setter< ccsr_product<real, col_t, idx_t, T> > {
+template <typename val_t, typename col_t, typename idx_t, typename T>
+struct kernel_arg_setter< ccsr_product<val_t, col_t, idx_t, T> > {
     static void set(cl::Kernel &kernel, uint device, size_t/*index_offset*/,
-            uint &position, const ccsr_product<real, col_t, idx_t, T> &term, kernel_generator_state&)
+            uint &position, const ccsr_product<val_t, col_t, idx_t, T> &term, kernel_generator_state&)
     {
         assert(device == 0);
 
@@ -201,9 +201,9 @@ struct kernel_arg_setter< ccsr_product<real, col_t, idx_t, T> > {
     }
 };
 
-template <typename real, typename col_t, typename idx_t, typename T>
-struct expression_properties< ccsr_product<real, col_t, idx_t, T> > {
-    static void get(const ccsr_product<real, col_t, idx_t, T> &term,
+template <typename val_t, typename col_t, typename idx_t, typename T>
+struct expression_properties< ccsr_product<val_t, col_t, idx_t, T> > {
+    static void get(const ccsr_product<val_t, col_t, idx_t, T> &term,
             std::vector<cl::CommandQueue> &queue_list,
             std::vector<size_t> &partition,
             size_t &size
