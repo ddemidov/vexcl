@@ -159,7 +159,7 @@ BOOST_AUTO_TEST_CASE(assign_to_view) {
             BOOST_CHECK_EQUAL(v, idx % m);
             });
 
-    vex::vector<size_t> I(ctx, m);
+    vex::vector<size_t> I(queue, m);
 
     I = vex::element_index() * m;
 
