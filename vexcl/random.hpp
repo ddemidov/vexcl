@@ -79,7 +79,7 @@ struct Random : UserFunction<Random<T, Generator>, T(cl_ulong, cl_ulong)> {
                 Generator::template macro<cl_ulong4>(o, "rand");
                 break;
             default:
-                throw std::runtime_error("Unsupported random output type.");
+                precondition(false, "Unsupported random output type.");
         }
         o << "ctr_t ctr; ctr.s0 = prm1; ctr.s1 = prm2;\n"
             "key_t key = 0x12345678;\n"

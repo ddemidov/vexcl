@@ -392,8 +392,7 @@ class vector : public vector_terminal_expression {
             get_expression_properties prop;
             extract_terminals()(expr, prop);
 
-            if (prop.queue.empty())
-                throw std::logic_error(
+            precondition(!prop.queue.empty(),
                         "Can not determine vector size and "
                         "queue list from expression"
                         );

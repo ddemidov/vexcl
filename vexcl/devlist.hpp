@@ -509,7 +509,7 @@ class StaticContext {
         }
 
         static const Context& get() {
-            if (!instance) throw std::logic_error("Uninitialized static context");
+            precondition(instance, "Uninitialized static context");
             return *instance;
         }
     private:
@@ -538,7 +538,7 @@ class Context {
             std::tie(c, q) = queue_list(filter, properties);
 
 #ifdef VEXCL_THROW_ON_EMPTY_CONTEXT
-            if (q.empty()) throw std::logic_error("No compute devices found");
+            precondition(!q.empty(), "No compute devices found");
 #endif
 
             StaticContext<>::set(*this);

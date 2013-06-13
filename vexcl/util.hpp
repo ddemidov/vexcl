@@ -70,9 +70,15 @@ typedef unsigned char uchar;
 
 namespace vex {
 
+/// Check run-time condition.
+/** Throws std::runtime_error if condition is false */
+inline void precondition(bool condition, const std::string &fail_message) {
+    if (!condition) throw std::runtime_error(fail_message);
+}
+
 /// Convert typename to string.
 template <class T> inline std::string type_name() {
-    throw std::logic_error("Trying to use an undefined type in a kernel.");
+    precondition(false, "Trying to use an undefined type in a kernel.");
 }
 
 /// Declares a type as CL native, allows using it as a literal.
