@@ -188,7 +188,7 @@ struct kernel_param_declaration< ccsr_product<real, col_t, idx_t, T> > {
 
 template <typename real, typename col_t, typename idx_t, typename T>
 struct kernel_arg_setter< ccsr_product<real, col_t, idx_t, T> > {
-    static void set(cl::Kernel &kernel, uint device, size_t index_offset,
+    static void set(cl::Kernel &kernel, uint device, size_t/*index_offset*/,
             uint &position, const ccsr_product<real, col_t, idx_t, T> &term, kernel_generator_state&)
     {
         assert(device == 0);
