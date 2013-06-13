@@ -51,18 +51,6 @@ THE SOFTWARE.
 namespace vex {
 
 
-/// Weights device wrt to spmv performance.
-/**
- * Launches the following kernel on each device:
- * \code
- * y = A * x;
- * \endcode
- * where x and y are vectors, and A is matrix for 3D Poisson problem in square
- * domain. Each device gets portion of the vector proportional to the
- * performance of this operation.
- */
-inline double device_spmv_perf(const cl::CommandQueue&);
-
 /// \cond INTERNAL
 
 /// Return size of std::vector in bytes.
@@ -1323,248 +1311,16 @@ void SpMat<real,column_t,idx_t>::SpMatCSR::mul_remote(
     queue.enqueueNDRangeKernel(add.kernel, cl::NullRange, g_size, add.wgsize, &event);
 }
 
-/// Sparse matrix in CCSR format.
+/// Weights device wrt to spmv performance.
 /**
- * Compressed CSR format. row, col, and val arrays contain unique rows of the
- * matrix. Column numbers in col array are relative to diagonal. idx array
- * contains index into row vector, corresponding to each row of the matrix. So
- * that matrix-vector multiplication may be performed as follows:
+ * Launches the following kernel on each device:
  * \code
- * for(uint i = 0; i < n; i++) {
- *     real sum = 0;
- *     for(uint j = row[idx[i]]; j < row[idx[i] + 1]; j++)
- *         sum += val[j] * x[i + col[j]];
- *     y[i] = sum;
- * }
+ * y = A * x;
  * \endcode
- * This format does not support multi-device computation, so it accepts single
- * queue at initialization. Vectors x and y should also be single-queued and
- * reside on the same device with matrix.
+ * where x and y are vectors, and A is matrix for 3D Poisson problem in square
+ * domain. Each device gets portion of the vector proportional to the
+ * performance of this operation.
  */
-template <typename real, typename column_t = ptrdiff_t, typename idx_t = size_t>
-class SpMatCCSR : matrix_terminal {
-    public:
-        typedef real value_type;
-
-        /// Constructor for CCSR format.
-        /**
-         * Constructs GPU representation of the CCSR matrix.
-         * \param queue single queue.
-         * \param n     number of rows in the matrix.
-         * \param m     number of unique rows in the matrix.
-         * \param idx   index into row vector.
-         * \param row   row index into col and val vectors.
-         * \param col   column positions of nonzero elements wrt to diagonal.
-         * \param val   values of nonzero elements of the matrix.
-         */
-        SpMatCCSR(const cl::CommandQueue &queue,
-                size_t n, size_t m, const size_t *idx, const idx_t *row,
-                const column_t *col, const real *val
-                );
-
-        /// Matrix-vector multiplication.
-        /**
-         * Matrix vector multiplication (y = alpha Ax or y += alpha Ax).
-         * Vectors x and y should also be single-queued and reside on the same
-         * device with matrix.
-         * \param x      input vector.
-         * \param y      output vector.
-         * \param alpha  coefficient in front of matrix-vector product
-         * \param append if set, matrix-vector product is appended to y.
-         *               Otherwise, y is replaced with matrix-vector product.
-         */
-        void mul(const vex::vector<real> &x, vex::vector<real> &y,
-                real alpha = 1, bool append = false) const;
-    private:
-        void mul_local(
-                const cl::Buffer &x, const cl::Buffer &y,
-                real alpha, bool append
-                ) const;
-
-        const cl::CommandQueue &queue;
-
-        size_t n;
-
-        struct {
-            cl::Buffer idx;
-            cl::Buffer row;
-            cl::Buffer col;
-            cl::Buffer val;
-        } mtx;
-
-        const kernel_cache_entry& spmv_set() const;
-        const kernel_cache_entry& spmv_add() const;
-};
-
-template <typename real, typename column_t, typename idx_t>
-SpMatCCSR<real,column_t,idx_t>::SpMatCCSR(
-        const cl::CommandQueue &queue, size_t n, size_t m, const size_t *idx,
-        const idx_t *row, const column_t *col, const real *val
-        )
-    : queue(queue), n(n)
-{
-    static_assert(std::is_signed<column_t>::value,
-            "Column type for CCSR format has to be signed."
-            );
-
-    cl::Context context = qctx(queue);
-
-    mtx.idx = cl::Buffer(context, CL_MEM_READ_ONLY, n * sizeof(idx_t));
-    mtx.row = cl::Buffer(context, CL_MEM_READ_ONLY, (m + 1) * sizeof(idx_t));
-    mtx.col = cl::Buffer(context, CL_MEM_READ_ONLY, row[m] * sizeof(column_t));
-    mtx.val = cl::Buffer(context, CL_MEM_READ_ONLY, row[m] * sizeof(real));
-
-    queue.enqueueWriteBuffer(mtx.idx, CL_FALSE, 0, n * sizeof(idx_t), idx);
-    queue.enqueueWriteBuffer(mtx.row, CL_FALSE, 0, (m + 1) * sizeof(idx_t), row);
-    queue.enqueueWriteBuffer(mtx.col, CL_FALSE, 0, row[m] * sizeof(column_t), col);
-    queue.enqueueWriteBuffer(mtx.val, CL_TRUE,  0, row[m] * sizeof(real), val);
-}
-
-template <typename real, typename column_t, typename idx_t>
-const kernel_cache_entry& SpMatCCSR<real,column_t,idx_t>::spmv_set() const {
-    static kernel_cache cache;
-
-    cl::Context context = qctx(queue);
-    cl::Device  device  = qdev(queue);
-
-    auto kernel = cache.find(context());
-
-    if (kernel == cache.end()) {
-        std::ostringstream source;
-
-        source << standard_kernel_header(device) <<
-            "typedef " << type_name<real>() << " real;\n"
-            "kernel void spmv_set(\n"
-            "    " << type_name<size_t>() << " n,\n"
-            "    global const " << type_name<idx_t>() << " *idx,\n"
-            "    global const " << type_name<idx_t>() << " *row,\n"
-            "    global const " << type_name<column_t>() << " *col,\n"
-            "    global const real *val,\n"
-            "    global const real *x,\n"
-            "    global real *y,\n"
-            "    real alpha\n"
-            "    )\n"
-            "{\n"
-            "    for(size_t i = get_global_id(0); i < n; i += get_global_size(0)) {\n"
-            "        real sum = 0;\n"
-            "        size_t pos = idx[i];\n"
-            "        size_t beg = row[pos];\n"
-            "        size_t end = row[pos + 1];\n"
-            "        for(size_t j = beg; j < end; j++)\n"
-            "            sum += val[j] * x[i + col[j]];\n"
-            "        y[i] = alpha * sum;\n"
-            "    }\n"
-            "}\n";
-
-        auto program = build_sources(context, source.str());
-
-        cl::Kernel krn(program, "spmv_set");
-        size_t     wgs = kernel_workgroup_size(krn, device);
-
-        kernel = cache.insert(std::make_pair(
-                    context(), kernel_cache_entry(krn, wgs)
-                    )).first;
-    }
-
-    return kernel->second;
-}
-
-template <typename real, typename column_t, typename idx_t>
-const kernel_cache_entry& SpMatCCSR<real,column_t,idx_t>::spmv_add() const {
-    static kernel_cache cache;
-
-    cl::Context context = qctx(queue);
-    cl::Device  device  = qdev(queue);
-
-    auto kernel = cache.find(context());
-
-    if (kernel == cache.end()) {
-        std::ostringstream source;
-
-        source << standard_kernel_header(device) <<
-            "typedef " << type_name<real>() << " real;\n"
-            "kernel void spmv_add(\n"
-            "    " << type_name<size_t>() << " n,\n"
-            "    global const " << type_name<idx_t>() << " *idx,\n"
-            "    global const " << type_name<idx_t>() << " *row,\n"
-            "    global const " << type_name<column_t>() << " *col,\n"
-            "    global const real *val,\n"
-            "    global const real *x,\n"
-            "    global real *y,\n"
-            "    real alpha\n"
-            "    )\n"
-            "{\n"
-            "    for(size_t i = get_global_id(0); i < n; i += get_global_size(0)) {\n"
-            "        real sum = 0;\n"
-            "        size_t pos = idx[i];\n"
-            "        size_t beg = row[pos];\n"
-            "        size_t end = row[pos + 1];\n"
-            "        for(size_t j = beg; j < end; j++)\n"
-            "            sum += val[j] * x[i + col[j]];\n"
-            "        y[i] += alpha * sum;\n"
-            "    }\n"
-            "}\n";
-
-        auto program = build_sources(context, source.str());
-
-        cl::Kernel krn(program, "spmv_add");
-        size_t     wgs = kernel_workgroup_size(krn, device);
-
-        kernel = cache.insert(std::make_pair(
-                    context(), kernel_cache_entry(krn, wgs)
-                    )).first;
-    }
-
-    return kernel->second;
-}
-
-template <typename real, typename column_t, typename idx_t>
-void SpMatCCSR<real,column_t,idx_t>::mul(
-        const vex::vector<real> &x, vex::vector<real> &y,
-        real alpha, bool append
-        ) const
-{
-    precondition(x.nparts() == 1 && y.nparts() == 1,
-            "SpMV operation with matrix in CCSR format is only supported "
-            "for single-device vectors."
-            );
-
-    cl::Device device = qdev(queue);
-
-    if (append) {
-        auto add = spmv_add();
-        size_t g_size = num_workgroups(device) * add.wgsize;
-
-        uint pos = 0;
-        add.kernel.setArg(pos++, n);
-        add.kernel.setArg(pos++, mtx.idx);
-        add.kernel.setArg(pos++, mtx.row);
-        add.kernel.setArg(pos++, mtx.col);
-        add.kernel.setArg(pos++, mtx.val);
-        add.kernel.setArg(pos++, x());
-        add.kernel.setArg(pos++, y());
-        add.kernel.setArg(pos++, alpha);
-
-        queue.enqueueNDRangeKernel(add.kernel, cl::NullRange, g_size, add.wgsize);
-    } else {
-        auto set = spmv_set();
-        size_t g_size = num_workgroups(device) * set.wgsize;
-
-        uint pos = 0;
-        set.kernel.setArg(pos++, n);
-        set.kernel.setArg(pos++, mtx.idx);
-        set.kernel.setArg(pos++, mtx.row);
-        set.kernel.setArg(pos++, mtx.col);
-        set.kernel.setArg(pos++, mtx.val);
-        set.kernel.setArg(pos++, x());
-        set.kernel.setArg(pos++, y());
-        set.kernel.setArg(pos++, alpha);
-
-        queue.enqueueNDRangeKernel(set.kernel, cl::NullRange, g_size, set.wgsize);
-    }
-}
-
-/// Returns device weight after spmv test
 inline double device_spmv_perf(const cl::CommandQueue &q) {
     static const size_t test_size = 64U;
 
@@ -1642,6 +1398,8 @@ inline double device_spmv_perf(const cl::CommandQueue &q) {
 }
 
 } // namespace vex
+
+#include <vexcl/spmat/ccsr.hpp>
 
 #ifdef WIN32
 #  pragma warning(pop)

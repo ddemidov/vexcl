@@ -300,6 +300,7 @@ BOOST_AUTO_TEST_CASE(multivector_product)
             });
 }
 
+#if 0
 BOOST_AUTO_TEST_CASE(ccsr_multivector_product)
 {
     const long n = 32;
@@ -393,5 +394,6 @@ BOOST_AUTO_TEST_CASE(ccsr_multivector_product)
             BOOST_CHECK_CLOSE(a[1], x[N + ii] + sum[1], 1e-8);
             });
 }
+#endif
 
 BOOST_AUTO_TEST_SUITE_END()
