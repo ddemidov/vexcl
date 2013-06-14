@@ -806,11 +806,6 @@ struct is_vector_expr_terminal< vector_terminal >
 { };
 
 template <typename T>
-struct is_vector_expr_terminal< vector<T> >
-    : std::true_type
-{ };
-
-template <typename T>
 struct kernel_name< vector<T> > {
     static std::string get() {
         return "vector_";

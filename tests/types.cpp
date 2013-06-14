@@ -31,9 +31,5 @@ BOOST_AUTO_TEST_CASE(vector_expression_terminals)
     CHECK_TERMINAL(float);
 
     CHECK_TERMINAL(vex::vector_terminal );
-
-    CHECK_TERMINAL(vex::vector<char> );
-    CHECK_TERMINAL(vex::vector<int>  );
-    CHECK_TERMINAL(vex::vector<float>);
     CHECK_TERMINAL(vex::elem_index   );
 }
