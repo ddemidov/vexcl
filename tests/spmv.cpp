@@ -1,4 +1,4 @@
-#define BOOST_TEST_MODULE SparesMatrixVectorProduct
+#define BOOST_TEST_MODULE SparseMatrixVectorProduct
 #include <boost/test/unit_test.hpp>
 #include "context_setup.hpp"
 
@@ -256,6 +256,35 @@ BOOST_AUTO_TEST_CASE(ccsr_vector_product)
                 sum += val[j] * x[ii + col[j]];
 
             BOOST_CHECK_CLOSE(a, x[ii] + sum, 1e-8);
+            });
+}
+
+BOOST_AUTO_TEST_CASE(inline_spmv)
+{
+    const size_t n = 1024;
+
+    std::vector<cl::CommandQueue> queue(1, ctx.queue(0));
+
+    std::vector<size_t> row;
+    std::vector<size_t> col;
+    std::vector<double> val;
+
+    random_matrix(n, n, 16, row, col, val);
+
+    std::vector<double> x = random_vector<double>(n);
+
+    vex::SpMat <double> A(queue, n, n, row.data(), col.data(), val.data());
+    vex::vector<double> X(queue, x);
+    vex::vector<double> Y(queue, n);
+
+    Y = sin(vex::make_inline(A * X));
+
+    check_sample(Y, [&](size_t idx, double a) {
+            double sum = 0;
+            for(size_t j = row[idx]; j < row[idx + 1]; j++)
+                sum += val[j] * x[col[j]];
+
+            BOOST_CHECK_CLOSE(a, sin(sum), 1e-8);
             });
 }
 

@@ -318,6 +318,96 @@ struct SpMatHELL : public sparse_matrix {
     {
         mul<assign::ADD>(rem, in, out, scale, wait_for_it);
     }
+
+    static std::string inline_preamble(int component, int position) {
+        std::ostringstream s;
+
+        s << type_name<val_t>() <<
+          " hell_spmv_" << component << "_" << position << "(\n"
+          "    " << type_name<size_t>() << " ell_w,\n"
+          "    " << type_name<size_t>() << " ell_pitch,\n"
+          "    global const " << type_name<col_t>() << " * ell_col,\n"
+          "    global const " << type_name<val_t>() << " * ell_val,\n"
+          "    global const " << type_name<idx_t>() << " * csr_row,\n"
+          "    global const " << type_name<col_t>() << " * csr_col,\n"
+          "    global const " << type_name<val_t>() << " * csr_val,\n"
+          "    global const " << type_name<val_t>() << " * in,\n"
+          "    ulong i\n"
+          "    )\n"
+          "{\n"
+          "    " << type_name<val_t>() << " sum = 0;\n"
+          "    for(size_t j = 0; j < ell_w; ++j) {\n"
+          "        " << type_name<col_t>() << " c = ell_col[i + j * ell_pitch];\n"
+          "        if (c != ("<< type_name<col_t>() << ")(-1))\n"
+          "            sum += ell_val[i + j * ell_pitch] * in[c];\n"
+          "    }\n"
+          "    if (csr_row) {\n"
+          "        for(size_t j = csr_row[i], e = csr_row[i + 1]; j < e; ++j)\n"
+          "            sum += csr_val[j] * in[csr_col[j]];\n"
+          "    }\n"
+          "    return sum;\n"
+          "}\n";
+
+        return s.str();
+    }
+
+    static std::string inline_expression(int component, int position) {
+        std::ostringstream prm;
+        prm << "prm_" << component << "_" << position << "_";
+
+        std::ostringstream s;
+        s << "hell_spmv_" << component << "_" << position << "("
+          << prm.str() << "ell_w, "
+          << prm.str() << "ell_pitch, "
+          << prm.str() << "ell_col, "
+          << prm.str() << "ell_val, "
+          << prm.str() << "csr_row, "
+          << prm.str() << "csr_col, "
+          << prm.str() << "csr_val, "
+          << prm.str() << "vec, idx)";
+
+        return s.str();
+    }
+
+    static std::string inline_parameters(int component, int position) {
+        std::ostringstream prm;
+        prm << "prm_" << component << "_" << position << "_";
+
+        std::ostringstream s;
+        s <<
+          ",\n\t" << type_name<size_t>() << " " << prm.str() << "ell_w"
+          ",\n\t" << type_name<size_t>() << " " << prm.str() << "ell_pitch"
+          ",\n\tglobal const " << type_name<col_t>() << " * " << prm.str() << "ell_col"
+          ",\n\tglobal const " << type_name<val_t>() << " * " << prm.str() << "ell_val"
+          ",\n\tglobal const " << type_name<idx_t>() << " * " << prm.str() << "csr_row"
+          ",\n\tglobal const " << type_name<col_t>() << " * " << prm.str() << "csr_col"
+          ",\n\tglobal const " << type_name<val_t>() << " * " << prm.str() << "csr_val"
+          ",\n\tglobal const " << type_name<val_t>() << " * " << prm.str() << "vec";
+
+        return s.str();
+    }
+
+    void setArgs(cl::Kernel &krn, uint device, uint &pos, const vector<val_t> &x) const {
+        krn.setArg(pos++, loc.ell.width);
+        krn.setArg(pos++, pitch);
+        if (loc.ell.width) {
+            krn.setArg(pos++, loc.ell.col);
+            krn.setArg(pos++, loc.ell.val);
+        } else {
+            krn.setArg(pos++, static_cast<void*>(0));
+            krn.setArg(pos++, static_cast<void*>(0));
+        }
+        if (loc.csr.nnz) {
+            krn.setArg(pos++, loc.csr.row);
+            krn.setArg(pos++, loc.csr.col);
+            krn.setArg(pos++, loc.csr.val);
+        } else {
+            krn.setArg(pos++, static_cast<void*>(0));
+            krn.setArg(pos++, static_cast<void*>(0));
+            krn.setArg(pos++, static_cast<void*>(0));
+        }
+        krn.setArg(pos++, x(device));
+    }
 };
 
 #endif

@@ -216,6 +216,44 @@ class SpMat {
         size_t cols() const { return ncols; }
         /// Number of non-zero entries.
         size_t nonzeros() const { return nnz;   }
+
+        static std::string inline_preamble(
+                const cl::Device &device, int component, int position,
+                kernel_generator_state&)
+        {
+            if (is_cpu(device))
+                return SpMatCSR::inline_preamble(component, position);
+            else
+                return SpMatHELL::inline_preamble(component, position);
+        }
+
+        static std::string inline_expression(
+                const cl::Device &device, int component, int position,
+                kernel_generator_state&)
+        {
+            if (is_cpu(device))
+                return SpMatCSR::inline_expression(component, position);
+            else
+                return SpMatHELL::inline_expression(component, position);
+        }
+
+        static std::string inline_parameters(
+                const cl::Device &device, int component, int position,
+                kernel_generator_state&)
+        {
+            if (is_cpu(device))
+                return SpMatCSR::inline_parameters(component, position);
+            else
+                return SpMatHELL::inline_parameters(component, position);
+        }
+
+        static void inline_arguments(cl::Kernel &kernel, uint device,
+                size_t /*index_offset*/, uint &position,
+                const SpMat &A, const vector<val_t> &x,
+                kernel_generator_state&)
+        {
+            A.mtx[device]->setArgs(kernel, device, position, x);
+        }
     private:
         struct sparse_matrix {
             virtual void mul_local(
@@ -227,6 +265,8 @@ class SpMat {
                     const cl::Buffer &x, const cl::Buffer &y,
                     val_t alpha, const std::vector<cl::Event> &event
                     ) const = 0;
+
+            virtual void setArgs(cl::Kernel &kernel, uint device, uint &position, const vector<val_t> &x) const = 0;
 
             virtual ~sparse_matrix() {}
         };
@@ -517,6 +557,7 @@ inline double device_spmv_perf(const cl::CommandQueue &q) {
 } // namespace vex
 
 #include <vexcl/spmat/ccsr.hpp>
+#include <vexcl/spmat/inline_spmv.hpp>
 
 #ifdef WIN32
 #  pragma warning(pop)

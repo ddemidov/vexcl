@@ -213,6 +213,62 @@ struct SpMatCSR : public sparse_matrix {
     {
         if (rem.nnz) mul<assign::ADD>(rem, in, out, scale, wait_for_it);
     }
+
+    static std::string inline_preamble(int component, int position) {
+        std::ostringstream s;
+
+        s << type_name<val_t>() <<
+          " csr_spmv_" << component << "_" << position << "(\n"
+          "    global const " << type_name<idx_t>() << " * row,\n"
+          "    global const " << type_name<col_t>() << " * col,\n"
+          "    global const " << type_name<val_t>() << " * val,\n"
+          "    global const " << type_name<val_t>() << " * in,\n"
+          "    ulong i\n"
+          "    )\n"
+          "{\n"
+          "    " << type_name<val_t>() << " sum = 0;\n"
+          "    for(size_t j = row[i], e = row[i + 1]; j < e; ++j)\n"
+          "        sum += val[j] * in[col[j]];\n"
+          "    return sum;\n"
+          "}\n";
+
+        return s.str();
+    }
+
+    static std::string inline_expression(int component, int position) {
+        std::ostringstream prm;
+        prm << "prm_" << component << "_" << position << "_";
+
+        std::ostringstream s;
+        s << "csr_spmv_" << component << "_" << position << "("
+          << prm.str() << "row, "
+          << prm.str() << "col, "
+          << prm.str() << "val, "
+          << prm.str() << "vec, idx)";
+
+        return s.str();
+    }
+
+    static std::string inline_parameters(int component, int position) {
+        std::ostringstream prm;
+        prm << "prm_" << component << "_" << position << "_";
+
+        std::ostringstream s;
+        s <<
+          ",\n\tglobal const " << type_name<idx_t>() << " * " << prm.str() << "row"
+          ",\n\tglobal const " << type_name<col_t>() << " * " << prm.str() << "col"
+          ",\n\tglobal const " << type_name<val_t>() << " * " << prm.str() << "val"
+          ",\n\tglobal const " << type_name<val_t>() << " * " << prm.str() << "vec";
+
+        return s.str();
+    }
+
+    void setArgs(cl::Kernel &krn, uint device, uint &pos, const vector<val_t> &x) const {
+        krn.setArg(pos++, loc.row);
+        krn.setArg(pos++, loc.col);
+        krn.setArg(pos++, loc.val);
+        krn.setArg(pos++, x(device));
+    }
 };
 
 #endif
