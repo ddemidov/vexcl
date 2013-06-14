@@ -15,11 +15,17 @@ void random_matrix(size_t n, size_t m, size_t nnz_per_row,
     row.reserve(n + 1);
     col.reserve(nnz_per_row * n);
 
+    std::default_random_engine rng( std::rand() );
+    std::uniform_int_distribution<size_t> random_width(0, nnz_per_row - 1);
+    std::uniform_int_distribution<size_t> random_column(0, m - 1);
+
     row.push_back(0);
     for(size_t k = 0; k < n; k++) {
+        size_t width = random_width(rng);
+
         std::set<size_t> cs;
-        while(cs.size() < nnz_per_row)
-            cs.insert(rand() % m);
+        while(cs.size() < width)
+            cs.insert(random_column(rng));
 
         for(auto c = cs.begin(); c != cs.end(); c++)
             col.push_back(*c);
