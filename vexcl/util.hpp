@@ -202,6 +202,11 @@ inline size_t alignup(size_t n, size_t m = 16U) {
     return (n + m - 1) / m * m;
 }
 
+/// Return vector size in bytes
+template <typename T>
+inline size_t bytes(const std::vector<T> &v) {
+    return v.size() * sizeof(T);
+}
 
 template <class T>
 struct is_tuple : std::false_type {};
