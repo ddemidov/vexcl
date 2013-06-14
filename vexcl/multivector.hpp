@@ -501,13 +501,15 @@ class multivector : public multivector_terminal_expression {
         struct preamble_constructor {
             const Expr   &expr;
             std::ostream &source;
+            const cl::Device &device;
 
-            preamble_constructor(const Expr &expr, std::ostream &source)
-                : expr(expr), source(source) { }
+            preamble_constructor(const Expr &expr, std::ostream &source, const cl::Device &device)
+                : expr(expr), source(source), device(device)
+            { }
 
             template <long I>
             void apply() const {
-                construct_preamble(subexpression<I>::get(expr), source, I + 1);
+                construct_preamble(subexpression<I>::get(expr), source, device, I + 1);
             }
         };
 
@@ -515,15 +517,17 @@ class multivector : public multivector_terminal_expression {
         struct parameter_declarator {
             const Expr   &expr;
             std::ostream &source;
+            const cl::Device &device;
 
-            parameter_declarator(const Expr &expr, std::ostream &source)
-                : expr(expr), source(source) { }
+            parameter_declarator(const Expr &expr, std::ostream &source, const cl::Device &device)
+                : expr(expr), source(source), device(device)
+            { }
 
             template <long I>
             void apply() const {
                 extract_terminals()(
                         boost::proto::as_child(subexpression<I>::get(expr)),
-                        declare_expression_parameter(source, I + 1)
+                        declare_expression_parameter(source, device, I + 1)
                         );
             }
         };
@@ -532,15 +536,17 @@ class multivector : public multivector_terminal_expression {
         struct expression_builder {
             const Expr   &expr;
             std::ostream &source;
+            const cl::Device &device;
 
-            expression_builder(const Expr &expr, std::ostream &source)
-                : expr(expr), source(source) { }
+            expression_builder(const Expr &expr, std::ostream &source, const cl::Device &device)
+                : expr(expr), source(source), device(device)
+            { }
 
             template <long I>
             void apply() const {
                 source << "\t\t" << type_name<T>() << " buf_" << I + 1 << " = ";
 
-                vector_expr_context expr_ctx(source, I + 1);
+                vector_expr_context expr_ctx(source, device, I + 1);
                 boost::proto::eval(
                         boost::proto::as_child(subexpression<I>::get(expr)),
                         expr_ctx);
@@ -603,7 +609,7 @@ class multivector : public multivector_terminal_expression {
                     source << standard_kernel_header(device);
 
                     static_for<0, N>::loop(
-                            preamble_constructor<Expr>(expr, source)
+                            preamble_constructor<Expr>(expr, source, device)
                             );
 
                     source << "kernel void multiex_kernel(\n\t"
@@ -614,7 +620,7 @@ class multivector : public multivector_terminal_expression {
                                << " *res_" << ++i;
 
                     static_for<0, N>::loop(
-                            parameter_declarator<Expr>(expr, source)
+                            parameter_declarator<Expr>(expr, source, device)
                             );
 
                     source <<
@@ -622,7 +628,7 @@ class multivector : public multivector_terminal_expression {
                         "\tfor(size_t idx = get_global_id(0); idx < n; idx += get_global_size(0)) {\n";
 
                     static_for<0, N>::loop(
-                            expression_builder<Expr>(expr, source)
+                            expression_builder<Expr>(expr, source, device)
                             );
 
                     source << "\n";

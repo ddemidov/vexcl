@@ -207,7 +207,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
             boost::proto::eval(expr, name_ctx);
 
             std::ostringstream increment_line;
-            vector_expr_context expr_ctx(increment_line);
+            vector_expr_context expr_ctx(increment_line, device);
 
             increment_line << "mySum = reduce_operation(mySum, ";
             boost::proto::eval(expr, expr_ctx);
@@ -219,12 +219,12 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
             typedef typename RDC::template function<real> fun;
             fun::define(source, "reduce_operation");
 
-            construct_preamble(expr, source);
+            construct_preamble(expr, source, device);
 
             source << "kernel void " << kernel_name.str() << "(\n\t"
                 << type_name<size_t>() << " n";
 
-            extract_terminals()( expr, declare_expression_parameter(source) );
+            extract_terminals()( expr, declare_expression_parameter(source, device) );
 
             source << ",\n\tglobal " << type_name<real>() << " *g_odata,\n"
                 "\tlocal  " << type_name<real>() << " *sdata\n"

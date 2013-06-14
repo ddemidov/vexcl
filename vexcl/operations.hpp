@@ -815,7 +815,7 @@ struct expression_context {
 // Partial expression for a terminal:
 template <class Term, class Enable = void>
 struct partial_vector_expr {
-    static std::string get(int component, int position, kernel_generator_state&) {
+    static std::string get(const cl::Device&, int component, int position, kernel_generator_state&) {
         std::ostringstream s;
         s << "prm_" << component << "_" << position;
         return s.str();
@@ -825,10 +825,11 @@ struct partial_vector_expr {
 // Builds textual representation for a vector expression.
 struct vector_expr_context : public expression_context {
     std::ostream &os;
+    const cl::Device &device;
     int cmp_idx, prm_idx, fun_idx;
 
-    vector_expr_context(std::ostream &os, int cmp_idx = 1)
-        : os(os), cmp_idx(cmp_idx), prm_idx(0), fun_idx(0) {}
+    vector_expr_context(std::ostream &os, const cl::Device &device, int cmp_idx = 1)
+        : os(os), device(device), cmp_idx(cmp_idx), prm_idx(0), fun_idx(0) {}
 
     template <typename Expr, typename Tag = typename Expr::proto_tag>
     struct eval {};
@@ -962,7 +963,7 @@ struct vector_expr_context : public expression_context {
 
         template <typename Term>
         void operator()(const Term&, vector_expr_context &ctx) const {
-            ctx.os << partial_vector_expr<Term>::get(ctx.cmp_idx, ++ctx.prm_idx, ctx.state);
+            ctx.os << partial_vector_expr<Term>::get(ctx.device, ctx.cmp_idx, ++ctx.prm_idx, ctx.state);
         }
     };
 };
@@ -989,7 +990,7 @@ struct declare_user_function {
 // But most of them do not:
 template <class T>
 struct terminal_preamble {
-    static std::string get(int/*component*/, int/*position*/, kernel_generator_state&)
+    static std::string get(const cl::Device&, int/*component*/, int/*position*/, kernel_generator_state&)
     {
         return "";
     }
@@ -997,20 +998,21 @@ struct terminal_preamble {
 
 struct output_terminal_preamble : expression_context {
     std::ostream &os;
+    const cl::Device &device;
     int cmp_idx;
     mutable int prm_idx;
 
-    output_terminal_preamble(std::ostream &os, int cmp_idx = 1)
-        : os(os), cmp_idx(cmp_idx), prm_idx(0) {}
+    output_terminal_preamble(std::ostream &os, const cl::Device &device, int cmp_idx = 1)
+        : os(os), device(device), cmp_idx(cmp_idx), prm_idx(0) {}
 
         template <class Term>
         void operator()(const Term&) const {
-            os << terminal_preamble<Term>::get(cmp_idx, ++prm_idx, state) << std::endl;
+            os << terminal_preamble<Term>::get(device, cmp_idx, ++prm_idx, state) << std::endl;
         }
 };
 
 template <class Expr>
-void construct_preamble(const Expr &expr, std::ostream &kernel_source, int component = 1) {
+void construct_preamble(const Expr &expr, std::ostream &kernel_source, const cl::Device &device, int component = 1) {
 
     extract_user_functions()(
             boost::proto::as_child(expr),
@@ -1019,14 +1021,14 @@ void construct_preamble(const Expr &expr, std::ostream &kernel_source, int compo
 
     extract_terminals()(
             boost::proto::as_child(expr),
-            output_terminal_preamble(kernel_source, component)
+            output_terminal_preamble(kernel_source, device, component)
             );
 
 }
 
 template <class Term, class Enable = void>
 struct kernel_param_declaration {
-    static std::string get(int component, int position, kernel_generator_state&) {
+    static std::string get(const cl::Device &device, int component, int position, kernel_generator_state&) {
         std::ostringstream s;
         s << ",\n\t" << type_name<typename boost::proto::result_of::value<Term>::type>()
           << " prm_" << component << "_" << position;
@@ -1036,15 +1038,16 @@ struct kernel_param_declaration {
 
 struct declare_expression_parameter : expression_context {
     std::ostream &os;
+    const cl::Device &device;
     int cmp_idx;
     mutable int prm_idx;
 
-    declare_expression_parameter(std::ostream &os, int cmp_idx = 1)
-        : os(os), cmp_idx(cmp_idx), prm_idx(0) {}
+    declare_expression_parameter(std::ostream &os, const cl::Device &device, int cmp_idx = 1)
+        : os(os), device(device), cmp_idx(cmp_idx), prm_idx(0) {}
 
     template <typename T>
     void operator()(const T&) const {
-        os << kernel_param_declaration<T>::get(cmp_idx, ++prm_idx, state);
+        os << kernel_param_declaration<T>::get(device, cmp_idx, ++prm_idx, state);
     }
 };
 
@@ -1615,7 +1618,7 @@ void assign_expression(LHS &lhs, const Expr &expr,
             extract_user_functions()(boost::proto::as_child(lhs),  declfun);
             extract_user_functions()(boost::proto::as_child(expr), declfun);
 
-            output_terminal_preamble termpream(source);
+            output_terminal_preamble termpream(source, device);
 
             extract_terminals()(boost::proto::as_child(lhs),  termpream);
             extract_terminals()(boost::proto::as_child(expr), termpream);
@@ -1623,7 +1626,7 @@ void assign_expression(LHS &lhs, const Expr &expr,
             source << "kernel void " << kernel_name.str()
                 << "(\n\t" << type_name<size_t>() << " n";
 
-            declare_expression_parameter declare(source);
+            declare_expression_parameter declare(source, device);
 
             extract_terminals()(boost::proto::as_child(lhs),  declare);
             extract_terminals()(boost::proto::as_child(expr), declare);
@@ -1641,7 +1644,7 @@ void assign_expression(LHS &lhs, const Expr &expr,
                     "\tfor(size_t idx = get_global_id(0); idx < n; idx += get_global_size(0)) {\n";
             }
 
-            vector_expr_context expr_ctx(source);
+            vector_expr_context expr_ctx(source, device);
 
             source << "\t\t";
 

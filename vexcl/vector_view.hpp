@@ -108,21 +108,21 @@ struct kernel_name< vector_view<T, Slice> > {
 
 template <typename T, class Slice>
 struct partial_vector_expr< vector_view<T, Slice> > {
-    static std::string get(int component, int position, kernel_generator_state&) {
+    static std::string get(const cl::Device&, int component, int position, kernel_generator_state&) {
         return Slice::partial_expression(component, position);
     }
 };
 
 template <typename T, class Slice>
 struct terminal_preamble< vector_view<T, Slice> > {
-    static std::string get(int component, int position, kernel_generator_state&) {
+    static std::string get(const cl::Device&, int component, int position, kernel_generator_state&) {
         return Slice::indexing_function(component, position);
     }
 };
 
 template <typename T, class Slice>
 struct kernel_param_declaration< vector_view<T, Slice> > {
-    static std::string get(int component, int position, kernel_generator_state&) {
+    static std::string get(const cl::Device&, int component, int position, kernel_generator_state&) {
         return Slice::template parameter_declaration<T>(component, position);
     }
 };

@@ -87,7 +87,7 @@ struct is_vector_expr_terminal< tagged_terminal_terminal >
 
 template <size_t Tag, class Term>
 struct terminal_preamble< tagged_terminal<Tag, Term> > {
-    static std::string get(int component, int position, kernel_generator_state &state) {
+    static std::string get(const cl::Device &device, int component, int position, kernel_generator_state &state) {
         auto s = state.find("tagged_terminal");
 
         if (s == state.end()) {
@@ -110,7 +110,7 @@ struct terminal_preamble< tagged_terminal<Tag, Term> > {
         if (p == pos.end()) {
             pos[Tag] = position;
 
-            return terminal_preamble<TermType>::get(component, position, state);
+            return terminal_preamble<TermType>::get(device, component, position, state);
         } else {
             return "";
         }
@@ -119,7 +119,7 @@ struct terminal_preamble< tagged_terminal<Tag, Term> > {
 
 template <size_t Tag, class Term>
 struct kernel_param_declaration< tagged_terminal<Tag, Term> > {
-    static std::string get(int component, int position, kernel_generator_state &state) {
+    static std::string get(const cl::Device &device, int component, int position, kernel_generator_state &state) {
         auto s = state.find("tagged_terminal");
 
         if (s == state.end()) {
@@ -142,7 +142,7 @@ struct kernel_param_declaration< tagged_terminal<Tag, Term> > {
         if (p == pos.end()) {
             pos[Tag] = position;
 
-            return kernel_param_declaration<TermType>::get(component, position, state);
+            return kernel_param_declaration<TermType>::get(device, component, position, state);
         } else {
             return "";
         }
@@ -151,7 +151,7 @@ struct kernel_param_declaration< tagged_terminal<Tag, Term> > {
 
 template <size_t Tag, class Term>
 struct partial_vector_expr< tagged_terminal<Tag, Term> > {
-    static std::string get(int component, int position, kernel_generator_state &state) {
+    static std::string get(const cl::Device &device, int component, int position, kernel_generator_state &state) {
         auto s = state.find("tagged_terminal");
 
         if (s == state.end()) {
@@ -173,9 +173,9 @@ struct partial_vector_expr< tagged_terminal<Tag, Term> > {
 
         if (p == pos.end()) {
             pos[Tag] = position;
-            return partial_vector_expr<TermType>::get(component, position, state);
+            return partial_vector_expr<TermType>::get(device, component, position, state);
         } else {
-            return partial_vector_expr<TermType>::get(component, p->second, state);
+            return partial_vector_expr<TermType>::get(device, component, p->second, state);
         }
     }
 };
