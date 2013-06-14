@@ -383,6 +383,16 @@ inter-device communication.
 Z = Y - A * X;
 ~~~
 
+This restriction may be lifted for single-device contexts. In this case VexCL
+does not need to worry about inter-device communication. Hence, it is possible
+to inline matrix-vector product into normal vector expression with help of
+`vex::make_inline()` function:
+
+~~~{.cpp}
+residual = sum(Y - vex::make_inline(A * X));
+Z = sin(vex::make_inline(A * X));
+~~~
+
 ## <a name="stencil-convolutions"></a>Stencil convolutions
 
 Stencil convolution is another common operation that may be used, for example,
