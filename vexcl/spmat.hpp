@@ -50,96 +50,9 @@ THE SOFTWARE.
 
 namespace vex {
 
-/// \cond INTERNAL
-
-struct matrix_terminal {};
-
-template <class M, class V>
-struct spmv
-    : vector_expression< boost::proto::terminal< additive_vector_transform >::type >
-{
-    typedef typename M::value_type value_type;
-
-    const M &A;
-    const V &x;
-
-    value_type scale;
-
-    spmv(const M &m, const V &v) : A(m), x(v), scale(1) {}
-
-    template<bool negate, bool append>
-    void apply(V &y) const {
-        A.mul(x, y, negate ? -scale : scale, append);
-    }
-};
-
-template <class M, class V>
-typename std::enable_if<
-    std::is_base_of<matrix_terminal, M>::value &&
-    std::is_base_of<vector_terminal_expression, V>::value &&
-    std::is_same<typename M::value_type, typename V::value_type>::value,
-    spmv< M, V >
->::type
-operator*(const M &A, const V &x) {
-    return spmv< M, V >(A, x);
-}
-
-template <class M, class V>
-struct is_scalable< spmv<M, V> > : std::true_type {};
-
-#ifdef VEXCL_MULTIVECTOR_HPP
-
-template <class M, class V>
-struct multispmv
-    : multivector_expression<
-        boost::proto::terminal< additive_multivector_transform >::type
-        >
-{
-    typedef typename M::value_type value_type;
-
-    const M &A;
-    const V &x;
-
-    value_type scale;
-
-    multispmv(const M &m, const V &v) : A(m), x(v), scale(1) {}
-
-    template <bool negate, bool append, class W>
-    typename std::enable_if<
-        std::is_base_of<multivector_terminal_expression, W>::value
-#ifndef WIN32
-        && std::is_same<value_type, typename W::value_type::value_type>::value
-#endif
-        && number_of_components<V>::value == number_of_components<W>::value,
-        void
-    >::type
-    apply(W &y) const {
-        for(size_t i = 0; i < number_of_components<V>::value; i++)
-            A.mul(x(i), y(i), negate ? -scale : scale, append);
-    }
-};
-
-template <class M, class V>
-typename std::enable_if<
-    std::is_base_of<matrix_terminal,      M>::value &&
-    std::is_base_of<multivector_terminal_expression, V>::value &&
-    std::is_same<typename M::value_type, typename V::value_type::value_type>::value,
-    multispmv< M, V >
->::type
-operator*(const M &A, const V &x) {
-    return multispmv< M, V >(A, x);
-}
-
-template <class M, class V>
-struct is_scalable< multispmv<M, V> > : std::true_type {};
-
-#endif
-
-/// \endcond
-
 /// Sparse matrix in hybrid ELL-CSR format.
 template <typename val_t, typename col_t = size_t, typename idx_t = size_t>
-class SpMat : matrix_terminal {
+class SpMat {
     public:
         typedef val_t value_type;
 
@@ -163,7 +76,43 @@ class SpMat : matrix_terminal {
          */
         SpMat(const std::vector<cl::CommandQueue> &queue,
               size_t n, size_t m, const idx_t *row, const col_t *col, const val_t *val
-              );
+              )
+            : queue(queue), part(partition(n, queue)),
+              event1(queue.size(), std::vector<cl::Event>(1)),
+              event2(queue.size(), std::vector<cl::Event>(1)),
+              mtx(queue.size()), exc(queue.size()),
+              nrows(n), ncols(m), nnz(row[n])
+        {
+            auto col_part = partition(m, queue);
+
+            // Create secondary queues.
+            for(auto q = queue.begin(); q != queue.end(); q++)
+                squeue.push_back(cl::CommandQueue(qctx(*q), qdev(*q)));
+
+            std::vector<std::set<col_t>> ghost_cols = setup_exchange(n, col_part, row, col, val);
+
+            // Each device get it's own strip of the matrix.
+#pragma omp parallel for schedule(static,1)
+            for(int d = 0; d < static_cast<int>(queue.size()); d++) {
+                if (part[d + 1] > part[d]) {
+                    cl::Device device = qdev(queue[d]);
+
+                    if ( is_cpu(device) )
+                        mtx[d].reset(
+                                new SpMatCSR(queue[d], row, col, val,
+                                    part[d], part[d+1], col_part[d], col_part[d+1],
+                                    ghost_cols[d])
+                                );
+                    else
+                        mtx[d].reset(
+                                new SpMatHELL(queue[d], row, col, val,
+                                    part[d], part[d+1], col_part[d], col_part[d+1],
+                                    ghost_cols[d])
+                                );
+                }
+            }
+        }
+
 
         /// Matrix-vector multiplication.
         /**
@@ -177,7 +126,89 @@ class SpMat : matrix_terminal {
          *               Otherwise, y is replaced with matrix-vector product.
          */
         void mul(const vex::vector<val_t> &x, vex::vector<val_t> &y,
-                 val_t alpha = 1, bool append = false) const;
+                 val_t alpha = 1, bool append = false) const
+        {
+            static kernel_cache cache;
+
+            if (rx.size()) {
+                // Transfer remote parts of the input vector.
+                for(uint d = 0; d < queue.size(); d++) {
+                    cl::Context context = qctx(queue[d]);
+                    cl::Device  device  = qdev(queue[d]);
+
+                    auto gather = cache.find(context());
+
+                    if (gather == cache.end()) {
+                        std::ostringstream source;
+
+                        source << standard_kernel_header(device) <<
+                            "typedef " << type_name<val_t>() << " val_t;\n"
+                            "kernel void gather_vals_to_send(\n"
+                            "    " << type_name<size_t>() << " n,\n"
+                            "    global const val_t *vals,\n"
+                            "    global const " << type_name<col_t>() << " *cols_to_send,\n"
+                            "    global val_t *vals_to_send\n"
+                            "    )\n"
+                            "{\n"
+                            "    size_t i = get_global_id(0);\n"
+                            "    if (i < n) vals_to_send[i] = vals[cols_to_send[i]];\n"
+                            "}\n";
+
+                        auto program = build_sources(context, source.str());
+
+                        cl::Kernel krn(program, "gather_vals_to_send");
+                        size_t wgs = kernel_workgroup_size(krn, device);
+
+                        gather = cache.insert(std::make_pair(
+                                    context(), kernel_cache_entry(krn, wgs)
+                                    )).first;
+                    }
+
+                    if (size_t ncols = cidx[d + 1] - cidx[d]) {
+                        size_t g_size = alignup(ncols, gather->second.wgsize);
+
+                        uint pos = 0;
+                        gather->second.kernel.setArg(pos++, ncols);
+                        gather->second.kernel.setArg(pos++, x(d));
+                        gather->second.kernel.setArg(pos++, exc[d].cols_to_send);
+                        gather->second.kernel.setArg(pos++, exc[d].vals_to_send);
+
+                        queue[d].enqueueNDRangeKernel(gather->second.kernel,
+                                cl::NullRange, g_size, gather->second.wgsize, 0, &event1[d][0]);
+
+                        squeue[d].enqueueReadBuffer(exc[d].vals_to_send, CL_FALSE,
+                                0, ncols * sizeof(val_t), &rx[cidx[d]], &event1[d], &event2[d][0]
+                                );
+                    }
+                }
+            }
+
+            // Compute contribution from local part of the matrix.
+            for(uint d = 0; d < queue.size(); d++)
+                if (mtx[d]) mtx[d]->mul_local(x(d), y(d), alpha, append);
+
+            // Compute contribution from remote part of the matrix.
+            if (rx.size()) {
+                for(uint d = 0; d < queue.size(); d++)
+                    if (cidx[d + 1] > cidx[d]) event2[d][0].wait();
+
+                for(uint d = 0; d < queue.size(); d++) {
+                    cl::Context context = qctx(queue[d]);
+
+                    if (exc[d].cols_to_recv.size()) {
+                        for(size_t i = 0; i < exc[d].cols_to_recv.size(); i++)
+                            exc[d].vals_to_recv[i] = rx[exc[d].cols_to_recv[i]];
+
+                        squeue[d].enqueueWriteBuffer(
+                                exc[d].rx, CL_FALSE, 0, bytes(exc[d].vals_to_recv),
+                                exc[d].vals_to_recv.data(), 0, &event2[d][0]
+                                );
+
+                        mtx[d]->mul_remote(exc[d].rx, y(d), alpha, event2[d]);
+                    }
+                }
+            }
+        }
 
         /// Number of rows.
         size_t rows() const { return nrows; }
@@ -230,223 +261,172 @@ class SpMat : matrix_terminal {
         size_t nnz;
 
         std::vector<std::set<col_t>> setup_exchange(
-                size_t n, const std::vector<size_t> &xpart,
+                size_t n, const std::vector<size_t> &col_part,
                 const idx_t *row, const col_t *col, const val_t *val
-                );
+                )
+        {
+            auto is_local = [col_part](size_t c, int device) {
+                return c >= col_part[device] && c < col_part[device + 1];
+            };
+
+            std::vector<std::set<col_t>> ghost_cols(queue.size());
+
+            if (queue.size() <= 1) return ghost_cols;
+
+            // Build sets of ghost points.
+#pragma omp parallel for schedule(static,1)
+            for(int d = 0; d < static_cast<int>(queue.size()); d++) {
+                for(size_t i = part[d]; i < part[d + 1]; i++) {
+                    for(idx_t j = row[i]; j < row[i + 1]; j++) {
+                        if (!is_local(col[j], d)) {
+                            ghost_cols[d].insert(col[j]);
+                        }
+                    }
+                }
+            }
+
+            // Complete set of points to be exchanged between devices.
+            std::vector<col_t> cols_to_send;
+            {
+                std::set<col_t> cols_to_send_s;
+                for(uint d = 0; d < queue.size(); d++)
+                    cols_to_send_s.insert(ghost_cols[d].begin(), ghost_cols[d].end());
+
+                cols_to_send.insert(cols_to_send.begin(), cols_to_send_s.begin(), cols_to_send_s.end());
+            }
+
+            // Build local structures to facilitate exchange.
+            if (cols_to_send.size()) {
+#pragma omp parallel for schedule(static,1)
+                for(int d = 0; d < static_cast<int>(queue.size()); d++) {
+                    if (size_t rcols = ghost_cols[d].size()) {
+                        exc[d].cols_to_recv.resize(rcols);
+                        exc[d].vals_to_recv.resize(rcols);
+
+                        exc[d].rx = cl::Buffer(qctx(queue[d]), CL_MEM_READ_ONLY, rcols * sizeof(val_t));
+
+                        for(size_t i = 0, j = 0; i < cols_to_send.size(); i++)
+                            if (ghost_cols[d].count(cols_to_send[i])) exc[d].cols_to_recv[j++] = i;
+                    }
+                }
+
+                rx.resize(cols_to_send.size());
+                cidx.resize(queue.size() + 1);
+
+                {
+                    auto beg = cols_to_send.begin();
+                    auto end = cols_to_send.end();
+                    for(uint d = 0; d <= queue.size(); d++) {
+                        cidx[d] = std::lower_bound(beg, end, col_part[d]) - cols_to_send.begin();
+                        beg = cols_to_send.begin() + cidx[d];
+                    }
+                }
+
+                for(uint d = 0; d < queue.size(); d++) {
+                    if (size_t ncols = cidx[d + 1] - cidx[d]) {
+                        cl::Context context = qctx(queue[d]);
+
+                        exc[d].cols_to_send = cl::Buffer(
+                                context, CL_MEM_READ_ONLY, ncols * sizeof(col_t));
+
+                        exc[d].vals_to_send = cl::Buffer(
+                                context, CL_MEM_READ_WRITE, ncols * sizeof(val_t));
+
+                        for(size_t i = cidx[d]; i < cidx[d + 1]; i++)
+                            cols_to_send[i] -= col_part[d];
+
+                        queue[d].enqueueWriteBuffer(
+                                exc[d].cols_to_send, CL_TRUE, 0, ncols * sizeof(col_t),
+                                &cols_to_send[cidx[d]]);
+                    }
+                }
+            }
+
+            return ghost_cols;
+        }
+};
+
+/// \cond INTERNAL
+
+template <typename val_t, typename col_t, typename idx_t>
+struct spmv
+    : vector_expression< boost::proto::terminal< additive_vector_transform >::type >
+{
+    typedef val_t                      value_type;
+    typedef SpMat<val_t, col_t, idx_t> mat;
+    typedef vector<val_t>              vec;
+
+    const mat &A;
+    const vec &x;
+
+    val_t scale;
+
+    spmv(const mat &A, const vec &x) : A(A), x(x), scale(1) {}
+
+    template<bool negate, bool append>
+    void apply(vec &y) const {
+        A.mul(x, y, negate ? -scale : scale, append);
+    }
 };
 
 template <typename val_t, typename col_t, typename idx_t>
-SpMat<val_t,col_t,idx_t>::SpMat(
-        const std::vector<cl::CommandQueue> &queue,
-        size_t n, size_t m, const idx_t *row, const col_t *col, const val_t *val
-        )
-    : queue(queue), part(partition(n, queue)),
-      event1(queue.size(), std::vector<cl::Event>(1)),
-      event2(queue.size(), std::vector<cl::Event>(1)),
-      mtx(queue.size()), exc(queue.size()),
-      nrows(n), ncols(m), nnz(row[n])
+spmv< val_t, col_t, idx_t > operator*(const SpMat<val_t, col_t, idx_t> &A, const vector<val_t> &x)
 {
-    auto xpart = partition(m, queue);
-
-    // Create secondary queues.
-    for(auto q = queue.begin(); q != queue.end(); q++)
-        squeue.push_back(cl::CommandQueue(qctx(*q), qdev(*q)));
-
-    std::vector<std::set<col_t>> remote_cols = setup_exchange(n, xpart, row, col, val);
-
-    // Each device get it's own strip of the matrix.
-#pragma omp parallel for schedule(static,1)
-    for(int d = 0; d < static_cast<int>(queue.size()); d++) {
-        if (part[d + 1] > part[d]) {
-            cl::Device device = qdev(queue[d]);
-
-            if ( is_cpu(device) )
-                mtx[d].reset(
-                        new SpMatCSR(
-                            queue[d], row, col, val,
-                            part[d], part[d + 1],
-                            xpart[d], xpart[d + 1],
-                            remote_cols[d])
-                        );
-            else
-                mtx[d].reset(
-                        new SpMatHELL(
-                            queue[d], row, col, val,
-                            part[d], part[d + 1],
-                            xpart[d], xpart[d + 1],
-                            remote_cols[d])
-                        );
-        }
-    }
+    return spmv<val_t, col_t, idx_t>(A, x);
 }
 
 template <typename val_t, typename col_t, typename idx_t>
-void SpMat<val_t,col_t,idx_t>::mul(const vex::vector<val_t> &x, vex::vector<val_t> &y,
-        val_t alpha, bool append) const
+struct is_scalable< spmv<val_t, col_t, idx_t> > : std::true_type {};
+
+#ifdef VEXCL_MULTIVECTOR_HPP
+
+template <typename val_t, typename col_t, typename idx_t, class MV>
+struct multispmv
+    : multivector_expression<
+        boost::proto::terminal< additive_multivector_transform >::type
+        >
 {
-    static kernel_cache cache;
+    typedef val_t                      value_type;
+    typedef SpMat<val_t, col_t, idx_t> mat;
 
-    if (rx.size()) {
-        // Transfer remote parts of the input vector.
-        for(uint d = 0; d < queue.size(); d++) {
-            cl::Context context = qctx(queue[d]);
-            cl::Device  device  = qdev(queue[d]);
+    const mat &A;
+    const MV  &x;
 
-            auto gather = cache.find(context());
+    val_t scale;
 
-            if (gather == cache.end()) {
-                std::ostringstream source;
+    multispmv(const mat &A, const MV &x) : A(A), x(x), scale(1) {}
 
-                source << standard_kernel_header(device) <<
-                    "typedef " << type_name<val_t>() << " val_t;\n"
-                    "kernel void gather_vals_to_send(\n"
-                    "    " << type_name<size_t>() << " n,\n"
-                    "    global const val_t *vals,\n"
-                    "    global const " << type_name<col_t>() << " *cols_to_send,\n"
-                    "    global val_t *vals_to_send\n"
-                    "    )\n"
-                    "{\n"
-                    "    size_t i = get_global_id(0);\n"
-                    "    if (i < n) vals_to_send[i] = vals[cols_to_send[i]];\n"
-                    "}\n";
-
-                auto program = build_sources(context, source.str());
-
-                cl::Kernel krn(program, "gather_vals_to_send");
-                size_t wgs = kernel_workgroup_size(krn, device);
-
-                gather = cache.insert(std::make_pair(
-                            context(), kernel_cache_entry(krn, wgs)
-                            )).first;
-            }
-
-            if (size_t ncols = cidx[d + 1] - cidx[d]) {
-                size_t g_size = alignup(ncols, gather->second.wgsize);
-
-                uint pos = 0;
-                gather->second.kernel.setArg(pos++, ncols);
-                gather->second.kernel.setArg(pos++, x(d));
-                gather->second.kernel.setArg(pos++, exc[d].cols_to_send);
-                gather->second.kernel.setArg(pos++, exc[d].vals_to_send);
-
-                queue[d].enqueueNDRangeKernel(gather->second.kernel,
-                        cl::NullRange, g_size, gather->second.wgsize, 0, &event1[d][0]);
-
-                squeue[d].enqueueReadBuffer(exc[d].vals_to_send, CL_FALSE,
-                        0, ncols * sizeof(val_t), &rx[cidx[d]], &event1[d], &event2[d][0]
-                        );
-            }
-        }
+    template <bool negate, bool append, class W>
+    typename std::enable_if<
+        std::is_base_of<multivector_terminal_expression, W>::value
+#ifndef WIN32
+        && std::is_same<val_t, typename W::value_type::value_type>::value
+#endif
+        && number_of_components<MV>::value == number_of_components<W>::value,
+        void
+    >::type
+    apply(W &y) const {
+        for(size_t i = 0; i < number_of_components<MV>::value; i++)
+            A.mul(x(i), y(i), negate ? -scale : scale, append);
     }
+};
 
-    // Compute contribution from local part of the matrix.
-    for(uint d = 0; d < queue.size(); d++)
-        if (mtx[d]) mtx[d]->mul_local(x(d), y(d), alpha, append);
-
-    // Compute contribution from remote part of the matrix.
-    if (rx.size()) {
-        for(uint d = 0; d < queue.size(); d++)
-            if (cidx[d + 1] > cidx[d]) event2[d][0].wait();
-
-        for(uint d = 0; d < queue.size(); d++) {
-            cl::Context context = qctx(queue[d]);
-
-            if (exc[d].cols_to_recv.size()) {
-                for(size_t i = 0; i < exc[d].cols_to_recv.size(); i++)
-                    exc[d].vals_to_recv[i] = rx[exc[d].cols_to_recv[i]];
-
-                squeue[d].enqueueWriteBuffer(
-                        exc[d].rx, CL_FALSE, 0, bytes(exc[d].vals_to_recv),
-                        exc[d].vals_to_recv.data(), 0, &event2[d][0]
-                        );
-
-                mtx[d]->mul_remote(exc[d].rx, y(d), alpha, event2[d]);
-            }
-        }
-    }
+template <typename val_t, typename col_t, typename idx_t, class MV>
+typename std::enable_if<
+    std::is_base_of<multivector_terminal_expression, MV>::value &&
+    std::is_same<val_t, typename MV::value_type::value_type>::value,
+    multispmv< val_t, col_t, idx_t, MV >
+>::type
+operator*(const SpMat<val_t, col_t, idx_t> &A, const MV &x) {
+    return multispmv< val_t, col_t, idx_t, MV >(A, x);
 }
 
-template <typename val_t, typename col_t, typename idx_t>
-std::vector<std::set<col_t>> SpMat<val_t,col_t,idx_t>::setup_exchange(
-        size_t, const std::vector<size_t> &xpart,
-        const idx_t *row, const col_t *col, const val_t *
-        )
-{
-    std::vector<std::set<col_t>> remote_cols(queue.size());
+template <typename val_t, typename col_t, typename idx_t, class MV>
+struct is_scalable< multispmv<val_t, col_t, idx_t, MV> > : std::true_type {};
 
-    if (queue.size() <= 1) return remote_cols;
+#endif
 
-    // Build sets of ghost points.
-#pragma omp parallel for schedule(static,1)
-    for(int d = 0; d < static_cast<int>(queue.size()); d++) {
-        for(size_t i = part[d]; i < part[d + 1]; i++) {
-            for(idx_t j = row[i]; j < row[i + 1]; j++) {
-                if (col[j] < static_cast<col_t>(xpart[d]) || col[j] >= static_cast<col_t>(xpart[d + 1])) {
-                    remote_cols[d].insert(col[j]);
-                }
-            }
-        }
-    }
-
-    // Complete set of points to be exchanged between devices.
-    std::vector<col_t> cols_to_send;
-    {
-        std::set<col_t> cols_to_send_s;
-        for(uint d = 0; d < queue.size(); d++)
-            cols_to_send_s.insert(remote_cols[d].begin(), remote_cols[d].end());
-
-        cols_to_send.insert(cols_to_send.begin(), cols_to_send_s.begin(), cols_to_send_s.end());
-    }
-
-    // Build local structures to facilitate exchange.
-    if (cols_to_send.size()) {
-#pragma omp parallel for schedule(static,1)
-        for(int d = 0; d < static_cast<int>(queue.size()); d++) {
-            if (size_t rcols = remote_cols[d].size()) {
-                exc[d].cols_to_recv.resize(rcols);
-                exc[d].vals_to_recv.resize(rcols);
-
-                exc[d].rx = cl::Buffer(qctx(queue[d]), CL_MEM_READ_ONLY, rcols * sizeof(val_t));
-
-                for(size_t i = 0, j = 0; i < cols_to_send.size(); i++)
-                    if (remote_cols[d].count(cols_to_send[i])) exc[d].cols_to_recv[j++] = i;
-            }
-        }
-
-        rx.resize(cols_to_send.size());
-        cidx.resize(queue.size() + 1);
-
-        {
-            auto beg = cols_to_send.begin();
-            auto end = cols_to_send.end();
-            for(uint d = 0; d <= queue.size(); d++) {
-                cidx[d] = std::lower_bound(beg, end, xpart[d]) - cols_to_send.begin();
-                beg = cols_to_send.begin() + cidx[d];
-            }
-        }
-
-        for(uint d = 0; d < queue.size(); d++) {
-            if (size_t ncols = cidx[d + 1] - cidx[d]) {
-                cl::Context context = qctx(queue[d]);
-
-                exc[d].cols_to_send = cl::Buffer(
-                        context, CL_MEM_READ_ONLY, ncols * sizeof(col_t));
-
-                exc[d].vals_to_send = cl::Buffer(
-                        context, CL_MEM_READ_WRITE, ncols * sizeof(val_t));
-
-                for(size_t i = cidx[d]; i < cidx[d + 1]; i++)
-                    cols_to_send[i] -= xpart[d];
-
-                queue[d].enqueueWriteBuffer(
-                        exc[d].cols_to_send, CL_TRUE, 0, ncols * sizeof(col_t),
-                        &cols_to_send[cidx[d]]);
-            }
-        }
-    }
-
-    return remote_cols;
-}
+/// \endcond
 
 /// Weights device wrt to spmv performance.
 /**
