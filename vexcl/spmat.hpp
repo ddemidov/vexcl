@@ -89,7 +89,7 @@ class SpMat {
             for(auto q = queue.begin(); q != queue.end(); q++)
                 squeue.push_back(cl::CommandQueue(qctx(*q), qdev(*q)));
 
-            std::vector<std::set<col_t>> ghost_cols = setup_exchange(n, col_part, row, col, val);
+            std::vector<std::set<col_t>> ghost_cols = setup_exchange(col_part, row, col);
 
             // Each device get it's own strip of the matrix.
 #pragma omp parallel for schedule(static,1)
@@ -301,8 +301,8 @@ class SpMat {
         size_t nnz;
 
         std::vector<std::set<col_t>> setup_exchange(
-                size_t n, const std::vector<size_t> &col_part,
-                const idx_t *row, const col_t *col, const val_t *val
+                const std::vector<size_t> &col_part,
+                const idx_t *row, const col_t *col
                 )
         {
             auto is_local = [col_part](size_t c, int device) {

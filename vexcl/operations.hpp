@@ -1028,7 +1028,7 @@ void construct_preamble(const Expr &expr, std::ostream &kernel_source, const cl:
 
 template <class Term, class Enable = void>
 struct kernel_param_declaration {
-    static std::string get(const cl::Device &device, int component, int position, kernel_generator_state&) {
+    static std::string get(const cl::Device&, int component, int position, kernel_generator_state&) {
         std::ostringstream s;
         s << ",\n\t" << type_name<typename boost::proto::result_of::value<Term>::type>()
           << " prm_" << component << "_" << position;
