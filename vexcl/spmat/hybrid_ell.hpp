@@ -192,7 +192,7 @@ struct SpMatHELL : public sparse_matrix<val_t> {
         }
     }
 
-    template <class OP, typename T_IN, typename T_OUT>
+    template <class OP>
     void mul(
             const matrix_part &part,
             const cl::Buffer &in, const cl::Buffer &out,
@@ -221,12 +221,12 @@ struct SpMatHELL : public sparse_matrix<val_t> {
                 "    global const " << type_name<idx_t>() << " * csr_row,\n"
                 "    global const " << type_name<col_t>() << " * csr_col,\n"
                 "    global const " << type_name<val_t>() << " * csr_val,\n"
-                "    global const " << type_name<T_IN>()  << " * in,\n"
-                "    global       " << type_name<T_OUT>() << " * out\n"
+                "    global const " << type_name<val_t>() << " * in,\n"
+                "    global       " << type_name<val_t>() << " * out\n"
                 "    )\n"
                 "{\n"
                 "    for (size_t i = get_global_id(0); i < n; i += get_global_size(0)) {\n"
-                "        " << type_name<T_OUT>() << " sum = 0;\n"
+                "        " << type_name<val_t>() << " sum = 0;\n"
                 "        for(size_t j = 0; j < ell_w; ++j) {\n"
                 "            " << type_name<col_t>() << " c = ell_col[i + j * ell_pitch];\n"
                 "            if (c != ("<< type_name<col_t>() << ")(-1))\n"
@@ -278,20 +278,21 @@ struct SpMatHELL : public sparse_matrix<val_t> {
         krn.setArg(pos++, in);
         krn.setArg(pos++, out);
 
-        queue.enqueueNDRangeKernel(krn, cl::NullRange, g_size, wgsize, wait_for_it.empty() ? NULL : &wait_for_it);
+        queue.enqueueNDRangeKernel(krn, cl::NullRange, g_size, wgsize,
+                wait_for_it.empty() ? NULL : &wait_for_it);
     }
 
-    // TODO: template <class OP, typename T_IN, typename T_OUT>
     void mul_local(const cl::Buffer &in, const cl::Buffer &out, val_t scale, bool append) const {
         if (append)
-            mul<assign::ADD, val_t, val_t>(loc, in, out, scale);
+            mul<assign::ADD>(loc, in, out, scale);
         else
-            mul<assign::SET, val_t, val_t>(loc, in, out, scale);
+            mul<assign::SET>(loc, in, out, scale);
     }
 
-    // TODO: template <class OP, typename T_IN, typename T_OUT>
-    void mul_remote(const cl::Buffer &in, const cl::Buffer &out, val_t scale, const std::vector<cl::Event> &wait_for_it) const {
-        mul<assign::ADD, val_t, val_t>(rem, in, out, scale, wait_for_it);
+    void mul_remote(const cl::Buffer &in, const cl::Buffer &out, val_t scale,
+            const std::vector<cl::Event> &wait_for_it) const
+    {
+        mul<assign::ADD>(rem, in, out, scale, wait_for_it);
     }
 };
 
