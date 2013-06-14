@@ -62,6 +62,11 @@ struct is_vector_expr_terminal< elem_index >
     : std::true_type
 { };
 
+template <>
+struct is_multivector_expr_terminal< elem_index >
+    : std::true_type
+{ };
+
 template <class T>
 struct kernel_name< T, typename std::enable_if<
         boost::proto::matches<

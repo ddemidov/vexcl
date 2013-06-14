@@ -114,9 +114,42 @@ ccsr_product<val_t, col_t, idx_t, T> operator*(
 }
 
 
+typedef multivector_expression<
+    typename boost::proto::terminal< ccsr_product_terminal >::type
+    > mv_ccsr_product_terminal_expression;
+
+template <typename val_t, typename col_t, typename idx_t, class MV>
+struct mv_ccsr_product : public mv_ccsr_product_terminal_expression
+{
+    typedef SpMatCCSR<val_t, col_t, idx_t> matrix;
+
+    const matrix &A;
+    const MV     &x;
+
+    mv_ccsr_product(const matrix &A, const MV &x) : A(A), x(x) {}
+};
+
+template <typename val_t, typename col_t, typename idx_t, class MV>
+typename std::enable_if<
+    std::is_base_of<multivector_terminal_expression, MV>::value,
+    mv_ccsr_product<val_t, col_t, idx_t, MV>
+>::type
+operator*(
+        const SpMatCCSR<val_t, col_t, idx_t> &A,
+        const MV &x)
+{
+    return mv_ccsr_product<val_t, col_t, idx_t, MV>(A, x);
+}
+
+
 // Allow ccsr_product to participate in vector expressions:
 template <>
 struct is_vector_expr_terminal< ccsr_product_terminal >
+    : std::true_type
+{ };
+
+template <>
+struct is_multivector_expr_terminal< ccsr_product_terminal >
     : std::true_type
 { };
 
@@ -217,6 +250,20 @@ struct expression_properties< ccsr_product<val_t, col_t, idx_t, T> > {
         partition.back() = size;
     }
 };
+
+// Component extractor for multivector expressions
+template <size_t I, typename val_t, typename col_t, typename idx_t, class MV>
+struct component<I, mv_ccsr_product<val_t, col_t, idx_t, MV> >
+{
+    typedef ccsr_product<val_t, col_t, idx_t, typename MV::value_type::value_type> type;
+};
+
+template <size_t I, typename val_t, typename col_t, typename idx_t, class MV>
+ccsr_product<val_t, col_t, idx_t, typename MV::value_type::value_type>
+get(const mv_ccsr_product<val_t, col_t, idx_t, MV> &mvp) {
+    return ccsr_product<val_t, col_t, idx_t, typename MV::value_type::value_type>(
+            mvp.A * mvp.x(I));
+}
 
 /// \endcond
 

@@ -731,6 +731,15 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, TIE_VECTORS, ~)
 
 #endif
 
+/// \cond INTERNAL
+
+template <>
+struct is_multivector_expr_terminal< multivector_terminal >
+    : std::true_type
+{ };
+
+/// \endcond
+
 } // namespace vex
 
 namespace boost { namespace fusion { namespace traits {

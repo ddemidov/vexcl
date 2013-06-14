@@ -1410,15 +1410,24 @@ get(const T &t) {
 
 //--- Multivector grammar ---------------------------------------------------
 
+// Terminals allowed in multivector expressions.
+template <class Term, class Enable = void>
+struct is_multivector_expr_terminal
+    : std::false_type
+{ };
+
+template <class T>
+struct is_multivector_expr_terminal< T,
+    typename std::enable_if< is_multiscalar<T>::value >::type
+    >
+    : std::true_type
+{ };
+
 struct multivector_expr_grammar
     : boost::proto::or_<
-          boost::proto::or_<
-              boost::proto::or_< boost::proto::terminal< elem_index > >, \
-              boost::proto::terminal< multivector_terminal >,
-              boost::proto::and_<
-                  boost::proto::terminal< boost::proto::_ >,
-                  boost::proto::if_< is_multiscalar< boost::proto::_value >() >
-              >
+          boost::proto::and_<
+              boost::proto::terminal< boost::proto::_ >,
+              boost::proto::if_< is_multivector_expr_terminal< boost::proto::_value >() >
           >,
           BUILTIN_OPERATIONS(multivector_expr_grammar),
           USER_FUNCTIONS(multivector_expr_grammar)
