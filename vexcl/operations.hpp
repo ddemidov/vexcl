@@ -83,26 +83,6 @@ namespace assign {
 
 #undef ASSIGN_OP
 
-template <class OP>
-struct finish {
-    typedef typename OP::unsupported_operation type;
-};
-
-template <>
-struct finish<SET> {
-    typedef ADD type;
-};
-
-template <>
-struct finish<ADD> {
-    typedef ADD type;
-};
-
-template <>
-struct finish<SUB> {
-    typedef SUB type;
-};
-
 }
 
 //---------------------------------------------------------------------------
