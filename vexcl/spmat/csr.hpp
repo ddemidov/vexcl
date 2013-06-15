@@ -28,7 +28,7 @@ THE SOFTWARE.
 /**
  * \file   vexcl/spmat/csr.hpp
  * \author Denis Demidov <ddemidov@ksu.ru>
- * \brief  OpenCL sparse matrix in Hybrid ELL-CSR format.
+ * \brief  OpenCL sparse matrix in CSR format.
  */
 
 struct SpMatCSR : public sparse_matrix {
