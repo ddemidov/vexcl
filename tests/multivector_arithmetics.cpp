@@ -25,7 +25,7 @@ BOOST_AUTO_TEST_CASE(arithmetics)
 
     check_sample(x, y, z, [](size_t, elem_t a, elem_t b, elem_t c) {
             for(size_t i = 0; i < 4; ++i)
-                BOOST_CHECK_EQUAL(a[i], (i + 1) * b[i] + c[i]);
+                BOOST_CHECK_CLOSE(a[i], (i + 1) * b[i] + c[i], 1e-8);
             });
 }
 
@@ -44,8 +44,8 @@ BOOST_AUTO_TEST_CASE(multivector_multiexpressions)
             );
 
     check_sample(x, y, [](size_t, elem_t a, elem_t b) {
-            BOOST_CHECK_CLOSE(a[0], sin(b[0]) + cos(b[1]), 1e-8); 
-            BOOST_CHECK_CLOSE(a[1], cos(b[0]) + sin(b[1]), 1e-8); 
+            BOOST_CHECK_CLOSE(a[0], sin(b[0]) + cos(b[1]), 1e-8);
+            BOOST_CHECK_CLOSE(a[1], cos(b[0]) + sin(b[1]), 1e-8);
             });
 }
 
