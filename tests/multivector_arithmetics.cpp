@@ -21,11 +21,11 @@ BOOST_AUTO_TEST_CASE(arithmetics)
     BOOST_CHECK(min(x) == v);
     BOOST_CHECK(max(x) == v);
 
-    x = 2 * y + z;
+    x = std::make_tuple(1, 2, 3, 4) * y + z;
 
     check_sample(x, y, z, [](size_t, elem_t a, elem_t b, elem_t c) {
             for(size_t i = 0; i < 4; ++i)
-                BOOST_CHECK(a[i] == 2 * b[i] + c[i]);
+                BOOST_CHECK_EQUAL(a[i], (i + 1) * b[i] + c[i]);
             });
 }
 

@@ -1280,6 +1280,28 @@ struct component< I, std::tuple<Args...> >
     : std::tuple_element< I, std::tuple<Args...> >
 {};
 
+#else
+
+#define TUPLE_IS_MS(z, n, unused)                                      \
+  template < BOOST_PP_ENUM_PARAMS(n, class Arg) >                      \
+  struct is_multiscalar< std::tuple < BOOST_PP_ENUM_PARAMS(n, Arg) > > \
+    : std::true_type                                                   \
+  {};
+
+BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, TUPLE_IS_MS, ~)
+
+#undef TUPLE_IS_MS
+
+#define TUPLE_COMP(z, n, unused)                                          \
+  template < size_t I, BOOST_PP_ENUM_PARAMS(n, class Arg) >               \
+  struct component< I, std::tuple < BOOST_PP_ENUM_PARAMS(n, Arg) > >      \
+    : std::tuple_element< I, std::tuple< BOOST_PP_ENUM_PARAMS(n, Arg) > > \
+  {};
+
+BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, TUPLE_COMP, ~)
+
+#undef TUPLE_COMP
+
 #endif
 
 // std::array<T,N>
