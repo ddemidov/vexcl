@@ -34,7 +34,7 @@ THE SOFTWARE.
 struct SpMatHELL : public sparse_matrix {
     const cl::CommandQueue &queue;
     size_t n, pitch;
-    
+
     struct matrix_part {
         struct {
             size_t     width;
