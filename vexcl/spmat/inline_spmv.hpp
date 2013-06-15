@@ -66,6 +66,19 @@ struct mv_inline_spmv : mv_inline_spmv_terminal_expression {
 };
 /// \endcond
 
+/// Inlines a sparse matrix - vector product.
+/**
+ * When applied to a matrix-vector product, the product becomes inlineable.
+ * That is, it may be used in any vector expression (not just additive
+ * expression). This is only possible in single-device contexts, so user has to
+ * guarantee that.
+ * 
+ * Example:
+ * \code
+ * // Get maximum residual value:
+ * eps = sum( fabs(f - vex::make_inline(A * x)) );
+ * \endcode
+ */
 template <typename val_t, typename col_t, typename idx_t>
 inline_spmv<val_t, col_t, idx_t>
 make_inline(const spmv<val_t, col_t, idx_t> &base) {
@@ -74,6 +87,19 @@ make_inline(const spmv<val_t, col_t, idx_t> &base) {
     return inline_spmv<val_t, col_t, idx_t>(base);
 }
 
+/// Inlines a sparse matrix - multivector product.
+/**
+ * When applied to a matrix-multivector product, the product becomes
+ * inlineable.  That is, it may be used in any multivector expression (not just
+ * additive expression). This is only possible in single-device contexts, so
+ * user has to guarantee that.
+ * 
+ * Example:
+ * \code
+ * // Get maximum residual value:
+ * eps = sum( fabs(f - vex::make_inline(A * x)) );
+ * \endcode
+ */
 template <typename val_t, typename col_t, typename idx_t, class MV>
 mv_inline_spmv<val_t, col_t, idx_t, MV>
 make_inline(const multispmv<val_t, col_t, idx_t, MV> &base) {
