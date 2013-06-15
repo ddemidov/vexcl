@@ -335,7 +335,42 @@ BOOST_AUTO_TEST_CASE(multivector_product)
             });
 }
 
-#if 0
+BOOST_AUTO_TEST_CASE(inline_multivector_product)
+{
+    const size_t n = 1024;
+    const size_t m = 2;
+
+    typedef std::array<double, m> elem_t;
+
+    std::vector<cl::CommandQueue> queue(1, ctx.queue(0));
+
+    std::vector<size_t> row;
+    std::vector<size_t> col;
+    std::vector<double> val;
+
+    random_matrix(n, n, 16, row, col, val);
+
+    std::vector<double> x = random_vector<double>(n * m);
+
+    vex::SpMat <double> A(queue, n, n, row.data(), col.data(), val.data());
+
+    vex::multivector<double,m> X(queue, x);
+    vex::multivector<double,m> Y(queue, n);
+
+    Y = cos(vex::make_inline(A * X));
+
+    check_sample(Y, [&](size_t idx, elem_t a) {
+            double sum[] = {0, 0};
+            for(size_t j = row[idx]; j < row[idx + 1]; j++) {
+                sum[0] += val[j] * x[0 + col[j]];
+                sum[1] += val[j] * x[n + col[j]];
+            }
+
+            BOOST_CHECK_CLOSE(a[0], cos(sum[0]), 1e-8);
+            BOOST_CHECK_CLOSE(a[1], cos(sum[1]), 1e-8);
+            });
+}
+
 BOOST_AUTO_TEST_CASE(ccsr_multivector_product)
 {
     const long n = 32;
@@ -429,6 +464,5 @@ BOOST_AUTO_TEST_CASE(ccsr_multivector_product)
             BOOST_CHECK_CLOSE(a[1], x[N + ii] + sum[1], 1e-8);
             });
 }
-#endif
 
 BOOST_AUTO_TEST_SUITE_END()

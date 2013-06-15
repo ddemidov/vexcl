@@ -37,6 +37,7 @@ namespace vex {
 
 /// \cond INTERNAL
 struct inline_spmv_terminal {};
+struct mv_inline_spmv_terminal {};
 
 typedef vector_expression<
     typename boost::proto::terminal< inline_spmv_terminal >::type
@@ -50,13 +51,35 @@ struct inline_spmv : inline_spmv_terminal_expression {
 
     inline_spmv(const Base &base) : A(base.A), x(base.x) {}
 };
+
+typedef multivector_expression<
+    typename boost::proto::terminal< mv_inline_spmv_terminal >::type
+    > mv_inline_spmv_terminal_expression;
+
+template <typename val_t, typename col_t, typename idx_t, class MV>
+struct mv_inline_spmv : mv_inline_spmv_terminal_expression {
+    typedef multispmv<val_t, col_t, idx_t, MV> Base;
+    const typename Base::mat &A;
+    const MV                 &x;
+
+    mv_inline_spmv(const Base &base) : A(base.A), x(base.x) {}
+};
 /// \endcond
 
 template <typename val_t, typename col_t, typename idx_t>
-inline_spmv<val_t, col_t, idx_t> make_inline(const spmv<val_t, col_t, idx_t> &base) {
+inline_spmv<val_t, col_t, idx_t>
+make_inline(const spmv<val_t, col_t, idx_t> &base) {
     precondition(base.x.nparts() == 1, "Can not inline multi-device SpMV operation.");
 
     return inline_spmv<val_t, col_t, idx_t>(base);
+}
+
+template <typename val_t, typename col_t, typename idx_t, class MV>
+mv_inline_spmv<val_t, col_t, idx_t, MV>
+make_inline(const multispmv<val_t, col_t, idx_t, MV> &base) {
+    precondition(base.x(0).nparts() == 1, "Can not inline multi-device SpMV operation.");
+
+    return mv_inline_spmv<val_t, col_t, idx_t, MV>(base);
 }
 
 /// \cond INTERNAL
@@ -65,6 +88,27 @@ template <>
 struct is_vector_expr_terminal< inline_spmv_terminal >
     : std::true_type
 { };
+
+template <>
+struct is_multivector_expr_terminal< mv_inline_spmv_terminal >
+    : std::true_type
+{ };
+
+template <>
+struct proto_terminal_is_value< mv_inline_spmv_terminal >
+    : std::true_type
+{ };
+
+template <size_t I, typename val_t, typename col_t, typename idx_t, typename MV>
+struct component< I, mv_inline_spmv<val_t, col_t, idx_t, MV> > {
+    typedef inline_spmv<val_t, col_t, idx_t> type;
+};
+
+template <size_t I, typename val_t, typename col_t, typename idx_t, typename MV>
+inline_spmv<val_t, col_t, idx_t>
+get(const mv_inline_spmv<val_t, col_t, idx_t, MV> &t) {
+    return make_inline(t.A * t.x(I));
+}
 
 template <typename val_t, typename col_t, typename idx_t>
 struct kernel_name< inline_spmv<val_t, col_t, idx_t> > {

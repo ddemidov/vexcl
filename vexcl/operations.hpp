@@ -1341,7 +1341,7 @@ struct number_of_components< multivector<T, N, own> >
 
 template <size_t I, typename T, size_t N, bool own>
 struct component< I, multivector<T, N, own> > {
-    typedef vector<T> type;
+    typedef const vector<T>& type;
 };
 
 template <size_t I, typename T, size_t N, bool own>
@@ -1372,41 +1372,6 @@ struct mutltiex_dimension
             >
         >
 {};
-
-template <size_t I, class T>
-struct component< I, T,
-    typename std::enable_if<
-        !is_multiscalar<T>::value &&
-        is_multiscalar<
-            typename boost::proto::result_of::value<
-                typename boost::proto::result_of::as_expr<T>::type
-            >::type
-        >::value >::type
-    >
-{
-    typedef typename boost::proto::result_of::value<
-                typename boost::proto::result_of::as_expr<T>::type
-            >::type value_type;
-
-    typedef typename boost::proto::result_of::as_child<
-        typename component<I, value_type>::type
-        >::type type;
-};
-
-template <size_t I, typename T>
-inline const
-typename std::enable_if<
-    !is_multiscalar<T>::value &&
-    is_multiscalar<
-        typename boost::proto::result_of::value<
-            typename boost::proto::result_of::as_expr<T>::type
-        >::type
-    >::value,
-    typename component<I, T>::type
->::type
-get(const T &t) {
-    return boost::proto::as_child(get<I>(boost::proto::value(t)));
-}
 
 //--- Multivector grammar ---------------------------------------------------
 
@@ -1502,6 +1467,13 @@ struct multivector_expression
 //---------------------------------------------------------------------------
 // Multiexpression component extractor
 //---------------------------------------------------------------------------
+template <class T, class Enable = void>
+struct proto_terminal_is_value : std::false_type { };
+
+template <>
+struct proto_terminal_is_value< multivector_terminal >
+    : std::true_type { };
+
 template <size_t C>
 struct extract_component : boost::proto::callable {
     template <class T>
@@ -1513,7 +1485,7 @@ struct extract_component : boost::proto::callable {
                 typename boost::remove_const<
                     typename boost::remove_reference<T>::type
                 >::type
-            >::type& type;
+            >::type type;
     };
 
     template <class T>
@@ -1528,7 +1500,10 @@ template <size_t C>
 struct extract_subexpression
     : boost::proto::or_ <
         boost::proto::when <
-            boost::proto::terminal< multivector_terminal >,
+            boost::proto::and_<
+                boost::proto::terminal< boost::proto::_ >,
+                boost::proto::if_< proto_terminal_is_value< boost::proto::_value >() >
+            >,
             extract_component<C>( boost::proto::_ )
         > ,
         boost::proto::when <

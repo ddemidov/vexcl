@@ -89,6 +89,7 @@ struct SpMatCCSR {
 
 /// \cond INTERNAL
 struct ccsr_product_terminal {};
+struct mv_ccsr_product_terminal {};
 
 typedef vector_expression<
     typename boost::proto::terminal< ccsr_product_terminal >::type
@@ -115,7 +116,7 @@ ccsr_product<val_t, col_t, idx_t, T> operator*(
 
 
 typedef multivector_expression<
-    typename boost::proto::terminal< ccsr_product_terminal >::type
+    typename boost::proto::terminal< mv_ccsr_product_terminal >::type
     > mv_ccsr_product_terminal_expression;
 
 template <typename val_t, typename col_t, typename idx_t, class MV>
@@ -149,9 +150,27 @@ struct is_vector_expr_terminal< ccsr_product_terminal >
 { };
 
 template <>
-struct is_multivector_expr_terminal< ccsr_product_terminal >
+struct is_multivector_expr_terminal< mv_ccsr_product_terminal >
     : std::true_type
 { };
+
+template <>
+struct proto_terminal_is_value< mv_ccsr_product_terminal >
+    : std::true_type
+{ };
+
+template <size_t I, typename val_t, typename col_t, typename idx_t, typename MV>
+struct component< I, mv_ccsr_product<val_t, col_t, idx_t, MV> > {
+    typedef
+        ccsr_product<val_t, col_t, idx_t, typename MV::value_type::value_type>
+        type;
+};
+
+template <size_t I, typename val_t, typename col_t, typename idx_t, typename MV>
+ccsr_product<val_t, col_t, idx_t, typename MV::value_type::value_type>
+get(const mv_ccsr_product<val_t, col_t, idx_t, MV> &t) {
+    return t.A * t.x(I);
+}
 
 template <typename val_t, typename col_t, typename idx_t, typename T>
 struct kernel_name< ccsr_product<val_t, col_t, idx_t, T> > {
@@ -250,20 +269,6 @@ struct expression_properties< ccsr_product<val_t, col_t, idx_t, T> > {
         partition.back() = size;
     }
 };
-
-// Component extractor for multivector expressions
-template <size_t I, typename val_t, typename col_t, typename idx_t, class MV>
-struct component<I, mv_ccsr_product<val_t, col_t, idx_t, MV> >
-{
-    typedef ccsr_product<val_t, col_t, idx_t, typename MV::value_type::value_type> type;
-};
-
-template <size_t I, typename val_t, typename col_t, typename idx_t, class MV>
-ccsr_product<val_t, col_t, idx_t, typename MV::value_type::value_type>
-get(const mv_ccsr_product<val_t, col_t, idx_t, MV> &mvp) {
-    return ccsr_product<val_t, col_t, idx_t, typename MV::value_type::value_type>(
-            mvp.A * mvp.x(I));
-}
 
 /// \endcond
 
