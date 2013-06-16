@@ -133,7 +133,10 @@ struct symbolic_expr;
 
 struct symbolic_domain
     : boost::proto::domain< boost::proto::generator< symbolic_expr >, symbolic_grammar >
-{};
+{
+    template <typename T>
+    struct as_child : proto_base_domain::as_expr<T> {};
+};
 
 template <class Expr>
 struct symbolic_expr
