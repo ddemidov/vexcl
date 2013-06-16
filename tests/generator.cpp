@@ -1,5 +1,6 @@
 #define BOOST_TEST_MODULE KernelGenerator
 #include <boost/test/unit_test.hpp>
+#include <boost/phoenix/phoenix.hpp>
 #include "context_setup.hpp"
 
 using namespace vex;
@@ -119,6 +120,25 @@ BOOST_AUTO_TEST_CASE(function_adapter)
             for(int i = 0; i < 100; i++) s = step(s);
 
             BOOST_CHECK_CLOSE(a, s, 1e-8);
+            });
+}
+
+BOOST_AUTO_TEST_CASE(function_adapter_and_phoenix_lambda)
+{
+    using namespace boost::phoenix::arg_names;
+
+    const size_t n  = 1024;
+
+    auto squared_radius = vex::generator::make_function<double(double, double)>(
+            arg1 * arg1 + arg2 * arg2);
+
+    vex::vector<double> X(ctx, random_vector<double>(n));
+    vex::vector<double> Y(ctx, random_vector<double>(n));
+
+    vex::vector<double> Z = squared_radius(X, Y);
+
+    check_sample(X, Y, Z, [&](size_t, double x, double y, double z) {
+            BOOST_CHECK_CLOSE(z, x * x + y * y, 1e-8);
             });
 }
 
