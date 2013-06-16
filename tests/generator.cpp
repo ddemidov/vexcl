@@ -50,6 +50,43 @@ BOOST_AUTO_TEST_CASE(kernel_generator)
             });
 }
 
+BOOST_AUTO_TEST_CASE(function_generator)
+{
+    typedef vex::generator::symbolic<double> sym_state;
+
+    const size_t n  = 1024;
+    const double dt = 0.01;
+
+    std::ostringstream body;
+    vex::generator::set_recorder(body);
+
+    sym_state sym_x(sym_state::VectorParameter);
+
+    // Record expression sequence.
+    runge_kutta_2(sys_func<sym_state>, sym_x, dt);
+
+    // Build function.
+    // Body string has to be static:
+    static std::string function_body = vex::generator::make_function(
+            body.str(), sym_x, sym_x);
+
+    VEX_FUNCTION(rk2, double(double), function_body);
+
+    std::vector<double> x = random_vector<double>(n);
+    vex::vector<double> X(ctx, x);
+
+    for(int i = 0; i < 100; i++)
+        X = rk2(X);
+
+    check_sample(X, [&](size_t idx, double a) {
+            double s = x[idx];
+            for(int i = 0; i < 100; i++)
+                runge_kutta_2(sys_func<double>, s, dt);
+
+            BOOST_CHECK_CLOSE(a, s, 1e-8);
+            });
+}
+
 /*
 An alternative variant, which does not use the generator facility.
 Intermediate subexpression are captured with help of 'auto' keyword, and

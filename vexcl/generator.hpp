@@ -283,11 +283,13 @@ class symbolic
     : public symbolic_expr< boost::proto::terminal< variable >::type >
 {
     public:
+        typedef T value_type;
+
         /// Scope/Type of the symbolic variable.
         enum scope_type {
             LocalVar        = 0, ///< Local variable.
             VectorParameter = 1, ///< Vector kernel parameter.
-            ScalarParameter = 2, ///< Scalar kernel parameter.
+            ScalarParameter = 2  ///< Scalar kernel parameter.
         };
 
         /// Constness of vector parameter.
@@ -450,8 +452,7 @@ class Kernel {
                     << "kernel void " << name << "(\n"
                     << "\t" << type_name<size_t>() << " n";
 
-                declare_params declprm(source);
-                boost::fusion::for_each(args, declprm);
+                boost::fusion::for_each(args, declare_params(source));
 
                 source << "\n)\n{\n";
 
@@ -466,13 +467,11 @@ class Kernel {
                         "\tfor(size_t idx = get_global_id(0); idx < n; idx += get_global_size(0)) {\n";
                 }
 
-                read_params readprm(source);
-                boost::fusion::for_each(args, readprm);
+                boost::fusion::for_each(args, read_params(source));
 
                 source << body;
 
-                write_params writeprm(source);
-                boost::fusion::for_each(args, writeprm);
+                boost::fusion::for_each(args, write_params(source));
 
                 source << "\t}\n}\n";
 
@@ -599,6 +598,39 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, FUNCALL_OPERATOR, ~)
         };
 };
 
+/// Function body generator.
+class Function {
+    public:
+        template <class Ret, class ArgTuple>
+        Function(const std::string &body, const Ret &ret, const ArgTuple &arg)
+        {
+            boost::fusion::for_each(arg, read_params(source));
+
+            source << body;
+
+            source << "\t\treturn " << ret << ";\n";
+        }
+
+        std::string get() const {
+            return source.str();
+        }
+    private:
+        std::ostringstream source;
+
+        struct read_params {
+            std::ostream &os;
+            mutable int prm_idx;
+
+            read_params(std::ostream &os) : os(os), prm_idx(0) {}
+
+            template <class T>
+            void operator()(const T &v) const {
+                os << "\t\t" << type_name<typename T::value_type>() << " "
+                   << v << " = prm" << ++prm_idx << ";\n";
+            }
+        };
+};
+
 #ifndef BOOST_NO_VARIADIC_TEMPLATES
 /// Builds kernel from recorded expression sequence and symbolic parameter list.
 template <class... Args>
@@ -609,9 +641,16 @@ Kernel<sizeof...(Args)> build_kernel(
 {
     return Kernel<sizeof...(Args)>(queue, name, body, boost::tie(args...));
 }
+
+/// Builds function body from recorded expression and symbolic return value and parameters.
+template <class Ret, class... Args>
+std::string make_function(std::string body, const Ret &ret, const Args&... args) {
+    return Function(body, ret, boost::tie(args...)).get();
+}
 #else
 
 #define PRINT_ARG(z, n, data) const Arg ## n &arg ## n
+
 #define BUILD_KERNEL(z, n, data) \
 template < BOOST_PP_ENUM_PARAMS(n, class Arg) > \
 Kernel<n> build_kernel( \
@@ -622,11 +661,20 @@ Kernel<n> build_kernel( \
 { \
     return Kernel<n>(queue, name, body, boost::tie( BOOST_PP_ENUM_PARAMS(n, arg) )); \
 }
-
 BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, BUILD_KERNEL, ~)
+#undef BUILD_KERNEL
+
+#define MAKE_FUNCTION(z, n, data) \
+template <class Ret, BOOST_PP_ENUM_PARAMS(n, class Arg)> \
+std::string make_function(std::string body, const Ret &ret, \
+        BOOST_PP_ENUM(n, PRINT_ARG, ~)) \
+{ \
+    return Function(body, ret, boost::tie( BOOST_PP_ENUM_PARAMS(n, arg) )); \
+}
+BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, MAKE_FUNCTION, ~)
+#undef MAKE_FUNCTION
 
 #undef PRINT_ARG
-#undef BUILD_KERNEL
 
 #endif
 
