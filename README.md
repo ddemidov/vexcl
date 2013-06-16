@@ -516,10 +516,10 @@ cost of OpenCL programs, but at the same time it allows to generate better
 optimized kernels for the problem at hand. VexCL allows to exploit the
 possibility with help of its kernel generator mechanism.
 
-An instance of `vex::generator::symbolic<T>` dumps to output stream any
-arithmetic operations it is being subjected to. For example, this code snippet:
+An instance of `vex::symbolic<T>` dumps to output stream any arithmetic
+operations it is being subjected to. For example, this code snippet:
 ~~~{.cpp}
-vex::generator::symbolic<double> x = 6, y = 7;
+vex::symbolic<double> x = 6, y = 7;
 x = sin(x * y);
 ~~~
 results in the following output:
@@ -573,7 +573,7 @@ std::ostringstream body;
 vex::generator::set_recorder(body);
 
 // Create symbolic variable.
-typedef vex::generator::symbolic<double> sym_state;
+typedef vex::symbolic<double> sym_state;
 sym_state sym_x(sym_state::VectorParameter);
 
 // Record expression sequience for a single RK4 step.
