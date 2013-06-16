@@ -640,6 +640,18 @@ for(int i = 0; i < 100; i++) x = rk4(x);
 Note that both `runge_kutta_4()` function and `rk4_stepper` function object may
 be reused for host-side computations.
 
+It is very easy to generate an OpenCL function from a Boost.Phoenix lambda
+expression (since Boost.Phoenix lambdas are themselves generic functors):
+
+~~~{.cpp}
+using namespace boost::phoenix::arg_names;
+using vex::generator::make_function;
+
+auto squared_radius = make_function<double(double, double)>(arg1 * arg1 + arg2 * arg2);
+
+Z = squared_radius(X, Y);
+~~~
+
 ## <a name="custom-kernels"></a>Custom kernels
 
 As [Kozma Prutkov](http://en.wikipedia.org/wiki/Kozma_Prutkov) repeatedly said,
