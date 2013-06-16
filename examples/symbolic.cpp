@@ -13,7 +13,7 @@ namespace odeint = boost::numeric::odeint;
 namespace fusion = boost::fusion;
 
 typedef double value_type;
-typedef vex::generator::symbolic< value_type > sym_value;
+typedef vex::symbolic< value_type > sym_value;
 typedef std::array<sym_value, 3> sym_state;
 
 // System  function for Lorenz attractor ensemble ODE.

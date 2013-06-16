@@ -57,6 +57,9 @@ THE SOFTWARE.
 /// Vector expression template library for OpenCL.
 namespace vex {
 
+template <typename T>
+class symbolic;
+
 /// Kernel generation interface.
 namespace generator {
 
@@ -146,9 +149,6 @@ struct symbolic_expr
 
     symbolic_expr(const Expr &expr = Expr()) : base_type(expr) {}
 };
-
-template <typename T>
-class symbolic;
 
 template <typename T>
 std::ostream& operator<<(std::ostream &os, const symbolic<T> &sym);
@@ -272,25 +272,16 @@ struct symbolic_context {
     };
 };
 
-
-//---------------------------------------------------------------------------
-// Builtin functions.
-//---------------------------------------------------------------------------
-
-template <class Expr>
-void record(const Expr &expr) {
-    symbolic_context ctx;
-    boost::proto::eval(boost::proto::as_expr(expr), ctx);
-}
 /// \endcond
+
+} // namespace generator
 
 //---------------------------------------------------------------------------
 // The symbolic class.
 //---------------------------------------------------------------------------
-
 template <typename T>
 class symbolic
-    : public symbolic_expr< boost::proto::terminal< variable >::type >
+    : public generator::symbolic_expr< boost::proto::terminal< generator::variable >::type >
 {
     public:
         typedef T value_type;
@@ -309,44 +300,44 @@ class symbolic
         };
 
         /// Default constructor. Results in local kernel variable.
-        symbolic() : num(var_id()), scope(LocalVar), constness(NonConst)
+        symbolic() : num(generator::var_id()), scope(LocalVar), constness(NonConst)
         {
-            get_recorder() << "\t\t" << type_name<T>() << " " << *this << ";\n";
+            generator::get_recorder() << "\t\t" << type_name<T>() << " " << *this << ";\n";
         }
 
         /// Constructor.
         explicit symbolic(scope_type scope, constness_type constness = NonConst)
-            : num(var_id()), scope(scope), constness(constness)
+            : num(generator::var_id()), scope(scope), constness(constness)
         {
             if (scope == LocalVar) {
-                get_recorder() << "\t\t" << type_name<T>() << " " << *this << ";\n";
+                generator::get_recorder() << "\t\t" << type_name<T>() << " " << *this << ";\n";
             }
         }
 
         /// Expression constructor. Results in local variable initialized by expression.
         template <class Expr>
         symbolic(const Expr &expr)
-            : num(var_id()), scope(LocalVar), constness(NonConst)
+            : num(generator::var_id()), scope(LocalVar), constness(NonConst)
         {
-            get_recorder() << "\t\t" << type_name<T>() << " " << *this << " = ";
+            generator::get_recorder() << "\t\t" << type_name<T>() << " " << *this << " = ";
             record(expr);
-            get_recorder() << ";\n";
+            generator::get_recorder() << ";\n";
         }
 
         /// Assignment operator. Results in assignment written to recorder.
         const symbolic& operator=(const symbolic &c) const {
-            get_recorder() << "\t\t" << *this << " = ";
+            generator::get_recorder() << "\t\t" << *this << " = ";
             record(c);
-            get_recorder() << ";\n";
+            generator::get_recorder() << ";\n";
             return *this;
         }
 
         /// Assignment operator. Results in assignment written to recorder.
         template <class Expr>
         const symbolic& operator=(const Expr &expr) const {
-            get_recorder() << "\t\t" << *this << " = ";
+            generator::get_recorder() << "\t\t" << *this << " = ";
             record(expr);
-            get_recorder() << ";\n";
+            generator::get_recorder() << ";\n";
             return *this;
         }
 
@@ -428,7 +419,15 @@ class symbolic
         size_t         num;
         scope_type     scope;
         constness_type constness;
+
+    template <class Expr>
+    static void record(const Expr &expr) {
+        generator::symbolic_context ctx;
+        boost::proto::eval(boost::proto::as_expr(expr), ctx);
+    }
 };
+
+namespace generator {
 
 template <typename T>
 std::ostream& operator<<(std::ostream &os, const symbolic<T> &sym) {

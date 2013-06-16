@@ -3,8 +3,6 @@
 #include <boost/phoenix/phoenix.hpp>
 #include "context_setup.hpp"
 
-using namespace vex;
-
 template <class state_type>
 state_type sys_func(const state_type &x) {
     return sin(x);
@@ -20,7 +18,7 @@ void runge_kutta_2(SysFunction sys, state_type &x, double dt) {
 
 BOOST_AUTO_TEST_CASE(kernel_generator)
 {
-    typedef vex::generator::symbolic<double> sym_state;
+    typedef vex::symbolic<double> sym_state;
 
     const size_t n  = 1024;
     const double dt = 0.01;
@@ -53,7 +51,7 @@ BOOST_AUTO_TEST_CASE(kernel_generator)
 
 BOOST_AUTO_TEST_CASE(function_generator)
 {
-    typedef vex::generator::symbolic<double> sym_state;
+    typedef vex::symbolic<double> sym_state;
 
     const size_t n  = 1024;
     const double dt = 0.01;
