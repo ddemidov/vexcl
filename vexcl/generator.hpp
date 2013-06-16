@@ -734,6 +734,12 @@ struct FunctorAdapter : UserFunction<FunctorAdapter<Signature, Functor>, Signatu
 template <class Signature, class Functor>
 std::string FunctorAdapter<Signature, Functor>::body_string;
 
+/// Generates user-defined function from a genric functor.
+/**
+ * Takes function signature as template parameter, functor as a single
+ * argument.
+ * Returns user-defined function ready to be used in vector expressions.
+ */
 template <class Signature, class Functor>
 FunctorAdapter<Signature, Functor> make_function(Functor &&f) {
     return FunctorAdapter<Signature, Functor>(f);
