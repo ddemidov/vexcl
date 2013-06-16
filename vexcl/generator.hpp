@@ -696,7 +696,7 @@ struct FunctorAdapter : UserFunction<FunctorAdapter<Signature, Functor>, Signatu
     FunctorAdapter(Functor &&f) {
         using boost::function_types::function_arity;
 
-        body_string = get_body(f,
+        body_string = get_body(std::forward<Functor>(f),
                 boost::mpl::size_t< function_arity<Signature>::value >() );
     }
 
@@ -742,7 +742,7 @@ std::string FunctorAdapter<Signature, Functor>::body_string;
  */
 template <class Signature, class Functor>
 FunctorAdapter<Signature, Functor> make_function(Functor &&f) {
-    return FunctorAdapter<Signature, Functor>(f);
+    return FunctorAdapter<Signature, Functor>(std::forward<Functor>(f));
 }
 
 } // namespace generator;
