@@ -72,7 +72,7 @@ struct mv_inline_spmv : mv_inline_spmv_terminal_expression {
  * That is, it may be used in any vector expression (not just additive
  * expression). This is only possible in single-device contexts, so user has to
  * guarantee that.
- * 
+ *
  * Example:
  * \code
  * // Get maximum residual value:
@@ -93,7 +93,7 @@ make_inline(const spmv<val_t, col_t, idx_t> &base) {
  * inlineable.  That is, it may be used in any multivector expression (not just
  * additive expression). This is only possible in single-device contexts, so
  * user has to guarantee that.
- * 
+ *
  * Example:
  * \code
  * // Get maximum residual value:

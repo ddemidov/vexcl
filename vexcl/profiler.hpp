@@ -166,7 +166,7 @@ class stopwatch {
         }
     private:
         static double seconds(typename Clock::time_point begin, typename Clock::time_point end) {
-            return typename Clock::duration(end - begin).count() * 
+            return typename Clock::duration(end - begin).count() *
                 static_cast<double>(Clock::duration::period::num) /
                     Clock::duration::period::den;
         }
