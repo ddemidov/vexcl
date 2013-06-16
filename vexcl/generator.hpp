@@ -42,6 +42,8 @@ THE SOFTWARE.
 #include <string>
 #include <stdexcept>
 #include <boost/proto/proto.hpp>
+#include <boost/tuple/tuple.hpp>
+#include <boost/fusion/adapted/boost_tuple.hpp>
 #include <vexcl/util.hpp>
 #include <vexcl/operations.hpp>
 
@@ -59,6 +61,8 @@ namespace generator {
 /// \cond INTERNAL
 template <bool dummy = true>
 class recorder {
+    static_assert(dummy, "dummy parameter should be true");
+
     public:
         static void set(std::ostream &s) {
             os = &s;
@@ -431,7 +435,7 @@ class Kernel {
               ) : queue(queue)
         {
             static_assert(
-                    std::tuple_size<ArgTuple>::value == NP,
+                    boost::tuples::length<ArgTuple>::value == NP,
                     "Wrong number of kernel parameters"
                     );
 
@@ -447,7 +451,7 @@ class Kernel {
                     << "\t" << type_name<size_t>() << " n";
 
                 declare_params declprm(source);
-                for_each<0>(args, declprm);
+                boost::fusion::for_each(args, declprm);
 
                 source << "\n)\n{\n";
 
@@ -463,12 +467,12 @@ class Kernel {
                 }
 
                 read_params readprm(source);
-                for_each<0>(args, readprm);
+                boost::fusion::for_each(args, readprm);
 
                 source << body;
 
                 write_params writeprm(source);
-                for_each<0>(args, writeprm);
+                boost::fusion::for_each(args, writeprm);
 
                 source << "\t}\n}\n";
 
@@ -483,7 +487,7 @@ class Kernel {
         /// Launches kernel with provided parameters.
         template <class... Param>
         void operator()(const Param&... param) {
-            launch(std::tie(param...));
+            launch(boost::tie(param...));
         }
 #else
 
@@ -491,7 +495,7 @@ class Kernel {
 #define FUNCALL_OPERATOR(z, n, data) \
         template < BOOST_PP_ENUM_PARAMS(n, class Param) > \
         void operator()( BOOST_PP_ENUM(n, PRINT_PARAM, ~) ) { \
-            launch(std::tie( BOOST_PP_ENUM_PARAMS(n, param) )); \
+            launch(boost::tie( BOOST_PP_ENUM_PARAMS(n, param) )); \
         }
 
 BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, FUNCALL_OPERATOR, ~)
@@ -505,12 +509,12 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, FUNCALL_OPERATOR, ~)
         template <class ParamTuple>
         void launch(const ParamTuple &param) {
             static_assert(
-                    std::tuple_size<ParamTuple>::value == NP,
+                    boost::tuples::length<ParamTuple>::value == NP,
                     "Wrong number of kernel parameters"
                     );
 
             for(uint d = 0; d < queue.size(); d++) {
-                if (size_t psize = prm_size<0>(d, param)) {
+                if (size_t psize = boost::fusion::fold(param, 0, param_size(d))) {
                     cl::Context context = qctx(queue[d]);
                     cl::Device  device  = qdev(queue[d]);
 
@@ -518,13 +522,12 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, FUNCALL_OPERATOR, ~)
                     krn[context()].setArg(pos++, psize);
 
                     set_params setprm(krn[context()], d, pos);
-                    for_each<0>(param, setprm);
+                    boost::fusion::for_each(param, setprm);
 
                     size_t g_size = num_workgroups(device) * wgs[context()];
 
                     queue[d].enqueueNDRangeKernel(krn[context()],
-                            cl::NullRange, g_size, wgs[context()]
-                            );
+                            cl::NullRange, g_size, wgs[context()]);
                 }
             }
         }
@@ -584,34 +587,16 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, FUNCALL_OPERATOR, ~)
         std::map<cl_context, cl::Kernel> krn;
         std::map<cl_context, uint> wgs;
 
-        template <class T>
-        size_t prm_part_size(uint, const T &) const {
-            return 0;
-        }
+        struct param_size {
+            uint device;
 
-        template <class T>
-        size_t prm_part_size(uint d, const vector<T> &v) const {
-            return v.part_size(d);
-        }
+            param_size(uint device) : device(device) {}
 
-        template <size_t I, class PrmTuple>
-        typename std::enable_if<
-            I == std::tuple_size<PrmTuple>::value, size_t
-        >::type
-        prm_size(uint, const PrmTuple &) const {
-            return 0;
-        }
-
-        template <size_t I, class PrmTuple>
-        typename std::enable_if<
-            I < std::tuple_size<PrmTuple>::value, size_t
-        >::type
-        prm_size(uint d, const PrmTuple &prm) const {
-            return std::max(
-                    prm_part_size(d, std::get<I>(prm)),
-                    prm_size<I + 1>(d, prm)
-                    );
-        }
+            template <class T>
+            size_t operator()(size_t s, const T &v) const {
+                return std::max(s, v.part_size(device));
+            }
+        };
 };
 
 #ifndef BOOST_NO_VARIADIC_TEMPLATES
@@ -622,7 +607,7 @@ Kernel<sizeof...(Args)> build_kernel(
         const std::string &name, const std::string& body, const Args&... args
         )
 {
-    return Kernel<sizeof...(Args)>(queue, name, body, std::tie(args...));
+    return Kernel<sizeof...(Args)>(queue, name, body, boost::tie(args...));
 }
 #else
 
@@ -635,7 +620,7 @@ Kernel<n> build_kernel( \
         BOOST_PP_ENUM(n, PRINT_ARG, ~) \
         ) \
 { \
-    return Kernel<n>(queue, name, body, std::tie( BOOST_PP_ENUM_PARAMS(n, arg) )); \
+    return Kernel<n>(queue, name, body, boost::tie( BOOST_PP_ENUM_PARAMS(n, arg) )); \
 }
 
 BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, BUILD_KERNEL, ~)

@@ -231,22 +231,6 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, IS_TUPLE, ~)
 
 #endif
 
-/// Iterate over tuple elements.
-template <size_t I, class Function, class Tuple>
-typename std::enable_if<(I == std::tuple_size<Tuple>::value), void>::type
-for_each(const Tuple &, Function &)
-{ }
-
-/// Iterate over tuple elements.
-template <size_t I, class Function, class Tuple>
-typename std::enable_if<(I < std::tuple_size<Tuple>::value), void>::type
-for_each(const Tuple &v, Function &f)
-{
-    f( std::get<I>(v) );
-
-    for_each<I + 1>(v, f);
-}
-
 // Static for loop
 template <long Begin, long End>
 class static_for {
