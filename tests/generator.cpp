@@ -87,6 +87,41 @@ BOOST_AUTO_TEST_CASE(function_generator)
             });
 }
 
+struct rk2_stepper {
+    double dt;
+
+    rk2_stepper(double dt) : dt(dt) {}
+
+    template <class State>
+    State operator()(const State &x) const {
+        State new_x = x;
+        runge_kutta_2(sys_func<State>, new_x, dt);
+        return new_x;
+    }
+};
+
+BOOST_AUTO_TEST_CASE(function_adapter)
+{
+    const size_t n  = 1024;
+    const double dt = 0.01;
+
+    rk2_stepper step(dt);
+
+    auto rk2 = vex::generator::make_function<double(double)>(step);
+
+    std::vector<double> x = random_vector<double>(n);
+    vex::vector<double> X(ctx, x);
+
+    for(int i = 0; i < 100; i++) X = rk2(X);
+
+    check_sample(X, [&](size_t idx, double a) {
+            double s = x[idx];
+            for(int i = 0; i < 100; i++) s = step(s);
+
+            BOOST_CHECK_CLOSE(a, s, 1e-8);
+            });
+}
+
 /*
 An alternative variant, which does not use the generator facility.
 Intermediate subexpression are captured with help of 'auto' keyword, and

@@ -44,8 +44,15 @@ THE SOFTWARE.
 #include <boost/proto/proto.hpp>
 #include <boost/tuple/tuple.hpp>
 #include <boost/fusion/adapted/boost_tuple.hpp>
+#include <boost/function_types/parameter_types.hpp>
+#include <boost/function_types/result_type.hpp>
+#include <boost/function_types/function_arity.hpp>
 #include <vexcl/util.hpp>
 #include <vexcl/operations.hpp>
+#include <boost/preprocessor/repetition.hpp>
+#ifndef VEXCL_MAX_ARITY
+#  define VEXCL_MAX_ARITY BOOST_PROTO_MAX_ARITY
+#endif
 
 /// Vector expression template library for OpenCL.
 namespace vex {
@@ -679,6 +686,58 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, MAKE_FUNCTION, ~)
 #undef PRINT_ARG
 
 #endif
+
+/// UserFunction implementation from a generic functor
+template <class Signature, class Functor>
+struct FunctorAdapter : UserFunction<FunctorAdapter<Signature, Functor>, Signature>
+{
+    static std::string body_string;
+
+    FunctorAdapter(Functor &&f) {
+        using boost::function_types::function_arity;
+
+        body_string = get_body(f,
+                boost::mpl::size_t< function_arity<Signature>::value >() );
+    }
+
+    // Empty constructor. Used in UserFunction::operator(). Hopefuly the body
+    // string is already constructed by the time the constructor is called.
+    FunctorAdapter() {}
+
+    static std::string body() {
+        return body_string;
+    }
+
+#define PRINT_PRM(z, n, data) \
+    typedef symbolic< typename boost::mpl::at<params, boost::mpl::int_<n>>::type > Prm ## n; \
+    Prm ## n prm ## n(Prm ## n::ScalarParameter); \
+    source << "\t\t" << type_name<typename Prm ## n::value_type>() << " " << prm ## n << " = prm" << n + 1 << ";\n";
+
+#define BODY_GETTER(z, n, data)                                                          \
+    static std::string get_body(Functor &&f, boost::mpl::size_t<n>) {                                 \
+        typedef typename boost::function_types::result_type<Signature>::type     result; \
+        typedef typename boost::function_types::parameter_types<Signature>::type params; \
+        std::ostringstream source;                                                       \
+        set_recorder(source);                                                            \
+        BOOST_PP_REPEAT(n, PRINT_PRM, ~)                                                 \
+        symbolic< result > ret = f( BOOST_PP_ENUM_PARAMS(n, prm) );              \
+        source << "\t\treturn " << ret << ";\n";                                         \
+        return source.str();                                                             \
+    }
+
+    BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, BODY_GETTER, ~)
+
+#undef BODY_GETTER
+#undef PRINT_PRM
+};
+
+template <class Signature, class Functor>
+std::string FunctorAdapter<Signature, Functor>::body_string;
+
+template <class Signature, class Functor>
+FunctorAdapter<Signature, Functor> make_function(Functor &&f) {
+    return FunctorAdapter<Signature, Functor>(f);
+}
 
 } // namespace generator;
 
