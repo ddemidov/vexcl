@@ -99,7 +99,7 @@ struct SpMatHELL : public sparse_matrix {
                 ++rem_hist[wr];
             }
 
-            auto optimal_width = [&](size_t max_width, const std::vector<size_t> &hist) {
+            auto optimal_width = [&](size_t max_width, const std::vector<size_t> &hist) -> size_t {
                 for(size_t i = 0, rows = n; i < max_width; ++i) {
                     rows -= hist[i]; // Number of rows wider than i.
                     if (ell_vs_csr * rows < n) return i;

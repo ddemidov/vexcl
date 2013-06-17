@@ -67,6 +67,7 @@ class multivector : public mpi_multivector_terminal_expression {
     public:
         typedef vex::multivector<T,N,own>      base_type;
         typedef typename base_type::value_type value_type;
+	typedef T                              sub_value_type;
 
         /// Empty constructor.
         multivector() : l_size(0) {}

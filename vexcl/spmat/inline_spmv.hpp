@@ -31,8 +31,6 @@ THE SOFTWARE.
  * \brief  Inline SpMV operation.
  */
 
-#include <vexcl/spmat.hpp>
-
 namespace vex {
 
 /// \cond INTERNAL

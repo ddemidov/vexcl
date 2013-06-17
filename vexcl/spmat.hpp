@@ -440,7 +440,7 @@ struct multispmv
     typename std::enable_if<
         std::is_base_of<multivector_terminal_expression, W>::value
 #ifndef WIN32
-        && std::is_same<val_t, typename W::value_type::value_type>::value
+        && std::is_same<val_t, typename W::sub_value_type>::value
 #endif
         && number_of_components<MV>::value == number_of_components<W>::value,
         void
@@ -454,7 +454,7 @@ struct multispmv
 template <typename val_t, typename col_t, typename idx_t, class MV>
 typename std::enable_if<
     std::is_base_of<multivector_terminal_expression, MV>::value &&
-    std::is_same<val_t, typename MV::value_type::value_type>::value,
+    std::is_same<val_t, typename MV::sub_value_type>::value,
     multispmv< val_t, col_t, idx_t, MV >
 >::type
 operator*(const SpMat<val_t, col_t, idx_t> &A, const MV &x) {

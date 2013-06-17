@@ -28,10 +28,8 @@ THE SOFTWARE.
 /**
  * \file   vexcl/spmat/ccsr.hpp
  * \author Denis Demidov <ddemidov@ksu.ru>
- * \brief  Sparse matrix in CCSR format.
+ * \brief  Sparse matrix in Compressed CSR format.
  */
-
-#include <vexcl/vector.hpp>
 
 namespace vex {
 
@@ -162,12 +160,12 @@ struct proto_terminal_is_value< mv_ccsr_product_terminal >
 template <size_t I, typename val_t, typename col_t, typename idx_t, typename MV>
 struct component< I, mv_ccsr_product<val_t, col_t, idx_t, MV> > {
     typedef
-        ccsr_product<val_t, col_t, idx_t, typename MV::value_type::value_type>
+        ccsr_product<val_t, col_t, idx_t, typename MV::sub_value_type>
         type;
 };
 
 template <size_t I, typename val_t, typename col_t, typename idx_t, typename MV>
-ccsr_product<val_t, col_t, idx_t, typename MV::value_type::value_type>
+ccsr_product<val_t, col_t, idx_t, typename MV::sub_value_type>
 get(const mv_ccsr_product<val_t, col_t, idx_t, MV> &t) {
     return t.A * t.x(I);
 }

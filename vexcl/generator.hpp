@@ -680,7 +680,7 @@ template <class Ret, BOOST_PP_ENUM_PARAMS(n, class Arg)> \
 std::string make_function(std::string body, const Ret &ret, \
         BOOST_PP_ENUM(n, PRINT_ARG, ~)) \
 { \
-    return Function(body, ret, boost::tie( BOOST_PP_ENUM_PARAMS(n, arg) )); \
+    return Function(body, ret, boost::tie( BOOST_PP_ENUM_PARAMS(n, arg) )).get(); \
 }
 BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, MAKE_FUNCTION, ~)
 #undef MAKE_FUNCTION
