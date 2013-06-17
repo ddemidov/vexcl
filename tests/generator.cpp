@@ -1,6 +1,7 @@
 #define BOOST_TEST_MODULE KernelGenerator
 #include <boost/test/unit_test.hpp>
 #include <boost/phoenix/phoenix.hpp>
+#include <boost/phoenix/stl/cmath.hpp>
 #include "context_setup.hpp"
 
 template <class state_type>
@@ -127,16 +128,16 @@ BOOST_AUTO_TEST_CASE(function_adapter_and_phoenix_lambda)
 
     const size_t n  = 1024;
 
-    auto squared_radius = vex::generator::make_function<double(double, double)>(
-            arg1 * arg1 + arg2 * arg2);
+    auto radius = vex::generator::make_function<double(double, double)>(
+            sqrt(arg1 * arg1 + arg2 * arg2));
 
     vex::vector<double> X(ctx, random_vector<double>(n));
     vex::vector<double> Y(ctx, random_vector<double>(n));
 
-    vex::vector<double> Z = squared_radius(X, Y);
+    vex::vector<double> Z = radius(X, Y);
 
     check_sample(X, Y, Z, [&](size_t, double x, double y, double z) {
-            BOOST_CHECK_CLOSE(z, x * x + y * y, 1e-8);
+            BOOST_CHECK_CLOSE(z, sqrt(x * x + y * y), 1e-8);
             });
 }
 
