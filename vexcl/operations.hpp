@@ -987,7 +987,7 @@ struct output_terminal_preamble : expression_context {
 
         template <class Term>
         void operator()(const Term&) const {
-            os << terminal_preamble<Term>::get(device, cmp_idx, ++prm_idx, state) << std::endl;
+            os << terminal_preamble<Term>::get(device, cmp_idx, ++prm_idx, state);
         }
 };
 
