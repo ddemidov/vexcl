@@ -74,8 +74,10 @@ BOOST_AUTO_TEST_CASE(function_generator)
     std::vector<double> x = random_vector<double>(n);
     vex::vector<double> X(ctx, x);
 
-    for(int i = 0; i < 100; i++)
+    for(int i = 0; i < 100; i++) {
         X = rk2(X);
+	amd_workaround();
+    }
 
     check_sample(X, [&](size_t idx, double a) {
             double s = x[idx];
@@ -111,7 +113,10 @@ BOOST_AUTO_TEST_CASE(function_adapter)
     std::vector<double> x = random_vector<double>(n);
     vex::vector<double> X(ctx, x);
 
-    for(int i = 0; i < 100; i++) X = rk2(X);
+    for(int i = 0; i < 100; i++) {
+	X = rk2(X);
+	amd_workaround();
+    }
 
     check_sample(X, [&](size_t idx, double a) {
             double s = x[idx];
@@ -173,10 +178,7 @@ BOOST_AUTO_TEST_CASE(lazy_evaluation)
 
     for(int i = 0; i < 100; i++) {
         rk2(X, dt);
-        // Temporary workaround for ati bug:
-        // http://devgurus.amd.com/message/1295503#1295503
-        for(unsigned d = 0; d < ctx.size(); ++d)
-            ctx.queue(d).finish();
+	amd_workaround();
     }
 
     check_sample(X, [&](size_t idx, double a) {

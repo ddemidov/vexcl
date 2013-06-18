@@ -22,9 +22,26 @@ struct ContextSetup {
 struct ContextReference {
     ContextReference() :
         ctx( vex::current_context() )
-    {}
+    {
+	amd_is_present = std::any_of(ctx.queue().begin(), ctx.queue().end(),
+	    [](const cl::CommandQueue &q) {
+		return vex::Filter::Platform("AMD")(vex::qdev(q));
+	    });
+    }
+
+    void amd_workaround() const {
+	// There is a bug in AMD OpenCL that requires to call finish() on
+	// command queues after some kernels launch:
+        // http://devgurus.amd.com/message/1295503#1295503
+	if (amd_is_present) {
+	    std::for_each(ctx.queue().begin(), ctx.queue().end(), [](const cl::CommandQueue &q) {
+		q.finish();
+	    });
+	}
+    }
 
     const vex::Context &ctx;
+    bool amd_is_present;
 };
 
 template <typename T, class Enable = void>
