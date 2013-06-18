@@ -53,11 +53,6 @@ element_index(size_t offset = 0) {
 
 /// \cond INTERNAL
 template <>
-inline std::string type_name<elem_index>() {
-    return type_name<size_t>();
-}
-
-template <>
 struct is_vector_expr_terminal< elem_index >
     : std::true_type
 { };
