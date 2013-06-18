@@ -76,7 +76,7 @@ BOOST_AUTO_TEST_CASE(function_generator)
 
     for(int i = 0; i < 100; i++) {
         X = rk2(X);
-	amd_workaround();
+        amd_workaround();
     }
 
     check_sample(X, [&](size_t idx, double a) {
@@ -114,8 +114,8 @@ BOOST_AUTO_TEST_CASE(function_adapter)
     vex::vector<double> X(ctx, x);
 
     for(int i = 0; i < 100; i++) {
-	X = rk2(X);
-	amd_workaround();
+        X = rk2(X);
+        amd_workaround();
     }
 
     check_sample(X, [&](size_t idx, double a) {
@@ -178,7 +178,7 @@ BOOST_AUTO_TEST_CASE(lazy_evaluation)
 
     for(int i = 0; i < 100; i++) {
         rk2(X, dt);
-	amd_workaround();
+        amd_workaround();
     }
 
     check_sample(X, [&](size_t idx, double a) {
