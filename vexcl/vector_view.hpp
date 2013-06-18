@@ -272,10 +272,10 @@ struct gslice {
     template <typename T>
     static void setArgs(cl::Kernel &kernel, uint device, size_t/*index_offset*/, uint &position, const vector_view<T, gslice> &term) {
         kernel.setArg(position++, term.base(device));
-        kernel.setArg(position++, term.slice.start);
+        kernel.setArg(position++, static_cast<cl_ulong>(term.slice.start));
         for(size_t k = 0; k < NDIM; ++k) {
-            kernel.setArg(position++, term.slice.length[k]);
-            kernel.setArg(position++, term.slice.stride[k]);
+            kernel.setArg(position++, static_cast<cl_ulong>(term.slice.length[k]));
+            kernel.setArg(position++, static_cast<cl_ulong>(term.slice.stride[k]));
         }
     }
 
