@@ -270,6 +270,10 @@ class vector : public vector_terminal_expression {
                     return pos != it.pos;
                 }
 
+		bool operator<(const iterator_type &it) const {
+		    return pos < it.pos;
+		}
+
                 vector_type *vec;
                 size_t  pos;
                 size_t  part;
