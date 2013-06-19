@@ -71,10 +71,7 @@ template<>
 struct generator<cl_double2>
 {
     static cl_double2 get() {
-        static std::default_random_engine rng( std::rand() );
-        static std::uniform_real_distribution<double> rnd(0, 100);
-
-        cl_double2 r = {{rnd(rng), rnd(rng)}};
+        cl_double2 r = {{::generator<double>::get(), ::generator<double>::get()}};
         return r;
     }
 };
