@@ -600,7 +600,9 @@ class Context {
 
 /// Output device name to stream.
 inline std::ostream& operator<<(std::ostream &os, const cl::Device &device) {
-    return os << device.getInfo<CL_DEVICE_NAME>();
+    return os << device.getInfo<CL_DEVICE_NAME>() << " ("
+              << cl::Platform(device.getInfo<CL_DEVICE_PLATFORM>()).getInfo<CL_PLATFORM_NAME>()
+              << ")";
 }
 
 /// Output list of devices to stream.
@@ -618,7 +620,7 @@ inline std::ostream& operator<<(std::ostream &os, const std::vector<cl::CommandQ
     uint p = 1;
 
     for(auto q = queue.begin(); q != queue.end(); q++)
-        os << p++ << ". " << vex::qdev(*q).getInfo<CL_DEVICE_NAME>() << std::endl;
+        os << p++ << ". " << vex::qdev(*q) << std::endl;
 
     return os;
 }
