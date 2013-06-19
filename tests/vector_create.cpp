@@ -148,17 +148,23 @@ BOOST_AUTO_TEST_CASE(vector_resize_to_vex_vector)
 BOOST_AUTO_TEST_CASE(stl_container_of_vex_vector)
 {
     const size_t N = 1024;
-    const size_t M = 16;
+    const size_t M = 16 + generator<size_t>::get() ;
 
     std::vector< vex::vector<unsigned> > x;
 
     for(size_t i = 0; i < M; ++i) {
-        x.push_back( vex::vector<unsigned>(ctx, N) );
+        x.push_back( vex::vector<unsigned>(ctx, random_vector<unsigned>(N)) );
         x.back() = i;
     }
 
-    for(size_t j = 0; j < M; ++j)
-        check_sample(x[j], [j](size_t, unsigned a) { BOOST_CHECK(a == j); });
+    for(size_t i = 0; i < M; ++i)
+        x[i] -= i;
+
+    for(size_t i = 0; i < M; ++i) {
+        BOOST_CHECK_EQUAL(N, x[i].size());
+
+        check_sample(x[i], [](size_t, unsigned a) { BOOST_CHECK_EQUAL(a, 0); });
+    }
 }
 
 BOOST_AUTO_TEST_CASE(initialize_with_expression)

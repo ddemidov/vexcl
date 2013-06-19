@@ -223,7 +223,7 @@ struct plan {
         size_t total_n = std::accumulate(sizes.begin(), sizes.end(),
 	    static_cast<size_t>(1), std::multiplies<size_t>());
         size_t current = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * total_n));
-        size_t other = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * total_n));
+        size_t other   = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * total_n));
 
         size_t inv_n = 1;
         for(size_t i = 0 ; i < sizes.size() ; i++)
@@ -272,10 +272,10 @@ struct plan {
         auto context = qctx(queues[0]);
 
         size_t b_twiddle = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * n));
-        size_t b_other = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * conv_n));
+        size_t b_other   = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * conv_n));
         size_t b_current = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * conv_n));
         size_t a_current = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * conv_n * batch * threads));
-        size_t a_other = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * conv_n * batch * threads));
+        size_t a_other   = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * conv_n * batch * threads));
 
         // calculate twiddle factors
         kernels.push_back(bluestein_twiddle<T>(queues[0], n, inverse,
