@@ -357,7 +357,8 @@ class SpMat {
                     auto beg = cols_to_send.begin();
                     auto end = cols_to_send.end();
                     for(uint d = 0; d <= queue.size(); d++) {
-                        cidx[d] = std::lower_bound(beg, end, col_part[d]) - cols_to_send.begin();
+                        cidx[d] = std::lower_bound(beg, end, static_cast<col_t>(col_part[d]))
+                                - cols_to_send.begin();
                         beg = cols_to_send.begin() + cidx[d];
                     }
                 }

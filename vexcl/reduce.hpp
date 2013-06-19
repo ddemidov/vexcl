@@ -290,8 +290,8 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
             } else {
                 wgs = kernel_workgroup_size(krn, device);
 
-                size_t smem = device.getInfo<CL_DEVICE_LOCAL_MEM_SIZE>() -
-                    krn.getWorkGroupInfo<CL_KERNEL_LOCAL_MEM_SIZE>(device);
+                size_t smem = static_cast<size_t>(device.getInfo<CL_DEVICE_LOCAL_MEM_SIZE>())
+                            - static_cast<size_t>(krn.getWorkGroupInfo<CL_KERNEL_LOCAL_MEM_SIZE>(device));
                 while(wgs * sizeof(real) > smem)
                     wgs /= 2;
             }

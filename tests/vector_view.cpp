@@ -13,8 +13,8 @@ BOOST_AUTO_TEST_CASE(vector_view_1d)
     vex::vector<double> X(queue, x);
     vex::vector<double> Y(queue, N);
 
-    cl_ulong size   = N;
-    cl_long  stride = 2;
+    size_t size   = N;
+    size_t stride = 2;
 
     vex::gslice<1> slice(0, &size, &stride);
 
