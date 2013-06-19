@@ -223,7 +223,7 @@ struct SpMatCSR : public sparse_matrix {
           "    global const " << type_name<col_t>() << " * col,\n"
           "    global const " << type_name<val_t>() << " * val,\n"
           "    global const " << type_name<val_t>() << " * in,\n"
-          "    ulong i\n"
+          "    " << type_name<size_t>() << " i\n"
           "    )\n"
           "{\n"
           "    " << type_name<val_t>() << " sum = 0;\n"

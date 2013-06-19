@@ -168,13 +168,13 @@ template <size_t NDIM>
 struct gslice {
     static_assert(NDIM > 0, "Incorrect dimension for gslice");
 
-    cl_ulong start;
-    cl_ulong length[NDIM];
-    cl_long  stride[NDIM]; // Signed type allows reverse slicing.
+    size_t    start;
+    size_t    length[NDIM];
+    ptrdiff_t stride[NDIM]; // Signed type allows reverse slicing.
 
 #ifndef BOOST_NO_INITIALIZER_LISTS
     template <typename T1, typename T2>
-    gslice(cl_ulong start,
+    gslice(size_t start,
            const std::initializer_list<T1> &p_length,
            const std::initializer_list<T2> &p_stride
           ) : start(start)
@@ -188,7 +188,7 @@ struct gslice {
 #endif
 
     template <typename T1, typename T2>
-    gslice(cl_ulong start,
+    gslice(size_t start,
            const std::array<T1, NDIM> &p_length,
            const std::array<T2, NDIM> &p_stride
           ) : start(start)
@@ -198,7 +198,7 @@ struct gslice {
     }
 
     template <typename T1, typename T2>
-    gslice(cl_ulong start,
+    gslice(size_t start,
            const T1 *p_length,
            const T2 *p_stride
           ) : start(start)
@@ -215,10 +215,12 @@ struct gslice {
     static std::string indexing_function(int component, int position) {
         std::ostringstream s;
 
-        s << "ulong slice_" << component << "_" << position << "(\n\tulong start";
+        s << type_name<size_t>() << " slice_" << component << "_" << position
+          << "(\n\t" << type_name<size_t>() << " start";
         for(size_t k = 0; k < NDIM; ++k)
-            s << ",\n\tulong length" << k << ",\n\tlong stride" << k;
-        s << ",\n\tulong idx)\n{\n";
+            s << ",\n\t" << type_name<size_t>() << " length" << k
+              << ",\n\t" << type_name<ptrdiff_t>() << " stride" << k;
+        s << ",\n\t" << type_name<size_t>() << " idx)\n{\n";
 
         if (NDIM == 1) {
             s << "    return start + idx * stride0;\n";
@@ -260,11 +262,11 @@ struct gslice {
         std::ostringstream s;
 
         s << ",\n\tglobal " << type_name<T>() << " * " << prm.str() << "base"
-          << ", ulong " << prm.str() << "start";
+          << ", " << type_name<size_t>() << " " << prm.str() << "start";
 
         for(size_t k = 0; k < NDIM; ++k)
-            s << ", ulong " << prm.str() << "length" << k
-              << ", long  " << prm.str() << "stride" << k;
+            s << ", " << type_name<size_t>()    << " " << prm.str() << "length" << k
+              << ", " << type_name<ptrdiff_t>() << " " << prm.str() << "stride" << k;
 
         return s.str();
     }
@@ -272,10 +274,10 @@ struct gslice {
     template <typename T>
     static void setArgs(cl::Kernel &kernel, uint device, size_t/*index_offset*/, uint &position, const vector_view<T, gslice> &term) {
         kernel.setArg(position++, term.base(device));
-        kernel.setArg(position++, static_cast<cl_ulong>(term.slice.start));
+        kernel.setArg(position++, term.slice.start);
         for(size_t k = 0; k < NDIM; ++k) {
-            kernel.setArg(position++, static_cast<cl_ulong>(term.slice.length[k]));
-            kernel.setArg(position++, static_cast<cl_ulong>(term.slice.stride[k]));
+            kernel.setArg(position++, term.slice.length[k]);
+            kernel.setArg(position++, term.slice.stride[k]);
         }
     }
 
@@ -462,7 +464,7 @@ struct permutation {
         std::ostringstream s;
 
         s << ",\n\tglobal " << type_name<T>() << " * " << prm.str() << "base"
-          << ", global ulong * " << prm.str() << "index";
+          << ", global " << type_name<size_t>() << " * " << prm.str() << "index";
 
         return s.str();
     }

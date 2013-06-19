@@ -100,7 +100,8 @@ struct kernel_param_declaration< T, typename std::enable_if<
 {
     static std::string get(const cl::Device&, int component, int position, kernel_generator_state&) {
         std::ostringstream s;
-        s << ",\n\tulong prm_" << component << "_" << position;
+        s << ",\n\t" << type_name<size_t>() << " prm_"
+          << component << "_" << position;
         return s.str();
     }
 };
@@ -116,8 +117,7 @@ struct kernel_arg_setter< T, typename std::enable_if<
     static void set(cl::Kernel &kernel, uint/*device*/, size_t index_offset,
             uint &position, const T &term, kernel_generator_state&)
     {
-        kernel.setArg(position++, static_cast<cl_ulong>(
-                    boost::proto::value(term).offset + index_offset));
+        kernel.setArg(position++, boost::proto::value(term).offset + index_offset);
     }
 };
 

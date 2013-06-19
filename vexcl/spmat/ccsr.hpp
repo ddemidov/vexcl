@@ -209,7 +209,7 @@ struct terminal_preamble< ccsr_product<val_t, col_t, idx_t, T> > {
           "\tglobal " << type_name<col_t>() << " * col,\n"
           "\tglobal " << type_name<val_t>() << " * val,\n"
           "\tglobal " << type_name<T>()     << " * vec,\n"
-          "\tulong i\n\t)\n{\n"
+          "\t" << type_name<size_t>() << " i\n\t)\n{\n"
           "\t" << type_name<res_t>() << " sum = 0;\n"
           "\tfor(size_t pos = idx[i], j = row[pos], end = row[pos+1]; j < end; ++j)\n"
           "\t\tsum += val[j] * vec[i + col[j]];\n"
