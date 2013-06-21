@@ -227,8 +227,8 @@ class vector : public mpi_vector_terminal_expression {
             const vector&
         >::type
         operator=(const Expr &expr) {
-            apply_additive_transform</*append=*/false>(
-                    *this, simplify_additive_transform()( expr )
+            detail::apply_additive_transform</*append=*/false>(
+                    *this, detail::simplify_additive_transform()( expr )
                     );
 
             return *this;
@@ -249,8 +249,8 @@ class vector : public mpi_vector_terminal_expression {
         operator=(const Expr &expr) {
             *this = mpi_extract_vector_expressions()( expr );
 
-            apply_additive_transform</*append=*/true>(
-                    *this, simplify_additive_transform()(
+            detail::apply_additive_transform</*append=*/true>(
+                    *this, detail::simplify_additive_transform()(
                             mpi_extract_additive_vector_transforms()( expr )
                         )
                     );

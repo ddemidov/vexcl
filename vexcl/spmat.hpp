@@ -128,6 +128,8 @@ class SpMat {
         void mul(const vex::vector<val_t> &x, vex::vector<val_t> &y,
                  val_t alpha = 1, bool append = false) const
         {
+            using namespace detail;
+
             static kernel_cache cache;
 
             if (rx.size()) {
@@ -219,7 +221,7 @@ class SpMat {
 
         static std::string inline_preamble(
                 const cl::Device &device, int component, int position,
-                kernel_generator_state&)
+                detail::kernel_generator_state&)
         {
             if (is_cpu(device))
                 return SpMatCSR::inline_preamble(component, position);
@@ -229,7 +231,7 @@ class SpMat {
 
         static std::string inline_expression(
                 const cl::Device &device, int component, int position,
-                kernel_generator_state&)
+                detail::kernel_generator_state&)
         {
             if (is_cpu(device))
                 return SpMatCSR::inline_expression(component, position);
@@ -239,7 +241,7 @@ class SpMat {
 
         static std::string inline_parameters(
                 const cl::Device &device, int component, int position,
-                kernel_generator_state&)
+                detail::kernel_generator_state&)
         {
             if (is_cpu(device))
                 return SpMatCSR::inline_parameters(component, position);
@@ -250,7 +252,7 @@ class SpMat {
         static void inline_arguments(cl::Kernel &kernel, uint device,
                 size_t /*index_offset*/, uint &position,
                 const SpMat &A, const vector<val_t> &x,
-                kernel_generator_state&)
+                detail::kernel_generator_state&)
         {
             A.mtx[device]->setArgs(kernel, device, position, x);
         }

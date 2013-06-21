@@ -75,7 +75,7 @@ struct vector_view : public vector_view_terminal_expression
     operator cop(const Expr &expr) { \
         std::vector<size_t> part(2, 0); \
         part.back() = slice.size(); \
-        assign_expression<op>(*this, expr, base.queue_list(), part); \
+        detail::assign_expression<op>(*this, expr, base.queue_list(), part); \
         return *this; \
     }
 
@@ -113,21 +113,27 @@ struct kernel_name< vector_view<T, Slice> > {
 
 template <typename T, class Slice>
 struct partial_vector_expr< vector_view<T, Slice> > {
-    static std::string get(const cl::Device&, int component, int position, kernel_generator_state&) {
+    static std::string get(const cl::Device&, int component, int position,
+            detail::kernel_generator_state&)
+    {
         return Slice::partial_expression(component, position);
     }
 };
 
 template <typename T, class Slice>
 struct terminal_preamble< vector_view<T, Slice> > {
-    static std::string get(const cl::Device&, int component, int position, kernel_generator_state&) {
+    static std::string get(const cl::Device&, int component, int position,
+            detail::kernel_generator_state&)
+    {
         return Slice::indexing_function(component, position);
     }
 };
 
 template <typename T, class Slice>
 struct kernel_param_declaration< vector_view<T, Slice> > {
-    static std::string get(const cl::Device&, int component, int position, kernel_generator_state&) {
+    static std::string get(const cl::Device&, int component, int position,
+            detail::kernel_generator_state&)
+    {
         return Slice::template parameter_declaration<T>(component, position);
     }
 };
@@ -135,7 +141,8 @@ struct kernel_param_declaration< vector_view<T, Slice> > {
 template <typename T, class Slice>
 struct kernel_arg_setter< vector_view<T, Slice> > {
     static void set(cl::Kernel &kernel, uint device, size_t index_offset,
-            uint &position, const vector_view<T, Slice> &term, kernel_generator_state&)
+            uint &position, const vector_view<T, Slice> &term,
+            detail::kernel_generator_state&)
     {
         assert(device == 0);
 

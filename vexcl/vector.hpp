@@ -413,8 +413,8 @@ class vector : public vector_terminal_expression {
 		"Only vector expressions can be used to initialize a vector"
 		);
 #endif
-            get_expression_properties prop;
-            extract_terminals()(expr, prop);
+            detail::get_expression_properties prop;
+            detail::extract_terminals()(expr, prop);
 
             precondition(!prop.queue.empty(),
                         "Can not determine vector size and "
@@ -613,7 +613,7 @@ class vector : public vector_terminal_expression {
             const vector& \
         >::type \
         operator cop(const Expr &expr) { \
-            assign_expression<op>(*this, expr, queue, part); \
+            detail::assign_expression<op>(*this, expr, queue, part); \
             return *this; \
         }
 
@@ -640,8 +640,8 @@ class vector : public vector_terminal_expression {
             const vector&
         >::type
         operator=(const Expr &expr) {
-            apply_additive_transform</*append=*/false>(
-                    *this, simplify_additive_transform()( expr )
+            detail::apply_additive_transform</*append=*/false>(
+                    *this, detail::simplify_additive_transform()( expr )
                     );
 
             return *this;
@@ -656,8 +656,8 @@ class vector : public vector_terminal_expression {
             const vector&
         >::type
         operator+=(const Expr &expr) {
-            apply_additive_transform</*append=*/true>(
-                    *this, simplify_additive_transform()( expr )
+            detail::apply_additive_transform</*append=*/true>(
+                    *this, detail::simplify_additive_transform()( expr )
                     );
 
             return *this;
@@ -672,8 +672,8 @@ class vector : public vector_terminal_expression {
             const vector&
         >::type
         operator-=(const Expr &expr) {
-            apply_additive_transform</*append=*/true>(
-                    *this, simplify_additive_transform()( -expr )
+            detail::apply_additive_transform</*append=*/true>(
+                    *this, detail::simplify_additive_transform()( -expr )
                     );
 
             return *this;
@@ -692,8 +692,8 @@ class vector : public vector_terminal_expression {
             const vector&
         >::type
         operator=(const Expr &expr) {
-            *this  = extract_vector_expressions()( expr );
-            *this += extract_additive_vector_transforms()( expr );
+            *this  = detail::extract_vector_expressions()( expr );
+            *this += detail::extract_additive_vector_transforms()( expr );
 
             return *this;
         }
@@ -711,8 +711,8 @@ class vector : public vector_terminal_expression {
             const vector&
         >::type
         operator+=(const Expr &expr) {
-            *this += extract_vector_expressions()( expr );
-            *this += extract_additive_vector_transforms()( expr );
+            *this += detail::extract_vector_expressions()( expr );
+            *this += detail::extract_additive_vector_transforms()( expr );
 
             return *this;
         }
@@ -730,8 +730,8 @@ class vector : public vector_terminal_expression {
             const vector&
         >::type
         operator-=(const Expr &expr) {
-            *this -= extract_vector_expressions()( expr );
-            *this -= extract_additive_vector_transforms()( expr );
+            *this -= detail::extract_vector_expressions()( expr );
+            *this -= detail::extract_additive_vector_transforms()( expr );
 
             return *this;
         }
@@ -840,7 +840,10 @@ struct kernel_name< vector<T> > {
 
 template <typename T>
 struct partial_vector_expr< vector<T> > {
-    static std::string get(const cl::Device&, int component, int position, kernel_generator_state&) {
+    static std::string get(const cl::Device&,
+            int component, int position,
+            detail::kernel_generator_state&)
+    {
         std::ostringstream s;
         s << "prm_" << component << "_" << position << "[idx]";
         return s.str();
@@ -849,7 +852,10 @@ struct partial_vector_expr< vector<T> > {
 
 template <typename T>
 struct kernel_param_declaration< vector<T> > {
-    static std::string get(const cl::Device&, int component, int position, kernel_generator_state&) {
+    static std::string get(const cl::Device&,
+            int component, int position,
+            detail::kernel_generator_state&)
+    {
         std::ostringstream s;
         s << ",\n\tglobal " << type_name<T>() << " * prm_" << component << "_" << position;
         return s.str();
@@ -859,7 +865,8 @@ struct kernel_param_declaration< vector<T> > {
 template <typename T>
 struct kernel_arg_setter< vector<T> > {
     static void set(cl::Kernel &kernel, uint device, size_t/*index_offset*/,
-            uint &position, const vector<T> &term, kernel_generator_state&)
+            uint &position, const vector<T> &term,
+            detail::kernel_generator_state&)
     {
         kernel.setArg(position++, term(device));
     }

@@ -76,6 +76,8 @@ class gather {
 
         template <class HostVector>
         void operator()(const vex::vector<T> &src, HostVector &dst) {
+            using namespace detail;
+
             static kernel_cache cache;
 
             for(uint d = 0; d < queue.size(); d++) {

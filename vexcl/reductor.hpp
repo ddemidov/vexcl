@@ -135,7 +135,7 @@ class Reductor {
         template <class Expr>
         typename std::enable_if<
             boost::proto::matches<Expr, multivector_expr_grammar>::value,
-            std::array<real, boost::result_of<mutltiex_dimension(Expr)>::type::value>
+            std::array<real, boost::result_of<traits::multiex_dimension(Expr)>::type::value>
         >::type
         operator()(const Expr &expr) const;
 #endif
@@ -156,7 +156,7 @@ class Reductor {
         typename std::enable_if<I < N, void>::type
         assign_subexpressions(std::array<real, N> &result, const Expr &expr) const
         {
-            result[I] = (*this)(extract_subexpression<I>()(expr));
+            result[I] = (*this)(detail::extract_subexpression<I>()(expr));
 
             assign_subexpressions<I + 1, N, Expr>(result, expr);
         }
@@ -188,6 +188,8 @@ typename std::enable_if<
     real
 >::type
 Reductor<real,RDC>::operator()(const Expr &expr) const {
+    using namespace detail;
+
     static kernel_cache cache;
 
     get_expression_properties prop;
@@ -340,10 +342,10 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
 template <typename real, class RDC> template <class Expr>
 typename std::enable_if<
     boost::proto::matches<Expr, multivector_expr_grammar>::value,
-    std::array<real, boost::result_of<mutltiex_dimension(Expr)>::type::value>
+    std::array<real, boost::result_of<traits::multiex_dimension(Expr)>::type::value>
 >::type
 Reductor<real,RDC>::operator()(const Expr &expr) const {
-    const size_t dim = boost::result_of<mutltiex_dimension(Expr)>::type::value;
+    const size_t dim = boost::result_of<traits::multiex_dimension(Expr)>::type::value;
     std::array<real, dim> result;
 
     assign_subexpressions<0, dim, Expr>(result, expr);

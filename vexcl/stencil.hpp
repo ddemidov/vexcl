@@ -340,12 +340,14 @@ class stencil : private stencil_base<T> {
 
         void init(uint width);
 
-        static const kernel_cache_entry& slow_conv(const cl::CommandQueue &queue);
-        static const kernel_cache_entry& fast_conv(const cl::CommandQueue &queue);
+        static const detail::kernel_cache_entry& slow_conv(const cl::CommandQueue &queue);
+        static const detail::kernel_cache_entry& fast_conv(const cl::CommandQueue &queue);
 };
 
 template <typename T>
-const kernel_cache_entry& stencil<T>::slow_conv(const cl::CommandQueue &queue) {
+const detail::kernel_cache_entry& stencil<T>::slow_conv(const cl::CommandQueue &queue) {
+    using namespace detail;
+
     static kernel_cache cache;
 
     cl::Context context = qctx(queue);
@@ -428,7 +430,9 @@ const kernel_cache_entry& stencil<T>::slow_conv(const cl::CommandQueue &queue) {
 }
 
 template <typename T>
-const kernel_cache_entry& stencil<T>::fast_conv(const cl::CommandQueue &queue) {
+const detail::kernel_cache_entry& stencil<T>::fast_conv(const cl::CommandQueue &queue) {
+    using namespace detail;
+
     static kernel_cache cache;
 
     cl::Context context = qctx(queue);
@@ -666,6 +670,8 @@ template <typename T, uint width, uint center, class Impl>
 void StencilOperator<T, width, center, Impl>::convolve(
         const vex::vector<T> &x, vex::vector<T> &y, T alpha, T beta) const
 {
+    using namespace detail;
+
     static kernel_cache cache;
     static std::map<cl_context, cl::LocalSpaceArg> lmem;
 

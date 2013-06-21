@@ -421,8 +421,8 @@ class multivector : public multivector_terminal_expression {
             const multivector&
         >::type
         operator=(const Expr &expr) {
-            apply_additive_transform</*append=*/false>(*this,
-                    simplify_additive_transform()( expr ));
+            detail::apply_additive_transform</*append=*/false>(*this,
+                    detail::simplify_additive_transform()( expr ));
             return *this;
         }
 
@@ -435,8 +435,8 @@ class multivector : public multivector_terminal_expression {
             const multivector&
         >::type
         operator+=(const Expr &expr) {
-            apply_additive_transform</*append=*/true>(*this,
-                    simplify_additive_transform()( expr ));
+            detail::apply_additive_transform</*append=*/true>(*this,
+                    detail::simplify_additive_transform()( expr ));
             return *this;
         }
 
@@ -449,8 +449,8 @@ class multivector : public multivector_terminal_expression {
             const multivector&
         >::type
         operator-=(const Expr &expr) {
-            apply_additive_transform</*append=*/true>(*this,
-                    simplify_additive_transform()( -expr ));
+            detail::apply_additive_transform</*append=*/true>(*this,
+                    detail::simplify_additive_transform()( -expr ));
             return *this;
         }
 
@@ -471,8 +471,8 @@ class multivector : public multivector_terminal_expression {
             const multivector&
         >::type
         operator=(const Expr &expr) {
-            *this  = extract_multivector_expressions()( expr );
-            *this += extract_additive_multivector_transforms()( expr );
+            *this  = detail::extract_multivector_expressions()( expr );
+            *this += detail::extract_additive_multivector_transforms()( expr );
 
             return *this;
         }
@@ -494,8 +494,8 @@ class multivector : public multivector_terminal_expression {
             const multivector&
         >::type
         operator+=(const Expr &expr) {
-            *this += extract_multivector_expressions()( expr );
-            *this += extract_additive_multivector_transforms()( expr );
+            *this += detail::extract_multivector_expressions()( expr );
+            *this += detail::extract_additive_multivector_transforms()( expr );
 
             return *this;
         }
@@ -517,8 +517,8 @@ class multivector : public multivector_terminal_expression {
             const multivector&
         >::type
         operator-=(const Expr &expr) {
-            *this -= extract_multivector_expressions()( expr );
-            *this -= extract_additive_multivector_transforms()( expr );
+            *this -= detail::extract_multivector_expressions()( expr );
+            *this -= detail::extract_additive_multivector_transforms()( expr );
 
             return *this;
         }
@@ -549,7 +549,8 @@ class multivector : public multivector_terminal_expression {
 
             template <long I>
             void apply() const {
-                vex::assign_expression<OP>(result(I), subexpression<I>::get(expr),
+                detail::assign_expression<OP>(
+                        result(I), detail::subexpression<I>::get(expr),
                         result(I).queue, result(I).part);
             }
         };
@@ -566,7 +567,8 @@ class multivector : public multivector_terminal_expression {
 
             template <long I>
             void apply() const {
-                construct_preamble(subexpression<I>::get(expr), source, device, I + 1);
+                detail::construct_preamble(detail::subexpression<I>::get(expr),
+                        source, device, I + 1);
             }
         };
 
@@ -582,9 +584,9 @@ class multivector : public multivector_terminal_expression {
 
             template <long I>
             void apply() const {
-                extract_terminals()(
-                        boost::proto::as_child(subexpression<I>::get(expr)),
-                        declare_expression_parameter(source, device, I + 1)
+                detail::extract_terminals()(
+                        boost::proto::as_child(detail::subexpression<I>::get(expr)),
+                        detail::declare_expression_parameter(source, device, I + 1)
                         );
             }
         };
@@ -603,9 +605,9 @@ class multivector : public multivector_terminal_expression {
             void apply() const {
                 source << "\t\t" << type_name<T>() << " buf_" << I + 1 << " = ";
 
-                vector_expr_context expr_ctx(source, device, I + 1);
+                detail::vector_expr_context expr_ctx(source, device, I + 1);
                 boost::proto::eval(
-                        boost::proto::as_child(subexpression<I>::get(expr)),
+                        boost::proto::as_child(detail::subexpression<I>::get(expr)),
                         expr_ctx);
 
                 source << ";\n";
@@ -625,9 +627,9 @@ class multivector : public multivector_terminal_expression {
 
             template <long I>
             void apply() const {
-                    extract_terminals()(
-                            boost::proto::as_child(subexpression<I>::get(expr)),
-                            set_expression_argument(krn, dev, pos, offset)
+                detail::extract_terminals()(
+                            boost::proto::as_child(detail::subexpression<I>::get(expr)),
+                            detail::set_expression_argument(krn, dev, pos, offset)
                             );
 
             }
@@ -658,6 +660,8 @@ class multivector : public multivector_terminal_expression {
 
         template <class OP, class Expr>
         void assign_expression(const Expr &expr) {
+            using namespace detail;
+
             static kernel_cache cache;
 
             const std::vector<cl::CommandQueue> &queue = vec[0]->queue_list();

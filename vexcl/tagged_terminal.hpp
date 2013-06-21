@@ -61,7 +61,7 @@ struct tagged_terminal : tagged_terminal_expression
         std::vector<size_t> part; \
         size_t size; \
         traits::expression_properties<tagged_terminal>::get(*this, queue, part, size); \
-        assign_expression<op>(*this, expr, queue, part); \
+        detail::assign_expression<op>(*this, expr, queue, part); \
         return *this; \
     }
 
@@ -89,7 +89,10 @@ struct is_vector_expr_terminal< tagged_terminal_terminal >
 
 template <size_t Tag, class Term>
 struct terminal_preamble< tagged_terminal<Tag, Term> > {
-    static std::string get(const cl::Device &device, int component, int position, kernel_generator_state &state) {
+    static std::string get(const cl::Device &device,
+            int component, int position,
+            detail::kernel_generator_state &state)
+    {
         auto s = state.find("tagged_terminal");
 
         if (s == state.end()) {
@@ -121,7 +124,10 @@ struct terminal_preamble< tagged_terminal<Tag, Term> > {
 
 template <size_t Tag, class Term>
 struct kernel_param_declaration< tagged_terminal<Tag, Term> > {
-    static std::string get(const cl::Device &device, int component, int position, kernel_generator_state &state) {
+    static std::string get(const cl::Device &device,
+            int component, int position,
+            detail::kernel_generator_state &state)
+    {
         auto s = state.find("tagged_terminal");
 
         if (s == state.end()) {
@@ -153,7 +159,10 @@ struct kernel_param_declaration< tagged_terminal<Tag, Term> > {
 
 template <size_t Tag, class Term>
 struct partial_vector_expr< tagged_terminal<Tag, Term> > {
-    static std::string get(const cl::Device &device, int component, int position, kernel_generator_state &state) {
+    static std::string get(const cl::Device &device,
+            int component, int position,
+            detail::kernel_generator_state &state)
+    {
         auto s = state.find("tagged_terminal");
 
         if (s == state.end()) {
@@ -185,7 +194,8 @@ struct partial_vector_expr< tagged_terminal<Tag, Term> > {
 template <size_t Tag, class Term>
 struct kernel_arg_setter< tagged_terminal<Tag, Term> > {
     static void set(cl::Kernel &kernel, uint device, size_t index_offset,
-            uint &position, const tagged_terminal<Tag, Term> &term, kernel_generator_state &state)
+            uint &position, const tagged_terminal<Tag, Term> &term,
+            detail::kernel_generator_state &state)
     {
         auto s = state.find("tagged_terminal_arg");
 

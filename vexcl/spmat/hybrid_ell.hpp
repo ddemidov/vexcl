@@ -224,6 +224,8 @@ struct SpMatHELL : public sparse_matrix {
             const std::vector<cl::Event> &wait_for_it = std::vector<cl::Event>()
             ) const
     {
+        using namespace detail;
+
         static kernel_cache cache;
 
         cl::Context context = qctx(queue);
