@@ -255,6 +255,11 @@ class SpMat {
             A.mtx[device]->setArgs(kernel, device, position, x);
         }
     private:
+        template <typename T>
+        static inline size_t bytes(const std::vector<T> &v) {
+            return v.size() * sizeof(T);
+        }
+
         struct sparse_matrix {
             virtual void mul_local(
                     const cl::Buffer &x, const cl::Buffer &y,
