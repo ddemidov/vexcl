@@ -28,8 +28,11 @@ THE SOFTWARE.
 /**
  * \file   types.hpp
  * \author Pascal Germroth <pascal@ensieve.org>
- * \brief  C++ sugar for OpenCL vector types, eg. cl_float4, operator+.
+ * \brief  Support for using native C++ and OpenCL types in expressions.
  */
+
+typedef unsigned int  uint;
+typedef unsigned char uchar;
 
 namespace vex {
 
@@ -144,6 +147,61 @@ inline To cl_convert(const From &val) {
         out.s[i] = val.s[i];
     return out;
 }
+
+/// Declares a type as CL native, allows using it as a literal.
+template <class T> struct is_cl_native : std::false_type {};
+
+/// Convert typename to string.
+template <class T> inline std::string type_name() {
+    throw std::logic_error("Trying to use an undefined type in a kernel.");
+}
+
+
+#define STRINGIFY(type) \
+template <> inline std::string type_name<cl_##type>() { return #type; } \
+template <> struct is_cl_native<cl_##type> : std::true_type {};
+
+// enable use of OpenCL vector types as literals
+#define CL_VEC_TYPE(type, len) \
+template <> inline std::string type_name<cl_##type##len>() { return #type #len; } \
+template <> struct is_cl_native<cl_##type##len> : std::true_type {};
+
+#define CL_TYPES(type) \
+STRINGIFY(type); \
+CL_VEC_TYPE(type, 2); \
+CL_VEC_TYPE(type, 4); \
+CL_VEC_TYPE(type, 8); \
+CL_VEC_TYPE(type, 16);
+
+CL_TYPES(float);
+CL_TYPES(double);
+CL_TYPES(char);  CL_TYPES(uchar);
+CL_TYPES(short); CL_TYPES(ushort);
+CL_TYPES(int);   CL_TYPES(uint);
+CL_TYPES(long);  CL_TYPES(ulong);
+
+// char and cl_char are different types. Hence, special handling is required:
+template <> inline std::string type_name<char>() { return "char"; } \
+template <> struct is_cl_native<char> : std::true_type {};
+
+#undef CL_TYPES
+#undef CL_VEC_TYPE
+#undef STRINGIFY
+
+#if defined(__APPLE__)
+template <> inline std::string type_name<size_t>() {
+    return std::numeric_limits<std::size_t>::max() ==
+        std::numeric_limits<uint>::max() ? "uint" : "ulong";
+}
+template <> struct is_cl_native<size_t> : std::true_type {};
+template <> inline std::string type_name<ptrdiff_t>() {
+    return std::numeric_limits<std::ptrdiff_t>::max() ==
+        std::numeric_limits<int>::max() ? "int" : "long";
+}
+template <> struct is_cl_native<ptrdiff_t> : std::true_type {};
+#endif
+
+/// \cond INTERNAL
 
 }
 

@@ -49,7 +49,6 @@ THE SOFTWARE.
 #include <stdexcept>
 #include <limits>
 #include <boost/config.hpp>
-#include <boost/type_traits/is_same.hpp>
 
 #ifdef BOOST_NO_VARIADIC_TEMPLATES
 #  include <boost/proto/proto.hpp>
@@ -65,9 +64,6 @@ THE SOFTWARE.
 #include <CL/cl.hpp>
 #include <vexcl/types.hpp>
 
-typedef unsigned int  uint;
-typedef unsigned char uchar;
-
 namespace vex {
 
 /// Check run-time condition.
@@ -75,116 +71,6 @@ namespace vex {
 inline void precondition(bool condition, const std::string &fail_message) {
     if (!condition) throw std::runtime_error(fail_message);
 }
-
-/// Convert typename to string.
-template <class T> inline std::string type_name() {
-    throw std::logic_error("Trying to use an undefined type in a kernel.");
-}
-
-/// Declares a type as CL native, allows using it as a literal.
-template <class T> struct is_cl_native : std::false_type {};
-
-
-#define STRINGIFY(type) \
-template <> inline std::string type_name<cl_##type>() { return #type; } \
-template <> struct is_cl_native<cl_##type> : std::true_type {};
-
-// enable use of OpenCL vector types as literals
-#define CL_VEC_TYPE(type, len) \
-template <> inline std::string type_name<cl_##type##len>() { return #type #len; } \
-template <> struct is_cl_native<cl_##type##len> : std::true_type {};
-
-#define CL_TYPES(type) \
-STRINGIFY(type); \
-CL_VEC_TYPE(type, 2); \
-CL_VEC_TYPE(type, 4); \
-CL_VEC_TYPE(type, 8); \
-CL_VEC_TYPE(type, 16);
-
-CL_TYPES(float);
-CL_TYPES(double);
-CL_TYPES(char);  CL_TYPES(uchar);
-CL_TYPES(short); CL_TYPES(ushort);
-CL_TYPES(int);   CL_TYPES(uint);
-CL_TYPES(long);  CL_TYPES(ulong);
-
-// char and cl_char are different types. Hence, special handling is required:
-template <> inline std::string type_name<char>() { return "char"; } \
-template <> struct is_cl_native<char> : std::true_type {};
-
-#undef CL_TYPES
-#undef CL_VEC_TYPE
-#undef STRINGIFY
-
-#if defined(__APPLE__)
-template <> inline std::string type_name<size_t>() {
-    return std::numeric_limits<std::size_t>::max() ==
-        std::numeric_limits<uint>::max() ? "uint" : "ulong";
-}
-template <> struct is_cl_native<size_t> : std::true_type {};
-template <> inline std::string type_name<ptrdiff_t>() {
-    return std::numeric_limits<std::ptrdiff_t>::max() ==
-        std::numeric_limits<int>::max() ? "int" : "long";
-}
-template <> struct is_cl_native<ptrdiff_t> : std::true_type {};
-#endif
-
-/// \cond INTERNAL
-
-/// Binary operations with their traits.
-namespace binop {
-    enum kind {
-        Add,
-        Subtract,
-        Multiply,
-        Divide,
-        Remainder,
-        Greater,
-        Less,
-        GreaterEqual,
-        LessEqual,
-        Equal,
-        NotEqual,
-        BitwiseAnd,
-        BitwiseOr,
-        BitwiseXor,
-        LogicalAnd,
-        LogicalOr,
-        RightShift,
-        LeftShift
-    };
-
-    template <kind> struct traits {};
-
-#define BOP_TRAITS(kind, op, nm)   \
-    template <> struct traits<kind> {  \
-        static std::string oper() { return op; } \
-        static std::string name() { return nm; } \
-    };
-
-    BOP_TRAITS(Add,          "+",  "Add_")
-    BOP_TRAITS(Subtract,     "-",  "Sub_")
-    BOP_TRAITS(Multiply,     "*",  "Mul_")
-    BOP_TRAITS(Divide,       "/",  "Div_")
-    BOP_TRAITS(Remainder,    "%",  "Mod_")
-    BOP_TRAITS(Greater,      ">",  "Gtr_")
-    BOP_TRAITS(Less,         "<",  "Lss_")
-    BOP_TRAITS(GreaterEqual, ">=", "Geq_")
-    BOP_TRAITS(LessEqual,    "<=", "Leq_")
-    BOP_TRAITS(Equal,        "==", "Equ_")
-    BOP_TRAITS(NotEqual,     "!=", "Neq_")
-    BOP_TRAITS(BitwiseAnd,   "&",  "BAnd_")
-    BOP_TRAITS(BitwiseOr,    "|",  "BOr_")
-    BOP_TRAITS(BitwiseXor,   "^",  "BXor_")
-    BOP_TRAITS(LogicalAnd,   "&&", "LAnd_")
-    BOP_TRAITS(LogicalOr,    "||", "LOr_")
-    BOP_TRAITS(RightShift,   ">>", "Rsh_")
-    BOP_TRAITS(LeftShift,    "<<", "Lsh_")
-
-#undef BOP_TRAITS
-}
-
-/// \endcond
 
 /// Return next power of 2.
 inline size_t nextpow2(size_t x) {
@@ -440,7 +326,7 @@ struct column_owner {
 
 /// Helper function for generating LocalSpaceArg objects.
 /**
- * This is a copy of cl::Local that is absent is some of cl.hpp versions.
+ * This is a copy of cl::Local that is absent in some of cl.hpp versions.
  */
 inline cl::LocalSpaceArg
 Local(size_t size) {
