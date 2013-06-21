@@ -71,9 +71,30 @@ struct multivector_storage<T, false> {
 
 /// \endcond
 
+struct multivector_terminal {};
+
 typedef multivector_expression<
     typename boost::proto::terminal< multivector_terminal >::type
     > multivector_terminal_expression;
+
+// Hold multivector terminals by reference:
+template <class T>
+struct hold_terminal_by_reference< T,
+        typename std::enable_if<
+            boost::proto::matches<
+                typename boost::proto::result_of::as_expr< T >::type,
+                boost::proto::terminal< multivector_terminal >
+            >::value
+        >::type
+    >
+    : std::true_type
+{ };
+
+// Extract component directly from terminal rather than from value(terminal):
+template <>
+struct proto_terminal_is_value< multivector_terminal >
+    : std::true_type
+{ };
 
 
 /// Container for several vex::vectors.
@@ -672,6 +693,30 @@ class multivector : public multivector_terminal_expression {
 
         std::array<typename multivector_storage<T, own>::type,N> vec;
 };
+
+template <typename T, size_t N, bool own>
+struct number_of_components< multivector<T, N, own> >
+    : boost::mpl::size_t<N>
+{};
+
+template <size_t I, typename T, size_t N, bool own>
+struct component< I, multivector<T, N, own> > {
+    typedef const vector<T>& type;
+};
+
+template <size_t I, typename T, size_t N, bool own>
+const vector<T>& get(const multivector<T, N, own> &mv) {
+    static_assert(I < N, "Component number out of bounds");
+
+    return mv(I);
+}
+
+template <size_t I, typename T, size_t N, bool own>
+vector<T>& get(multivector<T, N, own> &mv) {
+    static_assert(I < N, "Component number out of bounds");
+
+    return mv(I);
+}
 
 /// Copy multivector to host vector.
 template <class T, size_t N, bool own>

@@ -602,10 +602,6 @@ struct extract_user_functions
 // Elementwise vector operations
 //---------------------------------------------------------------------------
 
-struct vector_terminal {};
-template <typename T> class vector;
-struct elem_index;
-
 // Terminals allowed in vector expressions.
 template <class Term, class Enable = void>
 struct is_vector_expr_terminal
@@ -667,6 +663,9 @@ struct vector_full_grammar
 template <class Expr>
 struct vector_expression;
 
+template <class T, class Enable = void>
+struct hold_terminal_by_reference : std::false_type {};
+
 struct vector_domain
     : boost::proto::domain<
         boost::proto::generator<vector_expression>,
@@ -678,17 +677,11 @@ struct vector_domain
     struct as_child : proto_base_domain::as_expr<T>
     {};
 
-    // ... except for vectors to avoid data copying.
+    // ... except for terminals that explicitly request storage by reference:
     template <typename T>
     struct as_child< T,
-        typename std::enable_if<
-                boost::proto::matches<
-                    typename boost::proto::result_of::as_expr<T>::type,
-                    boost::proto::terminal< vector_terminal >
-                >::value
-            >::type
-        >
-        : proto_base_domain::as_child< T >
+        typename std::enable_if< hold_terminal_by_reference<T>::value >::type
+        > : proto_base_domain::as_child< T >
     {};
 };
 
@@ -1331,34 +1324,8 @@ inline T& get(T t[N]) {
     return t[I];
 }
 
-struct multivector_terminal {};
-
 template <typename T, size_t N, bool own = true>
 class multivector;
-
-template <typename T, size_t N, bool own>
-struct number_of_components< multivector<T, N, own> >
-    : boost::mpl::size_t<N>
-{};
-
-template <size_t I, typename T, size_t N, bool own>
-struct component< I, multivector<T, N, own> > {
-    typedef const vector<T>& type;
-};
-
-template <size_t I, typename T, size_t N, bool own>
-const vector<T>& get(const multivector<T, N, own> &mv) {
-    static_assert(I < N, "Component number out of bounds");
-
-    return mv(I);
-}
-
-template <size_t I, typename T, size_t N, bool own>
-vector<T>& get(multivector<T, N, own> &mv) {
-    static_assert(I < N, "Component number out of bounds");
-
-    return mv(I);
-}
 
 struct mutltiex_dimension
         : boost::proto::or_ <
@@ -1444,17 +1411,11 @@ struct multivector_domain
     struct as_child : proto_base_domain::as_expr<T>
     {};
 
-    // ... except for vectors to avoid data copying.
+    // ... except for terminals that explicitly request storage by reference:
     template <typename T>
     struct as_child< T,
-        typename std::enable_if<
-                boost::proto::matches<
-                    typename boost::proto::result_of::as_expr<T>::type,
-                    boost::proto::terminal< multivector_terminal >
-                >::value
-            >::type
-        >
-        : proto_base_domain::as_child< T >
+        typename std::enable_if< hold_terminal_by_reference<T>::value >::type
+        > : proto_base_domain::as_child< T >
     {};
 };
 
@@ -1471,10 +1432,6 @@ struct multivector_expression
 //---------------------------------------------------------------------------
 template <class T, class Enable = void>
 struct proto_terminal_is_value : std::false_type { };
-
-template <>
-struct proto_terminal_is_value< multivector_terminal >
-    : std::true_type { };
 
 template <size_t C>
 struct extract_component : boost::proto::callable {

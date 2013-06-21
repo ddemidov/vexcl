@@ -176,9 +176,24 @@ inline std::vector<size_t> partition(size_t n,
 }
 
 //--- Vector Type -----------------------------------------------------------
+struct vector_terminal {};
+
 typedef vector_expression<
     typename boost::proto::terminal< vector_terminal >::type
     > vector_terminal_expression;
+
+// Hold vector terminals by reference:
+template <class T>
+struct hold_terminal_by_reference< T,
+        typename std::enable_if<
+            boost::proto::matches<
+                typename boost::proto::result_of::as_expr< T >::type,
+                boost::proto::terminal< vector_terminal >
+            >::value
+        >::type
+    >
+    : std::true_type
+{ };
 
 /// Device vector.
 template <typename T>
