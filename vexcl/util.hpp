@@ -454,161 +454,66 @@ Local(size_t size) {
 inline std::ostream& operator<<(std::ostream &os, const cl::Error &e) {
     os << e.what() << "(";
 
+#define CL_ERR2TXT(num, msg) case (num): os << (msg); break
+
     switch (e.err()) {
-        case 0:
-            os << "Success";
-            break;
-        case -1:
-            os << "Device not found";
-            break;
-        case -2:
-            os << "Device not available";
-            break;
-        case -3:
-            os << "Compiler not available";
-            break;
-        case -4:
-            os << "Mem object allocation failure";
-            break;
-        case -5:
-            os << "Out of resources";
-            break;
-        case -6:
-            os << "Out of host memory";
-            break;
-        case -7:
-            os << "Profiling info not available";
-            break;
-        case -8:
-            os << "Mem copy overlap";
-            break;
-        case -9:
-            os << "Image format mismatch";
-            break;
-        case -10:
-            os << "Image format not supported";
-            break;
-        case -11:
-            os << "Build program failure";
-            break;
-        case -12:
-            os << "Map failure";
-            break;
-        case -13:
-            os << "Misaligned sub buffer offset";
-            break;
-        case -14:
-            os << "Exec status error for events in wait list";
-            break;
-        case -30:
-            os << "Invalid value";
-            break;
-        case -31:
-            os << "Invalid device type";
-            break;
-        case -32:
-            os << "Invalid platform";
-            break;
-        case -33:
-            os << "Invalid device";
-            break;
-        case -34:
-            os << "Invalid context";
-            break;
-        case -35:
-            os << "Invalid queue properties";
-            break;
-        case -36:
-            os << "Invalid command queue";
-            break;
-        case -37:
-            os << "Invalid host ptr";
-            break;
-        case -38:
-            os << "Invalid mem object";
-            break;
-        case -39:
-            os << "Invalid image format descriptor";
-            break;
-        case -40:
-            os << "Invalid image size";
-            break;
-        case -41:
-            os << "Invalid sampler";
-            break;
-        case -42:
-            os << "Invalid binary";
-            break;
-        case -43:
-            os << "Invalid build options";
-            break;
-        case -44:
-            os << "Invalid program";
-            break;
-        case -45:
-            os << "Invalid program executable";
-            break;
-        case -46:
-            os << "Invalid kernel name";
-            break;
-        case -47:
-            os << "Invalid kernel definition";
-            break;
-        case -48:
-            os << "Invalid kernel";
-            break;
-        case -49:
-            os << "Invalid arg index";
-            break;
-        case -50:
-            os << "Invalid arg value";
-            break;
-        case -51:
-            os << "Invalid arg size";
-            break;
-        case -52:
-            os << "Invalid kernel args";
-            break;
-        case -53:
-            os << "Invalid work dimension";
-            break;
-        case -54:
-            os << "Invalid work group size";
-            break;
-        case -55:
-            os << "Invalid work item size";
-            break;
-        case -56:
-            os << "Invalid global offset";
-            break;
-        case -57:
-            os << "Invalid event wait list";
-            break;
-        case -58:
-            os << "Invalid event";
-            break;
-        case -59:
-            os << "Invalid operation";
-            break;
-        case -60:
-            os << "Invalid gl object";
-            break;
-        case -61:
-            os << "Invalid buffer size";
-            break;
-        case -62:
-            os << "Invalid mip level";
-            break;
-        case -63:
-            os << "Invalid global work size";
-            break;
-        case -64:
-            os << "Invalid property";
-            break;
+        CL_ERR2TXT(  0, "Success");
+        CL_ERR2TXT( -1, "Device not found");
+        CL_ERR2TXT( -2, "Device not available");
+        CL_ERR2TXT( -3, "Compiler not available");
+        CL_ERR2TXT( -4, "Mem object allocation failure");
+        CL_ERR2TXT( -5, "Out of resources");
+        CL_ERR2TXT( -6, "Out of host memory");
+        CL_ERR2TXT( -7, "Profiling info not available");
+        CL_ERR2TXT( -8, "Mem copy overlap");
+        CL_ERR2TXT( -9, "Image format mismatch");
+        CL_ERR2TXT(-10, "Image format not supported");
+        CL_ERR2TXT(-11, "Build program failure");
+        CL_ERR2TXT(-12, "Map failure");
+        CL_ERR2TXT(-13, "Misaligned sub buffer offset");
+        CL_ERR2TXT(-14, "Exec status error for events in wait list");
+        CL_ERR2TXT(-30, "Invalid value");
+        CL_ERR2TXT(-31, "Invalid device type");
+        CL_ERR2TXT(-32, "Invalid platform");
+        CL_ERR2TXT(-33, "Invalid device");
+        CL_ERR2TXT(-34, "Invalid context");
+        CL_ERR2TXT(-35, "Invalid queue properties");
+        CL_ERR2TXT(-36, "Invalid command queue");
+        CL_ERR2TXT(-37, "Invalid host ptr");
+        CL_ERR2TXT(-38, "Invalid mem object");
+        CL_ERR2TXT(-39, "Invalid image format descriptor");
+        CL_ERR2TXT(-40, "Invalid image size");
+        CL_ERR2TXT(-41, "Invalid sampler");
+        CL_ERR2TXT(-42, "Invalid binary");
+        CL_ERR2TXT(-43, "Invalid build options");
+        CL_ERR2TXT(-44, "Invalid program");
+        CL_ERR2TXT(-45, "Invalid program executable");
+        CL_ERR2TXT(-46, "Invalid kernel name");
+        CL_ERR2TXT(-47, "Invalid kernel definition");
+        CL_ERR2TXT(-48, "Invalid kernel");
+        CL_ERR2TXT(-49, "Invalid arg index");
+        CL_ERR2TXT(-50, "Invalid arg value");
+        CL_ERR2TXT(-51, "Invalid arg size");
+        CL_ERR2TXT(-52, "Invalid kernel args");
+        CL_ERR2TXT(-53, "Invalid work dimension");
+        CL_ERR2TXT(-54, "Invalid work group size");
+        CL_ERR2TXT(-55, "Invalid work item size");
+        CL_ERR2TXT(-56, "Invalid global offset");
+        CL_ERR2TXT(-57, "Invalid event wait list");
+        CL_ERR2TXT(-58, "Invalid event");
+        CL_ERR2TXT(-59, "Invalid operation");
+        CL_ERR2TXT(-60, "Invalid gl object");
+        CL_ERR2TXT(-61, "Invalid buffer size");
+        CL_ERR2TXT(-62, "Invalid mip level");
+        CL_ERR2TXT(-63, "Invalid global work size");
+        CL_ERR2TXT(-64, "Invalid property");
+
         default:
             os << "Unknown error";
             break;
     }
+
+#undef CL_ERR2TXT
 
     return os << ")";
 }
