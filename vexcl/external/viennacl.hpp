@@ -63,5 +63,4 @@ namespace viennacl {
     }
 }
 
-// vim: et
 #endif

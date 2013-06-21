@@ -38,16 +38,12 @@ THE SOFTWARE.
 #endif
 
 #include <iostream>
-#include <sstream>
 #include <string>
 #include <vector>
 #include <map>
-#include <algorithm>
-#include <type_traits>
-#include <functional>
-#include <climits>
 #include <stdexcept>
-#include <limits>
+#include <algorithm>
+
 #include <boost/config.hpp>
 
 #ifdef BOOST_NO_VARIADIC_TEMPLATES
@@ -62,7 +58,6 @@ THE SOFTWARE.
 #  define __CL_ENABLE_EXCEPTIONS
 #endif
 #include <CL/cl.hpp>
-#include <vexcl/types.hpp>
 
 namespace vex {
 
@@ -110,29 +105,6 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, IS_TUPLE, ~)
 #undef IS_TUPLE
 
 #endif
-
-// Static for loop
-template <long Begin, long End>
-class static_for {
-    public:
-        template <class Func>
-        static void loop(Func &&f) {
-            iterate<Begin>(f);
-        }
-
-    private:
-        template <long I, class Func>
-        static typename std::enable_if<(I < End)>::type
-        iterate(Func &&f) {
-            f.template apply<I>();
-            iterate<I + 1>(f);
-        }
-
-        template <long I, class Func>
-        static typename std::enable_if<(I >= End)>::type
-        iterate(Func&&)
-        { }
-};
 
 /// Shortcut for q.getInfo<CL_QUEUE_CONTEXT>()
 inline cl::Context qctx(const cl::CommandQueue& q) {
@@ -242,6 +214,11 @@ inline void pop_program_header(const std::vector<cl::CommandQueue> &queue) {
         device_options<program_header>::pop(qdev(*q));
 }
 
+/// Returns standard OpenCL program header.
+/**
+ * Defines pragmas necessary to work with double precision and anything
+ * provided by the user with help of push_program_header().
+ */
 inline std::string standard_kernel_header(const cl::Device &dev) {
     return std::string(
         "#if defined(cl_khr_fp64)\n"
@@ -301,17 +278,6 @@ inline size_t num_workgroups(const cl::Device &device) {
     // be employed later.
     return 4 * device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>();
 }
-
-struct kernel_cache_entry {
-    cl::Kernel kernel;
-    size_t     wgsize;
-
-    kernel_cache_entry(const cl::Kernel &kernel, size_t wgsize)
-        : kernel(kernel), wgsize(wgsize)
-    {}
-};
-
-typedef std::map< cl_context, kernel_cache_entry > kernel_cache;
 
 struct column_owner {
     const std::vector<size_t> &part;
@@ -408,5 +374,4 @@ inline std::ostream& operator<<(std::ostream &os, const cl::Error &e) {
 #  pragma warning(pop)
 #endif
 
-// vim: et
 #endif

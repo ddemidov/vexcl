@@ -33,7 +33,6 @@ THE SOFTWARE.
 
 #include <boost/proto/proto.hpp>
 #include <vexcl/operations.hpp>
-#include <vexcl/util.hpp>
 
 namespace vex {
 
@@ -51,7 +50,8 @@ element_index(size_t offset = 0) {
     return boost::proto::as_expr<vector_domain>(elem_index(offset));
 }
 
-/// \cond INTERNAL
+namespace traits {
+
 template <>
 struct is_vector_expr_terminal< elem_index >
     : std::true_type
@@ -121,7 +121,7 @@ struct kernel_arg_setter< T, typename std::enable_if<
     }
 };
 
-/// \endcond
+} // namespace traits
 
 } // namespace vex;
 

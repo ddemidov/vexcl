@@ -60,7 +60,7 @@ struct tagged_terminal : tagged_terminal_expression
         std::vector<cl::CommandQueue> queue; \
         std::vector<size_t> part; \
         size_t size; \
-        expression_properties<tagged_terminal>::get(*this, queue, part, size); \
+        traits::expression_properties<tagged_terminal>::get(*this, queue, part, size); \
         assign_expression<op>(*this, expr, queue, part); \
         return *this; \
     }
@@ -79,6 +79,8 @@ struct tagged_terminal : tagged_terminal_expression
 
 #undef ASSIGNMENT
 };
+
+namespace traits {
 
 template <>
 struct is_vector_expr_terminal< tagged_terminal_terminal >
@@ -229,6 +231,9 @@ struct expression_properties< tagged_terminal<Tag, Term> > {
         expression_properties<TermType>::get(boost::proto::as_child(term.term), queue_list, partition, size);
     }
 };
+
+} // namespace traits
+
 /// \endcond
 
 /// Tags terminal with a unique (in a single expression) tag.

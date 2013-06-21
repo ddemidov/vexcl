@@ -108,6 +108,8 @@ make_inline(const multispmv<val_t, col_t, idx_t, MV> &base) {
 
 /// \cond INTERNAL
 // Allow inline products to participate in vector expressions:
+namespace traits {
+
 template <>
 struct is_vector_expr_terminal< inline_spmv_terminal >
     : std::true_type
@@ -127,12 +129,6 @@ template <size_t I, typename val_t, typename col_t, typename idx_t, typename MV>
 struct component< I, mv_inline_spmv<val_t, col_t, idx_t, MV> > {
     typedef inline_spmv<val_t, col_t, idx_t> type;
 };
-
-template <size_t I, typename val_t, typename col_t, typename idx_t, typename MV>
-inline_spmv<val_t, col_t, idx_t>
-get(const mv_inline_spmv<val_t, col_t, idx_t, MV> &t) {
-    return make_inline(t.A * t.x(I));
-}
 
 template <typename val_t, typename col_t, typename idx_t>
 struct kernel_name< inline_spmv<val_t, col_t, idx_t> > {
@@ -185,6 +181,14 @@ struct expression_properties< inline_spmv<val_t, col_t, idx_t> > {
         expression_properties< vector<val_t> >::get(term.x, queue_list, partition, size);
     }
 };
+
+} // namespace traits
+
+template <size_t I, typename val_t, typename col_t, typename idx_t, typename MV>
+inline_spmv<val_t, col_t, idx_t>
+get(const mv_inline_spmv<val_t, col_t, idx_t, MV> &t) {
+    return make_inline(t.A * t.x(I));
+}
 
 /// \endcond
 

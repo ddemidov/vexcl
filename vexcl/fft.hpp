@@ -56,8 +56,12 @@ struct fft_expr
     }
 };
 
+namespace traits {
+
 template <class F, class E>
 struct is_scalable<fft_expr<F, E>> : std::true_type {};
+
+} // namespace traits
 
 
 /// Fast Fourier Transform.

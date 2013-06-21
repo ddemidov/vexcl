@@ -34,6 +34,7 @@ THE SOFTWARE.
 #include <array>
 #include <numeric>
 #include <algorithm>
+
 #include <vexcl/vector.hpp>
 
 namespace vex {
@@ -93,7 +94,11 @@ struct vector_view : public vector_view_terminal_expression
 #undef ASSIGNMENT
 };
 
+/// \endcond
+
 // Allow vector_view to participate in vector expressions:
+namespace traits {
+
 template <>
 struct is_vector_expr_terminal< vector_view_terminal >
     : std::true_type
@@ -155,7 +160,7 @@ struct expression_properties< vector_view<T, Slice> > {
     }
 };
 
-/// \endcond
+} // namespace traits
 
 /// Generalized slice selector.
 /**

@@ -379,5 +379,4 @@ inline std::ostream& operator<<(std::ostream &os, vex::profiler<Clock, Avg> &pro
 #  pragma warning(pop)
 #endif
 
-// vim: et
 #endif

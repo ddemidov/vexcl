@@ -44,10 +44,14 @@ namespace vex {
 
 /// \cond INTERNAL
 
+namespace traits {
+
 template <typename T, size_t N, bool own>
 struct number_of_components< vex::mpi::multivector<T, N, own> >
     : boost::mpl::size_t<N>
 {};
+
+}
 
 /// \endcond
 

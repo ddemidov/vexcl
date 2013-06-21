@@ -44,10 +44,11 @@ THE SOFTWARE.
 #include <string>
 #include <type_traits>
 #include <functional>
+
 #include <boost/proto/proto.hpp>
 
-#include <vexcl/operations.hpp>
 #include <vexcl/util.hpp>
+#include <vexcl/operations.hpp>
 #include <vexcl/profiler.hpp>
 #include <vexcl/devlist.hpp>
 
@@ -182,6 +183,8 @@ typedef vector_expression<
     typename boost::proto::terminal< vector_terminal >::type
     > vector_terminal_expression;
 
+namespace traits {
+
 // Hold vector terminals by reference:
 template <class T>
 struct hold_terminal_by_reference< T,
@@ -194,6 +197,8 @@ struct hold_terminal_by_reference< T,
     >
     : std::true_type
 { };
+
+} // namespace traits
 
 /// Device vector.
 template <typename T>
@@ -819,6 +824,8 @@ class vector : public vector_terminal_expression {
 //---------------------------------------------------------------------------
 // Support for vector expressions
 //---------------------------------------------------------------------------
+namespace traits {
+
 template <>
 struct is_vector_expr_terminal< vector_terminal >
     : std::true_type
@@ -871,8 +878,10 @@ struct expression_properties< vector<T> > {
         size       = term.size();
     }
 };
-//---------------------------------------------------------------------------
 
+} // namespace traits
+
+//---------------------------------------------------------------------------
 /// Copy device vector to host vector.
 template <class T>
 void copy(const vex::vector<T> &dv, std::vector<T> &hv, cl_bool blocking = CL_TRUE) {
@@ -1001,5 +1010,4 @@ struct is_sequence< vex::vector<T> > : std::false_type
 #  pragma warning(pop)
 #endif
 
-// vim: et
 #endif

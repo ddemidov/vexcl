@@ -752,5 +752,4 @@ FunctorAdapter<Signature, Functor> make_function(Functor &&f) {
 } // namespace vex;
 
 
-// vim: et
 #endif

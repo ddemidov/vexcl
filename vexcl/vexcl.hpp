@@ -31,26 +31,13 @@ THE SOFTWARE.
  * \brief  Vector expression template library for OpenCL.
  */
 
-#ifdef WIN32
-#  pragma warning(push)
-#  pragma warning(disable : 4290 4503)
-#  define NOMINMAX
-#endif
-
-#ifndef __CL_ENABLE_EXCEPTIONS
-#  define __CL_ENABLE_EXCEPTIONS
-#endif
-
-#include <CL/cl.hpp>
-#include <iostream>
-
 #include <vexcl/devlist.hpp>
 #include <vexcl/element_index.hpp>
 #include <vexcl/vector.hpp>
 #include <vexcl/vector_view.hpp>
 #include <vexcl/tagged_terminal.hpp>
 #include <vexcl/multivector.hpp>
-#include <vexcl/reduce.hpp>
+#include <vexcl/reductor.hpp>
 #include <vexcl/spmat.hpp>
 #include <vexcl/stencil.hpp>
 #include <vexcl/gather.hpp>
@@ -59,9 +46,4 @@ THE SOFTWARE.
 #include <vexcl/generator.hpp>
 #include <vexcl/profiler.hpp>
 
-#ifdef WIN32
-#  pragma warning(pop)
-#endif
-
-// vim: et
 #endif

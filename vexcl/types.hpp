@@ -31,6 +31,11 @@ THE SOFTWARE.
  * \brief  Support for using native C++ and OpenCL types in expressions.
  */
 
+#ifndef __CL_ENABLE_EXCEPTIONS
+#  define __CL_ENABLE_EXCEPTIONS
+#endif
+#include <CL/cl.hpp>
+
 typedef unsigned int  uint;
 typedef unsigned char uchar;
 
@@ -180,28 +185,26 @@ CL_TYPES(short); CL_TYPES(ushort);
 CL_TYPES(int);   CL_TYPES(uint);
 CL_TYPES(long);  CL_TYPES(ulong);
 
-// char and cl_char are different types. Hence, special handling is required:
-template <> inline std::string type_name<char>() { return "char"; } \
-template <> struct is_cl_native<char> : std::true_type {};
-
 #undef CL_TYPES
 #undef CL_VEC_TYPE
 #undef STRINGIFY
 
+// char and cl_char are different types. Hence, special handling is required:
+template <> inline std::string type_name<char>() { return "char"; } \
+template <> struct is_cl_native<char> : std::true_type {};
+
 #if defined(__APPLE__)
 template <> inline std::string type_name<size_t>() {
-    return std::numeric_limits<std::size_t>::max() ==
-        std::numeric_limits<uint>::max() ? "uint" : "ulong";
+    return sizeof(std::size_t) == sizeof(uint) ? "uint" : "ulong";
 }
-template <> struct is_cl_native<size_t> : std::true_type {};
+
 template <> inline std::string type_name<ptrdiff_t>() {
-    return std::numeric_limits<std::ptrdiff_t>::max() ==
-        std::numeric_limits<int>::max() ? "int" : "long";
+    return sizeof(std::size_t) == sizeof(uint) ? "int" : "long";
 }
+
+template <> struct is_cl_native<size_t>    : std::true_type {};
 template <> struct is_cl_native<ptrdiff_t> : std::true_type {};
 #endif
-
-/// \cond INTERNAL
 
 }
 

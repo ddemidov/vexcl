@@ -127,7 +127,7 @@ struct mpi_multivector_expr_grammar
               boost::proto::terminal< mpi_multivector_terminal >,
               boost::proto::and_<
                   boost::proto::terminal< boost::proto::_ >,
-                  boost::proto::if_< is_multiscalar< boost::proto::_value >() >
+                  boost::proto::if_< traits::is_multiscalar< boost::proto::_value >() >
               >
           >,
           BUILTIN_OPERATIONS(mpi_multivector_expr_grammar),

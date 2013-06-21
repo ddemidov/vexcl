@@ -97,11 +97,11 @@ struct mpi_multispmv
 #ifndef WIN32
 	&& std::is_same<typename M::value_type, typename W::sub_value_type>::value
 #endif
-	&& number_of_components<V>::value == number_of_components<W>::value
+	&& traits::number_of_components<V>::value == traits::number_of_components<W>::value
 	, void
     >::type
     apply(W &y) const {
-        for(size_t i = 0; i < number_of_components<V>::value; i++) {
+        for(size_t i = 0; i < traits::number_of_components<V>::value; i++) {
             auto dst = y(i);
             A.mul(x(i), dst, negate ? -1 : 1, append);
         }

@@ -67,8 +67,12 @@ struct conv
     }
 };
 
+namespace traits {
+
 template <typename S, class V>
 struct is_scalable< conv<S, V> > : std::true_type {};
+
+} // namespace traits
 
 #ifdef VEXCL_MULTIVECTOR_HPP
 
@@ -88,15 +92,19 @@ struct multiconv
     multiconv(const S &s, const V &x) : s(s), x(x), scale(1) {}
 
     template <bool negate, bool append, bool own>
-    void apply(multivector<value_type, number_of_components<V>::value, own> &y) const
+    void apply(multivector<value_type, traits::number_of_components<V>::value, own> &y) const
     {
-        for(size_t i = 0; i < number_of_components<V>::value; i++)
+        for(size_t i = 0; i < traits::number_of_components<V>::value; i++)
             s.convolve(x(i), y(i), append ? 1 : 0, negate ? -scale : scale);
     }
 };
 
+namespace traits {
+
 template <typename S, class V>
 struct is_scalable< multiconv<S, V> > : std::true_type {};
+
+} // namespace traits
 
 #endif
 
@@ -813,5 +821,4 @@ void StencilOperator<T, width, center, Impl>::convolve(
 #  pragma warning(pop)
 #endif
 
-// vim: et
 #endif

@@ -142,6 +142,8 @@ operator*(
 
 
 // Allow ccsr_product to participate in vector expressions:
+namespace traits {
+
 template <>
 struct is_vector_expr_terminal< ccsr_product_terminal >
     : std::true_type
@@ -163,12 +165,6 @@ struct component< I, mv_ccsr_product<val_t, col_t, idx_t, MV> > {
         ccsr_product<val_t, col_t, idx_t, typename MV::sub_value_type>
         type;
 };
-
-template <size_t I, typename val_t, typename col_t, typename idx_t, typename MV>
-ccsr_product<val_t, col_t, idx_t, typename MV::sub_value_type>
-get(const mv_ccsr_product<val_t, col_t, idx_t, MV> &t) {
-    return t.A * t.x(I);
-}
 
 template <typename val_t, typename col_t, typename idx_t, typename T>
 struct kernel_name< ccsr_product<val_t, col_t, idx_t, T> > {
@@ -267,6 +263,14 @@ struct expression_properties< ccsr_product<val_t, col_t, idx_t, T> > {
         partition.back() = size;
     }
 };
+
+} // namespace traits
+
+template <size_t I, typename val_t, typename col_t, typename idx_t, typename MV>
+ccsr_product<val_t, col_t, idx_t, typename MV::sub_value_type>
+get(const mv_ccsr_product<val_t, col_t, idx_t, MV> &t) {
+    return t.A * t.x(I);
+}
 
 /// \endcond
 

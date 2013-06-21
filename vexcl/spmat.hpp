@@ -421,8 +421,12 @@ spmv< val_t, col_t, idx_t > operator*(const SpMat<val_t, col_t, idx_t> &A, const
     return spmv<val_t, col_t, idx_t>(A, x);
 }
 
+namespace traits {
+
 template <typename val_t, typename col_t, typename idx_t>
 struct is_scalable< spmv<val_t, col_t, idx_t> > : std::true_type {};
+
+} // namespace traits
 
 #ifdef VEXCL_MULTIVECTOR_HPP
 
@@ -448,11 +452,11 @@ struct multispmv
 #ifndef WIN32
         && std::is_same<val_t, typename W::sub_value_type>::value
 #endif
-        && number_of_components<MV>::value == number_of_components<W>::value,
+        && traits::number_of_components<MV>::value == traits::number_of_components<W>::value,
         void
     >::type
     apply(W &y) const {
-        for(size_t i = 0; i < number_of_components<MV>::value; i++)
+        for(size_t i = 0; i < traits::number_of_components<MV>::value; i++)
             A.mul(x(i), y(i), negate ? -scale : scale, append);
     }
 };
@@ -467,8 +471,12 @@ operator*(const SpMat<val_t, col_t, idx_t> &A, const MV &x) {
     return multispmv< val_t, col_t, idx_t, MV >(A, x);
 }
 
+namespace traits {
+
 template <typename val_t, typename col_t, typename idx_t, class MV>
 struct is_scalable< multispmv<val_t, col_t, idx_t, MV> > : std::true_type {};
+
+} // namespace traits
 
 #endif
 
@@ -569,5 +577,4 @@ inline double device_spmv_perf(const cl::CommandQueue &q) {
 #  pragma warning(pop)
 #endif
 
-// vim: et
 #endif

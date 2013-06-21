@@ -40,11 +40,16 @@ THE SOFTWARE.
 #include <vector>
 #include <string>
 #include <fstream>
-#include <tuple>
 #include <cstdlib>
 
+#include <boost/config.hpp>
 #include <boost/interprocess/sync/file_lock.hpp>
 #include <boost/filesystem.hpp>
+
+#ifndef __CL_ENABLE_EXCEPTIONS
+#  define __CL_ENABLE_EXCEPTIONS
+#endif
+#include <CL/cl.hpp>
 
 #include <vexcl/util.hpp>
 
@@ -417,7 +422,7 @@ namespace Filter {
  * \endcode
  */
 template<class DevFilter
-#ifndef WIN32
+#ifndef BOOST_NO_CXX11_FUNCTION_TEMPLATE_DEFAULT_ARGS
     = Filter::AllFilter
 #endif
     >
@@ -454,7 +459,7 @@ std::vector<cl::Device> device_list(DevFilter filter = Filter::All)
  * \see device_list
  */
 template<class DevFilter
-#ifndef WIN32
+#ifndef BOOST_NO_CXX11_FUNCTION_TEMPLATE_DEFAULT_ARGS
     = Filter::AllFilter
 #endif
     >
@@ -634,5 +639,4 @@ inline std::ostream& operator<<(std::ostream &os, const vex::Context &ctx) {
 #  pragma warning(pop)
 #endif
 
-// vim: et
 #endif

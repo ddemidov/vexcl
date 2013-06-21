@@ -46,7 +46,7 @@ THE SOFTWARE.
 #include <type_traits>
 #include <functional>
 #include <boost/proto/proto.hpp>
-#include <CL/cl.hpp>
+
 #include <vexcl/util.hpp>
 #include <vexcl/operations.hpp>
 #include <vexcl/vector.hpp>
@@ -73,9 +73,20 @@ struct multivector_storage<T, false> {
 
 struct multivector_terminal {};
 
-typedef multivector_expression<
-    typename boost::proto::terminal< multivector_terminal >::type
-    > multivector_terminal_expression;
+template <typename T, size_t N, bool own = true> class multivector;
+
+namespace traits {
+
+// Extract component directly from terminal rather than from value(terminal):
+template <>
+struct proto_terminal_is_value< multivector_terminal >
+    : std::true_type
+{ };
+
+template <>
+struct is_multivector_expr_terminal< multivector_terminal >
+    : std::true_type
+{ };
 
 // Hold multivector terminals by reference:
 template <class T>
@@ -90,12 +101,36 @@ struct hold_terminal_by_reference< T,
     : std::true_type
 { };
 
-// Extract component directly from terminal rather than from value(terminal):
-template <>
-struct proto_terminal_is_value< multivector_terminal >
-    : std::true_type
-{ };
+template <typename T, size_t N, bool own>
+struct number_of_components< multivector<T, N, own> >
+    : boost::mpl::size_t<N>
+{};
 
+template <size_t I, typename T, size_t N, bool own>
+struct component< I, multivector<T, N, own> > {
+    typedef const vector<T>& type;
+};
+
+} // namespace traits
+
+template <size_t I, typename T, size_t N, bool own>
+const vector<T>& get(const multivector<T, N, own> &mv) {
+    static_assert(I < N, "Component number out of bounds");
+
+    return mv(I);
+}
+
+template <size_t I, typename T, size_t N, bool own>
+vector<T>& get(multivector<T, N, own> &mv) {
+    static_assert(I < N, "Component number out of bounds");
+
+    return mv(I);
+}
+
+
+typedef multivector_expression<
+    typename boost::proto::terminal< multivector_terminal >::type
+    > multivector_terminal_expression;
 
 /// Container for several vex::vectors.
 /**
@@ -598,6 +633,29 @@ class multivector : public multivector_terminal_expression {
             }
         };
 
+        // Static for loop
+        template <long Begin, long End>
+        class static_for {
+            public:
+                template <class Func>
+                static void loop(Func &&f) {
+                    iterate<Begin>(f);
+                }
+
+            private:
+                template <long I, class Func>
+                static typename std::enable_if<(I < End)>::type
+                iterate(Func &&f) {
+                    f.template apply<I>();
+                    iterate<I + 1>(f);
+                }
+
+                template <long I, class Func>
+                static typename std::enable_if<(I >= End)>::type
+                iterate(Func&&)
+                { }
+        };
+
         template <class OP, class Expr>
         void assign_expression(const Expr &expr) {
             static kernel_cache cache;
@@ -694,29 +752,9 @@ class multivector : public multivector_terminal_expression {
         std::array<typename multivector_storage<T, own>::type,N> vec;
 };
 
-template <typename T, size_t N, bool own>
-struct number_of_components< multivector<T, N, own> >
-    : boost::mpl::size_t<N>
-{};
+namespace traits {
 
-template <size_t I, typename T, size_t N, bool own>
-struct component< I, multivector<T, N, own> > {
-    typedef const vector<T>& type;
-};
-
-template <size_t I, typename T, size_t N, bool own>
-const vector<T>& get(const multivector<T, N, own> &mv) {
-    static_assert(I < N, "Component number out of bounds");
-
-    return mv(I);
-}
-
-template <size_t I, typename T, size_t N, bool own>
-vector<T>& get(multivector<T, N, own> &mv) {
-    static_assert(I < N, "Component number out of bounds");
-
-    return mv(I);
-}
+} // namespace traits
 
 /// Copy multivector to host vector.
 template <class T, size_t N, bool own>
@@ -754,7 +792,7 @@ void copy(const std::vector<T> &hv, multivector<T,N,own> &mv) {
  */
 template<typename T, class... Tail>
 typename std::enable_if<
-    And<std::is_same<T,Tail>...>::value,
+    traits::And<std::is_same<T,Tail>...>::value,
     multivector<T, sizeof...(Tail) + 1, false>
     >::type
 tie(vex::vector<T> &head, vex::vector<Tail>&... tail) {
@@ -777,15 +815,6 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, TIE_VECTORS, ~)
 
 #endif
 
-/// \cond INTERNAL
-
-template <>
-struct is_multivector_expr_terminal< multivector_terminal >
-    : std::true_type
-{ };
-
-/// \endcond
-
 } // namespace vex
 
 namespace boost { namespace fusion { namespace traits {
@@ -797,5 +826,4 @@ struct is_sequence< vex::multivector<T, N, own> > : std::false_type
 } } }
 
 
-// vim: et
 #endif
