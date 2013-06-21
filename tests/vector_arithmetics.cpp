@@ -1,5 +1,9 @@
 #define BOOST_TEST_MODULE VectorArithmetics
 #include <boost/test/unit_test.hpp>
+#include <vexcl/vector.hpp>
+#include <vexcl/reductor.hpp>
+#include <vexcl/element_index.hpp>
+#include <vexcl/tagged_terminal.hpp>
 #include "context_setup.hpp"
 
 BOOST_AUTO_TEST_CASE(assign_expression)

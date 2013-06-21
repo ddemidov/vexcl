@@ -1,5 +1,7 @@
 #define BOOST_TEST_MODULE VectorCopy
 #include <boost/test/unit_test.hpp>
+#include <vexcl/vector.hpp>
+#include <vexcl/gather.hpp>
 #include "context_setup.hpp"
 
 BOOST_AUTO_TEST_CASE(iterate_over_vector)

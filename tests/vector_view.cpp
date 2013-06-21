@@ -1,6 +1,10 @@
 #define BOOST_TEST_MODULE VectorView
 #include <valarray>
 #include <boost/test/unit_test.hpp>
+#include <vexcl/vector.hpp>
+#include <vexcl/vector_view.hpp>
+#include <vexcl/element_index.hpp>
+#include <vexcl/reductor.hpp>
 #include "context_setup.hpp"
 
 BOOST_AUTO_TEST_CASE(vector_view_1d)

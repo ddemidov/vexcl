@@ -1,5 +1,8 @@
 #define BOOST_TEST_MODULE StencilConvolution
 #include <boost/test/unit_test.hpp>
+#include <vexcl/vector.hpp>
+#include <vexcl/multivector.hpp>
+#include <vexcl/stencil.hpp>
 #include "context_setup.hpp"
 
 BOOST_AUTO_TEST_CASE(stencil_convolution)

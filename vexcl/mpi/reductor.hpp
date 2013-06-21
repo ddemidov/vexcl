@@ -1,5 +1,5 @@
-#ifndef VEXCL_MPI_REDUCE_HPP
-#define VEXCL_MPI_REDUCE_HPP
+#ifndef VEXCL_MPI_REDUCTOR_HPP
+#define VEXCL_MPI_REDUCTOR_HPP
 
 /*
 The MIT License
@@ -26,13 +26,13 @@ THE SOFTWARE.
 */
 
 /**
- * \file   mpi/reduce.hpp
+ * \file   vexcl/mpi/reductor.hpp
  * \author Denis Demidov <ddemidov@ksu.ru>
  * \brief  MPI wrapper for vex::Reductor.
  */
 
 #include <mpi.h>
-#include <vexcl/reduce.hpp>
+#include <vexcl/reductor.hpp>
 #include <vexcl/mpi/util.hpp>
 #include <vexcl/mpi/operations.hpp>
 

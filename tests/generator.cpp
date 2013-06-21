@@ -1,6 +1,9 @@
 #define BOOST_TEST_MODULE KernelGenerator
 #include <boost/test/unit_test.hpp>
 #include <boost/phoenix/phoenix.hpp>
+#include <vexcl/vector.hpp>
+#include <vexcl/generator.hpp>
+#include <vexcl/tagged_terminal.hpp>
 #include "context_setup.hpp"
 
 template <class state_type>

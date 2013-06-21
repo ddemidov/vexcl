@@ -26,7 +26,7 @@ THE SOFTWARE.
 */
 
 /**
- * \file   mpi/operations.hpp
+ * \file   vexcl/mpi/operations.hpp
  * \author Denis Demidov <ddemidov@ksu.ru>
  * \brief  Set of operations to be used in mpi::vector expressions.
  */

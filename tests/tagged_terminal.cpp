@@ -1,5 +1,10 @@
 #define BOOST_TEST_MODULE TaggedTerminal
 #include <boost/test/unit_test.hpp>
+#include <vexcl/vector.hpp>
+#include <vexcl/element_index.hpp>
+#include <vexcl/tagged_terminal.hpp>
+#include <vexcl/reductor.hpp>
+#include <vexcl/vector_view.hpp>
 #include "context_setup.hpp"
 
 BOOST_AUTO_TEST_CASE(tagged_terminal)

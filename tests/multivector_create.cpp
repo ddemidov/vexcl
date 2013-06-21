@@ -1,5 +1,6 @@
 #define BOOST_TEST_MODULE MultivectorCreate
 #include <boost/test/unit_test.hpp>
+#include <vexcl/multivector.hpp>
 #include "context_setup.hpp"
 
 

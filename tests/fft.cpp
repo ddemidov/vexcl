@@ -3,6 +3,11 @@
 #ifdef HAVE_FFTW
 #  include <fftw3.h>
 #endif
+#include <vexcl/vector.hpp>
+#include <vexcl/fft.hpp>
+#include <vexcl/random.hpp>
+#include <vexcl/element_index.hpp>
+#include <vexcl/reductor.hpp>
 #include "context_setup.hpp"
 
 BOOST_AUTO_TEST_CASE(transform_expression)

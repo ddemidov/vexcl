@@ -1,5 +1,8 @@
 #define BOOST_TEST_MODULE SparseMatrixVectorProduct
 #include <boost/test/unit_test.hpp>
+#include <vexcl/vector.hpp>
+#include <vexcl/multivector.hpp>
+#include <vexcl/spmat.hpp>
 #include "context_setup.hpp"
 
 template <typename RT, typename CT, typename VT>

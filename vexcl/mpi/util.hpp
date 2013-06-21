@@ -26,7 +26,7 @@ THE SOFTWARE.
 */
 
 /**
- * \file   mpi/util.hpp
+ * \file   vexcl/mpi/util.hpp
  * \author Denis Demidov <ddemidov@ksu.ru>
  * \brief  MPI related utilities.
  */

@@ -1,6 +1,6 @@
 #define BOOST_TEST_MODULE BoostComputeScan
 #include <boost/test/unit_test.hpp>
-#include <vexcl/vexcl.hpp>
+#include <vexcl/vector.hpp>
 #include <vexcl/external/boost_compute.hpp>
 #include "context_setup.hpp"
 

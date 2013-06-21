@@ -1,5 +1,8 @@
 #define BOOST_TEST_MODULE MultivectorArithmetics
 #include <boost/test/unit_test.hpp>
+#include <vexcl/multivector.hpp>
+#include <vexcl/reductor.hpp>
+#include <vexcl/element_index.hpp>
 #include "context_setup.hpp"
 
 BOOST_AUTO_TEST_CASE(arithmetics)

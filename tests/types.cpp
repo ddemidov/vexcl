@@ -22,7 +22,7 @@ BOOST_AUTO_TEST_CASE(cl_native_types)
 }
 
 #define CHECK_TERMINAL(name) \
-    BOOST_CHECK( vex::is_vector_expr_terminal<name>::value )
+    BOOST_CHECK( vex::traits::is_vector_expr_terminal<name>::value )
 
 BOOST_AUTO_TEST_CASE(vector_expression_terminals)
 {

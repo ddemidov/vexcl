@@ -2,7 +2,7 @@
 #define CONTEXT_SETUP_HPP
 
 #include <random>
-#include <vexcl/vexcl.hpp>
+#include <vexcl/devlist.hpp>
 
 struct ContextSetup {
     ContextSetup() :

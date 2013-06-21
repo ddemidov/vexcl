@@ -1,5 +1,9 @@
 #define BOOST_TEST_MODULE RandomNumbers
 #include <boost/test/unit_test.hpp>
+#include <vexcl/vector.hpp>
+#include <vexcl/element_index.hpp>
+#include <vexcl/random.hpp>
+#include <vexcl/reductor.hpp>
 #include "context_setup.hpp"
 
 BOOST_AUTO_TEST_CASE(random_numbers)
