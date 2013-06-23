@@ -122,11 +122,7 @@ class Reductor {
         /// Constructor.
         Reductor(const std::vector<cl::CommandQueue> &queue = current_context().queue());
 
-        /// Compute reduction of the input expression.
-        /**
-         * The input expression may be as simple as a single vector, although
-         * expressions of arbitrary complexity may be reduced.
-         */
+        /// Compute reduction of a vector expression.
         template <class Expr>
         typename std::enable_if<
             boost::proto::matches<Expr, vector_expr_grammar>::value,
@@ -134,6 +130,7 @@ class Reductor {
         >::type
         operator()(const Expr &expr) const;
 
+        /// Compute reduction of a multivector expression.
         template <class Expr>
         typename std::enable_if<
             boost::proto::matches<Expr, multivector_expr_grammar>::value,

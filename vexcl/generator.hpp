@@ -65,12 +65,11 @@ std::ostream& operator<<(std::ostream &os, const symbolic<T> &sym);
 /// Kernel generation interface.
 namespace generator {
 
+/// \cond INTERNAL
 //---------------------------------------------------------------------------
 // The recorder class. Holds static output stream for kernel recording and
 // static variable index (used in variable names).
 //---------------------------------------------------------------------------
-
-/// \cond INTERNAL
 template <bool dummy = true>
 class recorder {
     static_assert(dummy, "dummy parameter should be true");
@@ -101,6 +100,7 @@ std::ostream *recorder<dummy>::os = 0;
 inline size_t var_id() {
     return recorder<>::var_id();
 }
+/// \endcond
 
 inline std::ostream& get_recorder() {
     return recorder<>::get();
@@ -112,14 +112,13 @@ inline void set_recorder(std::ostream &os) {
     recorder<>::set(os);
 }
 
+/// \cond INTERNAL
 //---------------------------------------------------------------------------
 // Setting up boost::proto.
 //---------------------------------------------------------------------------
-
 struct variable {};
 
 // --- The grammar ----------------------------------------------------------
-
 struct symbolic_grammar
     : boost::proto::or_<
           boost::proto::or_<
