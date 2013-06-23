@@ -278,8 +278,8 @@ class SpMat {
             virtual ~sparse_matrix() {}
         };
 
-#include <vexcl/spmat/hybrid_ell.hpp>
-#include <vexcl/spmat/csr.hpp>
+#include <vexcl/spmat/hybrid_ell.inl>
+#include <vexcl/spmat/csr.inl>
 
         struct exdata {
             std::vector<col_t> cols_to_recv;

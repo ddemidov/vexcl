@@ -1,5 +1,5 @@
-#ifndef VEXCL_SPMAT_HYBRID_ELL_HPP
-#define VEXCL_SPMAT_HYBRID_ELL_HPP
+#ifndef VEXCL_SPMAT_HYBRID_ELL_INL
+#define VEXCL_SPMAT_HYBRID_ELL_INL
 
 /*
 The MIT License
@@ -26,7 +26,7 @@ THE SOFTWARE.
 */
 
 /**
- * \file   vexcl/spmat/hybrid_ell.hpp
+ * \file   vexcl/spmat/hybrid_ell.inl
  * \author Denis Demidov <ddemidov@ksu.ru>
  * \brief  OpenCL sparse matrix in Hybrid ELL-CSR format.
  */

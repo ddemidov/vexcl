@@ -1,5 +1,5 @@
-#ifndef VEXCL_SPMAT_CSR_HPP
-#define VEXCL_SPMAT_CSR_HPP
+#ifndef VEXCL_SPMAT_CSR_INL
+#define VEXCL_SPMAT_CSR_INL
 
 /*
 The MIT License
@@ -26,7 +26,7 @@ THE SOFTWARE.
 */
 
 /**
- * \file   vexcl/spmat/csr.hpp
+ * \file   vexcl/spmat/csr.inl
  * \author Denis Demidov <ddemidov@ksu.ru>
  * \brief  OpenCL sparse matrix in CSR format.
  */
