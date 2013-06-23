@@ -31,7 +31,8 @@ THE SOFTWARE.
  * \brief  Gather scattered points from OpenCL device vector.
  */
 
-#include <CL/cl.hpp>
+#include <vexcl/operations.hpp>
+#include <vexcl/vector.hpp>
 
 namespace vex {
 

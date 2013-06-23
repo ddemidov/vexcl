@@ -28,7 +28,7 @@ THE SOFTWARE.
 /**
  * \file   devlist.hpp
  * \author Denis Demidov <ddemidov@ksu.ru>
- * \brief  OpenCL device enumeration.
+ * \brief  OpenCL device enumeration and context initialization.
  */
 
 #ifdef WIN32
@@ -40,6 +40,7 @@ THE SOFTWARE.
 #include <vector>
 #include <string>
 #include <fstream>
+#include <limits>
 #include <cstdlib>
 
 #include <boost/config.hpp>

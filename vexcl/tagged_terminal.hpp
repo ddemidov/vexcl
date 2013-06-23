@@ -31,6 +31,12 @@ THE SOFTWARE.
  * \brief  Tagged terminal wrapper.
  */
 
+#include <vector>
+#include <string>
+#include <sstream>
+
+#include <vexcl/operations.hpp>
+
 namespace vex {
 
 /// \cond INTERNAL

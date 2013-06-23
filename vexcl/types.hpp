@@ -26,10 +26,12 @@ THE SOFTWARE.
 */
 
 /**
- * \file   types.hpp
+ * \file   vexcl/types.hpp
  * \author Pascal Germroth <pascal@ensieve.org>
  * \brief  Support for using native C++ and OpenCL types in expressions.
  */
+
+#include <string>
 
 #ifndef __CL_ENABLE_EXCEPTIONS
 #  define __CL_ENABLE_EXCEPTIONS

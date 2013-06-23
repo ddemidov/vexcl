@@ -45,6 +45,7 @@ THE SOFTWARE.
 #include <stack>
 #include <vector>
 #include <cassert>
+
 #include <boost/chrono.hpp>
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/ordered_index.hpp>
@@ -55,7 +56,6 @@ THE SOFTWARE.
 #ifndef __CL_ENABLE_EXCEPTIONS
 #  define __CL_ENABLE_EXCEPTIONS
 #endif
-
 #include <CL/cl.hpp>
 
 

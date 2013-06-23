@@ -39,13 +39,13 @@ THE SOFTWARE.
 
 #include <vector>
 #include <set>
-#include <map>
 #include <unordered_map>
 #include <string>
 #include <memory>
 #include <algorithm>
 #include <iostream>
 #include <type_traits>
+
 #include <vexcl/vector.hpp>
 
 namespace vex {

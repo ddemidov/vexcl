@@ -31,7 +31,6 @@ THE SOFTWARE.
  * \brief  Element index for use in vector expressions.
  */
 
-#include <boost/proto/proto.hpp>
 #include <vexcl/operations.hpp>
 
 namespace vex {
@@ -53,14 +52,10 @@ element_index(size_t offset = 0) {
 namespace traits {
 
 template <>
-struct is_vector_expr_terminal< elem_index >
-    : std::true_type
-{ };
+struct is_vector_expr_terminal< elem_index > : std::true_type {};
 
 template <>
-struct is_multivector_expr_terminal< elem_index >
-    : std::true_type
-{ };
+struct is_multivector_expr_terminal< elem_index > : std::true_type {};
 
 template <class T>
 struct kernel_name< T, typename std::enable_if<

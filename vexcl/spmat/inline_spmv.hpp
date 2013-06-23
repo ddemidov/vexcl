@@ -35,7 +35,6 @@ namespace vex {
 
 /// \cond INTERNAL
 struct inline_spmv_terminal {};
-struct mv_inline_spmv_terminal {};
 
 typedef vector_expression<
     typename boost::proto::terminal< inline_spmv_terminal >::type
@@ -48,19 +47,6 @@ struct inline_spmv : inline_spmv_terminal_expression {
     const typename Base::vec &x;
 
     inline_spmv(const Base &base) : A(base.A), x(base.x) {}
-};
-
-typedef multivector_expression<
-    typename boost::proto::terminal< mv_inline_spmv_terminal >::type
-    > mv_inline_spmv_terminal_expression;
-
-template <typename val_t, typename col_t, typename idx_t, class MV>
-struct mv_inline_spmv : mv_inline_spmv_terminal_expression {
-    typedef multispmv<val_t, col_t, idx_t, MV> Base;
-    const typename Base::mat &A;
-    const MV                 &x;
-
-    mv_inline_spmv(const Base &base) : A(base.A), x(base.x) {}
 };
 /// \endcond
 
@@ -85,6 +71,24 @@ make_inline(const spmv<val_t, col_t, idx_t> &base) {
     return inline_spmv<val_t, col_t, idx_t>(base);
 }
 
+#ifdef VEXCL_MULTIVECTOR_HPP
+/// \cond INTERNAL
+struct mv_inline_spmv_terminal {};
+
+typedef multivector_expression<
+    typename boost::proto::terminal< mv_inline_spmv_terminal >::type
+    > mv_inline_spmv_terminal_expression;
+
+template <typename val_t, typename col_t, typename idx_t, class MV>
+struct mv_inline_spmv : mv_inline_spmv_terminal_expression {
+    typedef multispmv<val_t, col_t, idx_t, MV> Base;
+    const typename Base::mat &A;
+    const MV                 &x;
+
+    mv_inline_spmv(const Base &base) : A(base.A), x(base.x) {}
+};
+/// \endcond
+
 /// Inlines a sparse matrix - multivector product.
 /**
  * When applied to a matrix-multivector product, the product becomes
@@ -105,6 +109,7 @@ make_inline(const multispmv<val_t, col_t, idx_t, MV> &base) {
 
     return mv_inline_spmv<val_t, col_t, idx_t, MV>(base);
 }
+#endif
 
 /// \cond INTERNAL
 // Allow inline products to participate in vector expressions:
@@ -115,6 +120,7 @@ struct is_vector_expr_terminal< inline_spmv_terminal >
     : std::true_type
 { };
 
+#ifdef VEXCL_MULTIVECTOR_HPP
 template <>
 struct is_multivector_expr_terminal< mv_inline_spmv_terminal >
     : std::true_type
@@ -129,6 +135,7 @@ template <size_t I, typename val_t, typename col_t, typename idx_t, typename MV>
 struct component< I, mv_inline_spmv<val_t, col_t, idx_t, MV> > {
     typedef inline_spmv<val_t, col_t, idx_t> type;
 };
+#endif
 
 template <typename val_t, typename col_t, typename idx_t>
 struct kernel_name< inline_spmv<val_t, col_t, idx_t> > {
@@ -191,11 +198,13 @@ struct expression_properties< inline_spmv<val_t, col_t, idx_t> > {
 
 } // namespace traits
 
+#ifdef VEXCL_MULTIVECTOR_HPP
 template <size_t I, typename val_t, typename col_t, typename idx_t, typename MV>
 inline_spmv<val_t, col_t, idx_t>
 get(const mv_inline_spmv<val_t, col_t, idx_t, MV> &t) {
     return make_inline(t.A * t.x(I));
 }
+#endif
 
 /// \endcond
 

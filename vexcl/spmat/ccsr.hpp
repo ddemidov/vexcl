@@ -87,7 +87,6 @@ struct SpMatCCSR {
 
 /// \cond INTERNAL
 struct ccsr_product_terminal {};
-struct mv_ccsr_product_terminal {};
 
 typedef vector_expression<
     typename boost::proto::terminal< ccsr_product_terminal >::type
@@ -112,6 +111,9 @@ ccsr_product<val_t, col_t, idx_t, T> operator*(
     return ccsr_product<val_t, col_t, idx_t, T>(A, x);
 }
 
+
+#ifdef VEXCL_MULTIVECTOR_HPP
+struct mv_ccsr_product_terminal {};
 
 typedef multivector_expression<
     typename boost::proto::terminal< mv_ccsr_product_terminal >::type
@@ -139,6 +141,7 @@ operator*(
 {
     return mv_ccsr_product<val_t, col_t, idx_t, MV>(A, x);
 }
+#endif
 
 
 // Allow ccsr_product to participate in vector expressions:
@@ -149,13 +152,14 @@ struct is_vector_expr_terminal< ccsr_product_terminal >
     : std::true_type
 { };
 
+#ifdef VEXCL_MULTIVECTOR_HPP
 template <>
-struct is_multivector_expr_terminal< mv_ccsr_product_terminal >
+struct proto_terminal_is_value< mv_ccsr_product_terminal >
     : std::true_type
 { };
 
 template <>
-struct proto_terminal_is_value< mv_ccsr_product_terminal >
+struct is_multivector_expr_terminal< mv_ccsr_product_terminal >
     : std::true_type
 { };
 
@@ -165,6 +169,7 @@ struct component< I, mv_ccsr_product<val_t, col_t, idx_t, MV> > {
         ccsr_product<val_t, col_t, idx_t, typename MV::sub_value_type>
         type;
 };
+#endif
 
 template <typename val_t, typename col_t, typename idx_t, typename T>
 struct kernel_name< ccsr_product<val_t, col_t, idx_t, T> > {
@@ -273,11 +278,13 @@ struct expression_properties< ccsr_product<val_t, col_t, idx_t, T> > {
 
 } // namespace traits
 
+#ifdef VEXCL_MULTIVECTOR_HPP
 template <size_t I, typename val_t, typename col_t, typename idx_t, typename MV>
 ccsr_product<val_t, col_t, idx_t, typename MV::sub_value_type>
 get(const mv_ccsr_product<val_t, col_t, idx_t, MV> &t) {
     return t.A * t.x(I);
 }
+#endif
 
 /// \endcond
 

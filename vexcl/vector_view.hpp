@@ -31,7 +31,10 @@ THE SOFTWARE.
  * \brief  Provides sub-view for an existing vex::vector.
  */
 
+#include <vector>
 #include <array>
+#include <string>
+#include <sstream>
 #include <numeric>
 #include <algorithm>
 

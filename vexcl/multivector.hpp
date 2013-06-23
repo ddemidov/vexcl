@@ -44,7 +44,6 @@ THE SOFTWARE.
 #include <sstream>
 #include <string>
 #include <type_traits>
-#include <functional>
 #include <boost/proto/proto.hpp>
 
 #include <vexcl/util.hpp>

@@ -31,6 +31,7 @@ THE SOFTWARE.
  * \brief  Random generators.
  */
 
+#include <vexcl/operations.hpp>
 #include <vexcl/random/philox.hpp>
 #include <vexcl/random/threefry.hpp>
 

@@ -38,10 +38,13 @@ THE SOFTWARE.
 #endif
 
 #include <vector>
+#include <array>
+#include <string>
 #include <sstream>
 #include <numeric>
 #include <limits>
-#include <vexcl/vector.hpp>
+
+#include <vexcl/operations.hpp>
 
 namespace vex {
 
@@ -131,14 +134,12 @@ class Reductor {
         >::type
         operator()(const Expr &expr) const;
 
-#ifdef VEXCL_MULTIVECTOR_HPP
         template <class Expr>
         typename std::enable_if<
             boost::proto::matches<Expr, multivector_expr_grammar>::value,
             std::array<real, boost::result_of<traits::multiex_dimension(Expr)>::type::value>
         >::type
         operator()(const Expr &expr) const;
-#endif
     private:
         const std::vector<cl::CommandQueue> &queue;
         std::vector<size_t> idx;
@@ -338,7 +339,6 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
     return RDC::reduce(hbuf.begin(), hbuf.end());
 }
 
-#ifdef VEXCL_MULTIVECTOR_HPP
 template <typename real, class RDC> template <class Expr>
 typename std::enable_if<
     boost::proto::matches<Expr, multivector_expr_grammar>::value,
@@ -352,7 +352,6 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
 
     return result;
 }
-#endif
 
 } // namespace vex
 

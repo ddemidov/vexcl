@@ -416,8 +416,7 @@ following example implements non-linear operator `y(i) = sin(x(i) - x(i - 1)) +
 sin(x(i+1) - sin(x(i))`:
 ~~~{.cpp}
 VEX_STENCIL_OPERATOR(S, /*return type:*/double, /*window width:*/3, /*center:*/1,
-    "return sin(X[0] - X[-1]) + sin(X[1] - X[0]);"
-    );
+    "return sin(X[0] - X[-1]) + sin(X[1] - X[0]);", ctx);
 
 Z = S(Y);
 ~~~
