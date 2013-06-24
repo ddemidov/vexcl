@@ -94,12 +94,12 @@ struct SpMatCSR : public sparse_matrix {
             std::unordered_map<col_t, col_t> r2l(2 * ghost_cols.size());
             size_t nghost = 0;
             for(auto c = ghost_cols.begin(); c != ghost_cols.end(); ++c)
-                r2l[*c] = nghost++;
+                r2l[*c] = static_cast<col_t>(nghost++);
 
             for(size_t i = row_begin; i < row_end; ++i) {
                 for(idx_t j = row[i]; j < row[i + 1]; j++) {
                     if (is_local(col[j])) {
-                        lcol.push_back(col[j] - col_begin);
+                        lcol.push_back(static_cast<col_t>(col[j] - col_begin));
                         lval.push_back(val[j]);
                     } else {
                         assert(r2l.count(col[j]));
@@ -108,8 +108,8 @@ struct SpMatCSR : public sparse_matrix {
                     }
                 }
 
-                lrow.push_back(lcol.size());
-                rrow.push_back(rcol.size());
+                lrow.push_back(static_cast<idx_t>(lcol.size()));
+                rrow.push_back(static_cast<idx_t>(rcol.size()));
             }
 
 
@@ -265,7 +265,7 @@ struct SpMatCSR : public sparse_matrix {
         return s.str();
     }
 
-    void setArgs(cl::Kernel &krn, uint device, uint &pos, const vector<val_t> &x) const {
+    void setArgs(cl::Kernel &krn, unsigned device, unsigned &pos, const vector<val_t> &x) const {
         krn.setArg(pos++, loc.row);
         krn.setArg(pos++, loc.col);
         krn.setArg(pos++, loc.val);

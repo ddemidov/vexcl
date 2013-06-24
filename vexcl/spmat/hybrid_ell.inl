@@ -132,7 +132,7 @@ struct SpMatHELL : public sparse_matrix {
         std::unordered_map<col_t,col_t> r2l(2 * ghost_cols.size());
         size_t nghost = 0;
         for(auto c = ghost_cols.begin(); c != ghost_cols.end(); c++)
-            r2l[*c] = nghost++;
+            r2l[*c] = static_cast<col_t>(nghost++);
 
         // Prepare ELL and COO formats for transfer to devices.
         const col_t not_a_column = static_cast<col_t>(-1);
@@ -166,11 +166,11 @@ struct SpMatHELL : public sparse_matrix {
             for(idx_t j = row[i]; j < row[i + 1]; ++j) {
                 if (is_local(col[j])) {
                     if (lcnt < loc.ell.width) {
-                        lell_col[k + pitch * lcnt] = col[j] - col_begin;
+                        lell_col[k + pitch * lcnt] = static_cast<col_t>(col[j] - col_begin);
                         lell_val[k + pitch * lcnt] = val[j];
                         ++lcnt;
                     } else {
-                        lcsr_col.push_back(col[j] - col_begin);
+                        lcsr_col.push_back(static_cast<col_t>(col[j] - col_begin));
                         lcsr_val.push_back(val[j]);
                     }
                 } else {
@@ -186,8 +186,8 @@ struct SpMatHELL : public sparse_matrix {
                 }
             }
 
-            lcsr_row.push_back(lcsr_col.size());
-            rcsr_row.push_back(rcsr_col.size());
+            lcsr_row.push_back(static_cast<idx_t>(lcsr_col.size()));
+            rcsr_row.push_back(static_cast<idx_t>(rcsr_col.size()));
         }
 
         /* Copy data to device */
@@ -389,7 +389,7 @@ struct SpMatHELL : public sparse_matrix {
         return s.str();
     }
 
-    void setArgs(cl::Kernel &krn, uint device, uint &pos, const vector<val_t> &x) const {
+    void setArgs(cl::Kernel &krn, unsigned device, unsigned &pos, const vector<val_t> &x) const {
         krn.setArg(pos++, loc.ell.width);
         krn.setArg(pos++, pitch);
         if (loc.ell.width) {

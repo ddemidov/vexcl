@@ -31,9 +31,7 @@ THE SOFTWARE.
  * \brief  Vector expression reduction.
  */
 
-#ifdef WIN32
-#  pragma warning(push)
-#  pragma warning(disable : 4146 4290 4715)
+#ifdef _MSC_VER
 #  define NOMINMAX
 #endif
 
@@ -306,7 +304,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
             size_t g_size = (idx[d + 1] - idx[d]) * w_size;
             auto   lmem   = vex::Local(w_size * sizeof(real));
 
-            uint pos = 0;
+            unsigned pos = 0;
             kernel->second.kernel.setArg(pos++, psize);
 
             extract_terminals()(
@@ -324,13 +322,13 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
 
     std::fill(hbuf.begin(), hbuf.end(), RDC::template initial<real>());
 
-    for(uint d = 0; d < queue.size(); d++) {
+    for(unsigned d = 0; d < queue.size(); d++) {
         if (prop.part_size(d))
             queue[d].enqueueReadBuffer(dbuf[d], CL_FALSE,
                     0, sizeof(real) * (idx[d + 1] - idx[d]), &hbuf[idx[d]], 0, &event[d]);
     }
 
-    for(uint d = 0; d < queue.size(); d++)
+    for(unsigned d = 0; d < queue.size(); d++)
         if (prop.part_size(d)) event[d].wait();
 
     return RDC::reduce(hbuf.begin(), hbuf.end());
@@ -351,9 +349,5 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
 }
 
 } // namespace vex
-
-#ifdef WIN32
-#  pragma warning(pop)
-#endif
 
 #endif

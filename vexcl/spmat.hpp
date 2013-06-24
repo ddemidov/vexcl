@@ -31,9 +31,7 @@ THE SOFTWARE.
  * \brief  OpenCL sparse matrix.
  */
 
-#ifdef WIN32
-#  pragma warning(push)
-#  pragma warning(disable : 4267 4290 4800)
+#ifdef _MSC_VER
 #  define NOMINMAX
 #endif
 
@@ -134,7 +132,7 @@ class SpMat {
 
             if (rx.size()) {
                 // Transfer remote parts of the input vector.
-                for(uint d = 0; d < queue.size(); d++) {
+                for(unsigned d = 0; d < queue.size(); d++) {
                     cl::Context context = qctx(queue[d]);
                     cl::Device  device  = qdev(queue[d]);
 
@@ -169,7 +167,7 @@ class SpMat {
                     if (size_t ncols = cidx[d + 1] - cidx[d]) {
                         size_t g_size = alignup(ncols, gather->second.wgsize);
 
-                        uint pos = 0;
+                        unsigned pos = 0;
                         gather->second.kernel.setArg(pos++, ncols);
                         gather->second.kernel.setArg(pos++, x(d));
                         gather->second.kernel.setArg(pos++, exc[d].cols_to_send);
@@ -186,15 +184,15 @@ class SpMat {
             }
 
             // Compute contribution from local part of the matrix.
-            for(uint d = 0; d < queue.size(); d++)
+            for(unsigned d = 0; d < queue.size(); d++)
                 if (mtx[d]) mtx[d]->mul_local(x(d), y(d), alpha, append);
 
             // Compute contribution from remote part of the matrix.
             if (rx.size()) {
-                for(uint d = 0; d < queue.size(); d++)
+                for(unsigned d = 0; d < queue.size(); d++)
                     if (cidx[d + 1] > cidx[d]) event2[d][0].wait();
 
-                for(uint d = 0; d < queue.size(); d++) {
+                for(unsigned d = 0; d < queue.size(); d++) {
                     cl::Context context = qctx(queue[d]);
 
                     if (exc[d].cols_to_recv.size()) {
@@ -249,8 +247,8 @@ class SpMat {
                 return SpMatHELL::inline_parameters(component, position);
         }
 
-        static void inline_arguments(cl::Kernel &kernel, uint device,
-                size_t /*index_offset*/, uint &position,
+        static void inline_arguments(cl::Kernel &kernel, unsigned device,
+                size_t /*index_offset*/, unsigned &position,
                 const SpMat &A, const vector<val_t> &x,
                 detail::kernel_generator_state&)
         {
@@ -273,7 +271,7 @@ class SpMat {
                     val_t alpha, const std::vector<cl::Event> &event
                     ) const = 0;
 
-            virtual void setArgs(cl::Kernel &kernel, uint device, uint &position, const vector<val_t> &x) const = 0;
+            virtual void setArgs(cl::Kernel &kernel, unsigned device, unsigned &position, const vector<val_t> &x) const = 0;
 
             virtual ~sparse_matrix() {}
         };
@@ -336,7 +334,7 @@ class SpMat {
             std::vector<col_t> cols_to_send;
             {
                 std::set<col_t> cols_to_send_s;
-                for(uint d = 0; d < queue.size(); d++)
+                for(unsigned d = 0; d < queue.size(); d++)
                     cols_to_send_s.insert(ghost_cols[d].begin(), ghost_cols[d].end());
 
                 cols_to_send.insert(cols_to_send.begin(), cols_to_send_s.begin(), cols_to_send_s.end());
@@ -353,7 +351,8 @@ class SpMat {
                         exc[d].rx = cl::Buffer(qctx(queue[d]), CL_MEM_READ_ONLY, rcols * sizeof(val_t));
 
                         for(size_t i = 0, j = 0; i < cols_to_send.size(); i++)
-                            if (ghost_cols[d].count(cols_to_send[i])) exc[d].cols_to_recv[j++] = i;
+                            if (ghost_cols[d].count(cols_to_send[i]))
+                                exc[d].cols_to_recv[j++] = static_cast<col_t>(i);
                     }
                 }
 
@@ -363,14 +362,14 @@ class SpMat {
                 {
                     auto beg = cols_to_send.begin();
                     auto end = cols_to_send.end();
-                    for(uint d = 0; d <= queue.size(); d++) {
+                    for(unsigned d = 0; d <= queue.size(); d++) {
                         cidx[d] = std::lower_bound(beg, end, static_cast<col_t>(col_part[d]))
                                 - cols_to_send.begin();
                         beg = cols_to_send.begin() + cidx[d];
                     }
                 }
 
-                for(uint d = 0; d < queue.size(); d++) {
+                for(unsigned d = 0; d < queue.size(); d++) {
                     if (size_t ncols = cidx[d + 1] - cidx[d]) {
                         cl::Context context = qctx(queue[d]);
 
@@ -381,7 +380,7 @@ class SpMat {
                                 context, CL_MEM_READ_WRITE, ncols * sizeof(val_t));
 
                         for(size_t i = cidx[d]; i < cidx[d + 1]; i++)
-                            cols_to_send[i] -= col_part[d];
+                            cols_to_send[i] -= static_cast<col_t>(col_part[d]);
 
                         queue[d].enqueueWriteBuffer(
                                 exc[d].cols_to_send, CL_TRUE, 0, ncols * sizeof(col_t),
@@ -451,9 +450,7 @@ struct multispmv
     template <bool negate, bool append, class W>
     typename std::enable_if<
         std::is_base_of<multivector_terminal_expression, W>::value
-#ifndef WIN32
         && std::is_same<val_t, typename W::sub_value_type>::value
-#endif
         && traits::number_of_components<MV>::value == traits::number_of_components<W>::value,
         void
     >::type
@@ -574,9 +571,5 @@ inline double device_spmv_perf(const cl::CommandQueue &q) {
 
 #include <vexcl/spmat/ccsr.hpp>
 #include <vexcl/spmat/inline_spmv.hpp>
-
-#ifdef WIN32
-#  pragma warning(pop)
-#endif
 
 #endif

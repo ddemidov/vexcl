@@ -31,8 +31,7 @@ THE SOFTWARE.
  * \brief  Templates used for expression tree traversal and kernel generation.
  */
 
-#ifdef WIN32
-#  pragma warning(push)
+#ifdef _MSC_VER
 #  define NOMINMAX
 #endif
 
@@ -169,8 +168,8 @@ struct partial_vector_expr {
 // How to set OpenCL kernel arguments for a terminal:
 template <class Term, class Enable = void>
 struct kernel_arg_setter {
-    static void set(cl::Kernel &kernel, uint/*device*/, size_t/*index_offset*/,
-            uint &position, const Term &term, detail::kernel_generator_state&)
+    static void set(cl::Kernel &kernel, unsigned/*device*/, size_t/*index_offset*/,
+            unsigned &position, const Term &term, detail::kernel_generator_state&)
     {
         kernel.setArg(position++, boost::proto::value(term));
     }
@@ -661,14 +660,14 @@ struct UserFunction<Impl, RetType(ArgType...)> : user_function
     }
 
     template <class Head>
-    static void show_arg(std::ostream &os, uint pos) {
+    static void show_arg(std::ostream &os, unsigned pos) {
         if (pos > 1) os << ",";
         os << "\n\t" << type_name<Head>() << " prm" << pos;
     }
 
     template <class Head, class... Tail>
     static typename std::enable_if<sizeof...(Tail), void>::type
-    show_arg(std::ostream &os, uint pos) {
+    show_arg(std::ostream &os, unsigned pos) {
         if (pos > 1) os << ",";
         show_arg<Tail...>(
                 os << "\n\t" << type_name<Head>() << " prm" << pos, pos + 1
@@ -1297,10 +1296,10 @@ struct declare_expression_parameter : expression_context {
 
 struct set_expression_argument : expression_context {
     cl::Kernel &krn;
-    uint dev, &pos;
+    unsigned dev, &pos;
     size_t part_start;
 
-    set_expression_argument(cl::Kernel &krn, uint dev, uint &pos, size_t part_start)
+    set_expression_argument(cl::Kernel &krn, unsigned dev, unsigned &pos, size_t part_start)
         : krn(krn), dev(dev), pos(pos), part_start(part_start) {}
 
     template <typename T>
@@ -1317,11 +1316,11 @@ struct get_expression_properties {
 
     get_expression_properties() : size(0) {}
 
-    size_t part_start(uint d) const {
+    size_t part_start(unsigned d) const {
         return part.empty() ? 0 : part[d];
     }
 
-    size_t part_size(uint d) const {
+    size_t part_size(unsigned d) const {
         return part.empty() ? 0 : part[d + 1] - part[d];
     }
 
@@ -1570,7 +1569,7 @@ void assign_expression(LHS &lhs, const Expr &expr,
 {
     static kernel_cache cache;
 
-    for(uint d = 0; d < queue.size(); d++) {
+    for(unsigned d = 0; d < queue.size(); d++) {
         cl::Context context = qctx(queue[d]);
         cl::Device  device  = qdev(queue[d]);
 
@@ -1640,7 +1639,7 @@ void assign_expression(LHS &lhs, const Expr &expr,
             size_t w_size = kernel->second.wgsize;
             size_t g_size = num_workgroups(device) * w_size;
 
-            uint pos = 0;
+            unsigned pos = 0;
             kernel->second.kernel.setArg(pos++, psize);
 
             set_expression_argument setarg(kernel->second.kernel, d, pos, part[d]);

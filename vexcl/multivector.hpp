@@ -31,9 +31,7 @@ THE SOFTWARE.
  * \brief  OpenCL device multi-vector.
  */
 
-#ifdef WIN32
-#  pragma warning(push)
-#  pragma warning(disable : 4267 4290)
+#ifdef _MSC_VER
 #  define NOMINMAX
 #endif
 
@@ -148,12 +146,12 @@ class multivector : public multivector_terminal_expression {
             public:
                 operator const value_type () const {
                     value_type val;
-                    for(uint i = 0; i < N; i++) val[i] = vec(i)[index];
+                    for(unsigned i = 0; i < N; i++) val[i] = vec(i)[index];
                     return val;
                 }
 
                 const value_type operator=(value_type val) {
-                    for(uint i = 0; i < N; i++) vec(i)[index] = val[i];
+                    for(unsigned i = 0; i < N; i++) vec(i)[index] = val[i];
                     return val;
                 }
             private:
@@ -171,7 +169,7 @@ class multivector : public multivector_terminal_expression {
             public:
                 operator const value_type () const {
                     value_type val;
-                    for(uint i = 0; i < N; i++) val[i] = vec(i)[index];
+                    for(unsigned i = 0; i < N; i++) val[i] = vec(i)[index];
                     return val;
                 }
             private:
@@ -227,7 +225,7 @@ class multivector : public multivector_terminal_expression {
             static_assert(own,
                     "Empty constructor unavailable for referenced-type multivector");
 
-            for(uint i = 0; i < N; i++) vec[i].reset(new vex::vector<T>());
+            for(unsigned i = 0; i < N; i++) vec[i].reset(new vex::vector<T>());
         };
 
         /// Constructor.
@@ -252,7 +250,7 @@ class multivector : public multivector_terminal_expression {
             size_t size = host.size() / N;
             assert(N * size == host.size());
 
-            for(uint i = 0; i < N; i++)
+            for(unsigned i = 0; i < N; i++)
                 vec[i].reset(new vex::vector<T>(
                         queue, size, host.data() + i * size, flags
                         ) );
@@ -276,7 +274,7 @@ class multivector : public multivector_terminal_expression {
             static_assert(own, "Wrong constructor for non-owning multivector");
             static_assert(N > 0, "What's the point?");
 
-            for(uint i = 0; i < N; i++)
+            for(unsigned i = 0; i < N; i++)
                 vec[i].reset(new vex::vector<T>(
                         queue, size, host ? host + i * size : 0, flags
                         ) );
@@ -287,7 +285,7 @@ class multivector : public multivector_terminal_expression {
             static_assert(own, "Wrong constructor for non-owning multivector");
             static_assert(N > 0, "What's the point?");
 
-            for(uint i = 0; i < N; i++) vec[i].reset(new vex::vector<T>(size));
+            for(unsigned i = 0; i < N; i++) vec[i].reset(new vex::vector<T>(size));
         }
 
         /// Copy constructor.
@@ -307,12 +305,12 @@ class multivector : public multivector_terminal_expression {
 
         /// Resize multivector.
         void resize(const std::vector<cl::CommandQueue> &queue, size_t size) {
-            for(uint i = 0; i < N; i++) vec[i]->resize(queue, size);
+            for(unsigned i = 0; i < N; i++) vec[i]->resize(queue, size);
         }
 
         /// Resize multivector.
         void resize(size_t size) {
-            for(uint i = 0; i < N; i++) vec[i]->resize(size);
+            for(unsigned i = 0; i < N; i++) vec[i]->resize(size);
         }
 
         /// Fills multivector with zeros.
@@ -326,12 +324,12 @@ class multivector : public multivector_terminal_expression {
         }
 
         /// Returns multivector component.
-        const vex::vector<T>& operator()(uint i) const {
+        const vex::vector<T>& operator()(size_t i) const {
             return *vec[i];
         }
 
         /// Returns multivector component.
-        vex::vector<T>& operator()(uint i) {
+        vex::vector<T>& operator()(size_t i) {
             return *vec[i];
         }
 
@@ -373,7 +371,7 @@ class multivector : public multivector_terminal_expression {
         /// Assignment to a multivector.
         const multivector& operator=(const multivector &mv) {
             if (this != &mv) {
-                for(uint i = 0; i < N; i++)
+                for(unsigned i = 0; i < N; i++)
                     *vec[i] = mv(i);
             }
             return *this;
@@ -527,14 +525,14 @@ class multivector : public multivector_terminal_expression {
         template <bool own_components>
         typename std::enable_if<own_components,void>::type
         copy_components(const multivector &mv) {
-            for(uint i = 0; i < N; i++)
+            for(unsigned i = 0; i < N; i++)
                 vec[i].reset(new vex::vector<T>(mv(i)));
         }
 
         template <bool own_components>
         typename std::enable_if<!own_components,void>::type
         copy_components(const multivector &mv) {
-            for(uint i = 0; i < N; i++)
+            for(unsigned i = 0; i < N; i++)
                 vec[i] = mv.vec[i];
         }
 
@@ -680,7 +678,7 @@ class multivector : public multivector_terminal_expression {
                 return;
             }
 
-            for(uint d = 0; d < queue.size(); d++) {
+            for(unsigned d = 0; d < queue.size(); d++) {
                 cl::Context context = qctx(queue[d]);
                 cl::Device  device  = qdev(queue[d]);
 
@@ -716,7 +714,7 @@ class multivector : public multivector_terminal_expression {
 
                     source << "\n";
 
-                    for(uint i = 1; i <= N; ++i)
+                    for(unsigned i = 1; i <= N; ++i)
                         source << "\t\tres_" << i << "[idx] " << OP::string() << " buf_" << i << ";\n";
 
                     source << "\t}\n}\n";
@@ -735,10 +733,10 @@ class multivector : public multivector_terminal_expression {
                     size_t w_size = kernel->second.wgsize;
                     size_t g_size = num_workgroups(device) * w_size;
 
-                    uint pos = 0;
+                    unsigned pos = 0;
                     kernel->second.kernel.setArg(pos++, psize);
 
-                    for(uint i = 0; i < N; i++)
+                    for(unsigned i = 0; i < N; i++)
                         kernel->second.kernel.setArg(pos++, vec[i]->operator()(d));
 
                     static_for<0, N>::loop(
@@ -762,14 +760,14 @@ namespace traits {
 /// Copy multivector to host vector.
 template <class T, size_t N, bool own>
 void copy(const multivector<T,N,own> &mv, std::vector<T> &hv) {
-    for(uint i = 0; i < N; i++)
+    for(unsigned i = 0; i < N; i++)
         vex::copy(mv(i).begin(), mv(i).end(), hv.begin() + i * mv.size());
 }
 
 /// Copy host vector to multivector.
 template <class T, size_t N, bool own>
 void copy(const std::vector<T> &hv, multivector<T,N,own> &mv) {
-    for(uint i = 0; i < N; i++)
+    for(unsigned i = 0; i < N; i++)
         vex::copy(hv.begin() + i * mv.size(), hv.begin() + (i + 1) * mv.size(),
                 mv(i).begin());
 }

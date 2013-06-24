@@ -126,9 +126,9 @@ BOOST_AUTO_TEST_CASE(vector_values)
     vex::vector<cl_int4> X(ctx, N);
     X = c * (make_int4(5 + vex::element_index()));
 
-    check_sample(X, [c](long idx, cl_int4 v) {
+    check_sample(X, [c](size_t idx, cl_int4 v) {
             for(int j = 0; j < 4; ++j)
-                BOOST_CHECK(v.s[j] == c.s[j] * (5 + idx));
+                BOOST_CHECK(v.s[j] == c.s[j] * (5 + static_cast<int>(idx)));
             });
 }
 

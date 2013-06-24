@@ -205,7 +205,8 @@ struct plan {
     //  1D case: {n}.
     //  2D case: {h, w} in row-major format: x + y * w. (like FFTw)
     //  etc.
-    plan(const std::vector<cl::CommandQueue> &_queues, const std::vector<size_t> sizes, const std::vector<direction> dirs, const Planner &planner = Planner())
+    plan(const std::vector<cl::CommandQueue> &_queues, const std::vector<size_t> sizes,
+        const std::vector<direction> dirs, const Planner &planner = Planner())
         : queues(_queues), planner(planner), sizes(sizes), profile(NULL)
     {
         assert(sizes.size() >= 1);

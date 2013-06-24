@@ -5,9 +5,18 @@
 #include <vexcl/stencil.hpp>
 #include "context_setup.hpp"
 
+struct index {
+    size_t n;
+    index(size_t n) : n(n) {}
+
+    size_t operator()(size_t i, long shift) const {
+        return std::min<size_t>(n - 1, std::max<long>(0, static_cast<long>(i) + shift));
+    }
+};
+
 BOOST_AUTO_TEST_CASE(stencil_convolution)
 {
-    const int n = 1024;
+    const size_t n = 1024;
 
     std::vector<double> s = random_vector<double>(rand() % 64 + 1);
 
@@ -24,23 +33,25 @@ BOOST_AUTO_TEST_CASE(stencil_convolution)
     Y = 1;
     Y += X * S;
 
-    check_sample(Y, [&](int i, double a) {
+    index idx(n);
+
+    check_sample(Y, [&](size_t i, double a) {
         double sum = 1;
         size_t j = 0;
         int k = -center;
         for(; j < s.size(); k++, j++)
-            sum += s[j] * x[std::min(n - 1, std::max(0, i + k))];
+            sum += s[j] * x[idx(i, k)];
         BOOST_CHECK_CLOSE(a, sum, 1e-8);
     });
 
     Y = 42 * (X * S);
 
-    check_sample(Y, [&](int i, double a) {
+    check_sample(Y, [&](size_t i, double a) {
         double sum = 0;
         size_t j = 0;
         int k = -center;
         for(; j < s.size(); k++, j++)
-            sum += s[j] * x[std::min(n - 1, std::max(0, i + k))];
+            sum += s[j] * x[idx(i, k)];
         BOOST_CHECK_CLOSE(a, 42 * sum, 1e-8);
     });
 }
@@ -49,7 +60,7 @@ BOOST_AUTO_TEST_CASE(stencil_convolution)
 // Boost upto v1.49 segfaults on this test
 BOOST_AUTO_TEST_CASE(two_stencils)
 {
-    const int n = 32;
+    const size_t n = 32;
     std::vector<double> s(5, 1);
     vex::stencil<double> S(ctx, s, 3);
     vex::vector<double> X(ctx, n);
@@ -66,7 +77,7 @@ BOOST_AUTO_TEST_CASE(two_stencils)
 
 BOOST_AUTO_TEST_CASE(small_vector)
 {
-    const int n = 128;
+    const size_t n = 128;
 
     std::vector<double> s = random_vector<double>(rand() % 64 + 1);
 
@@ -82,12 +93,14 @@ BOOST_AUTO_TEST_CASE(small_vector)
     Y = 1;
     Y += X * S;
 
-    check_sample(Y, [&](int i, double a) {
+    index idx(n);
+
+    check_sample(Y, [&](size_t i, double a) {
         double sum = 1;
         size_t j = 0;
         int k = -center;
         for(; j < s.size(); k++, j++)
-            sum += s[j] * x[std::min(n - 1, std::max(0, i + k))];
+            sum += s[j] * x[idx(i, k)];
         BOOST_CHECK_CLOSE(a, sum, 1e-8);
     });
 }
@@ -95,7 +108,7 @@ BOOST_AUTO_TEST_CASE(small_vector)
 BOOST_AUTO_TEST_CASE(multivector)
 {
     typedef std::array<double, 2> elem_t;
-    const int n = 1024;
+    const size_t n = 1024;
 
     std::vector<double> s = random_vector<double>(rand() % 64 + 1);
     int center = rand() % s.size();
@@ -110,13 +123,15 @@ BOOST_AUTO_TEST_CASE(multivector)
     Y = 1;
     Y += X * S;
 
-    check_sample(Y, [&](int i, elem_t a) {
+    index idx(n);
+
+    check_sample(Y, [&](size_t i, elem_t a) {
         double sum[2] = {1, 1};
         size_t j = 0;
         int k = -center;
         for(; j < s.size(); k++, j++) {
-            sum[0] += s[j] * x[0 + std::min(n - 1, std::max(0, i + k))];
-            sum[1] += s[j] * x[n + std::min(n - 1, std::max(0, i + k))];
+            sum[0] += s[j] * x[0 + idx(i, k)];
+            sum[1] += s[j] * x[n + idx(i, k)];
         }
 
         BOOST_CHECK_CLOSE(a[0], sum[0], 1e-8);
@@ -125,13 +140,13 @@ BOOST_AUTO_TEST_CASE(multivector)
 
     Y = 42 * (X * S);
 
-    check_sample(Y, [&](int i, elem_t a) {
+    check_sample(Y, [&](size_t i, elem_t a) {
         double sum[2] = {0, 0};
         size_t j = 0;
         int k = -center;
         for(; j < s.size(); k++, j++) {
-            sum[0] += s[j] * x[0 + std::min(n - 1, std::max(0, i + k))];
-            sum[1] += s[j] * x[n + std::min(n - 1, std::max(0, i + k))];
+            sum[0] += s[j] * x[0 + idx(i, k)];
+            sum[1] += s[j] * x[n + idx(i, k)];
         }
 
         BOOST_CHECK_CLOSE(a[0], 42 * sum[0], 1e-8);
@@ -141,7 +156,7 @@ BOOST_AUTO_TEST_CASE(multivector)
 
 BOOST_AUTO_TEST_CASE(big_stencil)
 {
-    const int n = 1 << 16;
+    const size_t n = 1 << 16;
 
     std::vector<double> s = random_vector<double>(2048);
     int center = rand() % s.size();
@@ -153,20 +168,22 @@ BOOST_AUTO_TEST_CASE(big_stencil)
     vex::vector<double> X(ctx, x);
     vex::vector<double> Y(ctx, n);
 
+    index idx(n);
+
     Y = X * S;
-    check_sample(Y, [&](int i, double a) {
+    check_sample(Y, [&](size_t i, double a) {
         double sum = 0;
         size_t j = 0;
         int k = -center;
         for(; j < s.size(); k++, j++)
-            sum += s[j] * x[std::min(n - 1, std::max(0, i + k))];
+            sum += s[j] * x[idx(i, k)];
         BOOST_CHECK_CLOSE(a, sum, 1e-8);
     });
 }
 
 BOOST_AUTO_TEST_CASE(user_defined_stencil)
 {
-    const int n = 1024;
+    const size_t n = 1024;
 
     VEX_STENCIL_OPERATOR(oscillate,
             double, 3, 1,  "return sin(X[1] - X[0]) + sin(X[0] - X[-1]);",
@@ -179,9 +196,11 @@ BOOST_AUTO_TEST_CASE(user_defined_stencil)
 
     Y = oscillate(X);
 
-    check_sample(Y, [&](int i, double a) {
-        int left  = std::max(0, i - 1);
-        int right = std::min(n - 1, i + 1);
+    index idx(n);
+
+    check_sample(Y, [&](size_t i, double a) {
+        size_t left  = idx(i, -1);
+        size_t right = idx(i, +1);
         double s = sin(x[right] - x[i]) + sin(x[i] - x[left]);
         BOOST_CHECK_CLOSE(a, s, 1e-8);
     });
@@ -189,9 +208,9 @@ BOOST_AUTO_TEST_CASE(user_defined_stencil)
 #if BOOST_VERSION >= 105000
     Y = 41 * oscillate(X) + oscillate(X);
 
-    check_sample(Y, [&](int i, double a) {
-        int left  = std::max(0, i - 1);
-        int right = std::min(n - 1, i + 1);
+    check_sample(Y, [&](size_t i, double a) {
+        size_t left  = idx(i, -1);
+        size_t right = idx(i, +1);
         double s = sin(x[right] - x[i]) + sin(x[i] - x[left]);
         BOOST_CHECK_CLOSE(a, 42 * s, 1e-8);
     });

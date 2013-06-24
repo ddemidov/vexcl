@@ -239,6 +239,7 @@ int main(int argc, char *argv[]) {
 
                 return rc;
                 });
+
         run_test("Matrix-vector product", [&]() -> bool {
                 const size_t n  = 1024;
                 const size_t m  = 3;
@@ -267,27 +268,29 @@ int main(int argc, char *argv[]) {
                     size_t i = idx % n;
                     size_t j = idx / n;
 
+		    int c = static_cast<int>(idx);
+
                     if (i == 0 || i + 1 == n || j == 0 || j + 1 == n) {
-                        col.push_back(idx);
+                        col.push_back(c);
                         val.push_back(0);
                     } else {
-                        col.push_back(idx - n);
+                        col.push_back(c - n);
                         val.push_back(-1);
 
-                        col.push_back(idx - 1);
+                        col.push_back(c - 1);
                         val.push_back(-1);
 
-                        col.push_back(idx);
+                        col.push_back(c);
                         val.push_back(4.5);
 
-                        col.push_back(idx + 1);
+                        col.push_back(c + 1);
                         val.push_back(-1);
 
-                        col.push_back(idx + n);
+                        col.push_back(c + n);
                         val.push_back(-1);
                     }
 
-                    row.push_back(col.size());
+                    row.push_back(static_cast<int>(col.size()));
                 }
 
                 vex::mpi::SpMat<double, int, int> A(mpi.comm, ctx,

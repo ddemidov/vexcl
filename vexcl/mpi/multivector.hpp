@@ -152,14 +152,14 @@ class multivector : public mpi_multivector_terminal_expression {
         }
 
         /// Component of the multivector.
-        const vex::mpi::vector<T,false> operator()(uint i) const {
+        const vex::mpi::vector<T,false> operator()(size_t i) const {
             return vex::mpi::vector<T,false>(mpi.comm,
                     const_cast<vex::vector<T>&>(local_data(i))
                     );
         }
 
         /// Component of the multivector.
-        vex::mpi::vector<T,false> operator()(uint i) {
+        vex::mpi::vector<T,false> operator()(size_t i) {
             return vex::mpi::vector<T,false>(mpi.comm, local_data(i));
         }
 

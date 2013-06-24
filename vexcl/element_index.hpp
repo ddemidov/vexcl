@@ -113,8 +113,8 @@ struct kernel_arg_setter< T, typename std::enable_if<
         >::value
     >::type>
 {
-    static void set(cl::Kernel &kernel, uint/*device*/, size_t index_offset,
-            uint &position, const T &term, detail::kernel_generator_state&)
+    static void set(cl::Kernel &kernel, unsigned/*device*/, size_t index_offset,
+            unsigned &position, const T &term, detail::kernel_generator_state&)
     {
         kernel.setArg(position++, boost::proto::value(term).offset + index_offset);
     }

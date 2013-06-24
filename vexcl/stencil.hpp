@@ -31,9 +31,7 @@ THE SOFTWARE.
  * \brief  Stencil convolution.
  */
 
-#ifdef WIN32
-#  pragma warning(push)
-#pragma warning (disable : 4244 4267)
+#ifdef _MSC_VER
 #  define NOMINMAX
 #endif
 
@@ -114,7 +112,7 @@ class stencil_base {
         template <class Iterator>
         stencil_base(
                 const std::vector<cl::CommandQueue> &queue,
-                uint width, uint center, Iterator begin, Iterator end
+                unsigned width, unsigned center, Iterator begin, Iterator end
                 );
 
         void exchange_halos(const vex::vector<T> &x) const;
@@ -133,7 +131,7 @@ class stencil_base {
 template <typename T> template <class Iterator>
 stencil_base<T>::stencil_base(
         const std::vector<cl::CommandQueue> &queue,
-        uint width, uint center, Iterator begin, Iterator end
+        unsigned width, unsigned center, Iterator begin, Iterator end
         )
     : queue(queue), hbuf(queue.size() * (width - 1)),
       dbuf(queue.size()), s(queue.size()), event(queue.size()),
@@ -145,7 +143,7 @@ stencil_base<T>::stencil_base(
     assert(width);
     assert(center < width);
 
-    for(uint d = 0; d < queue.size(); d++) {
+    for(unsigned d = 0; d < queue.size(); d++) {
         cl::Context context = qctx(queue[d]);
         cl::Device  device  = qdev(queue[d]);
 
@@ -168,7 +166,7 @@ stencil_base<T>::stencil_base(
         dbuf[d] = cl::Buffer(context, CL_MEM_READ_WRITE, width * sizeof(T));
     }
 
-    for(uint d = 0; d < queue.size(); d++) event[d].wait();
+    for(unsigned d = 0; d < queue.size(); d++) event[d].wait();
 }
 
 template <typename T>
@@ -178,13 +176,13 @@ void stencil_base<T>::exchange_halos(const vex::vector<T> &x) const {
     if ((queue.size() <= 1) || (width <= 0)) return;
 
     // Get halos from neighbours.
-    for(uint d = 0; d < queue.size(); d++) {
+    for(unsigned d = 0; d < queue.size(); d++) {
         if (!x.part_size(d)) continue;
 
         // Get halo from left neighbour.
         if (d > 0 && lhalo > 0) {
             size_t end   = x.part_start(d);
-            size_t begin = end >= static_cast<uint>(lhalo) ?  end - lhalo : 0;
+            size_t begin = end >= static_cast<unsigned>(lhalo) ?  end - lhalo : 0;
             size_t size  = end - begin;
             x.read_data(begin, size, &hbuf[d * width + lhalo - size], CL_FALSE, &event);
         }
@@ -199,15 +197,15 @@ void stencil_base<T>::exchange_halos(const vex::vector<T> &x) const {
     }
 
     // Wait for the end of transfer.
-    for(uint d = 0; d < queue.size(); d++) event[d].wait();
+    for(unsigned d = 0; d < queue.size(); d++) event[d].wait();
 
     // Write halos to a local buffer.
-    for(uint d = 0; d < queue.size(); d++) {
+    for(unsigned d = 0; d < queue.size(); d++) {
         if (!x.part_size(d)) continue;
 
         if (d > 0 && lhalo > 0) {
             size_t end   = x.part_start(d);
-            size_t begin = end >= static_cast<uint>(lhalo) ?  end - lhalo : 0;
+            size_t begin = end >= static_cast<unsigned>(lhalo) ?  end - lhalo : 0;
             size_t size  = end - begin;
             if (size)
                 std::fill(&hbuf[d * width], &hbuf[d * width + lhalo - size], hbuf[d * width + lhalo - size]);
@@ -232,7 +230,7 @@ void stencil_base<T>::exchange_halos(const vex::vector<T> &x) const {
     }
 
     // Wait for the end of transfer.
-    for(uint d = 0; d < queue.size(); d++) event[d].wait();
+    for(unsigned d = 0; d < queue.size(); d++) event[d].wait();
 }
 
 /// \endcond
@@ -265,13 +263,13 @@ class stencil : private stencil_base<T> {
          * \param center center of the stencil.
          */
         stencil(const std::vector<cl::CommandQueue> &queue,
-                const std::vector<T> &st, uint center
+                const std::vector<T> &st, unsigned center
                 )
-            : stencil_base<T>(queue, st.size(), center, st.begin(), st.end()),
+            : stencil_base<T>(queue, static_cast<unsigned>(st.size()), center, st.begin(), st.end()),
               conv(queue.size()), wgs(queue.size()),
               loc_s(queue.size()), loc_x(queue.size())
         {
-            init(st.size());
+            init(static_cast<unsigned>(st.size()));
         }
 
         /// Costructor.
@@ -284,13 +282,13 @@ class stencil : private stencil_base<T> {
          */
         template <class Iterator>
         stencil(const std::vector<cl::CommandQueue> &queue,
-                Iterator begin, Iterator end, uint center
+                Iterator begin, Iterator end, unsigned center
                 )
-            : stencil_base<T>(queue, end - begin, center, begin, end),
+            : stencil_base<T>(queue, static_cast<unsigned>(end - begin), center, begin, end),
               conv(queue.size()), wgs(queue.size()),
               loc_s(queue.size()), loc_x(queue.size())
         {
-            init(end - begin);
+            init(static_cast<unsigned>(end - begin));
         }
 
 #ifndef BOOST_NO_INITIALIZER_LISTS
@@ -302,7 +300,7 @@ class stencil : private stencil_base<T> {
          * \param center center of the stencil.
          */
         stencil(const std::vector<cl::CommandQueue> &queue,
-                std::initializer_list<T> list, uint center
+                std::initializer_list<T> list, unsigned center
                 )
             : stencil_base<T>(queue, list.size(), center, list.begin(), list.end()),
               conv(queue.size()), wgs(queue.size()),
@@ -334,11 +332,11 @@ class stencil : private stencil_base<T> {
         using Base::rhalo;
 
         mutable std::vector<cl::Kernel> conv;
-        std::vector<uint>               wgs;
+        std::vector<size_t>             wgs;
         std::vector<cl::LocalSpaceArg>  loc_s;
         std::vector<cl::LocalSpaceArg>  loc_x;
 
-        void init(uint width);
+        void init(unsigned width);
 
         static const detail::kernel_cache_entry& slow_conv(const cl::CommandQueue &queue);
         static const detail::kernel_cache_entry& fast_conv(const cl::CommandQueue &queue);
@@ -517,17 +515,18 @@ const detail::kernel_cache_entry& stencil<T>::fast_conv(const cl::CommandQueue &
 }
 
 template <typename T>
-void stencil<T>::init(uint width) {
-    for (uint d = 0; d < queue.size(); d++) {
+void stencil<T>::init(unsigned width) {
+    for (unsigned d = 0; d < queue.size(); d++) {
         cl::Context context = qctx(queue[d]);
         cl::Device  device  = qdev(queue[d]);
 
         auto slow_krn = slow_conv(queue[d]);
         auto fast_krn = fast_conv(queue[d]);
 
-        size_t available_lmem = (device.getInfo<CL_DEVICE_LOCAL_MEM_SIZE>() -
-                fast_krn.kernel.template getWorkGroupInfo<CL_KERNEL_LOCAL_MEM_SIZE>(device)
-                ) / sizeof(T);
+        size_t available_lmem = (
+            static_cast<size_t>(device.getInfo<CL_DEVICE_LOCAL_MEM_SIZE>()) -
+            static_cast<size_t>(fast_krn.kernel.template getWorkGroupInfo<CL_KERNEL_LOCAL_MEM_SIZE>(device))
+            ) / sizeof(T);
 
         if (is_cpu(device) || available_lmem < width + 64 + lhalo + rhalo) {
             conv[d]  = slow_krn.kernel;
@@ -552,7 +551,7 @@ void stencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y,
 {
     Base::exchange_halos(x);
 
-    for(uint d = 0; d < queue.size(); d++) {
+    for(unsigned d = 0; d < queue.size(); d++) {
         if (size_t psize = x.part_size(d)) {
             cl::Context context = qctx(queue[d]);
             cl::Device  device  = qdev(queue[d]);
@@ -563,7 +562,7 @@ void stencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y,
             size_t g_size = is_cpu(device) ?
                 alignup(psize, wgs[d]) : num_workgroups(device) * wgs[d];
 
-            uint pos = 0;
+            unsigned pos = 0;
 
             conv[d].setArg(pos++, psize);
             conv[d].setArg(pos++, has_left);
@@ -627,7 +626,7 @@ operator*( const multivector<T, N, own> &x, const stencil<T> &s ) {
  * y = pow3_oper(x);
  * \endcode
  */
-template <typename T, uint width, uint center, class Impl>
+template <typename T, unsigned width, unsigned center, class Impl>
 class StencilOperator : private stencil_base<T> {
     public:
         typedef T value_type;
@@ -660,13 +659,13 @@ class StencilOperator : private stencil_base<T> {
         using Base::rhalo;
 };
 
-template <typename T, uint width, uint center, class Impl>
+template <typename T, unsigned width, unsigned center, class Impl>
 StencilOperator<T, width, center, Impl>::StencilOperator(
         const std::vector<cl::CommandQueue> &queue)
     : Base(queue, width, center, static_cast<T*>(0), static_cast<T*>(0))
 { }
 
-template <typename T, uint width, uint center, class Impl>
+template <typename T, unsigned width, unsigned center, class Impl>
 void StencilOperator<T, width, center, Impl>::convolve(
         const vex::vector<T> &x, vex::vector<T> &y, T alpha, T beta) const
 {
@@ -677,7 +676,7 @@ void StencilOperator<T, width, center, Impl>::convolve(
 
     Base::exchange_halos(x);
 
-    for(uint d = 0; d < queue.size(); d++) {
+    for(unsigned d = 0; d < queue.size(); d++) {
         cl::Context context = qctx(queue[d]);
         cl::Device  device  = qdev(queue[d]);
 
@@ -773,7 +772,7 @@ void StencilOperator<T, width, center, Impl>::convolve(
             char has_left  = d > 0;
             char has_right = d + 1 < queue.size();
 
-            uint pos = 0;
+            unsigned pos = 0;
 
             kernel->second.kernel.setArg(pos++, psize);
             kernel->second.kernel.setArg(pos++, has_left);
@@ -822,9 +821,5 @@ void StencilOperator<T, width, center, Impl>::convolve(
     VEX_STENCIL_OPERATOR_TYPE(stencil_operator_##name##_t, type, width, center, body) name(queue)
 
 } // namespace vex
-
-#ifdef WIN32
-#  pragma warning(pop)
-#endif
 
 #endif

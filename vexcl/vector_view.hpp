@@ -143,8 +143,8 @@ struct kernel_param_declaration< vector_view<T, Slice> > {
 
 template <typename T, class Slice>
 struct kernel_arg_setter< vector_view<T, Slice> > {
-    static void set(cl::Kernel &kernel, uint device, size_t index_offset,
-            uint &position, const vector_view<T, Slice> &term,
+    static void set(cl::Kernel &kernel, unsigned device, size_t index_offset,
+            unsigned &position, const vector_view<T, Slice> &term,
             detail::kernel_generator_state&)
     {
         assert(device == 0);
@@ -287,7 +287,9 @@ struct gslice {
     }
 
     template <typename T>
-    static void setArgs(cl::Kernel &kernel, uint device, size_t/*index_offset*/, uint &position, const vector_view<T, gslice> &term) {
+    static void setArgs(cl::Kernel &kernel, unsigned device, size_t/*index_offset*/,
+	    unsigned &position, const vector_view<T, gslice> &term)
+    {
         kernel.setArg(position++, term.base(device));
         kernel.setArg(position++, term.slice.start);
         for(size_t k = 0; k < NDIM; ++k) {
@@ -485,7 +487,9 @@ struct permutation {
     }
 
     template <typename T>
-    static void setArgs(cl::Kernel &kernel, uint device, size_t/*index_offset*/, uint &position, const vector_view<T, permutation> &term) {
+    static void setArgs(cl::Kernel &kernel, unsigned device, size_t/*index_offset*/,
+	    unsigned &position, const vector_view<T, permutation> &term)
+    {
         kernel.setArg(position++, term.base(device));
         kernel.setArg(position++, term.slice.index(device));
     }

@@ -165,8 +165,8 @@ inline kernel_call radix_kernel(bool once, const cl::CommandQueue &queue, size_t
     cl::Kernel kernel(program, "radix");
     kernel.setArg(0, in);
     kernel.setArg(1, out);
-    kernel.setArg<cl_uint>(2, p);
-    kernel.setArg<cl_uint>(3, m);
+    kernel.setArg(2, static_cast<cl_uint>(p));
+    kernel.setArg(3, static_cast<cl_uint>(m));
 
     const size_t wg_mul = kernel.getWorkGroupInfo<CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE>(device);
     //const size_t max_cu = device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>();
@@ -225,8 +225,8 @@ inline kernel_call transpose_kernel(const cl::CommandQueue &queue, size_t width,
     cl::Kernel kernel(program, "transpose");
     kernel.setArg(0, in);
     kernel.setArg(1, out);
-    kernel.setArg<cl_uint>(2, width);
-    kernel.setArg<cl_uint>(3, height);
+    kernel.setArg(2, static_cast<cl_uint>(width));
+    kernel.setArg(3, static_cast<cl_uint>(height));
 
     // range multiple of wg size, last block maybe not completely filled.
     size_t r_w = alignup(width, block_size);
@@ -245,7 +245,7 @@ inline kernel_call transpose_kernel(const cl::CommandQueue &queue, size_t width,
 
 
 template <class T>
-inline kernel_call bluestein_twiddle(const cl::CommandQueue &queue, cl_uint n, bool inverse, const cl::Buffer &out) {
+inline kernel_call bluestein_twiddle(const cl::CommandQueue &queue, size_t n, bool inverse, const cl::Buffer &out) {
     std::ostringstream o;
     kernel_common<T>(o, qdev(queue));
     twiddle_code<T>(o);
@@ -287,8 +287,8 @@ inline kernel_call bluestein_pad_kernel(const cl::CommandQueue &queue, size_t n,
     cl::Kernel kernel(program, "bluestein_pad_kernel");
     kernel.setArg(0, in);
     kernel.setArg(1, out);
-    kernel.setArg<cl_uint>(2, n);
-    kernel.setArg<cl_uint>(3, m);
+    kernel.setArg(2, static_cast<cl_uint>(n));
+    kernel.setArg(3, static_cast<cl_uint>(m));
 
     std::ostringstream desc;
     desc << "bluestein_pad_kernel{n=" << n << ", m=" << m << "}";
@@ -296,7 +296,7 @@ inline kernel_call bluestein_pad_kernel(const cl::CommandQueue &queue, size_t n,
 }
 
 template <class T>
-inline kernel_call bluestein_mul_in(const cl::CommandQueue &queue, bool inverse, cl_uint batch, cl_uint radix, cl_uint p, cl_uint threads, cl_uint stride, const cl::Buffer &data, const cl::Buffer &exp, const cl::Buffer &out) {
+inline kernel_call bluestein_mul_in(const cl::CommandQueue &queue, bool inverse, size_t batch, size_t radix, size_t p, size_t threads, size_t stride, const cl::Buffer &data, const cl::Buffer &exp, const cl::Buffer &out) {
     std::ostringstream o;
     kernel_common<T>(o, qdev(queue));
     mul_code(o, false);
@@ -333,9 +333,9 @@ inline kernel_call bluestein_mul_in(const cl::CommandQueue &queue, bool inverse,
     kernel.setArg(0, data);
     kernel.setArg(1, exp);
     kernel.setArg(2, out);
-    kernel.setArg(3, radix);
-    kernel.setArg(4, p);
-    kernel.setArg(5, stride);
+    kernel.setArg(3, static_cast<cl_uint>(radix));
+    kernel.setArg(4, static_cast<cl_uint>(p));
+    kernel.setArg(5, static_cast<cl_uint>(stride));
 
     const size_t wg = kernel.getWorkGroupInfo<CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE>(qdev(queue));
     const size_t stride_pad = alignup(stride, wg);
@@ -346,7 +346,7 @@ inline kernel_call bluestein_mul_in(const cl::CommandQueue &queue, bool inverse,
 }
 
 template <class T>
-inline kernel_call bluestein_mul_out(const cl::CommandQueue &queue, cl_uint batch, cl_uint p, cl_uint radix, cl_uint threads, cl_uint stride, const cl::Buffer &data, const cl::Buffer &exp, const cl::Buffer &out) {
+inline kernel_call bluestein_mul_out(const cl::CommandQueue &queue, size_t batch, size_t p, size_t radix, size_t threads, size_t stride, const cl::Buffer &data, const cl::Buffer &exp, const cl::Buffer &out) {
     std::ostringstream o;
     kernel_common<T>(o, qdev(queue));
     mul_code(o, false);
@@ -374,9 +374,9 @@ inline kernel_call bluestein_mul_out(const cl::CommandQueue &queue, cl_uint batc
     kernel.setArg(1, exp);
     kernel.setArg(2, out);
     kernel.setArg<T>(3, static_cast<T>(1) / stride);
-    kernel.setArg(4, p);
-    kernel.setArg(5, stride);
-    kernel.setArg(6, radix);
+    kernel.setArg(4, static_cast<cl_uint>(p));
+    kernel.setArg(5, static_cast<cl_uint>(stride));
+    kernel.setArg(6, static_cast<cl_uint>(radix));
 
     const size_t wg = kernel.getWorkGroupInfo<CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE>(qdev(queue));
     const size_t radix_pad = alignup(radix, wg);
@@ -387,7 +387,7 @@ inline kernel_call bluestein_mul_out(const cl::CommandQueue &queue, cl_uint batc
 }
 
 template <class T>
-inline kernel_call bluestein_mul(const cl::CommandQueue &queue, cl_uint n, cl_uint batch, const cl::Buffer &data, const cl::Buffer &exp, const cl::Buffer &out) {
+inline kernel_call bluestein_mul(const cl::CommandQueue &queue, size_t n, size_t batch, const cl::Buffer &data, const cl::Buffer &exp, const cl::Buffer &out) {
     std::ostringstream o;
     kernel_common<T>(o, qdev(queue));
     mul_code(o, false);
@@ -406,7 +406,7 @@ inline kernel_call bluestein_mul(const cl::CommandQueue &queue, cl_uint n, cl_ui
     kernel.setArg(0, data);
     kernel.setArg(1, exp);
     kernel.setArg(2, out);
-    kernel.setArg(3, n);
+    kernel.setArg(3, static_cast<cl_uint>(n));
 
     const size_t wg = kernel.getWorkGroupInfo<CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE>(qdev(queue));
     const size_t threads = alignup(n, wg);

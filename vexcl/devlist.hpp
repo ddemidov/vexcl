@@ -31,9 +31,7 @@ THE SOFTWARE.
  * \brief  OpenCL device enumeration and context initialization.
  */
 
-#ifdef WIN32
-#  pragma warning(push)
-#  pragma warning(disable : 4290 4715 4800 4996)
+#ifdef _MSC_VER
 #  define NOMINMAX
 #endif
 
@@ -187,6 +185,10 @@ namespace Filter {
      * Filter::Count.
      */
     struct EnvFilter {
+#ifdef _MSC_VER
+#  pragma warning(push)
+#  pragma warning(disable: 4996)
+#endif
         EnvFilter()
             : platform(getenv("OCL_PLATFORM")),
               vendor  (getenv("OCL_VENDOR")),
@@ -194,6 +196,9 @@ namespace Filter {
               maxdev  (getenv("OCL_MAX_DEVICES")),
               count(maxdev ? atoi(maxdev) : std::numeric_limits<int>::max())
         {}
+#ifdef _MSC_VER
+#  pragma warning(pop)
+#endif
 
         bool operator()(const cl::Device &d) const {
             if (platform &&
@@ -237,7 +242,14 @@ namespace Filter {
                 std::vector<cl::Platform> platform;
                 cl::Platform::get(&platform);
 
+#ifdef _MSC_VER
+#  pragma warning(push)
+#  pragma warning(disable: 4996)
+#endif
                 const char *lock_dir = getenv("VEXCL_LOCK_DIR");
+#ifdef _MSC_VER
+#  pragma warning(pop)
+#endif
 
                 for(size_t p_id = 0; p_id < platform.size(); p_id++) {
                     std::vector<cl::Device> device;
@@ -247,7 +259,14 @@ namespace Filter {
                     for(size_t d_id = 0; d_id < device.size(); d_id++) {
                         std::ostringstream id;
 #ifdef WIN32
+#  ifdef _MSC_VER
+#    pragma warning(push)
+#    pragma warning(disable: 4996)
+#  endif
                         id << (lock_dir ? lock_dir : getenv("TEMP")) << "\\";
+#  ifdef _MSC_VER
+#    pragma warning(pop)
+#  endif
 #else
                         id << (lock_dir ? lock_dir : "/tmp") << "/";
 #endif
@@ -371,16 +390,17 @@ namespace Filter {
 
             bool operator()(const cl::Device &d) const {
                 switch (op) {
-                    case FilterAnd:
-                        return left(d) && right(d);
                     case FilterOr:
                         return left(d) || right(d);
+                    case FilterAnd:
+                    default:
+                        return left(d) && right(d);
                 }
             }
 
             private:
-            const LeftFilter &left;
-            const RightFilter &right;
+                const LeftFilter &left;
+                const RightFilter &right;
         };
 
     /// \endcond
@@ -566,7 +586,7 @@ class Context {
             return c;
         }
 
-        const cl::Context& context(uint d) const {
+        const cl::Context& context(unsigned d) const {
             return c[d];
         }
 
@@ -578,11 +598,11 @@ class Context {
             return q;
         }
 
-        const cl::CommandQueue& queue(uint d) const {
+        const cl::CommandQueue& queue(unsigned d) const {
             return q[d];
         }
 
-        cl::Device device(uint d) const {
+        cl::Device device(unsigned d) const {
             return qdev(q[d]);
         }
 
@@ -613,7 +633,7 @@ inline std::ostream& operator<<(std::ostream &os, const cl::Device &device) {
 
 /// Output list of devices to stream.
 inline std::ostream& operator<<(std::ostream &os, const std::vector<cl::Device> &device) {
-    uint p = 1;
+    unsigned p = 1;
 
     for(auto d = device.begin(); d != device.end(); d++)
         os << p++ << ". " << *d << std::endl;
@@ -623,7 +643,7 @@ inline std::ostream& operator<<(std::ostream &os, const std::vector<cl::Device> 
 
 /// Output list of devices to stream.
 inline std::ostream& operator<<(std::ostream &os, const std::vector<cl::CommandQueue> &queue) {
-    uint p = 1;
+    unsigned p = 1;
 
     for(auto q = queue.begin(); q != queue.end(); q++)
         os << p++ << ". " << vex::qdev(*q) << std::endl;
@@ -635,9 +655,5 @@ inline std::ostream& operator<<(std::ostream &os, const std::vector<cl::CommandQ
 inline std::ostream& operator<<(std::ostream &os, const vex::Context &ctx) {
     return os << ctx.queue();
 }
-
-#ifdef WIN32
-#  pragma warning(pop)
-#endif
 
 #endif

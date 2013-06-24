@@ -31,15 +31,14 @@ THE SOFTWARE.
  * \brief  OpenCL general utilities.
  */
 
-#ifdef WIN32
-#  pragma warning(push)
-#  pragma warning(disable : 4267 4290 4800)
+#ifdef _MSC_VER
 #  define NOMINMAX
 #endif
 
 #include <iostream>
 #include <string>
 #include <vector>
+#include <tuple>
 #include <map>
 #include <stdexcept>
 #include <algorithm>
@@ -63,8 +62,16 @@ namespace vex {
 
 /// Check run-time condition.
 /** Throws std::runtime_error if condition is false */
-inline void precondition(bool condition, const std::string &fail_message) {
+template <class Condition, class Message>
+inline void precondition(const Condition &condition, const Message &fail_message) {
+#ifdef _MSC_VER
+#  pragma warning(push)
+#  pragma warning(disable: 4800)
+#endif
     if (!condition) throw std::runtime_error(fail_message);
+#ifdef _MSC_VER
+#  pragma warning(pop)
+#endif
 }
 
 /// Return next power of 2.
@@ -122,7 +129,14 @@ inline cl::Device qdev(const cl::CommandQueue& q) {
 
 /// Checks if the compute device is CPU.
 inline bool is_cpu(const cl::Device &d) {
+#ifdef _MSC_VER
+#  pragma warning(push)
+#  pragma warning(disable: 4800)
+#endif
     return d.getInfo<CL_DEVICE_TYPE>() & CL_DEVICE_TYPE_CPU;
+#ifdef _MSC_VER
+#  pragma warning(pop)
+#endif
 }
 
 enum device_options_kind {
@@ -259,14 +273,15 @@ inline cl::Program build_sources(
 }
 
 /// Get maximum possible workgroup size for given kernel.
-inline uint kernel_workgroup_size(
+inline unsigned kernel_workgroup_size(
         const cl::Kernel &kernel,
         const cl::Device &device
         )
 {
-    size_t wgsz = 1024U;
+    unsigned wgsz = 1024U;
 
-    uint dev_wgsz = kernel.getWorkGroupInfo<CL_KERNEL_WORK_GROUP_SIZE>(device);
+    unsigned dev_wgsz = static_cast<unsigned>(
+        kernel.getWorkGroupInfo<CL_KERNEL_WORK_GROUP_SIZE>(device));
     while(wgsz > dev_wgsz) wgsz /= 2;
 
     return wgsz;
@@ -369,9 +384,5 @@ inline std::ostream& operator<<(std::ostream &os, const cl::Error &e) {
 
     return os << ")";
 }
-
-#ifdef WIN32
-#  pragma warning(pop)
-#endif
 
 #endif

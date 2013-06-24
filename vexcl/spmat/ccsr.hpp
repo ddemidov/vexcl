@@ -40,9 +40,9 @@ namespace vex {
  * contains index into row vector, corresponding to each row of the matrix. So
  * that matrix-vector multiplication may be performed as follows:
  * \code
- * for(uint i = 0; i < n; i++) {
+ * for(unsigned i = 0; i < n; i++) {
  *     val_t sum = 0;
- *     for(uint j = row[idx[i]]; j < row[idx[i] + 1]; j++)
+ *     for(unsigned j = row[idx[i]]; j < row[idx[i] + 1]; j++)
  *         sum += val[j] * x[i + col[j]];
  *     y[i] = sum;
  * }
@@ -245,8 +245,8 @@ struct kernel_param_declaration< ccsr_product<val_t, col_t, idx_t, T> > {
 
 template <typename val_t, typename col_t, typename idx_t, typename T>
 struct kernel_arg_setter< ccsr_product<val_t, col_t, idx_t, T> > {
-    static void set(cl::Kernel &kernel, uint device, size_t/*index_offset*/,
-            uint &position, const ccsr_product<val_t, col_t, idx_t, T> &term,
+    static void set(cl::Kernel &kernel, unsigned device, size_t/*index_offset*/,
+            unsigned &position, const ccsr_product<val_t, col_t, idx_t, T> &term,
             detail::kernel_generator_state&)
     {
         assert(device == 0);

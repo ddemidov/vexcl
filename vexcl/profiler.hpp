@@ -31,9 +31,7 @@ THE SOFTWARE.
  * \brief  Simple OpenCL/Host profiler.
  */
 
-#ifdef WIN32
-#  pragma warning(push)
-#  pragma warning(disable : 4267 4290)
+#ifdef _MSC_VER
 #  define NOMINMAX
 #endif
 
@@ -222,8 +220,8 @@ class profiler {
                     return tm;
                 }
 
-                uint max_line_width(uint level) const {
-                    uint w = name.size() + level;
+                size_t max_line_width(size_t level) const {
+                    size_t w = name.size() + level;
 
                     for(auto c = children.begin(); c != children.end(); c++)
                         w = std::max(w, (*c)->max_line_width(level + shift_width));
@@ -232,7 +230,7 @@ class profiler {
                 }
 
                 void print(std::ostream &out,
-                        uint level, double total, uint width) const
+                        size_t level, double total, size_t width) const
                 {
                     using namespace std;
                     print_line(out, name, watch.total(), 100 * watch.total() / total, width, level);
@@ -256,7 +254,7 @@ class profiler {
                 }
 
                 void print_line(std::ostream &out, const std::string &name,
-                        double time, double perc, uint width, uint indent) const {
+                        double time, double perc, size_t width, size_t indent) const {
                     using namespace std;
                     out << "[" << setw(indent) << "" << name << ":"
                         << setw(width - indent - name.size()) << ""
@@ -265,7 +263,7 @@ class profiler {
                 }
 
             private:
-                static const uint shift_width = 2U;
+                static const size_t shift_width = 2U;
         };
 
         class cl_profile_unit : public profile_unit {
@@ -374,9 +372,5 @@ inline std::ostream& operator<<(std::ostream &os, vex::profiler<Clock, Avg> &pro
     prof.print(os);
     return os;
 }
-
-#ifdef WIN32
-#  pragma warning(pop)
-#endif
 
 #endif

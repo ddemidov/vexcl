@@ -199,8 +199,8 @@ struct partial_vector_expr< tagged_terminal<Tag, Term> > {
 
 template <size_t Tag, class Term>
 struct kernel_arg_setter< tagged_terminal<Tag, Term> > {
-    static void set(cl::Kernel &kernel, uint device, size_t index_offset,
-            uint &position, const tagged_terminal<Tag, Term> &term,
+    static void set(cl::Kernel &kernel, unsigned device, size_t index_offset,
+            unsigned &position, const tagged_terminal<Tag, Term> &term,
             detail::kernel_generator_state &state)
     {
         auto s = state.find("tagged_terminal_arg");
@@ -208,11 +208,11 @@ struct kernel_arg_setter< tagged_terminal<Tag, Term> > {
         if (s == state.end()) {
             s = state.insert(std::make_pair(
                         std::string("tagged_terminal_arg"),
-                        boost::any(std::map<size_t, uint>())
+                        boost::any(std::map<size_t, unsigned>())
                         )).first;
         }
 
-        auto &pos = boost::any_cast< std::map<size_t, uint>& >(s->second);
+        auto &pos = boost::any_cast< std::map<size_t, unsigned>& >(s->second);
         auto p = pos.find(Tag);
 
         typedef

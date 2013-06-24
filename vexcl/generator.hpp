@@ -31,9 +31,7 @@ THE SOFTWARE.
  * \brief  OpenCL kernel generator.
  */
 
-#ifdef WIN32
-#  pragma warning(push)
-#  pragma warning(disable : 4267 4290)
+#ifdef _MSC_VER
 #  define NOMINMAX
 #endif
 
@@ -523,12 +521,12 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, FUNCALL_OPERATOR, ~)
                     "Wrong number of kernel parameters"
                     );
 
-            for(uint d = 0; d < queue.size(); d++) {
+            for(unsigned d = 0; d < queue.size(); d++) {
                 if (size_t psize = boost::fusion::fold(param, 0, param_size(d))) {
                     cl::Context context = qctx(queue[d]);
                     cl::Device  device  = qdev(queue[d]);
 
-                    uint pos = 0;
+                    unsigned pos = 0;
                     krn[context()].setArg(pos++, psize);
 
                     set_params setprm(krn[context()], d, pos);
@@ -577,9 +575,9 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, FUNCALL_OPERATOR, ~)
 
         struct set_params {
             cl::Kernel &krn;
-            uint d, &pos;
+            unsigned d, &pos;
 
-            set_params(cl::Kernel &krn, uint d, uint &pos)
+            set_params(cl::Kernel &krn, unsigned d, unsigned &pos)
                 : krn(krn), d(d), pos(pos) {};
 
             template <class T>
@@ -595,12 +593,12 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, FUNCALL_OPERATOR, ~)
         std::vector<cl::CommandQueue> queue;
 
         std::map<cl_context, cl::Kernel> krn;
-        std::map<cl_context, uint> wgs;
+        std::map<cl_context, unsigned>   wgs;
 
         struct param_size {
-            uint device;
+            unsigned device;
 
-            param_size(uint device) : device(device) {}
+            param_size(unsigned device) : device(device) {}
 
             typedef size_t result_type;
 
@@ -752,6 +750,5 @@ FunctorAdapter<Signature, Functor> make_function(Functor &&f) {
 } // namespace generator;
 
 } // namespace vex;
-
 
 #endif

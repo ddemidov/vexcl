@@ -31,9 +31,7 @@ THE SOFTWARE.
  * \brief  OpenCL device vector.
  */
 
-#ifdef WIN32
-#  pragma warning(push)
-#  pragma warning(disable : 4267 4290)
+#ifdef _MSC_VER
 #  define NOMINMAX
 #endif
 
@@ -140,7 +138,7 @@ std::vector<size_t> partitioning_scheme<dummy>::get(size_t n,
             cumsum.push_back(cumsum.back() + w);
         }
 
-        for(uint d = 1; d < queue.size(); d++)
+        for(unsigned d = 1; d < queue.size(); d++)
             part.push_back(
                     std::min(n,
                         alignup(static_cast<size_t>(n * cumsum[d] / cumsum.back()))
@@ -485,7 +483,7 @@ class vector : public vector_terminal_expression {
         }
 
         /// Return cl::Buffer object located on a given device.
-        cl::Buffer operator()(uint d = 0) const {
+        cl::Buffer operator()(unsigned d = 0) const {
             return buf[d];
         }
 
@@ -518,7 +516,7 @@ class vector : public vector_terminal_expression {
 
         /// Access element.
         element operator[](size_t index) {
-            uint d = static_cast<uint>(
+            unsigned d = static_cast<unsigned>(
                 std::upper_bound(part.begin(), part.end(), index) - part.begin() - 1
                 );
             return element(queue[d], buf[d], index - part[d]);
@@ -530,17 +528,17 @@ class vector : public vector_terminal_expression {
         }
 
         /// Return number of parts (devices).
-        uint nparts() const {
+        size_t nparts() const {
             return queue.size();
         }
 
         /// Return size of part on a given device.
-        size_t part_size(uint d) const {
+        size_t part_size(unsigned d) const {
             return part[d + 1] - part[d];
         }
 
         /// Return part start for a given device.
-        size_t part_start(uint d) const {
+        size_t part_start(unsigned d) const {
             return part[d];
         }
 
@@ -556,7 +554,7 @@ class vector : public vector_terminal_expression {
 
         const vector& operator=(const vector &x) {
             if (&x != this) {
-                for(uint d = 0; d < queue.size(); d++)
+                for(unsigned d = 0; d < queue.size(); d++)
                     if (size_t psize = part[d + 1] - part[d]) {
                         queue[d].enqueueCopyBuffer(x.buf[d], buf[d], 0, 0,
                                 psize * sizeof(T));
@@ -587,7 +585,7 @@ class vector : public vector_terminal_expression {
 
         /// Maps device buffer to host array.
         mapped_array
-        map(uint d = 0, cl_map_flags flags = CL_MAP_READ | CL_MAP_WRITE) {
+        map(unsigned d = 0, cl_map_flags flags = CL_MAP_READ | CL_MAP_WRITE) {
             return mapped_array(
                     static_cast<T*>( queue[d].enqueueMapBuffer(
                             buf[d], CL_TRUE, flags, 0, part_size(d) * sizeof(T))
@@ -746,7 +744,7 @@ class vector : public vector_terminal_expression {
 
             std::vector<cl::Event> &ev = uevent ? *uevent : event;
 
-            for(uint d = 0; d < queue.size(); d++) {
+            for(unsigned d = 0; d < queue.size(); d++) {
                 size_t start = std::max(offset,        part[d]);
                 size_t stop  = std::min(offset + size, part[d + 1]);
 
@@ -777,7 +775,7 @@ class vector : public vector_terminal_expression {
 
             std::vector<cl::Event> &ev = uevent ? *uevent : event;
 
-            for(uint d = 0; d < queue.size(); d++) {
+            for(unsigned d = 0; d < queue.size(); d++) {
                 size_t start = std::max(offset,        part[d]);
                 size_t stop  = std::min(offset + size, part[d + 1]);
 
@@ -792,7 +790,7 @@ class vector : public vector_terminal_expression {
             }
 
             if (blocking)
-                for(uint d = 0; d < queue.size(); d++) {
+                for(unsigned d = 0; d < queue.size(); d++) {
                     size_t start = std::max(offset,        part[d]);
                     size_t stop  = std::min(offset + size, part[d + 1]);
 
@@ -807,7 +805,7 @@ class vector : public vector_terminal_expression {
         mutable std::vector<cl::Event>  event;
 
         void allocate_buffers(cl_mem_flags flags, const T *hostptr) {
-            for(uint d = 0; d < queue.size(); d++) {
+            for(unsigned d = 0; d < queue.size(); d++) {
                 if (size_t psize = part[d + 1] - part[d]) {
                     cl::Context context = qctx(queue[d]);
 
@@ -864,8 +862,8 @@ struct kernel_param_declaration< vector<T> > {
 
 template <typename T>
 struct kernel_arg_setter< vector<T> > {
-    static void set(cl::Kernel &kernel, uint device, size_t/*index_offset*/,
-            uint &position, const vector<T> &term,
+    static void set(cl::Kernel &kernel, unsigned device, size_t/*index_offset*/,
+            unsigned &position, const vector<T> &term,
             detail::kernel_generator_state&)
     {
         kernel.setArg(position++, term(device));
@@ -1012,9 +1010,5 @@ struct is_sequence< vex::vector<T> > : std::false_type
 
 } } }
 
-
-#ifdef WIN32
-#  pragma warning(pop)
-#endif
 
 #endif

@@ -173,8 +173,8 @@ struct kernel_param_declaration< inline_spmv<val_t, col_t, idx_t> > {
 
 template <typename val_t, typename col_t, typename idx_t>
 struct kernel_arg_setter< inline_spmv<val_t, col_t, idx_t> > {
-    static void set(cl::Kernel &kernel, uint device, size_t index_offset,
-            uint &position, const inline_spmv<val_t, col_t, idx_t> &term,
+    static void set(cl::Kernel &kernel, unsigned device, size_t index_offset,
+            unsigned &position, const inline_spmv<val_t, col_t, idx_t> &term,
             detail::kernel_generator_state &state)
     {
         SpMat<val_t, col_t, idx_t>::inline_arguments(

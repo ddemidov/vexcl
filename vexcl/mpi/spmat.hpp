@@ -94,9 +94,7 @@ struct mpi_multispmv
     template <bool negate, bool append, class W>
     typename std::enable_if<
         std::is_base_of<mpi_multivector_terminal_expression, W>::value
-#ifndef WIN32
 	&& std::is_same<typename M::value_type, typename W::sub_value_type>::value
-#endif
 	&& traits::number_of_components<V>::value == traits::number_of_components<W>::value
 	, void
     >::type
@@ -124,7 +122,7 @@ operator*(const M &A, const V &x) {
 /// \endcond
 
 /// MPI wrapper for vex::SpMat class template.
-template <typename real, typename column_t = size_t, typename idx_t = size_t>
+template <typename real, typename col_t = size_t, typename idx_t = size_t>
 class SpMat : public mpi_matrix_terminal {
     public:
         typedef real value_type;
@@ -148,15 +146,15 @@ class SpMat : public mpi_matrix_terminal {
          */
         SpMat(MPI_Comm comm, const std::vector<cl::CommandQueue> &queue,
                 size_t n, size_t m,
-                const idx_t *row, const column_t *col, const real *val
+                const idx_t *row, const col_t *col, const real *val
              ) : mpi(comm)
         {
             // Split into local and remote parts; renumber columns.
             std::vector<idx_t> loc_row(n + 1, 0);
             std::vector<idx_t> rem_row(n + 1, 0);
 
-            std::vector<column_t> loc_col;
-            std::vector<column_t> rem_col;
+            std::vector<col_t> loc_col;
+            std::vector<col_t> rem_col;
 
             std::vector<real> loc_val;
             std::vector<real> rem_val;
@@ -165,13 +163,13 @@ class SpMat : public mpi_matrix_terminal {
             auto part_beg = col_part[mpi.rank];
             auto part_end = col_part[mpi.rank + 1];
 
-            std::set<column_t> remote_cols;
+            std::set<col_t> remote_cols;
 
             for(size_t i = 0; i < n; ++i) {
                 for(size_t j = row[i], e = row[i + 1]; j < e; ++j) {
-                    column_t c = col[j];
+                    col_t c = col[j];
 
-                    if (static_cast<column_t>(part_beg) <= c && c < static_cast<column_t>(part_end)) {
+                    if (static_cast<col_t>(part_beg) <= c && c < static_cast<col_t>(part_end)) {
                         ++loc_row[i + 1];
                     } else {
                         remote_cols.insert(c);
@@ -189,9 +187,9 @@ class SpMat : public mpi_matrix_terminal {
             rem_col.reserve(rem_row.back());
             rem_val.reserve(rem_row.back());
 
-            std::unordered_map<column_t,column_t> r2l(2 * remote_cols.size());
+            std::unordered_map<col_t,col_t> r2l(2 * remote_cols.size());
             {
-                size_t idx = 0;
+                col_t idx = 0;
                 for(auto c = remote_cols.begin(); c != remote_cols.end(); c++) {
                     r2l[*c] = idx++;
                 }
@@ -199,11 +197,11 @@ class SpMat : public mpi_matrix_terminal {
 
             for(size_t i = 0; i < n; ++i) {
                 for(size_t j = row[i], e = row[i + 1]; j < e; ++j) {
-                    column_t c = col[j];
-                    real     v = val[j];
+                    col_t c = col[j];
+                    real  v = val[j];
 
-                    if (static_cast<column_t>(part_beg) <= c && c < static_cast<column_t>(part_end)) {
-                        loc_col.push_back(c - part_beg);
+                    if (static_cast<col_t>(part_beg) <= c && c < static_cast<col_t>(part_end)) {
+                        loc_col.push_back(c - static_cast<col_t>(part_beg));
                         loc_val.push_back(v);
                     } else {
                         rem_col.push_back(r2l[c]);
@@ -214,7 +212,7 @@ class SpMat : public mpi_matrix_terminal {
 
             if (loc_row.back()) {
                 loc_mtx.reset(
-                        new vex::SpMat<real, column_t, idx_t>(
+                        new vex::SpMat<real, col_t, idx_t>(
                             queue, n, m,
                             loc_row.data(), loc_col.data(), loc_val.data())
                         );
@@ -224,7 +222,7 @@ class SpMat : public mpi_matrix_terminal {
                 rem_x.resize(queue, remote_cols.size());
 
                 rem_mtx.reset(
-                        new vex::SpMat<real, column_t, idx_t>(
+                        new vex::SpMat<real, col_t, idx_t>(
                             queue, n, remote_cols.size(),
                             rem_row.data(), rem_col.data(), rem_val.data())
                         );
@@ -270,8 +268,8 @@ class SpMat : public mpi_matrix_terminal {
     private:
         comm_data mpi;
 
-        std::unique_ptr< vex::SpMat<real, column_t, idx_t> > loc_mtx;
-        std::unique_ptr< vex::SpMat<real, column_t, idx_t> > rem_mtx;
+        std::unique_ptr< vex::SpMat<real, col_t, idx_t> > loc_mtx;
+        std::unique_ptr< vex::SpMat<real, col_t, idx_t> > rem_mtx;
 
         mutable vex::vector<real> rem_x;
 

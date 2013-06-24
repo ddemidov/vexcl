@@ -79,8 +79,8 @@ class ham_lattice {
             row.push_back( 0 );
             index_modulus index(n);
 
-            for(int idx = part[mpi.rank]; static_cast<size_t>(idx) < part[mpi.rank + 1]; ++idx) {
-                int is[5] = { idx , index( idx + 1 ) , index( idx - 1 ) , index( idx - n2 ) , index( idx + n2 ) };
+            for(int idx = static_cast<int>(part[mpi.rank]); static_cast<size_t>(idx) < part[mpi.rank + 1]; ++idx) {
+                int is[5] = { idx , index( idx + 1 ) , index( idx - 1 ) , index( idx - static_cast<int>(n2) ) , index( idx + static_cast<int>(n2) ) };
 
                 std::sort( is , is + 5 );
 
@@ -110,13 +110,17 @@ class ham_lattice {
         std::unique_ptr< vex::mpi::SpMat<double> > A;
 
         struct index_modulus {
-            int N;
+            size_t N;
 
-            index_modulus(int n) : N(n) {}
+            index_modulus(size_t n) : N(n) {}
 
             inline int operator()(int idx) const {
-                if( idx <  0 ) return idx + N;
-                if( idx >= N ) return idx - N;
+                if( idx <  0 )
+		    return static_cast<int>(idx + N);
+
+                if( static_cast<size_t>(idx) >= N )
+		    return static_cast<int>(idx - N);
+
                 return idx;
             }
         };
