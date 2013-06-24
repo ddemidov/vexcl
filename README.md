@@ -16,8 +16,8 @@ Doxygen-generated documentation: http://ddemidov.github.io/vexcl.
 
 Slides from VexCL-related talks:
 
-* [Meeting C++ 2012, Dusseldorf](https://github.com/ddemidov/vexcl/blob/master/doc/mcpp_vexcl_2012_slides.pdf?raw=true)
-* [SIAM CSE 2013, Boston](https://github.com/ddemidov/vexcl/blob/master/doc/vexcl_cse13_slides.pdf?raw=true)
+* [Meeting C++ 2012, Dusseldorf](https://speakerdeck.com/ddemidov/vexcl-at-meeting-c-plus-plus-2012)
+* [SIAM CSE 2013, Boston](https://speakerdeck.com/ddemidov/vexcl-at-cse13)
 * [FOSDEM 2013, Brussels](https://fosdem.org/2013/schedule/event/odes_cuda_opencl)
 
 The paper [Programming CUDA and OpenCL: A Case Study Using Modern C++
