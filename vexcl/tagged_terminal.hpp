@@ -265,6 +265,9 @@ struct expression_properties< tagged_terminal<Tag, Term> > {
  * \endcode
  */
 template <size_t Tag, class Expr>
+#ifdef DOXYGEN
+tagged_terminal<Tag, Expr>
+#else
 typename std::enable_if<
     boost::proto::matches<
         typename boost::proto::result_of::as_expr<Expr>::type,
@@ -272,6 +275,7 @@ typename std::enable_if<
     >::value,
     tagged_terminal<Tag, Expr>
 >::type
+#endif
 tag(const Expr &expr) {
     return tagged_terminal<Tag, Expr>(expr);
 }
