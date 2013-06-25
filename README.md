@@ -141,6 +141,17 @@ access as well, so that STL algorithms may in principle be used with device
 vectors. This would be very slow but may be used as a temporary building
 blocks.
 
+Another option for host-device data transfer is mapping device memory buffer to
+a host array. The mapped array then may be transparently read or written.
+Method `vector::map(unsigned d)` maps d-th partition of the vector and returns
+the mapped array:
+~~~{.cpp}
+vex::vector<double> X(ctx, N);
+auto mapped_ptr = X.map(0); // Unmapped automatically when goes out of scope
+for(size_t i = 0; i < X.part_size(0); ++i)
+    mapped_ptr[i] = host_function(i);
+~~~
+
 ## <a name="vector-expressions"></a>Vector expressions
 
 VexCL allows to use convenient and intuitive notation for vector operations. In
