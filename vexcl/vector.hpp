@@ -594,14 +594,20 @@ class vector : public vector_terminal_expression {
                     );
         }
 
-        /** \name Expression assignments.
-         * @{
-         * The appropriate kernel is compiled first time the assignment is
-         * made. Vectors participating in expression should have same number of
-         * parts; corresponding parts of the vectors should reside on the same
-         * compute devices.
-         */
-#define ASSIGNMENT(cop, op) \
+#ifdef DOXYGEN
+#  define ASSIGNMENT(cop, op) \
+        /** \brief Vector expression assignment.
+
+         \details
+         The appropriate kernel is compiled first time the assignment is
+         made. Vectors participating in expression should have same number
+         of parts; corresponding parts of the vectors should reside on the
+         same compute devices.
+         */ \
+        template <class Expr> \
+        const vector& operator cop(const Expr &expr);
+#else
+#  define ASSIGNMENT(cop, op) \
         template <class Expr> \
         typename std::enable_if< \
             boost::proto::matches< \
@@ -614,6 +620,7 @@ class vector : public vector_terminal_expression {
             detail::assign_expression<op>(*this, expr, queue, part); \
             return *this; \
         }
+#endif
 
         ASSIGNMENT(=,   assign::SET);
         ASSIGNMENT(+=,  assign::ADD);
@@ -629,6 +636,7 @@ class vector : public vector_terminal_expression {
 
 #undef ASSIGNMENT
 
+#ifndef DOXYGEN
         template <class Expr>
         typename std::enable_if<
             boost::proto::matches<
@@ -733,8 +741,7 @@ class vector : public vector_terminal_expression {
 
             return *this;
         }
-
-        /** @} */
+#endif
 
         /// Copy data from host buffer to device(s).
         void write_data(size_t offset, size_t size, const T *hostptr, cl_bool blocking,

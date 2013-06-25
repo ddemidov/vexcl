@@ -377,11 +377,16 @@ class multivector : public multivector_terminal_expression {
             return *this;
         }
 
-        /** \name Expression assignments.
-         * @{
-         * All operations are delegated to components of the multivector.
-         */
-#define ASSIGNMENT(cop, op) \
+#ifdef DOXYGEN
+#  define ASSIGNMENT(cop, op) \
+        /** \brief Multiector expression assignment.
+         \details All operations are delegated to components of the multivector.
+         */ \
+        template <class Expr> \
+            const multivector& \
+        operator cop(const Expr &expr);
+#else
+#  define ASSIGNMENT(cop, op) \
         template <class Expr> \
         typename std::enable_if< \
             boost::proto::matches< \
@@ -394,6 +399,7 @@ class multivector : public multivector_terminal_expression {
             assign_expression<op>(expr); \
             return *this; \
         }
+#endif
 
         ASSIGNMENT(=,   assign::SET);
         ASSIGNMENT(+=,  assign::ADD);
@@ -409,6 +415,7 @@ class multivector : public multivector_terminal_expression {
 
 #undef ASSIGNMENT
 
+#ifndef DOXYGEN
         template <class Expr>
         typename std::enable_if<
             boost::proto::matches<
@@ -519,8 +526,8 @@ class multivector : public multivector_terminal_expression {
 
             return *this;
         }
+#endif
 
-        /** @} */
     private:
         template <bool own_components>
         typename std::enable_if<own_components,void>::type

@@ -122,18 +122,26 @@ class Reductor {
 
         /// Compute reduction of a vector expression.
         template <class Expr>
+#ifdef DOXYGEN
+        real
+#else
         typename std::enable_if<
             boost::proto::matches<Expr, vector_expr_grammar>::value,
             real
         >::type
+#endif
         operator()(const Expr &expr) const;
 
         /// Compute reduction of a multivector expression.
         template <class Expr>
+#ifdef DOXYGEN
+        std::array<real, N>
+#else
         typename std::enable_if<
             boost::proto::matches<Expr, multivector_expr_grammar>::value,
             std::array<real, boost::result_of<traits::multiex_dimension(Expr)>::type::value>
         >::type
+#endif
         operator()(const Expr &expr) const;
     private:
         const std::vector<cl::CommandQueue> &queue;
