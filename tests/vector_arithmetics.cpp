@@ -198,9 +198,8 @@ BOOST_AUTO_TEST_CASE(ternary_operator)
 
     y = ternary(x > 0.5, sin(x), cos(x));
 
-    check_sample(y, [&](size_t idx, double v) {
-            double X = x[idx];
-            BOOST_CHECK_CLOSE(v, X > 0.5 ? sin(X) : cos(X), 1e-8);
+    check_sample(x, y, [&](size_t, double X, double Y) {
+            BOOST_CHECK_CLOSE(Y, X > 0.5 ? sin(X) : cos(X), 1e-8);
             });
 }
 
