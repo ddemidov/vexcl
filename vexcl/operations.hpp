@@ -411,6 +411,9 @@ struct user_function {};
             boost::proto::bitwise_and   < grammar, grammar >, \
             boost::proto::bitwise_or    < grammar, grammar >, \
             boost::proto::bitwise_xor   < grammar, grammar > \
+        >, \
+        boost::proto::or_< \
+            boost::proto::if_else_< grammar, grammar, grammar > \
         > \
     >, \
     boost::proto::function< \
@@ -594,6 +597,22 @@ abs(const Arg &arg) {
             );
 }
 
+
+/// Ternary operator
+template <typename Arg1, typename Arg2, typename Arg3>
+typename boost::proto::result_of::make_expr<
+    boost::proto::tag::if_else_,
+    const Arg1&,
+    const Arg2&,
+    const Arg3&
+>::type const
+ternary(const Arg1 &arg1, const Arg2 &arg2, const Arg3 &arg3) {
+    return boost::proto::make_expr<boost::proto::tag::if_else_>(
+            boost::ref(arg1),
+            boost::ref(arg2),
+            boost::ref(arg3)
+            );
+}
 
 
 #define VEXCL_VECTOR_EXPR_EXTRACTOR(name, VG, AG, FG) \
@@ -1186,6 +1205,20 @@ struct vector_expr_context : public expression_context {
     UNARY_POST_OPERATION(post_dec, --);
 
 #undef UNARY_POST_OPERATION
+
+    template <typename Expr>
+    struct eval<Expr, boost::proto::tag::if_else_> {
+        typedef void result_type;
+        void operator()(const Expr &expr, vector_expr_context &ctx) const {
+            ctx.os << "( ";
+            boost::proto::eval(boost::proto::child_c<0>(expr), ctx);
+            ctx.os << " ? ";
+            boost::proto::eval(boost::proto::child_c<1>(expr), ctx);
+            ctx.os << " : ";
+            boost::proto::eval(boost::proto::child_c<2>(expr), ctx);
+            ctx.os << " )";
+        }
+    };
 
     template <typename Expr>
     struct eval<Expr, boost::proto::tag::function> {

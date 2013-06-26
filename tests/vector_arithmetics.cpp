@@ -189,6 +189,21 @@ BOOST_AUTO_TEST_CASE(function_with_preamble)
             });
 }
 
+BOOST_AUTO_TEST_CASE(ternary_operator)
+{
+    const size_t n = 1024;
+
+    vex::vector<double> x(ctx, random_vector<double>(n));
+    vex::vector<double> y(ctx, n);
+
+    y = ternary(x > 0.5, sin(x), cos(x));
+
+    check_sample(y, [&](size_t idx, double v) {
+            double X = x[idx];
+            BOOST_CHECK_CLOSE(v, X > 0.5 ? sin(X) : cos(X), 1e-8);
+            });
+}
+
 BOOST_AUTO_TEST_CASE(combine_expressions)
 {
     const size_t n = 1024;
