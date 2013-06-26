@@ -50,6 +50,10 @@ THE SOFTWARE.
 #include <vexcl/profiler.hpp>
 #include <vexcl/devlist.hpp>
 
+#ifdef BOOST_NO_NOEXCEPT
+#  define noexcept throw()
+#endif
+
 /// Vector expression template library for OpenCL.
 namespace vex {
 
