@@ -597,24 +597,6 @@ abs(const Arg &arg) {
             );
 }
 
-
-/// Ternary operator
-template <typename Arg1, typename Arg2, typename Arg3>
-typename boost::proto::result_of::make_expr<
-    boost::proto::tag::if_else_,
-    const Arg1&,
-    const Arg2&,
-    const Arg3&
->::type const
-ternary(const Arg1 &arg1, const Arg2 &arg2, const Arg3 &arg3) {
-    return boost::proto::make_expr<boost::proto::tag::if_else_>(
-            boost::ref(arg1),
-            boost::ref(arg2),
-            boost::ref(arg3)
-            );
-}
-
-
 #define VEXCL_VECTOR_EXPR_EXTRACTOR(name, VG, AG, FG) \
 struct name \
     : boost::proto::or_< \

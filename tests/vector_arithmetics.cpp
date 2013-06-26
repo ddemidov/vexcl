@@ -196,7 +196,7 @@ BOOST_AUTO_TEST_CASE(ternary_operator)
     vex::vector<double> x(ctx, random_vector<double>(n));
     vex::vector<double> y(ctx, n);
 
-    y = ternary(x > 0.5, sin(x), cos(x));
+    y = if_else(x > 0.5, sin(x), cos(x));
 
     check_sample(x, y, [&](size_t, double X, double Y) {
             BOOST_CHECK_CLOSE(Y, X > 0.5 ? sin(X) : cos(X), 1e-8);
