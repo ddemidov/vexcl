@@ -537,6 +537,7 @@ BUILTIN_FUNCTION_1(log10);
 BUILTIN_FUNCTION_1(log1p);
 BUILTIN_FUNCTION_1(logb);
 BUILTIN_FUNCTION_3(mad);
+BUILTIN_FUNCTION_2(max);
 BUILTIN_FUNCTION_2(maxmag);
 BUILTIN_FUNCTION_2(minmag);
 BUILTIN_FUNCTION_2(modf);
@@ -571,6 +572,28 @@ BUILTIN_FUNCTION_1(normalize);
 #undef BUILTIN_FUNCTION_1
 #undef BUILTIN_FUNCTION_2
 #undef BUILTIN_FUNCTION_3
+
+// Special case: abs() overloaded with floating point arguments should call
+// fabs in the OpenCL code
+struct abs_func : builtin_function {
+    static const char* name() {
+        return "fabs";
+    }
+};
+template <typename Arg>
+typename boost::proto::result_of::make_expr<
+    boost::proto::tag::function,
+    abs_func,
+    const Arg&
+>::type const
+abs(const Arg &arg) {
+    return boost::proto::make_expr<boost::proto::tag::function>(
+            abs_func(),
+            boost::ref(arg)
+            );
+}
+
+
 
 #define VEXCL_VECTOR_EXPR_EXTRACTOR(name, VG, AG, FG) \
 struct name \
