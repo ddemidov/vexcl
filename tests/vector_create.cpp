@@ -166,10 +166,7 @@ BOOST_AUTO_TEST_CASE(stl_container_of_vex_vector)
 
     for(size_t i = 0; i < M; ++i) {
         BOOST_CHECK_EQUAL(N, x[i].size());
-
-        std::cout << bufs[i] << " " << x[i](0)() << std::endl;
-
-        check_sample(x[i], [](size_t, unsigned a) { BOOST_CHECK_EQUAL(a, 0); });
+        BOOST_CHECK_EQUAL(bufs[i], x[i](0)());
     }
 }
 

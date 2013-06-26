@@ -293,6 +293,11 @@ class multivector : public multivector_terminal_expression {
             copy_components<own>(mv);
         }
 
+        /// Move constructor.
+        multivector(multivector &&mv) noexcept {
+            std::swap(vec, mv.vec);
+        }
+
         /// Constructor.
         /**
          * Copies references to component vectors.

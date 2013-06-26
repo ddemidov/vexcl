@@ -381,7 +381,7 @@ class vector : public vector_terminal_expression {
         }
 
         /// Move constructor
-        vector(vector &&v) {
+        vector(vector &&v) noexcept {
             swap(v);
         }
 
