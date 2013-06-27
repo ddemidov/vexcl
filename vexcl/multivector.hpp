@@ -295,7 +295,7 @@ class multivector : public multivector_terminal_expression {
 
         /// Move constructor.
         multivector(multivector &&mv) noexcept {
-            for(int i = 0; i < N; ++i) std::swap(vec[i], mv.vec[i]);
+            for(size_t i = 0; i < N; ++i) std::swap(vec[i], mv.vec[i]);
         }
 
         /// Constructor.
