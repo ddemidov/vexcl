@@ -3,6 +3,7 @@
 #include <vector>
 #include <tuple>
 #include <numeric>
+#include <random>
 #include <vexcl/vexcl.hpp>
 
 using namespace vex;
@@ -31,7 +32,7 @@ std::vector<double> random_vector(size_t n) {
 
 //---------------------------------------------------------------------------
 std::pair<double,double> benchmark_vector(
-        const std::vector<cl::CommandQueue> &queue, profiler &prof
+        const std::vector<cl::CommandQueue> &queue, profiler<> &prof
         )
 {
     const size_t N = 1024 * 1024;
@@ -97,7 +98,7 @@ std::pair<double,double> benchmark_vector(
 
 //---------------------------------------------------------------------------
 std::pair<double, double> benchmark_reductor(
-        const std::vector<cl::CommandQueue> &queue, profiler &prof
+        const std::vector<cl::CommandQueue> &queue, profiler<> &prof
         )
 {
     const size_t N = 16 * 1024 * 1024;
@@ -157,7 +158,7 @@ std::pair<double, double> benchmark_reductor(
 
 //---------------------------------------------------------------------------
 std::pair<double, double> benchmark_stencil(
-        const std::vector<cl::CommandQueue> &queue, profiler &prof
+        const std::vector<cl::CommandQueue> &queue, profiler<> &prof
         )
 {
     const long N = 1024 * 1024;
@@ -226,7 +227,7 @@ std::pair<double, double> benchmark_stencil(
 
 //---------------------------------------------------------------------------
 std::pair<double,double> benchmark_spmv(
-        const std::vector<cl::CommandQueue> &queue, profiler &prof
+        const std::vector<cl::CommandQueue> &queue, profiler<> &prof
         )
 {
     // Construct matrix for 3D Poisson problem in cubic domain.
@@ -352,7 +353,7 @@ std::pair<double,double> benchmark_spmv(
 
 //---------------------------------------------------------------------------
 std::pair<double,double> benchmark_spmv_ccsr(
-        const std::vector<cl::CommandQueue> &queue, profiler &prof
+        const std::vector<cl::CommandQueue> &queue, profiler<> &prof
         )
 {
     // Construct matrix for 3D Poisson problem in cubic domain.
@@ -495,7 +496,7 @@ int main() {
 
         double gflops, bwidth;
 
-        profiler prof(ctx);
+        profiler<> prof(ctx);
 
 #ifdef BENCHMARK_VECTOR
         prof.tic_cpu("Vector arithmetic");

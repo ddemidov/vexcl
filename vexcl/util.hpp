@@ -31,141 +31,48 @@ THE SOFTWARE.
  * \brief  OpenCL general utilities.
  */
 
-#ifdef WIN32
-#  pragma warning(push)
-#  pragma warning(disable : 4267 4290)
+#ifdef _MSC_VER
 #  define NOMINMAX
 #endif
 
 #include <iostream>
-#include <sstream>
 #include <string>
 #include <vector>
+#include <tuple>
 #include <map>
-#include <algorithm>
-#include <type_traits>
-#include <functional>
-#include <climits>
 #include <stdexcept>
-#include <limits>
+#include <algorithm>
+
 #include <boost/config.hpp>
-#include <boost/type_traits/is_same.hpp>
+
+#ifdef BOOST_NO_VARIADIC_TEMPLATES
+#  include <boost/proto/proto.hpp>
+#  include <boost/preprocessor/repetition.hpp>
+#  ifndef VEXCL_MAX_ARITY
+#    define VEXCL_MAX_ARITY BOOST_PROTO_MAX_ARITY
+#  endif
+#endif
 
 #ifndef __CL_ENABLE_EXCEPTIONS
 #  define __CL_ENABLE_EXCEPTIONS
 #endif
 #include <CL/cl.hpp>
-#include <vexcl/types.hpp>
-
-typedef unsigned int  uint;
-typedef unsigned char uchar;
 
 namespace vex {
 
-/// Convert typename to string.
-template <class T> inline std::string type_name() {
-    throw std::logic_error("Trying to use an undefined type in a kernel.");
-}
-
-/// Declares a type as CL native, allows using it as a literal.
-template <class T> struct is_cl_native : std::false_type {};
-
-
-#define STRINGIFY(type) \
-template <> inline std::string type_name<cl_##type>() { return #type; } \
-template <> struct is_cl_native<cl_##type> : std::true_type {};
-
-// enable use of OpenCL vector types as literals
-#define CL_VEC_TYPE(type, len) \
-template <> inline std::string type_name<cl_##type##len>() { return #type #len; } \
-template <> struct is_cl_native<cl_##type##len> : std::true_type {};
-
-#define CL_TYPES(type) \
-STRINGIFY(type); \
-CL_VEC_TYPE(type, 2); \
-CL_VEC_TYPE(type, 4); \
-CL_VEC_TYPE(type, 8); \
-CL_VEC_TYPE(type, 16);
-
-CL_TYPES(float);
-CL_TYPES(double);
-CL_TYPES(char);  CL_TYPES(uchar);
-CL_TYPES(short); CL_TYPES(ushort);
-CL_TYPES(int);   CL_TYPES(uint);
-CL_TYPES(long);  CL_TYPES(ulong);
-#undef CL_TYPES
-#undef CL_VEC_TYPE
-#undef STRINGIFY
-
-#if defined(__APPLE__)
-template <> inline std::string type_name<size_t>() {
-    return std::numeric_limits<std::size_t>::max() ==
-        std::numeric_limits<uint>::max() ? "uint" : "ulong";
-}
-template <> struct is_cl_native<size_t> : std::true_type {};
-template <> inline std::string type_name<ptrdiff_t>() {
-    return std::numeric_limits<std::ptrdiff_t>::max() ==
-        std::numeric_limits<int>::max() ? "int" : "long";
-}
-template <> struct is_cl_native<ptrdiff_t> : std::true_type {};
+/// Check run-time condition.
+/** Throws std::runtime_error if condition is false */
+template <class Condition, class Message>
+inline void precondition(const Condition &condition, const Message &fail_message) {
+#ifdef _MSC_VER
+#  pragma warning(push)
+#  pragma warning(disable: 4800)
 #endif
-
-/// \cond INTERNAL
-
-/// Binary operations with their traits.
-namespace binop {
-    enum kind {
-        Add,
-        Subtract,
-        Multiply,
-        Divide,
-        Remainder,
-        Greater,
-        Less,
-        GreaterEqual,
-        LessEqual,
-        Equal,
-        NotEqual,
-        BitwiseAnd,
-        BitwiseOr,
-        BitwiseXor,
-        LogicalAnd,
-        LogicalOr,
-        RightShift,
-        LeftShift
-    };
-
-    template <kind> struct traits {};
-
-#define BOP_TRAITS(kind, op, nm)   \
-    template <> struct traits<kind> {  \
-        static std::string oper() { return op; } \
-        static std::string name() { return nm; } \
-    };
-
-    BOP_TRAITS(Add,          "+",  "Add_")
-    BOP_TRAITS(Subtract,     "-",  "Sub_")
-    BOP_TRAITS(Multiply,     "*",  "Mul_")
-    BOP_TRAITS(Divide,       "/",  "Div_")
-    BOP_TRAITS(Remainder,    "%",  "Mod_")
-    BOP_TRAITS(Greater,      ">",  "Gtr_")
-    BOP_TRAITS(Less,         "<",  "Lss_")
-    BOP_TRAITS(GreaterEqual, ">=", "Geq_")
-    BOP_TRAITS(LessEqual,    "<=", "Leq_")
-    BOP_TRAITS(Equal,        "==", "Equ_")
-    BOP_TRAITS(NotEqual,     "!=", "Neq_")
-    BOP_TRAITS(BitwiseAnd,   "&",  "BAnd_")
-    BOP_TRAITS(BitwiseOr,    "|",  "BOr_")
-    BOP_TRAITS(BitwiseXor,   "^",  "BXor_")
-    BOP_TRAITS(LogicalAnd,   "&&", "LAnd_")
-    BOP_TRAITS(LogicalOr,    "||", "LOr_")
-    BOP_TRAITS(RightShift,   ">>", "Rsh_")
-    BOP_TRAITS(LeftShift,    "<<", "Lsh_")
-
-#undef BOP_TRAITS
+    if (!condition) throw std::runtime_error(fail_message);
+#ifdef _MSC_VER
+#  pragma warning(pop)
+#endif
 }
-
-/// \endcond
 
 /// Return next power of 2.
 inline size_t nextpow2(size_t x) {
@@ -180,24 +87,31 @@ inline size_t nextpow2(size_t x) {
 
 /// Align n to the next multiple of m.
 inline size_t alignup(size_t n, size_t m = 16U) {
-    return n % m ? n - n % m + m : n;
+    return (n + m - 1) / m * m;
 }
 
-/// Iterate over tuple elements.
-template <size_t I, class Function, class Tuple>
-typename std::enable_if<(I == std::tuple_size<Tuple>::value), void>::type
-for_each(const Tuple &, Function &)
-{ }
+template <class T>
+struct is_tuple : std::false_type {};
 
-/// Iterate over tuple elements.
-template <size_t I, class Function, class Tuple>
-typename std::enable_if<(I < std::tuple_size<Tuple>::value), void>::type
-for_each(const Tuple &v, Function &f)
-{
-    f( std::get<I>(v) );
 
-    for_each<I + 1>(v, f);
-}
+#ifndef BOOST_NO_VARIADIC_TEMPLATES
+
+template <class... Elem>
+struct is_tuple < std::tuple<Elem...> > : std::true_type {};
+
+#else
+
+#define IS_TUPLE(z, n, unused)                                    \
+  template < BOOST_PP_ENUM_PARAMS(n, class Elem) >                \
+  struct is_tuple< std::tuple < BOOST_PP_ENUM_PARAMS(n, Elem) > > \
+    : std::true_type                                              \
+  {};
+
+BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, IS_TUPLE, ~)
+
+#undef IS_TUPLE
+
+#endif
 
 /// Shortcut for q.getInfo<CL_QUEUE_CONTEXT>()
 inline cl::Context qctx(const cl::CommandQueue& q) {
@@ -215,71 +129,110 @@ inline cl::Device qdev(const cl::CommandQueue& q) {
 
 /// Checks if the compute device is CPU.
 inline bool is_cpu(const cl::Device &d) {
-    return d.getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_CPU;
+#ifdef _MSC_VER
+#  pragma warning(push)
+#  pragma warning(disable: 4800)
+#endif
+    return d.getInfo<CL_DEVICE_TYPE>() & CL_DEVICE_TYPE_CPU;
+#ifdef _MSC_VER
+#  pragma warning(pop)
+#endif
 }
 
+enum device_options_kind {
+    compile_options,
+    program_header
+};
+
 /// Global program options holder
-template <bool dummy>
-struct program_options {
-    static_assert(dummy, "dummy parameter should be true");
+template <device_options_kind kind>
+struct device_options {
+    static const std::string& get(const cl::Device &dev) {
+        if (options[dev()].empty()) options[dev()].push_back("");
 
-    static const std::string& get_options(const cl::Device &dev) {
-        return options[dev()];
+        return options[dev()].back();
     }
 
-    static const std::string& get_header(const cl::Device &dev) {
-        return header[dev()];
+    static void push(const cl::Device &dev, const std::string &str) {
+        options[dev()].push_back(str);
     }
 
-    static void set_options(const cl::Device &dev, const std::string &str) {
-        options[dev()] = str;
-    }
-
-    static void set_header(const cl::Device &dev, const std::string &str) {
-        header[dev()] = str;
+    static void pop(const cl::Device &dev) {
+        if (!options[dev()].empty()) options[dev()].pop_back();
     }
 
     private:
-        static std::map<cl_device_id, std::string> options;
-        static std::map<cl_device_id, std::string> header;
+        static std::map<cl_device_id, std::vector<std::string> > options;
 };
 
-template <bool dummy>
-std::map<cl_device_id, std::string> program_options<dummy>::options;
+template <device_options_kind kind>
+std::map<cl_device_id, std::vector<std::string> > device_options<kind>::options;
 
-template <bool dummy>
-std::map<cl_device_id, std::string> program_options<dummy>::header;
-
-inline std::string get_program_options(const cl::Device &dev) {
-    return program_options<true>::get_options(dev);
+inline std::string get_compile_options(const cl::Device &dev) {
+    return device_options<compile_options>::get(dev);
 }
 
 inline std::string get_program_header(const cl::Device &dev) {
-    return program_options<true>::get_header(dev);
+    return device_options<program_header>::get(dev);
 }
 
 /// Set global OpenCL compilation options for a given device.
-inline void set_program_options(const cl::Device &dev, const std::string &str) {
-    program_options<true>::set_options(dev, str);
+/**
+ * This replaces any previously set options. To roll back, call
+ * pop_compile_options().
+ */
+inline void push_compile_options(const cl::Device &dev, const std::string &str) {
+    device_options<compile_options>::push(dev, str);
+}
+
+/// Rolls back changes to compile options.
+inline void pop_compile_options(const cl::Device &dev) {
+    device_options<compile_options>::pop(dev);
 }
 
 /// Set global OpenCL program header for a given device.
-inline void set_program_header(const cl::Device &dev, const std::string &str) {
-    program_options<true>::set_header(dev, str);
+/**
+ * This replaces any previously set header. To roll back, call
+ * pop_program_header().
+ */
+inline void push_program_header(const cl::Device &dev, const std::string &str) {
+    device_options<program_header>::push(dev, str);
+}
+
+/// Rolls back changes to compile options.
+inline void pop_program_header(const cl::Device &dev) {
+    device_options<program_header>::pop(dev);
 }
 
 /// Set global OpenCL compilation options for each device in queue list.
-inline void set_program_options(const std::vector<cl::CommandQueue> &queue, const std::string &str) {
+inline void push_compile_options(const std::vector<cl::CommandQueue> &queue, const std::string &str) {
     for(auto q = queue.begin(); q != queue.end(); ++q)
-        program_options<true>::set_options(qdev(*q), str);
+        device_options<compile_options>::push(qdev(*q), str);
+}
+
+/// Rolls back changes to compile options for each device in queue list.
+inline void pop_compile_options(const std::vector<cl::CommandQueue> &queue) {
+    for(auto q = queue.begin(); q != queue.end(); ++q)
+        device_options<compile_options>::pop(qdev(*q));
 }
 
 /// Set global OpenCL program header for each device in queue list.
-inline void set_program_header(const std::vector<cl::CommandQueue> &queue, const std::string &str) {
+inline void push_program_header(const std::vector<cl::CommandQueue> &queue, const std::string &str) {
     for(auto q = queue.begin(); q != queue.end(); ++q)
-        program_options<true>::set_header(qdev(*q), str);
+        device_options<program_header>::push(qdev(*q), str);
 }
 
+/// Rolls back changes to compile options for each device in queue list.
+inline void pop_program_header(const std::vector<cl::CommandQueue> &queue) {
+    for(auto q = queue.begin(); q != queue.end(); ++q)
+        device_options<program_header>::pop(qdev(*q));
+}
+
+/// Returns standard OpenCL program header.
+/**
+ * Defines pragmas necessary to work with double precision and anything
+ * provided by the user with help of push_program_header().
+ */
 inline std::string standard_kernel_header(const cl::Device &dev) {
     return std::string(
         "#if defined(cl_khr_fp64)\n"
@@ -307,7 +260,7 @@ inline cl::Program build_sources(
     auto device = context.getInfo<CL_CONTEXT_DEVICES>();
 
     try {
-        program.build(device, (options + " " + get_program_options(device[0])).c_str());
+        program.build(device, (options + " " + get_compile_options(device[0])).c_str());
     } catch(const cl::Error&) {
         std::cerr << source
                   << std::endl
@@ -320,14 +273,15 @@ inline cl::Program build_sources(
 }
 
 /// Get maximum possible workgroup size for given kernel.
-inline uint kernel_workgroup_size(
+inline unsigned kernel_workgroup_size(
         const cl::Kernel &kernel,
         const cl::Device &device
         )
 {
-    size_t wgsz = 1024U;
+    unsigned wgsz = 1024U;
 
-    uint dev_wgsz = kernel.getWorkGroupInfo<CL_KERNEL_WORK_GROUP_SIZE>(device);
+    unsigned dev_wgsz = static_cast<unsigned>(
+        kernel.getWorkGroupInfo<CL_KERNEL_WORK_GROUP_SIZE>(device));
     while(wgsz > dev_wgsz) wgsz /= 2;
 
     return wgsz;
@@ -340,17 +294,6 @@ inline size_t num_workgroups(const cl::Device &device) {
     return 4 * device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>();
 }
 
-struct kernel_cache_entry {
-    cl::Kernel kernel;
-    size_t     wgsize;
-
-    kernel_cache_entry(const cl::Kernel &kernel, size_t wgsize)
-        : kernel(kernel), wgsize(wgsize)
-    {}
-};
-
-typedef std::map< cl_context, kernel_cache_entry > kernel_cache;
-
 struct column_owner {
     const std::vector<size_t> &part;
 
@@ -362,174 +305,84 @@ struct column_owner {
     }
 };
 
+/// Helper function for generating LocalSpaceArg objects.
+/**
+ * This is a copy of cl::Local that is absent in some of cl.hpp versions.
+ */
+inline cl::LocalSpaceArg
+Local(size_t size) {
+    cl::LocalSpaceArg ret = { size };
+    return ret;
+}
+
 } // namespace vex
 
 /// Output description of an OpenCL error to a stream.
 inline std::ostream& operator<<(std::ostream &os, const cl::Error &e) {
     os << e.what() << "(";
 
+#define CL_ERR2TXT(num, msg) case (num): os << (msg); break
+
     switch (e.err()) {
-        case 0:
-            os << "Success";
-            break;
-        case -1:
-            os << "Device not found";
-            break;
-        case -2:
-            os << "Device not available";
-            break;
-        case -3:
-            os << "Compiler not available";
-            break;
-        case -4:
-            os << "Mem object allocation failure";
-            break;
-        case -5:
-            os << "Out of resources";
-            break;
-        case -6:
-            os << "Out of host memory";
-            break;
-        case -7:
-            os << "Profiling info not available";
-            break;
-        case -8:
-            os << "Mem copy overlap";
-            break;
-        case -9:
-            os << "Image format mismatch";
-            break;
-        case -10:
-            os << "Image format not supported";
-            break;
-        case -11:
-            os << "Build program failure";
-            break;
-        case -12:
-            os << "Map failure";
-            break;
-        case -13:
-            os << "Misaligned sub buffer offset";
-            break;
-        case -14:
-            os << "Exec status error for events in wait list";
-            break;
-        case -30:
-            os << "Invalid value";
-            break;
-        case -31:
-            os << "Invalid device type";
-            break;
-        case -32:
-            os << "Invalid platform";
-            break;
-        case -33:
-            os << "Invalid device";
-            break;
-        case -34:
-            os << "Invalid context";
-            break;
-        case -35:
-            os << "Invalid queue properties";
-            break;
-        case -36:
-            os << "Invalid command queue";
-            break;
-        case -37:
-            os << "Invalid host ptr";
-            break;
-        case -38:
-            os << "Invalid mem object";
-            break;
-        case -39:
-            os << "Invalid image format descriptor";
-            break;
-        case -40:
-            os << "Invalid image size";
-            break;
-        case -41:
-            os << "Invalid sampler";
-            break;
-        case -42:
-            os << "Invalid binary";
-            break;
-        case -43:
-            os << "Invalid build options";
-            break;
-        case -44:
-            os << "Invalid program";
-            break;
-        case -45:
-            os << "Invalid program executable";
-            break;
-        case -46:
-            os << "Invalid kernel name";
-            break;
-        case -47:
-            os << "Invalid kernel definition";
-            break;
-        case -48:
-            os << "Invalid kernel";
-            break;
-        case -49:
-            os << "Invalid arg index";
-            break;
-        case -50:
-            os << "Invalid arg value";
-            break;
-        case -51:
-            os << "Invalid arg size";
-            break;
-        case -52:
-            os << "Invalid kernel args";
-            break;
-        case -53:
-            os << "Invalid work dimension";
-            break;
-        case -54:
-            os << "Invalid work group size";
-            break;
-        case -55:
-            os << "Invalid work item size";
-            break;
-        case -56:
-            os << "Invalid global offset";
-            break;
-        case -57:
-            os << "Invalid event wait list";
-            break;
-        case -58:
-            os << "Invalid event";
-            break;
-        case -59:
-            os << "Invalid operation";
-            break;
-        case -60:
-            os << "Invalid gl object";
-            break;
-        case -61:
-            os << "Invalid buffer size";
-            break;
-        case -62:
-            os << "Invalid mip level";
-            break;
-        case -63:
-            os << "Invalid global work size";
-            break;
-        case -64:
-            os << "Invalid property";
-            break;
+        CL_ERR2TXT(  0, "Success");
+        CL_ERR2TXT( -1, "Device not found");
+        CL_ERR2TXT( -2, "Device not available");
+        CL_ERR2TXT( -3, "Compiler not available");
+        CL_ERR2TXT( -4, "Mem object allocation failure");
+        CL_ERR2TXT( -5, "Out of resources");
+        CL_ERR2TXT( -6, "Out of host memory");
+        CL_ERR2TXT( -7, "Profiling info not available");
+        CL_ERR2TXT( -8, "Mem copy overlap");
+        CL_ERR2TXT( -9, "Image format mismatch");
+        CL_ERR2TXT(-10, "Image format not supported");
+        CL_ERR2TXT(-11, "Build program failure");
+        CL_ERR2TXT(-12, "Map failure");
+        CL_ERR2TXT(-13, "Misaligned sub buffer offset");
+        CL_ERR2TXT(-14, "Exec status error for events in wait list");
+        CL_ERR2TXT(-30, "Invalid value");
+        CL_ERR2TXT(-31, "Invalid device type");
+        CL_ERR2TXT(-32, "Invalid platform");
+        CL_ERR2TXT(-33, "Invalid device");
+        CL_ERR2TXT(-34, "Invalid context");
+        CL_ERR2TXT(-35, "Invalid queue properties");
+        CL_ERR2TXT(-36, "Invalid command queue");
+        CL_ERR2TXT(-37, "Invalid host ptr");
+        CL_ERR2TXT(-38, "Invalid mem object");
+        CL_ERR2TXT(-39, "Invalid image format descriptor");
+        CL_ERR2TXT(-40, "Invalid image size");
+        CL_ERR2TXT(-41, "Invalid sampler");
+        CL_ERR2TXT(-42, "Invalid binary");
+        CL_ERR2TXT(-43, "Invalid build options");
+        CL_ERR2TXT(-44, "Invalid program");
+        CL_ERR2TXT(-45, "Invalid program executable");
+        CL_ERR2TXT(-46, "Invalid kernel name");
+        CL_ERR2TXT(-47, "Invalid kernel definition");
+        CL_ERR2TXT(-48, "Invalid kernel");
+        CL_ERR2TXT(-49, "Invalid arg index");
+        CL_ERR2TXT(-50, "Invalid arg value");
+        CL_ERR2TXT(-51, "Invalid arg size");
+        CL_ERR2TXT(-52, "Invalid kernel args");
+        CL_ERR2TXT(-53, "Invalid work dimension");
+        CL_ERR2TXT(-54, "Invalid work group size");
+        CL_ERR2TXT(-55, "Invalid work item size");
+        CL_ERR2TXT(-56, "Invalid global offset");
+        CL_ERR2TXT(-57, "Invalid event wait list");
+        CL_ERR2TXT(-58, "Invalid event");
+        CL_ERR2TXT(-59, "Invalid operation");
+        CL_ERR2TXT(-60, "Invalid gl object");
+        CL_ERR2TXT(-61, "Invalid buffer size");
+        CL_ERR2TXT(-62, "Invalid mip level");
+        CL_ERR2TXT(-63, "Invalid global work size");
+        CL_ERR2TXT(-64, "Invalid property");
+
         default:
             os << "Unknown error";
             break;
     }
 
+#undef CL_ERR2TXT
+
     return os << ")";
 }
 
-#ifdef WIN32
-#  pragma warning(pop)
-#endif
-
-// vim: et
 #endif

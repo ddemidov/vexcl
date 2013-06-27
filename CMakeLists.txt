@@ -1,7 +1,15 @@
 cmake_minimum_required(VERSION 2.8)
-project(VexCL CXX)
+project(VexCL)
 
 include_directories( ${CMAKE_SOURCE_DIR} )
+
+#----------------------------------------------------------------------------
+# Show generated kernels in tests and examples
+#----------------------------------------------------------------------------
+option(VEXCL_SHOW_KERNELS "Show generated kernels in tests and examples")
+if (VEXCL_SHOW_KERNELS)
+    add_definitions(-DVEXCL_SHOW_KERNELS)
+endif (VEXCL_SHOW_KERNELS)
 
 #----------------------------------------------------------------------------
 # Enable math constants in Win32
@@ -26,6 +34,7 @@ find_package(Boost COMPONENTS
     system
     thread
     unit_test_framework
+    program_options
     )
 
 include_directories( ${Boost_INCLUDE_DIRS} )

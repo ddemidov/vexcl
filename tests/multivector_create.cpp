@@ -1,5 +1,6 @@
 #define BOOST_TEST_MODULE MultivectorCreate
 #include <boost/test/unit_test.hpp>
+#include <vexcl/multivector.hpp>
 #include "context_setup.hpp"
 
 
@@ -59,6 +60,29 @@ BOOST_AUTO_TEST_CASE(element_access)
 
     BOOST_CHECK(0 == *std::min_element(host.begin(), host.end()));
     BOOST_CHECK(0 == *std::max_element(host.begin(), host.end()));
+}
+
+BOOST_AUTO_TEST_CASE(stl_container_of_multivector)
+{
+    const size_t N = 1024;
+    const size_t D = 2;
+    const size_t M = 16 + generator<size_t>::get() ;
+
+    std::vector< vex::multivector<unsigned, D> > x;
+
+    std::vector< std::array<cl_mem, D> > bufs;
+
+    for(size_t i = 0; i < M; ++i) {
+        x.push_back( vex::multivector<unsigned, D>(ctx, N) );
+        x.back() = i;
+        std::array<cl_mem, D> b = {{x.back()(0)(0)(), x.back()(1)(0)() }};
+        bufs.push_back(b);
+    }
+
+    for(size_t i = 0; i < M; ++i) {
+        BOOST_CHECK_EQUAL(bufs[i][0], x[i](0)(0)());
+        BOOST_CHECK_EQUAL(bufs[i][1], x[i](1)(0)());
+    }
 }
 
 BOOST_AUTO_TEST_SUITE_END()

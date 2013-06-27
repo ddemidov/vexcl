@@ -1,12 +1,13 @@
 #include <iostream>
 #include <iomanip>
 #include <random>
+#include <boost/program_options.hpp>
 
 #include <vexcl/vexcl.hpp>
 
 using namespace vex;
 
-const size_t runs = 1000;
+typedef stopwatch<boost::chrono::high_resolution_clock, AvgMedian> watch;
 
 #ifdef HAVE_CUDA
 #  include <cufft.h>
@@ -22,7 +23,7 @@ void check(cufftResult status, const char *msg) {
         throw std::runtime_error(msg);
 }
 
-double test_cufft(cl_float2 *data, size_t n, size_t m) {
+watch test_cufft(cl_float2 *data, size_t n, size_t m, size_t runs, bool) {
     size_t dataSize = sizeof(cufftComplex) * n * m;
 
     cufftHandle plan;
@@ -40,21 +41,23 @@ double test_cufft(cl_float2 *data, size_t n, size_t m) {
     // Send X to device
     check(cudaMemcpy(inData, data, dataSize, cudaMemcpyHostToDevice), "cudaMemcpy");
 
-    profiler prof;
-    prof.tic_cpu("Run");
-    for(size_t i = 0 ; i < runs ; i++)
+    watch w;
+    for(size_t i = 0 ; i < runs ; i++) {
+        cudaDeviceSynchronize();
+        w.tic();
         cufftExecC2C(plan, inData, outData, CUFFT_FORWARD);
-    cudaDeviceSynchronize();
-    double t = prof.toc("Run");
+        cudaDeviceSynchronize();
+        w.toc();
+    }
 
     cufftDestroy(plan);
     cudaFree(inData);
     cudaFree(outData);
-    return t;
+    return w;
 }
 #else
-double test_cufft(cl_float2 *, size_t, size_t) {
-    return -1;
+watch test_cufft(cl_float2 *, size_t, size_t, size_t, bool) {
+    return watch();
 }
 #endif
 
@@ -65,7 +68,7 @@ double test_cufft(cl_float2 *, size_t, size_t) {
 #  endif
 #  include <fftw3.h>
 
-double test_fftw(cl_float2 *data, size_t n, size_t m) {
+watch test_fftw(cl_float2 *data, size_t n, size_t m, size_t runs, bool dump_plan) {
     int sz[2] = {(int)n, (int)m};
     fftwf_complex *out = reinterpret_cast<fftwf_complex *>(
         fftwf_malloc(sizeof(fftwf_complex) * n * m));
@@ -73,56 +76,90 @@ double test_fftw(cl_float2 *data, size_t n, size_t m) {
         reinterpret_cast<fftwf_complex *>(data),
         out, FFTW_FORWARD, FFTW_MEASURE);
 
-    profiler prof;
-    prof.tic_cpu("Run");
-    for(size_t i = 0 ; i < runs ; i++)
+    watch w;
+    for(size_t i = 0 ; i < runs ; i++) {
+        w.tic();
         fftwf_execute(p1);
-    double t = prof.toc("Run");
+        w.toc();
+    }
 
+    if(dump_plan) fftwf_fprint_plan(p1, stderr);
     fftwf_destroy_plan(p1);
     fftwf_free(out);
-    return t;
+    return w;
 }
 #else
-double test_fftw(cl_float2 *, size_t, size_t) {
-    return -1;
+watch test_fftw(cl_float2 *, size_t, size_t, size_t, bool) {
+    return watch();
 }
 #endif
 
 
-double test(Context &ctx, cl_float2 *data, size_t n, size_t m) {
+watch test_clfft(Context &ctx, cl_float2 *data, size_t n, size_t m, size_t runs, bool dump_plan) {
     vector<cl_float2> a(ctx, n * m, data);
     vector<cl_float2> b(ctx, n * m);
     std::vector<size_t> sz; sz.push_back(n); if(m > 1) sz.push_back(m);
     FFT<cl_float2> fft(ctx, sz);
 
-    // Run some
-    profiler prof;
-    prof.tic_cl("Run");
-    for(size_t i = 0 ; i < runs ; i++)
+    watch w;
+    for(size_t i = 0 ; i < runs ; i++) {
+        ctx.queue()[0].finish();
+        w.tic();
         b = fft(a);
-    double t = prof.toc("Run");
+        ctx.queue()[0].finish();
+        w.toc();
+    }
 
-#ifdef FFT_PROFILE
-    std::cerr << fft.plan.profile;
-#else
-    std::cerr << fft.plan;
-#endif
-    return t;
+    if(dump_plan) std::cerr << fft.plan;
+    return w;
 }
 
-void info(double time, size_t size, size_t dim) {
+void info(watch w, size_t size, size_t dim, bool dump_times) {
     // FFT is O(n log n)
     double ops = dim == 1
         ? size * std::log(static_cast<double>(size)) // O(n log n)
         : 2.0 * size * size * std::log(static_cast<double>(size)); // O(n log n)[1D fft] * n[rows] * 2[transposed]
     std::cout << '\t';
-    if(time < 0) std::cout << '-';
-    else std::cout << std::scientific << (ops / time);
-    std::cout << std::flush;
+    if(w.tics() == 0) std::cout << '-';
+    else {
+        std::cout << std::scientific << (ops / w.average());
+        if(dump_times) {
+            for(auto t = w.avg.values.begin() ; t != w.avg.values.end() ; t++)
+                std::cerr << '\t' << std::scientific << *t;
+            std::cerr << std::endl;
+        }
+    }
 }
 
-int main() {
+int main(int argc, char **argv) {
+    using namespace boost::program_options;
+    options_description desc("Options");
+    bool add_prime = false, dump_plan = false, dump_times = false;
+    size_t composite = 0, min, max, runs;
+    desc.add_options()
+        ("help,h", "show help")
+        ("runs,r", value(&runs)->default_value(1000),
+            "run each FFT multiple times")
+        ("min", value(&min)->default_value(1 << 4),
+            "minimum size")
+        ("max", value(&max)->default_value(1 << 20),
+            "maximum size (all powers of two between)")
+        ("prime,p", bool_switch(&add_prime),
+            "add nearest prime")
+        ("composite,c", value(&composite)->implicit_value(23),
+            "add nearest multiple of this number (for each power of two)")
+        ("dump-plan", bool_switch(&dump_plan),
+            "show each CLFFT plan on stderr")
+        ("dump-times", bool_switch(&dump_times),
+            "show each measured time on stderr");
+    variables_map vm;
+    store(parse_command_line(argc, argv, desc), vm);
+    notify(vm);
+    if(vm.count("help") || min > max) {
+        std::cerr << desc << std::endl;
+        return EXIT_FAILURE;
+    }
+
 #if defined(_OPENMP) && defined(USE_FFTW)
     fftwf_init_threads();
     fftwf_plan_with_nthreads(omp_get_max_threads());
@@ -130,15 +167,31 @@ int main() {
     Context ctx(Filter::Env && Filter::Count(1));
     std::cerr << ctx << std::endl;
 
-    // sizes to test
-    std::vector<size_t> ns;
-    const size_t max_len = 1 << 20;
-    vex::fft::prime_generator prime;
-    for(size_t n = 2, k = prime() ; n <= max_len ; n *= 2) {
+    // power of two sizes
+    std::vector<size_t> twos, ns;
+    for(size_t n = min ; n <= max ; n *= 2) {
+        twos.push_back(n);
         ns.push_back(n);
-        while(k < n) k = prime();
-        if(k <= max_len) ns.push_back(k);
     }
+
+    if(add_prime) {
+        vex::fft::prime_generator prime;
+        size_t prev = 0, next = 0;
+        for(auto n = twos.begin() ; n != twos.end() ; n++) {
+            while(next <= *n) { prev = next; next = prime(); }
+            const size_t p = *n - prev < next - *n ? prev : next;
+            ns.push_back(p);
+        }
+    }
+
+    if(composite != 0) {
+        for(auto n = twos.begin() ; n != twos.end() ; n++) {
+            const size_t m = static_cast<size_t>(*n / composite + 0.5);
+            if(m > 1) ns.push_back(composite * m);
+        }
+    }
+
+    const size_t max_len = *std::max_element(ns.begin(), ns.end());
 
     // random data
 #ifdef HAVE_FFTW
@@ -152,27 +205,27 @@ int main() {
     for(size_t i = 0 ; i < 2 * max_len ; i++)
         reinterpret_cast<float*>(data)[i] = dist(gen);
 
-    std::cout << "# prints `n log n / time` for n = 2^k\n";
-
     // 1D
+    std::cout << "# prints `n log n / time`\n";
     std::cout << "#n\tfftw^1\tclfft^1\tcufft^1" << std::endl;
     for(auto n = ns.begin() ; n != ns.end() ; n++) {
         std::cout << *n;
-        info(test_fftw(data, *n, 1), *n, 1);
-        info(test(ctx, data, *n, 1), *n, 1);
-        info(test_cufft(data, *n, 1), *n, 1);
+        info(test_fftw (     data, *n, 1, runs, dump_plan), *n, 1, dump_times);
+        info(test_clfft(ctx, data, *n, 1, runs, dump_plan), *n, 1, dump_times);
+        info(test_cufft(     data, *n, 1, runs, dump_plan), *n, 1, dump_times);
         std::cout << std::endl;
     }
-    std::cout << "\n\n";
+    std::cout << std::endl;
 
     // 2D
+    std::cout << "# prints `2 n^2 log n / time`\n";
     std::cout << "#n\tfftw^2\tclfft^2\tcufft^2" << std::endl;
     for(auto n = ns.begin() ; n != ns.end() ; n++)
         if(*n * *n <= max_len) {
             std::cout << *n;
-            info(test_fftw(data, *n, *n), *n, 2);
-            info(test(ctx, data, *n, *n), *n, 2);
-            info(test_cufft(data, *n, *n), *n, 2);
+            info(test_fftw (     data, *n, *n, runs, dump_plan), *n, 2, dump_times);
+            info(test_clfft(ctx, data, *n, *n, runs, dump_plan), *n, 2, dump_times);
+            info(test_cufft(     data, *n, *n, runs, dump_plan), *n, 2, dump_times);
             std::cout << std::endl;
         }
 

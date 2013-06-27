@@ -28,34 +28,35 @@ THE SOFTWARE.
 /**
  * \file   devlist.hpp
  * \author Denis Demidov <ddemidov@ksu.ru>
- * \brief  OpenCL device enumeration.
+ * \brief  OpenCL device enumeration and context initialization.
  */
 
-#ifdef WIN32
-#  pragma warning(push)
-#  pragma warning(disable : 4290 4715 4996)
+#ifdef _MSC_VER
 #  define NOMINMAX
 #endif
 
 #include <vector>
 #include <string>
 #include <fstream>
-#include <tuple>
+#include <limits>
 #include <cstdlib>
-#include <vexcl/util.hpp>
+
+#include <boost/config.hpp>
 #include <boost/interprocess/sync/file_lock.hpp>
 #include <boost/filesystem.hpp>
+
+#ifndef __CL_ENABLE_EXCEPTIONS
+#  define __CL_ENABLE_EXCEPTIONS
+#endif
+#include <CL/cl.hpp>
+
+#include <vexcl/util.hpp>
 
 #ifdef __GNUC__
 #  ifndef _GLIBCXX_USE_NANOSLEEP
 #    define _GLIBCXX_USE_NANOSLEEP
 #  endif
 #endif
-
-#include <boost/thread.hpp>
-#include <boost/chrono.hpp>
-
-#include <random>
 
 namespace vex {
 
@@ -184,6 +185,10 @@ namespace Filter {
      * Filter::Count.
      */
     struct EnvFilter {
+#ifdef _MSC_VER
+#  pragma warning(push)
+#  pragma warning(disable: 4996)
+#endif
         EnvFilter()
             : platform(getenv("OCL_PLATFORM")),
               vendor  (getenv("OCL_VENDOR")),
@@ -191,6 +196,9 @@ namespace Filter {
               maxdev  (getenv("OCL_MAX_DEVICES")),
               count(maxdev ? atoi(maxdev) : std::numeric_limits<int>::max())
         {}
+#ifdef _MSC_VER
+#  pragma warning(pop)
+#endif
 
         bool operator()(const cl::Device &d) const {
             if (platform &&
@@ -234,7 +242,14 @@ namespace Filter {
                 std::vector<cl::Platform> platform;
                 cl::Platform::get(&platform);
 
+#ifdef _MSC_VER
+#  pragma warning(push)
+#  pragma warning(disable: 4996)
+#endif
                 const char *lock_dir = getenv("VEXCL_LOCK_DIR");
+#ifdef _MSC_VER
+#  pragma warning(pop)
+#endif
 
                 for(size_t p_id = 0; p_id < platform.size(); p_id++) {
                     std::vector<cl::Device> device;
@@ -244,7 +259,14 @@ namespace Filter {
                     for(size_t d_id = 0; d_id < device.size(); d_id++) {
                         std::ostringstream id;
 #ifdef WIN32
+#  ifdef _MSC_VER
+#    pragma warning(push)
+#    pragma warning(disable: 4996)
+#  endif
                         id << (lock_dir ? lock_dir : getenv("TEMP")) << "\\";
+#  ifdef _MSC_VER
+#    pragma warning(pop)
+#  endif
 #else
                         id << (lock_dir ? lock_dir : "/tmp") << "/";
 #endif
@@ -268,13 +290,15 @@ namespace Filter {
                             << std::endl;
                     } else {
                         flock.reset(new boost::interprocess::file_lock(fname.c_str()));
+#if BOOST_VERSION >= 105000
                         // In case we created the lock file,
                         // lets make it writable by others:
                         try {
                             boost::filesystem::permissions(fname, boost::filesystem::all_all);
-                        } catch (const boost::filesystem::filesystem_error &e) {
+                        } catch (const boost::filesystem::filesystem_error&) {
                             (void)0;
                         }
+#endif
                     }
                 }
 
@@ -288,25 +312,13 @@ namespace Filter {
                         //    checking the device. If device is not good (for
                         //    them) they will release the lock in a few
                         //    moments.
-                        // To process case 2 correctly, we try to lock the
-                        // device a couple of times with a random pause.
+                        // To process case 2 correctly, we use timed_lock().
 
-                        std::mt19937 rng(reinterpret_cast<size_t>(this));
-                        std::uniform_int_distribution<uint> rnd(0, 30);
-
-                        for(int try_num = 0; try_num < 3; ++try_num) {
-                            if (flock->try_lock())
-                                return true;
-
-#if BOOST_VERSION >= 105000
-                            boost::this_thread::sleep_for(
-                                    boost::chrono::milliseconds( rnd(rng) ) );
-#endif
-                        }
-                        return false;
-                    }
-                    else
-                        return true;
+                        return flock->timed_lock(
+                                boost::posix_time::microsec_clock::universal_time() +
+                                boost::posix_time::milliseconds(100)
+                                );
+                    } else return true;
                 }
 
                 std::ofstream file;
@@ -378,16 +390,17 @@ namespace Filter {
 
             bool operator()(const cl::Device &d) const {
                 switch (op) {
-                    case FilterAnd:
-                        return left(d) && right(d);
                     case FilterOr:
                         return left(d) || right(d);
+                    case FilterAnd:
+                    default:
+                        return left(d) && right(d);
                 }
             }
 
             private:
-            const LeftFilter &left;
-            const RightFilter &right;
+                const LeftFilter &left;
+                const RightFilter &right;
         };
 
     /// \endcond
@@ -430,7 +443,7 @@ namespace Filter {
  * \endcode
  */
 template<class DevFilter
-#ifndef WIN32
+#ifndef BOOST_NO_CXX11_FUNCTION_TEMPLATE_DEFAULT_ARGS
     = Filter::AllFilter
 #endif
     >
@@ -467,7 +480,7 @@ std::vector<cl::Device> device_list(DevFilter filter = Filter::All)
  * \see device_list
  */
 template<class DevFilter
-#ifndef WIN32
+#ifndef BOOST_NO_CXX11_FUNCTION_TEMPLATE_DEFAULT_ARGS
     = Filter::AllFilter
 #endif
     >
@@ -522,7 +535,7 @@ class StaticContext {
         }
 
         static const Context& get() {
-            if (!instance) throw std::logic_error("Uninitialized static context");
+            precondition(instance, "Uninitialized static context");
             return *instance;
         }
     private:
@@ -551,7 +564,7 @@ class Context {
             std::tie(c, q) = queue_list(filter, properties);
 
 #ifdef VEXCL_THROW_ON_EMPTY_CONTEXT
-            if (q.empty()) throw std::logic_error("No compute devices found");
+            precondition(!q.empty(), "No compute devices found");
 #endif
 
             StaticContext<>::set(*this);
@@ -573,7 +586,7 @@ class Context {
             return c;
         }
 
-        const cl::Context& context(uint d) const {
+        const cl::Context& context(unsigned d) const {
             return c[d];
         }
 
@@ -585,11 +598,11 @@ class Context {
             return q;
         }
 
-        const cl::CommandQueue& queue(uint d) const {
+        const cl::CommandQueue& queue(unsigned d) const {
             return q[d];
         }
 
-        cl::Device device(uint d) const {
+        cl::Device device(unsigned d) const {
             return qdev(q[d]);
         }
 
@@ -613,12 +626,14 @@ class Context {
 
 /// Output device name to stream.
 inline std::ostream& operator<<(std::ostream &os, const cl::Device &device) {
-    return os << device.getInfo<CL_DEVICE_NAME>();
+    return os << device.getInfo<CL_DEVICE_NAME>() << " ("
+              << cl::Platform(device.getInfo<CL_DEVICE_PLATFORM>()).getInfo<CL_PLATFORM_NAME>()
+              << ")";
 }
 
 /// Output list of devices to stream.
 inline std::ostream& operator<<(std::ostream &os, const std::vector<cl::Device> &device) {
-    uint p = 1;
+    unsigned p = 1;
 
     for(auto d = device.begin(); d != device.end(); d++)
         os << p++ << ". " << *d << std::endl;
@@ -628,10 +643,10 @@ inline std::ostream& operator<<(std::ostream &os, const std::vector<cl::Device> 
 
 /// Output list of devices to stream.
 inline std::ostream& operator<<(std::ostream &os, const std::vector<cl::CommandQueue> &queue) {
-    uint p = 1;
+    unsigned p = 1;
 
     for(auto q = queue.begin(); q != queue.end(); q++)
-        os << p++ << ". " << vex::qdev(*q).getInfo<CL_DEVICE_NAME>() << std::endl;
+        os << p++ << ". " << vex::qdev(*q) << std::endl;
 
     return os;
 }
@@ -641,9 +656,4 @@ inline std::ostream& operator<<(std::ostream &os, const vex::Context &ctx) {
     return os << ctx.queue();
 }
 
-#ifdef WIN32
-#  pragma warning(pop)
-#endif
-
-// vim: et
 #endif

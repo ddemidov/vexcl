@@ -31,7 +31,12 @@ THE SOFTWARE.
  * \brief  Gather scattered points from OpenCL device vector.
  */
 
-#include <CL/cl.hpp>
+#include <vector>
+#include <numeric>
+#include <cassert>
+
+#include <vexcl/operations.hpp>
+#include <vexcl/vector.hpp>
 
 namespace vex {
 
@@ -51,14 +56,14 @@ class gather {
             column_owner owner(part);
 
             for(auto i = indices.begin(); i != indices.end(); ++i) {
-                uint d = owner(*i);
+                size_t d = owner(*i);
                 *i -= part[d];
                 ++ptr[d + 1];
             }
 
             std::partial_sum(ptr.begin(), ptr.end(), ptr.begin());
 
-            for(uint d = 0; d < queue.size(); d++) {
+            for(unsigned d = 0; d < queue.size(); d++) {
                 cl::Context context = qctx(queue[d]);
 
                 if (size_t n = ptr[d + 1] - ptr[d]) {
@@ -70,15 +75,17 @@ class gather {
                 }
             }
 
-            for(uint d = 0; d < queue.size(); d++)
+            for(unsigned d = 0; d < queue.size(); d++)
                 if (ptr[d + 1] - ptr[d]) ev[d].wait();
         }
 
         template <class HostVector>
         void operator()(const vex::vector<T> &src, HostVector &dst) {
+            using namespace detail;
+
             static kernel_cache cache;
 
-            for(uint d = 0; d < queue.size(); d++) {
+            for(unsigned d = 0; d < queue.size(); d++) {
                 cl::Context context = qctx(queue[d]);
                 cl::Device  device  = qdev(queue[d]);
 
@@ -113,7 +120,7 @@ class gather {
                     size_t w_size = kernel->second.wgsize;
                     size_t g_size = alignup(n, w_size);
 
-                    uint pos = 0;
+                    unsigned pos = 0;
                     kernel->second.kernel.setArg(pos++, n);
                     kernel->second.kernel.setArg(pos++, src(d));
                     kernel->second.kernel.setArg(pos++, idx[d]);
@@ -128,7 +135,7 @@ class gather {
                 }
             }
 
-            for(uint d = 0; d < queue.size(); d++)
+            for(unsigned d = 0; d < queue.size(); d++)
                 if (ptr[d + 1] - ptr[d]) ev[d].wait();
         }
     private:

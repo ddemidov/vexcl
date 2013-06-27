@@ -1,6 +1,8 @@
 #define BOOST_TEST_MODULE BoostComputeSort
 #include <boost/test/unit_test.hpp>
-#include <vexcl/vexcl.hpp>
+#include <vexcl/vector.hpp>
+#include <vexcl/element_index.hpp>
+#include <vexcl/random.hpp>
 #include <vexcl/external/boost_compute.hpp>
 #include "context_setup.hpp"
 

@@ -1,5 +1,9 @@
 #define BOOST_TEST_MODULE VectorArithmetics
 #include <boost/test/unit_test.hpp>
+#include <vexcl/vector.hpp>
+#include <vexcl/reductor.hpp>
+#include <vexcl/element_index.hpp>
+#include <vexcl/tagged_terminal.hpp>
 #include "context_setup.hpp"
 
 BOOST_AUTO_TEST_CASE(assign_expression)
@@ -122,9 +126,9 @@ BOOST_AUTO_TEST_CASE(vector_values)
     vex::vector<cl_int4> X(ctx, N);
     X = c * (make_int4(5 + vex::element_index()));
 
-    check_sample(X, [c](long idx, cl_int4 v) {
+    check_sample(X, [c](size_t idx, cl_int4 v) {
             for(int j = 0; j < 4; ++j)
-                BOOST_CHECK(v.s[j] == c.s[j] * (5 + idx));
+                BOOST_CHECK(v.s[j] == c.s[j] * (5 + static_cast<int>(idx)));
             });
 }
 
@@ -152,7 +156,7 @@ BOOST_AUTO_TEST_CASE(custom_header)
 
     vex::vector<int> x(ctx, n);
 
-    vex::set_program_header(ctx, "#define THE_ANSWER 42\n");
+    vex::push_program_header(ctx, "#define THE_ANSWER 42\n");
 
     VEX_FUNCTION(answer, int(int), "return prm1 * THE_ANSWER;");
 
@@ -161,6 +165,8 @@ BOOST_AUTO_TEST_CASE(custom_header)
     check_sample(x, [](size_t, int a) {
             BOOST_CHECK(a == 42);
             });
+
+    vex::pop_program_header(ctx);
 }
 
 BOOST_AUTO_TEST_CASE(function_with_preamble)
@@ -183,14 +189,27 @@ BOOST_AUTO_TEST_CASE(function_with_preamble)
             });
 }
 
-BOOST_AUTO_TEST_CASE(combine_expressions)
+BOOST_AUTO_TEST_CASE(ternary_operator)
 {
-
     const size_t n = 1024;
 
-    vex::vector<int> x(ctx, n);
+    vex::vector<double> x(ctx, random_vector<double>(n));
+    vex::vector<double> y(ctx, n);
 
-    auto alpha  = 2 * M_PI * vex::element_index();
+    y = if_else(x > 0.5, sin(x), cos(x));
+
+    check_sample(x, y, [&](size_t, double X, double Y) {
+            BOOST_CHECK_CLOSE(Y, X > 0.5 ? sin(X) : cos(X), 1e-8);
+            });
+}
+
+BOOST_AUTO_TEST_CASE(combine_expressions)
+{
+    const size_t n = 1024;
+
+    vex::vector<double> x(ctx, n);
+
+    auto alpha  = vex::tag<1>(2 * M_PI) * vex::tag<2>(vex::element_index());
     auto sine   = sin(alpha);
     auto cosine = cos(alpha);
 

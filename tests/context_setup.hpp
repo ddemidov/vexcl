@@ -1,7 +1,8 @@
 #ifndef CONTEXT_SETUP_HPP
 #define CONTEXT_SETUP_HPP
 
-#include <vexcl/vexcl.hpp>
+#include <random>
+#include <vexcl/devlist.hpp>
 
 struct ContextSetup {
     ContextSetup() :
@@ -21,31 +22,64 @@ struct ContextSetup {
 struct ContextReference {
     ContextReference() :
         ctx( vex::current_context() )
-    {}
+    {
+        amd_is_present = std::any_of(ctx.queue().begin(), ctx.queue().end(),
+            [](const cl::CommandQueue &q) {
+                return vex::Filter::Platform("AMD")(vex::qdev(q));
+            });
+    }
+
+    void amd_workaround() const {
+        // There is a bug in AMD OpenCL that requires to call finish() on
+        // command queues after some kernels launch:
+        // http://devgurus.amd.com/message/1295503#1295503
+        if (amd_is_present) {
+            std::for_each(ctx.queue().begin(), ctx.queue().end(), [](const cl::CommandQueue &q) {
+                q.finish();
+            });
+        }
+    }
 
     const vex::Context &ctx;
+    bool amd_is_present;
 };
 
-template<class T>
-typename std::enable_if<std::is_floating_point<T>::value, T>::type
-generator() {
-    static std::default_random_engine rng( std::rand() );
-    static std::uniform_real_distribution<T> rnd((T)0, (T)1);
-    return rnd(rng);
-}
+template <typename T, class Enable = void>
+struct generator {};
 
-template<class T>
-typename std::enable_if<std::is_integral<T>::value, T>::type
-generator() {
-    static std::default_random_engine rng( std::rand() );
-    static std::uniform_int_distribution<T> rnd(0, 100);
-    return rnd(rng);
-}
+template<typename T>
+struct generator<T, typename std::enable_if<std::is_floating_point<T>::value>::type>
+{
+    static T get() {
+        static std::default_random_engine rng( std::rand() );
+        static std::uniform_real_distribution<T> rnd((T)0, (T)1);
+        return rnd(rng);
+    }
+};
+
+template<typename T>
+struct generator<T, typename std::enable_if<std::is_integral<T>::value>::type>
+{
+    static T get() {
+        static std::default_random_engine rng( std::rand() );
+        static std::uniform_int_distribution<T> rnd(0, 100);
+        return rnd(rng);
+    }
+};
+
+template<>
+struct generator<cl_double2>
+{
+    static cl_double2 get() {
+        cl_double2 r = {{::generator<double>::get(), ::generator<double>::get()}};
+        return r;
+    }
+};
 
 template<class T>
 std::vector<T> random_vector(size_t n) {
     std::vector<T> x(n);
-    std::generate(x.begin(), x.end(), generator<T>);
+    std::generate(x.begin(), x.end(), ::generator<T>::get);
     return x;
 }
 

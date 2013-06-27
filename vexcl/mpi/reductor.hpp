@@ -1,5 +1,5 @@
-#ifndef VEXCL_MPI_REDUCE_HPP
-#define VEXCL_MPI_REDUCE_HPP
+#ifndef VEXCL_MPI_REDUCTOR_HPP
+#define VEXCL_MPI_REDUCTOR_HPP
 
 /*
 The MIT License
@@ -26,13 +26,13 @@ THE SOFTWARE.
 */
 
 /**
- * \file   mpi/reduce.hpp
+ * \file   vexcl/mpi/reductor.hpp
  * \author Denis Demidov <ddemidov@ksu.ru>
  * \brief  MPI wrapper for vex::Reductor.
  */
 
 #include <mpi.h>
-#include <vexcl/reduce.hpp>
+#include <vexcl/reductor.hpp>
 #include <vexcl/mpi/util.hpp>
 #include <vexcl/mpi/operations.hpp>
 
@@ -89,14 +89,14 @@ class Reductor {
         template <class Expr>
         typename std::enable_if<
             boost::proto::matches<Expr, mpi_multivector_expr_grammar>::value,
-            std::array<T, boost::result_of<mutltiex_dimension(Expr)>::type::value>
+            std::array<T, boost::result_of<traits::multiex_dimension(Expr)>::type::value>
         >::type
         operator()(const Expr &expr) const {
-            std::array<T, boost::result_of<mutltiex_dimension(Expr)>::type::value>
+            std::array<T, boost::result_of<traits::multiex_dimension(Expr)>::type::value>
                 local = reduce(extract_local_expression()(boost::proto::as_child(expr))),
                 global;
 
-            MPI_Allreduce(local.data(), global.data(), boost::result_of<mutltiex_dimension(Expr)>::type::value,
+            MPI_Allreduce(local.data(), global.data(), boost::result_of<traits::multiex_dimension(Expr)>::type::value,
                     mpi_type<T>(), mpi_reduce_op<RDC>(), mpi.comm);
 
             return global;

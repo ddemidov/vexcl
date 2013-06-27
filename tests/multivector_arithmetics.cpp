@@ -1,5 +1,8 @@
 #define BOOST_TEST_MODULE MultivectorArithmetics
 #include <boost/test/unit_test.hpp>
+#include <vexcl/multivector.hpp>
+#include <vexcl/reductor.hpp>
+#include <vexcl/element_index.hpp>
 #include "context_setup.hpp"
 
 BOOST_AUTO_TEST_CASE(arithmetics)
@@ -21,11 +24,11 @@ BOOST_AUTO_TEST_CASE(arithmetics)
     BOOST_CHECK(min(x) == v);
     BOOST_CHECK(max(x) == v);
 
-    x = 2 * y + z;
+    x = std::make_tuple(1, 2, 3, 4) * y + z;
 
     check_sample(x, y, z, [](size_t, elem_t a, elem_t b, elem_t c) {
             for(size_t i = 0; i < 4; ++i)
-                BOOST_CHECK(a[i] == 2 * b[i] + c[i]);
+                BOOST_CHECK_CLOSE(a[i], (i + 1) * b[i] + c[i], 1e-8);
             });
 }
 
@@ -44,8 +47,8 @@ BOOST_AUTO_TEST_CASE(multivector_multiexpressions)
             );
 
     check_sample(x, y, [](size_t, elem_t a, elem_t b) {
-            BOOST_CHECK_CLOSE(a[0], sin(b[0]) + cos(b[1]), 1e-8); 
-            BOOST_CHECK_CLOSE(a[1], cos(b[0]) + sin(b[1]), 1e-8); 
+            BOOST_CHECK_CLOSE(a[0], sin(b[0]) + cos(b[1]), 1e-8);
+            BOOST_CHECK_CLOSE(a[1], cos(b[0]) + sin(b[1]), 1e-8);
             });
 }
 
@@ -166,6 +169,42 @@ BOOST_AUTO_TEST_CASE(element_index)
     check_sample(x, [](size_t idx, elem_t a) {
             BOOST_CHECK_CLOSE(a[0], sin(0.5 * idx), 1e-8);
             BOOST_CHECK_CLOSE(a[1], cos(0.5 * idx), 1e-8);
+            });
+}
+
+BOOST_AUTO_TEST_CASE(compound_assignment)
+{
+    const size_t n = 1024;
+    const size_t m = 2;
+
+    typedef std::array<double, m> elem_t;
+
+    vex::multivector<double, m> x(ctx, n);
+    vex::multivector<double, m> y(ctx, random_vector<double>(n * m));
+
+    x = 0;
+
+    x += sin(2 * y);
+
+    check_sample(x, y, [&](size_t, elem_t a, elem_t b) {
+            for(size_t i = 0; i < m; ++i)
+                BOOST_CHECK_CLOSE(a[i], sin(2 * b[i]), 1e-8);
+            });
+
+    x = 0;
+    x -= sin(2 * y);
+
+    check_sample(x, y, [&](size_t, elem_t a, elem_t b) {
+            for(size_t i = 0; i < m; ++i)
+                BOOST_CHECK_CLOSE(a[i], -sin(2 * b[i]), 1e-8);
+            });
+
+    x = 1;
+    x *= std::tie(y(1), sin(y(0)));
+
+    check_sample(x, y, [](size_t, elem_t a, elem_t b) {
+            BOOST_CHECK_CLOSE(a[0], b[1], 1e-8);
+            BOOST_CHECK_CLOSE(a[1], sin(b[0]), 1e-8);
             });
 }
 

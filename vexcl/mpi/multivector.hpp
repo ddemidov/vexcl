@@ -26,7 +26,7 @@ THE SOFTWARE.
 */
 
 /**
- * \file   mpi/multivector.hpp
+ * \file   vexcl/mpi/multivector.hpp
  * \author Denis Demidov <ddemidov@ksu.ru>
  * \brief  MPI wrapper for vex::multivector.
  */
@@ -44,10 +44,14 @@ namespace vex {
 
 /// \cond INTERNAL
 
+namespace traits {
+
 template <typename T, size_t N, bool own>
 struct number_of_components< vex::mpi::multivector<T, N, own> >
     : boost::mpl::size_t<N>
 {};
+
+}
 
 /// \endcond
 
@@ -67,6 +71,7 @@ class multivector : public mpi_multivector_terminal_expression {
     public:
         typedef vex::multivector<T,N,own>      base_type;
         typedef typename base_type::value_type value_type;
+	typedef T                              sub_value_type;
 
         /// Empty constructor.
         multivector() : l_size(0) {}
@@ -147,14 +152,14 @@ class multivector : public mpi_multivector_terminal_expression {
         }
 
         /// Component of the multivector.
-        const vex::mpi::vector<T,false> operator()(uint i) const {
+        const vex::mpi::vector<T,false> operator()(size_t i) const {
             return vex::mpi::vector<T,false>(mpi.comm,
                     const_cast<vex::vector<T>&>(local_data(i))
                     );
         }
 
         /// Component of the multivector.
-        vex::mpi::vector<T,false> operator()(uint i) {
+        vex::mpi::vector<T,false> operator()(size_t i) {
             return vex::mpi::vector<T,false>(mpi.comm, local_data(i));
         }
 
@@ -184,8 +189,8 @@ class multivector : public mpi_multivector_terminal_expression {
             const multivector&
         >::type
         operator=(const Expr &expr) {
-            apply_additive_transform</*append=*/false>(
-                    *this, simplify_additive_transform()( expr )
+            detail::apply_additive_transform</*append=*/false>(
+                    *this, detail::simplify_additive_transform()( expr )
                     );
 
             return *this;
@@ -206,8 +211,8 @@ class multivector : public mpi_multivector_terminal_expression {
         operator=(const Expr &expr) {
             *this = mpi_extract_multivector_expressions()( expr );
 
-            apply_additive_transform</*append=*/true>(
-                    *this, simplify_additive_transform()(
+            detail::apply_additive_transform</*append=*/true>(
+                    *this, detail::simplify_additive_transform()(
                             mpi_extract_additive_vector_transforms()( expr )
                         )
                     );

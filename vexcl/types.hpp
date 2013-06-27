@@ -26,10 +26,20 @@ THE SOFTWARE.
 */
 
 /**
- * \file   types.hpp
+ * \file   vexcl/types.hpp
  * \author Pascal Germroth <pascal@ensieve.org>
- * \brief  C++ sugar for OpenCL vector types, eg. cl_float4, operator+.
+ * \brief  Support for using native C++ and OpenCL types in expressions.
  */
+
+#include <string>
+
+#ifndef __CL_ENABLE_EXCEPTIONS
+#  define __CL_ENABLE_EXCEPTIONS
+#endif
+#include <CL/cl.hpp>
+
+typedef unsigned int  uint;
+typedef unsigned char uchar;
 
 namespace vex {
 
@@ -112,7 +122,7 @@ namespace vex { \
     template <> struct cl_vector_length<cl_##base_type> { enum { value = 1 }; }; \
 }
 
-#ifdef WIN32
+#ifdef _MSC_VER
 #  pragma warning(push)
 #  pragma warning(disable : 4146)
 #endif
@@ -122,7 +132,7 @@ CL_TYPES(char);  CL_TYPES(uchar);
 CL_TYPES(short); CL_TYPES(ushort);
 CL_TYPES(int);   CL_TYPES(uint);
 CL_TYPES(long);  CL_TYPES(ulong);
-#ifdef WIN32
+#ifdef _MSC_VER
 #  pragma warning(pop)
 #endif
 
@@ -144,6 +154,59 @@ inline To cl_convert(const From &val) {
         out.s[i] = val.s[i];
     return out;
 }
+
+/// Declares a type as CL native, allows using it as a literal.
+template <class T> struct is_cl_native : std::false_type {};
+
+/// Convert typename to string.
+template <class T> inline std::string type_name() {
+    throw std::logic_error("Trying to use an undefined type in a kernel.");
+}
+
+
+#define STRINGIFY(type) \
+template <> inline std::string type_name<cl_##type>() { return #type; } \
+template <> struct is_cl_native<cl_##type> : std::true_type {};
+
+// enable use of OpenCL vector types as literals
+#define CL_VEC_TYPE(type, len) \
+template <> inline std::string type_name<cl_##type##len>() { return #type #len; } \
+template <> struct is_cl_native<cl_##type##len> : std::true_type {};
+
+#define CL_TYPES(type) \
+STRINGIFY(type); \
+CL_VEC_TYPE(type, 2); \
+CL_VEC_TYPE(type, 4); \
+CL_VEC_TYPE(type, 8); \
+CL_VEC_TYPE(type, 16);
+
+CL_TYPES(float);
+CL_TYPES(double);
+CL_TYPES(char);  CL_TYPES(uchar);
+CL_TYPES(short); CL_TYPES(ushort);
+CL_TYPES(int);   CL_TYPES(uint);
+CL_TYPES(long);  CL_TYPES(ulong);
+
+#undef CL_TYPES
+#undef CL_VEC_TYPE
+#undef STRINGIFY
+
+// char and cl_char are different types. Hence, special handling is required:
+template <> inline std::string type_name<char>() { return "char"; } \
+template <> struct is_cl_native<char> : std::true_type {};
+
+#if defined(__APPLE__)
+template <> inline std::string type_name<size_t>() {
+    return sizeof(std::size_t) == sizeof(uint) ? "uint" : "ulong";
+}
+
+template <> inline std::string type_name<ptrdiff_t>() {
+    return sizeof(std::size_t) == sizeof(uint) ? "int" : "long";
+}
+
+template <> struct is_cl_native<size_t>    : std::true_type {};
+template <> struct is_cl_native<ptrdiff_t> : std::true_type {};
+#endif
 
 }
 

@@ -31,9 +31,7 @@ THE SOFTWARE.
  * \brief  OpenCL device vector.
  */
 
-#ifdef WIN32
-#  pragma warning(push)
-#  pragma warning(disable : 4267 4290)
+#ifdef _MSC_VER
 #  define NOMINMAX
 #endif
 
@@ -44,11 +42,17 @@ THE SOFTWARE.
 #include <string>
 #include <type_traits>
 #include <functional>
+
 #include <boost/proto/proto.hpp>
+
 #include <vexcl/util.hpp>
-#include <vexcl/profiler.hpp>
 #include <vexcl/operations.hpp>
+#include <vexcl/profiler.hpp>
 #include <vexcl/devlist.hpp>
+
+#ifdef BOOST_NO_NOEXCEPT
+#  define noexcept throw()
+#endif
 
 /// Vector expression template library for OpenCL.
 namespace vex {
@@ -138,7 +142,7 @@ std::vector<size_t> partitioning_scheme<dummy>::get(size_t n,
             cumsum.push_back(cumsum.back() + w);
         }
 
-        for(uint d = 1; d < queue.size(); d++)
+        for(unsigned d = 1; d < queue.size(); d++)
             part.push_back(
                     std::min(n,
                         alignup(static_cast<size_t>(n * cumsum[d] / cumsum.back()))
@@ -175,9 +179,28 @@ inline std::vector<size_t> partition(size_t n,
 }
 
 //--- Vector Type -----------------------------------------------------------
+struct vector_terminal {};
+
 typedef vector_expression<
     typename boost::proto::terminal< vector_terminal >::type
     > vector_terminal_expression;
+
+namespace traits {
+
+// Hold vector terminals by reference:
+template <class T>
+struct hold_terminal_by_reference< T,
+        typename std::enable_if<
+            boost::proto::matches<
+                typename boost::proto::result_of::as_expr< T >::type,
+                boost::proto::terminal< vector_terminal >
+            >::value
+        >::type
+    >
+    : std::true_type
+{ };
+
+} // namespace traits
 
 /// Device vector.
 template <typename T>
@@ -269,6 +292,10 @@ class vector : public vector_terminal_expression {
                     return pos != it.pos;
                 }
 
+		bool operator<(const iterator_type &it) const {
+		    return pos < it.pos;
+		}
+
                 vector_type *vec;
                 size_t  pos;
                 size_t  part;
@@ -358,8 +385,53 @@ class vector : public vector_terminal_expression {
         }
 
         /// Move constructor
-        vector(vector &&v) {
+        vector(vector &&v) noexcept {
             swap(v);
+        }
+
+        /// Construct new vector from vector expression.
+        /**
+         * Vector expression should contain at least one vector for the
+         * constructor to be able to determine queues and size to use.
+         */
+        template <class Expr
+#ifndef BOOST_NO_CXX11_FUNCTION_TEMPLATE_DEFAULT_ARGS
+	    , class Enable = typename std::enable_if<
+            !std::is_integral<Expr>::value &&
+                boost::proto::matches<
+                    typename boost::proto::result_of::as_expr<Expr>::type,
+                    vector_expr_grammar
+                >::value
+            >::type
+#endif
+	>
+        vector(const Expr &expr) {
+#ifdef BOOST_NO_CXX11_FUNCTION_TEMPLATE_DEFAULT_ARGS
+	    static_assert(
+                boost::proto::matches<
+                    typename boost::proto::result_of::as_expr<Expr>::type,
+                    vector_expr_grammar
+                >::value,
+		"Only vector expressions can be used to initialize a vector"
+		);
+#endif
+            detail::get_expression_properties prop;
+            detail::extract_terminals()(expr, prop);
+
+            precondition(!prop.queue.empty(),
+                        "Can not determine vector size and "
+                        "queue list from expression"
+                        );
+
+            queue = prop.queue;
+            part  = prop.part;
+
+            buf.resize(queue.size());
+            event.resize(queue.size());
+
+            allocate_buffers(CL_MEM_READ_WRITE, 0);
+
+            *this = expr;
         }
 
         /// Move assignment
@@ -415,7 +487,7 @@ class vector : public vector_terminal_expression {
         }
 
         /// Return cl::Buffer object located on a given device.
-        cl::Buffer operator()(uint d = 0) const {
+        cl::Buffer operator()(unsigned d = 0) const {
             return buf[d];
         }
 
@@ -448,7 +520,7 @@ class vector : public vector_terminal_expression {
 
         /// Access element.
         element operator[](size_t index) {
-            uint d = static_cast<uint>(
+            unsigned d = static_cast<unsigned>(
                 std::upper_bound(part.begin(), part.end(), index) - part.begin() - 1
                 );
             return element(queue[d], buf[d], index - part[d]);
@@ -460,17 +532,17 @@ class vector : public vector_terminal_expression {
         }
 
         /// Return number of parts (devices).
-        uint nparts() const {
+        size_t nparts() const {
             return queue.size();
         }
 
         /// Return size of part on a given device.
-        size_t part_size(uint d) const {
+        size_t part_size(unsigned d) const {
             return part[d + 1] - part[d];
         }
 
         /// Return part start for a given device.
-        size_t part_start(uint d) const {
+        size_t part_start(unsigned d) const {
             return part[d];
         }
 
@@ -484,10 +556,9 @@ class vector : public vector_terminal_expression {
             return part;
         }
 
-        /// Copies data from device vector.
         const vector& operator=(const vector &x) {
             if (&x != this) {
-                for(uint d = 0; d < queue.size(); d++)
+                for(unsigned d = 0; d < queue.size(); d++)
                     if (size_t psize = part[d + 1] - part[d]) {
                         queue[d].enqueueCopyBuffer(x.buf[d], buf[d], 0, 0,
                                 psize * sizeof(T));
@@ -518,7 +589,7 @@ class vector : public vector_terminal_expression {
 
         /// Maps device buffer to host array.
         mapped_array
-        map(uint d = 0, cl_map_flags flags = CL_MAP_READ | CL_MAP_WRITE) {
+        map(unsigned d = 0, cl_map_flags flags = CL_MAP_READ | CL_MAP_WRITE) {
             return mapped_array(
                     static_cast<T*>( queue[d].enqueueMapBuffer(
                             buf[d], CL_TRUE, flags, 0, part_size(d) * sizeof(T))
@@ -527,14 +598,20 @@ class vector : public vector_terminal_expression {
                     );
         }
 
-        /** \name Expression assignments.
-         * @{
-         * The appropriate kernel is compiled first time the assignment is
-         * made. Vectors participating in expression should have same number of
-         * parts; corresponding parts of the vectors should reside on the same
-         * compute devices.
-         */
-#define ASSIGNMENT(cop, op) \
+#ifdef DOXYGEN
+#  define ASSIGNMENT(cop, op) \
+        /** \brief Vector expression assignment.
+
+         \details
+         The appropriate kernel is compiled first time the assignment is
+         made. Vectors participating in expression should have same number
+         of parts; corresponding parts of the vectors should reside on the
+         same compute devices.
+         */ \
+        template <class Expr> \
+        const vector& operator cop(const Expr &expr);
+#else
+#  define ASSIGNMENT(cop, op) \
         template <class Expr> \
         typename std::enable_if< \
             boost::proto::matches< \
@@ -544,9 +621,10 @@ class vector : public vector_terminal_expression {
             const vector& \
         >::type \
         operator cop(const Expr &expr) { \
-            assign_expression<op>(expr); \
+            detail::assign_expression<op>(*this, expr, queue, part); \
             return *this; \
         }
+#endif
 
         ASSIGNMENT(=,   assign::SET);
         ASSIGNMENT(+=,  assign::ADD);
@@ -562,6 +640,7 @@ class vector : public vector_terminal_expression {
 
 #undef ASSIGNMENT
 
+#ifndef DOXYGEN
         template <class Expr>
         typename std::enable_if<
             boost::proto::matches<
@@ -571,8 +650,8 @@ class vector : public vector_terminal_expression {
             const vector&
         >::type
         operator=(const Expr &expr) {
-            apply_additive_transform</*append=*/false>(
-                    *this, simplify_additive_transform()( expr )
+            detail::apply_additive_transform</*append=*/false>(
+                    *this, detail::simplify_additive_transform()( expr )
                     );
 
             return *this;
@@ -587,8 +666,8 @@ class vector : public vector_terminal_expression {
             const vector&
         >::type
         operator+=(const Expr &expr) {
-            apply_additive_transform</*append=*/true>(
-                    *this, simplify_additive_transform()( expr )
+            detail::apply_additive_transform</*append=*/true>(
+                    *this, detail::simplify_additive_transform()( expr )
                     );
 
             return *this;
@@ -603,8 +682,8 @@ class vector : public vector_terminal_expression {
             const vector&
         >::type
         operator-=(const Expr &expr) {
-            apply_additive_transform</*append=*/true>(
-                    *this, simplify_additive_transform()( -expr )
+            detail::apply_additive_transform</*append=*/true>(
+                    *this, detail::simplify_additive_transform()( -expr )
                     );
 
             return *this;
@@ -623,8 +702,8 @@ class vector : public vector_terminal_expression {
             const vector&
         >::type
         operator=(const Expr &expr) {
-            *this  = extract_vector_expressions()( expr );
-            *this += extract_additive_vector_transforms()( expr );
+            *this  = detail::extract_vector_expressions()( expr );
+            *this += detail::extract_additive_vector_transforms()( expr );
 
             return *this;
         }
@@ -642,8 +721,8 @@ class vector : public vector_terminal_expression {
             const vector&
         >::type
         operator+=(const Expr &expr) {
-            *this += extract_vector_expressions()( expr );
-            *this += extract_additive_vector_transforms()( expr );
+            *this += detail::extract_vector_expressions()( expr );
+            *this += detail::extract_additive_vector_transforms()( expr );
 
             return *this;
         }
@@ -661,13 +740,12 @@ class vector : public vector_terminal_expression {
             const vector&
         >::type
         operator-=(const Expr &expr) {
-            *this -= extract_vector_expressions()( expr );
-            *this -= extract_additive_vector_transforms()( expr );
+            *this -= detail::extract_vector_expressions()( expr );
+            *this -= detail::extract_additive_vector_transforms()( expr );
 
             return *this;
         }
-
-        /** @} */
+#endif
 
         /// Copy data from host buffer to device(s).
         void write_data(size_t offset, size_t size, const T *hostptr, cl_bool blocking,
@@ -677,7 +755,7 @@ class vector : public vector_terminal_expression {
 
             std::vector<cl::Event> &ev = uevent ? *uevent : event;
 
-            for(uint d = 0; d < queue.size(); d++) {
+            for(unsigned d = 0; d < queue.size(); d++) {
                 size_t start = std::max(offset,        part[d]);
                 size_t stop  = std::min(offset + size, part[d + 1]);
 
@@ -708,7 +786,7 @@ class vector : public vector_terminal_expression {
 
             std::vector<cl::Event> &ev = uevent ? *uevent : event;
 
-            for(uint d = 0; d < queue.size(); d++) {
+            for(unsigned d = 0; d < queue.size(); d++) {
                 size_t start = std::max(offset,        part[d]);
                 size_t stop  = std::min(offset + size, part[d + 1]);
 
@@ -723,7 +801,7 @@ class vector : public vector_terminal_expression {
             }
 
             if (blocking)
-                for(uint d = 0; d < queue.size(); d++) {
+                for(unsigned d = 0; d < queue.size(); d++) {
                     size_t start = std::max(offset,        part[d]);
                     size_t stop  = std::min(offset + size, part[d + 1]);
 
@@ -738,7 +816,7 @@ class vector : public vector_terminal_expression {
         mutable std::vector<cl::Event>  event;
 
         void allocate_buffers(cl_mem_flags flags, const T *hostptr) {
-            for(uint d = 0; d < queue.size(); d++) {
+            for(unsigned d = 0; d < queue.size(); d++) {
                 if (size_t psize = part[d + 1] - part[d]) {
                     cl::Context context = qctx(queue[d]);
 
@@ -748,91 +826,78 @@ class vector : public vector_terminal_expression {
             if (hostptr) write_data(0, size(), hostptr, CL_TRUE);
         }
 
-        template <class OP, class Expr>
-        void assign_expression(const Expr &expr) {
-            static kernel_cache cache;
-
-            for(uint d = 0; d < queue.size(); d++) {
-                cl::Context context = qctx(queue[d]);
-                cl::Device  device  = qdev(queue[d]);
-
-                auto kernel = cache.find(context());
-
-                if (kernel == cache.end()) {
-                    std::ostringstream source;
-
-                    vector_expr_context expr_ctx(source);
-
-                    std::ostringstream kernel_name;
-                    vector_name_context name_ctx(kernel_name);
-                    boost::proto::eval(boost::proto::as_child(expr), name_ctx);
-
-                    source << standard_kernel_header(device);
-
-                    extract_user_functions()(
-                            boost::proto::as_child(expr),
-                            declare_user_function(source)
-                            );
-
-                    source << "kernel void " << kernel_name.str()
-                           << "(\n\t" << type_name<size_t>()
-                           << " n,\n\tglobal " << type_name<T>() << " *res";
-
-                    extract_terminals()(
-                            boost::proto::as_child(expr),
-                            declare_expression_parameter(source)
-                            );
-
-                    source << "\n)\n{\n";
-
-                    if ( is_cpu(device) ) {
-                        source <<
-                            "\tsize_t chunk_size  = (n + get_global_size(0) - 1) / get_global_size(0);\n"
-                            "\tsize_t chunk_start = get_global_id(0) * chunk_size;\n"
-                            "\tsize_t chunk_end   = min(n, chunk_start + chunk_size);\n"
-                            "\tfor(size_t idx = chunk_start; idx < chunk_end; ++idx) {\n";
-                    } else {
-                        source <<
-                            "\tfor(size_t idx = get_global_id(0); idx < n; idx += get_global_size(0)) {\n";
-                    }
-
-                    source << "\t\tres[idx] " << OP::string() << " ";
-
-                    boost::proto::eval(boost::proto::as_child(expr), expr_ctx);
-
-                    source << ";\n\t}\n}\n";
-
-                    auto program = build_sources(context, source.str());
-
-                    cl::Kernel krn(program, kernel_name.str().c_str());
-                    size_t wgs = kernel_workgroup_size(krn, device);
-
-                    kernel = cache.insert(std::make_pair(
-                                context(), kernel_cache_entry(krn, wgs)
-                                )).first;
-                }
-
-                if (size_t psize = part[d + 1] - part[d]) {
-                    size_t w_size = kernel->second.wgsize;
-                    size_t g_size = num_workgroups(device) * w_size;
-
-                    uint pos = 0;
-                    kernel->second.kernel.setArg(pos++, psize);
-                    kernel->second.kernel.setArg(pos++, buf[d]);
-
-                    extract_terminals()(
-                            boost::proto::as_child(expr),
-                            set_expression_argument(kernel->second.kernel, d, pos, part[d])
-                            );
-
-                    queue[d].enqueueNDRangeKernel(
-                            kernel->second.kernel, cl::NullRange, g_size, w_size
-                            );
-                }
-            }
-        }
+        template <typename S, size_t N, bool own>
+        friend class multivector;
 };
 
+//---------------------------------------------------------------------------
+// Support for vector expressions
+//---------------------------------------------------------------------------
+namespace traits {
+
+template <>
+struct is_vector_expr_terminal< vector_terminal >
+    : std::true_type
+{ };
+
+template <typename T>
+struct kernel_name< vector<T> > {
+    static std::string get() {
+        return "vector_";
+    }
+};
+
+template <typename T>
+struct partial_vector_expr< vector<T> > {
+    static std::string get(const cl::Device&,
+            int component, int position,
+            detail::kernel_generator_state&)
+    {
+        std::ostringstream s;
+        s << "prm_" << component << "_" << position << "[idx]";
+        return s.str();
+    }
+};
+
+template <typename T>
+struct kernel_param_declaration< vector<T> > {
+    static std::string get(const cl::Device&,
+            int component, int position,
+            detail::kernel_generator_state&)
+    {
+        std::ostringstream s;
+        s << ",\n\tglobal " << type_name<T>() << " * prm_" << component << "_" << position;
+        return s.str();
+    }
+};
+
+template <typename T>
+struct kernel_arg_setter< vector<T> > {
+    static void set(cl::Kernel &kernel, unsigned device, size_t/*index_offset*/,
+            unsigned &position, const vector<T> &term,
+            detail::kernel_generator_state&)
+    {
+        kernel.setArg(position++, term(device));
+    }
+};
+
+template <class T>
+struct expression_properties< vector<T> > {
+    static void get(const vector<T> &term,
+            std::vector<cl::CommandQueue> &queue_list,
+            std::vector<size_t> &partition,
+            size_t &size
+            )
+    {
+        queue_list = term.queue_list();
+        partition  = term.partition();
+        size       = term.size();
+    }
+};
+
+} // namespace traits
+
+//---------------------------------------------------------------------------
 /// Copy device vector to host vector.
 template <class T>
 void copy(const vex::vector<T> &dv, std::vector<T> &hv, cl_bool blocking = CL_TRUE) {
@@ -926,7 +991,7 @@ inline double device_vector_perf(const cl::CommandQueue &q) {
     a = b + c;
 
     // Measure the second run.
-    profiler prof(queue);
+    profiler<> prof(queue);
     prof.tic_cl("");
     a = b + c;
     return 1.0 / prof.toc("");
@@ -956,9 +1021,5 @@ struct is_sequence< vex::vector<T> > : std::false_type
 
 } } }
 
-#ifdef WIN32
-#  pragma warning(pop)
-#endif
 
-// vim: et
 #endif

@@ -170,6 +170,11 @@ struct planner {
 };
 
 
+enum direction {
+    forward, inverse, none
+};
+
+
 template <class T0, class T1, class Planner = planner>
 struct plan {
     typedef typename cl_scalar_of<T0>::type T0s;
@@ -194,42 +199,50 @@ struct plan {
     size_t input, output;
     std::vector<cl::Buffer> bufs;
 
-#ifdef FFT_PROFILE
-    profiler profile;
-#endif
+    profiler<> *profile;
 
     // \param sizes
     //  1D case: {n}.
     //  2D case: {h, w} in row-major format: x + y * w. (like FFTw)
     //  etc.
-    plan(const std::vector<cl::CommandQueue> &_queues, const std::vector<size_t> sizes, bool inverse, const Planner &planner = Planner())
-        : queues(_queues), planner(planner), sizes(sizes)
-#ifdef FFT_PROFILE
-          , profile(_queues)
-#endif
+    plan(const std::vector<cl::CommandQueue> &_queues, const std::vector<size_t> sizes,
+        const std::vector<direction> dirs, const Planner &planner = Planner())
+        : queues(_queues), planner(planner), sizes(sizes), profile(NULL)
     {
         assert(sizes.size() >= 1);
-        assert(queues.size() == 1);
+        assert(sizes.size() == dirs.size());
+
+        precondition(
+                queues.size() == 1,
+                "FFT is only supported for single-device contexts."
+                );
+
         auto queue = queues[0];
         auto context = qctx(queue);
         auto device = qdev(queue);
 
-        size_t total_n = std::accumulate(sizes.begin(), sizes.end(), 1, std::multiplies<size_t>());
-        scale = inverse ? ((T)1 / total_n) : 1;
-
+        size_t total_n = std::accumulate(sizes.begin(), sizes.end(),
+	    static_cast<size_t>(1), std::multiplies<size_t>());
         size_t current = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * total_n));
-        size_t other = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * total_n));
+        size_t other   = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * total_n));
+
+        size_t inv_n = 1;
+        for(size_t i = 0 ; i < sizes.size() ; i++)
+            if(dirs[i] == inverse)
+                inv_n *= sizes[i];
+        scale = (T)1 / inv_n;
 
         // Build the list of kernels.
         input = current;
-        for(auto d = sizes.rbegin() ; d != sizes.rend() ; d++) {
-            const size_t w = *d, h = total_n / w;
+        for(size_t i = 1 ; i <= sizes.size() ; i++) {
+            const size_t j = sizes.size() - i;
+            const size_t w = sizes[j], h = total_n / w;
             if(w > 1) {
                 // 1D, each row.
-                plan_cooley_tukey(inverse, w, h, current, other, false);
+                if(dirs[j] != none)
+                    plan_cooley_tukey(dirs[j] == inverse, w, h, current, other, false);
 
-                // transpose.
-                if(h > 1) {
+                if(h > 1 && !(dirs.size() == 2 && dirs[0] == none)) {
                     kernels.push_back(transpose_kernel<T>(queue, w, h, bufs[current], bufs[other]));
                     std::swap(current, other);
                 }
@@ -254,19 +267,16 @@ struct plan {
         }
     }
 
-    // this as a numeric error in O(exp(n)), as opposed to O(sqrt(n)),
-    // which means it's a very bad idea to use this with float for sizes > 100,
-    // double's worst case is still better than float's best case though.
     void plan_bluestein(size_t width, size_t batch, bool inverse, size_t n, size_t p, size_t &current, size_t &other) {
         size_t conv_n = planner.best_size(2 * n);
         size_t threads = width / n;
         auto context = qctx(queues[0]);
 
         size_t b_twiddle = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * n));
-        size_t b_other = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * conv_n));
+        size_t b_other   = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * conv_n));
         size_t b_current = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * conv_n));
         size_t a_current = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * conv_n * batch * threads));
-        size_t a_other = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * conv_n * batch * threads));
+        size_t a_other   = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * conv_n * batch * threads));
 
         // calculate twiddle factors
         kernels.push_back(bluestein_twiddle<T>(queues[0], n, inverse,
@@ -301,24 +311,21 @@ struct plan {
     /// Converts real-valued input and output, supports multiply-adding to output.
     template<class Expr>
     void operator()(const Expr &in, vector<T1> &out, bool append, T ex_scale) {
-#ifdef FFT_PROFILE
-        std::ostringstream prof_name;
-        prof_name << "fft(n={";
-        for(size_t i = 0 ; i < sizes.size() ; i++) {
-            if(i != 0) prof_name << ", ";
-            prof_name << sizes[i];
+        if(profile) {
+            std::ostringstream prof_name;
+            prof_name << "fft(n={";
+            for(size_t i = 0 ; i < sizes.size() ; i++) {
+                if(i != 0) prof_name << ", ";
+                prof_name << sizes[i];
+            }
+            prof_name << "}, append=" << append << ", scale=" << (ex_scale * scale) << ")";
+            profile->tic_cl(prof_name.str());
+            profile->tic_cl("in");
         }
-        prof_name << "}, append=" << append << ", scale=" << (ex_scale * scale) << ")";
-        profile.tic_cpu(prof_name.str());
-
-        profile.tic_cl("in");
-#endif
         vector<T2> in_c(queues[0], bufs[input]);
         if(std::is_same<T0, T>::value) in_c = r2c(in);
         else in_c = in;
-#ifdef FFT_PROFILE
-        profile.toc("in");
-#endif
+        if(profile) profile->toc("in");
         for(auto run = kernels.begin(); run != kernels.end(); ++run) {
             if(!run->once || run->count == 0) {
 #ifdef FFT_DUMP_ARRAYS
@@ -328,15 +335,17 @@ struct plan {
                 }
                 std::cerr << "run " << run->desc << std::endl;
 #endif
-#ifdef FFT_PROFILE
-                profile.tic_cl(run->desc);
-#endif
+                if(profile) {
+                    std::ostringstream s;
+                    s << "(k" << (run - kernels.begin()) << ")";
+                    if(run->once) s << " ONCE";
+                    s << " " << run->desc;
+                    profile->tic_cl(s.str());
+                }
                 queues[0].enqueueNDRangeKernel(run->kernel, cl::NullRange,
                     run->global, run->local);
                 run->count++;
-#ifdef FFT_PROFILE
-                profile.toc(run->desc);
-#endif
+                if(profile) profile->toc("");
             }
         }
 #ifdef FFT_DUMP_ARRAYS
@@ -346,9 +355,7 @@ struct plan {
         }
 #endif
 
-#ifdef FFT_PROFILE
-        profile.tic_cl("out");
-#endif
+        if(profile) profile->tic_cl("out");
         vector<T2> out_c(queues[0], bufs[output]);
         if(std::is_same<T1, T>::value) {
             if(append) out += c2r(out_c) * (ex_scale * scale);
@@ -357,10 +364,10 @@ struct plan {
             if(append) out += out_c * (ex_scale * scale);
             else out = out_c * (ex_scale * scale);
         }
-#ifdef FFT_PROFILE
-        profile.toc("out");
-        profile.toc(prof_name.str());
-#endif
+        if(profile) {
+            profile->toc("out");
+            profile->toc("");
+        }
     }
 
     std::string desc() const {

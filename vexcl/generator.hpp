@@ -31,9 +31,7 @@ THE SOFTWARE.
  * \brief  OpenCL kernel generator.
  */
 
-#ifdef WIN32
-#  pragma warning(push)
-#  pragma warning(disable : 4267 4290)
+#ifdef _MSC_VER
 #  define NOMINMAX
 #endif
 
@@ -42,23 +40,38 @@ THE SOFTWARE.
 #include <string>
 #include <stdexcept>
 #include <boost/proto/proto.hpp>
+#include <boost/tuple/tuple.hpp>
+#include <boost/fusion/adapted/boost_tuple.hpp>
+#include <boost/function_types/parameter_types.hpp>
+#include <boost/function_types/result_type.hpp>
+#include <boost/function_types/function_arity.hpp>
 #include <vexcl/util.hpp>
 #include <vexcl/operations.hpp>
+#include <boost/preprocessor/repetition.hpp>
+#ifndef VEXCL_MAX_ARITY
+#  define VEXCL_MAX_ARITY BOOST_PROTO_MAX_ARITY
+#endif
 
 /// Vector expression template library for OpenCL.
 namespace vex {
 
+template <typename T> class symbolic;
+
+template <typename T>
+std::ostream& operator<<(std::ostream &os, const symbolic<T> &sym);
+
 /// Kernel generation interface.
 namespace generator {
 
+/// \cond INTERNAL
 //---------------------------------------------------------------------------
 // The recorder class. Holds static output stream for kernel recording and
 // static variable index (used in variable names).
 //---------------------------------------------------------------------------
-
-/// \cond INTERNAL
 template <bool dummy = true>
 class recorder {
+    static_assert(dummy, "dummy parameter should be true");
+
     public:
         static void set(std::ostream &s) {
             os = &s;
@@ -85,6 +98,7 @@ std::ostream *recorder<dummy>::os = 0;
 inline size_t var_id() {
     return recorder<>::var_id();
 }
+/// \endcond
 
 inline std::ostream& get_recorder() {
     return recorder<>::get();
@@ -96,14 +110,13 @@ inline void set_recorder(std::ostream &os) {
     recorder<>::set(os);
 }
 
+/// \cond INTERNAL
 //---------------------------------------------------------------------------
 // Setting up boost::proto.
 //---------------------------------------------------------------------------
-
 struct variable {};
 
 // --- The grammar ----------------------------------------------------------
-
 struct symbolic_grammar
     : boost::proto::or_<
           boost::proto::or_<
@@ -122,7 +135,10 @@ struct symbolic_expr;
 
 struct symbolic_domain
     : boost::proto::domain< boost::proto::generator< symbolic_expr >, symbolic_grammar >
-{};
+{
+    template <typename T>
+    struct as_child : proto_base_domain::as_expr<T> {};
+};
 
 template <class Expr>
 struct symbolic_expr
@@ -133,11 +149,7 @@ struct symbolic_expr
     symbolic_expr(const Expr &expr = Expr()) : base_type(expr) {}
 };
 
-template <typename T>
-class symbolic;
-
-template <typename T>
-std::ostream& operator<<(std::ostream &os, const symbolic<T> &sym);
+namespace detail {
 
 struct symbolic_context {
     template <typename Expr, typename Tag = typename Expr::proto_tag>
@@ -258,32 +270,27 @@ struct symbolic_context {
     };
 };
 
+} // namespace detail
 
-//---------------------------------------------------------------------------
-// Builtin functions.
-//---------------------------------------------------------------------------
-
-template <class Expr>
-void record(const Expr &expr) {
-    symbolic_context ctx;
-    boost::proto::eval(boost::proto::as_expr(expr), ctx);
-}
 /// \endcond
+
+} // namespace generator
 
 //---------------------------------------------------------------------------
 // The symbolic class.
 //---------------------------------------------------------------------------
-
 template <typename T>
 class symbolic
-    : public symbolic_expr< boost::proto::terminal< variable >::type >
+    : public generator::symbolic_expr< boost::proto::terminal< generator::variable >::type >
 {
     public:
+        typedef T value_type;
+
         /// Scope/Type of the symbolic variable.
         enum scope_type {
             LocalVar        = 0, ///< Local variable.
             VectorParameter = 1, ///< Vector kernel parameter.
-            ScalarParameter = 2, ///< Scalar kernel parameter.
+            ScalarParameter = 2  ///< Scalar kernel parameter.
         };
 
         /// Constness of vector parameter.
@@ -293,44 +300,44 @@ class symbolic
         };
 
         /// Default constructor. Results in local kernel variable.
-        symbolic() : num(var_id()), scope(LocalVar), constness(NonConst)
+        symbolic() : num(generator::var_id()), scope(LocalVar), constness(NonConst)
         {
-            get_recorder() << "\t\t" << type_name<T>() << " " << *this << ";\n";
+            generator::get_recorder() << "\t\t" << type_name<T>() << " " << *this << ";\n";
         }
 
         /// Constructor.
         explicit symbolic(scope_type scope, constness_type constness = NonConst)
-            : num(var_id()), scope(scope), constness(constness)
+            : num(generator::var_id()), scope(scope), constness(constness)
         {
             if (scope == LocalVar) {
-                get_recorder() << "\t\t" << type_name<T>() << " " << *this << ";\n";
+                generator::get_recorder() << "\t\t" << type_name<T>() << " " << *this << ";\n";
             }
         }
 
         /// Expression constructor. Results in local variable initialized by expression.
         template <class Expr>
         symbolic(const Expr &expr)
-            : num(var_id()), scope(LocalVar), constness(NonConst)
+            : num(generator::var_id()), scope(LocalVar), constness(NonConst)
         {
-            get_recorder() << "\t\t" << type_name<T>() << " " << *this << " = ";
+            generator::get_recorder() << "\t\t" << type_name<T>() << " " << *this << " = ";
             record(expr);
-            get_recorder() << ";\n";
+            generator::get_recorder() << ";\n";
         }
 
         /// Assignment operator. Results in assignment written to recorder.
         const symbolic& operator=(const symbolic &c) const {
-            get_recorder() << "\t\t" << *this << " = ";
+            generator::get_recorder() << "\t\t" << *this << " = ";
             record(c);
-            get_recorder() << ";\n";
+            generator::get_recorder() << ";\n";
             return *this;
         }
 
         /// Assignment operator. Results in assignment written to recorder.
         template <class Expr>
         const symbolic& operator=(const Expr &expr) const {
-            get_recorder() << "\t\t" << *this << " = ";
+            generator::get_recorder() << "\t\t" << *this << " = ";
             record(expr);
-            get_recorder() << ";\n";
+            generator::get_recorder() << ";\n";
             return *this;
         }
 
@@ -412,12 +419,20 @@ class symbolic
         size_t         num;
         scope_type     scope;
         constness_type constness;
+
+        template <class Expr>
+        static void record(const Expr &expr) {
+            generator::detail::symbolic_context ctx;
+            boost::proto::eval(boost::proto::as_expr(expr), ctx);
+        }
 };
 
 template <typename T>
 std::ostream& operator<<(std::ostream &os, const symbolic<T> &sym) {
     return os << "var" << sym.id();
 }
+
+namespace generator {
 
 /// Autogenerated kernel.
 template <size_t NP>
@@ -431,7 +446,7 @@ class Kernel {
               ) : queue(queue)
         {
             static_assert(
-                    std::tuple_size<ArgTuple>::value == NP,
+                    boost::tuples::length<ArgTuple>::value == NP,
                     "Wrong number of kernel parameters"
                     );
 
@@ -446,8 +461,7 @@ class Kernel {
                     << "kernel void " << name << "(\n"
                     << "\t" << type_name<size_t>() << " n";
 
-                declare_params declprm(source);
-                for_each<0>(args, declprm);
+                boost::fusion::for_each(args, declare_params(source));
 
                 source << "\n)\n{\n";
 
@@ -462,13 +476,11 @@ class Kernel {
                         "\tfor(size_t idx = get_global_id(0); idx < n; idx += get_global_size(0)) {\n";
                 }
 
-                read_params readprm(source);
-                for_each<0>(args, readprm);
+                boost::fusion::for_each(args, read_params(source));
 
                 source << body;
 
-                write_params writeprm(source);
-                for_each<0>(args, writeprm);
+                boost::fusion::for_each(args, write_params(source));
 
                 source << "\t}\n}\n";
 
@@ -483,7 +495,7 @@ class Kernel {
         /// Launches kernel with provided parameters.
         template <class... Param>
         void operator()(const Param&... param) {
-            launch(std::tie(param...));
+            launch(boost::tie(param...));
         }
 #else
 
@@ -491,7 +503,7 @@ class Kernel {
 #define FUNCALL_OPERATOR(z, n, data) \
         template < BOOST_PP_ENUM_PARAMS(n, class Param) > \
         void operator()( BOOST_PP_ENUM(n, PRINT_PARAM, ~) ) { \
-            launch(std::tie( BOOST_PP_ENUM_PARAMS(n, param) )); \
+            launch(boost::tie( BOOST_PP_ENUM_PARAMS(n, param) )); \
         }
 
 BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, FUNCALL_OPERATOR, ~)
@@ -505,26 +517,25 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, FUNCALL_OPERATOR, ~)
         template <class ParamTuple>
         void launch(const ParamTuple &param) {
             static_assert(
-                    std::tuple_size<ParamTuple>::value == NP,
+                    boost::tuples::length<ParamTuple>::value == NP,
                     "Wrong number of kernel parameters"
                     );
 
-            for(uint d = 0; d < queue.size(); d++) {
-                if (size_t psize = prm_size<0>(d, param)) {
+            for(unsigned d = 0; d < queue.size(); d++) {
+                if (size_t psize = boost::fusion::fold(param, 0, param_size(d))) {
                     cl::Context context = qctx(queue[d]);
                     cl::Device  device  = qdev(queue[d]);
 
-                    uint pos = 0;
+                    unsigned pos = 0;
                     krn[context()].setArg(pos++, psize);
 
                     set_params setprm(krn[context()], d, pos);
-                    for_each<0>(param, setprm);
+                    boost::fusion::for_each(param, setprm);
 
                     size_t g_size = num_workgroups(device) * wgs[context()];
 
                     queue[d].enqueueNDRangeKernel(krn[context()],
-                            cl::NullRange, g_size, wgs[context()]
-                            );
+                            cl::NullRange, g_size, wgs[context()]);
                 }
             }
         }
@@ -564,9 +575,9 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, FUNCALL_OPERATOR, ~)
 
         struct set_params {
             cl::Kernel &krn;
-            uint d, &pos;
+            unsigned d, &pos;
 
-            set_params(cl::Kernel &krn, uint d, uint &pos)
+            set_params(cl::Kernel &krn, unsigned d, unsigned &pos)
                 : krn(krn), d(d), pos(pos) {};
 
             template <class T>
@@ -582,36 +593,53 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, FUNCALL_OPERATOR, ~)
         std::vector<cl::CommandQueue> queue;
 
         std::map<cl_context, cl::Kernel> krn;
-        std::map<cl_context, uint> wgs;
+        std::map<cl_context, unsigned>   wgs;
 
-        template <class T>
-        size_t prm_part_size(uint, const T &) const {
-            return 0;
+        struct param_size {
+            unsigned device;
+
+            param_size(unsigned device) : device(device) {}
+
+            typedef size_t result_type;
+
+            template <class T>
+            size_t operator()(size_t s, const T &v) const {
+                return std::max(s, v.part_size(device));
+            }
+        };
+};
+
+/// Function body generator.
+class Function {
+    public:
+        template <class Ret, class ArgTuple>
+        Function(const std::string &body, const Ret &ret, const ArgTuple &arg)
+        {
+            boost::fusion::for_each(arg, read_params(source));
+
+            source << body;
+
+            source << "\t\treturn " << ret << ";\n";
         }
 
-        template <class T>
-        size_t prm_part_size(uint d, const vector<T> &v) const {
-            return v.part_size(d);
+        std::string get() const {
+            return source.str();
         }
+    private:
+        std::ostringstream source;
 
-        template <size_t I, class PrmTuple>
-        typename std::enable_if<
-            I == std::tuple_size<PrmTuple>::value, size_t
-        >::type
-        prm_size(uint, const PrmTuple &) const {
-            return 0;
-        }
+        struct read_params {
+            std::ostream &os;
+            mutable int prm_idx;
 
-        template <size_t I, class PrmTuple>
-        typename std::enable_if<
-            I < std::tuple_size<PrmTuple>::value, size_t
-        >::type
-        prm_size(uint d, const PrmTuple &prm) const {
-            return std::max(
-                    prm_part_size(d, std::get<I>(prm)),
-                    prm_size<I + 1>(d, prm)
-                    );
-        }
+            read_params(std::ostream &os) : os(os), prm_idx(0) {}
+
+            template <class T>
+            void operator()(const T &v) const {
+                os << "\t\t" << type_name<typename T::value_type>() << " "
+                   << v << " = prm" << ++prm_idx << ";\n";
+            }
+        };
 };
 
 #ifndef BOOST_NO_VARIADIC_TEMPLATES
@@ -622,11 +650,18 @@ Kernel<sizeof...(Args)> build_kernel(
         const std::string &name, const std::string& body, const Args&... args
         )
 {
-    return Kernel<sizeof...(Args)>(queue, name, body, std::tie(args...));
+    return Kernel<sizeof...(Args)>(queue, name, body, boost::tie(args...));
+}
+
+/// Builds function body from recorded expression and symbolic return value and parameters.
+template <class Ret, class... Args>
+std::string make_function(std::string body, const Ret &ret, const Args&... args) {
+    return Function(body, ret, boost::tie(args...)).get();
 }
 #else
 
 #define PRINT_ARG(z, n, data) const Arg ## n &arg ## n
+
 #define BUILD_KERNEL(z, n, data) \
 template < BOOST_PP_ENUM_PARAMS(n, class Arg) > \
 Kernel<n> build_kernel( \
@@ -635,20 +670,85 @@ Kernel<n> build_kernel( \
         BOOST_PP_ENUM(n, PRINT_ARG, ~) \
         ) \
 { \
-    return Kernel<n>(queue, name, body, std::tie( BOOST_PP_ENUM_PARAMS(n, arg) )); \
+    return Kernel<n>(queue, name, body, boost::tie( BOOST_PP_ENUM_PARAMS(n, arg) )); \
 }
-
 BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, BUILD_KERNEL, ~)
-
-#undef PRINT_ARG
 #undef BUILD_KERNEL
 
+#define MAKE_FUNCTION(z, n, data) \
+template <class Ret, BOOST_PP_ENUM_PARAMS(n, class Arg)> \
+std::string make_function(std::string body, const Ret &ret, \
+        BOOST_PP_ENUM(n, PRINT_ARG, ~)) \
+{ \
+    return Function(body, ret, boost::tie( BOOST_PP_ENUM_PARAMS(n, arg) )).get(); \
+}
+BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, MAKE_FUNCTION, ~)
+#undef MAKE_FUNCTION
+
+#undef PRINT_ARG
+
 #endif
+
+/// UserFunction implementation from a generic functor
+template <class Signature, class Functor>
+struct FunctorAdapter : UserFunction<FunctorAdapter<Signature, Functor>, Signature>
+{
+    static std::string body_string;
+
+    FunctorAdapter(Functor &&f) {
+        using boost::function_types::function_arity;
+
+        body_string = get_body(std::forward<Functor>(f),
+                boost::mpl::size_t< function_arity<Signature>::value >() );
+    }
+
+    // Empty constructor. Used in UserFunction::operator(). Hopefuly the body
+    // string is already constructed by the time the constructor is called.
+    FunctorAdapter() {}
+
+    static std::string body() {
+        return body_string;
+    }
+
+#define PRINT_PRM(z, n, data) \
+    typedef symbolic< typename boost::mpl::at<params, boost::mpl::int_<n>>::type > Prm ## n; \
+    Prm ## n prm ## n(Prm ## n::ScalarParameter); \
+    source << "\t\t" << type_name<typename Prm ## n::value_type>() << " " << prm ## n << " = prm" << n + 1 << ";\n";
+
+#define BODY_GETTER(z, n, data)                                                          \
+    static std::string get_body(Functor &&f, boost::mpl::size_t<n>) {                                 \
+        typedef typename boost::function_types::result_type<Signature>::type     result; \
+        typedef typename boost::function_types::parameter_types<Signature>::type params; \
+        std::ostringstream source;                                                       \
+        set_recorder(source);                                                            \
+        BOOST_PP_REPEAT(n, PRINT_PRM, ~)                                                 \
+        symbolic< result > ret = f( BOOST_PP_ENUM_PARAMS(n, prm) );              \
+        source << "\t\treturn " << ret << ";\n";                                         \
+        return source.str();                                                             \
+    }
+
+    BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, BODY_GETTER, ~)
+
+#undef BODY_GETTER
+#undef PRINT_PRM
+};
+
+template <class Signature, class Functor>
+std::string FunctorAdapter<Signature, Functor>::body_string;
+
+/// Generates user-defined function from a genric functor.
+/**
+ * Takes function signature as template parameter, functor as a single
+ * argument.
+ * Returns user-defined function ready to be used in vector expressions.
+ */
+template <class Signature, class Functor>
+FunctorAdapter<Signature, Functor> make_function(Functor &&f) {
+    return FunctorAdapter<Signature, Functor>(std::forward<Functor>(f));
+}
 
 } // namespace generator;
 
 } // namespace vex;
 
-
-// vim: et
 #endif

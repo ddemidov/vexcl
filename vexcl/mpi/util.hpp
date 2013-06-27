@@ -26,7 +26,7 @@ THE SOFTWARE.
 */
 
 /**
- * \file   mpi/util.hpp
+ * \file   vexcl/mpi/util.hpp
  * \author Denis Demidov <ddemidov@ksu.ru>
  * \brief  MPI related utilities.
  */
@@ -178,14 +178,14 @@ class exchange {
 
             // Start receiving columns they need.
             for(int i = 0; i < mpi.size; ++i)
-                if (int n = send.idx[i + 1] - send.idx[i])
-                    MPI_Irecv(&send.col[send.idx[i]], n, mpi_type<size_t>(),
+                if (size_t n = send.idx[i + 1] - send.idx[i])
+                    MPI_Irecv(&send.col[send.idx[i]], static_cast<int>(n), mpi_type<size_t>(),
                             i, tagExcCols, mpi.comm, &send.req[i]);
 
             // Start sending columns we need to them.
             for(int i = 0; i < mpi.size; ++i)
-                if (int n = recv.idx[i + 1] - recv.idx[i])
-                    MPI_Isend(&rcols[recv.idx[i]], n, mpi_type<size_t>(),
+                if (size_t n = recv.idx[i + 1] - recv.idx[i])
+                    MPI_Isend(&rcols[recv.idx[i]], static_cast<int>(n), mpi_type<size_t>(),
                             i, tagExcCols, mpi.comm, &recv.req[i]);
 
             MPI_Waitall(mpi.size, send.req.data(), MPI_STATUSES_IGNORE);
@@ -213,13 +213,13 @@ class exchange {
             (*get)(local_data, send.val);
 
             for(int i = 0; i < mpi.size; ++i)
-                if (int n = recv.idx[i + 1] - recv.idx[i])
-                    MPI_Irecv(&recv.val[recv.idx[i]], n, mpi_type<value_t>(),
+                if (size_t n = recv.idx[i + 1] - recv.idx[i])
+                    MPI_Irecv(&recv.val[recv.idx[i]], static_cast<int>(n), mpi_type<value_t>(),
                             i, tagExcVals, mpi.comm, &recv.req[i]);
 
             for(int i = 0; i < mpi.size; ++i)
-                if (int n = send.idx[i + 1] - send.idx[i])
-                    MPI_Isend(&send.val[send.idx[i]], n, mpi_type<value_t>(),
+                if (size_t n = send.idx[i + 1] - send.idx[i])
+                    MPI_Isend(&send.val[send.idx[i]], static_cast<int>(n), mpi_type<value_t>(),
                             i, tagExcVals, mpi.comm, &send.req[i]);
         }
 

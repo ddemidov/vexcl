@@ -56,17 +56,13 @@ struct fft_expr
     }
 };
 
+namespace traits {
+
 template <class F, class E>
 struct is_scalable<fft_expr<F, E>> : std::true_type {};
 
+} // namespace traits
 
-namespace fft {
-
-enum direction {
-    forward, inverse
-};
-
-}
 
 /// Fast Fourier Transform.
 /**
@@ -75,6 +71,13 @@ enum direction {
  * FFT<cl_double2> fft(ctx, length);
  * output = fft(input); // out-of-place transform
  * data = fft(data);    // in-place transform
+ * FFT<cl_double2> ifft({width, height}, fft::inverse); // implicit context
+ * input = ifft(output); // backward transform
+ * \endcode
+ * To batch multiple transformations, use `fft::none` as the first kind:
+ * \code
+ * FFT<cl_double2> fft({batch, n}, {fft::none, fft::forward});
+ * output = fft(input);
  * \endcode
  */
 template <typename T0, typename T1 = T0, class Planner = fft::planner>
@@ -89,31 +92,54 @@ struct FFT {
     FFT(const std::vector<cl::CommandQueue> &queues,
         size_t length, fft::direction dir = fft::forward,
         const Planner &planner = Planner())
-        : plan(queues, std::vector<size_t>(1, length), dir == fft::inverse, planner) {}
+        : plan(queues, std::vector<size_t>(1, length), std::vector<fft::direction>(1, dir), planner) {}
 
     FFT(size_t length, fft::direction dir = fft::forward,
         const Planner &planner = Planner())
-        : plan(current_context().queue(), std::vector<size_t>(1, length), dir == fft::inverse, planner) {}
+        : plan(current_context().queue(), std::vector<size_t>(1, length), std::vector<fft::direction>(1, dir), planner) {}
 
     /// N-D constructors
     FFT(const std::vector<cl::CommandQueue> &queues,
         const std::vector<size_t> &lengths, fft::direction dir = fft::forward,
         const Planner &planner = Planner())
-        : plan(queues, lengths, dir == fft::inverse, planner) {}
+        : plan(queues, lengths, std::vector<fft::direction>(lengths.size(), dir), planner) {}
 
     FFT(const std::vector<size_t> &lengths, fft::direction dir = fft::forward,
         const Planner &planner = Planner())
-        : plan(current_context().queue(), lengths, dir == fft::inverse, planner) {}
+        : plan(current_context().queue(), lengths, std::vector<fft::direction>(lengths.size(), dir), planner) {}
+
+    FFT(const std::vector<cl::CommandQueue> &queues,
+        const std::vector<size_t> &lengths,
+        const std::vector<fft::direction> &dirs,
+        const Planner &planner = Planner())
+        : plan(queues, lengths, dirs, planner) {}
+
+    FFT(const std::vector<size_t> &lengths,
+        const std::vector<fft::direction> &dirs,
+        const Planner &planner = Planner())
+        : plan(current_context().queue(), lengths, dirs, planner) {}
+
 
 #ifndef BOOST_NO_INITIALIZER_LISTS
     FFT(const std::vector<cl::CommandQueue> &queues,
         const std::initializer_list<size_t> &lengths, fft::direction dir = fft::forward,
         const Planner &planner = Planner())
-        : plan(queues, lengths, dir == fft::inverse, planner) {}
+        : plan(queues, lengths, std::vector<fft::direction>(lengths.size(), dir), planner) {}
 
     FFT(const std::initializer_list<size_t> &lengths, fft::direction dir = fft::forward,
         const Planner &planner = Planner())
-        : plan(current_context().queue(), lengths, dir == fft::inverse, planner) {}
+        : plan(current_context().queue(), lengths, std::vector<fft::direction>(lengths.size(), dir), planner) {}
+
+    FFT(const std::vector<cl::CommandQueue> &queues,
+        const std::initializer_list<size_t> &lengths,
+        const std::initializer_list<fft::direction> &dirs,
+        const Planner &planner = Planner())
+        : plan(queues, lengths, dirs, planner) {}
+
+    FFT(const std::initializer_list<size_t> &lengths,
+        const std::initializer_list<fft::direction> &dirs,
+        const Planner &planner = Planner())
+        : plan(current_context().queue(), lengths, dirs, planner) {}
 #endif
 
     template <bool negate, bool append, class Expr>

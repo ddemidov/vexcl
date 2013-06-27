@@ -3,6 +3,11 @@
 #ifdef HAVE_FFTW
 #  include <fftw3.h>
 #endif
+#include <vexcl/vector.hpp>
+#include <vexcl/fft.hpp>
+#include <vexcl/random.hpp>
+#include <vexcl/element_index.hpp>
+#include <vexcl/reductor.hpp>
 #include "context_setup.hpp"
 
 BOOST_AUTO_TEST_CASE(transform_expression)
@@ -43,44 +48,50 @@ BOOST_AUTO_TEST_CASE(check_correctness)
 
 #ifdef HAVE_FFTW
 
-void test(const vex::Context &ctx, std::vector<size_t> ns) {
-    std::cout << ns[0];
-    for(size_t i = 1; i < ns.size(); i++) {
-        std::cout << 'x' << ns[i];
-    }
-    std::cout << std::endl;
+void test(const vex::Context &ctx, std::vector<size_t> ns, size_t batch) {
+    std::cout << "FFT(C2C) size=" << ns[0];
+    for(size_t i = 1; i < ns.size(); i++) std::cout << 'x' << ns[i];
+    std::cout << " batch=" << batch << std::endl;
 
     std::vector<cl::CommandQueue> queue(1, ctx.queue(0));
 
-    size_t n = std::accumulate(ns.begin(), ns.end(), 1UL, std::multiplies<size_t>());
+    size_t n1 = std::accumulate(ns.begin(), ns.end(), 1UL, std::multiplies<size_t>());
+    size_t n = n1 * batch;
 
     // random data.
-    std::vector<double> inp_h = random_vector<double>(2 * n);
+    std::vector<cl_double2> inp_h = random_vector<cl_double2>(n);
 
     // test
-    vex::vector<cl_double2> inp (queue, n, reinterpret_cast<cl_double2*>(inp_h.data()));
+    vex::vector<cl_double2> inp (queue, inp_h);
     vex::vector<cl_double2> out (queue, n);
     vex::vector<cl_double2> back(queue, n);
 
-    vex::FFT<cl_double2> fft (queue, ns);
-    vex::FFT<cl_double2> ifft(queue, ns, vex::fft::inverse);
+    std::vector<size_t> ns_(ns.begin(), ns.end());
+    std::vector<vex::fft::direction> dirs (ns.size(), vex::fft::forward);
+    std::vector<vex::fft::direction> idirs(ns.size(), vex::fft::inverse);
+    if(batch != 1) {
+        ns_.insert(ns_.begin(), batch);
+        dirs.insert(dirs.begin(), vex::fft::none);
+        idirs.insert(idirs.begin(), vex::fft::none);
+    }
+    vex::FFT<cl_double2> fft (queue, ns_, dirs);
+    vex::FFT<cl_double2> ifft(queue, ns_, idirs);
 
     out  = fft (inp);
     back = ifft(out);
 
     // reference.
-    std::vector<double> ref_h(2 * n);
-    {
-        std::vector<int> nsi(ns.begin(), ns.end());
+    std::vector<cl_double2> ref_h(n);
+    std::vector<int> nsi(ns.begin(), ns.end());
+    for(size_t i = 0 ; i < batch ; i++) {
         fftw_plan p1 = fftw_plan_dft(nsi.size(), nsi.data(),
-                reinterpret_cast<fftw_complex*>(inp_h.data()),
-                reinterpret_cast<fftw_complex*>(ref_h.data()),
-                FFTW_FORWARD, FFTW_ESTIMATE);
+            reinterpret_cast<fftw_complex*>(inp_h.data() + i * n1),
+            reinterpret_cast<fftw_complex*>(ref_h.data() + i * n1),
+            FFTW_FORWARD, FFTW_ESTIMATE);
         fftw_execute(p1);
         fftw_destroy_plan(p1);
     }
-
-    vex::vector<cl_double2> ref (queue, n, reinterpret_cast<cl_double2*>(ref_h.data()));
+    vex::vector<cl_double2> ref(queue, n, ref_h.data());
 
     auto rms = [&](const vex::vector<cl_double2> &a, const vex::vector<cl_double2> &b) {
         static vex::Reductor<double, vex::SUM> sum(queue);
@@ -108,11 +119,12 @@ BOOST_AUTO_TEST_CASE(test_dimensions)
     for(size_t i = 0; i < 32; ++i) {
         // random number of dimensions, mostly 1.
         size_t dims = random_dim(3, 5);
+        size_t batch = random_dim(5, 100);
 
         // random size.
         std::vector<size_t> n;
         size_t d_max = std::pow(max, 1.0 / dims);
-        size_t total = 1;
+        size_t total = batch;
         for(size_t d = 0 ; d < dims ; d++) {
             size_t sz = random_dim(dims == 1 ? 3 : 1, d_max);
 
@@ -124,7 +136,7 @@ BOOST_AUTO_TEST_CASE(test_dimensions)
         }
 
         // run
-        if(total <= max) test(ctx, n);
+        if(total <= max) test(ctx, n, batch);
     }
 }
 

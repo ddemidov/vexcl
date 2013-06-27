@@ -1,5 +1,6 @@
 #define BOOST_TEST_MODULE VectorCreate
 #include <boost/test/unit_test.hpp>
+#include <vexcl/vector.hpp>
 #include "context_setup.hpp"
 
 BOOST_AUTO_TEST_CASE(empty)
@@ -148,17 +149,37 @@ BOOST_AUTO_TEST_CASE(vector_resize_to_vex_vector)
 BOOST_AUTO_TEST_CASE(stl_container_of_vex_vector)
 {
     const size_t N = 1024;
-    const size_t M = 16;
+    const size_t M = 16 + generator<size_t>::get() ;
 
     std::vector< vex::vector<unsigned> > x;
 
+    std::vector< cl_mem > bufs;
+
     for(size_t i = 0; i < M; ++i) {
-        x.push_back( vex::vector<unsigned>(ctx, N) );
+        x.push_back( vex::vector<unsigned>(ctx, random_vector<unsigned>(N)) );
         x.back() = i;
+        bufs.push_back( x.back()(0)() );
     }
 
-    for(size_t j = 0; j < M; ++j)
-        check_sample(x[j], [j](size_t, unsigned a) { BOOST_CHECK(a == j); });
+    for(size_t i = 0; i < M; ++i)
+        x[i] -= i;
+
+    for(size_t i = 0; i < M; ++i) {
+        BOOST_CHECK_EQUAL(N, x[i].size());
+        BOOST_CHECK_EQUAL(bufs[i], x[i](0)());
+    }
+}
+
+BOOST_AUTO_TEST_CASE(initialize_with_expression)
+{
+    const size_t n = 1024;
+
+    std::vector<double> x = random_vector<double>(n);
+
+    vex::vector<double> X(ctx, x);
+    vex::vector<double> Y = sin(X);
+
+    check_sample(Y, [&](size_t idx, double v) { BOOST_CHECK_CLOSE(v, sin(x[idx]), 1e-8); });
 }
 
 BOOST_AUTO_TEST_SUITE_END()

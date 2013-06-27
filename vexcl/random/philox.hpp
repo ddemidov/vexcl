@@ -104,7 +104,7 @@ struct philox {
           << "ctr_t __mul;\\\n";
         o << type_name<Ts>() << " ";
         // constants
-        if(boost::is_same<T, cl_uint>::value) { // 32
+        if(boost::is_same<Ts, cl_uint>::value) { // 32
             o << "W0 = 0x9E3779B9, ";
             if(w == 2)
                 o << "M0 = 0xD256D193;\\\n";

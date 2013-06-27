@@ -75,7 +75,7 @@ int main() {
         vex::SpMat <real> A(ctx, n, n, row.data(), col.data(), val.data());
         vex::vector<real> f(ctx, rhs);
 
-        vex::profiler prof(ctx);
+        vex::profiler<> prof(ctx);
 
         // Solve problem with ViennaCL's solvers:
         std::cout << "CG" << std::endl;
