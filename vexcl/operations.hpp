@@ -1497,9 +1497,7 @@ struct extract_component : boost::proto::callable {
     template <class This, class T>
     struct result< This(T) > {
         typedef const typename traits::component< C,
-                typename boost::remove_const<
-                    typename boost::remove_reference<T>::type
-                >::type
+                typename std::decay<T>::type
             >::type type;
     };
 

@@ -112,10 +112,8 @@ struct terminal_preamble< tagged_terminal<Tag, Term> > {
         auto p = pos.find(Tag);
 
         typedef
-            typename boost::remove_const<
-                typename boost::remove_reference<
-                    typename boost::proto::result_of::as_child<Term>::type
-                >::type
+            typename std::decay<
+                typename boost::proto::result_of::as_child<Term>::type
             >::type TermType;
 
         if (p == pos.end()) {
@@ -147,10 +145,8 @@ struct kernel_param_declaration< tagged_terminal<Tag, Term> > {
         auto p = pos.find(Tag);
 
         typedef
-            typename boost::remove_const<
-                typename boost::remove_reference<
-                    typename boost::proto::result_of::as_child<Term>::type
-                >::type
+            typename std::decay<
+                typename boost::proto::result_of::as_child<Term>::type
             >::type TermType;
 
         if (p == pos.end()) {
@@ -182,10 +178,8 @@ struct partial_vector_expr< tagged_terminal<Tag, Term> > {
         auto p = pos.find(Tag);
 
         typedef
-            typename boost::remove_const<
-                typename boost::remove_reference<
-                    typename boost::proto::result_of::as_child<Term>::type
-                >::type
+            typename std::decay<
+                typename boost::proto::result_of::as_child<Term>::type
             >::type TermType;
 
         if (p == pos.end()) {
@@ -216,10 +210,8 @@ struct kernel_arg_setter< tagged_terminal<Tag, Term> > {
         auto p = pos.find(Tag);
 
         typedef
-            typename boost::remove_const<
-                typename boost::remove_reference<
-                    decltype(boost::proto::as_child(term.term))
-                >::type
+            typename std::decay<
+                decltype(boost::proto::as_child(term.term))
             >::type TermType;
 
         if (p == pos.end()) {
@@ -238,10 +230,8 @@ struct expression_properties< tagged_terminal<Tag, Term> > {
             )
     {
         typedef
-            typename boost::remove_const<
-                typename boost::remove_reference<
-                    decltype(boost::proto::as_child(term.term))
-                >::type
+            typename std::decay<
+                decltype(boost::proto::as_child(term.term))
             >::type TermType;
 
         expression_properties<TermType>::get(boost::proto::as_child(term.term), queue_list, partition, size);
