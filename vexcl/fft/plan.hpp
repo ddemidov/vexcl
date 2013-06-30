@@ -38,7 +38,6 @@ THE SOFTWARE.
 #include <vexcl/vector.hpp>
 #include <vexcl/fft/unrolled_dft.hpp>
 #include <vexcl/fft/kernels.hpp>
-#include <boost/lexical_cast.hpp>
 
 namespace vex {
 
@@ -179,9 +178,9 @@ template <class T0, class T1, class Planner = planner>
 struct plan {
     typedef typename cl_scalar_of<T0>::type T0s;
     typedef typename cl_scalar_of<T1>::type T1s;
-    static_assert(boost::is_same<T0s, T1s>::value, "Input and output must have same precision.");
+    static_assert(std::is_same<T0s, T1s>::value, "Input and output must have same precision.");
     typedef T0s T;
-    static_assert(boost::is_same<T, cl_float>::value || boost::is_same<T, cl_double>::value,
+    static_assert(std::is_same<T, cl_float>::value || std::is_same<T, cl_double>::value,
         "Only float and double data supported.");
 
     typedef typename cl_vector_of<T, 2>::type T2;

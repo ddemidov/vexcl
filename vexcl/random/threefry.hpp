@@ -111,7 +111,7 @@ struct threefry {
         const size_t w = cl_vector_length<T>::value;
         static_assert(w == 2 || w == 4, "Only supports 2- and 4-vectors.");
         typedef typename cl_scalar_of<T>::type Ts;
-        static_assert(boost::is_same<Ts, cl_uint>::value || boost::is_same<Ts, cl_ulong>::value,
+        static_assert(std::is_same<Ts, cl_uint>::value || std::is_same<Ts, cl_ulong>::value,
             "Only supports 32 or 64 bit integers.");
         const size_t bits = sizeof(Ts) * 8;
 

@@ -44,7 +44,13 @@ THE SOFTWARE.
 #include <vector>
 #include <cassert>
 
-#include <boost/chrono.hpp>
+#if defined(_MSC_VER) && (_MSC_VER < 1700)
+#  define VEXCL_USE_BOOST_CHRONO
+#  include <boost/chrono.hpp>
+#else
+#  include <chrono>
+#endif
+
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/sequenced_index.hpp>
@@ -129,7 +135,11 @@ struct averager<AvgMedian> {
  * \param Avg   Kind of averaging used. AvgMedian is more stable, but may
  *              have high overhead when profiling is made in a loop.
  */
+#ifdef VEXCL_USE_BOOST_CHRONO
 template <class Clock = boost::chrono::high_resolution_clock, AvgKind Avg = AvgMedian>
+#else
+template <class Clock = std::chrono::high_resolution_clock, AvgKind Avg = AvgMedian>
+#endif
 class stopwatch {
     public:
         averager<Avg> avg;
@@ -179,7 +189,11 @@ class stopwatch {
  * \param Avg   Kind of averaging used. AvgMedian is more stable, but may
  *              have high overhead when profiling is made in a loop.
  */
+#ifdef VEXCL_USE_BOOST_CHRONO
 template <class Clock = boost::chrono::high_resolution_clock, AvgKind Avg = AvgMedian>
+#else
+template <class Clock = std::chrono::high_resolution_clock, AvgKind Avg = AvgMedian>
+#endif
 class profiler {
     private:
         class profile_unit {

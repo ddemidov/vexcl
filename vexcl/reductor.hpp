@@ -139,7 +139,7 @@ class Reductor {
 #else
         typename std::enable_if<
             boost::proto::matches<Expr, multivector_expr_grammar>::value,
-            std::array<real, boost::result_of<traits::multiex_dimension(Expr)>::type::value>
+            std::array<real, std::result_of<traits::multiex_dimension(Expr)>::type::value>
         >::type
 #endif
         operator()(const Expr &expr) const;
@@ -166,6 +166,7 @@ class Reductor {
         }
 };
 
+#ifndef DOXYGEN
 template <typename real, class RDC>
 Reductor<real,RDC>::Reductor(const std::vector<cl::CommandQueue> &queue)
     : queue(queue), event(queue.size())
@@ -345,16 +346,17 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
 template <typename real, class RDC> template <class Expr>
 typename std::enable_if<
     boost::proto::matches<Expr, multivector_expr_grammar>::value,
-    std::array<real, boost::result_of<traits::multiex_dimension(Expr)>::type::value>
+    std::array<real, std::result_of<traits::multiex_dimension(Expr)>::type::value>
 >::type
 Reductor<real,RDC>::operator()(const Expr &expr) const {
-    const size_t dim = boost::result_of<traits::multiex_dimension(Expr)>::type::value;
+    const size_t dim = std::result_of<traits::multiex_dimension(Expr)>::type::value;
     std::array<real, dim> result;
 
     assign_subexpressions<0, dim, Expr>(result, expr);
 
     return result;
 }
+#endif
 
 } // namespace vex
 

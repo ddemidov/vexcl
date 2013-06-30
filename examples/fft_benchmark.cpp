@@ -7,7 +7,7 @@
 
 using namespace vex;
 
-typedef stopwatch<boost::chrono::high_resolution_clock, AvgMedian> watch;
+typedef stopwatch<> watch;
 
 #ifdef HAVE_CUDA
 #  include <cufft.h>
