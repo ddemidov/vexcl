@@ -329,6 +329,22 @@ struct range {
     }
 };
 
+template <size_t NDIM>
+struct extent_gen {
+    std::array<size_t, NDIM> dim;
+
+    extent_gen() {}
+
+    extent_gen<NDIM + 1> operator[](size_t new_dim) const {
+        extent_gen<NDIM + 1> new_extent;
+        std::copy(dim.begin(), dim.end(), new_extent.dim.begin());
+        new_extent.dim.back() = new_dim;
+        return new_extent;
+    }
+};
+
+const extent_gen<0> extents;
+
 /// Slicing operator.
 /**
  * Slices multi-dimensional array stored in vex::vector in row-major order.
@@ -405,6 +421,7 @@ class slicer {
 #ifndef BOOST_NO_INITIALIZER_LISTS
         template <typename T>
         slicer(const std::initializer_list<T> &target_dimensions) {
+            assert(target_dimensions.size() == NDIM);
             std::copy(target_dimensions.begin(), target_dimensions.end(), dim.begin());
         }
 #endif
@@ -416,6 +433,10 @@ class slicer {
         template <typename T>
         slicer(const T *target_dimensions) {
             std::copy(target_dimensions, target_dimensions + NDIM, dim.begin());
+        }
+
+        slicer(const extent_gen<NDIM> &ext) {
+            std::copy(ext.dim.begin(), ext.dim.end(), dim.begin());
         }
 
         slice<0> operator[](const range &r) const {

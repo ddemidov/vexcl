@@ -324,7 +324,8 @@ using vex::range;
 vex::vector<double> X(ctx, n * n); // n-by-n matrix stored in row-major order.
 vex::vector<double> Y(ctx, n);
 
-vex::slicer<2> slice({n, n});
+// vex::extents is a helper object similar to boost::multi_array::extents
+vex::slicer<2> slice(vex::extents[n][n]);
 
 Y = slice[42](X);          // Put 42-nd row of X into Y.
 Y = slice[range()][42](X); // Put 42-nd column of X into Y.

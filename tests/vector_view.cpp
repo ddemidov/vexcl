@@ -140,13 +140,11 @@ BOOST_AUTO_TEST_CASE(assign_to_view) {
     const size_t m = 32;
     const size_t n = m * m;
 
-    std::array<size_t, 2> dim = {{m, m}};
-
     std::vector<cl::CommandQueue> queue(1, ctx.queue(0));
 
     vex::vector<int> x(queue, n);
-    vex::slicer<1> slicer1(&n);
-    vex::slicer<2> slicer2(dim);
+    vex::slicer<1> slicer1(vex::extents[n]);
+    vex::slicer<2> slicer2(vex::extents[m][m]);
 
     x = 1;
 
