@@ -323,6 +323,10 @@ struct range {
     /// All elements in this dimension.
     range () : start(0), stride(0), stop(0) {}
 
+    /// Range with a single element.
+    range(size_t i)
+        : start(i), stride(1), stop(i + 1) {}
+
     /// Elements from open interval with given stride.
     range(size_t start, size_t stride, size_t stop)
         : start(start), stride(stride), stop(stop) {}
@@ -419,10 +423,6 @@ class slicer {
                 else
                     return slice<CDIM + 1>(*this, r);
             };
-
-            slice<CDIM + 1> operator[](size_t i) const {
-                return this->operator[](range(i, i + 1));
-            }
         };
 
 #ifndef BOOST_NO_INITIALIZER_LISTS
@@ -453,9 +453,6 @@ class slicer {
                 return get_slice(r);
         }
 
-        slice<0> operator[](size_t i) const {
-            return this->operator[](range(i, i + 1));
-        }
     private:
         slice<0> get_slice(const range &r) const {
             std::array<size_t, NDIM> stride;
