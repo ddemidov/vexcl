@@ -374,103 +374,71 @@ const extent_gen<0> extents;
  * z = slice[range(0, 2, n)][5](x); // Put even elements of 5-th column of x into z.
  * \endcode
  */
-template <size_t NDIM>
+template <size_t NR>
 class slicer {
     private:
-        std::array<size_t, NDIM> dim;
+        std::array<size_t, NR> dim;
+        std::array<size_t, NR> stride;
 
     public:
-        template <size_t CDIM>
-        struct slice : public gslice<NDIM> {
-            std::array<size_t, NDIM> dim;
-
-#ifndef BOOST_NO_INITIALIZER_LISTS
-            template <typename T1, typename T2>
-            slice(size_t start,
-                  const std::initializer_list<T1> &length,
-                  const std::initializer_list<T2> &stride,
-                  const std::array<size_t, NDIM> &dim
-                 ) : gslice<NDIM>(start, length, stride), dim(dim) {}
-#endif
-
-            template <typename T1, typename T2>
-            slice(size_t start,
-                  const std::array<T1, NDIM> &length,
-                  const std::array<T2, NDIM> &stride,
-                  const std::array<size_t, NDIM> &dim
-                 ) : gslice<NDIM>(start, length, stride), dim(dim) {}
-
-            template <typename T1, typename T2>
-            slice(size_t start,
-                  const T1 *length,
-                  const T2 *stride,
-                  const std::array<size_t, NDIM> &dim
-                 ) : gslice<NDIM>(start, length, stride), dim(dim) {}
-
-            slice(const slice<CDIM - 1> &parent, const range &r)
-                : gslice<NDIM>(parent.start, parent.length, parent.stride), dim(parent.dim)
-            {
-                this->start += r.start * this->stride[CDIM];
-                this->length[CDIM] = (r.stop - r.start + r.stride - 1) / r.stride;
-                this->stride[CDIM] *= r.stride;
-            }
-
-            slice<CDIM + 1> operator[](const range &r) const {
-                static_assert(CDIM + 1 < NDIM, "Incorrect dimensions in vex::slicer[]");
-
-                if (r.empty())
-                    return slice<CDIM + 1>(*this, range(0, dim[CDIM + 1]));
-                else
-                    return slice<CDIM + 1>(*this, r);
-            };
-        };
-
-#ifndef BOOST_NO_INITIALIZER_LISTS
         template <typename T>
-        slicer(const std::initializer_list<T> &target_dimensions) {
-            assert(target_dimensions.size() == NDIM);
-            std::copy(target_dimensions.begin(), target_dimensions.end(), dim.begin());
-        }
-#endif
-        template <typename T>
-        slicer(const std::array<T, NDIM> &target_dimensions) {
-            std::copy(target_dimensions.begin(), target_dimensions.end(), dim.begin());
+        slicer(const std::array<T, NR> &target_dimensions) {
+            init(target_dimensions.data());
         }
 
         template <typename T>
         slicer(const T *target_dimensions) {
-            std::copy(target_dimensions, target_dimensions + NDIM, dim.begin());
+            init(target_dimensions);
         }
 
-        slicer(const extent_gen<NDIM> &ext) {
-            std::copy(ext.dim.begin(), ext.dim.end(), dim.begin());
+        slicer(const extent_gen<NR> &ext) {
+            init(ext.dim.data());
         }
+
+        template <size_t C>
+        struct slice : public gslice<NR> {
+            const slicer &parent;
+
+            slice(const slicer &parent, const range &r)
+                : gslice<NR>(r.start * parent.stride[0], parent.dim, parent.stride),
+                  parent(parent)
+            {
+                static_assert(C == 0, "Wrong slice constructor!");
+
+                this->length[0] = (r.stop - r.start + r.stride - 1) / r.stride;
+                this->stride[0] *= r.stride;
+            }
+
+            slice(const slice<C-1> &parent, const range &r)
+                : gslice<NR>(parent),
+                  parent(parent.parent)
+            {
+                static_assert(C > 0, "Wrong slice constructor!");
+
+                this->start += r.start * this->stride[C];
+                this->length[C] = (r.stop - r.start + r.stride - 1) / r.stride;
+                this->stride[C] *= r.stride;
+            }
+
+            slice<C+1> operator[](const range &r) const {
+                return slice<C+1>(*this, r.empty() ? range(0, parent.dim[C + 1]) : r);
+            }
+        };
 
         slice<0> operator[](const range &r) const {
-            if (r.empty())
-                return get_slice(range(0, dim[0]));
-            else
-                return get_slice(r);
+            return slice<0>(*this, r.empty() ? range(0, dim[0]) : r);
         }
 
     private:
-        slice<0> get_slice(const range &r) const {
-            std::array<size_t, NDIM> stride;
+        template <typename T>
+        void init(const T *target_dim) {
+            std::copy(target_dim, target_dim + NR, dim.begin());
 
-            stride[NDIM - 1] = 1;
-            for(size_t j = 1, i = NDIM - 2; j < NDIM; ++j, --i)
+            stride.back() = 1;
+            for(size_t j = 1, i = NR - 2; j < NR; ++j, --i)
                 stride[i] = stride[i + 1] * dim[j - 1];
-
-            size_t start = r.start * stride[0];
-            stride[0] *= r.stride;
-
-            std::array<size_t, NDIM> length = {{(r.stop - r.start + r.stride - 1) / r.stride}};
-            std::copy(dim.begin() + 1, dim.end(), length.begin() + 1);
-
-            return slice<0>(start, length, stride, dim);
         }
 };
-
 
 /// Permutation operator.
 struct permutation {
