@@ -356,6 +356,32 @@ struct extent_gen {
 
 const extent_gen<0> extents;
 
+template <size_t NR, size_t ND>
+struct index_gen {
+    std::array<range, NR> ranges;
+
+    index_gen() {}
+
+    index_gen<NR+1, ND+1> operator[](const range &r) const {
+        return append_range<ND+1>(r);
+    }
+
+    index_gen<NR+1, ND> operator[](size_t i) const {
+        return append_range<ND>(i);
+    }
+
+    private:
+        template <size_t NDIM>
+        index_gen<NR+1, NDIM> append_range(const range &r) const {
+            index_gen<NR+1, NDIM> idx;
+            std::copy(ranges.begin(), ranges.end(), idx.ranges.begin());
+            idx.ranges.back() = r;
+            return idx;
+        }
+};
+
+const index_gen<0, 0> indices;
+
 /// Slicing operator.
 /**
  * Slices multi-dimensional array stored in vex::vector in row-major order.
@@ -393,6 +419,23 @@ class slicer {
 
         slicer(const extent_gen<NR> &ext) {
             init(ext.dim.data());
+        }
+
+        template <size_t ND>
+        gslice<NR> operator()(const index_gen<NR, ND> &idx) const {
+            size_t start = 0;
+            std::array<size_t, NR> len;
+            std::array<size_t, NR> str;
+
+            for(size_t i = 0; i < NR; ++i) {
+                range r = idx.ranges[i];
+
+                start += r.start * stride[i];
+                len[i] = (r.stop - r.start + r.stride - 1) / r.stride;
+                str[i] = r.stride * stride[i];
+            }
+
+            return gslice<NR>(start, len, str);
         }
 
         template <size_t C>
