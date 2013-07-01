@@ -65,7 +65,8 @@ struct vector_view : public vector_view_terminal_expression
                 );
     }
 
-    // Expression assignments.
+    // Expression assignments (copy assignment needs to be explicitly defined
+    // to allow vector_view to vector_view assignment).
 #define ASSIGNMENT(cop, op) \
     template <class Expr> \
     typename std::enable_if< \
@@ -79,6 +80,12 @@ struct vector_view : public vector_view_terminal_expression
         std::vector<size_t> part(2, 0); \
         part.back() = slice.size(); \
         detail::assign_expression<op>(*this, expr, base.queue_list(), part); \
+        return *this; \
+    } \
+    const vector_view& operator cop(const vector_view &other) { \
+        std::vector<size_t> part(2, 0); \
+        part.back() = slice.size(); \
+        detail::assign_expression<op>(*this, other, base.queue_list(), part); \
         return *this; \
     }
 
