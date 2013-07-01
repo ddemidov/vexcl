@@ -39,9 +39,9 @@ THE SOFTWARE.
 #include <sstream>
 #include <string>
 #include <stdexcept>
-#include <tuple>
 #include <boost/proto/proto.hpp>
-#include <boost/fusion/adapted/std_tuple.hpp>
+#include <boost/tuple/tuple.hpp>
+#include <boost/fusion/adapted/boost_tuple.hpp>
 #include <boost/function_types/parameter_types.hpp>
 #include <boost/function_types/result_type.hpp>
 #include <boost/function_types/function_arity.hpp>
@@ -446,7 +446,7 @@ class Kernel {
               ) : queue(queue)
         {
             static_assert(
-                    std::tuple_size<ArgTuple>::value == NP,
+                    boost::tuples::length<ArgTuple>::value == NP,
                     "Wrong number of kernel parameters"
                     );
 
@@ -495,7 +495,7 @@ class Kernel {
         /// Launches kernel with provided parameters.
         template <class... Param>
         void operator()(const Param&... param) {
-            launch(std::tie(param...));
+            launch(boost::tie(param...));
         }
 #else
 
@@ -503,7 +503,7 @@ class Kernel {
 #define FUNCALL_OPERATOR(z, n, data) \
         template < BOOST_PP_ENUM_PARAMS(n, class Param) > \
         void operator()( BOOST_PP_ENUM(n, PRINT_PARAM, ~) ) { \
-            launch(std::tie( BOOST_PP_ENUM_PARAMS(n, param) )); \
+            launch(boost::tie( BOOST_PP_ENUM_PARAMS(n, param) )); \
         }
 
 BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, FUNCALL_OPERATOR, ~)
@@ -517,7 +517,7 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, FUNCALL_OPERATOR, ~)
         template <class ParamTuple>
         void launch(const ParamTuple &param) {
             static_assert(
-                    std::tuple_size<ParamTuple>::value == NP,
+                    boost::tuples::length<ParamTuple>::value == NP,
                     "Wrong number of kernel parameters"
                     );
 
@@ -650,13 +650,13 @@ Kernel<sizeof...(Args)> build_kernel(
         const std::string &name, const std::string& body, const Args&... args
         )
 {
-    return Kernel<sizeof...(Args)>(queue, name, body, std::tie(args...));
+    return Kernel<sizeof...(Args)>(queue, name, body, boost::tie(args...));
 }
 
 /// Builds function body from recorded expression and symbolic return value and parameters.
 template <class Ret, class... Args>
 std::string make_function(std::string body, const Ret &ret, const Args&... args) {
-    return Function(body, ret, std::tie(args...)).get();
+    return Function(body, ret, boost::tie(args...)).get();
 }
 #else
 
@@ -670,7 +670,7 @@ Kernel<n> build_kernel( \
         BOOST_PP_ENUM(n, PRINT_ARG, ~) \
         ) \
 { \
-    return Kernel<n>(queue, name, body, std::tie( BOOST_PP_ENUM_PARAMS(n, arg) )); \
+    return Kernel<n>(queue, name, body, boost::tie( BOOST_PP_ENUM_PARAMS(n, arg) )); \
 }
 BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, BUILD_KERNEL, ~)
 #undef BUILD_KERNEL
@@ -680,7 +680,7 @@ template <class Ret, BOOST_PP_ENUM_PARAMS(n, class Arg)> \
 std::string make_function(std::string body, const Ret &ret, \
         BOOST_PP_ENUM(n, PRINT_ARG, ~)) \
 { \
-    return Function(body, ret, std::tie( BOOST_PP_ENUM_PARAMS(n, arg) )).get(); \
+    return Function(body, ret, boost::tie( BOOST_PP_ENUM_PARAMS(n, arg) )).get(); \
 }
 BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, MAKE_FUNCTION, ~)
 #undef MAKE_FUNCTION
