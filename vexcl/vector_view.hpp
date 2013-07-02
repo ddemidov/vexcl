@@ -40,6 +40,11 @@ THE SOFTWARE.
 
 #include <vexcl/vector.hpp>
 
+#include <boost/fusion/container/vector.hpp>
+#include <boost/fusion/container/vector/convert.hpp>
+#include <boost/fusion/algorithm/transformation/push_back.hpp>
+#include <boost/fusion/include/value_at.hpp>
+
 namespace vex {
 
 /// \cond INTERNAL
@@ -340,6 +345,8 @@ struct range {
     }
 };
 
+const range _;
+
 template <size_t NDIM>
 struct extent_gen {
     std::array<size_t, NDIM> dim;
@@ -352,35 +359,48 @@ struct extent_gen {
         new_extent.dim.back() = new_dim;
         return new_extent;
     }
+
+    size_t size() const {
+        return std::accumulate(dim.begin(), dim.end(),
+                static_cast<size_t>(1), std::multiplies<size_t>());
+    }
 };
 
 const extent_gen<0> extents;
 
-template <size_t NR, size_t ND>
+template <size_t NR, class Dimensions = boost::fusion::vector<> >
 struct index_gen {
     std::array<range, NR> ranges;
 
     index_gen() {}
 
-    index_gen<NR+1, ND+1> operator[](const range &r) const {
-        return append_range<ND+1>(r);
+    typedef
+        typename boost::fusion::result_of::as_vector<
+            typename boost::fusion::result_of::push_back<
+                Dimensions,
+                boost::mpl::size_t<NR>
+            >::type
+        >::type next_dim;
+
+    index_gen<NR+1, next_dim> operator[](const range &r) const {
+        return append_range<next_dim>(r);
     }
 
-    index_gen<NR+1, ND> operator[](size_t i) const {
-        return append_range<ND>(i);
+    index_gen<NR+1, Dimensions> operator[](size_t i) const {
+        return append_range<Dimensions>(i);
     }
 
     private:
-        template <size_t NDIM>
-        index_gen<NR+1, NDIM> append_range(const range &r) const {
-            index_gen<NR+1, NDIM> idx;
+        template <class Dim>
+        index_gen<NR+1, Dim> append_range(const range &r) const {
+            index_gen<NR+1, Dim> idx;
             std::copy(ranges.begin(), ranges.end(), idx.ranges.begin());
             idx.ranges.back() = r;
             return idx;
         }
 };
 
-const index_gen<0, 0> indices;
+const index_gen<0> indices;
 
 /// Slicing operator.
 /**
@@ -401,76 +421,74 @@ const index_gen<0, 0> indices;
  * \endcode
  */
 template <size_t NR>
-class slicer {
-    private:
-        std::array<size_t, NR> dim;
-        std::array<size_t, NR> stride;
+struct slicer {
+    std::array<size_t, NR> dim;
+    std::array<size_t, NR> stride;
 
-    public:
-        template <typename T>
-        slicer(const std::array<T, NR> &target_dimensions) {
-            init(target_dimensions.data());
+    template <typename T>
+    slicer(const std::array<T, NR> &target_dimensions) {
+        init(target_dimensions.data());
+    }
+
+    template <typename T>
+    slicer(const T *target_dimensions) {
+        init(target_dimensions);
+    }
+
+    slicer(const extent_gen<NR> &ext) {
+        init(ext.dim.data());
+    }
+
+    template <class Dimensions>
+    gslice<NR> operator()(const index_gen<NR, Dimensions> &idx) const {
+        size_t start = 0;
+        std::array<size_t, NR> len;
+        std::array<size_t, NR> str;
+
+        for(size_t i = 0; i < NR; ++i) {
+            range r = idx.ranges[i].empty() ? range(0, dim[i]) : idx.ranges[i];
+
+            start += r.start * stride[i];
+            len[i] = (r.stop - r.start + r.stride - 1) / r.stride;
+            str[i] = r.stride * stride[i];
         }
 
-        template <typename T>
-        slicer(const T *target_dimensions) {
-            init(target_dimensions);
+        return gslice<NR>(start, len, str);
+    }
+
+    template <size_t C>
+    struct slice : public gslice<NR> {
+        const slicer &parent;
+
+        slice(const slicer &parent, const range &r)
+            : gslice<NR>(r.start * parent.stride[0], parent.dim, parent.stride),
+              parent(parent)
+        {
+            static_assert(C == 0, "Wrong slice constructor!");
+
+            this->length[0] = (r.stop - r.start + r.stride - 1) / r.stride;
+            this->stride[0] *= r.stride;
         }
 
-        slicer(const extent_gen<NR> &ext) {
-            init(ext.dim.data());
+        slice(const slice<C-1> &parent, const range &r)
+            : gslice<NR>(parent),
+              parent(parent.parent)
+        {
+            static_assert(C > 0, "Wrong slice constructor!");
+
+            this->start += r.start * this->stride[C];
+            this->length[C] = (r.stop - r.start + r.stride - 1) / r.stride;
+            this->stride[C] *= r.stride;
         }
 
-        template <size_t ND>
-        gslice<NR> operator()(const index_gen<NR, ND> &idx) const {
-            size_t start = 0;
-            std::array<size_t, NR> len;
-            std::array<size_t, NR> str;
-
-            for(size_t i = 0; i < NR; ++i) {
-                range r = idx.ranges[i];
-
-                start += r.start * stride[i];
-                len[i] = (r.stop - r.start + r.stride - 1) / r.stride;
-                str[i] = r.stride * stride[i];
-            }
-
-            return gslice<NR>(start, len, str);
+        slice<C+1> operator[](const range &r) const {
+            return slice<C+1>(*this, r.empty() ? range(0, parent.dim[C + 1]) : r);
         }
+    };
 
-        template <size_t C>
-        struct slice : public gslice<NR> {
-            const slicer &parent;
-
-            slice(const slicer &parent, const range &r)
-                : gslice<NR>(r.start * parent.stride[0], parent.dim, parent.stride),
-                  parent(parent)
-            {
-                static_assert(C == 0, "Wrong slice constructor!");
-
-                this->length[0] = (r.stop - r.start + r.stride - 1) / r.stride;
-                this->stride[0] *= r.stride;
-            }
-
-            slice(const slice<C-1> &parent, const range &r)
-                : gslice<NR>(parent),
-                  parent(parent.parent)
-            {
-                static_assert(C > 0, "Wrong slice constructor!");
-
-                this->start += r.start * this->stride[C];
-                this->length[C] = (r.stop - r.start + r.stride - 1) / r.stride;
-                this->stride[C] *= r.stride;
-            }
-
-            slice<C+1> operator[](const range &r) const {
-                return slice<C+1>(*this, r.empty() ? range(0, parent.dim[C + 1]) : r);
-            }
-        };
-
-        slice<0> operator[](const range &r) const {
-            return slice<0>(*this, r.empty() ? range(0, dim[0]) : r);
-        }
+    slice<0> operator[](const range &r) const {
+        return slice<0>(*this, r.empty() ? range(0, dim[0]) : r);
+    }
 
     private:
         template <typename T>

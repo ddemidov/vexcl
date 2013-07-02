@@ -57,6 +57,9 @@ BOOST_AUTO_TEST_CASE(vector_view_2)
 
 BOOST_AUTO_TEST_CASE(vector_slicer_2d)
 {
+    using vex::range;
+    using vex::_;
+
     const size_t N = 32;
 
     std::vector<cl::CommandQueue> queue(1, ctx.queue(0));
@@ -82,7 +85,7 @@ BOOST_AUTO_TEST_CASE(vector_slicer_2d)
 
 
 
-    auto slice = slicer[vex::range(2, 2, 11)][vex::range(4, 2, 11)];
+    auto slice = slicer[range(2, 2, 11)][range(4, 2, 11)];
 
     Y = slice(X);
 
@@ -96,7 +99,7 @@ BOOST_AUTO_TEST_CASE(vector_slicer_2d)
 
 
 
-    Z = slicer[vex::range()][5](X); // Puth fith column of X into Z;
+    Z = slicer[_][5](X); // Puth fith column of X into Z;
 
     check_sample(Z, [&](size_t idx, double v) { BOOST_CHECK_EQUAL(v, x[5 + N * idx]); });
 }
@@ -137,6 +140,9 @@ BOOST_AUTO_TEST_CASE(reduce_slice)
 }
 
 BOOST_AUTO_TEST_CASE(assign_to_view) {
+    using vex::range;
+    using vex::_;
+
     const size_t m = 32;
     const size_t n = m * m;
 
@@ -148,14 +154,14 @@ BOOST_AUTO_TEST_CASE(assign_to_view) {
 
     x = 1;
 
-    slicer1[vex::range(1, 2, n)](x) = 2;
+    slicer1[range(1, 2, n)](x) = 2;
 
     check_sample(x, [&](size_t idx, int v) {
             BOOST_CHECK_EQUAL(v, idx % 2 + 1);
             });
 
     for(size_t i = 0; i < m; ++i)
-        slicer2[vex::range()][i](x) = i;
+        slicer2[_][i](x) = i;
 
     check_sample(x, [&](size_t idx, int v) {
             BOOST_CHECK_EQUAL(v, idx % m);
