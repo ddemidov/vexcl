@@ -2,6 +2,7 @@
 #include <boost/test/unit_test.hpp>
 #include <vexcl/element_index.hpp>
 #include <vexcl/multi_array.hpp>
+#include <boost/math/constants/constants.hpp>
 #include "context_setup.hpp"
 
 BOOST_AUTO_TEST_CASE(create)
@@ -31,7 +32,7 @@ BOOST_AUTO_TEST_CASE(arithmetics)
     vex::multi_array<double, 3> x(queue, extents[32][32][32]);
     vex::multi_array<double, 3> y(queue, extents[32][32][32]);
 
-    x.vec() = 2 * M_PI * vex::element_index();
+    x.vec() = boost::math::constants::two_pi<double>() * vex::element_index();
     y.vec() = pow(sin(x.vec()), 2.0) + pow(cos(x.vec()), 2.0);
 
     check_sample(y.vec(), [](size_t, double v) {

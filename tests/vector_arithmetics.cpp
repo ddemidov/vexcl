@@ -4,6 +4,7 @@
 #include <vexcl/reductor.hpp>
 #include <vexcl/element_index.hpp>
 #include <vexcl/tagged_terminal.hpp>
+#include <boost/math/constants/constants.hpp>
 #include "context_setup.hpp"
 
 BOOST_AUTO_TEST_CASE(assign_expression)
@@ -209,7 +210,8 @@ BOOST_AUTO_TEST_CASE(combine_expressions)
 
     vex::vector<double> x(ctx, n);
 
-    auto alpha  = vex::tag<1>(2 * M_PI) * vex::tag<2>(vex::element_index());
+    auto alpha  = vex::tag<1>(boost::math::constants::two_pi<double>()) *
+                  vex::tag<2>(vex::element_index());
     auto sine   = sin(alpha);
     auto cosine = cos(alpha);
 
