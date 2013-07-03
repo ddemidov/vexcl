@@ -1615,10 +1615,6 @@ void assign_expression(LHS &lhs, const Expr &expr,
         if (kernel == cache.end()) {
             std::ostringstream source;
 
-            std::ostringstream kernel_name;
-            vector_name_context name_ctx(kernel_name);
-            boost::proto::eval(boost::proto::as_child(expr), name_ctx);
-
             source << standard_kernel_header(device);
 
             declare_user_function declfun(source);
@@ -1631,8 +1627,8 @@ void assign_expression(LHS &lhs, const Expr &expr,
             extract_terminals()(boost::proto::as_child(lhs),  termpream);
             extract_terminals()(boost::proto::as_child(expr), termpream);
 
-            source << "kernel void " << kernel_name.str()
-                << "(\n\t" << type_name<size_t>() << " n";
+            source << "kernel void vexcl_kernel(\n"
+                   "\t" << type_name<size_t>() << " n";
 
             declare_expression_parameter declare(source, device);
 
@@ -1664,7 +1660,7 @@ void assign_expression(LHS &lhs, const Expr &expr,
 
             auto program = build_sources(context, source.str());
 
-            cl::Kernel krn(program, kernel_name.str().c_str());
+            cl::Kernel krn(program, "vexcl_kernel");
             size_t wgs = kernel_workgroup_size(krn, device);
 
             kernel = cache.insert(std::make_pair(
