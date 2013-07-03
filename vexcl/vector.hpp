@@ -841,13 +841,6 @@ struct is_vector_expr_terminal< vector_terminal >
 { };
 
 template <typename T>
-struct kernel_name< vector<T> > {
-    static std::string get() {
-        return "vector_";
-    }
-};
-
-template <typename T>
 struct partial_vector_expr< vector<T> > {
     static std::string get(const cl::Device&,
             int component, int position,

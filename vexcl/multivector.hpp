@@ -705,7 +705,7 @@ class multivector : public multivector_terminal_expression {
                             preamble_constructor<Expr>(expr, source, device)
                             );
 
-                    source << "kernel void multiex_kernel(\n\t"
+                    source << "kernel void vexcl_multivector_kernel(\n\t"
                            << type_name<size_t>() << " n";
 
                     for(size_t i = 0; i < N; )
@@ -733,7 +733,7 @@ class multivector : public multivector_terminal_expression {
 
                     auto program = build_sources(context, source.str());
 
-                    cl::Kernel krn(program, "multiex_kernel");
+                    cl::Kernel krn(program, "vexcl_multivector_kernel");
                     size_t wgs = kernel_workgroup_size(krn, device);
 
                     kernel = cache.insert(std::make_pair(

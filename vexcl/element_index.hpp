@@ -58,19 +58,6 @@ template <>
 struct is_multivector_expr_terminal< elem_index > : std::true_type {};
 
 template <class T>
-struct kernel_name< T, typename std::enable_if<
-        boost::proto::matches<
-            T,
-            boost::proto::terminal<elem_index>
-        >::value
-    >::type>
-{
-    static std::string get() {
-        return "index_";
-    }
-};
-
-template <class T>
 struct partial_vector_expr< T, typename std::enable_if<
         boost::proto::matches<
             T,

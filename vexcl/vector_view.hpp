@@ -120,13 +120,6 @@ struct is_vector_expr_terminal< vector_view_terminal >
 { };
 
 template <typename T, class Slice>
-struct kernel_name< vector_view<T, Slice> > {
-    static std::string get() {
-        return "view_";
-    }
-};
-
-template <typename T, class Slice>
 struct partial_vector_expr< vector_view<T, Slice> > {
     static std::string get(const cl::Device&, int component, int position,
             detail::kernel_generator_state&)

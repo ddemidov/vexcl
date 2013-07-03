@@ -132,14 +132,6 @@ struct terminal_preamble {
     }
 };
 
-// Representation of a terminal in a kernel name
-template <class T, class Enable = void>
-struct kernel_name {
-    static std::string get() {
-        return "term_";
-    }
-};
-
 // How to declare OpenCL kernel parameters for a terminal:
 template <class Term, class Enable = void>
 struct kernel_param_declaration {
@@ -1031,77 +1023,6 @@ struct extract_user_functions
     >
 {};
 
-// Builds kernel name for a vector expression.
-struct vector_name_context {
-    std::ostream &os;
-
-    vector_name_context(std::ostream &os) : os(os) {}
-
-    // Any expression except function or terminal is only interesting for its
-    // children:
-    template <typename Expr, typename Tag = typename Expr::proto_tag>
-    struct eval {
-        typedef void result_type;
-
-        void operator()(const Expr &expr, vector_name_context &ctx) const {
-            ctx.os << Tag() << "_";
-            boost::fusion::for_each(expr, do_eval<vector_name_context>(ctx));
-        }
-    };
-
-    // We only need to look at parameters of a function:
-    template <typename Expr>
-    struct eval<Expr, boost::proto::tag::function> {
-        typedef void result_type;
-
-        template <class FunCall>
-        typename std::enable_if<
-            std::is_base_of<
-                builtin_function,
-                typename boost::proto::result_of::value<
-                    typename boost::proto::result_of::child_c<FunCall,0>::type
-                >::type
-            >::value,
-        void
-        >::type
-        operator()(const FunCall &expr, vector_name_context &ctx) const {
-            ctx.os << boost::proto::value(boost::proto::child_c<0>(expr)).name() << "_";
-            boost::fusion::for_each(
-                    boost::fusion::pop_front(expr),
-                    do_eval<vector_name_context>(ctx)
-                    );
-        }
-
-        template <class FunCall>
-        typename std::enable_if<
-            std::is_base_of<
-                user_function,
-                typename boost::proto::result_of::value<
-                    typename boost::proto::result_of::child_c<FunCall,0>::type
-                >::type
-            >::value,
-        void
-        >::type
-        operator()(const FunCall &expr, vector_name_context &ctx) const {
-            ctx.os << "func" << boost::fusion::size(expr) - 1 <<  "_";
-            boost::fusion::for_each(
-                    boost::fusion::pop_front(expr),
-                    do_eval<vector_name_context>(ctx)
-                    );
-        }
-    };
-
-    template <typename Expr>
-    struct eval<Expr, boost::proto::tag::terminal> {
-        typedef void result_type;
-
-        template <typename Term>
-        void operator()(const Term&, vector_name_context &ctx) const {
-            ctx.os << traits::kernel_name<Term>::get();
-        }
-    };
-};
-
 // Base class for stateful expression evaluation contexts .
 struct expression_context {
     mutable kernel_generator_state state;
@@ -1627,7 +1548,7 @@ void assign_expression(LHS &lhs, const Expr &expr,
             extract_terminals()(boost::proto::as_child(lhs),  termpream);
             extract_terminals()(boost::proto::as_child(expr), termpream);
 
-            source << "kernel void vexcl_kernel(\n"
+            source << "kernel void vexcl_vector_kernel(\n"
                    "\t" << type_name<size_t>() << " n";
 
             declare_expression_parameter declare(source, device);
@@ -1660,7 +1581,7 @@ void assign_expression(LHS &lhs, const Expr &expr,
 
             auto program = build_sources(context, source.str());
 
-            cl::Kernel krn(program, "vexcl_kernel");
+            cl::Kernel krn(program, "vexcl_vector_kernel");
             size_t wgs = kernel_workgroup_size(krn, device);
 
             kernel = cache.insert(std::make_pair(

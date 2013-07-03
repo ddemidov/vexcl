@@ -138,13 +138,6 @@ struct component< I, mv_inline_spmv<val_t, col_t, idx_t, MV> > {
 #endif
 
 template <typename val_t, typename col_t, typename idx_t>
-struct kernel_name< inline_spmv<val_t, col_t, idx_t> > {
-    static std::string get() {
-        return "spmv_";
-    }
-};
-
-template <typename val_t, typename col_t, typename idx_t>
 struct partial_vector_expr< inline_spmv<val_t, col_t, idx_t> > {
     static std::string get(const cl::Device &device, int component, int position,
             detail::kernel_generator_state &state)

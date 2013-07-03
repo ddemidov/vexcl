@@ -207,12 +207,6 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
         auto kernel = cache.find( context() );
 
         if (kernel == cache.end()) {
-            std::ostringstream kernel_name;
-            vector_name_context name_ctx(kernel_name);
-
-            kernel_name << "reduce_";
-            boost::proto::eval(expr, name_ctx);
-
             std::ostringstream increment_line;
             vector_expr_context expr_ctx(increment_line, device);
 
@@ -228,7 +222,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
 
             construct_preamble(expr, source, device);
 
-            source << "kernel void " << kernel_name.str() << "(\n\t"
+            source << "kernel void vexcl_reductor_kernel(\n\t"
                 << type_name<size_t>() << " n";
 
             extract_terminals()( expr, declare_expression_parameter(source, device) );
@@ -290,7 +284,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
 
             auto program = build_sources(context, source.str());
 
-            cl::Kernel krn(program, kernel_name.str().c_str());
+            cl::Kernel krn(program, "vexcl_reductor_kernel");
             size_t wgs;
             if (is_cpu(device)) {
                 wgs = 1;

@@ -172,13 +172,6 @@ struct component< I, mv_ccsr_product<val_t, col_t, idx_t, MV> > {
 #endif
 
 template <typename val_t, typename col_t, typename idx_t, typename T>
-struct kernel_name< ccsr_product<val_t, col_t, idx_t, T> > {
-    static std::string get() {
-        return "spmv_";
-    }
-};
-
-template <typename val_t, typename col_t, typename idx_t, typename T>
 struct partial_vector_expr< ccsr_product<val_t, col_t, idx_t, T> > {
     static std::string get(const cl::Device&, int component, int position,
             detail::kernel_generator_state&)
