@@ -94,9 +94,11 @@ struct FFT {
         const Planner &planner = Planner())
         : plan(queues, std::vector<size_t>(1, length), std::vector<fft::direction>(1, dir), planner) {}
 
+#ifndef VEXCL_NO_STATIC_CONTEXT_CONSTRUCTORS
     FFT(size_t length, fft::direction dir = fft::forward,
         const Planner &planner = Planner())
         : plan(current_context().queue(), std::vector<size_t>(1, length), std::vector<fft::direction>(1, dir), planner) {}
+#endif
 
     /// N-D constructors
     FFT(const std::vector<cl::CommandQueue> &queues,
@@ -104,9 +106,11 @@ struct FFT {
         const Planner &planner = Planner())
         : plan(queues, lengths, std::vector<fft::direction>(lengths.size(), dir), planner) {}
 
+#ifndef VEXCL_NO_STATIC_CONTEXT_CONSTRUCTORS
     FFT(const std::vector<size_t> &lengths, fft::direction dir = fft::forward,
         const Planner &planner = Planner())
         : plan(current_context().queue(), lengths, std::vector<fft::direction>(lengths.size(), dir), planner) {}
+#endif
 
     FFT(const std::vector<cl::CommandQueue> &queues,
         const std::vector<size_t> &lengths,
@@ -114,10 +118,12 @@ struct FFT {
         const Planner &planner = Planner())
         : plan(queues, lengths, dirs, planner) {}
 
+#ifndef VEXCL_NO_STATIC_CONTEXT_CONSTRUCTORS
     FFT(const std::vector<size_t> &lengths,
         const std::vector<fft::direction> &dirs,
         const Planner &planner = Planner())
         : plan(current_context().queue(), lengths, dirs, planner) {}
+#endif
 
 
 #ifndef BOOST_NO_INITIALIZER_LISTS
@@ -126,9 +132,11 @@ struct FFT {
         const Planner &planner = Planner())
         : plan(queues, lengths, std::vector<fft::direction>(lengths.size(), dir), planner) {}
 
+#ifndef VEXCL_NO_STATIC_CONTEXT_CONSTRUCTORS
     FFT(const std::initializer_list<size_t> &lengths, fft::direction dir = fft::forward,
         const Planner &planner = Planner())
         : plan(current_context().queue(), lengths, std::vector<fft::direction>(lengths.size(), dir), planner) {}
+#endif
 
     FFT(const std::vector<cl::CommandQueue> &queues,
         const std::initializer_list<size_t> &lengths,
@@ -136,10 +144,12 @@ struct FFT {
         const Planner &planner = Planner())
         : plan(queues, lengths, dirs, planner) {}
 
+#ifndef VEXCL_NO_STATIC_CONTEXT_CONSTRUCTORS
     FFT(const std::initializer_list<size_t> &lengths,
         const std::initializer_list<fft::direction> &dirs,
         const Planner &planner = Planner())
         : plan(current_context().queue(), lengths, dirs, planner) {}
+#endif
 #endif
 
     template <bool negate, bool append, class Expr>

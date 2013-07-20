@@ -118,7 +118,11 @@ template <typename real, class RDC>
 class Reductor {
     public:
         /// Constructor.
-        Reductor(const std::vector<cl::CommandQueue> &queue = current_context().queue());
+        Reductor(const std::vector<cl::CommandQueue> &queue
+#ifndef VEXCL_NO_STATIC_CONTEXT_CONSTRUCTORS
+                = current_context().queue()
+#endif
+                );
 
         /// Compute reduction of a vector expression.
         template <class Expr>

@@ -320,6 +320,7 @@ class vector : public vector_terminal_expression {
         /// Empty constructor.
         vector() {}
 
+#ifndef VEXCL_NO_STATIC_CONTEXT_CONSTRUCTORS
         /// Construct by size and use static context.
         vector(size_t size) :
             queue(current_context().queue()),
@@ -328,6 +329,7 @@ class vector : public vector_terminal_expression {
         {
             if (size) allocate_buffers(CL_MEM_READ_WRITE, 0);
         }
+#endif
 
         /// Copy constructor.
         vector(const vector &v)
@@ -356,6 +358,7 @@ class vector : public vector_terminal_expression {
             if (size) allocate_buffers(flags, host);
         }
 
+#ifndef VEXCL_NO_STATIC_CONTEXT_CONSTRUCTORS
         /// Copy host data to the new buffer, use static context.
         vector(size_t size, const T *host,
                 cl_mem_flags flags = CL_MEM_READ_WRITE
@@ -364,6 +367,7 @@ class vector : public vector_terminal_expression {
         {
             if (size) allocate_buffers(flags, host);
         }
+#endif
 
         /// Copy host data to the new buffer.
         vector(const std::vector<cl::CommandQueue> &queue,
@@ -375,6 +379,7 @@ class vector : public vector_terminal_expression {
             if (!host.empty()) allocate_buffers(flags, host.data());
         }
 
+#ifndef VEXCL_NO_STATIC_CONTEXT_CONSTRUCTORS
         /// Copy host data to the new buffer, use static context.
         vector(const std::vector<T> &host,
                 cl_mem_flags flags = CL_MEM_READ_WRITE
@@ -383,6 +388,7 @@ class vector : public vector_terminal_expression {
         {
             if (!host.empty()) allocate_buffers(flags, host.data());
         }
+#endif
 
         /// Move constructor
         vector(vector &&v) noexcept {
