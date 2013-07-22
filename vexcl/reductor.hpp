@@ -356,6 +356,31 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
 }
 #endif
 
+/// Returns a reference to a static instance of vex::Reductor<T,R>
+template <typename T, class R>
+const vex::Reductor<T, R>& get_reductor(const std::vector<cl::CommandQueue> &queue)
+{
+    // We will hold one static reductor per set of queues (or, rather, contexts):
+    static std::map< std::vector<cl_context>, vex::Reductor<T, R> > cache;
+
+    // Extract OpenCL context handles from command queues:
+    std::vector<cl_context> ctx;
+    ctx.reserve(queue.size());
+    for(auto q = queue.begin(); q != queue.end(); ++q)
+        ctx.push_back( vex::qctx(*q)() );
+
+    // See if there is suitable instance of reductor already:
+    auto r = cache.find(ctx);
+
+    // If not, create new instance and move it to the cache.
+    if (r == cache.end())
+        r = cache.insert( std::make_pair(
+                    std::move(ctx), vex::Reductor<T, R>(queue)
+                    ) ).first;
+
+    return r->second;
+}
+
 } // namespace vex
 
 #endif

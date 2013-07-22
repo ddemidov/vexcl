@@ -59,6 +59,18 @@ BOOST_AUTO_TEST_CASE(reduce_expression)
     BOOST_CHECK_SMALL(max(fabs(X - X)), 1e-12);
 }
 
+BOOST_AUTO_TEST_CASE(static_reductor)
+{
+    const size_t N = 1024;
+
+    vex::vector<double> X(ctx, random_vector<double>(N));
+
+    const vex::Reductor<double,vex::SUM> sum(ctx);
+    const vex::Reductor<double,vex::SUM> &static_sum = vex::get_reductor<double, vex::SUM>(ctx);
+
+    BOOST_CHECK_CLOSE(sum(X), static_sum(X), 1e-6);
+}
+
 BOOST_AUTO_TEST_CASE(builtin_functions)
 {
     const size_t N = 1024;
