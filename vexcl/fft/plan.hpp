@@ -33,6 +33,7 @@ THE SOFTWARE.
 
 #include <cmath>
 #include <queue>
+#include <numeric> //std::accumulate
 
 #include <vexcl/profiler.hpp>
 #include <vexcl/vector.hpp>
