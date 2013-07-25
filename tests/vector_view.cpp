@@ -223,7 +223,7 @@ BOOST_AUTO_TEST_CASE(slice_reductor_multi_dim)
     x = 1;
 
     auto test = [&](size_t d1, size_t d2) {
-        std::array<size_t,2> dim = {d1, d2};
+        std::array<size_t,2> dim = {{d1, d2}};
 
         y = vex::reduce<vex::SUM>(slice[_][_][_](x), dim);
 
