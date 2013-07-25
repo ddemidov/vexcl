@@ -2,6 +2,7 @@
 #include <boost/test/unit_test.hpp>
 #include <vexcl/element_index.hpp>
 #include <vexcl/multi_array.hpp>
+#include <vexcl/reductor.hpp>
 #include <boost/math/constants/constants.hpp>
 #include "context_setup.hpp"
 
@@ -61,6 +62,26 @@ BOOST_AUTO_TEST_CASE(slicing)
     check_sample(y.vec(), [](size_t idx, double v) {
             BOOST_CHECK_EQUAL(v, idx % 32);
             });
+}
+
+BOOST_AUTO_TEST_CASE(reducing)
+{
+    using vex::extents;
+    using vex::indices;
+    using vex::range;
+    using vex::_;
+
+    std::vector<cl::CommandQueue> queue(1, ctx.queue(0));
+
+    vex::multi_array<int, 3> x(queue, extents[32][32][32]);
+    vex::vector<int> y(queue, 32 * 32);
+
+    x.vec() = 1;
+
+    for(int i = 0; i < 3; ++i) {
+        y = vex::reduce<vex::SUM>(x, 0);
+        check_sample(y, [](size_t, int v) { BOOST_CHECK_EQUAL(v, 32); });
+    }
 }
 
 BOOST_AUTO_TEST_SUITE_END()

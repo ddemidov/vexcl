@@ -548,6 +548,185 @@ struct permutation {
     }
 };
 
+//---------------------------------------------------------------------------
+// Slice reduction
+//---------------------------------------------------------------------------
+/// \cond INTERNAL
+struct reduced_vector_view_terminal {};
+
+typedef vector_expression<
+    typename boost::proto::terminal< reduced_vector_view_terminal >::type
+    > reduced_vector_view_terminal_expression;
+
+template <typename T, size_t NDIM, size_t NR, class RDC>
+struct reduced_vector_view : public reduced_vector_view_terminal_expression
+{
+    const vector<T>        &base;
+    gslice<NDIM>           slice;
+    std::array<size_t, NR> reduce_dims;
+
+    reduced_vector_view(
+            const vector_view< T, gslice<NDIM> > &view,
+            std::array<size_t, NR> dims
+            ) : base(view.base), slice(view.slice)
+    {
+        std::copy(dims.begin(), dims.end(), reduce_dims.begin());
+        std::sort(reduce_dims.begin(), reduce_dims.end());
+    }
+};
+
+namespace traits {
+
+template <>
+struct is_vector_expr_terminal< reduced_vector_view_terminal >
+    : std::true_type
+{ };
+
+template <typename T, size_t NDIM, size_t NR, class RDC>
+struct terminal_preamble< reduced_vector_view<T, NDIM, NR, RDC> > {
+    static std::string get(const cl::Device&, int component, int position,
+            detail::kernel_generator_state&)
+    {
+        std::ostringstream s;
+        std::ostringstream rdc_name;
+
+        rdc_name << "reduce_op_" << component << "_" << position;
+
+        typedef typename RDC::template function<T> fun;
+        fun::define(s, rdc_name.str());
+
+        s << type_name<T>()
+          << " reduce_" << component << "_" << position << "(\n"
+          "\tglobal " << type_name<T>() << " * base,\n"
+          "\t" << type_name<size_t>() << " start";
+        for(size_t k = 0; k < NDIM; ++k)
+            s << ",\n\t" << type_name<size_t>() << " length" << k
+              << ", " << type_name<ptrdiff_t>() << " stride" << k;
+        s << ",\n\t" << type_name<size_t>() << " idx)\n{\n"
+          "\tsize_t ptr" << NDIM - NR - 1 << " = start + (idx % length" << NDIM - NR - 1
+          << ") * stride" << NDIM - NR - 1 << ";\n";
+        for(size_t k = NDIM - NR - 1; k-- > 0;)
+            s << "\tidx /= length" << k + 1 << ";\n"
+              "\tptr" << NDIM - NR - 1 << " += (idx % length" << k
+              << ") * stride" << k << ";\n";
+
+        s << "\t" << type_name<T>() << " sum = " << RDC::template initial<T>() << ";\n";
+
+        std::ostringstream indent;
+        indent << "\t";
+
+        for(size_t k = NDIM - NR; k < NDIM; ++k) {
+            s << indent.str() << "for(size_t i" << k << " = 0, ptr" << k
+              << " = ptr" << k - 1 << "; i" << k << " < length" << k << "; ++i"
+              << k << ", ptr" << k << " += stride" << k << ")\n";
+            indent << "\t";
+        }
+
+        s << indent.str() << "sum = " << rdc_name.str()
+          << "(sum, base[ptr" << NDIM - 1 << "]);\n"
+          "\treturn sum;\n}\n";
+
+        return s.str();
+    }
+};
+
+template <typename T, size_t NDIM, size_t NR, class RDC>
+struct partial_vector_expr< reduced_vector_view<T, NDIM, NR, RDC> > {
+    static std::string get(const cl::Device&, int component, int position,
+            detail::kernel_generator_state&)
+    {
+        std::ostringstream prm;
+        prm << "prm_" << component << "_" << position << "_";
+
+        std::ostringstream s;
+        s << "reduce_" << component << "_" << position << "("
+          << prm.str() << "base, "
+          << prm.str() << "start, ";
+        for(size_t k = 0; k < NDIM; ++k)
+            s << prm.str() << "length" << k << ", "
+              << prm.str() << "stride" << k << ", ";
+        s << "idx)";
+
+        return s.str();
+    }
+};
+
+template <typename T, size_t NDIM, size_t NR, class RDC>
+struct kernel_param_declaration< reduced_vector_view<T, NDIM, NR, RDC> > {
+    static std::string get(const cl::Device&, int component, int position,
+            detail::kernel_generator_state&)
+    {
+        return gslice<NDIM>::template parameter_declaration<T>(component, position);
+    }
+};
+
+template <typename T, size_t NDIM, size_t NR, class RDC>
+struct kernel_arg_setter< reduced_vector_view<T, NDIM, NR, RDC> > {
+    static void set(cl::Kernel &kernel, unsigned device, size_t/*index_offset*/,
+            unsigned &position, const reduced_vector_view<T, NDIM, NR, RDC> &term,
+            detail::kernel_generator_state&)
+    {
+        kernel.setArg(position++, term.base(device));
+        kernel.setArg(position++, term.slice.start);
+
+        for(size_t k = 0; k < NDIM; ++k) {
+            if (!std::binary_search(term.reduce_dims.begin(), term.reduce_dims.end(), k)) {
+                kernel.setArg(position++, term.slice.length[k]);
+                kernel.setArg(position++, term.slice.stride[k]);
+            }
+        }
+
+        for(size_t k = 0; k < NR; ++k) {
+            kernel.setArg(position++, term.slice.length[term.reduce_dims[k]]);
+            kernel.setArg(position++, term.slice.stride[term.reduce_dims[k]]);
+        }
+    }
+};
+
+template <typename T, size_t NDIM, size_t NR, class RDC>
+struct expression_properties< reduced_vector_view<T, NDIM, NR, RDC> > {
+    static void get(const reduced_vector_view<T, NDIM, NR, RDC> &term,
+            std::vector<cl::CommandQueue> &queue_list,
+            std::vector<size_t> &partition,
+            size_t &size
+            )
+    {
+        queue_list = term.base.queue_list();
+        partition  = std::vector<size_t>(2, 0);
+        size       = 1;
+
+        for(size_t k = 0; k < NDIM; ++k)
+            if (!std::binary_search(term.reduce_dims.begin(), term.reduce_dims.end(), k))
+                size *= term.slice[k];
+
+        partition.back() = size;
+    }
+};
+
+} // namespace traits
+/// \endcond
+
+/// Reduce vector_view along specified dimensions.
+template <class RDC, typename T, size_t NDIM, size_t NR>
+reduced_vector_view<T, NDIM, NR, RDC> reduce(
+        const vector_view<T, gslice<NDIM> > &view,
+        const std::array<size_t, NR> &reduce_dims
+        )
+{
+    return reduced_vector_view<T, NDIM, NR, RDC>(view, reduce_dims);
+}
+
+/// Reduce vector_view along specified dimension.
+template <class RDC, typename T, size_t NDIM>
+reduced_vector_view<T, NDIM, 1, RDC> reduce(
+        const vector_view<T, gslice<NDIM> > &view,
+        size_t reduce_dim
+        )
+{
+    std::array<size_t, 1> dim = {{reduce_dim}};
+    return reduced_vector_view<T, NDIM, 1, RDC>(view, dim);
+}
+
 } // namespace vex
 
 #endif

@@ -179,4 +179,60 @@ BOOST_AUTO_TEST_CASE(assign_to_view) {
         BOOST_CHECK_EQUAL(x[i * m], 42);
 }
 
+BOOST_AUTO_TEST_CASE(slice_reductor_single_dim)
+{
+    std::vector<cl::CommandQueue> queue(1, ctx.queue(0));
+
+    using vex::extents;
+    using vex::_;
+
+    vex::vector<int> x(queue, 32 * 32);
+    vex::vector<int> y(queue, 32);
+
+    vex::slicer<2> slice(extents[32][32]);
+
+    int isum = 0;
+    for(size_t i = 0; i < 32; ++i) {
+        slice[i](x) = i;
+        isum += i;
+    }
+
+    y = vex::reduce<vex::SUM>(slice[_][_](x), 1);
+
+    for(size_t i = 0; i < 32; ++i)
+        BOOST_CHECK_EQUAL(y[i], i * 32);
+
+    y = vex::reduce<vex::SUM>(slice[_][_](x), 0);
+
+    for(size_t i = 0; i < 32; ++i)
+        BOOST_CHECK_EQUAL(y[i], isum);
+}
+
+BOOST_AUTO_TEST_CASE(slice_reductor_multi_dim)
+{
+    std::vector<cl::CommandQueue> queue(1, ctx.queue(0));
+
+    using vex::extents;
+    using vex::_;
+
+    vex::vector<int> x(queue, 32 * 32 * 32);
+    vex::vector<int> y(queue, 32);
+
+    vex::slicer<3> slice(extents[32][32][32]);
+
+    x = 1;
+
+    auto test = [&](size_t d1, size_t d2) {
+        std::array<size_t,2> dim = {d1, d2};
+
+        y = vex::reduce<vex::SUM>(slice[_][_][_](x), dim);
+
+        check_sample(y, [&](size_t, int sum) { BOOST_CHECK_EQUAL(sum, 1024); });
+    };
+
+    test(0, 1);
+    test(1, 2);
+    test(0, 2);
+}
+
 BOOST_AUTO_TEST_SUITE_END()
