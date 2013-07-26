@@ -474,9 +474,16 @@ struct slicer {
             this->stride[C] *= r.stride;
         }
 
+#ifdef _MSC_VER
+#  pragma warning(push)
+#  pragma warning(disable: 4307)
+#endif
         slice<C+1> operator[](const range &r) const {
             return slice<C+1>(*this, r.empty() ? range(0, parent.dim[C + 1]) : r);
         }
+#ifdef _MSC_VER
+#  pragma warning(pop)
+#endif
     };
 
     slice<0> operator[](const range &r) const {

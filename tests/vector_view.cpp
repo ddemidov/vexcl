@@ -192,7 +192,7 @@ BOOST_AUTO_TEST_CASE(slice_reductor_single_dim)
     vex::slicer<2> slice(extents[32][32]);
 
     int isum = 0;
-    for(size_t i = 0; i < 32; ++i) {
+    for(int i = 0; i < 32; ++i) {
         slice[i](x) = i;
         isum += i;
     }
