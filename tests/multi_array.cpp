@@ -45,7 +45,6 @@ BOOST_AUTO_TEST_CASE(slicing)
 {
     using vex::extents;
     using vex::indices;
-    using vex::range;
     using vex::_;
 
     std::vector<cl::CommandQueue> queue(1, ctx.queue(0));
@@ -67,9 +66,6 @@ BOOST_AUTO_TEST_CASE(slicing)
 BOOST_AUTO_TEST_CASE(reducing)
 {
     using vex::extents;
-    using vex::indices;
-    using vex::range;
-    using vex::_;
 
     std::vector<cl::CommandQueue> queue(1, ctx.queue(0));
 
