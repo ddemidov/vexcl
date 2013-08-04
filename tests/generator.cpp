@@ -153,11 +153,7 @@ An alternative variant, which does not use the generator facility.
 Intermediate subexpression are captured with help of 'auto' keyword, and
 are combined into larger expression.
 
-This is not as effective as generated kernel, because same input vector
-(here 'x') is passed as several different parameters. This specific example
-takes about twice as long to execute as the above variant.
-
-Nevertheless, this may be more convenient in some cases.
+Note how vex::tag<>() facilitates reuse of kernel parameters.
 */
 BOOST_AUTO_TEST_CASE(lazy_evaluation)
 {
