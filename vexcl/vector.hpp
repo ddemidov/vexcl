@@ -848,24 +848,22 @@ struct is_vector_expr_terminal< vector_terminal >
 
 template <typename T>
 struct kernel_param_declaration< vector<T> > {
-    static std::string get(const cl::Device&,
-            int component, int position,
+    static std::string get(const cl::Device&, const std::string &prm_name,
             detail::kernel_generator_state&)
     {
         std::ostringstream s;
-        s << ",\n\tglobal " << type_name<T>() << " * prm_" << component << "_" << position;
+        s << ",\n\tglobal " << type_name<T>() << " * " << prm_name;
         return s.str();
     }
 };
 
 template <typename T>
 struct partial_vector_expr< vector<T> > {
-    static std::string get(const cl::Device&,
-            int component, int position,
+    static std::string get(const cl::Device&, const std::string &prm_name,
             detail::kernel_generator_state&)
     {
         std::ostringstream s;
-        s << "prm_" << component << "_" << position << "[idx]";
+        s << prm_name << "[idx]";
         return s.str();
     }
 };

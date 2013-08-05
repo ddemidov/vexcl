@@ -65,12 +65,11 @@ struct kernel_param_declaration< T, typename std::enable_if<
         >::value
     >::type>
 {
-    static std::string get(const cl::Device&, int component, int position,
+    static std::string get(const cl::Device&, const std::string &prm_name,
             detail::kernel_generator_state&)
     {
         std::ostringstream s;
-        s << ",\n\t" << type_name<size_t>() << " prm_"
-          << component << "_" << position;
+        s << ",\n\t" << type_name<size_t>() << " " << prm_name;
         return s.str();
     }
 };
@@ -83,11 +82,11 @@ struct partial_vector_expr< T, typename std::enable_if<
         >::value
     >::type >
 {
-    static std::string get(const cl::Device&, int component, int position,
+    static std::string get(const cl::Device&, const std::string &prm_name,
             detail::kernel_generator_state&)
     {
         std::ostringstream s;
-        s << "(prm_" << component << "_" << position << " + idx)";
+        s << "(" << prm_name << " + idx)";
         return s.str();
     }
 };

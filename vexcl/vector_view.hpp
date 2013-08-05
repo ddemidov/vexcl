@@ -119,28 +119,28 @@ struct is_vector_expr_terminal< vector_view_terminal > : std::true_type {};
 
 template <typename T, class Slice>
 struct terminal_preamble< vector_view<T, Slice> > {
-    static std::string get(const cl::Device&, int component, int position,
+    static std::string get(const cl::Device&, const std::string &prm_name,
             detail::kernel_generator_state&)
     {
-        return Slice::indexing_function(component, position);
+        return Slice::indexing_function(prm_name);
     }
 };
 
 template <typename T, class Slice>
 struct kernel_param_declaration< vector_view<T, Slice> > {
-    static std::string get(const cl::Device&, int component, int position,
+    static std::string get(const cl::Device&, const std::string &prm_name,
             detail::kernel_generator_state&)
     {
-        return Slice::template parameter_declaration<T>(component, position);
+        return Slice::template parameter_declaration<T>(prm_name);
     }
 };
 
 template <typename T, class Slice>
 struct partial_vector_expr< vector_view<T, Slice> > {
-    static std::string get(const cl::Device&, int component, int position,
+    static std::string get(const cl::Device&, const std::string &prm_name,
             detail::kernel_generator_state&)
     {
-        return Slice::partial_expression(component, position);
+        return Slice::partial_expression(prm_name);
     }
 };
 
@@ -230,10 +230,10 @@ struct gslice {
 	    static_cast<size_t>(1), std::multiplies<size_t>());
     }
 
-    static std::string indexing_function(int component, int position) {
+    static std::string indexing_function(const std::string &prm_name) {
         std::ostringstream s;
 
-        s << type_name<size_t>() << " slice_" << component << "_" << position
+        s << type_name<size_t>() << " slice_" << prm_name
           << "(\n\t" << type_name<size_t>() << " start";
         for(size_t k = 0; k < NDIM; ++k)
             s << ",\n\t" << type_name<size_t>() << " length" << k
@@ -255,36 +255,29 @@ struct gslice {
         return s.str();
     }
 
-    static std::string partial_expression(int component, int position) {
-        std::ostringstream prm;
-        prm << "prm_" << component << "_" << position << "_";
-
+    static std::string partial_expression(const std::string &prm_name) {
         std::ostringstream s;
 
-        s << prm.str() << "base["
-          << "slice_" << component << "_" << position << "("
-          << prm.str() << "start";
+        s << prm_name << "_base[" << "slice_" << prm_name << "("
+          << prm_name << "_start";
         for(size_t k = 0; k < NDIM; ++k)
-            s << ", " << prm.str() << "length" << k
-              << ", " << prm.str() << "stride" << k;
+            s << ", " << prm_name << "_length" << k
+              << ", " << prm_name << "_stride" << k;
         s << ", idx)]";
 
         return s.str();
     }
 
     template <typename T>
-    static std::string parameter_declaration(int component, int position) {
-        std::ostringstream prm;
-        prm << "prm_" << component << "_" << position << "_";
-
+    static std::string parameter_declaration(const std::string &prm_name) {
         std::ostringstream s;
 
-        s << ",\n\tglobal " << type_name<T>() << " * " << prm.str() << "base"
-          << ", " << type_name<size_t>() << " " << prm.str() << "start";
+        s << ",\n\tglobal " << type_name<T>() << " * " << prm_name << "_base"
+          << ", " << type_name<size_t>() << " " << prm_name << "_start";
 
         for(size_t k = 0; k < NDIM; ++k)
-            s << ", " << type_name<size_t>()    << " " << prm.str() << "length" << k
-              << ", " << type_name<ptrdiff_t>() << " " << prm.str() << "stride" << k;
+            s << ", " << type_name<size_t>()    << " " << prm_name << "_length" << k
+              << ", " << type_name<ptrdiff_t>() << " " << prm_name << "_stride" << k;
 
         return s.str();
     }
@@ -511,29 +504,23 @@ struct permutation {
         return index.size();
     }
 
-    static std::string partial_expression(int component, int position) {
-        std::ostringstream prm;
-        prm << "prm_" << component << "_" << position << "_";
-
+    static std::string partial_expression(const std::string &prm_name) {
         std::ostringstream s;
-        s << prm.str() << "base[" << prm.str() << "index[idx]]";
+        s << prm_name << "_base[" << prm_name << "_index[idx]]";
 
         return s.str();
     }
 
-    static std::string indexing_function(int/*component*/, int/*position*/) {
+    static std::string indexing_function(const std::string &/*prm_name*/) {
         return "";
     }
 
     template <typename T>
-    static std::string parameter_declaration(int component, int position) {
-        std::ostringstream prm;
-        prm << "prm_" << component << "_" << position << "_";
-
+    static std::string parameter_declaration(const std::string &prm_name) {
         std::ostringstream s;
 
-        s << ",\n\tglobal " << type_name<T>() << " * " << prm.str() << "base"
-          << ", global " << type_name<size_t>() << " * " << prm.str() << "index";
+        s << ",\n\tglobal " << type_name<T>() << " * " << prm_name << "_base"
+          << ", global " << type_name<size_t>() << " * " << prm_name << "_index";
 
         return s.str();
     }
@@ -589,19 +576,19 @@ struct is_vector_expr_terminal< reduced_vector_view_terminal >
 
 template <typename T, size_t NDIM, size_t NR, class RDC>
 struct terminal_preamble< reduced_vector_view<T, NDIM, NR, RDC> > {
-    static std::string get(const cl::Device&, int component, int position,
+    static std::string get(const cl::Device&, const std::string &prm_name,
             detail::kernel_generator_state&)
     {
         std::ostringstream s;
         std::ostringstream rdc_name;
 
-        rdc_name << "reduce_op_" << component << "_" << position;
+        rdc_name << "reduce_op_" << prm_name;
 
         typedef typename RDC::template function<T> fun;
         fun::define(s, rdc_name.str());
 
         s << type_name<T>()
-          << " reduce_" << component << "_" << position << "(\n"
+          << " reduce_" << prm_name << "(\n"
           "\tglobal " << type_name<T>() << " * base,\n"
           "\t" << type_name<size_t>() << " start";
         for(size_t k = 0; k < NDIM; ++k)
@@ -637,28 +624,25 @@ struct terminal_preamble< reduced_vector_view<T, NDIM, NR, RDC> > {
 
 template <typename T, size_t NDIM, size_t NR, class RDC>
 struct kernel_param_declaration< reduced_vector_view<T, NDIM, NR, RDC> > {
-    static std::string get(const cl::Device&, int component, int position,
+    static std::string get(const cl::Device&, const std::string &prm_name,
             detail::kernel_generator_state&)
     {
-        return gslice<NDIM>::template parameter_declaration<T>(component, position);
+        return gslice<NDIM>::template parameter_declaration<T>(prm_name);
     }
 };
 
 template <typename T, size_t NDIM, size_t NR, class RDC>
 struct partial_vector_expr< reduced_vector_view<T, NDIM, NR, RDC> > {
-    static std::string get(const cl::Device&, int component, int position,
+    static std::string get(const cl::Device&, const std::string &prm_name,
             detail::kernel_generator_state&)
     {
-        std::ostringstream prm;
-        prm << "prm_" << component << "_" << position << "_";
-
         std::ostringstream s;
-        s << "reduce_" << component << "_" << position << "("
-          << prm.str() << "base, "
-          << prm.str() << "start, ";
+        s << "reduce_" << prm_name << "("
+          << prm_name << "_base, "
+          << prm_name << "_start, ";
         for(size_t k = 0; k < NDIM; ++k)
-            s << prm.str() << "length" << k << ", "
-              << prm.str() << "stride" << k << ", ";
+            s << prm_name << "_length" << k << ", "
+              << prm_name << "_stride" << k << ", ";
         s << "idx)";
 
         return s.str();

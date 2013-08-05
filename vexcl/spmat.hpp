@@ -220,33 +220,33 @@ class SpMat {
         size_t nonzeros() const { return nnz;   }
 
         static std::string inline_preamble(
-                const cl::Device &device, int component, int position,
+                const cl::Device &device, const std::string &prm_name,
                 detail::kernel_generator_state&)
         {
             if (is_cpu(device))
-                return SpMatCSR::inline_preamble(component, position);
+                return SpMatCSR::inline_preamble(prm_name);
             else
-                return SpMatHELL::inline_preamble(component, position);
+                return SpMatHELL::inline_preamble(prm_name);
         }
 
         static std::string inline_expression(
-                const cl::Device &device, int component, int position,
+                const cl::Device &device, const std::string &prm_name,
                 detail::kernel_generator_state&)
         {
             if (is_cpu(device))
-                return SpMatCSR::inline_expression(component, position);
+                return SpMatCSR::inline_expression(prm_name);
             else
-                return SpMatHELL::inline_expression(component, position);
+                return SpMatHELL::inline_expression(prm_name);
         }
 
         static std::string inline_parameters(
-                const cl::Device &device, int component, int position,
+                const cl::Device &device, const std::string &prm_name,
                 detail::kernel_generator_state&)
         {
             if (is_cpu(device))
-                return SpMatCSR::inline_parameters(component, position);
+                return SpMatCSR::inline_parameters(prm_name);
             else
-                return SpMatHELL::inline_parameters(component, position);
+                return SpMatHELL::inline_parameters(prm_name);
         }
 
         static void inline_arguments(cl::Kernel &kernel, unsigned device,

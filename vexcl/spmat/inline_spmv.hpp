@@ -138,29 +138,29 @@ struct component< I, mv_inline_spmv<val_t, col_t, idx_t, MV> > {
 #endif
 
 template <typename val_t, typename col_t, typename idx_t>
-struct partial_vector_expr< inline_spmv<val_t, col_t, idx_t> > {
-    static std::string get(const cl::Device &device, int component, int position,
-            detail::kernel_generator_state &state)
-    {
-        return SpMat<val_t, col_t, idx_t>::inline_expression(device, component, position, state);
-    }
-};
-
-template <typename val_t, typename col_t, typename idx_t>
 struct terminal_preamble< inline_spmv<val_t, col_t, idx_t> > {
-    static std::string get(const cl::Device &device, int component, int position,
+    static std::string get(const cl::Device &device, const std::string &prm_name,
             detail::kernel_generator_state &state)
     {
-        return SpMat<val_t, col_t, idx_t>::inline_preamble(device, component, position, state);
+        return SpMat<val_t, col_t, idx_t>::inline_preamble(device, prm_name, state);
     }
 };
 
 template <typename val_t, typename col_t, typename idx_t>
 struct kernel_param_declaration< inline_spmv<val_t, col_t, idx_t> > {
-    static std::string get(const cl::Device &device, int component, int position,
+    static std::string get(const cl::Device &device, const std::string &prm_name,
             detail::kernel_generator_state &state)
     {
-        return SpMat<val_t, col_t, idx_t>::inline_parameters(device, component, position, state);
+        return SpMat<val_t, col_t, idx_t>::inline_parameters(device, prm_name, state);
+    }
+};
+
+template <typename val_t, typename col_t, typename idx_t>
+struct partial_vector_expr< inline_spmv<val_t, col_t, idx_t> > {
+    static std::string get(const cl::Device &device, const std::string &prm_name,
+            detail::kernel_generator_state &state)
+    {
+        return SpMat<val_t, col_t, idx_t>::inline_expression(device, prm_name, state);
     }
 };
 

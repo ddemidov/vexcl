@@ -34,6 +34,8 @@ THE SOFTWARE.
 #include <vector>
 #include <string>
 #include <sstream>
+#include <map>
+#include <set>
 
 #include <vexcl/operations.hpp>
 
@@ -96,7 +98,7 @@ struct is_vector_expr_terminal< tagged_terminal_terminal >
 template <size_t Tag, class Term>
 struct terminal_preamble< tagged_terminal<Tag, Term> > {
     static std::string get(const cl::Device &device,
-            int component, int position,
+            const std::string &prm_name,
             detail::kernel_generator_state &state)
     {
         auto s = state.find("tagged_terminal");
@@ -104,11 +106,11 @@ struct terminal_preamble< tagged_terminal<Tag, Term> > {
         if (s == state.end()) {
             s = state.insert(std::make_pair(
                         std::string("tagged_terminal"),
-                        boost::any(std::map<size_t, int>())
+                        boost::any(std::set<size_t>())
                         )).first;
         }
 
-        auto &pos = boost::any_cast< std::map<size_t, int>& >(s->second);
+        auto &pos = boost::any_cast< std::set<size_t>& >(s->second);
         auto p = pos.find(Tag);
 
         typedef
@@ -117,9 +119,9 @@ struct terminal_preamble< tagged_terminal<Tag, Term> > {
             >::type TermType;
 
         if (p == pos.end()) {
-            pos[Tag] = position;
+            pos.insert(Tag);
 
-            return terminal_preamble<TermType>::get(device, component, position, state);
+            return terminal_preamble<TermType>::get(device, prm_name, state);
         } else {
             return "";
         }
@@ -128,8 +130,7 @@ struct terminal_preamble< tagged_terminal<Tag, Term> > {
 
 template <size_t Tag, class Term>
 struct kernel_param_declaration< tagged_terminal<Tag, Term> > {
-    static std::string get(const cl::Device &device,
-            int component, int position,
+    static std::string get(const cl::Device &device, const std::string &prm_name,
             detail::kernel_generator_state &state)
     {
         auto s = state.find("tagged_terminal");
@@ -137,11 +138,11 @@ struct kernel_param_declaration< tagged_terminal<Tag, Term> > {
         if (s == state.end()) {
             s = state.insert(std::make_pair(
                         std::string("tagged_terminal"),
-                        boost::any(std::map<size_t, int>())
+                        boost::any(std::set<size_t>())
                         )).first;
         }
 
-        auto &pos = boost::any_cast< std::map<size_t, int>& >(s->second);
+        auto &pos = boost::any_cast< std::set<size_t>& >(s->second);
         auto p = pos.find(Tag);
 
         typedef
@@ -150,9 +151,9 @@ struct kernel_param_declaration< tagged_terminal<Tag, Term> > {
             >::type TermType;
 
         if (p == pos.end()) {
-            pos[Tag] = position;
+            pos.insert(Tag);
 
-            return kernel_param_declaration<TermType>::get(device, component, position, state);
+            return kernel_param_declaration<TermType>::get(device, prm_name, state);
         } else {
             return "";
         }
@@ -162,7 +163,7 @@ struct kernel_param_declaration< tagged_terminal<Tag, Term> > {
 template <size_t Tag, class Term>
 struct partial_vector_expr< tagged_terminal<Tag, Term> > {
     static std::string get(const cl::Device &device,
-            int component, int position,
+            const std::string &prm_name,
             detail::kernel_generator_state &state)
     {
         auto s = state.find("tagged_terminal");
@@ -170,11 +171,11 @@ struct partial_vector_expr< tagged_terminal<Tag, Term> > {
         if (s == state.end()) {
             s = state.insert(std::make_pair(
                         std::string("tagged_terminal"),
-                        boost::any(std::map<size_t, int>())
+                        boost::any(std::map<size_t, std::string>())
                         )).first;
         }
 
-        auto &pos = boost::any_cast< std::map<size_t, int>& >(s->second);
+        auto &pos = boost::any_cast< std::map<size_t, std::string>& >(s->second);
         auto p = pos.find(Tag);
 
         typedef
@@ -183,10 +184,9 @@ struct partial_vector_expr< tagged_terminal<Tag, Term> > {
             >::type TermType;
 
         if (p == pos.end()) {
-            pos[Tag] = position;
-            return partial_vector_expr<TermType>::get(device, component, position, state);
+            return (pos[Tag] = partial_vector_expr<TermType>::get(device, prm_name, state));
         } else {
-            return partial_vector_expr<TermType>::get(device, component, p->second, state);
+            return p->second;
         }
     }
 };

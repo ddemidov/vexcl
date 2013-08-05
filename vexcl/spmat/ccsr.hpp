@@ -173,19 +173,16 @@ struct component< I, mv_ccsr_product<val_t, col_t, idx_t, MV> > {
 
 template <typename val_t, typename col_t, typename idx_t, typename T>
 struct partial_vector_expr< ccsr_product<val_t, col_t, idx_t, T> > {
-    static std::string get(const cl::Device&, int component, int position,
+    static std::string get(const cl::Device&, const std::string &prm_name,
             detail::kernel_generator_state&)
     {
-        std::ostringstream prm;
-        prm << "prm_" << component << "_" << position << "_";
-
         std::ostringstream s;
-        s << "spmv_" << component << "_" << position << "("
-          << prm.str() << "idx, "
-          << prm.str() << "row, "
-          << prm.str() << "col, "
-          << prm.str() << "val, "
-          << prm.str() << "vec, idx)";
+        s << "spmv_" << prm_name << "("
+          << prm_name << "_idx, "
+          << prm_name << "_row, "
+          << prm_name << "_col, "
+          << prm_name << "_val, "
+          << prm_name << "_vec, idx)";
 
         return s.str();
     }
@@ -193,7 +190,7 @@ struct partial_vector_expr< ccsr_product<val_t, col_t, idx_t, T> > {
 
 template <typename val_t, typename col_t, typename idx_t, typename T>
 struct terminal_preamble< ccsr_product<val_t, col_t, idx_t, T> > {
-    static std::string get(const cl::Device&, int component, int position,
+    static std::string get(const cl::Device&, const std::string &prm_name,
             detail::kernel_generator_state&)
     {
         std::ostringstream s;
@@ -201,7 +198,7 @@ struct terminal_preamble< ccsr_product<val_t, col_t, idx_t, T> > {
         typedef decltype(val_t() * T()) res_t;
 
         s << type_name<res_t>() <<
-          " spmv_" << component << "_" << position << "(\n"
+          " spmv_" << prm_name << "(\n"
           "\tglobal " << type_name<idx_t>() << " * idx,\n"
           "\tglobal " << type_name<idx_t>() << " * row,\n"
           "\tglobal " << type_name<col_t>() << " * col,\n"
@@ -219,18 +216,15 @@ struct terminal_preamble< ccsr_product<val_t, col_t, idx_t, T> > {
 
 template <typename val_t, typename col_t, typename idx_t, typename T>
 struct kernel_param_declaration< ccsr_product<val_t, col_t, idx_t, T> > {
-    static std::string get(const cl::Device&, int component, int position,
+    static std::string get(const cl::Device&, const std::string &prm_name,
             detail::kernel_generator_state&)
     {
-        std::ostringstream prm;
-        prm << "prm_" << component << "_" << position << "_";
-
         std::ostringstream s;
-        s << ",\n\tglobal " << type_name<idx_t>() << " * " << prm.str() << "idx"
-          << ",\n\tglobal " << type_name<idx_t>() << " * " << prm.str() << "row"
-          << ",\n\tglobal " << type_name<col_t>() << " * " << prm.str() << "col"
-          << ",\n\tglobal " << type_name<val_t>() << " * " << prm.str() << "val"
-          << ",\n\tglobal " << type_name<T>()     << " * " << prm.str() << "vec";
+        s << ",\n\tglobal " << type_name<idx_t>() << " * " << prm_name << "_idx"
+          << ",\n\tglobal " << type_name<idx_t>() << " * " << prm_name << "_row"
+          << ",\n\tglobal " << type_name<col_t>() << " * " << prm_name << "_col"
+          << ",\n\tglobal " << type_name<val_t>() << " * " << prm_name << "_val"
+          << ",\n\tglobal " << type_name<T>()     << " * " << prm_name << "_vec";
 
         return s.str();
     }
