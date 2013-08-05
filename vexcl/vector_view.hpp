@@ -115,18 +115,7 @@ struct vector_view : public vector_view_terminal_expression
 namespace traits {
 
 template <>
-struct is_vector_expr_terminal< vector_view_terminal >
-    : std::true_type
-{ };
-
-template <typename T, class Slice>
-struct partial_vector_expr< vector_view<T, Slice> > {
-    static std::string get(const cl::Device&, int component, int position,
-            detail::kernel_generator_state&)
-    {
-        return Slice::partial_expression(component, position);
-    }
-};
+struct is_vector_expr_terminal< vector_view_terminal > : std::true_type {};
 
 template <typename T, class Slice>
 struct terminal_preamble< vector_view<T, Slice> > {
@@ -143,6 +132,15 @@ struct kernel_param_declaration< vector_view<T, Slice> > {
             detail::kernel_generator_state&)
     {
         return Slice::template parameter_declaration<T>(component, position);
+    }
+};
+
+template <typename T, class Slice>
+struct partial_vector_expr< vector_view<T, Slice> > {
+    static std::string get(const cl::Device&, int component, int position,
+            detail::kernel_generator_state&)
+    {
+        return Slice::partial_expression(component, position);
     }
 };
 
@@ -638,6 +636,15 @@ struct terminal_preamble< reduced_vector_view<T, NDIM, NR, RDC> > {
 };
 
 template <typename T, size_t NDIM, size_t NR, class RDC>
+struct kernel_param_declaration< reduced_vector_view<T, NDIM, NR, RDC> > {
+    static std::string get(const cl::Device&, int component, int position,
+            detail::kernel_generator_state&)
+    {
+        return gslice<NDIM>::template parameter_declaration<T>(component, position);
+    }
+};
+
+template <typename T, size_t NDIM, size_t NR, class RDC>
 struct partial_vector_expr< reduced_vector_view<T, NDIM, NR, RDC> > {
     static std::string get(const cl::Device&, int component, int position,
             detail::kernel_generator_state&)
@@ -655,15 +662,6 @@ struct partial_vector_expr< reduced_vector_view<T, NDIM, NR, RDC> > {
         s << "idx)";
 
         return s.str();
-    }
-};
-
-template <typename T, size_t NDIM, size_t NR, class RDC>
-struct kernel_param_declaration< reduced_vector_view<T, NDIM, NR, RDC> > {
-    static std::string get(const cl::Device&, int component, int position,
-            detail::kernel_generator_state&)
-    {
-        return gslice<NDIM>::template parameter_declaration<T>(component, position);
     }
 };
 

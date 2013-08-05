@@ -58,23 +58,6 @@ template <>
 struct is_multivector_expr_terminal< elem_index > : std::true_type {};
 
 template <class T>
-struct partial_vector_expr< T, typename std::enable_if<
-        boost::proto::matches<
-            T,
-            boost::proto::terminal<elem_index>
-        >::value
-    >::type >
-{
-    static std::string get(const cl::Device&, int component, int position,
-            detail::kernel_generator_state&)
-    {
-        std::ostringstream s;
-        s << "(prm_" << component << "_" << position << " + idx)";
-        return s.str();
-    }
-};
-
-template <class T>
 struct kernel_param_declaration< T, typename std::enable_if<
         boost::proto::matches<
             T,
@@ -88,6 +71,23 @@ struct kernel_param_declaration< T, typename std::enable_if<
         std::ostringstream s;
         s << ",\n\t" << type_name<size_t>() << " prm_"
           << component << "_" << position;
+        return s.str();
+    }
+};
+
+template <class T>
+struct partial_vector_expr< T, typename std::enable_if<
+        boost::proto::matches<
+            T,
+            boost::proto::terminal<elem_index>
+        >::value
+    >::type >
+{
+    static std::string get(const cl::Device&, int component, int position,
+            detail::kernel_generator_state&)
+    {
+        std::ostringstream s;
+        s << "(prm_" << component << "_" << position << " + idx)";
         return s.str();
     }
 };
