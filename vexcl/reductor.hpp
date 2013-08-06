@@ -224,7 +224,8 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
             typedef typename RDC::template function<real> fun;
             fun::define(source, "reduce_operation");
 
-            construct_preamble(expr, source, device);
+            output_terminal_preamble termpream(source, device);
+            boost::proto::eval(boost::proto::as_child(expr),  termpream);
 
             source << "kernel void vexcl_reductor_kernel(\n\t"
                 << type_name<size_t>() << " n";

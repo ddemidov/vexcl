@@ -1000,33 +1000,107 @@ struct extract_terminals
     >
 {};
 
-// Extract (and process) user functions from a vector expression.
-struct extract_user_functions
-    : boost::proto::or_ <
-        boost::proto::terminal<boost::proto::_>,
-        boost::proto::when <
-            boost::proto::function<
-                boost::proto::when <
-                    boost::proto::terminal <
-                        boost::proto::convertible_to<vex::user_function>
-                    >,
-                    process_terminal(boost::proto::_)
-                >,
-                boost::proto::vararg< extract_user_functions >
-            >
-        > ,
-        boost::proto::when <
-            boost::proto::nary_expr<
-                boost::proto::_,
-                boost::proto::vararg< extract_user_functions >
-            >
-        >
-    >
-{};
-
 // Base class for stateful expression evaluation contexts .
 struct expression_context {
     mutable kernel_generator_state state;
+};
+
+// Outputs kernel preamble.
+struct output_terminal_preamble : public expression_context {
+    std::ostream &os;
+    const cl::Device &device;
+    int cmp_idx, prm_idx, fun_idx;
+    std::string prefix;
+
+    output_terminal_preamble(
+            std::ostream &os, const cl::Device &device,
+            int cmp_idx = 1, const std::string &prefix = ""
+            )
+        : os(os), device(device), cmp_idx(cmp_idx), prm_idx(0), fun_idx(0),
+          prefix(prefix)
+    {}
+
+    // Any expression except user function or terminal is only interesting
+    // for its children:
+    template <typename Expr, typename Tag = typename Expr::proto_tag>
+    struct eval {
+	typedef void result_type;
+
+	void operator()(const Expr &expr, output_terminal_preamble &ctx) const
+        {
+	    boost::fusion::for_each( expr,
+		    do_eval<output_terminal_preamble>(ctx));
+	}
+    };
+
+    // Function is either builtin (not interesting) or user-defined:
+    template <typename Expr>
+    struct eval<Expr, boost::proto::tag::function> {
+	typedef void result_type;
+
+        // Builtin function is only interesting for its children:
+	template <class FunCall>
+	typename std::enable_if<
+	    std::is_base_of<
+		builtin_function,
+		typename boost::proto::result_of::value<
+		    typename boost::proto::result_of::child_c<FunCall,0>::type
+		>::type
+	    >::value,
+	void
+	>::type
+	operator()(const FunCall &expr, output_terminal_preamble &ctx) const
+        {
+	    boost::fusion::for_each(
+		    boost::fusion::pop_front(expr),
+		    do_eval<output_terminal_preamble>(ctx)
+		    );
+	}
+
+        // User-defined function needs to be defined.
+        // Then look at its children:
+	template <class FunCall>
+	typename std::enable_if<
+	    std::is_base_of<
+		user_function,
+		typename boost::proto::result_of::value<
+		    typename boost::proto::result_of::child_c<FunCall,0>::type
+		>::type
+	    >::value,
+	void
+	>::type
+	operator()(const FunCall &expr, output_terminal_preamble &ctx) const {
+	    std::ostringstream name;
+	    name << ctx.prefix << "func_" << ctx.cmp_idx << "_" << ++ctx.fun_idx;
+
+	    // Output function definition and continue with parameters.
+            boost::proto::result_of::value<
+		typename boost::proto::result_of::child_c<FunCall,0>::type
+	    >::type::define(ctx.os, name.str());
+
+	    boost::fusion::for_each(
+		    boost::fusion::pop_front(expr),
+		    do_eval<output_terminal_preamble>(ctx)
+		    );
+	}
+    };
+
+    // Some terminals have preambles too:
+    template <typename Term>
+    struct eval<Term, boost::proto::tag::terminal> {
+	typedef void result_type;
+
+	void operator()(const Term &term, output_terminal_preamble &ctx) const
+        {
+            std::ostringstream prm_name;
+            prm_name << ctx.prefix << "prm_" << ctx.cmp_idx << "_" << ++ctx.prm_idx;
+
+            ctx.os << traits::terminal_preamble<
+                typename std::decay<Term>::type
+                >::get(term,
+                    ctx.device, prm_name.str(), ctx.state) << std::endl;
+	}
+    };
 };
 
 // Builds textual representation for a vector expression.
@@ -1198,65 +1272,6 @@ struct vector_expr_context : public expression_context {
         }
     };
 };
-
-struct declare_user_function {
-    std::ostream &os;
-    int cmp_idx;
-    mutable int fun_idx;
-    std::string prefix;
-
-    declare_user_function(std::ostream &os, int cmp_idx = 1, const std::string &prefix = "")
-        : os(os), cmp_idx(cmp_idx), fun_idx(0), prefix(prefix)
-    {}
-
-    template <class FunCall>
-    void operator()(const FunCall &expr) const {
-        std::ostringstream name;
-        name << prefix << "func_" << cmp_idx << "_" << ++fun_idx;
-
-        // Output function definition and continue with parameters.
-        boost::proto::value(expr).define(os, name.str());
-    }
-};
-
-struct output_terminal_preamble : expression_context {
-    std::ostream &os;
-    const cl::Device &device;
-    int cmp_idx;
-    mutable int prm_idx;
-    std::string prefix;
-
-    output_terminal_preamble(
-            std::ostream &os, const cl::Device &device,
-            int cmp_idx = 1, const std::string &prefix = ""
-            )
-        : os(os), device(device), cmp_idx(cmp_idx), prm_idx(0), prefix(prefix)
-    {}
-
-    template <class Term>
-    void operator()(const Term &term) const {
-        std::ostringstream prm_name;
-        prm_name << prefix << "prm_" << cmp_idx << "_" << ++prm_idx;
-
-        os << traits::terminal_preamble<Term>::get(term,
-                device, prm_name.str(), state) << std::endl;
-    }
-};
-
-template <class Expr>
-void construct_preamble(const Expr &expr, std::ostream &kernel_source,
-        const cl::Device &device, int component = 1)
-{
-    extract_user_functions()(
-            boost::proto::as_child(expr),
-            declare_user_function(kernel_source, component)
-            );
-
-    extract_terminals()(
-            boost::proto::as_child(expr),
-            output_terminal_preamble(kernel_source, device, component)
-            );
-}
 
 struct declare_expression_parameter : expression_context {
     std::ostream &os;
@@ -1564,15 +1579,10 @@ void assign_expression(LHS &lhs, const Expr &expr,
 
             source << standard_kernel_header(device);
 
-            declare_user_function declfun(source);
-
-            extract_user_functions()(boost::proto::as_child(lhs),  declfun);
-            extract_user_functions()(boost::proto::as_child(expr), declfun);
-
             output_terminal_preamble termpream(source, device);
 
-            extract_terminals()(boost::proto::as_child(lhs),  termpream);
-            extract_terminals()(boost::proto::as_child(expr), termpream);
+            boost::proto::eval(boost::proto::as_child(lhs),  termpream);
+            boost::proto::eval(boost::proto::as_child(expr), termpream);
 
             source << "kernel void vexcl_vector_kernel(\n"
                    "\t" << type_name<size_t>() << " n";

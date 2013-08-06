@@ -576,8 +576,8 @@ class multivector : public multivector_terminal_expression {
 
             template <long I>
             void apply() const {
-                detail::construct_preamble(detail::subexpression<I>::get(expr),
-                        source, device, I + 1);
+                detail::output_terminal_preamble termpream(source, device, I + 1);
+                boost::proto::eval(detail::subexpression<I>::get(expr), termpream);
             }
         };
 
