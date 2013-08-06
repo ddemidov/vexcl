@@ -36,6 +36,7 @@ THE SOFTWARE.
 #include <vexcl/vector.hpp>
 #include <vexcl/vector_view.hpp>
 #include <vexcl/tagged_terminal.hpp>
+#include <vexcl/temporary.hpp>
 #include <vexcl/multivector.hpp>
 #include <vexcl/reductor.hpp>
 #include <vexcl/spmat.hpp>
