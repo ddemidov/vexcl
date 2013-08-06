@@ -212,9 +212,13 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
 
         if (kernel == cache.end()) {
             std::ostringstream increment_line;
+
+            output_local_preamble loc_init(increment_line, device);
+            boost::proto::eval(expr, loc_init);
+
             vector_expr_context expr_ctx(increment_line, device);
 
-            increment_line << "mySum = reduce_operation(mySum, ";
+            increment_line << "\t\tmySum = reduce_operation(mySum, ";
             boost::proto::eval(expr, expr_ctx);
             increment_line << ");\n";
 
@@ -245,7 +249,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
                     "    size_t stop       = min(n, chunk_size * (chunk_id + 1));\n"
                     "    " << type_name<real>() << " mySum = " << RDC::template initial<real>() << ";\n"
                     "    for (size_t idx = start; idx < stop; idx++) {\n"
-                    "        " << increment_line.str() <<
+                    << increment_line.str() <<
                     "    }\n"
                     "\n"
                     "    g_odata[get_group_id(0)] = mySum;\n"

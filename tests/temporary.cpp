@@ -2,6 +2,7 @@
 #include <boost/test/unit_test.hpp>
 #include <vexcl/vector.hpp>
 #include <vexcl/temporary.hpp>
+#include <vexcl/reductor.hpp>
 #include "context_setup.hpp"
 
 BOOST_AUTO_TEST_CASE(temporary)
@@ -41,6 +42,20 @@ BOOST_AUTO_TEST_CASE(nested_temporary)
             double T2 = T1 + sin(X);
             BOOST_CHECK_CLOSE(v, T1 * T2, 1e-8);
             });
+}
+
+BOOST_AUTO_TEST_CASE(reduce_temporary)
+{
+    const size_t n = 1024;
+
+    vex::vector<double> x(ctx, random_vector<double>(n));
+
+    auto t1 = vex::make_temp<double, 1>( pow(sin(x), 2) );
+    auto t2 = vex::make_temp<double, 2>( pow(cos(x), 2) );
+
+    vex::Reductor<double, vex::SUM> sum(ctx);
+
+    BOOST_CHECK_CLOSE(sum(10 * (t1 + t2)), 10.0 * n, 1e-6);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
