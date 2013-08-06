@@ -264,10 +264,11 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
                     "    " << type_name<real>() << " mySum = " << RDC::template initial<real>() << ";\n"
                     "    while (p < n) {\n"
                     "        idx = p;\n"
-                    "        " << increment_line.str() <<
+                    << increment_line.str() <<
                     "        idx = p + block_size;\n"
-                    "        if (idx < n)\n"
-                    "            " << increment_line.str() <<
+                    "        if (idx < n) {\n"
+                    << increment_line.str() <<
+                    "        }\n"
                     "        p += gridSize;\n"
                     "    }\n"
                     "    sdata[tid] = mySum;\n"
