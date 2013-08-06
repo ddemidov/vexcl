@@ -124,7 +124,8 @@ struct hold_terminal_by_reference : std::false_type {};
 // But most of them do not:
 template <class T>
 struct terminal_preamble {
-    static std::string get(const cl::Device&, const std::string &/*prm_name*/,
+    static std::string get(const T&,
+            const cl::Device&, const std::string &/*prm_name*/,
             detail::kernel_generator_state&)
     {
         return "";
@@ -134,7 +135,8 @@ struct terminal_preamble {
 // How to declare OpenCL kernel parameters for a terminal:
 template <class Term, class Enable = void>
 struct kernel_param_declaration {
-    static std::string get(const cl::Device&, const std::string &prm_name,
+    static std::string get(const Term&,
+            const cl::Device&, const std::string &prm_name,
             detail::kernel_generator_state&)
     {
         std::ostringstream s;
@@ -147,7 +149,8 @@ struct kernel_param_declaration {
 // Partial expression for a terminal:
 template <class Term, class Enable = void>
 struct partial_vector_expr {
-    static std::string get(const cl::Device&, const std::string &prm_name,
+    static std::string get(const Term&,
+            const cl::Device&, const std::string &prm_name,
             detail::kernel_generator_state&)
     {
         return prm_name;
@@ -157,8 +160,9 @@ struct partial_vector_expr {
 // How to set OpenCL kernel arguments for a terminal:
 template <class Term, class Enable = void>
 struct kernel_arg_setter {
-    static void set(cl::Kernel &kernel, unsigned/*device*/, size_t/*index_offset*/,
-            unsigned &position, const Term &term, detail::kernel_generator_state&)
+    static void set(const Term &term,
+            cl::Kernel &kernel, unsigned/*device*/, size_t/*index_offset*/,
+            unsigned &position, detail::kernel_generator_state&)
     {
         kernel.setArg(position++, boost::proto::value(term));
     }
@@ -1185,11 +1189,11 @@ struct vector_expr_context : public expression_context {
         typedef void result_type;
 
         template <typename Term>
-        void operator()(const Term&, vector_expr_context &ctx) const {
+        void operator()(const Term &term, vector_expr_context &ctx) const {
             std::ostringstream prm_name;
             prm_name << ctx.prefix << "prm_" << ctx.cmp_idx << "_" << ++ctx.prm_idx;
 
-            ctx.os << traits::partial_vector_expr<Term>::get(
+            ctx.os << traits::partial_vector_expr<Term>::get(term,
                     ctx.device, prm_name.str(), ctx.state);
         }
     };
@@ -1230,11 +1234,11 @@ struct output_terminal_preamble : expression_context {
     {}
 
     template <class Term>
-    void operator()(const Term&) const {
+    void operator()(const Term &term) const {
         std::ostringstream prm_name;
         prm_name << prefix << "prm_" << cmp_idx << "_" << ++prm_idx;
 
-        os << traits::terminal_preamble<Term>::get(
+        os << traits::terminal_preamble<Term>::get(term,
                 device, prm_name.str(), state) << std::endl;
     }
 };
@@ -1267,11 +1271,11 @@ struct declare_expression_parameter : expression_context {
     {}
 
     template <typename T>
-    void operator()(const T&) const {
+    void operator()(const T &term) const {
         std::ostringstream prm_name;
         prm_name << prefix << "prm_" << cmp_idx << "_" << ++prm_idx;
 
-        os << traits::kernel_param_declaration<T>::get(
+        os << traits::kernel_param_declaration<T>::get(term,
                 device, prm_name.str(), state);
     }
 };
@@ -1286,8 +1290,8 @@ struct set_expression_argument : expression_context {
 
     template <typename T>
     void operator()(const T &term) const {
-        traits::kernel_arg_setter<T>::set(
-                krn, dev, part_start, pos, term, state);
+        traits::kernel_arg_setter<T>::set(term,
+                krn, dev, part_start, pos, state);
     }
 };
 

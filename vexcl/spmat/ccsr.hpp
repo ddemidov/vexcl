@@ -173,7 +173,8 @@ struct component< I, mv_ccsr_product<val_t, col_t, idx_t, MV> > {
 
 template <typename val_t, typename col_t, typename idx_t, typename T>
 struct partial_vector_expr< ccsr_product<val_t, col_t, idx_t, T> > {
-    static std::string get(const cl::Device&, const std::string &prm_name,
+    static std::string get(const ccsr_product<val_t, col_t, idx_t, T>&,
+            const cl::Device&, const std::string &prm_name,
             detail::kernel_generator_state&)
     {
         std::ostringstream s;
@@ -190,7 +191,8 @@ struct partial_vector_expr< ccsr_product<val_t, col_t, idx_t, T> > {
 
 template <typename val_t, typename col_t, typename idx_t, typename T>
 struct terminal_preamble< ccsr_product<val_t, col_t, idx_t, T> > {
-    static std::string get(const cl::Device&, const std::string &prm_name,
+    static std::string get(const ccsr_product<val_t, col_t, idx_t, T>&,
+            const cl::Device&, const std::string &prm_name,
             detail::kernel_generator_state&)
     {
         std::ostringstream s;
@@ -216,7 +218,8 @@ struct terminal_preamble< ccsr_product<val_t, col_t, idx_t, T> > {
 
 template <typename val_t, typename col_t, typename idx_t, typename T>
 struct kernel_param_declaration< ccsr_product<val_t, col_t, idx_t, T> > {
-    static std::string get(const cl::Device&, const std::string &prm_name,
+    static std::string get(const ccsr_product<val_t, col_t, idx_t, T>&,
+            const cl::Device&, const std::string &prm_name,
             detail::kernel_generator_state&)
     {
         std::ostringstream s;
@@ -232,9 +235,9 @@ struct kernel_param_declaration< ccsr_product<val_t, col_t, idx_t, T> > {
 
 template <typename val_t, typename col_t, typename idx_t, typename T>
 struct kernel_arg_setter< ccsr_product<val_t, col_t, idx_t, T> > {
-    static void set(cl::Kernel &kernel, unsigned device, size_t/*index_offset*/,
-            unsigned &position, const ccsr_product<val_t, col_t, idx_t, T> &term,
-            detail::kernel_generator_state&)
+    static void set(const ccsr_product<val_t, col_t, idx_t, T> &term,
+            cl::Kernel &kernel, unsigned device, size_t/*index_offset*/,
+            unsigned &position, detail::kernel_generator_state&)
     {
         assert(device == 0);
 

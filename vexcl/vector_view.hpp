@@ -119,7 +119,8 @@ struct is_vector_expr_terminal< vector_view_terminal > : std::true_type {};
 
 template <typename T, class Slice>
 struct terminal_preamble< vector_view<T, Slice> > {
-    static std::string get(const cl::Device&, const std::string &prm_name,
+    static std::string get(const vector_view<T, Slice>&,
+            const cl::Device&, const std::string &prm_name,
             detail::kernel_generator_state&)
     {
         return Slice::indexing_function(prm_name);
@@ -128,7 +129,8 @@ struct terminal_preamble< vector_view<T, Slice> > {
 
 template <typename T, class Slice>
 struct kernel_param_declaration< vector_view<T, Slice> > {
-    static std::string get(const cl::Device&, const std::string &prm_name,
+    static std::string get(const vector_view<T, Slice>&,
+            const cl::Device&, const std::string &prm_name,
             detail::kernel_generator_state&)
     {
         return Slice::template parameter_declaration<T>(prm_name);
@@ -137,7 +139,8 @@ struct kernel_param_declaration< vector_view<T, Slice> > {
 
 template <typename T, class Slice>
 struct partial_vector_expr< vector_view<T, Slice> > {
-    static std::string get(const cl::Device&, const std::string &prm_name,
+    static std::string get(const vector_view<T, Slice>&,
+            const cl::Device&, const std::string &prm_name,
             detail::kernel_generator_state&)
     {
         return Slice::partial_expression(prm_name);
@@ -146,9 +149,9 @@ struct partial_vector_expr< vector_view<T, Slice> > {
 
 template <typename T, class Slice>
 struct kernel_arg_setter< vector_view<T, Slice> > {
-    static void set(cl::Kernel &kernel, unsigned device, size_t index_offset,
-            unsigned &position, const vector_view<T, Slice> &term,
-            detail::kernel_generator_state&)
+    static void set(const vector_view<T, Slice> &term,
+            cl::Kernel &kernel, unsigned device, size_t index_offset,
+            unsigned &position, detail::kernel_generator_state&)
     {
         assert(device == 0);
 
@@ -576,7 +579,8 @@ struct is_vector_expr_terminal< reduced_vector_view_terminal >
 
 template <typename T, size_t NDIM, size_t NR, class RDC>
 struct terminal_preamble< reduced_vector_view<T, NDIM, NR, RDC> > {
-    static std::string get(const cl::Device&, const std::string &prm_name,
+    static std::string get(const reduced_vector_view<T, NDIM, NR, RDC>&,
+            const cl::Device&, const std::string &prm_name,
             detail::kernel_generator_state&)
     {
         std::ostringstream s;
@@ -624,7 +628,8 @@ struct terminal_preamble< reduced_vector_view<T, NDIM, NR, RDC> > {
 
 template <typename T, size_t NDIM, size_t NR, class RDC>
 struct kernel_param_declaration< reduced_vector_view<T, NDIM, NR, RDC> > {
-    static std::string get(const cl::Device&, const std::string &prm_name,
+    static std::string get(const reduced_vector_view<T, NDIM, NR, RDC>&,
+            const cl::Device&, const std::string &prm_name,
             detail::kernel_generator_state&)
     {
         return gslice<NDIM>::template parameter_declaration<T>(prm_name);
@@ -633,7 +638,8 @@ struct kernel_param_declaration< reduced_vector_view<T, NDIM, NR, RDC> > {
 
 template <typename T, size_t NDIM, size_t NR, class RDC>
 struct partial_vector_expr< reduced_vector_view<T, NDIM, NR, RDC> > {
-    static std::string get(const cl::Device&, const std::string &prm_name,
+    static std::string get(const reduced_vector_view<T, NDIM, NR, RDC>&,
+            const cl::Device&, const std::string &prm_name,
             detail::kernel_generator_state&)
     {
         std::ostringstream s;
@@ -651,9 +657,9 @@ struct partial_vector_expr< reduced_vector_view<T, NDIM, NR, RDC> > {
 
 template <typename T, size_t NDIM, size_t NR, class RDC>
 struct kernel_arg_setter< reduced_vector_view<T, NDIM, NR, RDC> > {
-    static void set(cl::Kernel &kernel, unsigned device, size_t/*index_offset*/,
-            unsigned &position, const reduced_vector_view<T, NDIM, NR, RDC> &term,
-            detail::kernel_generator_state&)
+    static void set(const reduced_vector_view<T, NDIM, NR, RDC> &term,
+            cl::Kernel &kernel, unsigned device, size_t/*index_offset*/,
+            unsigned &position, detail::kernel_generator_state&)
     {
         kernel.setArg(position++, term.base(device));
         kernel.setArg(position++, term.slice.start);

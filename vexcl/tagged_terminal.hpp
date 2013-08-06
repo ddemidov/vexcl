@@ -97,7 +97,8 @@ struct is_vector_expr_terminal< tagged_terminal_terminal >
 
 template <size_t Tag, class Term>
 struct terminal_preamble< tagged_terminal<Tag, Term> > {
-    static std::string get(const cl::Device &device,
+    static std::string get(const tagged_terminal<Tag, Term> &term,
+            const cl::Device &device,
             const std::string &prm_name,
             detail::kernel_generator_state &state)
     {
@@ -115,13 +116,14 @@ struct terminal_preamble< tagged_terminal<Tag, Term> > {
 
         typedef
             typename std::decay<
-                typename boost::proto::result_of::as_child<Term>::type
+                decltype(boost::proto::as_child(term.term))
             >::type TermType;
 
         if (p == pos.end()) {
             pos.insert(Tag);
 
-            return terminal_preamble<TermType>::get(device, prm_name, state);
+            return terminal_preamble<TermType>::get(
+                    boost::proto::as_child(term.term), device, prm_name, state);
         } else {
             return "";
         }
@@ -130,7 +132,8 @@ struct terminal_preamble< tagged_terminal<Tag, Term> > {
 
 template <size_t Tag, class Term>
 struct kernel_param_declaration< tagged_terminal<Tag, Term> > {
-    static std::string get(const cl::Device &device, const std::string &prm_name,
+    static std::string get(const tagged_terminal<Tag, Term> &term,
+            const cl::Device &device, const std::string &prm_name,
             detail::kernel_generator_state &state)
     {
         auto s = state.find("tagged_terminal");
@@ -147,13 +150,14 @@ struct kernel_param_declaration< tagged_terminal<Tag, Term> > {
 
         typedef
             typename std::decay<
-                typename boost::proto::result_of::as_child<Term>::type
+                decltype(boost::proto::as_child(term.term))
             >::type TermType;
 
         if (p == pos.end()) {
             pos.insert(Tag);
 
-            return kernel_param_declaration<TermType>::get(device, prm_name, state);
+            return kernel_param_declaration<TermType>::get(
+                    boost::proto::as_child(term.term), device, prm_name, state);
         } else {
             return "";
         }
@@ -162,7 +166,8 @@ struct kernel_param_declaration< tagged_terminal<Tag, Term> > {
 
 template <size_t Tag, class Term>
 struct partial_vector_expr< tagged_terminal<Tag, Term> > {
-    static std::string get(const cl::Device &device,
+    static std::string get(const tagged_terminal<Tag, Term> &term,
+            const cl::Device &device,
             const std::string &prm_name,
             detail::kernel_generator_state &state)
     {
@@ -180,11 +185,12 @@ struct partial_vector_expr< tagged_terminal<Tag, Term> > {
 
         typedef
             typename std::decay<
-                typename boost::proto::result_of::as_child<Term>::type
+                decltype(boost::proto::as_child(term.term))
             >::type TermType;
 
         if (p == pos.end()) {
-            return (pos[Tag] = partial_vector_expr<TermType>::get(device, prm_name, state));
+            return (pos[Tag] = partial_vector_expr<TermType>::get(
+                        boost::proto::as_child(term.term), device, prm_name, state));
         } else {
             return p->second;
         }
@@ -193,9 +199,9 @@ struct partial_vector_expr< tagged_terminal<Tag, Term> > {
 
 template <size_t Tag, class Term>
 struct kernel_arg_setter< tagged_terminal<Tag, Term> > {
-    static void set(cl::Kernel &kernel, unsigned device, size_t index_offset,
-            unsigned &position, const tagged_terminal<Tag, Term> &term,
-            detail::kernel_generator_state &state)
+    static void set(const tagged_terminal<Tag, Term> &term,
+            cl::Kernel &kernel, unsigned device, size_t index_offset,
+            unsigned &position, detail::kernel_generator_state &state)
     {
         auto s = state.find("tagged_terminal_arg");
 
@@ -216,7 +222,8 @@ struct kernel_arg_setter< tagged_terminal<Tag, Term> > {
 
         if (p == pos.end()) {
             pos[Tag] = position;
-            kernel_arg_setter<TermType>::set(kernel, device, index_offset, position, boost::proto::as_child(term.term), state);
+            kernel_arg_setter<TermType>::set(boost::proto::as_child(term.term),
+                    kernel, device, index_offset, position, state);
         }
     }
 };

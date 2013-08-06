@@ -65,7 +65,8 @@ struct kernel_param_declaration< T, typename std::enable_if<
         >::value
     >::type>
 {
-    static std::string get(const cl::Device&, const std::string &prm_name,
+    static std::string get(const T&,
+            const cl::Device&, const std::string &prm_name,
             detail::kernel_generator_state&)
     {
         std::ostringstream s;
@@ -82,7 +83,8 @@ struct partial_vector_expr< T, typename std::enable_if<
         >::value
     >::type >
 {
-    static std::string get(const cl::Device&, const std::string &prm_name,
+    static std::string get(const T&,
+            const cl::Device&, const std::string &prm_name,
             detail::kernel_generator_state&)
     {
         std::ostringstream s;
@@ -99,8 +101,9 @@ struct kernel_arg_setter< T, typename std::enable_if<
         >::value
     >::type>
 {
-    static void set(cl::Kernel &kernel, unsigned/*device*/, size_t index_offset,
-            unsigned &position, const T &term, detail::kernel_generator_state&)
+    static void set(const T &term,
+            cl::Kernel &kernel, unsigned/*device*/, size_t index_offset,
+            unsigned &position, detail::kernel_generator_state&)
     {
         kernel.setArg(position++, boost::proto::value(term).offset + index_offset);
     }

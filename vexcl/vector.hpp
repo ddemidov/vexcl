@@ -848,7 +848,8 @@ struct is_vector_expr_terminal< vector_terminal >
 
 template <typename T>
 struct kernel_param_declaration< vector<T> > {
-    static std::string get(const cl::Device&, const std::string &prm_name,
+    static std::string get(const vector<T>&,
+            const cl::Device&, const std::string &prm_name,
             detail::kernel_generator_state&)
     {
         std::ostringstream s;
@@ -859,7 +860,8 @@ struct kernel_param_declaration< vector<T> > {
 
 template <typename T>
 struct partial_vector_expr< vector<T> > {
-    static std::string get(const cl::Device&, const std::string &prm_name,
+    static std::string get(const vector<T>&,
+            const cl::Device&, const std::string &prm_name,
             detail::kernel_generator_state&)
     {
         std::ostringstream s;
@@ -870,9 +872,9 @@ struct partial_vector_expr< vector<T> > {
 
 template <typename T>
 struct kernel_arg_setter< vector<T> > {
-    static void set(cl::Kernel &kernel, unsigned device, size_t/*index_offset*/,
-            unsigned &position, const vector<T> &term,
-            detail::kernel_generator_state&)
+    static void set(const vector<T> &term,
+            cl::Kernel &kernel, unsigned device, size_t/*index_offset*/,
+            unsigned &position, detail::kernel_generator_state&)
     {
         kernel.setArg(position++, term(device));
     }
