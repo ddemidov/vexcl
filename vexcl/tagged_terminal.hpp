@@ -208,11 +208,11 @@ struct kernel_arg_setter< tagged_terminal<Tag, Term> > {
         if (s == state.end()) {
             s = state.insert(std::make_pair(
                         std::string("tagged_terminal_arg"),
-                        boost::any(std::map<size_t, unsigned>())
+                        boost::any(std::set<size_t>())
                         )).first;
         }
 
-        auto &pos = boost::any_cast< std::map<size_t, unsigned>& >(s->second);
+        auto &pos = boost::any_cast< std::set<size_t>& >(s->second);
         auto p = pos.find(Tag);
 
         typedef
@@ -221,7 +221,7 @@ struct kernel_arg_setter< tagged_terminal<Tag, Term> > {
             >::type TermType;
 
         if (p == pos.end()) {
-            pos[Tag] = position;
+            pos.insert(Tag);
             kernel_arg_setter<TermType>::set(boost::proto::as_child(term.term),
                     kernel, device, index_offset, position, state);
         }
