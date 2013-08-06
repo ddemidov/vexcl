@@ -55,9 +55,50 @@ struct temporary : public temporary_terminal_expression
 
 /// Create temporary to be reused in a vector expression.
 template <typename T, size_t Tag = 0, class Expr = void>
-temporary<T, Tag, Expr> make_temp(const Expr &expr) {
+typename std::enable_if<
+    boost::proto::matches<
+        typename boost::proto::result_of::as_expr< Expr >::type,
+        vector_expr_grammar
+    >::value,
+    temporary<T, Tag, Expr>
+>::type
+make_temp(const Expr &expr) {
     return temporary<T, Tag, Expr>(expr);
 }
+
+#ifdef VEXCL_MULTIVECTOR_HPP
+
+/// \cond INTERNAL
+struct mv_temporary_terminal {};
+
+typedef multivector_expression<
+    typename boost::proto::terminal< mv_temporary_terminal >::type
+    > mv_temporary_terminal_expression;
+
+template <typename T, size_t Tag, class Expr>
+struct mv_temporary : public mv_temporary_terminal_expression
+{
+    const Expr expr;
+
+    mv_temporary(const Expr &expr) : expr(expr) {}
+};
+
+/// \endcond
+
+/// Create temporary to be reused in a multivector expression.
+template <typename T, size_t Tag = 0, class Expr = void>
+typename std::enable_if<
+    boost::proto::matches<
+        typename boost::proto::result_of::as_expr< Expr >::type,
+        multivector_expr_grammar
+    >::value,
+    mv_temporary<T, Tag, Expr>
+>::type
+make_temp(const Expr &expr) {
+    return mv_temporary<T, Tag, Expr>(expr);
+}
+#endif
+
 
 /// \cond INTERNAL
 
@@ -237,7 +278,38 @@ struct expression_properties< temporary<T, Tag, Expr> > {
         size       = prop.size;
     }
 };
+
+#ifdef VEXCL_MULTIVECTOR_HPP
+template <>
+struct proto_terminal_is_value< mv_temporary_terminal >
+    : std::true_type
+{ };
+
+template <>
+struct is_multivector_expr_terminal< mv_temporary_terminal >
+    : std::true_type
+{ };
+
+template <size_t I, typename T, size_t Tag, class Expr>
+struct component< I, mv_temporary<T, Tag, Expr> > {
+    typedef
+        temporary<T, Tag,
+            decltype( detail::subexpression<I>::get( *static_cast<Expr*>(0) ) )
+            >
+        type;
+};
+#endif
+
 } // namespace traits
+
+#ifdef VEXCL_MULTIVECTOR_HPP
+template <size_t I, typename T, size_t Tag, class Expr>
+typename traits::component< I, mv_temporary<T, Tag, Expr> >::type
+get(const mv_temporary<T, Tag, Expr> &t)
+{
+    return make_temp<T, Tag>( detail::subexpression<I>::get(t.expr) );
+}
+#endif
 
 /// \endcond
 

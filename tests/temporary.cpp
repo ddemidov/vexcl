@@ -79,5 +79,25 @@ BOOST_AUTO_TEST_CASE(multiexpression_temporary)
             });
 }
 
+BOOST_AUTO_TEST_CASE(multivector_temporary)
+{
+    typedef std::array<double, 2> elem_t;
+    const size_t n = 1024;
+
+    vex::multivector<double, 2> x(ctx, random_vector<double>(2 * n));
+    vex::multivector<double, 2> y(ctx,n);
+
+    auto tmp = vex::make_temp<double>( tan(x) );
+
+    y = tmp * tmp;
+
+    check_sample(y, [&](size_t idx, elem_t v){
+            elem_t X = x[idx];
+
+            BOOST_CHECK_CLOSE(v[0], pow(tan(X[0]), 2.0), 1e-8);
+            BOOST_CHECK_CLOSE(v[1], pow(tan(X[1]), 2.0), 1e-8);
+            });
+}
+
 BOOST_AUTO_TEST_SUITE_END()
 
