@@ -1,6 +1,7 @@
 #define BOOST_TEST_MODULE TemporaryTerminal
 #include <boost/test/unit_test.hpp>
 #include <vexcl/vector.hpp>
+#include <vexcl/multivector.hpp>
 #include <vexcl/temporary.hpp>
 #include <vexcl/reductor.hpp>
 #include "context_setup.hpp"
@@ -56,6 +57,26 @@ BOOST_AUTO_TEST_CASE(reduce_temporary)
     vex::Reductor<double, vex::SUM> sum(ctx);
 
     BOOST_CHECK_CLOSE(sum(10 * (t1 + t2)), 10.0 * n, 1e-6);
+}
+
+BOOST_AUTO_TEST_CASE(multiexpression_temporary)
+{
+    typedef std::array<double, 2> elem_t;
+    const size_t n = 1024;
+
+    vex::vector<double> x(ctx, random_vector<double>(n));
+
+    vex::multivector<double, 2> y(ctx,n);
+
+    auto tmp = vex::make_temp<double>( sin(x) );
+
+    y = std::tie(tmp, sqrt(1 - tmp * tmp));
+
+    check_sample(y, [&](size_t idx, elem_t v){
+            double X = x[idx];
+            BOOST_CHECK_CLOSE(v[0], sin(X), 1e-8);
+            BOOST_CHECK_CLOSE(v[1], cos(X), 1e-8);
+            });
 }
 
 BOOST_AUTO_TEST_SUITE_END()

@@ -612,14 +612,24 @@ class multivector : public multivector_terminal_expression {
 
             template <long I>
             void apply() const {
-                source << "\t\t" << type_name<T>() << " buf_" << I + 1 << " = ";
+                source << "\t\t" << type_name<T>() << " buf_" << I + 1 << ";\n";
+
+                source << "\t\t{\n";
+
+                detail::output_local_preamble loc_init(source, device, I + 1);
+                boost::proto::eval(
+                        boost::proto::as_child(detail::subexpression<I>::get(expr)),
+                        loc_init
+                        );
+
+                source << "\t\tbuf_" << I + 1 << " = ";
 
                 detail::vector_expr_context expr_ctx(source, device, I + 1);
                 boost::proto::eval(
                         boost::proto::as_child(detail::subexpression<I>::get(expr)),
                         expr_ctx);
 
-                source << ";\n";
+                source << ";\n\t\t}\n";
             }
         };
 
