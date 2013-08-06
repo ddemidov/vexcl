@@ -133,9 +133,45 @@ struct kernel_param_declaration< temporary<T, Tag, Expr> > {
 };
 
 template <typename T, size_t Tag, class Expr>
-struct partial_vector_expr< temporary<T, Tag, Expr> > {
+struct local_terminal_init< temporary<T, Tag, Expr> > {
     static std::string get(const temporary<T, Tag, Expr> &term,
             const cl::Device &dev, const std::string &prm_name,
+            detail::kernel_generator_state &state)
+    {
+        auto s = state.find("temporary");
+
+        if (s == state.end()) {
+            s = state.insert(std::make_pair(
+                        std::string("temporary"),
+                        boost::any(std::set<size_t>())
+                        )).first;
+        }
+
+        auto &pos = boost::any_cast< std::set<size_t>& >(s->second);
+        auto p = pos.find(Tag);
+
+        if (p == pos.end()) {
+            pos.insert(Tag);
+
+            std::ostringstream s;
+
+            s << "\t\t" << type_name<T>() << " temp_" << Tag << " = ";
+
+            detail::vector_expr_context expr_ctx(s, dev, 1, prm_name + "_temp_");
+            boost::proto::eval(boost::proto::as_child(term.expr), expr_ctx);
+            s << ";\n";
+
+            return s.str();
+        } else {
+            return "";
+        }
+    }
+};
+
+template <typename T, size_t Tag, class Expr>
+struct partial_vector_expr< temporary<T, Tag, Expr> > {
+    static std::string get(const temporary<T, Tag, Expr>&,
+            const cl::Device&, const std::string &prm_name,
             detail::kernel_generator_state &state)
     {
         auto s = state.find("temporary");
@@ -151,16 +187,7 @@ struct partial_vector_expr< temporary<T, Tag, Expr> > {
         auto p = pos.find(Tag);
 
         if (p == pos.end()) {
-            /*
-            std::ostringstream s;
-
-            detail::vector_expr_context expr_ctx(s, dev, 1, prm_name + "_temp_");
-            s << "( ";
-            boost::proto::eval(boost::proto::as_child(term.expr), expr_ctx);
-            s << " )";
-            return (pos[Tag] = s.str());
-            */
-            return (pos[Tag] = std::string("temp_") + prm_name);
+            return (pos[Tag] = std::string("temp_") + std::to_string(Tag));
         } else {
             return p->second;
         }

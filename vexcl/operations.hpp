@@ -146,6 +146,17 @@ struct kernel_param_declaration {
     }
 };
 
+// Local terminal initialization (e.g. temporary declaration)
+template <class Term, class Enable = void>
+struct local_terminal_init {
+    static std::string get(const Term&,
+            const cl::Device&, const std::string &prm_name,
+            detail::kernel_generator_state&)
+    {
+        return "";
+    }
+};
+
 // Partial expression for a terminal:
 template <class Term, class Enable = void>
 struct partial_vector_expr {
@@ -1097,8 +1108,68 @@ struct output_terminal_preamble : public expression_context {
 
             ctx.os << traits::terminal_preamble<
                 typename std::decay<Term>::type
-                >::get(term,
-                    ctx.device, prm_name.str(), ctx.state) << std::endl;
+                >::get(term, ctx.device, prm_name.str(), ctx.state);
+	}
+    };
+};
+
+// Performs local initialization (such as declaring and initializing temporary values).
+struct output_local_preamble : public expression_context {
+    std::ostream &os;
+    const cl::Device &device;
+    int cmp_idx, prm_idx, fun_idx;
+    std::string prefix;
+
+    output_local_preamble(
+            std::ostream &os, const cl::Device &device,
+            int cmp_idx = 1, const std::string &prefix = ""
+            )
+        : os(os), device(device), cmp_idx(cmp_idx), prm_idx(0), fun_idx(0),
+          prefix(prefix)
+    {}
+
+    // Any expression except user function or terminal is only interesting
+    // for its children:
+    template <typename Expr, typename Tag = typename Expr::proto_tag>
+    struct eval {
+	typedef void result_type;
+
+	void operator()(const Expr &expr, output_local_preamble &ctx) const
+        {
+	    boost::fusion::for_each( expr,
+		    do_eval<output_local_preamble>(ctx));
+	}
+    };
+
+    // Functions are only interesting for their parameters:
+    template <typename Expr>
+    struct eval<Expr, boost::proto::tag::function> {
+	typedef void result_type;
+
+        // Builtin function is only interesting for its children:
+	template <class FunCall>
+	void operator()(const FunCall &expr, output_local_preamble &ctx) const
+        {
+	    boost::fusion::for_each(
+		    boost::fusion::pop_front(expr),
+		    do_eval<output_local_preamble>(ctx)
+		    );
+	}
+    };
+
+    // Some terminals need to be initialized:
+    template <typename Term>
+    struct eval<Term, boost::proto::tag::terminal> {
+	typedef void result_type;
+
+	void operator()(const Term &term, output_local_preamble &ctx) const
+        {
+            std::ostringstream prm_name;
+            prm_name << ctx.prefix << "prm_" << ctx.cmp_idx << "_" << ++ctx.prm_idx;
+
+            ctx.os << traits::local_terminal_init<
+                typename std::decay<Term>::type
+                >::get(term, ctx.device, prm_name.str(), ctx.state);
 	}
     };
 };
@@ -1604,6 +1675,10 @@ void assign_expression(LHS &lhs, const Expr &expr,
                 source <<
                     "\tfor(size_t idx = get_global_id(0); idx < n; idx += get_global_size(0)) {\n";
             }
+
+            output_local_preamble loc_init(source, device);
+            boost::proto::eval(boost::proto::as_child(lhs),  loc_init);
+            boost::proto::eval(boost::proto::as_child(expr), loc_init);
 
             vector_expr_context expr_ctx(source, device);
 

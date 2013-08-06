@@ -18,7 +18,8 @@ BOOST_AUTO_TEST_CASE(temporary)
 
     check_sample(y, [&](size_t idx, double v) {
             double X = x[idx];
-            BOOST_CHECK_CLOSE(v, X * X * (X + X * X), 1e-8);
+            double S = X * X + 25;
+            BOOST_CHECK_CLOSE(v, S * (X + S), 1e-8);
             });
 }
 
@@ -36,7 +37,9 @@ BOOST_AUTO_TEST_CASE(nested_temporary)
 
     check_sample(y, [&](size_t idx, double v) {
             double X = x[idx];
-            BOOST_CHECK_CLOSE(v, log(X) * (log(X) + sin(X)), 1e-8);
+            double T1 = log(X);
+            double T2 = T1 + sin(X);
+            BOOST_CHECK_CLOSE(v, T1 * T2, 1e-8);
             });
 }
 
