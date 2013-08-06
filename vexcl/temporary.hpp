@@ -171,7 +171,7 @@ struct local_terminal_init< temporary<T, Tag, Expr> > {
 template <typename T, size_t Tag, class Expr>
 struct partial_vector_expr< temporary<T, Tag, Expr> > {
     static std::string get(const temporary<T, Tag, Expr>&,
-            const cl::Device&, const std::string &prm_name,
+            const cl::Device&, const std::string &/*prm_name*/,
             detail::kernel_generator_state &state)
     {
         auto s = state.find("temporary");

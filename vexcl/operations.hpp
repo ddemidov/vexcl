@@ -150,7 +150,7 @@ struct kernel_param_declaration {
 template <class Term, class Enable = void>
 struct local_terminal_init {
     static std::string get(const Term&,
-            const cl::Device&, const std::string &prm_name,
+            const cl::Device&, const std::string &/*prm_name*/,
             detail::kernel_generator_state&)
     {
         return "";
