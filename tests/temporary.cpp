@@ -79,6 +79,7 @@ BOOST_AUTO_TEST_CASE(multiexpression_temporary)
             });
 }
 
+#if BOOST_VERSION >= 105000
 BOOST_AUTO_TEST_CASE(multivector_temporary)
 {
     typedef std::array<double, 2> elem_t;
@@ -98,6 +99,7 @@ BOOST_AUTO_TEST_CASE(multivector_temporary)
             BOOST_CHECK_CLOSE(v[1], pow(tan(X[1]), 2.0), 1e-8);
             });
 }
+#endif
 
 BOOST_AUTO_TEST_SUITE_END()
 
