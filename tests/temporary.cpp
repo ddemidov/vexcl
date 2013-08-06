@@ -13,7 +13,7 @@ BOOST_AUTO_TEST_CASE(temporary)
 
     VEX_FUNCTION(sqr, double(double), "return prm1 * prm1;");
 
-    auto s = vex::make_temp<double,1>( sqr(x) + 25 );
+    auto s = vex::make_temp<double>( sqr(x) + 25 );
     y = s * (x + s);
 
     check_sample(y, [&](size_t idx, double v) {

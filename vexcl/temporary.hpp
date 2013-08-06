@@ -54,7 +54,7 @@ struct temporary : public temporary_terminal_expression
 /// \endcond
 
 /// Create temporary to be reused in a vector expression.
-template <typename T, size_t Tag, class Expr>
+template <typename T, size_t Tag = 0, class Expr = void>
 temporary<T, Tag, Expr> make_temp(const Expr &expr) {
     return temporary<T, Tag, Expr>(expr);
 }
