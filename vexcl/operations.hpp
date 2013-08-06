@@ -1030,9 +1030,15 @@ struct vector_expr_context : public expression_context {
     std::ostream &os;
     const cl::Device &device;
     int cmp_idx, prm_idx, fun_idx;
+    std::string prefix;
 
-    vector_expr_context(std::ostream &os, const cl::Device &device, int cmp_idx = 1)
-        : os(os), device(device), cmp_idx(cmp_idx), prm_idx(0), fun_idx(0) {}
+    vector_expr_context(
+            std::ostream &os, const cl::Device &device,
+            int cmp_idx = 1, const std::string &prefix = ""
+            )
+        : os(os), device(device), cmp_idx(cmp_idx), prm_idx(0), fun_idx(0),
+          prefix(prefix)
+    {}
 
     template <typename Expr, typename Tag = typename Expr::proto_tag>
     struct eval {};
@@ -1166,7 +1172,7 @@ struct vector_expr_context : public expression_context {
         void
         >::type
         operator()(const FunCall &expr, vector_expr_context &ctx) const {
-            ctx.os << "func_" << ctx.cmp_idx << "_" << ++ctx.fun_idx << "( ";
+            ctx.os << ctx.prefix << "func_" << ctx.cmp_idx << "_" << ++ctx.fun_idx << "( ";
             boost::fusion::for_each(
                     boost::fusion::pop_front(expr), do_eval(ctx)
                     );
@@ -1181,7 +1187,7 @@ struct vector_expr_context : public expression_context {
         template <typename Term>
         void operator()(const Term&, vector_expr_context &ctx) const {
             std::ostringstream prm_name;
-            prm_name << "prm_" << ctx.cmp_idx << "_" << ++ctx.prm_idx;
+            prm_name << ctx.prefix << "prm_" << ctx.cmp_idx << "_" << ++ctx.prm_idx;
 
             ctx.os << traits::partial_vector_expr<Term>::get(
                     ctx.device, prm_name.str(), ctx.state);
@@ -1193,18 +1199,20 @@ struct declare_user_function {
     std::ostream &os;
     int cmp_idx;
     mutable int fun_idx;
+    std::string prefix;
 
-    declare_user_function(std::ostream &os, int cmp_idx = 1)
-        : os(os), cmp_idx(cmp_idx), fun_idx(0) {}
+    declare_user_function(std::ostream &os, int cmp_idx = 1, const std::string &prefix = "")
+        : os(os), cmp_idx(cmp_idx), fun_idx(0), prefix(prefix)
+    {}
 
-        template <class FunCall>
-        void operator()(const FunCall &expr) const {
-            std::ostringstream name;
-            name << "func_" << cmp_idx << "_" << ++fun_idx;
+    template <class FunCall>
+    void operator()(const FunCall &expr) const {
+        std::ostringstream name;
+        name << prefix << "func_" << cmp_idx << "_" << ++fun_idx;
 
-            // Output function definition and continue with parameters.
-            boost::proto::value(expr).define(os, name.str());
-        }
+        // Output function definition and continue with parameters.
+        boost::proto::value(expr).define(os, name.str());
+    }
 };
 
 struct output_terminal_preamble : expression_context {
@@ -1212,23 +1220,29 @@ struct output_terminal_preamble : expression_context {
     const cl::Device &device;
     int cmp_idx;
     mutable int prm_idx;
+    std::string prefix;
 
-    output_terminal_preamble(std::ostream &os, const cl::Device &device, int cmp_idx = 1)
-        : os(os), device(device), cmp_idx(cmp_idx), prm_idx(0) {}
+    output_terminal_preamble(
+            std::ostream &os, const cl::Device &device,
+            int cmp_idx = 1, const std::string &prefix = ""
+            )
+        : os(os), device(device), cmp_idx(cmp_idx), prm_idx(0), prefix(prefix)
+    {}
 
-        template <class Term>
-        void operator()(const Term&) const {
-            std::ostringstream prm_name;
-            prm_name << "prm_" << cmp_idx << "_" << ++prm_idx;
+    template <class Term>
+    void operator()(const Term&) const {
+        std::ostringstream prm_name;
+        prm_name << prefix << "prm_" << cmp_idx << "_" << ++prm_idx;
 
-            os << traits::terminal_preamble<Term>::get(
-                    device, prm_name.str(), state) << std::endl;
-        }
+        os << traits::terminal_preamble<Term>::get(
+                device, prm_name.str(), state) << std::endl;
+    }
 };
 
 template <class Expr>
-void construct_preamble(const Expr &expr, std::ostream &kernel_source, const cl::Device &device, int component = 1) {
-
+void construct_preamble(const Expr &expr, std::ostream &kernel_source,
+        const cl::Device &device, int component = 1)
+{
     extract_user_functions()(
             boost::proto::as_child(expr),
             declare_user_function(kernel_source, component)
@@ -1238,7 +1252,6 @@ void construct_preamble(const Expr &expr, std::ostream &kernel_source, const cl:
             boost::proto::as_child(expr),
             output_terminal_preamble(kernel_source, device, component)
             );
-
 }
 
 struct declare_expression_parameter : expression_context {
@@ -1246,14 +1259,17 @@ struct declare_expression_parameter : expression_context {
     const cl::Device &device;
     int cmp_idx;
     mutable int prm_idx;
+    std::string prefix;
 
-    declare_expression_parameter(std::ostream &os, const cl::Device &device, int cmp_idx = 1)
-        : os(os), device(device), cmp_idx(cmp_idx), prm_idx(0) {}
+    declare_expression_parameter(std::ostream &os, const cl::Device &device,
+            int cmp_idx = 1, const std::string &prefix = "")
+        : os(os), device(device), cmp_idx(cmp_idx), prm_idx(0), prefix(prefix)
+    {}
 
     template <typename T>
     void operator()(const T&) const {
         std::ostringstream prm_name;
-        prm_name << "prm_" << cmp_idx << "_" << ++prm_idx;
+        prm_name << prefix << "prm_" << cmp_idx << "_" << ++prm_idx;
 
         os << traits::kernel_param_declaration<T>::get(
                 device, prm_name.str(), state);
