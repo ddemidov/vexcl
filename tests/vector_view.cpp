@@ -136,7 +136,7 @@ BOOST_AUTO_TEST_CASE(reduce_slice)
 
     X = 1;
 
-    BOOST_CHECK_EQUAL(N / 2, sum( slice[vex::range(0, 2, N)](X) ));
+    BOOST_CHECK_EQUAL(static_cast<int>(N / 2), sum( slice[vex::range(0, 2, N)](X) ));
 }
 
 BOOST_AUTO_TEST_CASE(assign_to_view) {
@@ -157,14 +157,14 @@ BOOST_AUTO_TEST_CASE(assign_to_view) {
     slicer1[range(1, 2, n)](x) = 2;
 
     check_sample(x, [&](size_t idx, int v) {
-            BOOST_CHECK_EQUAL(v, idx % 2 + 1);
+            BOOST_CHECK_EQUAL(v, static_cast<int>(idx % 2 + 1));
             });
 
     for(size_t i = 0; i < m; ++i)
         slicer2[_][i](x) = i;
 
     check_sample(x, [&](size_t idx, int v) {
-            BOOST_CHECK_EQUAL(v, idx % m);
+            BOOST_CHECK_EQUAL(v, static_cast<int>(idx % m));
             });
 
     vex::vector<size_t> I(queue, m);
@@ -199,7 +199,7 @@ BOOST_AUTO_TEST_CASE(slice_reductor_single_dim)
 
     y = vex::reduce<vex::SUM>(slice[_][_](x), 1);
 
-    for(size_t i = 0; i < 32; ++i)
+    for(int i = 0; i < 32; ++i)
         BOOST_CHECK_EQUAL(y[i], i * 32);
 
     y = vex::reduce<vex::SUM>(slice[_][_](x), 0);
