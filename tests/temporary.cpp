@@ -79,7 +79,7 @@ BOOST_AUTO_TEST_CASE(multiexpression_temporary)
             });
 }
 
-#if BOOST_VERSION >= 105200
+#if (BOOST_VERSION >= 105200) && !defined(_MSC_VER)
 BOOST_AUTO_TEST_CASE(multivector_temporary)
 {
     typedef std::array<double, 2> elem_t;
