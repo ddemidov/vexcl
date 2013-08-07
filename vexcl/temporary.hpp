@@ -54,7 +54,11 @@ struct temporary : public temporary_terminal_expression
 /// \endcond
 
 /// Create temporary to be reused in a vector expression.
+#ifndef BOOST_NO_CXX11_FUNCTION_TEMPLATE_DEFAULT_ARGS
 template <typename T, size_t Tag = 0, class Expr = void>
+#else
+template <typename T, size_t Tag, class Expr>
+#endif
 typename std::enable_if<
     boost::proto::matches<
         typename boost::proto::result_of::as_expr< Expr >::type,
@@ -86,7 +90,11 @@ struct mv_temporary : public mv_temporary_terminal_expression
 /// \endcond
 
 /// Create temporary to be reused in a multivector expression.
+#ifndef BOOST_NO_CXX11_FUNCTION_TEMPLATE_DEFAULT_ARGS
 template <typename T, size_t Tag = 0, class Expr = void>
+#else
+template <typename T, size_t Tag, class Expr>
+#endif
 typename std::enable_if<
     boost::proto::matches<
         typename boost::proto::result_of::as_expr< Expr >::type,

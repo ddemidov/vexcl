@@ -15,7 +15,7 @@ BOOST_AUTO_TEST_CASE(temporary)
 
     VEX_FUNCTION(sqr, double(double), "return prm1 * prm1;");
 
-    auto s = vex::make_temp<double>( sqr(x) + 25 );
+    auto s = vex::make_temp<double, 1>( sqr(x) + 25 );
     y = s * (x + s);
 
     check_sample(y, [&](size_t idx, double v) {
@@ -68,7 +68,7 @@ BOOST_AUTO_TEST_CASE(multiexpression_temporary)
 
     vex::multivector<double, 2> y(ctx,n);
 
-    auto tmp = vex::make_temp<double>( sin(x) );
+    auto tmp = vex::make_temp<double, 1>( sin(x) );
 
     y = std::tie(tmp, sqrt(1 - tmp * tmp));
 
@@ -88,7 +88,7 @@ BOOST_AUTO_TEST_CASE(multivector_temporary)
     vex::multivector<double, 2> x(ctx, random_vector<double>(2 * n));
     vex::multivector<double, 2> y(ctx,n);
 
-    auto tmp = vex::make_temp<double>( tan(x) );
+    auto tmp = vex::make_temp<double, 1>( tan(x) );
 
     y = tmp * tmp;
 
