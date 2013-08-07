@@ -35,6 +35,7 @@ performance of several GPGPU libraries, including VexCL.
     * [Element indices](#element-indices)
     * [User-defined functions](#user-defined-functions)
     * [Tagged terminals](#tagged-terminals)
+    * [Temporary values](#temporary-values)
     * [Random number generation](#random-number-generation)
     * [Permutations](#permutations)
     * [Slicing](#slicing)
@@ -257,6 +258,41 @@ using vex::tag;
 Z = sqrt(tag<1>(X) * tag<1>(X) + tag<2>(Y) * tag<2>(Y));
 ~~~
 Here, the generated kernel will have one parameter per vectors `X` and `Y`.
+
+### <a name="temporary-values"></a>Temporary values
+
+Some expressions may have several occurences of the same subexpression.
+Unfortunately, VexCL is not able to determine these cases without programmer's
+help. For example, let's look at the following expression:
+~~~{.cpp}
+Y = log(X) * (log(X) + Z);
+~~~
+Here, `log(X)` would be computed twice. One could tag vector `X` as in:
+~~~{.cpp}
+auto x = vex::tag<1>(X);
+Y = log(x) * (log(x) + Z);
+~~~
+and hope that optimizing OpenCL compiler is smart enough to reuse result of
+`log(x)` call (e.g. NVIDIA's compiler _is_ smart enough to do this). But it is
+also possible to explicitly ask VexCL to store result of a subexpression in a
+local variable and reuse it. `vex::make_temp()` function template serves this
+purpose:
+~~~{.cpp}
+auto tmp = vex::make_temp<double>( log(X) );
+Y = tmp * (tmp + Z);
+~~~
+
+In case an expression involves several temporaries, it is necessary to tag each
+of them with a unique tag:
+~~~{.cpp}
+auto tmp1 = vex::make_temp<double, 1>( sin(X) );
+auto tmp2 = vex::make_temp<double, 2>( cos(X) );
+Y = (tmp1 - tmp2) * (tmp1 + tmp2);
+~~~
+
+Any valid vector or multivector expression (but not additive expressions, such
+as sparse matrix-vector products or FFT) may be wrapped into `make_temp()`
+call.
 
 ### <a name="random-number-generation"></a>Random number generation
 
