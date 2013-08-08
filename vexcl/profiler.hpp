@@ -251,7 +251,7 @@ class profiler {
 
                     out << " (" << setw(6) << watch.tics()
                         << "x; average:"
-                        << setprecision(2) << setw(10) << (watch.average() * 1e6)
+                        << setprecision(6) << scientific << (watch.average() * 1e6)
                         << " usec.)" << endl;
 
                     if (!children.empty()) {
