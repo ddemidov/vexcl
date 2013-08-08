@@ -32,11 +32,11 @@ struct Options {
 //---------------------------------------------------------------------------
 template <typename real>
 std::vector<real> random_vector(size_t n) {
-    static std::default_random_engine rng( std::rand() );
-    static std::uniform_real_distribution<real> rnd(0.0, 1.0);
+    std::default_random_engine rng( std::rand() );
+    std::uniform_real_distribution<real> rnd(0.0, 1.0);
 
     std::vector<real> x(n);
-    std::generate(x.begin(), x.end(), []() { return rnd(rng); });
+    std::generate(x.begin(), x.end(), [&]() { return rnd(rng); });
 
     return x;
 }
