@@ -24,20 +24,20 @@ struct name_of {
 
 template <>
 struct name_of<double> {
-  static const char* name="double";
+  static constexpr const char* name="double";
 };
 
 template <>
 struct name_of<float> {
-  static const char* name="float";
+  static constexpr const char* name="float";
 };
 
 template <typename real>
-std::vector<double> random_vector(size_t n) {
+std::vector<real> random_vector(size_t n) {
     static std::default_random_engine rng( std::rand() );
     static std::uniform_real_distribution<real> rnd(0.0, 1.0);
 
-    std::vector<double> x(n);
+    std::vector<real> x(n);
     std::generate(x.begin(), x.end(), []() { return rnd(rng); });
 
     return x;
@@ -50,14 +50,16 @@ std::pair<double,double> benchmark_vector(
         bool benchmark_cpu
         )
 {
+    prof.tic_cpu(name_of<real>::name);
+
     const size_t N = 1024 * 1024;
     const size_t M = 1024;
     double time_elapsed;
 
     std::vector<real> A(N, 0);
-    std::vector<real> B = random_vector(N);
-    std::vector<real> C = random_vector(N);
-    std::vector<real> D = random_vector(N);
+    std::vector<real> B = random_vector<real>(N);
+    std::vector<real> C = random_vector<real>(N);
+    std::vector<real> D = random_vector<real>(N);
 
     vex::vector<real> a(queue, A);
     vex::vector<real> b(queue, B);
@@ -112,6 +114,8 @@ std::pair<double,double> benchmark_vector(
     } // benchmark_cpu
 #endif
 
+    prof.toc(name_of<real>::name);
+
     return std::make_pair(gflops, bwidth);
 }
 
@@ -122,12 +126,14 @@ std::pair<double, double> benchmark_reductor(
         bool benchmark_cpu
         )
 {
+    prof.tic_cpu(name_of<real>::name);
+
     const size_t N = 16 * 1024 * 1024;
     const size_t M = 1024 / 16;
     double time_elapsed;
 
-    std::vector<real> A = random_vector(N);
-    std::vector<real> B = random_vector(N);
+    std::vector<real> A = random_vector<real>(N);
+    std::vector<real> B = random_vector<real>(N);
 
     vex::vector<real> a(queue, A);
     vex::vector<real> b(queue, B);
@@ -172,11 +178,13 @@ std::pair<double, double> benchmark_reductor(
             << std::endl;
     }
 
-    std::cout << "  res = " << fabs(sum_cl - sum_cpp)
+    std::cout << "  res = " << std::fabs(sum_cl - sum_cpp)
               << std::endl << std::endl;
 
     } // benchmark_cpu
 #endif
+
+    prof.toc(name_of<real>::name);
 
     return std::make_pair(gflops, bwidth);
 }
@@ -188,11 +196,13 @@ std::pair<double, double> benchmark_stencil(
         bool benchmark_cpu
         )
 {
+    prof.tic_cpu(name_of<real>::name);
+
     const long N = 1024 * 1024;
     const long M = 1024;
     double time_elapsed;
 
-    std::vector<real> A = random_vector(N);
+    std::vector<real> A = random_vector<real>(N);
     std::vector<real> B(N);
 
     std::vector<real> S(21, 1.0 / 21);
@@ -253,6 +263,8 @@ std::pair<double, double> benchmark_stencil(
     } // benchmark_cpu
 #endif
 
+    prof.toc(name_of<real>::name);
+
     return std::make_pair(gflops, bwidth);
 }
 
@@ -263,6 +275,8 @@ std::pair<double,double> benchmark_spmv(
         bool benchmark_cpu
         )
 {
+    prof.tic_cpu(name_of<real>::name);
+
     // Construct matrix for 3D Poisson problem in cubic domain.
     const size_t n = 128;
     const size_t N = n * n * n;
@@ -385,6 +399,8 @@ std::pair<double,double> benchmark_spmv(
     } // benchmark_cpu
 #endif
 
+    prof.toc(name_of<real>::name);
+
     return std::make_pair(gflops, bwidth);
 }
 
@@ -395,6 +411,8 @@ std::pair<double,double> benchmark_spmv_ccsr(
         bool benchmark_cpu
         )
 {
+    prof.tic_cpu(name_of<real>::name);
+
     // Construct matrix for 3D Poisson problem in cubic domain.
     const uint n = 128;
     const uint N = n * n * n;
@@ -518,6 +536,8 @@ std::pair<double,double> benchmark_spmv_ccsr(
     } // benchmark_cpu
 #endif
 
+    prof.toc(name_of<real>::name);
+
     return std::make_pair(gflops, bwidth);
 }
 
@@ -548,7 +568,8 @@ int main() {
 
 #ifdef BENCHMARK_VECTOR
         prof.tic_cpu("Vector arithmetic");
-        std::tie(gflops, bwidth) = benchmark_vector(ctx, prof);
+        std::tie(gflops, bwidth) = benchmark_vector<double>(ctx_d, prof, true);
+        benchmark_vector<float>(ctx_d, prof, true);
         prof.toc("Vector arithmetic");
 
         log << gflops << " " << bwidth << " ";
@@ -556,7 +577,8 @@ int main() {
 
 #ifdef BENCHMARK_REDUCTOR
         prof.tic_cpu("Reduction");
-        std::tie(gflops, bwidth) = benchmark_reductor(ctx, prof);
+        std::tie(gflops, bwidth) = benchmark_reductor<double>(ctx_d, prof, true);
+        benchmark_reductor<float>(ctx_d, prof, true);
         prof.toc("Reduction");
 
         log << gflops << " " << bwidth << " ";
@@ -564,7 +586,8 @@ int main() {
 
 #ifdef BENCHMARK_STENCIL
         prof.tic_cpu("Stencil");
-        std::tie(gflops, bwidth) = benchmark_stencil(ctx, prof);
+        std::tie(gflops, bwidth) = benchmark_stencil<double>(ctx_d, prof, true);
+        benchmark_stencil<float>(ctx_d, prof, true);
         prof.toc("Stencil");
 
         log << gflops << " " << bwidth << " ";
@@ -572,13 +595,15 @@ int main() {
 
 #ifdef BENCHMARK_SPMAT
         prof.tic_cpu("SpMV");
-        std::tie(gflops, bwidth) = benchmark_spmv(ctx, prof);
+        std::tie(gflops, bwidth) = benchmark_spmv<double>(ctx_d, prof, true);
+        benchmark_spmv<float>(ctx_d, prof, true);
         prof.toc("SpMV");
 
         log << gflops << " " << bwidth << std::endl;
 
         prof.tic_cpu("SpMV (CCSR)");
-        std::tie(gflops, bwidth) = benchmark_spmv_ccsr(ctx, prof);
+        std::tie(gflops, bwidth) = benchmark_spmv_ccsr<double>(ctx_d, prof, true);
+        benchmark_spmv_ccsr<float>(ctx_d, prof, true);
         prof.toc("SpMV (CCSR)");
 #endif
 
