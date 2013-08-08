@@ -617,6 +617,11 @@ class Context {
         operator bool() const {
             return !empty();
         }
+
+        void finish() const {
+            for(auto queue = q.begin(); queue != q.end(); ++queue)
+                queue->finish();
+        }
     private:
         std::vector<cl::Context>      c;
         std::vector<cl::CommandQueue> q;
