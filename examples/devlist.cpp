@@ -23,6 +23,7 @@ int main() {
                   << d->getInfo< name >() << endl
 
         SHOW_DEVPROP(CL_DEVICE_VENDOR);
+        SHOW_DEVPROP(CL_DEVICE_VERSION);
         SHOW_DEVPROP(CL_DEVICE_MAX_COMPUTE_UNITS);
         SHOW_DEVPROP(CL_DEVICE_HOST_UNIFIED_MEMORY);
         SHOW_DEVPROP(CL_DEVICE_GLOBAL_MEM_SIZE);
@@ -37,7 +38,7 @@ int main() {
         {
             istringstream iss(d->getInfo<CL_DEVICE_EXTENSIONS>());
             set<string> extensions;
-            
+
             extensions.insert(
                     istream_iterator<string>(iss),
                     istream_iterator<string>()
