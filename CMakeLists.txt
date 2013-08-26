@@ -62,11 +62,11 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 endif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -Wno-comment")
 
     option(USE_LIBCPP "Use libc++ with Clang" OFF)
     if (USE_LIBCPP)
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++ -Wno-comment")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
     endif (USE_LIBCPP)
 endif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
 
