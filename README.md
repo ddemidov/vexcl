@@ -380,9 +380,9 @@ _Slicing is only supported in single-device contexts._
 ### <a name="mba"></a>Scattered data interpolation with multilevel B-Splines
 
 VexCL provides an implementation of the MBA algorithm based on paper by Lee,
-Wolberg, and Shin (*S. Lee, G. Wolberg, and S. Y. Shin. Scattered data
+Wolberg, and Shin (<em>S. Lee, G. Wolberg, and S. Y. Shin. Scattered data
 interpolation with multilevel B-Splines. IEEE Transactions on Visualization and
-Computer Graphics, 3:228–244, 1997.*). This is a fast algorithm for scattered
+Computer Graphics, 3:228–244, 1997.</em>). This is a fast algorithm for scattered
 N-dimensional data interpolation and approximation.  Multilevel B-splines are
 used to compute a C2-continuous surface through a set of irregularly spaced
 points. The algorithm makes use of a coarse-to-fine hierarchy of control
