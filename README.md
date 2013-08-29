@@ -39,6 +39,7 @@ performance of several GPGPU libraries, including VexCL.
     * [Random number generation](#random-number-generation)
     * [Permutations](#permutations)
     * [Slicing](#slicing)
+    * [Scattered data interpolation with multilevel B-Splines](#mba)
 * [Reductions](#reductions)
 * [Sparse matrix-vector products](#sparse-matrix-vector-products)
 * [Stencil convolutions](#stencil-convolutions)
@@ -375,6 +376,56 @@ assert(Z.size() == 100);
 ~~~
 
 _Slicing is only supported in single-device contexts._
+
+### <a name="mba"></a>Scattered data interpolation with multilevel B-Splines
+
+VexCL provides an implementation of the MBA algorithm based on paper by Lee,
+Wolberg, and Shin (*S. Lee, G. Wolberg, and S. Y. Shin. Scattered data
+interpolation with multilevel B-Splines. IEEE Transactions on Visualization and
+Computer Graphics, 3:228–244, 1997.*). This is a fast algorithm for scattered
+N-dimensional data interpolation and approximation.  Multilevel B-splines are
+used to compute a C2-continuous surface through a set of irregularly spaced
+points. The algorithm makes use of a coarse-to-fine hierarchy of control
+lattices to generate a sequence of bicubic B-spline functions whose sum
+approaches the desired interpolation function. Large performance gains are
+realized by using B-spline refinement to reduce the sum of these functions into
+one equivalent B-spline function.  High-fidelity reconstruction is possible
+from a selected set of sparse and irregular samples.
+
+The algorithm is first prepared on a CPU. After that, it may be used in vector
+expressions. Here is an example in 2D:
+~~~{.cpp}
+// Coordinates of data points:
+std::vector< std::array<double,2> > coords = {
+    {0.0, 0.0},
+    {0.0, 1.0},
+    {1.0, 0.0},
+    {1.0, 1.0},
+    {0.4, 0.4},
+    {0.6, 0.6}
+};
+
+// Data values:
+std::vector<double> values = {
+    0.2, 0.0, 0.0, -0.2, -1.0, 1.0
+};
+
+// Bounding box:
+std::array<double, 2> xmin = {-0.01, -0.01};
+std::array<double, 2> xmax = { 1.01,  1.01};
+
+// Initial grid size:
+std::array<size_t, 2> grid = {5, 5};
+
+// Algorithm setup.
+vex::mba<2> surf(ctx, xmin, xmax, coords, values, grid);
+
+// x and y are coordinates of arbitrary 2D points:
+// vex::vector<double> x, y, z;
+
+// Get interpolated values:
+z = surf(x, y);
+~~~
 
 ## <a name="reductions"></a>Reductions
 

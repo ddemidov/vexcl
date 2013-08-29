@@ -161,6 +161,14 @@ namespace detail {
 /**
  * This is an implementation of the MBA algorithm from [1]. This is a fast
  * algorithm for scattered N-dimensional data interpolation and approximation.
+ * Multilevel B-splines are used to compute a C2-continuous surface
+ * through a set of irregularly spaced points. The algorithm makes use of a
+ * coarse-to-fine hierarchy of control lattices to generate a sequence of
+ * bicubic B-spline functions whose sum approaches the desired interpolation
+ * function. Large performance gains are realized by using B-spline refinement
+ * to reduce the sum of these functions into one equivalent B-spline function.
+ * High-fidelity reconstruction is possible from a selected set of sparse and
+ * irregular samples.
  *
  * [1] S. Lee, G. Wolberg, and S. Y. Shin. Scattered data interpolation with
  *     multilevel B-Splines. IEEE Transactions on Visualization and

@@ -44,6 +44,7 @@ THE SOFTWARE.
 #include <vexcl/gather.hpp>
 #include <vexcl/random.hpp>
 #include <vexcl/fft.hpp>
+#include <vexcl/mba.hpp>
 #include <vexcl/generator.hpp>
 #include <vexcl/profiler.hpp>
 
