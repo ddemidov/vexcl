@@ -7,7 +7,7 @@
 
 template <typename T = double>
 inline std::array<T, 2> make_array(T x,  T y) {
-    std::array<T, 2> p = {x, y};
+    std::array<T, 2> p = {{x, y}};
     return p;
 }
 

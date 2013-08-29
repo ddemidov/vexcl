@@ -44,6 +44,15 @@ THE SOFTWARE.
 
 #include <vexcl/operations.hpp>
 
+// Include boost.preprocessor header if variadic templates are not available.
+// Also include it if we use gcc v4.6.
+// This is required due to bug http://gcc.gnu.org/bugzilla/show_bug.cgi?id=35722
+#if defined(BOOST_NO_VARIADIC_TEMPLATES) || (defined(__GNUC__) && !defined(__clang__) && __GNUC__ == 4 && __GNUC_MINOR__ == 6)
+#  include <boost/preprocessor/repetition.hpp>
+#  ifndef VEXCL_MAX_ARITY
+#    define VEXCL_MAX_ARITY BOOST_PROTO_MAX_ARITY
+#  endif
+#endif
 namespace vex {
 
 /// \cond INTERNAL
@@ -110,9 +119,10 @@ namespace detail {
     class dcounter {
         public:
             dcounter(const std::array<size_t, M> &N)
-                : idx(0), N(N),
+                : idx(0),
                   size(std::accumulate(N.begin(), N.end(),
-                            static_cast<size_t>(1), std::multiplies<size_t>()))
+                            static_cast<size_t>(1), std::multiplies<size_t>())),
+                  N(N)
             {
                 std::fill(i.begin(), i.end(), static_cast<size_t>(0));
             }
@@ -229,15 +239,32 @@ class mba {
                             ) );
         }
 
+#if !defined(BOOST_NO_VARIADIC_TEMPLATES) && ((!defined(__GNUC__) || (__GNUC__ > 4 || __GNUC__ == 4 && __GNUC_MINOR__ > 6)) || defined(__clang__))
         /// Provide interpolated values at given coordinates.
         template <class... Expr>
-        typename std::enable_if<
-            sizeof...(Expr) == NDIM,
-            mba_interp< mba, boost::tuple<const Expr&...> >
-        >::type
+        mba_interp< mba, boost::tuple<const Expr&...> >
         operator()(const Expr&... expr) const {
+            static_assert(sizeof...(Expr) == NDIM, "Wrong number of parameters");
             return mba_interp< mba, boost::tuple<const Expr&...> >(*this, boost::tie(expr...));
         }
+#else
+
+#define PRINT_PARAM(z, n, data) const Expr ## n &expr ## n
+#define PRINT_TEMPL(z, n, data) const Expr ## n &
+#define FUNCALL_OPERATOR(z, n, data) \
+        template < BOOST_PP_ENUM_PARAMS(n, class Expr) > \
+        mba_interp< mba, boost::tuple<BOOST_PP_ENUM(n, PRINT_TEMPL, ~)> > \
+        operator()( BOOST_PP_ENUM(n, PRINT_PARAM, ~) ) { \
+            return mba_interp< mba, boost::tuple<BOOST_PP_ENUM(n, PRINT_TEMPL, ~)> >( \
+                    *this, boost::tie( BOOST_PP_ENUM_PARAMS(n, expr) )); \
+        }
+
+BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, FUNCALL_OPERATOR, ~)
+
+#undef PRINT_TEMPL
+#undef PRINT_PARAM
+#undef FUNCALL_OPERATOR
+#endif
     private:
         // Control lattice.
         struct lattice {
@@ -270,8 +297,6 @@ class mba {
 
                     index i;
                     point s;
-
-                    bool valid = true;
 
                     for(size_t d = 0; d < NDIM; ++d) {
                         real u = ((*p)[d] - xmin[d]) * hinv[d];
@@ -366,9 +391,9 @@ class mba {
 
             // Refine r and append it to the current control lattice.
             void append_refined(const lattice &r) {
-                static const std::array<real, 5> s = {
+                static const std::array<real, 5> s = {{
                     0.125, 0.500, 0.750, 0.500, 0.125
-                };
+                }};
 
                 for(detail::dcounter<NDIM> i(r.n); i.valid(); ++i) {
                     real f = r.phi[i];
@@ -453,9 +478,9 @@ struct is_vector_expr_terminal< mba_terminal > : std::true_type {};
 
 template <class MBA, class ExprTuple>
 struct terminal_preamble< mba_interp<MBA, ExprTuple> > {
-    static std::string get(const mba_interp<MBA, ExprTuple> &term,
-            const cl::Device &dev, const std::string &prm_name,
-            detail::kernel_generator_state &state)
+    static std::string get(const mba_interp<MBA, ExprTuple>&,
+            const cl::Device&, const std::string &prm_name,
+            detail::kernel_generator_state&)
     {
         std::ostringstream s;
 
@@ -528,7 +553,7 @@ template <class MBA, class ExprTuple>
 struct kernel_param_declaration< mba_interp<MBA, ExprTuple> > {
     static std::string get(const mba_interp<MBA, ExprTuple> &term,
             const cl::Device &dev, const std::string &prm_name,
-            detail::kernel_generator_state &state)
+            detail::kernel_generator_state&)
     {
         std::ostringstream s;
 
@@ -571,7 +596,7 @@ template <class MBA, class ExprTuple>
 struct partial_vector_expr< mba_interp<MBA, ExprTuple> > {
     static std::string get(const mba_interp<MBA, ExprTuple> &term,
             const cl::Device &dev, const std::string &prm_name,
-            detail::kernel_generator_state &state)
+            detail::kernel_generator_state&)
     {
         std::ostringstream s;
 
@@ -618,7 +643,7 @@ template <class MBA, class ExprTuple>
 struct kernel_arg_setter< mba_interp<MBA, ExprTuple> > {
     static void set(const mba_interp<MBA, ExprTuple> &term,
             cl::Kernel &kernel, unsigned device, size_t index_offset,
-            unsigned &position, detail::kernel_generator_state &state)
+            unsigned &position, detail::kernel_generator_state&)
     {
 
         boost::fusion::for_each(term.coord, setargs(kernel, device, index_offset, position));
