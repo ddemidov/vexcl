@@ -1031,6 +1031,10 @@ struct output_terminal_preamble : public expression_context {
           prefix(prefix)
     {}
 
+    void set_cmp(int c) {
+        cmp_idx = c;
+    }
+
     // Any expression except user function or terminal is only interesting
     // for its children:
     template <typename Expr, typename Tag = typename Expr::proto_tag>
@@ -1128,6 +1132,10 @@ struct output_local_preamble : public expression_context {
           prefix(prefix)
     {}
 
+    void set_cmp(int c) {
+        cmp_idx = c;
+    }
+
     // Any expression except user function or terminal is only interesting
     // for its children:
     template <typename Expr, typename Tag = typename Expr::proto_tag>
@@ -1188,6 +1196,10 @@ struct vector_expr_context : public expression_context {
         : os(os), device(device), cmp_idx(cmp_idx), prm_idx(0), fun_idx(0),
           prefix(prefix)
     {}
+
+    void set_cmp(int c) {
+        cmp_idx = c;
+    }
 
     template <typename Expr, typename Tag = typename Expr::proto_tag>
     struct eval {};
@@ -1355,6 +1367,10 @@ struct declare_expression_parameter : expression_context {
             int cmp_idx = 1, const std::string &prefix = "")
         : os(os), device(device), cmp_idx(cmp_idx), prm_idx(0), prefix(prefix)
     {}
+
+    void set_cmp(int c) {
+        cmp_idx = c;
+    }
 
     template <typename T>
     void operator()(const T &term) const {

@@ -138,7 +138,7 @@ struct terminal_preamble< temporary<T, Tag, Expr> > {
 
             std::ostringstream s;
 
-            detail::output_terminal_preamble termpream(s, dev, 1, prm_name + "_temp_");
+            detail::output_terminal_preamble termpream(s, dev, 1, prm_name + "_");
             boost::proto::eval(boost::proto::as_child(term.expr), termpream);
 
             return s.str();
@@ -171,7 +171,7 @@ struct kernel_param_declaration< temporary<T, Tag, Expr> > {
 
             std::ostringstream s;
 
-            detail::declare_expression_parameter declare(s, dev, 1, prm_name + "_temp_");
+            detail::declare_expression_parameter declare(s, dev, 1, prm_name + "_");
             detail::extract_terminals()(boost::proto::as_child(term.expr),  declare);
 
             return s.str();
@@ -206,7 +206,7 @@ struct local_terminal_init< temporary<T, Tag, Expr> > {
 
             s << "\t\t" << type_name<T>() << " temp_" << Tag << " = ";
 
-            detail::vector_expr_context expr_ctx(s, dev, 1, prm_name + "_temp_");
+            detail::vector_expr_context expr_ctx(s, dev, 1, prm_name + "_");
             boost::proto::eval(boost::proto::as_child(term.expr), expr_ctx);
             s << ";\n";
 
@@ -298,10 +298,15 @@ struct is_multivector_expr_terminal< mv_temporary_terminal >
     : std::true_type
 { };
 
+template <size_t Tag, size_t C>
+struct temporary_component_tag {
+    static const size_t value = 1000 * Tag + C;
+};
+
 template <size_t I, typename T, size_t Tag, class Expr>
 struct component< I, mv_temporary<T, Tag, Expr> > {
     typedef
-        temporary<T, Tag,
+        temporary<T, temporary_component_tag<Tag, I>::value,
             decltype( detail::subexpression<I>::get( *static_cast<Expr*>(0) ) )
             >
         type;
@@ -315,7 +320,9 @@ template <size_t I, typename T, size_t Tag, class Expr>
 typename traits::component< I, mv_temporary<T, Tag, Expr> >::type
 get(const mv_temporary<T, Tag, Expr> &t)
 {
-    return make_temp<T, Tag>( detail::subexpression<I>::get(t.expr) );
+    return make_temp<T, traits::temporary_component_tag<Tag, I>::value>(
+            detail::subexpression<I>::get(t.expr)
+            );
 }
 #endif
 

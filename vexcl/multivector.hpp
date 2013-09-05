@@ -569,15 +569,16 @@ class multivector : public multivector_terminal_expression {
             const Expr   &expr;
             std::ostream &source;
             const cl::Device &device;
+            mutable detail::output_terminal_preamble ctx;
 
             preamble_constructor(const Expr &expr, std::ostream &source, const cl::Device &device)
-                : expr(expr), source(source), device(device)
+                : expr(expr), source(source), device(device), ctx(source, device)
             { }
 
             template <long I>
             void apply() const {
-                detail::output_terminal_preamble termpream(source, device, I + 1);
-                boost::proto::eval(detail::subexpression<I>::get(expr), termpream);
+                ctx.set_cmp(I + 1);
+                boost::proto::eval(detail::subexpression<I>::get(expr), ctx);
             }
         };
 
@@ -586,16 +587,19 @@ class multivector : public multivector_terminal_expression {
             const Expr   &expr;
             std::ostream &source;
             const cl::Device &device;
+            mutable detail::declare_expression_parameter ctx;
 
             parameter_declarator(const Expr &expr, std::ostream &source, const cl::Device &device)
-                : expr(expr), source(source), device(device)
+                : expr(expr), source(source), device(device), ctx(source, device)
             { }
 
             template <long I>
             void apply() const {
+                ctx.set_cmp(I + 1);
+
                 detail::extract_terminals()(
                         boost::proto::as_child(detail::subexpression<I>::get(expr)),
-                        detail::declare_expression_parameter(source, device, I + 1)
+                        ctx
                         );
             }
         };
@@ -605,31 +609,30 @@ class multivector : public multivector_terminal_expression {
             const Expr   &expr;
             std::ostream &source;
             const cl::Device &device;
+            mutable detail::output_local_preamble loc_init;
+            mutable detail::vector_expr_context   expr_ctx;
 
             expression_builder(const Expr &expr, std::ostream &source, const cl::Device &device)
-                : expr(expr), source(source), device(device)
+                : expr(expr), source(source), device(device),
+                  loc_init(source, device), expr_ctx(source, device)
             { }
 
             template <long I>
             void apply() const {
-                source << "\t\t" << type_name<T>() << " buf_" << I + 1 << ";\n";
-
-                source << "\t\t{\n";
-
-                detail::output_local_preamble loc_init(source, device, I + 1);
+                loc_init.set_cmp(I + 1);
                 boost::proto::eval(
                         boost::proto::as_child(detail::subexpression<I>::get(expr)),
                         loc_init
                         );
 
-                source << "\t\tbuf_" << I + 1 << " = ";
+                source << "\t\t" << type_name<T>() << " buf_" << I + 1 << " = ";
 
-                detail::vector_expr_context expr_ctx(source, device, I + 1);
+                expr_ctx.set_cmp(I + 1);
                 boost::proto::eval(
                         boost::proto::as_child(detail::subexpression<I>::get(expr)),
                         expr_ctx);
 
-                source << ";\n\t\t}\n";
+                source << ";\n";
             }
         };
 
@@ -640,15 +643,18 @@ class multivector : public multivector_terminal_expression {
             unsigned     dev;
             size_t       offset;
             unsigned     &pos;
+            mutable detail::set_expression_argument ctx;
 
             kernel_arg_setter(const Expr &expr, cl::Kernel &krn, unsigned dev, size_t offset, unsigned &pos)
-                : expr(expr), krn(krn), dev(dev), offset(offset), pos(pos) { }
+                : expr(expr), krn(krn), dev(dev), offset(offset), pos(pos),
+                  ctx(krn, dev, pos, offset)
+            { }
 
             template <long I>
             void apply() const {
                 detail::extract_terminals()(
                             boost::proto::as_child(detail::subexpression<I>::get(expr)),
-                            detail::set_expression_argument(krn, dev, pos, offset)
+                            ctx
                             );
 
             }
