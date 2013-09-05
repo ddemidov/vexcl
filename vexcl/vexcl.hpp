@@ -46,6 +46,7 @@ THE SOFTWARE.
 #include <vexcl/fft.hpp>
 #include <vexcl/mba.hpp>
 #include <vexcl/generator.hpp>
+#include <vexcl/mba.hpp>
 #include <vexcl/profiler.hpp>
 
 #endif

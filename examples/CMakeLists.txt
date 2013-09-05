@@ -15,6 +15,12 @@ add_vexcl_example(benchmark)
 add_vexcl_example(fft_benchmark)
 add_vexcl_example(fft_profile)
 
+find_path(MBA_INCLUDE mba/mba.hpp)
+if (MBA_INCLUDE)
+    include_directories(${MBA_INCLUDE})
+    add_vexcl_example(mba_benchmark)
+endif (MBA_INCLUDE)
+
 #----------------------------------------------------------------------------
 # Symbolic example uses Boost.odeint available since Boost v1.53
 #----------------------------------------------------------------------------
