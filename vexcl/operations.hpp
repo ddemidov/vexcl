@@ -1631,8 +1631,8 @@ typedef std::map< cl_context, kernel_cache_entry > kernel_cache;
 //---------------------------------------------------------------------------
 // Assign expression to lhs
 //---------------------------------------------------------------------------
-template <class OP, class LHS, class Expr>
-void assign_expression(LHS &lhs, const Expr &expr,
+template <class OP, class LHS, class RHS>
+void assign_expression(LHS &lhs, const RHS &rhs,
         const std::vector<cl::CommandQueue> &queue,
         const std::vector<size_t> &part
         )
@@ -1652,16 +1652,16 @@ void assign_expression(LHS &lhs, const Expr &expr,
 
             output_terminal_preamble termpream(source, device);
 
-            boost::proto::eval(boost::proto::as_child(lhs),  termpream);
-            boost::proto::eval(boost::proto::as_child(expr), termpream);
+            boost::proto::eval(boost::proto::as_child(lhs), termpream);
+            boost::proto::eval(boost::proto::as_child(rhs), termpream);
 
             source << "kernel void vexcl_vector_kernel(\n"
                    "\t" << type_name<size_t>() << " n";
 
             declare_expression_parameter declare(source, device);
 
-            extract_terminals()(boost::proto::as_child(lhs),  declare);
-            extract_terminals()(boost::proto::as_child(expr), declare);
+            extract_terminals()(boost::proto::as_child(lhs), declare);
+            extract_terminals()(boost::proto::as_child(rhs), declare);
 
             source << "\n)\n{\n";
 
@@ -1677,8 +1677,8 @@ void assign_expression(LHS &lhs, const Expr &expr,
             }
 
             output_local_preamble loc_init(source, device);
-            boost::proto::eval(boost::proto::as_child(lhs),  loc_init);
-            boost::proto::eval(boost::proto::as_child(expr), loc_init);
+            boost::proto::eval(boost::proto::as_child(lhs), loc_init);
+            boost::proto::eval(boost::proto::as_child(rhs), loc_init);
 
             vector_expr_context expr_ctx(source, device);
 
@@ -1686,7 +1686,7 @@ void assign_expression(LHS &lhs, const Expr &expr,
 
             boost::proto::eval(boost::proto::as_child(lhs), expr_ctx);
             source << " " << OP::string() << " ";
-            boost::proto::eval(boost::proto::as_child(expr), expr_ctx);
+            boost::proto::eval(boost::proto::as_child(rhs), expr_ctx);
 
             source << ";\n\t}\n}\n";
 
@@ -1709,8 +1709,8 @@ void assign_expression(LHS &lhs, const Expr &expr,
 
             set_expression_argument setarg(kernel->second.kernel, d, pos, part[d]);
 
-            extract_terminals()( boost::proto::as_child(lhs),  setarg);
-            extract_terminals()( boost::proto::as_child(expr), setarg);
+            extract_terminals()( boost::proto::as_child(lhs), setarg);
+            extract_terminals()( boost::proto::as_child(rhs), setarg);
 
             queue[d].enqueueNDRangeKernel(
                     kernel->second.kernel, cl::NullRange, g_size, w_size

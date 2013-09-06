@@ -696,7 +696,7 @@ class multivector : public multivector_terminal_expression {
             if (
                     std::any_of(queue.begin(), queue.end(),
                         [](const cl::CommandQueue &q) {
-                            return is_cpu(qdev(q));\
+                            return is_cpu(qdev(q));
                         })
                )
             {
