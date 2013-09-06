@@ -21,6 +21,8 @@ if (MBA_INCLUDE)
     add_vexcl_example(mba_benchmark)
 endif (MBA_INCLUDE)
 
+add_vexcl_example(deduce)
+
 #----------------------------------------------------------------------------
 # Symbolic example uses Boost.odeint available since Boost v1.53
 #----------------------------------------------------------------------------
