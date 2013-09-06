@@ -726,7 +726,7 @@ class multivector : public multivector_terminal_expression {
 
                     for(size_t i = 0; i < N; )
                         source << ",\n\tglobal " << type_name<T>()
-                               << " *res_" << ++i;
+                               << " * res_" << ++i;
 
                     static_for<0, N>::loop(
                             parameter_declarator<Expr>(expr, source, device)

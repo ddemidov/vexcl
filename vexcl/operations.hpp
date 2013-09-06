@@ -1013,17 +1013,15 @@ struct extract_terminals
 
 // Base class for stateful expression evaluation contexts .
 struct expression_context {
-    mutable kernel_generator_state state;
-};
-
-// Outputs kernel preamble.
-struct output_terminal_preamble : public expression_context {
     std::ostream &os;
     const cl::Device &device;
-    int cmp_idx, prm_idx, fun_idx;
+    int cmp_idx;
+    mutable int prm_idx;
+    int fun_idx;
     std::string prefix;
+    mutable kernel_generator_state state;
 
-    output_terminal_preamble(
+    expression_context(
             std::ostream &os, const cl::Device &device,
             int cmp_idx = 1, const std::string &prefix = ""
             )
@@ -1034,6 +1032,18 @@ struct output_terminal_preamble : public expression_context {
     void set_cmp(int c) {
         cmp_idx = c;
     }
+
+};
+
+// Outputs kernel preamble.
+struct output_terminal_preamble : public expression_context {
+
+    output_terminal_preamble(
+            std::ostream &os, const cl::Device &device,
+            int cmp_idx = 1, const std::string &prefix = ""
+            )
+        : expression_context(os, device, cmp_idx, prefix)
+    {}
 
     // Any expression except user function or terminal is only interesting
     // for its children:
@@ -1119,22 +1129,13 @@ struct output_terminal_preamble : public expression_context {
 
 // Performs local initialization (such as declaring and initializing temporary values).
 struct output_local_preamble : public expression_context {
-    std::ostream &os;
-    const cl::Device &device;
-    int cmp_idx, prm_idx, fun_idx;
-    std::string prefix;
 
     output_local_preamble(
             std::ostream &os, const cl::Device &device,
             int cmp_idx = 1, const std::string &prefix = ""
             )
-        : os(os), device(device), cmp_idx(cmp_idx), prm_idx(0), fun_idx(0),
-          prefix(prefix)
+        : expression_context(os, device, cmp_idx, prefix)
     {}
-
-    void set_cmp(int c) {
-        cmp_idx = c;
-    }
 
     // Any expression except user function or terminal is only interesting
     // for its children:
@@ -1184,22 +1185,13 @@ struct output_local_preamble : public expression_context {
 
 // Builds textual representation for a vector expression.
 struct vector_expr_context : public expression_context {
-    std::ostream &os;
-    const cl::Device &device;
-    int cmp_idx, prm_idx, fun_idx;
-    std::string prefix;
 
     vector_expr_context(
             std::ostream &os, const cl::Device &device,
             int cmp_idx = 1, const std::string &prefix = ""
             )
-        : os(os), device(device), cmp_idx(cmp_idx), prm_idx(0), fun_idx(0),
-          prefix(prefix)
+        : expression_context(os, device, cmp_idx, prefix)
     {}
-
-    void set_cmp(int c) {
-        cmp_idx = c;
-    }
 
     template <typename Expr, typename Tag = typename Expr::proto_tag>
     struct eval {};
@@ -1357,20 +1349,11 @@ struct vector_expr_context : public expression_context {
 };
 
 struct declare_expression_parameter : expression_context {
-    std::ostream &os;
-    const cl::Device &device;
-    int cmp_idx;
-    mutable int prm_idx;
-    std::string prefix;
 
     declare_expression_parameter(std::ostream &os, const cl::Device &device,
             int cmp_idx = 1, const std::string &prefix = "")
-        : os(os), device(device), cmp_idx(cmp_idx), prm_idx(0), prefix(prefix)
+        : expression_context(os, device, cmp_idx, prefix)
     {}
-
-    void set_cmp(int c) {
-        cmp_idx = c;
-    }
 
     template <typename T>
     void operator()(const T &term) const {
@@ -1382,10 +1365,11 @@ struct declare_expression_parameter : expression_context {
     }
 };
 
-struct set_expression_argument : expression_context {
+struct set_expression_argument {
     cl::Kernel &krn;
     unsigned dev, &pos;
     size_t part_start;
+    mutable kernel_generator_state state;
 
     set_expression_argument(cl::Kernel &krn, unsigned dev, unsigned &pos, size_t part_start)
         : krn(krn), dev(dev), pos(pos), part_start(part_start) {}
