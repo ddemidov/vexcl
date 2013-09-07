@@ -120,6 +120,15 @@ struct hold_terminal_by_reference : std::false_type {};
 template <class T, class Enable = void>
 struct value_type { typedef T type; };
 
+// If a terminal has typedef'ed value_type, then use it:
+template <class T>
+struct value_type<T,
+    typename std::enable_if<
+        std::is_same<typename T::value_type, typename T::value_type>::value
+    >::type>
+{
+    typedef typename T::value_type type;
+};
 
 
 //---------------------------------------------------------------------------

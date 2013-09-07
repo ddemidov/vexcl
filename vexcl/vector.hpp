@@ -847,9 +847,6 @@ struct is_vector_expr_terminal< vector_terminal > : std::true_type {};
 template <>
 struct proto_terminal_is_value< vector_terminal > : std::true_type {};
 
-template <class T>
-struct value_type< vex::vector<T> > { typedef T type; };
-
 template <typename T>
 struct kernel_param_declaration< vector<T> > {
     static std::string get(const vector<T>&,
