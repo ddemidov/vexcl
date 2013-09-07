@@ -52,4 +52,17 @@ BOOST_AUTO_TEST_CASE(nary_expr)
     check<int>   (-y);
 }
 
+BOOST_AUTO_TEST_CASE(user_functions)
+{
+    vex::vector<double> x;
+    vex::vector<int> y;
+
+    VEX_FUNCTION(f1, double(double),      "return 42;");
+    VEX_FUNCTION(f2, int(double, double), "return 42;");
+
+    check<double>( f1(x) );
+    check<int>   ( f2(x, y) );
+    check<int>   ( f2(x + y, x - y) );
+}
+
 BOOST_AUTO_TEST_SUITE_END()

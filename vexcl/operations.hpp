@@ -680,6 +680,8 @@ struct UserFunction {};
 template<class Impl, class RetType, class... ArgType>
 struct UserFunction<Impl, RetType(ArgType...)> : user_function
 {
+    typedef RetType value_type;
+
     template <class... Arg>
     typename boost::proto::result_of::make_expr<
         boost::proto::tag::function,
@@ -1690,6 +1692,16 @@ struct deduce_value_type
                 >
             >,
             bool()
+        >,
+        // User-defined functions know their return type
+        boost::proto::when <
+            boost::proto::function<
+                boost::proto::terminal<
+                    boost::proto::convertible_to< user_function >
+                >,
+                boost::proto::vararg< boost::proto::_ >
+                >,
+            get_value_type( boost::proto::functional::value(boost::proto::_child0) )
         >,
         // Fold the operands of nary epxressions with std::common_type<>
         boost::proto::when <
