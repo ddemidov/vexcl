@@ -14,20 +14,30 @@ struct value_type< vex::vector<T> > {
     typedef T type;
 };
 
+}
+
+namespace detail {
+
 struct get_value_type : boost::proto::callable {
     template <class T> struct result;
 
     template <class This, class T>
     struct result< This(T) > {
         typedef
-            typename value_type< typename std::decay<T>::type >::type
+            typename traits::value_type< typename std::decay<T>::type >::type
             type;
     };
 };
 
-}
+struct common_type : boost::proto::callable {
+    template <class T> struct result;
 
-namespace detail {
+    template <class This, class T1, class T2>
+    struct result< This(T1, T2) > {
+        typedef typename std::common_type<T1, T2>::type type;
+    };
+};
+
 
 //---------------------------------------------------------------------------
 struct deduce_value_type
@@ -37,11 +47,11 @@ struct deduce_value_type
                 boost::proto::terminal< boost::proto::_ >,
                 boost::proto::if_< traits::proto_terminal_is_value< boost::proto::_value >() >
             >,
-            traits::get_value_type( boost::proto::_ )
+            get_value_type( boost::proto::_ )
         > ,
         boost::proto::when <
             boost::proto::terminal< boost::proto::_ >,
-            traits::get_value_type( boost::proto::_value )
+            get_value_type( boost::proto::_value )
         >,
         boost::proto::when <
             boost::proto::or_<
@@ -60,6 +70,14 @@ struct deduce_value_type
                 >
             >,
             bool()
+        >,
+        boost::proto::when <
+            boost::proto::nary_expr<boost::proto::_, boost::proto::vararg<boost::proto::_> >,
+            boost::proto::fold<
+                boost::proto::_,
+                bool(),
+                common_type(deduce_value_type, boost::proto::_state)
+            >()
         >
       >
 {};
@@ -98,4 +116,6 @@ int main() {
     deduce(x);
     deduce(y);
     deduce(x < y);
+    deduce(x + y);
+    deduce(-y);
 }
