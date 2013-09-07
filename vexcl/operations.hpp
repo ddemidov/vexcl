@@ -1693,6 +1693,10 @@ struct deduce_value_type
             >,
             bool()
         >,
+        boost::proto::when <
+            boost::proto::if_else_< boost::proto::_, boost::proto::_, boost::proto::_ >,
+            common_type( deduce_value_type(boost::proto::_child1), deduce_value_type(boost::proto::_child2) )
+        >,
         // User-defined functions know their return type
         boost::proto::when <
             boost::proto::function<

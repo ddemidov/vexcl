@@ -65,4 +65,12 @@ BOOST_AUTO_TEST_CASE(user_functions)
     check<int>   ( f2(x + y, x - y) );
 }
 
+BOOST_AUTO_TEST_CASE(ternary_operator)
+{
+    vex::vector<double> x;
+    vex::vector<int> y;
+
+    check<int>( if_else(x < 0, 1, y) );
+}
+
 BOOST_AUTO_TEST_SUITE_END()
