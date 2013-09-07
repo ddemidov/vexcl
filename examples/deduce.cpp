@@ -42,6 +42,24 @@ struct deduce_value_type
         boost::proto::when <
             boost::proto::terminal< boost::proto::_ >,
             traits::get_value_type( boost::proto::_value )
+        >,
+        boost::proto::when <
+            boost::proto::or_<
+                boost::proto::or_<
+                    boost::proto::less          < boost::proto::_, boost::proto::_ >,
+                    boost::proto::greater       < boost::proto::_, boost::proto::_ >,
+                    boost::proto::less_equal    < boost::proto::_, boost::proto::_ >,
+                    boost::proto::greater_equal < boost::proto::_, boost::proto::_ >,
+                    boost::proto::equal_to      < boost::proto::_, boost::proto::_ >,
+                    boost::proto::not_equal_to  < boost::proto::_, boost::proto::_ >
+                >,
+                boost::proto::or_<
+                    boost::proto::logical_and   < boost::proto::_, boost::proto::_ >,
+                    boost::proto::logical_or    < boost::proto::_, boost::proto::_ >,
+                    boost::proto::logical_not   < boost::proto::_ >
+                >
+            >,
+            bool()
         >
       >
 {};
@@ -79,4 +97,5 @@ int main() {
     deduce(4.2);
     deduce(x);
     deduce(y);
+    deduce(x < y);
 }

@@ -192,8 +192,13 @@ CL_TYPES(long);  CL_TYPES(ulong);
 #undef STRINGIFY
 
 // char and cl_char are different types. Hence, special handling is required:
-template <> inline std::string type_name<char>() { return "char"; } \
+template <> inline std::string type_name<char>() { return "char"; }
 template <> struct is_cl_native<char> : std::true_type {};
+
+// One can not pass bool to the kernel, but the overload is needed for type
+// deduction:
+template <> inline std::string type_name<bool>() { return "bool"; }
+
 
 #if defined(__APPLE__)
 template <> inline std::string type_name<size_t>() {
