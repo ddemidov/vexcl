@@ -116,6 +116,12 @@ struct is_vector_expr_terminal< T,
 template <class T, class Enable = void>
 struct hold_terminal_by_reference : std::false_type {};
 
+// Value type of a terminal
+template <class T, class Enable = void>
+struct value_type { typedef T type; };
+
+
+
 //---------------------------------------------------------------------------
 // Kernel source generation
 //---------------------------------------------------------------------------
@@ -1616,6 +1622,80 @@ VEXCL_ADDITIVE_EXPR_EXTRACTOR(extract_additive_multivector_transforms,
         multivector_full_grammar
         );
 
+//---------------------------------------------------------------------------
+// Expression result type deduction
+//---------------------------------------------------------------------------
+
+// Proxy for value_type<>
+struct get_value_type : boost::proto::callable {
+    template <class T> struct result;
+
+    template <class This, class T>
+    struct result< This(T) > {
+        typedef
+            typename traits::value_type< typename std::decay<T>::type >::type
+            type;
+    };
+};
+
+// Proxy for std::common_type<>
+struct common_type : boost::proto::callable {
+    template <class T> struct result;
+
+    template <class This, class T1, class T2>
+    struct result< This(T1, T2) > {
+        typedef typename std::common_type<T1, T2>::type type;
+    };
+};
+
+
+struct deduce_value_type
+    : boost::proto::or_<
+        // Terminals are passed to value_type<>
+        boost::proto::when <
+            boost::proto::and_<
+                boost::proto::terminal< boost::proto::_ >,
+                boost::proto::if_< traits::proto_terminal_is_value< boost::proto::_value >() >
+            >,
+            get_value_type( boost::proto::_ )
+        > ,
+        boost::proto::when <
+            boost::proto::terminal< boost::proto::_ >,
+            get_value_type( boost::proto::_value )
+        >,
+        // Result of logical operations is always bool
+        boost::proto::when <
+            boost::proto::or_<
+                boost::proto::or_<
+                    boost::proto::less          < boost::proto::_, boost::proto::_ >,
+                    boost::proto::greater       < boost::proto::_, boost::proto::_ >,
+                    boost::proto::less_equal    < boost::proto::_, boost::proto::_ >,
+                    boost::proto::greater_equal < boost::proto::_, boost::proto::_ >,
+                    boost::proto::equal_to      < boost::proto::_, boost::proto::_ >,
+                    boost::proto::not_equal_to  < boost::proto::_, boost::proto::_ >
+                >,
+                boost::proto::or_<
+                    boost::proto::logical_and   < boost::proto::_, boost::proto::_ >,
+                    boost::proto::logical_or    < boost::proto::_, boost::proto::_ >,
+                    boost::proto::logical_not   < boost::proto::_ >
+                >
+            >,
+            bool()
+        >,
+        // Fold the operands of nary epxressions with std::common_type<>
+        boost::proto::when <
+            boost::proto::nary_expr<boost::proto::_, boost::proto::vararg<boost::proto::_> >,
+            boost::proto::fold<
+                boost::proto::_,
+                bool(),
+                common_type(deduce_value_type, boost::proto::_state)
+            >()
+        >
+      >
+{};
+
+
+// Kernel cache (is a map from context handle to a kernel)
 struct kernel_cache_entry {
     cl::Kernel kernel;
     size_t     wgsize;
