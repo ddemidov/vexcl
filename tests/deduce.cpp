@@ -73,4 +73,13 @@ BOOST_AUTO_TEST_CASE(ternary_operator)
     check<int>( if_else(x < 0, 1, y) );
 }
 
+BOOST_AUTO_TEST_CASE(builtin_functions)
+{
+    vex::vector<double> x;
+    vex::vector<int> y;
+
+    check<double>( cos(x) - sin(y) );
+    check<double>( pow(x, 2.0 * y) );
+}
+
 BOOST_AUTO_TEST_SUITE_END()

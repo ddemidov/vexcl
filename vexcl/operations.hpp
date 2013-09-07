@@ -1697,6 +1697,21 @@ struct deduce_value_type
             boost::proto::if_else_< boost::proto::_, boost::proto::_, boost::proto::_ >,
             common_type( deduce_value_type(boost::proto::_child1), deduce_value_type(boost::proto::_child2) )
         >,
+        // We assume that type of builtin function is the common type of its
+        // arguments (TODO: this could be wrong for some functions).
+        boost::proto::when <
+            boost::proto::function<
+                boost::proto::terminal<
+                    boost::proto::convertible_to< builtin_function >
+                >,
+                boost::proto::vararg< boost::proto::_ >
+                >,
+            boost::proto::fold<
+                boost::proto::functional::pop_front( boost::proto::_ ),
+                bool(),
+                common_type(deduce_value_type, boost::proto::_state)
+            >()
+        >,
         // User-defined functions know their return type
         boost::proto::when <
             boost::proto::function<
