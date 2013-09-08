@@ -992,7 +992,7 @@ struct get_dimension<Expr, typename std::enable_if<
         is_tuple<typename std::decay<Expr>::type>::value
     >::type>
 {
-    const static size_t value = std::tuple_size<Expr>::value;
+    const static size_t value = std::tuple_size<typename std::decay<Expr>::type>::value;
 };
 
 } // namespace traits
@@ -1881,7 +1881,7 @@ void assign_expression(LHS &lhs, const RHS &rhs,
 }
 
 // Static for loop
-template <long Begin, long End>
+template <size_t Begin, size_t End>
 class static_for {
     public:
         template <class Func>
@@ -1890,14 +1890,14 @@ class static_for {
         }
 
     private:
-        template <long I, class Func>
+        template <size_t I, class Func>
         static typename std::enable_if<(I < End)>::type
         iterate(Func &&f) {
             f.template apply<I>();
             iterate<I + 1>(f);
         }
 
-        template <long I, class Func>
+        template <size_t I, class Func>
         static typename std::enable_if<(I >= End)>::type
         iterate(Func&&)
         { }
@@ -1916,7 +1916,7 @@ struct subexpression_assigner {
             )
         : lhs(lhs), rhs(rhs), queue(queue), part(part) {}
 
-    template <long I>
+    template <size_t I>
     void apply() const {
         detail::assign_expression<OP>(
                 subexpression<I>::get(lhs),
@@ -1941,7 +1941,7 @@ struct preamble_constructor {
           rhs_ctx(source, device, 1, "rhs_")
     { }
 
-    template <long I>
+    template <size_t I>
     void apply() const {
         lhs_ctx.set_cmp(I + 1);
         rhs_ctx.set_cmp(I + 1);
@@ -1966,7 +1966,7 @@ struct parameter_declarator {
           rhs_ctx(source, device, 1, "rhs_")
     { }
 
-    template <long I>
+    template <size_t I>
     void apply() const {
         lhs_ctx.set_cmp(I + 1);
         rhs_ctx.set_cmp(I + 1);
@@ -1997,7 +1997,7 @@ struct expression_init {
           rhs_ctx(source, device, 1, "rhs_")
     { }
 
-    template <long I>
+    template <size_t I>
     void apply() const {
         lhs_pre.set_cmp(I + 1);
         rhs_pre.set_cmp(I + 1);
@@ -2030,7 +2030,7 @@ struct expression_finalize {
         : lhs(lhs), source(source), lhs_ctx(source, device, 1, "lhs_")
     { }
 
-    template <long I>
+    template <size_t I>
     void apply() const {
         lhs_ctx.set_cmp(I + 1);
         source << "\t\t";
@@ -2051,7 +2051,7 @@ struct kernel_arg_setter {
         : lhs(lhs), rhs(rhs), ctx(krn, dev, pos, offset)
     { }
 
-    template <long I>
+    template <size_t I>
     void apply() const {
         detail::extract_terminals()(subexpression<I>::get(lhs), ctx);
         detail::extract_terminals()(subexpression<I>::get(rhs), ctx);
