@@ -58,6 +58,8 @@ typedef vector_expression<
 template <typename T, class Slice>
 struct vector_view : public vector_view_terminal_expression
 {
+    typedef T value_type;
+
     const vector<T> &base;
     const Slice     &slice;
 
@@ -116,6 +118,9 @@ namespace traits {
 
 template <>
 struct is_vector_expr_terminal< vector_view_terminal > : std::true_type {};
+
+template <>
+struct proto_terminal_is_value< vector_view_terminal > : std::true_type {};
 
 template <typename T, class Slice>
 struct terminal_preamble< vector_view<T, Slice> > {

@@ -46,6 +46,8 @@ typedef vector_expression<
 template <typename T, size_t Tag, class Expr>
 struct temporary : public temporary_terminal_expression
 {
+    typedef typename detail::return_type<Expr>::type value_type;
+
     const Expr expr;
 
     temporary(const Expr &expr) : expr(expr) {}
@@ -114,6 +116,9 @@ namespace traits {
 
 template <>
 struct is_vector_expr_terminal< temporary_terminal > : std::true_type {};
+
+template <>
+struct proto_terminal_is_value< temporary_terminal > : std::true_type {};
 
 template <typename T, size_t Tag, class Expr>
 struct terminal_preamble< temporary<T, Tag, Expr> > {

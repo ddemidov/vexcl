@@ -37,6 +37,8 @@ namespace vex {
 
 /// \cond INTERNAL
 struct elem_index {
+    typedef size_t value_type;
+
     size_t offset;
 
     elem_index(size_t offset = 0) : offset(offset) {}

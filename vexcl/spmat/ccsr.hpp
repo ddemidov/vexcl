@@ -95,6 +95,7 @@ typedef vector_expression<
 template <typename val_t, typename col_t, typename idx_t, typename T>
 struct ccsr_product : public ccsr_product_terminal_expression
 {
+    typedef val_t value_type;
     typedef SpMatCCSR<val_t, col_t, idx_t> matrix;
 
     const matrix    &A;
@@ -148,9 +149,10 @@ operator*(
 namespace traits {
 
 template <>
-struct is_vector_expr_terminal< ccsr_product_terminal >
-    : std::true_type
-{ };
+struct is_vector_expr_terminal< ccsr_product_terminal > : std::true_type {};
+
+template <>
+struct proto_terminal_is_value< ccsr_product_terminal > : std::true_type {};
 
 #ifdef VEXCL_MULTIVECTOR_HPP
 template <>

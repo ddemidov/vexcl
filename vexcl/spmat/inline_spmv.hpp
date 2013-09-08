@@ -43,6 +43,8 @@ typedef vector_expression<
 template <typename val_t, typename col_t, typename idx_t>
 struct inline_spmv : inline_spmv_terminal_expression {
     typedef spmv<val_t, col_t, idx_t> Base;
+    typedef val_t value_type;
+
     const typename Base::mat &A;
     const typename Base::vec &x;
 
@@ -116,9 +118,10 @@ make_inline(const multispmv<val_t, col_t, idx_t, MV> &base) {
 namespace traits {
 
 template <>
-struct is_vector_expr_terminal< inline_spmv_terminal >
-    : std::true_type
-{ };
+struct is_vector_expr_terminal< inline_spmv_terminal > : std::true_type {};
+
+template <>
+struct proto_terminal_is_value< inline_spmv_terminal > : std::true_type {};
 
 #ifdef VEXCL_MULTIVECTOR_HPP
 template <>

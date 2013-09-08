@@ -1,7 +1,19 @@
 #define BOOST_TEST_MODULE ExpressionTypeDeduction
 #include <boost/test/unit_test.hpp>
 #include <vexcl/vector.hpp>
+#include <vexcl/element_index.hpp>
+#include <vexcl/mba.hpp>
+#include <vexcl/spmat.hpp>
+#include <vexcl/tagged_terminal.hpp>
+#include <vexcl/temporary.hpp>
+#include <vexcl/vector_view.hpp>
 #include "context_setup.hpp"
+
+template <typename T = double>
+inline std::array<T, 2> make_array(T x,  T y) {
+    std::array<T, 2> p = {{x, y}};
+    return p;
+}
 
 template <class Result, class Expr>
 void check(const Expr &expr) {
@@ -15,6 +27,8 @@ void check(const Expr &expr) {
 
 BOOST_AUTO_TEST_CASE(terminals)
 {
+    const ssize_t n = 1024;
+
     vex::vector<double> x;
     vex::vector<int> y;
 
@@ -22,6 +36,38 @@ BOOST_AUTO_TEST_CASE(terminals)
     check<double>(4.2);
     check<double>(x);
     check<int>   (y);
+    check<size_t>(vex::element_index());
+
+    {
+        vex::mba<2, float> *surf= 0;
+        check<float>( (*surf)(x, y) );
+    }
+
+    {
+        vex::SpMatCCSR<double> *A = 0;
+        check<double>( (*A) * x );
+    }
+
+    {
+        std::vector<cl::CommandQueue> q1(1, ctx.queue(0));
+        vex::vector<double> x1(q1, n);
+        vex::SpMat<double> *A = 0;
+        check<double>( vex::make_inline( (*A) * x1 ) );
+    }
+
+    check<double>( vex::tag<1>(x) );
+
+    {
+        auto tmp = vex::make_temp<double, 1>(x * y);
+        check<double>( tmp );
+    }
+
+    {
+        std::vector<cl::CommandQueue> q1(1, ctx.queue(0));
+        vex::vector<int> x1(q1, n);
+        vex::slicer<1> slice(vex::extents[n]);
+        check<int>( slice[vex::range(0, 2, n)](x1) );
+    }
 }
 
 BOOST_AUTO_TEST_CASE(logical_expr)

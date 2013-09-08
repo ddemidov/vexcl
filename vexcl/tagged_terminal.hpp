@@ -51,6 +51,8 @@ typedef vector_expression<
 template <size_t Tag, class Term>
 struct tagged_terminal : tagged_terminal_expression
 {
+    typedef typename detail::return_type<Term>::type value_type;
+
     const Term & term;
     tagged_terminal(const Term &term) : term(term) {}
 
@@ -91,9 +93,10 @@ struct tagged_terminal : tagged_terminal_expression
 namespace traits {
 
 template <>
-struct is_vector_expr_terminal< tagged_terminal_terminal >
-    : std::true_type
-{ };
+struct is_vector_expr_terminal< tagged_terminal_terminal > : std::true_type {};
+
+template <>
+struct proto_terminal_is_value< tagged_terminal_terminal > : std::true_type {};
 
 template <size_t Tag, class Term>
 struct terminal_preamble< tagged_terminal<Tag, Term> > {

@@ -64,6 +64,8 @@ typedef vector_expression<
 
 template <class MBA, class ExprTuple>
 struct mba_interp : public mba_terminal_expression {
+    typedef typename MBA::value_type value_type;
+
     const MBA      &cloud;
     const ExprTuple coord;
 
@@ -358,7 +360,7 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, FUNCALL_OPERATOR, ~)
             }
 
             // Get interpolated value at given position.
-            double operator()(std::array<double, NDIM> p) const {
+            real operator()(const point &p) const {
                 index i;
                 point s;
 
@@ -368,10 +370,10 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, FUNCALL_OPERATOR, ~)
                     s[d] = u - std::floor(u);
                 }
 
-                double f = 0;
+                real f = 0;
 
                 for(detail::scounter<4, NDIM> d; d.valid(); ++d) {
-                    double w = 1;
+                    real w = 1;
                     for(size_t k = 0; k < NDIM; ++k)
                         w *= B(d[k], s[k]);
 
@@ -446,7 +448,7 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, FUNCALL_OPERATOR, ~)
                     }
                 }
 
-                // x is within [xmin, xmax].random_vector<double>(n)
+                // x is within [xmin, xmax].
                 static bool contained(
                         const point &xmin, const point &xmax, const point &x)
                 {
@@ -460,7 +462,7 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, FUNCALL_OPERATOR, ~)
                     return true;
                 }
 
-                // Get value of phi at index (i + d).random_vector<double>(n)
+                // Get value of phi at index (i + d).
                 template <class Shift>
                 inline real get(const index &i, const Shift &d) const {
                     size_t idx = 0;
@@ -483,6 +485,9 @@ namespace traits {
 
 template <>
 struct is_vector_expr_terminal< mba_terminal > : std::true_type {};
+
+template <>
+struct proto_terminal_is_value< mba_terminal > : std::true_type {};
 
 template <class MBA, class ExprTuple>
 struct terminal_preamble< mba_interp<MBA, ExprTuple> > {
