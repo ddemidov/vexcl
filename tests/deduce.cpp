@@ -5,15 +5,7 @@
 
 template <class Result, class Expr>
 void check(const Expr &expr) {
-    typedef typename boost::proto::result_of::as_expr<Expr>::type ExprType;
-
-    typedef
-        typename std::decay<
-                typename boost::result_of<
-                    vex::detail::deduce_value_type(ExprType)
-                >::type
-            >::type
-        Deduced;
+    typedef typename vex::detail::return_type<Expr>::type Deduced;
 
     boost::proto::display_expr( boost::proto::as_child(expr) );
     std::cout << vex::type_name<Deduced>() << std::endl << std::endl;

@@ -1734,6 +1734,20 @@ struct deduce_value_type
       >
 {};
 
+// Hide the ugly type deduction details in an easy to use metafunction:
+template <class Expr>
+struct return_type {
+    typedef
+        typename std::decay<
+                typename boost::result_of<
+                    deduce_value_type(
+                        typename boost::proto::result_of::as_expr<Expr>::type
+                        )
+                >::type
+            >::type
+        type;
+};
+
 
 // Kernel cache (is a map from context handle to a kernel)
 struct kernel_cache_entry {
