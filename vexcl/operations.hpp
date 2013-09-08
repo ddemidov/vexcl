@@ -733,6 +733,7 @@ struct UserFunction<Impl, RetType(ArgType...)> : user_function
 template< class Impl, class RetType, BOOST_PP_ENUM_PARAMS(n, class ArgType) > \
 struct UserFunction<Impl, RetType( BOOST_PP_ENUM_PARAMS(n, ArgType) )> : user_function \
 { \
+    typedef RetType value_type; \
     template < BOOST_PP_ENUM_PARAMS(n, class Arg) > \
     typename boost::proto::result_of::make_expr< \
         boost::proto::tag::function, \
