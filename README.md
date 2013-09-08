@@ -279,15 +279,8 @@ also possible to explicitly ask VexCL to store result of a subexpression in a
 local variable and reuse it. `vex::make_temp()` function template serves this
 purpose:
 ~~~{.cpp}
-auto tmp = vex::make_temp<double>( log(X) );
-Y = tmp * (tmp + Z);
-~~~
-
-In case an expression involves several temporaries, it is necessary to tag each
-of them with a unique tag:
-~~~{.cpp}
-auto tmp1 = vex::make_temp<double, 1>( sin(X) );
-auto tmp2 = vex::make_temp<double, 2>( cos(X) );
+auto tmp1 = vex::make_temp<1>( sin(X) );
+auto tmp2 = vex::make_temp<2>( cos(X) );
 Y = (tmp1 - tmp2) * (tmp1 + tmp2);
 ~~~
 

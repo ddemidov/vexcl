@@ -46,7 +46,8 @@ typedef vector_expression<
 template <typename T, size_t Tag, class Expr>
 struct temporary : public temporary_terminal_expression
 {
-    typedef typename detail::return_type<Expr>::type value_type;
+    //typedef typename detail::return_type<Expr>::type value_type;
+    typedef T value_type;
 
     const Expr expr;
 
@@ -56,11 +57,8 @@ struct temporary : public temporary_terminal_expression
 /// \endcond
 
 /// Create temporary to be reused in a vector expression.
-#ifndef BOOST_NO_CXX11_FUNCTION_TEMPLATE_DEFAULT_ARGS
-template <typename T, size_t Tag = 0, class Expr = void>
-#else
-template <typename T, size_t Tag, class Expr>
-#endif
+/** The type of the temporary is explicitly specified. */
+template <size_t Tag, typename T, class Expr>
 typename std::enable_if<
     boost::proto::matches<
         typename boost::proto::result_of::as_expr< Expr >::type,
@@ -70,6 +68,21 @@ typename std::enable_if<
 >::type
 make_temp(const Expr &expr) {
     return temporary<T, Tag, Expr>(expr);
+}
+
+/// Create temporary to be reused in a vector expression.
+/** The type of the temporary is automatically deduced from the supplied
+ * expression. */
+template <size_t Tag, class Expr>
+typename std::enable_if<
+    boost::proto::matches<
+        typename boost::proto::result_of::as_expr< Expr >::type,
+        vector_expr_grammar
+    >::value,
+    temporary<typename detail::return_type<Expr>::type, Tag, Expr>
+>::type
+make_temp(const Expr &expr) {
+    return temporary<typename detail::return_type<Expr>::type, Tag, Expr>(expr);
 }
 
 #ifdef VEXCL_MULTIVECTOR_HPP
@@ -92,11 +105,7 @@ struct mv_temporary : public mv_temporary_terminal_expression
 /// \endcond
 
 /// Create temporary to be reused in a multivector expression.
-#ifndef BOOST_NO_CXX11_FUNCTION_TEMPLATE_DEFAULT_ARGS
-template <typename T, size_t Tag = 0, class Expr = void>
-#else
-template <typename T, size_t Tag, class Expr>
-#endif
+template <size_t Tag, typename T, class Expr>
 typename std::enable_if<
     boost::proto::matches<
         typename boost::proto::result_of::as_expr< Expr >::type,
@@ -325,7 +334,7 @@ template <size_t I, typename T, size_t Tag, class Expr>
 typename traits::component< I, mv_temporary<T, Tag, Expr> >::type
 get(const mv_temporary<T, Tag, Expr> &t)
 {
-    return make_temp<T, traits::temporary_component_tag<Tag, I>::value>(
+    return make_temp<traits::temporary_component_tag<Tag, I>::value, T>(
             detail::subexpression<I>::get(t.expr)
             );
 }

@@ -58,7 +58,7 @@ BOOST_AUTO_TEST_CASE(terminals)
     check<double>( vex::tag<1>(x) );
 
     {
-        auto tmp = vex::make_temp<double, 1>(x * y);
+        auto tmp = vex::make_temp<1>(x * y);
         check<double>( tmp );
     }
 
