@@ -55,5 +55,4 @@ install(FILES    ${sources}  DESTINATION share/vexcl/examples/src)
 
 #----------------------------------------------------------------------------
 add_subdirectory(viennacl)
-add_subdirectory(mpi)
 
