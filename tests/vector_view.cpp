@@ -167,6 +167,13 @@ BOOST_AUTO_TEST_CASE(assign_to_view) {
             BOOST_CHECK_EQUAL(v, static_cast<int>(idx % m));
             });
 
+    vex::tie(slicer2[1](x), slicer2[2](x)) = std::make_tuple(1, 2);
+
+    for(size_t i = 0; i < m; ++i) {
+        BOOST_CHECK_EQUAL(x[1 * m + i], 1);
+        BOOST_CHECK_EQUAL(x[2 * m + i], 2);
+    }
+
     vex::vector<size_t> I(queue, m);
 
     I = vex::element_index() * m;
