@@ -124,6 +124,15 @@ vector<T>& get(multivector<T, N, own> &mv) {
     return mv(I);
 }
 
+namespace detail {
+
+template <class OP, class LHS, class RHS>
+void assign_multiexpression(LHS &lhs, const RHS &rhs,
+        const std::vector<cl::CommandQueue> &queue,
+        const std::vector<size_t> &part
+        );
+}
+
 
 typedef multivector_expression<
     typename boost::proto::terminal< multivector_terminal >::type
@@ -140,6 +149,8 @@ class multivector : public multivector_terminal_expression {
         typedef vex::vector<T>  subtype;
         typedef std::array<T,N> value_type;
 	typedef T               sub_value_type;
+
+        const static size_t NDIM = N;
 
         /// Proxy class.
         class element {
@@ -401,7 +412,7 @@ class multivector : public multivector_terminal_expression {
             const multivector& \
         >::type \
         operator cop(const Expr &expr) { \
-            assign_expression<op>(expr); \
+            detail::assign_multiexpression<op>(*this, expr, vec[0]->queue_list(), vec[0]->partition()); \
             return *this; \
         }
 #endif
@@ -548,236 +559,6 @@ class multivector : public multivector_terminal_expression {
                 vec[i] = mv.vec[i];
         }
 
-        template <class OP, class Expr>
-        struct subexpression_assigner {
-            multivector &result;
-            const Expr &expr;
-
-            subexpression_assigner(multivector &result, const Expr &expr)
-                : result(result), expr(expr) { }
-
-            template <long I>
-            void apply() const {
-                detail::assign_expression<OP>(
-                        result(I), detail::subexpression<I>::get(expr),
-                        result(I).queue, result(I).part);
-            }
-        };
-
-        template <class Expr>
-        struct preamble_constructor {
-            const Expr   &expr;
-            std::ostream &source;
-            const cl::Device &device;
-            mutable detail::output_terminal_preamble ctx;
-
-            preamble_constructor(const Expr &expr, std::ostream &source, const cl::Device &device)
-                : expr(expr), source(source), device(device), ctx(source, device)
-            { }
-
-            template <long I>
-            void apply() const {
-                ctx.set_cmp(I + 1);
-                boost::proto::eval(detail::subexpression<I>::get(expr), ctx);
-            }
-        };
-
-        template <class Expr>
-        struct parameter_declarator {
-            const Expr   &expr;
-            std::ostream &source;
-            const cl::Device &device;
-            mutable detail::declare_expression_parameter ctx;
-
-            parameter_declarator(const Expr &expr, std::ostream &source, const cl::Device &device)
-                : expr(expr), source(source), device(device), ctx(source, device)
-            { }
-
-            template <long I>
-            void apply() const {
-                ctx.set_cmp(I + 1);
-
-                detail::extract_terminals()(
-                        boost::proto::as_child(detail::subexpression<I>::get(expr)),
-                        ctx
-                        );
-            }
-        };
-
-        template <class Expr>
-        struct expression_builder {
-            const Expr   &expr;
-            std::ostream &source;
-            const cl::Device &device;
-            mutable detail::output_local_preamble loc_init;
-            mutable detail::vector_expr_context   expr_ctx;
-
-            expression_builder(const Expr &expr, std::ostream &source, const cl::Device &device)
-                : expr(expr), source(source), device(device),
-                  loc_init(source, device), expr_ctx(source, device)
-            { }
-
-            template <long I>
-            void apply() const {
-                loc_init.set_cmp(I + 1);
-                boost::proto::eval(
-                        boost::proto::as_child(detail::subexpression<I>::get(expr)),
-                        loc_init
-                        );
-
-                source << "\t\t" << type_name<T>() << " buf_" << I + 1 << " = ";
-
-                expr_ctx.set_cmp(I + 1);
-                boost::proto::eval(
-                        boost::proto::as_child(detail::subexpression<I>::get(expr)),
-                        expr_ctx);
-
-                source << ";\n";
-            }
-        };
-
-        template <class Expr>
-        struct kernel_arg_setter {
-            const Expr   &expr;
-            cl::Kernel   &krn;
-            unsigned     dev;
-            size_t       offset;
-            unsigned     &pos;
-            mutable detail::set_expression_argument ctx;
-
-            kernel_arg_setter(const Expr &expr, cl::Kernel &krn, unsigned dev, size_t offset, unsigned &pos)
-                : expr(expr), krn(krn), dev(dev), offset(offset), pos(pos),
-                  ctx(krn, dev, pos, offset)
-            { }
-
-            template <long I>
-            void apply() const {
-                detail::extract_terminals()(
-                            boost::proto::as_child(detail::subexpression<I>::get(expr)),
-                            ctx
-                            );
-
-            }
-        };
-
-        // Static for loop
-        template <long Begin, long End>
-        class static_for {
-            public:
-                template <class Func>
-                static void loop(Func &&f) {
-                    iterate<Begin>(f);
-                }
-
-            private:
-                template <long I, class Func>
-                static typename std::enable_if<(I < End)>::type
-                iterate(Func &&f) {
-                    f.template apply<I>();
-                    iterate<I + 1>(f);
-                }
-
-                template <long I, class Func>
-                static typename std::enable_if<(I >= End)>::type
-                iterate(Func&&)
-                { }
-        };
-
-        template <class OP, class Expr>
-        void assign_expression(const Expr &expr) {
-            using namespace detail;
-
-            static kernel_cache cache;
-
-            const std::vector<cl::CommandQueue> &queue = vec[0]->queue_list();
-
-            // If any device in context is CPU, then do not fuse the kernel,
-            // but assign components individually.
-            if (
-                    std::any_of(queue.begin(), queue.end(),
-                        [](const cl::CommandQueue &q) {
-                            return is_cpu(qdev(q));
-                        })
-               )
-            {
-                static_for<0, N>::loop(
-                        subexpression_assigner<OP, Expr>(*this, expr)
-                        );
-                return;
-            }
-
-            for(unsigned d = 0; d < queue.size(); d++) {
-                cl::Context context = qctx(queue[d]);
-                cl::Device  device  = qdev(queue[d]);
-
-                auto kernel = cache.find( context() );
-
-                if (kernel == cache.end()) {
-                    std::ostringstream source;
-
-                    source << standard_kernel_header(device);
-
-                    static_for<0, N>::loop(
-                            preamble_constructor<Expr>(expr, source, device)
-                            );
-
-                    source << "kernel void vexcl_multivector_kernel(\n\t"
-                           << type_name<size_t>() << " n";
-
-                    for(size_t i = 0; i < N; )
-                        source << ",\n\tglobal " << type_name<T>()
-                               << " * res_" << ++i;
-
-                    static_for<0, N>::loop(
-                            parameter_declarator<Expr>(expr, source, device)
-                            );
-
-                    source <<
-                        "\n)\n{\n"
-                        "\tfor(size_t idx = get_global_id(0); idx < n; idx += get_global_size(0)) {\n";
-
-                    static_for<0, N>::loop(
-                            expression_builder<Expr>(expr, source, device)
-                            );
-
-                    source << "\n";
-
-                    for(unsigned i = 1; i <= N; ++i)
-                        source << "\t\tres_" << i << "[idx] " << OP::string() << " buf_" << i << ";\n";
-
-                    source << "\t}\n}\n";
-
-                    auto program = build_sources(context, source.str());
-
-                    cl::Kernel krn(program, "vexcl_multivector_kernel");
-                    size_t wgs = kernel_workgroup_size(krn, device);
-
-                    kernel = cache.insert(std::make_pair(
-                                context(), kernel_cache_entry(krn, wgs)
-                                )).first;
-                }
-
-                if (size_t psize = vec[0]->part_size(d)) {
-                    size_t w_size = kernel->second.wgsize;
-                    size_t g_size = num_workgroups(device) * w_size;
-
-                    unsigned pos = 0;
-                    kernel->second.kernel.setArg(pos++, psize);
-
-                    for(unsigned i = 0; i < N; i++)
-                        kernel->second.kernel.setArg(pos++, vec[i]->operator()(d));
-
-                    static_for<0, N>::loop(
-                            kernel_arg_setter<Expr>(expr, kernel->second.kernel, d, vec[0]->part_start(d), pos)
-                            );
-
-                    queue[d].enqueueNDRangeKernel(
-                            kernel->second.kernel, cl::NullRange, g_size, w_size
-                            );
-                }
-            }
-        }
-
         std::array<typename multivector_storage<T, own>::type,N> vec;
 };
 
@@ -799,6 +580,271 @@ void copy(const std::vector<T> &hv, multivector<T,N,own> &mv) {
         vex::copy(hv.begin() + i * mv.size(), hv.begin() + (i + 1) * mv.size(),
                 mv(i).begin());
 }
+
+namespace detail {
+
+// Static for loop
+template <long Begin, long End>
+class static_for {
+    public:
+        template <class Func>
+        static void loop(Func &&f) {
+            iterate<Begin>(f);
+        }
+
+    private:
+        template <long I, class Func>
+        static typename std::enable_if<(I < End)>::type
+        iterate(Func &&f) {
+            f.template apply<I>();
+            iterate<I + 1>(f);
+        }
+
+        template <long I, class Func>
+        static typename std::enable_if<(I >= End)>::type
+        iterate(Func&&)
+        { }
+};
+
+template <class OP, class LHS, class RHS>
+struct subexpression_assigner {
+    const LHS &lhs;
+    const RHS &rhs;
+    const std::vector<cl::CommandQueue> &queue;
+    const std::vector<size_t> &part;
+
+    subexpression_assigner(LHS &lhs, const RHS &rhs,
+            const std::vector<cl::CommandQueue> &queue,
+            const std::vector<size_t> &part
+            )
+        : lhs(lhs), rhs(rhs), queue(queue), part(part) {}
+
+    template <long I>
+    void apply() const {
+        detail::assign_expression<OP>(
+                subexpression<I>::get(lhs),
+                subexpression<I>::get(rhs),
+                queue, part);
+    }
+};
+
+template <class LHS, class RHS>
+struct preamble_constructor {
+    const LHS &lhs;
+    const RHS &rhs;
+
+    mutable detail::output_terminal_preamble lhs_ctx;
+    mutable detail::output_terminal_preamble rhs_ctx;
+
+    preamble_constructor(const LHS &lhs, const RHS &rhs,
+            std::ostream &source, const cl::Device &device
+            )
+        : lhs(lhs), rhs(rhs),
+          lhs_ctx(source, device, 1, "lhs_"),
+          rhs_ctx(source, device, 1, "rhs_")
+    { }
+
+    template <long I>
+    void apply() const {
+        lhs_ctx.set_cmp(I + 1);
+        rhs_ctx.set_cmp(I + 1);
+
+        boost::proto::eval(subexpression<I>::get(lhs), lhs_ctx);
+        boost::proto::eval(subexpression<I>::get(rhs), rhs_ctx);
+    }
+};
+
+template <class LHS, class RHS>
+struct parameter_declarator {
+    const LHS &lhs;
+    const RHS &rhs;
+
+    mutable detail::declare_expression_parameter lhs_ctx;
+    mutable detail::declare_expression_parameter rhs_ctx;
+
+    parameter_declarator(const LHS &lhs, const RHS &rhs,
+            std::ostream &source, const cl::Device &device)
+        : lhs(lhs), rhs(rhs),
+          lhs_ctx(source, device, 1, "lhs_"),
+          rhs_ctx(source, device, 1, "rhs_")
+    { }
+
+    template <long I>
+    void apply() const {
+        lhs_ctx.set_cmp(I + 1);
+        rhs_ctx.set_cmp(I + 1);
+
+        extract_terminals()(subexpression<I>::get(lhs), lhs_ctx);
+        extract_terminals()(subexpression<I>::get(rhs), rhs_ctx);
+    }
+};
+
+template <class LHS, class RHS>
+struct expression_init {
+    const LHS &lhs;
+    const RHS &rhs;
+
+    std::ostream &source;
+
+    mutable detail::output_local_preamble lhs_pre;
+    mutable detail::output_local_preamble rhs_pre;
+    mutable detail::vector_expr_context   lhs_ctx;
+    mutable detail::vector_expr_context   rhs_ctx;
+
+    expression_init(const LHS &lhs, const RHS &rhs,
+            std::ostream &source, const cl::Device &device)
+        : lhs(lhs), rhs(rhs), source(source),
+          lhs_pre(source, device, 1, "lhs_"),
+          rhs_pre(source, device, 1, "rhs_"),
+          lhs_ctx(source, device, 1, "lhs_"),
+          rhs_ctx(source, device, 1, "rhs_")
+    { }
+
+    template <long I>
+    void apply() const {
+        lhs_pre.set_cmp(I + 1);
+        rhs_pre.set_cmp(I + 1);
+
+        boost::proto::eval(subexpression<I>::get(lhs), lhs_pre);
+        boost::proto::eval(subexpression<I>::get(rhs), rhs_pre);
+
+        typedef
+            typename return_type<decltype(subexpression<I>::get(lhs))>::type
+            RT;
+
+        source << "\t\t" << type_name<RT>() << " buf_" << I + 1 << " = ";
+
+        rhs_ctx.set_cmp(I + 1);
+        boost::proto::eval(subexpression<I>::get(rhs), rhs_ctx);
+        source << ";\n";
+    }
+};
+
+template <class OP, class LHS>
+struct expression_finalize {
+    const LHS &lhs;
+
+    std::ostream &source;
+
+    mutable detail::vector_expr_context lhs_ctx;
+
+    expression_finalize(const LHS &lhs,
+            std::ostream &source, const cl::Device &device)
+        : lhs(lhs), source(source), lhs_ctx(source, device, 1, "lhs_")
+    { }
+
+    template <long I>
+    void apply() const {
+        lhs_ctx.set_cmp(I + 1);
+        source << "\t\t";
+        boost::proto::eval(subexpression<I>::get(lhs), lhs_ctx);
+        source << " " << OP::string() << " buf_" << I + 1 << ";\n";
+    }
+};
+
+template <class LHS, class RHS>
+struct kernel_arg_setter {
+    const LHS &lhs;
+    const RHS &rhs;
+
+    mutable detail::set_expression_argument ctx;
+
+    kernel_arg_setter(const LHS &lhs, const RHS &rhs,
+            cl::Kernel &krn, unsigned dev, size_t offset, unsigned &pos)
+        : lhs(lhs), rhs(rhs), ctx(krn, dev, pos, offset)
+    { }
+
+    template <long I>
+    void apply() const {
+        detail::extract_terminals()(subexpression<I>::get(lhs), ctx);
+        detail::extract_terminals()(subexpression<I>::get(rhs), ctx);
+    }
+};
+
+template <class OP, class LHS, class RHS>
+void assign_multiexpression( LHS &lhs, const RHS &rhs,
+        const std::vector<cl::CommandQueue> &queue,
+        const std::vector<size_t> &part
+        )
+{
+    const static size_t N = LHS::NDIM;
+
+    static kernel_cache cache;
+
+    // If any device in context is CPU, then do not fuse the kernel,
+    // but assign components individually.
+    if (
+            std::any_of(queue.begin(), queue.end(),
+                [](const cl::CommandQueue &q) { return is_cpu(qdev(q)); })
+       )
+    {
+        static_for<0, N>::loop(
+                subexpression_assigner<OP, LHS, RHS>(lhs, rhs, queue, part)
+                );
+        return;
+    }
+
+    for(unsigned d = 0; d < queue.size(); d++) {
+        cl::Context context = qctx(queue[d]);
+        cl::Device  device  = qdev(queue[d]);
+
+        auto kernel = cache.find( context() );
+
+        if (kernel == cache.end()) {
+            std::ostringstream source;
+
+            source << standard_kernel_header(device);
+
+            static_for<0, N>::loop(
+                    preamble_constructor<LHS, RHS>(lhs, rhs, source, device)
+                    );
+
+            source << "kernel void vexcl_multivector_kernel(\n\t"
+                   << type_name<size_t>() << " n";
+
+            static_for<0, N>::loop(
+                    parameter_declarator<LHS, RHS>(lhs, rhs, source, device)
+                    );
+
+            source <<
+                "\n)\n{\n"
+                "\tfor(size_t idx = get_global_id(0); idx < n; idx += get_global_size(0)) {\n";
+
+            static_for<0, N>::loop(expression_init<LHS, RHS>(lhs, rhs, source, device));
+            static_for<0, N>::loop(expression_finalize<OP, LHS>(lhs, source, device));
+
+            source << "\t}\n}\n";
+
+            auto program = build_sources(context, source.str());
+
+            cl::Kernel krn(program, "vexcl_multivector_kernel");
+            size_t wgs = kernel_workgroup_size(krn, device);
+
+            kernel = cache.insert(std::make_pair(
+                        context(), kernel_cache_entry(krn, wgs)
+                        )).first;
+        }
+
+        if (size_t psize = part[d + 1] - part[d]) {
+            size_t w_size = kernel->second.wgsize;
+            size_t g_size = num_workgroups(device) * w_size;
+
+            unsigned pos = 0;
+            kernel->second.kernel.setArg(pos++, psize);
+
+            static_for<0, N>::loop(
+                    kernel_arg_setter<LHS, RHS>(lhs, rhs, kernel->second.kernel, d, part[d], pos)
+                    );
+
+            queue[d].enqueueNDRangeKernel(
+                    kernel->second.kernel, cl::NullRange, g_size, w_size
+                    );
+        }
+    }
+}
+
+} // namespace detail
+
 
 #ifndef BOOST_NO_VARIADIC_TEMPLATES
 /// Ties several vex::vectors into a multivector.
