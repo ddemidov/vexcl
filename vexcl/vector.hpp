@@ -832,7 +832,7 @@ class vector : public vector_terminal_expression {
             if (hostptr) write_data(0, size(), hostptr, CL_TRUE);
         }
 
-        template <typename S, size_t N, bool own>
+        template <typename S, size_t N>
         friend class multivector;
 };
 

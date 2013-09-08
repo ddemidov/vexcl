@@ -319,22 +319,6 @@ struct is_multivector_expr_terminal< T,
 template <class T, class Enable = void>
 struct proto_terminal_is_value : std::false_type { };
 
-// Number of components in a multivector expression.
-struct multiex_dimension :
-    boost::proto::or_ <
-        boost::proto::when <
-            boost::proto::terminal< boost::proto::_ >,
-            traits::number_of_components<boost::proto::_>()
-        > ,
-        boost::proto::when <
-            boost::proto::nary_expr<boost::proto::_, boost::proto::vararg<boost::proto::_> >,
-            boost::proto::fold<boost::proto::_,
-                boost::mpl::size_t<0>(),
-                boost::mpl::max<multiex_dimension, boost::proto::_state>()>()
-        >
-    >
-{};
-
 /* Type trait to determine if an expression is scalable.
  *
  * The expression should have a type `value_type` and a field `scale` of that
@@ -970,6 +954,48 @@ struct multivector_expression
     multivector_expression(const Expr &expr = Expr())
         : boost::proto::extends< Expr, multivector_expression<Expr>, multivector_domain>(expr) {}
 };
+
+namespace traits {
+
+// Number of components in a multivector expression.
+struct multiex_dimension :
+    boost::proto::or_ <
+        boost::proto::when <
+            boost::proto::terminal< boost::proto::_ >,
+            traits::number_of_components<boost::proto::_>()
+        > ,
+        boost::proto::when <
+            boost::proto::nary_expr<boost::proto::_, boost::proto::vararg<boost::proto::_> >,
+            boost::proto::fold<boost::proto::_,
+                boost::mpl::size_t<0>(),
+                boost::mpl::max<multiex_dimension, boost::proto::_state>()>()
+        >
+    >
+{};
+
+template <class Expr, class Enable = void>
+struct get_dimension {};
+
+template <class Expr>
+struct get_dimension<Expr, typename std::enable_if<
+        boost::proto::matches<
+            typename boost::proto::result_of::as_expr<Expr>::type,
+            multivector_expr_grammar
+        >::value
+    >::type>
+{
+    const static size_t value = std::result_of<traits::multiex_dimension(Expr)>::type::value;
+};
+
+template <class Expr>
+struct get_dimension<Expr, typename std::enable_if<
+        is_tuple<typename std::decay<Expr>::type>::value
+    >::type>
+{
+    const static size_t value = std::tuple_size<Expr>::value;
+};
+
+} // namespace traits
 
 //---------------------------------------------------------------------------
 // Expression Transforms and evaluation contexts
@@ -1854,8 +1880,358 @@ void assign_expression(LHS &lhs, const RHS &rhs,
     }
 }
 
+// Static for loop
+template <long Begin, long End>
+class static_for {
+    public:
+        template <class Func>
+        static void loop(Func &&f) {
+            iterate<Begin>(f);
+        }
+
+    private:
+        template <long I, class Func>
+        static typename std::enable_if<(I < End)>::type
+        iterate(Func &&f) {
+            f.template apply<I>();
+            iterate<I + 1>(f);
+        }
+
+        template <long I, class Func>
+        static typename std::enable_if<(I >= End)>::type
+        iterate(Func&&)
+        { }
+};
+
+template <class OP, class LHS, class RHS>
+struct subexpression_assigner {
+    const LHS &lhs;
+    const RHS &rhs;
+    const std::vector<cl::CommandQueue> &queue;
+    const std::vector<size_t> &part;
+
+    subexpression_assigner(LHS &lhs, const RHS &rhs,
+            const std::vector<cl::CommandQueue> &queue,
+            const std::vector<size_t> &part
+            )
+        : lhs(lhs), rhs(rhs), queue(queue), part(part) {}
+
+    template <long I>
+    void apply() const {
+        detail::assign_expression<OP>(
+                subexpression<I>::get(lhs),
+                subexpression<I>::get(rhs),
+                queue, part);
+    }
+};
+
+template <class LHS, class RHS>
+struct preamble_constructor {
+    const LHS &lhs;
+    const RHS &rhs;
+
+    mutable detail::output_terminal_preamble lhs_ctx;
+    mutable detail::output_terminal_preamble rhs_ctx;
+
+    preamble_constructor(const LHS &lhs, const RHS &rhs,
+            std::ostream &source, const cl::Device &device
+            )
+        : lhs(lhs), rhs(rhs),
+          lhs_ctx(source, device, 1, "lhs_"),
+          rhs_ctx(source, device, 1, "rhs_")
+    { }
+
+    template <long I>
+    void apply() const {
+        lhs_ctx.set_cmp(I + 1);
+        rhs_ctx.set_cmp(I + 1);
+
+        boost::proto::eval(subexpression<I>::get(lhs), lhs_ctx);
+        boost::proto::eval(subexpression<I>::get(rhs), rhs_ctx);
+    }
+};
+
+template <class LHS, class RHS>
+struct parameter_declarator {
+    const LHS &lhs;
+    const RHS &rhs;
+
+    mutable detail::declare_expression_parameter lhs_ctx;
+    mutable detail::declare_expression_parameter rhs_ctx;
+
+    parameter_declarator(const LHS &lhs, const RHS &rhs,
+            std::ostream &source, const cl::Device &device)
+        : lhs(lhs), rhs(rhs),
+          lhs_ctx(source, device, 1, "lhs_"),
+          rhs_ctx(source, device, 1, "rhs_")
+    { }
+
+    template <long I>
+    void apply() const {
+        lhs_ctx.set_cmp(I + 1);
+        rhs_ctx.set_cmp(I + 1);
+
+        extract_terminals()(subexpression<I>::get(lhs), lhs_ctx);
+        extract_terminals()(subexpression<I>::get(rhs), rhs_ctx);
+    }
+};
+
+template <class LHS, class RHS>
+struct expression_init {
+    const LHS &lhs;
+    const RHS &rhs;
+
+    std::ostream &source;
+
+    mutable detail::output_local_preamble lhs_pre;
+    mutable detail::output_local_preamble rhs_pre;
+    mutable detail::vector_expr_context   lhs_ctx;
+    mutable detail::vector_expr_context   rhs_ctx;
+
+    expression_init(const LHS &lhs, const RHS &rhs,
+            std::ostream &source, const cl::Device &device)
+        : lhs(lhs), rhs(rhs), source(source),
+          lhs_pre(source, device, 1, "lhs_"),
+          rhs_pre(source, device, 1, "rhs_"),
+          lhs_ctx(source, device, 1, "lhs_"),
+          rhs_ctx(source, device, 1, "rhs_")
+    { }
+
+    template <long I>
+    void apply() const {
+        lhs_pre.set_cmp(I + 1);
+        rhs_pre.set_cmp(I + 1);
+
+        boost::proto::eval(subexpression<I>::get(lhs), lhs_pre);
+        boost::proto::eval(subexpression<I>::get(rhs), rhs_pre);
+
+        typedef
+            typename return_type<decltype(subexpression<I>::get(lhs))>::type
+            RT;
+
+        source << "\t\t" << type_name<RT>() << " buf_" << I + 1 << " = ";
+
+        rhs_ctx.set_cmp(I + 1);
+        boost::proto::eval(subexpression<I>::get(rhs), rhs_ctx);
+        source << ";\n";
+    }
+};
+
+template <class OP, class LHS>
+struct expression_finalize {
+    const LHS &lhs;
+
+    std::ostream &source;
+
+    mutable detail::vector_expr_context lhs_ctx;
+
+    expression_finalize(const LHS &lhs,
+            std::ostream &source, const cl::Device &device)
+        : lhs(lhs), source(source), lhs_ctx(source, device, 1, "lhs_")
+    { }
+
+    template <long I>
+    void apply() const {
+        lhs_ctx.set_cmp(I + 1);
+        source << "\t\t";
+        boost::proto::eval(subexpression<I>::get(lhs), lhs_ctx);
+        source << " " << OP::string() << " buf_" << I + 1 << ";\n";
+    }
+};
+
+template <class LHS, class RHS>
+struct kernel_arg_setter {
+    const LHS &lhs;
+    const RHS &rhs;
+
+    mutable detail::set_expression_argument ctx;
+
+    kernel_arg_setter(const LHS &lhs, const RHS &rhs,
+            cl::Kernel &krn, unsigned dev, size_t offset, unsigned &pos)
+        : lhs(lhs), rhs(rhs), ctx(krn, dev, pos, offset)
+    { }
+
+    template <long I>
+    void apply() const {
+        detail::extract_terminals()(subexpression<I>::get(lhs), ctx);
+        detail::extract_terminals()(subexpression<I>::get(rhs), ctx);
+    }
+};
+
+template <class OP, class LHS, class RHS>
+void assign_multiexpression( LHS &lhs, const RHS &rhs,
+        const std::vector<cl::CommandQueue> &queue,
+        const std::vector<size_t> &part
+        )
+{
+
+    const static size_t N = traits::get_dimension<LHS>::value;
+
+    static kernel_cache cache;
+
+    // If any device in context is CPU, then do not fuse the kernel,
+    // but assign components individually.
+    if (
+            std::any_of(queue.begin(), queue.end(),
+                [](const cl::CommandQueue &q) { return is_cpu(qdev(q)); })
+       )
+    {
+        static_for<0, N>::loop(
+                subexpression_assigner<OP, LHS, RHS>(lhs, rhs, queue, part)
+                );
+        return;
+    }
+
+    for(unsigned d = 0; d < queue.size(); d++) {
+        cl::Context context = qctx(queue[d]);
+        cl::Device  device  = qdev(queue[d]);
+
+        auto kernel = cache.find( context() );
+
+        if (kernel == cache.end()) {
+            std::ostringstream source;
+
+            source << standard_kernel_header(device);
+
+            static_for<0, N>::loop(
+                    preamble_constructor<LHS, RHS>(lhs, rhs, source, device)
+                    );
+
+            source << "kernel void vexcl_multivector_kernel(\n\t"
+                   << type_name<size_t>() << " n";
+
+            static_for<0, N>::loop(
+                    parameter_declarator<LHS, RHS>(lhs, rhs, source, device)
+                    );
+
+            source <<
+                "\n)\n{\n"
+                "\tfor(size_t idx = get_global_id(0); idx < n; idx += get_global_size(0)) {\n";
+
+            static_for<0, N>::loop(expression_init<LHS, RHS>(lhs, rhs, source, device));
+            static_for<0, N>::loop(expression_finalize<OP, LHS>(lhs, source, device));
+
+            source << "\t}\n}\n";
+
+            auto program = build_sources(context, source.str());
+
+            cl::Kernel krn(program, "vexcl_multivector_kernel");
+            size_t wgs = kernel_workgroup_size(krn, device);
+
+            kernel = cache.insert(std::make_pair(
+                        context(), kernel_cache_entry(krn, wgs)
+                        )).first;
+        }
+
+        if (size_t psize = part[d + 1] - part[d]) {
+            size_t w_size = kernel->second.wgsize;
+            size_t g_size = num_workgroups(device) * w_size;
+
+            unsigned pos = 0;
+            kernel->second.kernel.setArg(pos++, psize);
+
+            static_for<0, N>::loop(
+                    kernel_arg_setter<LHS, RHS>(lhs, rhs, kernel->second.kernel, d, part[d], pos)
+                    );
+
+            queue[d].enqueueNDRangeKernel(
+                    kernel->second.kernel, cl::NullRange, g_size, w_size
+                    );
+        }
+    }
+}
+
 } // namespace detail
+
+/// Assignable tuple of expressions
+template <class LHS>
+struct expression_tuple {
+    static const size_t NDIM = std::tuple_size<LHS>::value;
+
+    const LHS lhs;
+
+    expression_tuple(const LHS &lhs) : lhs(lhs) {}
+
+#ifdef DOXYGEN
+#  define ASSIGNMENT(cop, op) \
+        /** \brief Multiexpression assignment.
+         \details All operations are delegated to components of the multivector.
+         */ \
+        template <class RHS> \
+        expression_tuple& operator cop(const RHS &rhs);
+#else
+#  define ASSIGNMENT(cop, op) \
+    template <class RHS> \
+    typename std::enable_if< \
+        boost::proto::matches< \
+            typename boost::proto::result_of::as_expr<RHS>::type, \
+            multivector_expr_grammar \
+        >::value || is_tuple<RHS>::value, \
+        const expression_tuple& \
+    >::type \
+    operator cop(const RHS &rhs) const { \
+        detail::get_expression_properties prop; \
+        detail::extract_terminals()(detail::subexpression<0>::get(lhs), prop); \
+        detail::assign_multiexpression<op>(lhs, rhs, prop.queue, prop.part); \
+        return *this; \
+    }
+#endif
+
+    ASSIGNMENT(=,   assign::SET);
+    ASSIGNMENT(+=,  assign::ADD);
+    ASSIGNMENT(-=,  assign::SUB);
+    ASSIGNMENT(*=,  assign::MUL);
+    ASSIGNMENT(/=,  assign::DIV);
+    ASSIGNMENT(%=,  assign::MOD);
+    ASSIGNMENT(&=,  assign::AND);
+    ASSIGNMENT(|=,  assign::OR);
+    ASSIGNMENT(^=,  assign::XOR);
+    ASSIGNMENT(<<=, assign::LSH);
+    ASSIGNMENT(>>=, assign::RSH);
+
+#undef ASSIGNMENT
+};
+
 /// \endcond
+
+#ifndef BOOST_NO_VARIADIC_TEMPLATES
+/// Ties several vector expressions into writeable tuple.
+/**
+ * The following example results in a single kernel:
+ * \code
+ * vex::vector<double> x(ctx, 1024);
+ * vex::vector<double> y(ctx, 1024);
+ *
+ * vex::tie(x,y) = std::tie( x + y, y - x );
+ * \endcode
+ * This is functionally equivalent to
+ * \code
+ * tmp_x = x + y;
+ * tmp_y = y - x;
+ * x = tmp_x;
+ * y = tmp_y;
+ * \endcode
+ * but does not use temporaries and is more efficient.
+ */
+template<class... Expr>
+expression_tuple< std::tuple<const Expr&...> >
+tie(const Expr&... expr) {
+    return expression_tuple< std::tuple<const Expr&...> >( std::tie(expr...) );
+}
+#else
+
+#define TIE_VECTORS(z, n, data) \
+template<typename T> \
+multivector<T, n, false> tie( BOOST_PP_ENUM_PARAMS(n, vex::vector<T> &v) ) { \
+    std::array<vex::vector<T>*, n> ptr = {{ BOOST_PP_ENUM_PARAMS(n, &v) }}; \
+    return multivector<T, n, false>(ptr); \
+}
+
+BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, TIE_VECTORS, ~)
+
+#undef TIE_VECTORS
+
+#endif
 
 } // namespace vex;
 

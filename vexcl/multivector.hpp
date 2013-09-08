@@ -53,24 +53,9 @@ namespace vex {
 
 /// \cond INTERNAL
 
-template <typename T, bool own>
-struct multivector_storage { };
-
-template <typename T>
-struct multivector_storage<T, true> {
-    typedef std::unique_ptr<vex::vector<T>> type;
-};
-
-template <typename T>
-struct multivector_storage<T, false> {
-    typedef vex::vector<T>* type;
-};
-
-/// \endcond
-
 struct multivector_terminal {};
 
-template <typename T, size_t N, bool own = true> class multivector;
+template <typename T, size_t N> class multivector;
 
 namespace traits {
 
@@ -98,27 +83,25 @@ struct hold_terminal_by_reference< T,
     : std::true_type
 { };
 
-template <typename T, size_t N, bool own>
-struct number_of_components< multivector<T, N, own> >
-    : boost::mpl::size_t<N>
-{};
+template <typename T, size_t N>
+struct number_of_components< multivector<T, N> > : boost::mpl::size_t<N> {};
 
-template <size_t I, typename T, size_t N, bool own>
-struct component< I, multivector<T, N, own> > {
+template <size_t I, typename T, size_t N>
+struct component< I, multivector<T, N> > {
     typedef const vector<T>& type;
 };
 
 } // namespace traits
 
-template <size_t I, typename T, size_t N, bool own>
-const vector<T>& get(const multivector<T, N, own> &mv) {
+template <size_t I, typename T, size_t N>
+const vector<T>& get(const multivector<T, N> &mv) {
     static_assert(I < N, "Component number out of bounds");
 
     return mv(I);
 }
 
-template <size_t I, typename T, size_t N, bool own>
-vector<T>& get(multivector<T, N, own> &mv) {
+template <size_t I, typename T, size_t N>
+vector<T>& get(multivector<T, N> &mv) {
     static_assert(I < N, "Component number out of bounds");
 
     return mv(I);
@@ -138,12 +121,14 @@ typedef multivector_expression<
     typename boost::proto::terminal< multivector_terminal >::type
     > multivector_terminal_expression;
 
+/// \endcond
+
 /// Container for several vex::vectors.
 /**
  * This class allows to synchronously operate on several vex::vectors of the
  * same type and size.
  */
-template <typename T, size_t N, bool own>
+template <typename T, size_t N>
 class multivector : public multivector_terminal_expression {
     public:
         typedef vex::vector<T>  subtype;
@@ -232,12 +217,7 @@ class multivector : public multivector_terminal_expression {
         typedef iterator_type<multivector, element> iterator;
         typedef iterator_type<const multivector, const_element> const_iterator;
 
-        multivector() {
-            static_assert(own,
-                    "Empty constructor unavailable for referenced-type multivector");
-
-            for(unsigned i = 0; i < N; i++) vec[i].reset(new vex::vector<T>());
-        };
+        multivector() {};
 
         /// Constructor.
         /**
@@ -255,16 +235,13 @@ class multivector : public multivector_terminal_expression {
                 const std::vector<T> &host,
                 cl_mem_flags flags = CL_MEM_READ_WRITE)
         {
-            static_assert(own, "Wrong constructor for non-owning multivector");
             static_assert(N > 0, "What's the point?");
 
             size_t size = host.size() / N;
             assert(N * size == host.size());
 
-            for(unsigned i = 0; i < N; i++)
-                vec[i].reset(new vex::vector<T>(
-                        queue, size, host.data() + i * size, flags
-                        ) );
+            for(size_t i = 0; i < N; ++i)
+                vec[i].resize(queue, size, host.data() + i * size, flags);
         }
 
         /// Constructor.
@@ -282,51 +259,37 @@ class multivector : public multivector_terminal_expression {
         multivector(const std::vector<cl::CommandQueue> &queue, size_t size,
                 const T *host = 0, cl_mem_flags flags = CL_MEM_READ_WRITE)
         {
-            static_assert(own, "Wrong constructor for non-owning multivector");
             static_assert(N > 0, "What's the point?");
 
-            for(unsigned i = 0; i < N; i++)
-                vec[i].reset(new vex::vector<T>(
-                        queue, size, host ? host + i * size : 0, flags
-                        ) );
+            for(size_t i = 0; i < N; ++i)
+                vec[i].resize(queue, size, host ? host + i * size : 0, flags);
         }
 
         /// Construct from size.
         multivector(size_t size) {
-            static_assert(own, "Wrong constructor for non-owning multivector");
             static_assert(N > 0, "What's the point?");
 
-            for(unsigned i = 0; i < N; i++) vec[i].reset(new vex::vector<T>(size));
+            for(size_t i = 0; i < N; ++i) vec[i].resize(size);
         }
 
         /// Copy constructor.
         multivector(const multivector &mv) {
-            copy_components<own>(mv);
+            for(size_t i = 0; i < N; ++i) vec[i].resize(mv(i));
         }
 
         /// Move constructor.
         multivector(multivector &&mv) noexcept {
-            for(size_t i = 0; i < N; ++i) std::swap(vec[i], mv.vec[i]);
-        }
-
-        /// Constructor.
-        /**
-         * Copies references to component vectors.
-         */
-        multivector(std::array<vex::vector<T>*,N> components)
-            : vec(components)
-        {
-            static_assert(!own, "Wrong constructor");
+            for(size_t i = 0; i < N; ++i) vec[i].swap(mv.vec[i]);
         }
 
         /// Resize multivector.
         void resize(const std::vector<cl::CommandQueue> &queue, size_t size) {
-            for(unsigned i = 0; i < N; i++) vec[i]->resize(queue, size);
+            for(unsigned i = 0; i < N; i++) vec[i].resize(queue, size);
         }
 
         /// Resize multivector.
         void resize(size_t size) {
-            for(unsigned i = 0; i < N; i++) vec[i]->resize(size);
+            for(unsigned i = 0; i < N; i++) vec[i].resize(size);
         }
 
         /// Fills multivector with zeros.
@@ -336,17 +299,17 @@ class multivector : public multivector_terminal_expression {
 
         /// Return size of a multivector (equals size of individual components).
         size_t size() const {
-            return vec[0]->size();
+            return vec[0].size();
         }
 
         /// Returns multivector component.
         const vex::vector<T>& operator()(size_t i) const {
-            return *vec[i];
+            return vec[i];
         }
 
         /// Returns multivector component.
         vex::vector<T>& operator()(size_t i) {
-            return *vec[i];
+            return vec[i];
         }
 
         /// Const iterator to beginning.
@@ -381,15 +344,13 @@ class multivector : public multivector_terminal_expression {
 
         /// Return reference to multivector's queue list
         const std::vector<cl::CommandQueue>& queue_list() const {
-            return vec[0]->queue_list();
+            return vec[0].queue_list();
         }
 
         /// Assignment to a multivector.
         const multivector& operator=(const multivector &mv) {
-            if (this != &mv) {
-                for(unsigned i = 0; i < N; i++)
-                    *vec[i] = mv(i);
-            }
+            if (this != &mv)
+                for(size_t i = 0; i < N; ++i) vec[i] = mv(i);
             return *this;
         }
 
@@ -412,7 +373,7 @@ class multivector : public multivector_terminal_expression {
             const multivector& \
         >::type \
         operator cop(const Expr &expr) { \
-            detail::assign_multiexpression<op>(*this, expr, vec[0]->queue_list(), vec[0]->partition()); \
+            detail::assign_multiexpression<op>(*this, expr, vec[0].queue_list(), vec[0].partition()); \
             return *this; \
         }
 #endif
@@ -545,357 +506,30 @@ class multivector : public multivector_terminal_expression {
 #endif
 
     private:
-        template <bool own_components>
-        typename std::enable_if<own_components,void>::type
-        copy_components(const multivector &mv) {
-            for(unsigned i = 0; i < N; i++)
-                vec[i].reset(new vex::vector<T>(mv(i)));
-        }
-
-        template <bool own_components>
-        typename std::enable_if<!own_components,void>::type
-        copy_components(const multivector &mv) {
-            for(unsigned i = 0; i < N; i++)
-                vec[i] = mv.vec[i];
-        }
-
-        std::array<typename multivector_storage<T, own>::type,N> vec;
+        std::array<vector<T>,N> vec;
 };
 
-namespace traits {
-
-} // namespace traits
-
 /// Copy multivector to host vector.
-template <class T, size_t N, bool own>
-void copy(const multivector<T,N,own> &mv, std::vector<T> &hv) {
-    for(unsigned i = 0; i < N; i++)
+template <class T, size_t N>
+void copy(const multivector<T,N> &mv, std::vector<T> &hv) {
+    for(size_t i = 0; i < N; ++i)
         vex::copy(mv(i).begin(), mv(i).end(), hv.begin() + i * mv.size());
 }
 
 /// Copy host vector to multivector.
-template <class T, size_t N, bool own>
-void copy(const std::vector<T> &hv, multivector<T,N,own> &mv) {
-    for(unsigned i = 0; i < N; i++)
+template <class T, size_t N>
+void copy(const std::vector<T> &hv, multivector<T,N> &mv) {
+    for(size_t i = 0; i < N; ++i)
         vex::copy(hv.begin() + i * mv.size(), hv.begin() + (i + 1) * mv.size(),
                 mv(i).begin());
 }
-
-namespace detail {
-
-// Static for loop
-template <long Begin, long End>
-class static_for {
-    public:
-        template <class Func>
-        static void loop(Func &&f) {
-            iterate<Begin>(f);
-        }
-
-    private:
-        template <long I, class Func>
-        static typename std::enable_if<(I < End)>::type
-        iterate(Func &&f) {
-            f.template apply<I>();
-            iterate<I + 1>(f);
-        }
-
-        template <long I, class Func>
-        static typename std::enable_if<(I >= End)>::type
-        iterate(Func&&)
-        { }
-};
-
-template <class OP, class LHS, class RHS>
-struct subexpression_assigner {
-    const LHS &lhs;
-    const RHS &rhs;
-    const std::vector<cl::CommandQueue> &queue;
-    const std::vector<size_t> &part;
-
-    subexpression_assigner(LHS &lhs, const RHS &rhs,
-            const std::vector<cl::CommandQueue> &queue,
-            const std::vector<size_t> &part
-            )
-        : lhs(lhs), rhs(rhs), queue(queue), part(part) {}
-
-    template <long I>
-    void apply() const {
-        detail::assign_expression<OP>(
-                subexpression<I>::get(lhs),
-                subexpression<I>::get(rhs),
-                queue, part);
-    }
-};
-
-template <class LHS, class RHS>
-struct preamble_constructor {
-    const LHS &lhs;
-    const RHS &rhs;
-
-    mutable detail::output_terminal_preamble lhs_ctx;
-    mutable detail::output_terminal_preamble rhs_ctx;
-
-    preamble_constructor(const LHS &lhs, const RHS &rhs,
-            std::ostream &source, const cl::Device &device
-            )
-        : lhs(lhs), rhs(rhs),
-          lhs_ctx(source, device, 1, "lhs_"),
-          rhs_ctx(source, device, 1, "rhs_")
-    { }
-
-    template <long I>
-    void apply() const {
-        lhs_ctx.set_cmp(I + 1);
-        rhs_ctx.set_cmp(I + 1);
-
-        boost::proto::eval(subexpression<I>::get(lhs), lhs_ctx);
-        boost::proto::eval(subexpression<I>::get(rhs), rhs_ctx);
-    }
-};
-
-template <class LHS, class RHS>
-struct parameter_declarator {
-    const LHS &lhs;
-    const RHS &rhs;
-
-    mutable detail::declare_expression_parameter lhs_ctx;
-    mutable detail::declare_expression_parameter rhs_ctx;
-
-    parameter_declarator(const LHS &lhs, const RHS &rhs,
-            std::ostream &source, const cl::Device &device)
-        : lhs(lhs), rhs(rhs),
-          lhs_ctx(source, device, 1, "lhs_"),
-          rhs_ctx(source, device, 1, "rhs_")
-    { }
-
-    template <long I>
-    void apply() const {
-        lhs_ctx.set_cmp(I + 1);
-        rhs_ctx.set_cmp(I + 1);
-
-        extract_terminals()(subexpression<I>::get(lhs), lhs_ctx);
-        extract_terminals()(subexpression<I>::get(rhs), rhs_ctx);
-    }
-};
-
-template <class LHS, class RHS>
-struct expression_init {
-    const LHS &lhs;
-    const RHS &rhs;
-
-    std::ostream &source;
-
-    mutable detail::output_local_preamble lhs_pre;
-    mutable detail::output_local_preamble rhs_pre;
-    mutable detail::vector_expr_context   lhs_ctx;
-    mutable detail::vector_expr_context   rhs_ctx;
-
-    expression_init(const LHS &lhs, const RHS &rhs,
-            std::ostream &source, const cl::Device &device)
-        : lhs(lhs), rhs(rhs), source(source),
-          lhs_pre(source, device, 1, "lhs_"),
-          rhs_pre(source, device, 1, "rhs_"),
-          lhs_ctx(source, device, 1, "lhs_"),
-          rhs_ctx(source, device, 1, "rhs_")
-    { }
-
-    template <long I>
-    void apply() const {
-        lhs_pre.set_cmp(I + 1);
-        rhs_pre.set_cmp(I + 1);
-
-        boost::proto::eval(subexpression<I>::get(lhs), lhs_pre);
-        boost::proto::eval(subexpression<I>::get(rhs), rhs_pre);
-
-        typedef
-            typename return_type<decltype(subexpression<I>::get(lhs))>::type
-            RT;
-
-        source << "\t\t" << type_name<RT>() << " buf_" << I + 1 << " = ";
-
-        rhs_ctx.set_cmp(I + 1);
-        boost::proto::eval(subexpression<I>::get(rhs), rhs_ctx);
-        source << ";\n";
-    }
-};
-
-template <class OP, class LHS>
-struct expression_finalize {
-    const LHS &lhs;
-
-    std::ostream &source;
-
-    mutable detail::vector_expr_context lhs_ctx;
-
-    expression_finalize(const LHS &lhs,
-            std::ostream &source, const cl::Device &device)
-        : lhs(lhs), source(source), lhs_ctx(source, device, 1, "lhs_")
-    { }
-
-    template <long I>
-    void apply() const {
-        lhs_ctx.set_cmp(I + 1);
-        source << "\t\t";
-        boost::proto::eval(subexpression<I>::get(lhs), lhs_ctx);
-        source << " " << OP::string() << " buf_" << I + 1 << ";\n";
-    }
-};
-
-template <class LHS, class RHS>
-struct kernel_arg_setter {
-    const LHS &lhs;
-    const RHS &rhs;
-
-    mutable detail::set_expression_argument ctx;
-
-    kernel_arg_setter(const LHS &lhs, const RHS &rhs,
-            cl::Kernel &krn, unsigned dev, size_t offset, unsigned &pos)
-        : lhs(lhs), rhs(rhs), ctx(krn, dev, pos, offset)
-    { }
-
-    template <long I>
-    void apply() const {
-        detail::extract_terminals()(subexpression<I>::get(lhs), ctx);
-        detail::extract_terminals()(subexpression<I>::get(rhs), ctx);
-    }
-};
-
-template <class OP, class LHS, class RHS>
-void assign_multiexpression( LHS &lhs, const RHS &rhs,
-        const std::vector<cl::CommandQueue> &queue,
-        const std::vector<size_t> &part
-        )
-{
-    const static size_t N = LHS::NDIM;
-
-    static kernel_cache cache;
-
-    // If any device in context is CPU, then do not fuse the kernel,
-    // but assign components individually.
-    if (
-            std::any_of(queue.begin(), queue.end(),
-                [](const cl::CommandQueue &q) { return is_cpu(qdev(q)); })
-       )
-    {
-        static_for<0, N>::loop(
-                subexpression_assigner<OP, LHS, RHS>(lhs, rhs, queue, part)
-                );
-        return;
-    }
-
-    for(unsigned d = 0; d < queue.size(); d++) {
-        cl::Context context = qctx(queue[d]);
-        cl::Device  device  = qdev(queue[d]);
-
-        auto kernel = cache.find( context() );
-
-        if (kernel == cache.end()) {
-            std::ostringstream source;
-
-            source << standard_kernel_header(device);
-
-            static_for<0, N>::loop(
-                    preamble_constructor<LHS, RHS>(lhs, rhs, source, device)
-                    );
-
-            source << "kernel void vexcl_multivector_kernel(\n\t"
-                   << type_name<size_t>() << " n";
-
-            static_for<0, N>::loop(
-                    parameter_declarator<LHS, RHS>(lhs, rhs, source, device)
-                    );
-
-            source <<
-                "\n)\n{\n"
-                "\tfor(size_t idx = get_global_id(0); idx < n; idx += get_global_size(0)) {\n";
-
-            static_for<0, N>::loop(expression_init<LHS, RHS>(lhs, rhs, source, device));
-            static_for<0, N>::loop(expression_finalize<OP, LHS>(lhs, source, device));
-
-            source << "\t}\n}\n";
-
-            auto program = build_sources(context, source.str());
-
-            cl::Kernel krn(program, "vexcl_multivector_kernel");
-            size_t wgs = kernel_workgroup_size(krn, device);
-
-            kernel = cache.insert(std::make_pair(
-                        context(), kernel_cache_entry(krn, wgs)
-                        )).first;
-        }
-
-        if (size_t psize = part[d + 1] - part[d]) {
-            size_t w_size = kernel->second.wgsize;
-            size_t g_size = num_workgroups(device) * w_size;
-
-            unsigned pos = 0;
-            kernel->second.kernel.setArg(pos++, psize);
-
-            static_for<0, N>::loop(
-                    kernel_arg_setter<LHS, RHS>(lhs, rhs, kernel->second.kernel, d, part[d], pos)
-                    );
-
-            queue[d].enqueueNDRangeKernel(
-                    kernel->second.kernel, cl::NullRange, g_size, w_size
-                    );
-        }
-    }
-}
-
-} // namespace detail
-
-
-#ifndef BOOST_NO_VARIADIC_TEMPLATES
-/// Ties several vex::vectors into a multivector.
-/**
- * The following example results in a single kernel:
- * \code
- * vex::vector<double> x(ctx, 1024);
- * vex::vector<double> y(ctx, 1024);
- *
- * vex::tie(x,y) = std::tie( x + y, y - x );
- * \endcode
- * This is functionally equivalent to
- * \code
- * tmp_x = x + y;
- * tmp_y = y - x;
- * x = tmp_x;
- * y = tmp_y;
- * \endcode
- * but does not use temporaries and is more efficient.
- */
-template<typename T, class... Tail>
-typename std::enable_if<
-    traits::And<std::is_same<T,Tail>...>::value,
-    multivector<T, sizeof...(Tail) + 1, false>
-    >::type
-tie(vex::vector<T> &head, vex::vector<Tail>&... tail) {
-    std::array<vex::vector<T>*, sizeof...(Tail) + 1> ptr = {{&head, (&tail)...}};
-
-    return multivector<T, sizeof...(Tail) + 1, false>(ptr);
-}
-#else
-
-#define TIE_VECTORS(z, n, data) \
-template<typename T> \
-multivector<T, n, false> tie( BOOST_PP_ENUM_PARAMS(n, vex::vector<T> &v) ) { \
-    std::array<vex::vector<T>*, n> ptr = {{ BOOST_PP_ENUM_PARAMS(n, &v) }}; \
-    return multivector<T, n, false>(ptr); \
-}
-
-BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, TIE_VECTORS, ~)
-
-#undef TIE_VECTORS
-
-#endif
 
 } // namespace vex
 
 namespace boost { namespace fusion { namespace traits {
 
-template <class T, size_t N, bool own>
-struct is_sequence< vex::multivector<T, N, own> > : std::false_type
+template <class T, size_t N>
+struct is_sequence< vex::multivector<T, N> > : std::false_type
 {};
 
 } } }
