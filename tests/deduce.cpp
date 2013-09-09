@@ -29,13 +29,15 @@ BOOST_AUTO_TEST_CASE(terminals)
 {
     const ssize_t n = 1024;
 
-    vex::vector<double> x;
-    vex::vector<int> y;
+    vex::vector<double>     x;
+    vex::vector<int>        y;
+    vex::vector<cl_double2> z;
 
-    check<int>   (5);
-    check<double>(4.2);
-    check<double>(x);
-    check<int>   (y);
+    check<int>       (5);
+    check<double>    (4.2);
+    check<double>    (x);
+    check<int>       (y);
+    check<cl_double2>(z);
     check<size_t>(vex::element_index());
 
     {
