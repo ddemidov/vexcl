@@ -48,16 +48,29 @@ namespace vex {
 
 /// Summation. Should be used as a template parameter for Reductor class.
 struct SUM {
+    /* In order to define a reduction kind for vex::Reductor, one should:
+     *
+     * 1. Define initial value (e.g. 0 for sums, 1 for products, plus-minus
+     *    infinity for extrema):
+     */
     template <typename T>
     static T initial() {
         return T();
     };
 
+    /*
+     * 2. Provide an OpenCL function that will be used on compute device to do
+     *    incremental reductions. That is nested struct "function":
+     */
     template <typename T>
     struct function : UserFunction<function<T>, T(T, T)> {
         static std::string body() { return "return prm1 + prm2;"; }
     };
 
+    /*
+     * 3. Provide a host-side function that will be used for final reduction of
+     *    small result vector on host:
+     */
     template <class Iterator>
     static typename std::iterator_traits<Iterator>::value_type
     reduce(Iterator begin, Iterator end) {
