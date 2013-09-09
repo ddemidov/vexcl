@@ -584,18 +584,51 @@ BUILTIN_FUNCTION_1(normalize);
 // fabs in the OpenCL code
 struct abs_func : builtin_function {
     static const char* name() {
-        return "fabs";
+        return "abs";
     }
 };
+
+
+namespace detail {
+    template <class Expr> struct return_type;
+}
+
 template <typename Arg>
-typename boost::proto::result_of::make_expr<
-    boost::proto::tag::function,
-    abs_func,
-    const Arg&
->::type const
+typename std::enable_if<
+    std::is_integral<
+        typename cl_scalar_of<
+            typename detail::return_type<Arg>::type
+        >::type
+    >::value,
+    typename boost::proto::result_of::make_expr<
+        boost::proto::tag::function,
+        abs_func,
+        const Arg&
+    >::type const
+>::type
 abs(const Arg &arg) {
     return boost::proto::make_expr<boost::proto::tag::function>(
             abs_func(),
+            boost::ref(arg)
+            );
+}
+
+template <typename Arg>
+typename std::enable_if<
+    !std::is_integral<
+        typename cl_scalar_of<
+            typename detail::return_type<Arg>::type
+        >::type
+    >::value,
+    typename boost::proto::result_of::make_expr<
+        boost::proto::tag::function,
+        fabs_func,
+        const Arg&
+    >::type const
+>::type
+abs(const Arg &arg) {
+    return boost::proto::make_expr<boost::proto::tag::function>(
+            fabs_func(),
             boost::ref(arg)
             );
 }
