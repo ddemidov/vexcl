@@ -59,13 +59,17 @@ struct temporary : public temporary_terminal_expression
 /// Create temporary to be reused in a vector expression.
 /** The type of the temporary is explicitly specified. */
 template <size_t Tag, typename T, class Expr>
+#ifndef DOXYGEN
 typename std::enable_if<
     boost::proto::matches<
         typename boost::proto::result_of::as_expr< Expr >::type,
         vector_expr_grammar
     >::value,
+#endif
     temporary<T, Tag, Expr>
+#ifndef DOXYGEN
 >::type
+#endif
 make_temp(const Expr &expr) {
     return temporary<T, Tag, Expr>(expr);
 }
@@ -74,13 +78,17 @@ make_temp(const Expr &expr) {
 /** The type of the temporary is automatically deduced from the supplied
  * expression. */
 template <size_t Tag, class Expr>
+#ifndef DOXYGEN
 typename std::enable_if<
     boost::proto::matches<
         typename boost::proto::result_of::as_expr< Expr >::type,
         vector_expr_grammar
     >::value,
+#endif
     temporary<typename detail::return_type<Expr>::type, Tag, Expr>
+#ifndef DOXYGEN
 >::type
+#endif
 make_temp(const Expr &expr) {
     return temporary<typename detail::return_type<Expr>::type, Tag, Expr>(expr);
 }
