@@ -113,9 +113,9 @@ BOOST_AUTO_TEST_CASE(vector_permutation)
     std::vector<double> x = random_vector<double>(N);
     vex::vector<double> X(queue, x);
     vex::vector<double> Y(queue, N);
-    vex::vector<size_t> I(queue, N);
 
     {
+        vex::vector<size_t> I(queue, N);
         I = N - 1 - vex::element_index();
         vex::permutation reverse(I);
         Y = reverse(X);
@@ -127,8 +127,13 @@ BOOST_AUTO_TEST_CASE(vector_permutation)
 
     {
         auto reverse = vex::eslice(N - 1 - vex::element_index());
-        Y = reverse(X);
 
+        Y = reverse(X);
+        check_sample(Y, [&](size_t idx, double v) { BOOST_CHECK_EQUAL(v, x[N - 1 - idx]); });
+
+        Y = 0;
+
+        reverse(Y) = X;
         check_sample(Y, [&](size_t idx, double v) { BOOST_CHECK_EQUAL(v, x[N - 1 - idx]); });
     }
 }
