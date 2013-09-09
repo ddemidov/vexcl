@@ -1678,12 +1678,69 @@ struct get_value_type : boost::proto::callable {
 
 // Proxy for std::common_type<>
 struct common_type : boost::proto::callable {
-    template <class T> struct result;
+    template <class T, class Enable = void> struct result;
 
     template <class This, class T1, class T2>
-    struct result< This(T1, T2) > {
+    struct result< This(T1, T2),
+            typename std::enable_if<
+                is_cl_scalar<typename std::decay<T1>::type>::value &&
+                is_cl_scalar<typename std::decay<T2>::type>::value
+            >::type
+        >
+    {
         typedef typename std::common_type<T1, T2>::type type;
     };
+
+    template <class This, class T1, class T2>
+    struct result< This(T1, T2),
+            typename std::enable_if<
+                is_cl_scalar<typename std::decay<T1>::type>::value &&
+                is_cl_vector<typename std::decay<T2>::type>::value
+            >::type
+        >
+    {
+        typedef
+            typename cl_vector_of<
+                typename std::common_type<
+                    T1, typename cl_scalar_of<T2>::type
+                >::type,
+                cl_vector_length<T2>::value
+            >::type type;
+    };
+
+    template <class This, class T1, class T2>
+    struct result< This(T1, T2),
+            typename std::enable_if<
+                is_cl_vector<typename std::decay<T1>::type>::value &&
+                is_cl_scalar<typename std::decay<T2>::type>::value
+            >::type
+        >
+    {
+        typedef typename result<This(T2, T1)>::type type;
+    };
+
+    template <class This, class T1, class T2>
+    struct result< This(T1, T2),
+            typename std::enable_if<
+                is_cl_vector<typename std::decay<T1>::type>::value &&
+                is_cl_vector<typename std::decay<T2>::type>::value
+            >::type
+        >
+    {
+        static_assert(
+                cl_vector_length<T1>::value == cl_vector_length<T2>::value,
+                "Operations with vectors of different lengths are not supported"
+                );
+        typedef
+            typename cl_vector_of<
+                typename std::common_type<
+                    typename cl_scalar_of<T1>::type,
+                    typename cl_scalar_of<T2>::type
+                >::type,
+                cl_vector_length<T1>::value
+            >::type type;
+    };
+
 };
 
 
@@ -1701,7 +1758,8 @@ struct deduce_value_type
             boost::proto::terminal< boost::proto::_ >,
             get_value_type( boost::proto::_value )
         >,
-        // Result of logical operations is always bool
+        // Result of logical operations is bool for scalars and long for vector
+        // types. Lets keep it simple and return long.
         boost::proto::when <
             boost::proto::or_<
                 boost::proto::or_<
@@ -1718,7 +1776,7 @@ struct deduce_value_type
                     boost::proto::logical_not   < boost::proto::_ >
                 >
             >,
-            bool()
+            long()
         >,
         boost::proto::when <
             boost::proto::if_else_< boost::proto::_, boost::proto::_, boost::proto::_ >,
@@ -1735,7 +1793,7 @@ struct deduce_value_type
                 >,
             boost::proto::fold<
                 boost::proto::functional::pop_front( boost::proto::_ ),
-                bool(),
+                char(),
                 common_type(deduce_value_type, boost::proto::_state)
             >()
         >,
@@ -1754,7 +1812,7 @@ struct deduce_value_type
             boost::proto::nary_expr<boost::proto::_, boost::proto::vararg<boost::proto::_> >,
             boost::proto::fold<
                 boost::proto::_,
-                bool(),
+                char(),
                 common_type(deduce_value_type, boost::proto::_state)
             >()
         >

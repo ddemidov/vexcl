@@ -77,19 +77,24 @@ BOOST_AUTO_TEST_CASE(logical_expr)
     vex::vector<double> x;
     vex::vector<int> y;
 
-    check<bool>(x < y);
-    check<bool>(5 > pow(x, 2.0 * y));
-    check<bool>(!x);
+    check<long>(x < y);
+    check<long>(5 > pow(x, 2.0 * y));
+    check<long>(!x);
 }
 
 BOOST_AUTO_TEST_CASE(nary_expr)
 {
-    vex::vector<double> x;
-    vex::vector<int> y;
+    vex::vector<double>     x;
+    vex::vector<cl_double2> x2;
+    vex::vector<int>        y;
+    vex::vector<cl_int2>    y2;
 
-    check<double>(x + y);
-    check<double>(x + 2 * y);
-    check<int>   (-y);
+    check<double>    (x + y);
+    check<double>    (x + 2 * y);
+    check<int>       (-y);
+    check<cl_double2>(x * x2);
+    check<cl_double2>(y * x2);
+    check<cl_double2>(x * y2);
 }
 
 BOOST_AUTO_TEST_CASE(user_functions)
