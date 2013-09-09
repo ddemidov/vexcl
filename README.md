@@ -328,6 +328,19 @@ vex::permutation reverse(I);
 Y = reverse(X);
 ~~~
 
+The drawback of the above approach is that you have to store and access an
+index vector. Sometimes this is a necessary evil, but in this simple example we
+can do better. `vex::eslice()` function returns an expression-based permutation
+operator. Here is how we use it:
+
+~~~{.cpp}
+auto reverse = vex::eslice( N - 1 - vex::element_index() );
+Y = reverse(X);
+~~~
+
+Note that any valid vector expression may be used as an index, including
+user-defined functions.
+
 _Permutation operation is only supported in single-device contexts._
 
 ### <a name="slicing"></a>Slicing
