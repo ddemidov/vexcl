@@ -115,13 +115,22 @@ BOOST_AUTO_TEST_CASE(vector_permutation)
     vex::vector<double> Y(queue, N);
     vex::vector<size_t> I(queue, N);
 
-    I = N - 1 - vex::element_index();
+    {
+        I = N - 1 - vex::element_index();
+        vex::permutation reverse(I);
+        Y = reverse(X);
 
-    vex::permutation reverse(I);
+        check_sample(Y, [&](size_t idx, double v) { BOOST_CHECK_EQUAL(v, x[N - 1 - idx]); });
+    }
 
-    Y = reverse(X);
+    Y = 0;
 
-    check_sample(Y, [&](size_t idx, double v) { BOOST_CHECK_EQUAL(v, x[N - 1 - idx]); });
+    {
+        auto reverse = vex::eslice(N - 1 - vex::element_index());
+        Y = reverse(X);
+
+        check_sample(Y, [&](size_t idx, double v) { BOOST_CHECK_EQUAL(v, x[N - 1 - idx]); });
+    }
 }
 
 BOOST_AUTO_TEST_CASE(reduce_slice)
