@@ -9,7 +9,7 @@
 #include <vexcl/vector_view.hpp>
 #include "context_setup.hpp"
 
-template <typename T = double>
+template <typename T>
 inline std::array<T, 2> make_array(T x,  T y) {
     std::array<T, 2> p = {{x, y}};
     return p;
@@ -27,7 +27,7 @@ void check(const Expr &expr) {
 
 BOOST_AUTO_TEST_CASE(terminals)
 {
-    const ssize_t n = 1024;
+    const size_t n = 1024;
 
     vex::vector<double>     x;
     vex::vector<int>        y;

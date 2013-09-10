@@ -2311,16 +2311,21 @@ tie(const Expr&... expr) {
 }
 #else
 
+#define PRINT_TYPES(z, n, data) const Expr ## n &
+#define PRINT_PARAM(z, n, data) const Expr ## n &expr ## n
+
 #define TIE_VECTORS(z, n, data) \
-template<typename T> \
-multivector<T, n, false> tie( BOOST_PP_ENUM_PARAMS(n, vex::vector<T> &v) ) { \
-    std::array<vex::vector<T>*, n> ptr = {{ BOOST_PP_ENUM_PARAMS(n, &v) }}; \
-    return multivector<T, n, false>(ptr); \
+template<BOOST_PP_ENUM_PARAMS(n, class Expr)> \
+expression_tuple< std::tuple<BOOST_PP_ENUM(n, PRINT_TYPES, ~)> > \
+tie( BOOST_PP_ENUM(n, PRINT_PARAM, ~) ) { \
+    return expression_tuple< std::tuple<BOOST_PP_ENUM(n, PRINT_TYPES, ~)> >( std::tie(BOOST_PP_ENUM_PARAMS(n, expr)) ); \
 }
 
 BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, TIE_VECTORS, ~)
 
 #undef TIE_VECTORS
+#undef PRINT_PARAM
+#undef PRINT_TYPES
 
 #endif
 

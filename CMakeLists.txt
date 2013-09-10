@@ -16,6 +16,7 @@ endif (VEXCL_SHOW_KERNELS)
 #----------------------------------------------------------------------------
 if (WIN32)
     set(Boost_USE_STATIC_LIBS ON)
+    add_definitions(-D_VARIADIC_MAX=10)
 else (WIN32)
     add_definitions(-DBOOST_TEST_DYN_LINK)
 endif (WIN32)
