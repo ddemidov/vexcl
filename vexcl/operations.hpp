@@ -1714,66 +1714,30 @@ struct common_type : boost::proto::callable {
     template <class T, class Enable = void> struct result;
 
     template <class This, class T1, class T2>
-    struct result< This(T1, T2),
-            typename std::enable_if<
-                is_cl_scalar<typename std::decay<T1>::type>::value &&
-                is_cl_scalar<typename std::decay<T2>::type>::value
-            >::type
-        >
+    struct result< This(T1, T2) >
     {
-        typedef typename std::common_type<T1, T2>::type type;
-    };
+        typedef typename std::decay<T1>::type D1;
+        typedef typename std::decay<T2>::type D2;
 
-    template <class This, class T1, class T2>
-    struct result< This(T1, T2),
-            typename std::enable_if<
-                is_cl_scalar<typename std::decay<T1>::type>::value &&
-                is_cl_vector<typename std::decay<T2>::type>::value
-            >::type
-        >
-    {
-        typedef
-            typename cl_vector_of<
-                typename std::common_type<
-                    T1, typename cl_scalar_of<T2>::type
-                >::type,
-                cl_vector_length<T2>::value
-            >::type type;
-    };
-
-    template <class This, class T1, class T2>
-    struct result< This(T1, T2),
-            typename std::enable_if<
-                is_cl_vector<typename std::decay<T1>::type>::value &&
-                is_cl_scalar<typename std::decay<T2>::type>::value
-            >::type
-        >
-    {
-        typedef typename result<This(T2, T1)>::type type;
-    };
-
-    template <class This, class T1, class T2>
-    struct result< This(T1, T2),
-            typename std::enable_if<
-                is_cl_vector<typename std::decay<T1>::type>::value &&
-                is_cl_vector<typename std::decay<T2>::type>::value
-            >::type
-        >
-    {
         static_assert(
-                cl_vector_length<T1>::value == cl_vector_length<T2>::value,
+                cl_vector_length<D1>::value == 1 ||
+                cl_vector_length<D2>::value == 1 ||
+                cl_vector_length<D1>::value == cl_vector_length<D2>::value,
                 "Operations with vectors of different lengths are not supported"
                 );
+
         typedef
             typename cl_vector_of<
                 typename std::common_type<
-                    typename cl_scalar_of<T1>::type,
-                    typename cl_scalar_of<T2>::type
+                    typename cl_scalar_of<D1>::type,
+                    typename cl_scalar_of<D2>::type
                 >::type,
-                cl_vector_length<T1>::value
+                boost::mpl::max<
+                    boost::mpl::size_t<cl_vector_length<D1>::value>,
+                    boost::mpl::size_t<cl_vector_length<D2>::value>
+                >::type::value
             >::type type;
     };
-
 };
 
 

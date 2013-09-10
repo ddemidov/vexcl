@@ -195,6 +195,7 @@ CL_TYPES(long);  CL_TYPES(ulong);
 template <> inline std::string type_name<char>() { return "char"; }
 template <> struct is_cl_native<char> : std::true_type {};
 template <> struct cl_vector_length<char> : std::integral_constant<unsigned, 1> {};
+template <> struct cl_scalar_of<char> { typedef char type; };
 
 // One can not pass bool to the kernel, but the overload is needed for type
 // deduction:
