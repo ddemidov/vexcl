@@ -167,8 +167,8 @@ BOOST_AUTO_TEST_CASE(element_index)
             );
 
     check_sample(x, [](size_t idx, elem_t a) {
-            BOOST_CHECK_CLOSE(a[0], sin(0.5 * idx), 1e-8);
-            BOOST_CHECK_CLOSE(a[1], cos(0.5 * idx), 1e-8);
+            BOOST_CHECK_CLOSE(a[0], sin(0.5 * idx), 1e-6);
+            BOOST_CHECK_CLOSE(a[1], cos(0.5 * idx), 1e-6);
             });
 }
 
