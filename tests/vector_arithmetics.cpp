@@ -125,7 +125,7 @@ BOOST_AUTO_TEST_CASE(element_index)
 
     x = sin(0.5 * vex::element_index());
 
-    check_sample(x, [](size_t idx, double a) { BOOST_CHECK_CLOSE(a, sin(0.5 * idx), 1e-8); });
+    check_sample(x, [](size_t idx, double a) { BOOST_CHECK_CLOSE(a, sin(0.5 * idx), 1e-6); });
 }
 
 BOOST_AUTO_TEST_CASE(vector_values)
