@@ -299,7 +299,7 @@ struct gslice {
         return s.str();
     }
 
-    void setArgs(cl::Kernel &kernel, unsigned device, size_t/*index_offset*/,
+    void setArgs(cl::Kernel &kernel, unsigned/*device*/, size_t/*index_offset*/,
 	    unsigned &position) const
     {
         kernel.setArg(position++, start);
