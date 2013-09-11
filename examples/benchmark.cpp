@@ -150,7 +150,7 @@ std::pair<double, double> benchmark_reductor(
         real sum_cpp = 0;
         prof.tic_cpu("C++");
         for(size_t i = 0; i < M; i++)
-            sum_cpp += std::inner_product(A.begin(), A.end(), B.begin(), 0.0);
+            sum_cpp += std::inner_product(A.begin(), A.end(), B.begin(), static_cast<real>(0));
         time_elapsed = prof.toc("C++");
 
         {
@@ -184,7 +184,7 @@ std::pair<double, double> benchmark_stencil(
     std::vector<real> A = random_vector<real>(N);
     std::vector<real> B(N);
 
-    std::vector<real> S(21, 1.0 / 21);
+    std::vector<real> S(21, static_cast<real>(1) / 21);
     long center = S.size() / 2;
     vex::stencil<real> s(ctx, S, center);
 
@@ -260,7 +260,7 @@ std::pair<double,double> benchmark_spmv(
     std::vector<size_t> row;
     std::vector<uint>   col;
     std::vector<real>   val;
-    std::vector<real>   X(n * n * n, 1e-2);
+    std::vector<real>   X(n * n * n, static_cast<real>(1e-2));
     std::vector<real>   Y(n * n * n, 0);
 
     row.reserve(n * n * n + 1);
@@ -390,7 +390,7 @@ std::pair<double,double> benchmark_spmv_ccsr(
     std::vector<int>    col(8);
     std::vector<real>   val(8);
 
-    std::vector<real>   X(n * n * n, 1e-2);
+    std::vector<real>   X(n * n * n, static_cast<real>(1e-2));
     std::vector<real>   Y(n * n * n, 0);
 
     idx.reserve(n * n * n);

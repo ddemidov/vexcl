@@ -33,6 +33,7 @@ THE SOFTWARE.
 
 #include <vector>
 #include <array>
+#include <sstream>
 #include <memory>
 #include <algorithm>
 #include <numeric>
@@ -310,7 +311,7 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, FUNCALL_OPERATOR, ~)
 
                     for(size_t d = 0; d < NDIM; ++d) {
                         real u = ((*p)[d] - xmin[d]) * hinv[d];
-                        i[d] = std::floor(u) - 1;
+                        i[d] = static_cast<size_t>(std::floor(u) - 1);
                         s[d] = u - std::floor(u);
                     }
 
@@ -366,7 +367,7 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, FUNCALL_OPERATOR, ~)
 
                 for(size_t d = 0; d < NDIM; ++d) {
                     real u = (p[d] - xmin[d]) * hinv[d];
-                    i[d] = std::floor(u) - 1;
+                    i[d] = static_cast<size_t>(std::floor(u) - 1);
                     s[d] = u - std::floor(u);
                 }
 
@@ -597,7 +598,9 @@ struct kernel_param_declaration< mba_interp<MBA, ExprTuple> > {
 
         template <class Expr>
         void operator()(const Expr &expr) const {
-            detail::declare_expression_parameter ctx(s, dev, 1, prm_name + "_x" + std::to_string(pos) + "_");
+            std::ostringstream prefix;
+            prefix << prm_name << "_x" << pos << "_";
+            detail::declare_expression_parameter ctx(s, dev, 1, prefix.str());
             detail::extract_terminals()(boost::proto::as_child(expr), ctx);
 
             pos++;
@@ -644,7 +647,10 @@ struct partial_vector_expr< mba_interp<MBA, ExprTuple> > {
         void operator()(const Expr &expr) const {
             if(pos) s << ", ";
 
-            detail::vector_expr_context ctx(s, dev, 1, prm_name + "_x" + std::to_string(pos) + "_");
+            std::ostringstream prefix;
+            prefix << prm_name << "_x" << pos << "_";
+
+            detail::vector_expr_context ctx(s, dev, 1, prefix.str());
             boost::proto::eval(boost::proto::as_child(expr), ctx);
 
             pos++;

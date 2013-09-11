@@ -5,7 +5,7 @@
 #include <vexcl/element_index.hpp>
 #include "context_setup.hpp"
 
-template <typename T = double>
+template <typename T>
 inline std::array<T, 2> make_array(T x,  T y) {
     std::array<T, 2> p = {{x, y}};
     return p;
@@ -13,21 +13,27 @@ inline std::array<T, 2> make_array(T x,  T y) {
 
 BOOST_AUTO_TEST_CASE(mba)
 {
-    std::vector< std::array<double,2> > p = {
-        make_array(0.0, 0.0),
-        make_array(0.0, 1.0),
-        make_array(1.0, 0.0),
-        make_array(1.0, 1.0),
-        make_array(0.4, 0.4),
-        make_array(0.6, 0.6)
-    };
+    std::vector< std::array<double,2> > p;
 
-    std::vector<double> v = {
-        0.2, 0.0, 0.0, -0.2, -1.0, 1.0
-    };
+    p.push_back(make_array<double>(0.0, 0.0));
+    p.push_back(make_array<double>(0.0, 1.0));
+    p.push_back(make_array<double>(1.0, 0.0));
+    p.push_back(make_array<double>(1.0, 1.0));
+    p.push_back(make_array<double>(0.4, 0.4));
+    p.push_back(make_array<double>(0.6, 0.6));
+
+    std::vector<double> v;
+
+    v.push_back( 0.2);
+    v.push_back( 0.0);
+    v.push_back( 0.0);
+    v.push_back(-0.2);
+    v.push_back(-1.0);
+    v.push_back( 1.0);
 
     vex::mba<2> cloud(ctx,
-            make_array(-0.01, -0.01), make_array( 1.01,  1.01),
+            make_array<double>(-0.01, -0.01),
+            make_array<double>( 1.01,  1.01),
             p, v, make_array<size_t>(2, 2)
             );
 

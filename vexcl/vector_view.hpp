@@ -61,7 +61,7 @@ struct vector_view : public vector_view_terminal_expression
     typedef T value_type;
 
     const vector<T> &base;
-    const Slice     &slice;
+    const Slice      slice;
 
     vector_view(const vector<T> &base, const Slice &slice)
         : base(base), slice(slice)

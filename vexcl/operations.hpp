@@ -1014,7 +1014,8 @@ struct get_dimension<Expr, typename std::enable_if<
         boost::proto::matches<
             typename boost::proto::result_of::as_expr<Expr>::type,
             multivector_expr_grammar
-        >::value
+        >::value &&
+        !is_tuple<typename std::decay<Expr>::type>::value
     >::type>
 {
     const static size_t value = std::result_of<traits::multiex_dimension(Expr)>::type::value;
@@ -1773,7 +1774,7 @@ struct deduce_value_type
                     boost::proto::logical_not   < boost::proto::_ >
                 >
             >,
-            long()
+            cl_long()
         >,
         boost::proto::when <
             boost::proto::if_else_< boost::proto::_, boost::proto::_, boost::proto::_ >,
@@ -2120,7 +2121,7 @@ void assign_multiexpression( LHS &lhs, const RHS &rhs,
         )
 {
 
-    const static size_t N = traits::get_dimension<LHS>::value;
+    typedef traits::get_dimension<LHS> N;
 
     static kernel_cache cache;
 
@@ -2131,7 +2132,7 @@ void assign_multiexpression( LHS &lhs, const RHS &rhs,
                 [](const cl::CommandQueue &q) { return is_cpu(qdev(q)); })
        )
     {
-        static_for<0, N>::loop(
+        static_for<0, N::value>::loop(
                 subexpression_assigner<OP, LHS, RHS>(lhs, rhs, queue, part)
                 );
         return;
@@ -2148,14 +2149,14 @@ void assign_multiexpression( LHS &lhs, const RHS &rhs,
 
             source << standard_kernel_header(device);
 
-            static_for<0, N>::loop(
+            static_for<0, N::value>::loop(
                     preamble_constructor<LHS, RHS>(lhs, rhs, source, device)
                     );
 
             source << "kernel void vexcl_multivector_kernel(\n\t"
                    << type_name<size_t>() << " n";
 
-            static_for<0, N>::loop(
+            static_for<0, N::value>::loop(
                     parameter_declarator<LHS, RHS>(lhs, rhs, source, device)
                     );
 
@@ -2163,8 +2164,8 @@ void assign_multiexpression( LHS &lhs, const RHS &rhs,
                 "\n)\n{\n"
                 "\tfor(size_t idx = get_global_id(0); idx < n; idx += get_global_size(0)) {\n";
 
-            static_for<0, N>::loop(expression_init<LHS, RHS>(lhs, rhs, source, device));
-            static_for<0, N>::loop(expression_finalize<OP, LHS>(lhs, source, device));
+            static_for<0, N::value>::loop(expression_init<LHS, RHS>(lhs, rhs, source, device));
+            static_for<0, N::value>::loop(expression_finalize<OP, LHS>(lhs, source, device));
 
             source << "\t}\n}\n";
 
@@ -2185,7 +2186,7 @@ void assign_multiexpression( LHS &lhs, const RHS &rhs,
             unsigned pos = 0;
             kernel->second.kernel.setArg(pos++, psize);
 
-            static_for<0, N>::loop(
+            static_for<0, N::value>::loop(
                     kernel_arg_setter<LHS, RHS>(lhs, rhs, kernel->second.kernel, d, part[d], pos)
                     );
 

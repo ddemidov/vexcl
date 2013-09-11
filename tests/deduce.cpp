@@ -77,9 +77,9 @@ BOOST_AUTO_TEST_CASE(logical_expr)
     vex::vector<double> x;
     vex::vector<int> y;
 
-    check<long>(x < y);
-    check<long>(5 > pow(x, 2.0 * y));
-    check<long>(!x);
+    check<cl_long>(x < y);
+    check<cl_long>(5 > pow(x, 2.0 * y));
+    check<cl_long>(!x);
 }
 
 BOOST_AUTO_TEST_CASE(nary_expr)
