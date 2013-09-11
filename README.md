@@ -315,26 +315,25 @@ a sequence position N.
 
 ### <a name="permutations"></a>Permutations
 
-`vex::permutation` allows to use permuted vector in a vector expression. The
-class constructor accepts `vex::vector<size_t>` of indices. The following
-example assigns reversed vector `X` to `Y`:
+`vex::permutation()` function allows to use permuted vector in a vector
+expression. The function accepts a vector expression that returns integral
+values (indices).  The following example assigns reversed vector `X` to `Y`:
 
 ~~~{.cpp}
 vex::vector<size_t> I(ctx, N);
 I = N - 1 - vex::element_index();
-
-vex::permutation reverse(I);
+auto reverse = vex::permutation(I)
 
 Y = reverse(X);
 ~~~
 
 The drawback of the above approach is that you have to store and access an
 index vector. Sometimes this is a necessary evil, but in this simple example we
-can do better. `vex::eslice()` function returns an expression-based permutation
-operator. Here is how we use it:
+can do better. In the following example lightweight expression is used to
+construct the same permutation:
 
 ~~~{.cpp}
-auto reverse = vex::eslice( N - 1 - vex::element_index() );
+auto reverse = vex::permutation( N - 1 - vex::element_index() );
 Y = reverse(X);
 ~~~
 

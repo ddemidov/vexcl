@@ -507,64 +507,12 @@ struct slicer {
         }
 };
 
-/// Permutation operator.
-struct permutation {
-    const vector<size_t> &index;
-
-    permutation(const vector<size_t> &index) : index(index) {
-        assert(index.queue_list().size() == 1);
-    }
-
-    size_t size() const {
-        return index.size();
-    }
-
-    std::string partial_expression(const std::string &prm_name,
-            const cl::Device&) const
-    {
-        std::ostringstream s;
-        s << prm_name << "_base[" << prm_name << "_index[idx]]";
-
-        return s.str();
-    }
-
-    std::string indexing_function(const std::string &/*prm_name*/,
-            const cl::Device&) const
-    {
-        return "";
-    }
-
-    template <typename T>
-    std::string parameter_declaration(const std::string &prm_name,
-            const cl::Device&) const
-    {
-        std::ostringstream s;
-
-        s << ",\n\tglobal " << type_name<T>() << " * " << prm_name << "_base"
-          << ", global " << type_name<size_t>() << " * " << prm_name << "_index";
-
-        return s.str();
-    }
-
-    void setArgs(cl::Kernel &kernel, unsigned device, size_t/*index_offset*/,
-	    unsigned &position) const
-    {
-        kernel.setArg(position++, index(device));
-    }
-
-    template <typename T>
-    vector_view<T, permutation> operator()(const vector<T> &base) const {
-        assert(base.queue_list().size() == 1);
-        return vector_view<T, permutation>(base, *this);
-    }
-};
-
 /// Expression-based permutation operator.
 template <class Expr>
-struct expr_slice {
+struct expr_permutation {
     const Expr expr;
 
-    expr_slice(const Expr &expr) : expr(expr) {}
+    expr_permutation(const Expr &expr) : expr(expr) {}
 
     size_t size() const {
         detail::get_expression_properties prop;
@@ -618,9 +566,9 @@ struct expr_slice {
     }
 
     template <typename T>
-    vector_view<T, expr_slice> operator()(const vector<T> &base) const {
+    vector_view<T, expr_permutation> operator()(const vector<T> &base) const {
         assert(base.queue_list().size() == 1);
-        return vector_view<T, expr_slice>(base, *this);
+        return vector_view<T, expr_permutation>(base, *this);
     }
 };
 
@@ -635,10 +583,10 @@ struct expr_slice {
 template <class Expr>
 typename std::enable_if<
     std::is_integral<typename detail::return_type<Expr>::type>::value,
-    expr_slice<Expr>
+    expr_permutation<Expr>
 >::type
-eslice(const Expr &expr) {
-    return expr_slice<Expr>(expr);
+permutation(const Expr &expr) {
+    return expr_permutation<Expr>(expr);
 }
 
 //---------------------------------------------------------------------------

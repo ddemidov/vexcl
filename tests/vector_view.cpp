@@ -117,16 +117,16 @@ BOOST_AUTO_TEST_CASE(vector_permutation)
     {
         vex::vector<size_t> I(queue, N);
         I = N - 1 - vex::element_index();
-        vex::permutation reverse(I);
-        Y = reverse(X);
+        auto reverse = vex::permutation(I);
 
+        Y = reverse(X);
         check_sample(Y, [&](size_t idx, double v) { BOOST_CHECK_EQUAL(v, x[N - 1 - idx]); });
     }
 
     Y = 0;
 
     {
-        auto reverse = vex::eslice(N - 1 - vex::element_index());
+        auto reverse = vex::permutation(N - 1 - vex::element_index());
 
         Y = reverse(X);
         check_sample(Y, [&](size_t idx, double v) { BOOST_CHECK_EQUAL(v, x[N - 1 - idx]); });
@@ -192,7 +192,7 @@ BOOST_AUTO_TEST_CASE(assign_to_view) {
 
     I = vex::element_index() * m;
 
-    vex::permutation first_col(I);
+    auto first_col = vex::permutation(I);
 
     first_col(x) = 42;
 
