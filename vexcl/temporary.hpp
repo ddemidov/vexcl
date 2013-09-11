@@ -46,7 +46,6 @@ typedef vector_expression<
 template <typename T, size_t Tag, class Expr>
 struct temporary : public temporary_terminal_expression
 {
-    //typedef typename detail::return_type<Expr>::type value_type;
     typedef T value_type;
 
     const Expr expr;
@@ -59,38 +58,44 @@ struct temporary : public temporary_terminal_expression
 /// Create temporary to be reused in a vector expression.
 /** The type of the temporary is explicitly specified. */
 template <size_t Tag, typename T, class Expr>
-#ifndef DOXYGEN
-typename std::enable_if<
-    boost::proto::matches<
-        typename boost::proto::result_of::as_expr< Expr >::type,
-        vector_expr_grammar
-    >::value,
-#endif
-    temporary<T, Tag, Expr>
-#ifndef DOXYGEN
->::type
-#endif
-make_temp(const Expr &expr) {
-    return temporary<T, Tag, Expr>(expr);
+auto make_temp(const Expr &expr)
+	-> temporary<T, Tag, decltype(boost::proto::as_child<vector_domain>(expr))>
+{
+	static_assert(
+			boost::proto::matches<
+				typename boost::proto::result_of::as_expr< Expr >::type,
+				vector_expr_grammar
+			>::value,
+			"Unsupported expression in make_temp()"
+		);
+
+	return temporary<
+				T, Tag,
+				decltype(boost::proto::as_child<vector_domain>(expr))
+				>(boost::proto::as_child<vector_domain>(expr));
 }
 
 /// Create temporary to be reused in a vector expression.
 /** The type of the temporary is automatically deduced from the supplied
  * expression. */
 template <size_t Tag, class Expr>
-#ifndef DOXYGEN
-typename std::enable_if<
-    boost::proto::matches<
-        typename boost::proto::result_of::as_expr< Expr >::type,
-        vector_expr_grammar
-    >::value,
-#endif
-    temporary<typename detail::return_type<Expr>::type, Tag, Expr>
-#ifndef DOXYGEN
->::type
-#endif
-make_temp(const Expr &expr) {
-    return temporary<typename detail::return_type<Expr>::type, Tag, Expr>(expr);
+auto make_temp(const Expr &expr)
+-> temporary<
+		typename detail::return_type<Expr>::type, Tag,
+		decltype(boost::proto::as_child<vector_domain>(expr))
+		>
+{
+	static_assert(
+			boost::proto::matches<
+				typename boost::proto::result_of::as_expr< Expr >::type,
+				vector_expr_grammar
+			>::value,
+			"Unsupported expression in make_temp()"
+		);
+    return temporary<
+				typename detail::return_type<Expr>::type, Tag,
+				decltype(boost::proto::as_child<vector_domain>(expr))
+				>(boost::proto::as_child<vector_domain>(expr));
 }
 
 #ifdef VEXCL_MULTIVECTOR_HPP

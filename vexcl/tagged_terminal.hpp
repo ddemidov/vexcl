@@ -53,7 +53,8 @@ struct tagged_terminal : tagged_terminal_expression
 {
     typedef typename detail::return_type<Term>::type value_type;
 
-    const Term & term;
+    Term term;
+
     tagged_terminal(const Term &term) : term(term) {}
 
     // Expression assignments.
@@ -117,16 +118,15 @@ struct terminal_preamble< tagged_terminal<Tag, Term> > {
         auto &pos = boost::any_cast< std::set<size_t>& >(s->second);
         auto p = pos.find(Tag);
 
-        typedef
-            typename std::decay<
-                decltype(boost::proto::as_child(term.term))
-            >::type TermType;
-
         if (p == pos.end()) {
             pos.insert(Tag);
 
-            return terminal_preamble<TermType>::get(
-                    boost::proto::as_child(term.term), device, prm_name, state);
+            std::ostringstream s;
+
+            detail::output_terminal_preamble termpream(s, device, 1, prm_name + "_");
+            boost::proto::eval(boost::proto::as_child(term.term), termpream);
+
+            return s.str();
         } else {
             return "";
         }
@@ -151,16 +151,15 @@ struct kernel_param_declaration< tagged_terminal<Tag, Term> > {
         auto &pos = boost::any_cast< std::set<size_t>& >(s->second);
         auto p = pos.find(Tag);
 
-        typedef
-            typename std::decay<
-                decltype(boost::proto::as_child(term.term))
-            >::type TermType;
-
         if (p == pos.end()) {
             pos.insert(Tag);
 
-            return kernel_param_declaration<TermType>::get(
-                    boost::proto::as_child(term.term), device, prm_name, state);
+            std::ostringstream s;
+
+            detail::declare_expression_parameter declare(s, device, 1, prm_name + "_");
+            detail::extract_terminals()(boost::proto::as_child(term.term),  declare);
+
+            return s.str();
         } else {
             return "";
         }
@@ -186,14 +185,13 @@ struct partial_vector_expr< tagged_terminal<Tag, Term> > {
         auto &pos = boost::any_cast< std::map<size_t, std::string>& >(s->second);
         auto p = pos.find(Tag);
 
-        typedef
-            typename std::decay<
-                decltype(boost::proto::as_child(term.term))
-            >::type TermType;
-
         if (p == pos.end()) {
-            return (pos[Tag] = partial_vector_expr<TermType>::get(
-                        boost::proto::as_child(term.term), device, prm_name, state));
+			std::ostringstream s;
+
+            detail::vector_expr_context expr_ctx(s, device, 1, prm_name + "_");
+            boost::proto::eval(boost::proto::as_child(term.term), expr_ctx);
+
+            return (pos[Tag] = s.str());
         } else {
             return p->second;
         }
@@ -218,15 +216,11 @@ struct kernel_arg_setter< tagged_terminal<Tag, Term> > {
         auto &pos = boost::any_cast< std::set<size_t>& >(s->second);
         auto p = pos.find(Tag);
 
-        typedef
-            typename std::decay<
-                decltype(boost::proto::as_child(term.term))
-            >::type TermType;
-
         if (p == pos.end()) {
             pos.insert(Tag);
-            kernel_arg_setter<TermType>::set(boost::proto::as_child(term.term),
-                    kernel, device, index_offset, position, state);
+
+            detail::set_expression_argument setarg(kernel, device, position, index_offset);
+            detail::extract_terminals()( boost::proto::as_child(term.term),  setarg);
         }
     }
 };
@@ -239,12 +233,12 @@ struct expression_properties< tagged_terminal<Tag, Term> > {
             size_t &size
             )
     {
-        typedef
-            typename std::decay<
-                decltype(boost::proto::as_child(term.term))
-            >::type TermType;
+        detail::get_expression_properties prop;
+        detail::extract_terminals()(boost::proto::as_child(term.term), prop);
 
-        expression_properties<TermType>::get(boost::proto::as_child(term.term), queue_list, partition, size);
+        queue_list = prop.queue;
+        partition  = prop.part;
+        size       = prop.size;
     }
 };
 
@@ -265,19 +259,24 @@ struct expression_properties< tagged_terminal<Tag, Term> > {
  * \endcode
  */
 template <size_t Tag, class Expr>
-#ifdef DOXYGEN
-tagged_terminal<Tag, Expr>
-#else
-typename std::enable_if<
-    boost::proto::matches<
-        typename boost::proto::result_of::as_expr<Expr>::type,
-        boost::proto::terminal<boost::proto::_>
-    >::value,
-    tagged_terminal<Tag, Expr>
->::type
-#endif
-tag(const Expr &expr) {
-    return tagged_terminal<Tag, Expr>(expr);
+auto tag(const Expr& expr)
+	-> tagged_terminal<
+			Tag,
+			decltype(boost::proto::as_child<vector_domain>(expr))
+		>
+{
+	static_assert(
+		boost::proto::matches<
+			typename boost::proto::result_of::as_expr<Expr>::type,
+			boost::proto::terminal<boost::proto::_>
+		>::value,
+		"Tagging non-terminals is not allowed"
+		);
+
+    return tagged_terminal<
+				Tag,
+				decltype(boost::proto::as_child<vector_domain>(expr))
+				>(boost::proto::as_child<vector_domain>(expr));
 }
 
 } //namespace vex
