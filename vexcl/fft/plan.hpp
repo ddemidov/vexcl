@@ -197,7 +197,7 @@ struct plan {
     std::vector<kernel_call> kernels;
 
     size_t input, output;
-    std::vector<cl::Buffer> bufs;
+    std::vector< vex::vector<T2> > bufs;
 
     profiler<> *profile;
 
@@ -217,14 +217,14 @@ struct plan {
                 "FFT is only supported for single-device contexts."
                 );
 
-        auto queue = queues[0];
+        auto queue   = queues[0];
         auto context = qctx(queue);
-        auto device = qdev(queue);
+        auto device  = qdev(queue);
 
         size_t total_n = std::accumulate(sizes.begin(), sizes.end(),
 	    static_cast<size_t>(1), std::multiplies<size_t>());
-        size_t current = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * total_n));
-        size_t other   = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * total_n));
+        size_t current = bufs.size(); bufs.push_back(vex::vector<T2>(queues, total_n));
+        size_t other   = bufs.size(); bufs.push_back(vex::vector<T2>(queues, total_n));
 
         size_t inv_n = 1;
         for(size_t i = 0 ; i < sizes.size() ; i++)
@@ -243,7 +243,7 @@ struct plan {
                     plan_cooley_tukey(dirs[j] == inverse, w, h, current, other, false);
 
                 if(h > 1 && !(dirs.size() == 2 && dirs[0] == none)) {
-                    kernels.push_back(transpose_kernel<T>(queue, w, h, bufs[current], bufs[other]));
+                    kernels.push_back(transpose_kernel<T>(queue, w, h, bufs[current](), bufs[other]()));
                     std::swap(current, other);
                 }
             }
@@ -260,7 +260,7 @@ struct plan {
                 p *= r->base;
             } else {
                 kernels.push_back(radix_kernel<T>(once, queues[0], n, batch,
-                    inverse, *r, p, bufs[current], bufs[other]));
+                    inverse, *r, p, bufs[current](), bufs[other]()));
                 std::swap(current, other);
                 p *= r->value;
             }
@@ -272,38 +272,38 @@ struct plan {
         size_t threads = width / n;
         auto context = qctx(queues[0]);
 
-        size_t b_twiddle = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * n));
-        size_t b_other   = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * conv_n));
-        size_t b_current = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * conv_n));
-        size_t a_current = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * conv_n * batch * threads));
-        size_t a_other   = bufs.size(); bufs.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(T2) * conv_n * batch * threads));
+        size_t b_twiddle = bufs.size(); bufs.push_back(vex::vector<T2>(queues, n));
+        size_t b_other   = bufs.size(); bufs.push_back(vex::vector<T2>(queues, conv_n));
+        size_t b_current = bufs.size(); bufs.push_back(vex::vector<T2>(queues, conv_n));
+        size_t a_current = bufs.size(); bufs.push_back(vex::vector<T2>(queues, conv_n * batch * threads));
+        size_t a_other   = bufs.size(); bufs.push_back(vex::vector<T2>(queues, conv_n * batch * threads));
 
         // calculate twiddle factors
         kernels.push_back(bluestein_twiddle<T>(queues[0], n, inverse,
-            bufs[b_twiddle])); // once
+            bufs[b_twiddle]())); // once
 
         // first part of the convolution
         kernels.push_back(bluestein_pad_kernel<T>(queues[0], n, conv_n,
-            bufs[b_twiddle], bufs[b_current])); // once
+            bufs[b_twiddle](), bufs[b_current]())); // once
 
         plan_cooley_tukey(false, conv_n, 1, b_current, b_other, /*once*/true);
 
         // other part of convolution
         kernels.push_back(bluestein_mul_in<T>(queues[0], inverse, batch, n, p, threads, conv_n,
-            bufs[current], bufs[b_twiddle], bufs[a_current]));
+            bufs[current](), bufs[b_twiddle](), bufs[a_current]()));
 
         plan_cooley_tukey(false, conv_n, threads * batch, a_current, a_other, false);
 
         // calculate convolution
         kernels.push_back(bluestein_mul<T>(queues[0], conv_n, threads * batch,
-            bufs[a_current], bufs[b_current], bufs[a_other]));
+            bufs[a_current](), bufs[b_current](), bufs[a_other]()));
         std::swap(a_current, a_other);
 
         plan_cooley_tukey(true, conv_n, threads * batch, a_current, a_other, false);
 
         // twiddle again
         kernels.push_back(bluestein_mul_out<T>(queues[0], batch, p, n, threads, conv_n,
-            bufs[a_current], bufs[b_twiddle], bufs[other]));
+            bufs[a_current](), bufs[b_twiddle](), bufs[other]()));
         std::swap(current, other);
     }
 
@@ -322,17 +322,15 @@ struct plan {
             profile->tic_cl(prof_name.str());
             profile->tic_cl("in");
         }
-        vector<T2> in_c(queues[0], bufs[input]);
+        vector<T2> &in_c = bufs[input];
         if(std::is_same<T0, T>::value) in_c = r2c(in);
         else in_c = in;
         if(profile) profile->toc("in");
         for(auto run = kernels.begin(); run != kernels.end(); ++run) {
             if(!run->once || run->count == 0) {
 #ifdef FFT_DUMP_ARRAYS
-                for(size_t i = 0 ; i != bufs.size() ; i++) {
-                    vector<T2> b(queues[0], bufs[i]);
-                    std::cerr << "   " << std::setprecision(2) << bufs[i]() << " = " << b << std::endl;
-                }
+                for(auto b = bufs.begin(); b != bufs.end(); ++b)
+                    std::cerr << "   " << std::setprecision(2) << (*b)()() << " = " << (*b) << std::endl;
                 std::cerr << "run " << run->desc << std::endl;
 #endif
                 if(profile) {
@@ -349,14 +347,12 @@ struct plan {
             }
         }
 #ifdef FFT_DUMP_ARRAYS
-        for(size_t i = 0 ; i != bufs.size() ; i++) {
-            vector<T2> b(queues[0], bufs[i]);
-            std::cerr << "   " << bufs[i]() << " = " << b << std::endl;
-        }
+        for(auto b = bufs.begin(); b != bufs.end(); ++b)
+            std::cerr << "   " << (*b)()() << " = " << (*b) << std::endl;
 #endif
 
         if(profile) profile->tic_cl("out");
-        vector<T2> out_c(queues[0], bufs[output]);
+        vector<T2> &out_c = bufs[output];
         if(std::is_same<T1, T>::value) {
             if(append) out += c2r(out_c) * (ex_scale * scale);
             else out = c2r(out_c) * (ex_scale * scale);
