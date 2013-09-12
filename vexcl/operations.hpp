@@ -37,6 +37,7 @@ THE SOFTWARE.
 
 #include <array>
 #include <tuple>
+#include <memory>
 
 #include <boost/proto/proto.hpp>
 #include <boost/mpl/max.hpp>
@@ -97,6 +98,10 @@ namespace detail {
 // Used as a state parameter in kernel generation functions.
 typedef std::map<std::string, boost::any> kernel_generator_state;
 typedef std::shared_ptr<kernel_generator_state> kernel_generator_state_ptr;
+
+kernel_generator_state_ptr empty_state() {
+    return std::make_shared<kernel_generator_state>();
+}
 
 } // namespace detail
 
@@ -1103,7 +1108,7 @@ struct expression_context {
     expression_context(
             std::ostream &os, const cl::Device &device,
             int cmp_idx = 1, const std::string &prefix = "",
-            kernel_generator_state_ptr state = std::make_shared<kernel_generator_state>()
+            kernel_generator_state_ptr state = empty_state()
             )
         : os(os), device(device), cmp_idx(cmp_idx), prm_idx(0), fun_idx(0),
           prefix(prefix), state(state)
@@ -1121,7 +1126,7 @@ struct output_terminal_preamble : public expression_context {
     output_terminal_preamble(
             std::ostream &os, const cl::Device &device,
             int cmp_idx = 1, const std::string &prefix = "",
-            kernel_generator_state_ptr state = std::make_shared<kernel_generator_state>()
+            kernel_generator_state_ptr state = empty_state()
             )
         : expression_context(os, device, cmp_idx, prefix, state)
     {}
@@ -1214,7 +1219,7 @@ struct output_local_preamble : public expression_context {
     output_local_preamble(
             std::ostream &os, const cl::Device &device,
             int cmp_idx = 1, const std::string &prefix = "",
-            kernel_generator_state_ptr state = std::make_shared<kernel_generator_state>()
+            kernel_generator_state_ptr state = empty_state()
             )
         : expression_context(os, device, cmp_idx, prefix, state)
     {}
@@ -1271,7 +1276,7 @@ struct vector_expr_context : public expression_context {
     vector_expr_context(
             std::ostream &os, const cl::Device &device,
             int cmp_idx = 1, const std::string &prefix = "",
-            kernel_generator_state_ptr state = std::make_shared<kernel_generator_state>()
+            kernel_generator_state_ptr state = empty_state()
             )
         : expression_context(os, device, cmp_idx, prefix, state)
     {}
@@ -1435,7 +1440,7 @@ struct declare_expression_parameter : expression_context {
 
     declare_expression_parameter(std::ostream &os, const cl::Device &device,
             int cmp_idx = 1, const std::string &prefix = "",
-            kernel_generator_state_ptr state = std::make_shared<kernel_generator_state>()
+            kernel_generator_state_ptr state = empty_state()
             )
         : expression_context(os, device, cmp_idx, prefix, state)
     {}
@@ -1457,7 +1462,7 @@ struct set_expression_argument {
     kernel_generator_state_ptr state;
 
     set_expression_argument(cl::Kernel &krn, unsigned dev, unsigned &pos, size_t part_start,
-            kernel_generator_state_ptr state = std::make_shared<kernel_generator_state>()
+            kernel_generator_state_ptr state = empty_state()
             )
         : krn(krn), dev(dev), pos(pos), part_start(part_start), state(state)
     {}
