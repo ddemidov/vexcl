@@ -64,14 +64,14 @@ typename std::enable_if<
             vector_expr_grammar
     >::value,
     temporary<T, Tag,
-        typename boost::proto::result_of::as_child<Expr, vector_domain>::type
+        typename boost::proto::result_of::as_child<const Expr, vector_domain>::type
     >
 >::type
 make_temp(const Expr &expr)
 {
     return temporary<
                 T, Tag,
-                typename boost::proto::result_of::as_child<Expr, vector_domain>::type
+                typename boost::proto::result_of::as_child<const Expr, vector_domain>::type
             >(boost::proto::as_child<vector_domain>(expr));
 }
 
@@ -87,7 +87,7 @@ typename std::enable_if<
     temporary<
         typename detail::return_type<Expr>::type,
         Tag,
-        typename boost::proto::result_of::as_child<Expr, vector_domain>::type
+        typename boost::proto::result_of::as_child<const Expr, vector_domain>::type
     >
 >::type
 make_temp(const Expr &expr)
@@ -95,7 +95,7 @@ make_temp(const Expr &expr)
     return temporary<
         typename detail::return_type<Expr>::type,
         Tag,
-        typename boost::proto::result_of::as_child<Expr, vector_domain>::type
+        typename boost::proto::result_of::as_child<const Expr, vector_domain>::type
     >(boost::proto::as_child<vector_domain>(expr));
 }
 

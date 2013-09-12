@@ -308,9 +308,9 @@ auto tag(const Expr& expr)
 		);
 
     return tagged_terminal<
-				Tag,
-				decltype(boost::proto::as_child<vector_domain>(expr))
-				>(boost::proto::as_child<vector_domain>(expr));
+                Tag,
+                decltype(boost::proto::as_child<vector_domain>(expr))
+                >(boost::proto::as_child<vector_domain>(expr));
 }
 
 } //namespace vex
