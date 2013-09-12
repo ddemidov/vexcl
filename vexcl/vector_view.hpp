@@ -294,7 +294,7 @@ struct gslice {
         return s.str();
     }
 
-    std::string local_preamble(const std::string &prm_name,
+    std::string local_preamble(const std::string&/*prm_name*/,
             const cl::Device&, detail::kernel_generator_state_ptr) const
     {
         return "";
