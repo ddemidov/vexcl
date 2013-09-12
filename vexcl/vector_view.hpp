@@ -609,10 +609,14 @@ struct expr_permutation {
 template <class Expr>
 typename std::enable_if<
     std::is_integral<typename detail::return_type<Expr>::type>::value,
-    expr_permutation<Expr>
+    expr_permutation<
+        typename boost::proto::result_of::as_child<const Expr, vector_domain>::type
+    >
 >::type
 permutation(const Expr &expr) {
-    return expr_permutation<Expr>(expr);
+    return expr_permutation<
+        typename boost::proto::result_of::as_child<const Expr, vector_domain>::type
+        >(boost::proto::as_child(expr));
 }
 
 //---------------------------------------------------------------------------
