@@ -329,7 +329,7 @@ Y = reverse(X);
 
 The drawback of the above approach is that you have to store and access an
 index vector. Sometimes this is a necessary evil, but in this simple example we
-can do better. In the following example lightweight expression is used to
+can do better. In the following snippet lightweight expression is used to
 construct the same permutation:
 
 ~~~{.cpp}
