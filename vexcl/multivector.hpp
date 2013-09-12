@@ -274,6 +274,10 @@ class multivector : public multivector_terminal_expression {
 
         /// Copy constructor.
         multivector(const multivector &mv) {
+#ifdef VEXCL_SHOW_COPIES
+            std::cout << "Copying vex::multivector<" << type_name<T>()
+                      << ", " << N << "> of size " << size() << std::endl;
+#endif
             for(size_t i = 0; i < N; ++i) vec[i].resize(mv(i));
         }
 

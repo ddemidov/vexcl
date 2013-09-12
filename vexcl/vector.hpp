@@ -336,6 +336,10 @@ class vector : public vector_terminal_expression {
             : queue(v.queue), part(v.part),
               buf(queue.size()), event(queue.size())
         {
+#ifdef VEXCL_SHOW_COPIES
+            std::cout << "Copying vex::vector<" << type_name<T>()
+                      << "> of size " << size() << std::endl;
+#endif
             if (size()) allocate_buffers(CL_MEM_READ_WRITE, 0);
             *this = v;
         }
