@@ -104,12 +104,12 @@ struct terminal_preamble< tagged_terminal<Tag, Term> > {
     static std::string get(const tagged_terminal<Tag, Term> &term,
             const cl::Device &device,
             const std::string &prm_name,
-            detail::kernel_generator_state &state)
+            detail::kernel_generator_state_ptr state)
     {
-        auto s = state.find("tagged_terminal");
+        auto s = state->find("tagged_terminal");
 
-        if (s == state.end()) {
-            s = state.insert(std::make_pair(
+        if (s == state->end()) {
+            s = state->insert(std::make_pair(
                         std::string("tagged_terminal"),
                         boost::any(std::set<size_t>())
                         )).first;
@@ -137,12 +137,12 @@ template <size_t Tag, class Term>
 struct kernel_param_declaration< tagged_terminal<Tag, Term> > {
     static std::string get(const tagged_terminal<Tag, Term> &term,
             const cl::Device &device, const std::string &prm_name,
-            detail::kernel_generator_state &state)
+            detail::kernel_generator_state_ptr state)
     {
-        auto s = state.find("tagged_terminal");
+        auto s = state->find("tagged_terminal");
 
-        if (s == state.end()) {
-            s = state.insert(std::make_pair(
+        if (s == state->end()) {
+            s = state->insert(std::make_pair(
                         std::string("tagged_terminal"),
                         boost::any(std::set<size_t>())
                         )).first;
@@ -167,16 +167,50 @@ struct kernel_param_declaration< tagged_terminal<Tag, Term> > {
 };
 
 template <size_t Tag, class Term>
+struct local_terminal_init< tagged_terminal<Tag, Term> > {
+    static std::string get(const tagged_terminal<Tag, Term> &term,
+            const cl::Device &device,
+            const std::string &prm_name,
+            detail::kernel_generator_state_ptr state)
+    {
+        auto s = state->find("tagged_terminal");
+
+        if (s == state->end()) {
+            s = state->insert(std::make_pair(
+                        std::string("tagged_terminal"),
+                        boost::any(std::set<size_t>())
+                        )).first;
+        }
+
+        auto &pos = boost::any_cast< std::set<size_t>& >(s->second);
+        auto p = pos.find(Tag);
+
+        if (p == pos.end()) {
+            pos.insert(Tag);
+
+            std::ostringstream s;
+
+            detail::output_local_preamble init_ctx(s, device, 1, prm_name + "_", state);
+            boost::proto::eval(boost::proto::as_child(term.term), init_ctx);
+
+            return s.str();
+        } else {
+            return "";
+        }
+    }
+};
+
+template <size_t Tag, class Term>
 struct partial_vector_expr< tagged_terminal<Tag, Term> > {
     static std::string get(const tagged_terminal<Tag, Term> &term,
             const cl::Device &device,
             const std::string &prm_name,
-            detail::kernel_generator_state &state)
+            detail::kernel_generator_state_ptr state)
     {
-        auto s = state.find("tagged_terminal");
+        auto s = state->find("tagged_terminal");
 
-        if (s == state.end()) {
-            s = state.insert(std::make_pair(
+        if (s == state->end()) {
+            s = state->insert(std::make_pair(
                         std::string("tagged_terminal"),
                         boost::any(std::map<size_t, std::string>())
                         )).first;
@@ -202,12 +236,12 @@ template <size_t Tag, class Term>
 struct kernel_arg_setter< tagged_terminal<Tag, Term> > {
     static void set(const tagged_terminal<Tag, Term> &term,
             cl::Kernel &kernel, unsigned device, size_t index_offset,
-            unsigned &position, detail::kernel_generator_state &state)
+            unsigned &position, detail::kernel_generator_state_ptr state)
     {
-        auto s = state.find("tagged_terminal_arg");
+        auto s = state->find("tagged_terminal_arg");
 
-        if (s == state.end()) {
-            s = state.insert(std::make_pair(
+        if (s == state->end()) {
+            s = state->insert(std::make_pair(
                         std::string("tagged_terminal_arg"),
                         boost::any(std::set<size_t>())
                         )).first;

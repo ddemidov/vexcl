@@ -3,6 +3,7 @@
 #include <vexcl/mba.hpp>
 #include <vexcl/vector.hpp>
 #include <vexcl/element_index.hpp>
+#include <vexcl/temporary.hpp>
 #include "context_setup.hpp"
 
 template <typename T>
@@ -48,6 +49,16 @@ BOOST_AUTO_TEST_CASE(mba)
     BOOST_CHECK_CLOSE(static_cast<double>(z[ 4]), sin(-1.0), 1e-6);
     BOOST_CHECK_CLOSE(static_cast<double>(z[ 6]), sin( 1.0), 1e-6);
     BOOST_CHECK_CLOSE(static_cast<double>(z[10]), sin(-0.2), 1e-6);
+
+    auto t = vex::make_temp<1>(1.0 * vex::element_index() / (n - 1.0));
+
+    z = cloud(t, t);
+
+    BOOST_CHECK_CLOSE(static_cast<double>(z[ 0]),  0.2, 1e-6);
+    BOOST_CHECK_CLOSE(static_cast<double>(z[ 4]), -1.0, 1e-6);
+    BOOST_CHECK_CLOSE(static_cast<double>(z[ 6]),  1.0, 1e-6);
+    BOOST_CHECK_CLOSE(static_cast<double>(z[10]), -0.2, 1e-6);
+
 }
 
 BOOST_AUTO_TEST_SUITE_END()

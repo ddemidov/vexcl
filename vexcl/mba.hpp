@@ -494,7 +494,7 @@ template <class MBA, class ExprTuple>
 struct terminal_preamble< mba_interp<MBA, ExprTuple> > {
     static std::string get(const mba_interp<MBA, ExprTuple>&,
             const cl::Device&, const std::string &prm_name,
-            detail::kernel_generator_state&)
+            detail::kernel_generator_state_ptr)
     {
         std::ostringstream s;
 
@@ -567,7 +567,7 @@ template <class MBA, class ExprTuple>
 struct kernel_param_declaration< mba_interp<MBA, ExprTuple> > {
     static std::string get(const mba_interp<MBA, ExprTuple> &term,
             const cl::Device &dev, const std::string &prm_name,
-            detail::kernel_generator_state&)
+            detail::kernel_generator_state_ptr)
     {
         std::ostringstream s;
 
@@ -609,10 +609,49 @@ struct kernel_param_declaration< mba_interp<MBA, ExprTuple> > {
 };
 
 template <class MBA, class ExprTuple>
+struct local_terminal_init< mba_interp<MBA, ExprTuple> > {
+    static std::string get(const mba_interp<MBA, ExprTuple> &term,
+            const cl::Device &dev, const std::string &prm_name,
+            detail::kernel_generator_state_ptr state)
+    {
+        std::ostringstream s;
+
+        boost::fusion::for_each(term.coord, local_init(s, dev, prm_name, state));
+
+        return s.str();
+    }
+
+    struct local_init {
+        std::ostream &s;
+        const cl::Device &dev;
+        const std::string &prm_name;
+        detail::kernel_generator_state_ptr state;
+        mutable int pos;
+
+        local_init(std::ostream &s,
+                const cl::Device &dev, const std::string &prm_name,
+                detail::kernel_generator_state_ptr state
+            ) : s(s), dev(dev), prm_name(prm_name), state(state), pos(0)
+        {}
+
+        template <class Expr>
+        void operator()(const Expr &expr) const {
+            std::ostringstream prefix;
+            prefix << prm_name << "_x" << pos << "_";
+
+            detail::output_local_preamble init_ctx(s, dev, 1, prefix.str(), state);
+            boost::proto::eval(boost::proto::as_child(expr), init_ctx);
+
+            pos++;
+        }
+    };
+};
+
+template <class MBA, class ExprTuple>
 struct partial_vector_expr< mba_interp<MBA, ExprTuple> > {
     static std::string get(const mba_interp<MBA, ExprTuple> &term,
             const cl::Device &dev, const std::string &prm_name,
-            detail::kernel_generator_state&)
+            detail::kernel_generator_state_ptr)
     {
         std::ostringstream s;
 
@@ -662,7 +701,7 @@ template <class MBA, class ExprTuple>
 struct kernel_arg_setter< mba_interp<MBA, ExprTuple> > {
     static void set(const mba_interp<MBA, ExprTuple> &term,
             cl::Kernel &kernel, unsigned device, size_t index_offset,
-            unsigned &position, detail::kernel_generator_state&)
+            unsigned &position, detail::kernel_generator_state_ptr)
     {
 
         boost::fusion::for_each(term.coord, setargs(kernel, device, index_offset, position));

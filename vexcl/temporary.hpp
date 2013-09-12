@@ -147,12 +147,12 @@ template <typename T, size_t Tag, class Expr>
 struct terminal_preamble< temporary<T, Tag, Expr> > {
     static std::string get(const temporary<T, Tag, Expr> &term,
             const cl::Device &dev, const std::string &prm_name,
-            detail::kernel_generator_state &state)
+            detail::kernel_generator_state_ptr state)
     {
-        auto s = state.find("temporary");
+        auto s = state->find("temporary");
 
-        if (s == state.end()) {
-            s = state.insert(std::make_pair(
+        if (s == state->end()) {
+            s = state->insert(std::make_pair(
                         std::string("temporary"),
                         boost::any(std::set<size_t>())
                         )).first;
@@ -180,12 +180,12 @@ template <typename T, size_t Tag, class Expr>
 struct kernel_param_declaration< temporary<T, Tag, Expr> > {
     static std::string get(const temporary<T, Tag, Expr> &term,
             const cl::Device &dev, const std::string &prm_name,
-            detail::kernel_generator_state &state)
+            detail::kernel_generator_state_ptr state)
     {
-        auto s = state.find("temporary");
+        auto s = state->find("temporary");
 
-        if (s == state.end()) {
-            s = state.insert(std::make_pair(
+        if (s == state->end()) {
+            s = state->insert(std::make_pair(
                         std::string("temporary"),
                         boost::any(std::set<size_t>())
                         )).first;
@@ -213,12 +213,12 @@ template <typename T, size_t Tag, class Expr>
 struct local_terminal_init< temporary<T, Tag, Expr> > {
     static std::string get(const temporary<T, Tag, Expr> &term,
             const cl::Device &dev, const std::string &prm_name,
-            detail::kernel_generator_state &state)
+            detail::kernel_generator_state_ptr state)
     {
-        auto s = state.find("temporary");
+        auto s = state->find("temporary");
 
-        if (s == state.end()) {
-            s = state.insert(std::make_pair(
+        if (s == state->end()) {
+            s = state->insert(std::make_pair(
                         std::string("temporary"),
                         boost::any(std::set<size_t>())
                         )).first;
@@ -231,6 +231,9 @@ struct local_terminal_init< temporary<T, Tag, Expr> > {
             pos.insert(Tag);
 
             std::ostringstream s;
+
+            detail::output_local_preamble init_ctx(s, dev, 1, prm_name + "_", state);
+            boost::proto::eval(boost::proto::as_child(term.expr), init_ctx);
 
             s << "\t\t" << type_name<T>() << " temp_" << Tag << " = ";
 
@@ -249,12 +252,12 @@ template <typename T, size_t Tag, class Expr>
 struct partial_vector_expr< temporary<T, Tag, Expr> > {
     static std::string get(const temporary<T, Tag, Expr>&,
             const cl::Device&, const std::string &/*prm_name*/,
-            detail::kernel_generator_state &state)
+            detail::kernel_generator_state_ptr state)
     {
-        auto s = state.find("temporary");
+        auto s = state->find("temporary");
 
-        if (s == state.end()) {
-            s = state.insert(std::make_pair(
+        if (s == state->end()) {
+            s = state->insert(std::make_pair(
                         std::string("temporary"),
                         boost::any(std::map<size_t, std::string>())
                         )).first;
@@ -275,12 +278,12 @@ template <typename T, size_t Tag, class Expr>
 struct kernel_arg_setter< temporary<T, Tag, Expr> > {
     static void set(const temporary<T, Tag, Expr> &term,
             cl::Kernel &kernel, unsigned device, size_t index_offset,
-            unsigned &position, detail::kernel_generator_state &state)
+            unsigned &position, detail::kernel_generator_state_ptr state)
     {
-        auto s = state.find("temporary");
+        auto s = state->find("temporary");
 
-        if (s == state.end()) {
-            s = state.insert(std::make_pair(
+        if (s == state->end()) {
+            s = state->insert(std::make_pair(
                         std::string("temporary"),
                         boost::any(std::set<size_t>())
                         )).first;

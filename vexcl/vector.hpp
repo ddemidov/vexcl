@@ -851,7 +851,7 @@ template <typename T>
 struct kernel_param_declaration< vector<T> > {
     static std::string get(const vector<T>&,
             const cl::Device&, const std::string &prm_name,
-            detail::kernel_generator_state&)
+            detail::kernel_generator_state_ptr)
     {
         std::ostringstream s;
         s << ",\n\tglobal " << type_name<T>() << " * " << prm_name;
@@ -863,7 +863,7 @@ template <typename T>
 struct partial_vector_expr< vector<T> > {
     static std::string get(const vector<T>&,
             const cl::Device&, const std::string &prm_name,
-            detail::kernel_generator_state&)
+            detail::kernel_generator_state_ptr)
     {
         std::ostringstream s;
         s << prm_name << "[idx]";
@@ -875,7 +875,7 @@ template <typename T>
 struct kernel_arg_setter< vector<T> > {
     static void set(const vector<T> &term,
             cl::Kernel &kernel, unsigned device, size_t/*index_offset*/,
-            unsigned &position, detail::kernel_generator_state&)
+            unsigned &position, detail::kernel_generator_state_ptr)
     {
         kernel.setArg(position++, term(device));
     }

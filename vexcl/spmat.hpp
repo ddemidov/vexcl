@@ -221,7 +221,7 @@ class SpMat {
 
         static std::string inline_preamble(
                 const cl::Device &device, const std::string &prm_name,
-                detail::kernel_generator_state&)
+                detail::kernel_generator_state_ptr)
         {
             if (is_cpu(device))
                 return SpMatCSR::inline_preamble(prm_name);
@@ -231,7 +231,7 @@ class SpMat {
 
         static std::string inline_expression(
                 const cl::Device &device, const std::string &prm_name,
-                detail::kernel_generator_state&)
+                detail::kernel_generator_state_ptr)
         {
             if (is_cpu(device))
                 return SpMatCSR::inline_expression(prm_name);
@@ -241,7 +241,7 @@ class SpMat {
 
         static std::string inline_parameters(
                 const cl::Device &device, const std::string &prm_name,
-                detail::kernel_generator_state&)
+                detail::kernel_generator_state_ptr)
         {
             if (is_cpu(device))
                 return SpMatCSR::inline_parameters(prm_name);
@@ -252,7 +252,7 @@ class SpMat {
         static void inline_arguments(cl::Kernel &kernel, unsigned device,
                 size_t /*index_offset*/, unsigned &position,
                 const SpMat &A, const vector<val_t> &x,
-                detail::kernel_generator_state&)
+                detail::kernel_generator_state_ptr)
         {
             A.mtx[device]->setArgs(kernel, device, position, x);
         }

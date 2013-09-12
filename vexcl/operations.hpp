@@ -96,6 +96,7 @@ namespace detail {
 
 // Used as a state parameter in kernel generation functions.
 typedef std::map<std::string, boost::any> kernel_generator_state;
+typedef std::shared_ptr<kernel_generator_state> kernel_generator_state_ptr;
 
 } // namespace detail
 
@@ -141,7 +142,7 @@ template <class T>
 struct terminal_preamble {
     static std::string get(const T&,
             const cl::Device&, const std::string &/*prm_name*/,
-            detail::kernel_generator_state&)
+            detail::kernel_generator_state_ptr)
     {
         return "";
     }
@@ -152,7 +153,7 @@ template <class Term, class Enable = void>
 struct kernel_param_declaration {
     static std::string get(const Term&,
             const cl::Device&, const std::string &prm_name,
-            detail::kernel_generator_state&)
+            detail::kernel_generator_state_ptr)
     {
         std::ostringstream s;
         s << ",\n\t" << type_name<typename boost::proto::result_of::value<Term>::type>()
@@ -166,7 +167,7 @@ template <class Term, class Enable = void>
 struct local_terminal_init {
     static std::string get(const Term&,
             const cl::Device&, const std::string &/*prm_name*/,
-            detail::kernel_generator_state&)
+            detail::kernel_generator_state_ptr)
     {
         return "";
     }
@@ -177,7 +178,7 @@ template <class Term, class Enable = void>
 struct partial_vector_expr {
     static std::string get(const Term&,
             const cl::Device&, const std::string &prm_name,
-            detail::kernel_generator_state&)
+            detail::kernel_generator_state_ptr)
     {
         return prm_name;
     }
@@ -188,7 +189,7 @@ template <class Term, class Enable = void>
 struct kernel_arg_setter {
     static void set(const Term &term,
             cl::Kernel &kernel, unsigned/*device*/, size_t/*index_offset*/,
-            unsigned &position, detail::kernel_generator_state&)
+            unsigned &position, detail::kernel_generator_state_ptr)
     {
         kernel.setArg(position++, boost::proto::value(term));
     }
@@ -1097,14 +1098,15 @@ struct expression_context {
     mutable int prm_idx;
     int fun_idx;
     std::string prefix;
-    mutable kernel_generator_state state;
+    kernel_generator_state_ptr state;
 
     expression_context(
             std::ostream &os, const cl::Device &device,
-            int cmp_idx = 1, const std::string &prefix = ""
+            int cmp_idx = 1, const std::string &prefix = "",
+            kernel_generator_state_ptr state = std::make_shared<kernel_generator_state>()
             )
         : os(os), device(device), cmp_idx(cmp_idx), prm_idx(0), fun_idx(0),
-          prefix(prefix)
+          prefix(prefix), state(state)
     {}
 
     void set_cmp(int c) {
@@ -1118,9 +1120,10 @@ struct output_terminal_preamble : public expression_context {
 
     output_terminal_preamble(
             std::ostream &os, const cl::Device &device,
-            int cmp_idx = 1, const std::string &prefix = ""
+            int cmp_idx = 1, const std::string &prefix = "",
+            kernel_generator_state_ptr state = std::make_shared<kernel_generator_state>()
             )
-        : expression_context(os, device, cmp_idx, prefix)
+        : expression_context(os, device, cmp_idx, prefix, state)
     {}
 
     // Any expression except user function or terminal is only interesting
@@ -1210,9 +1213,10 @@ struct output_local_preamble : public expression_context {
 
     output_local_preamble(
             std::ostream &os, const cl::Device &device,
-            int cmp_idx = 1, const std::string &prefix = ""
+            int cmp_idx = 1, const std::string &prefix = "",
+            kernel_generator_state_ptr state = std::make_shared<kernel_generator_state>()
             )
-        : expression_context(os, device, cmp_idx, prefix)
+        : expression_context(os, device, cmp_idx, prefix, state)
     {}
 
     // Any expression except user function or terminal is only interesting
@@ -1266,9 +1270,10 @@ struct vector_expr_context : public expression_context {
 
     vector_expr_context(
             std::ostream &os, const cl::Device &device,
-            int cmp_idx = 1, const std::string &prefix = ""
+            int cmp_idx = 1, const std::string &prefix = "",
+            kernel_generator_state_ptr state = std::make_shared<kernel_generator_state>()
             )
-        : expression_context(os, device, cmp_idx, prefix)
+        : expression_context(os, device, cmp_idx, prefix, state)
     {}
 
     template <typename Expr, typename Tag = typename Expr::proto_tag>
@@ -1429,8 +1434,10 @@ struct vector_expr_context : public expression_context {
 struct declare_expression_parameter : expression_context {
 
     declare_expression_parameter(std::ostream &os, const cl::Device &device,
-            int cmp_idx = 1, const std::string &prefix = "")
-        : expression_context(os, device, cmp_idx, prefix)
+            int cmp_idx = 1, const std::string &prefix = "",
+            kernel_generator_state_ptr state = std::make_shared<kernel_generator_state>()
+            )
+        : expression_context(os, device, cmp_idx, prefix, state)
     {}
 
     template <typename T>
@@ -1447,10 +1454,13 @@ struct set_expression_argument {
     cl::Kernel &krn;
     unsigned dev, &pos;
     size_t part_start;
-    mutable kernel_generator_state state;
+    kernel_generator_state_ptr state;
 
-    set_expression_argument(cl::Kernel &krn, unsigned dev, unsigned &pos, size_t part_start)
-        : krn(krn), dev(dev), pos(pos), part_start(part_start) {}
+    set_expression_argument(cl::Kernel &krn, unsigned dev, unsigned &pos, size_t part_start,
+            kernel_generator_state_ptr state = std::make_shared<kernel_generator_state>()
+            )
+        : krn(krn), dev(dev), pos(pos), part_start(part_start), state(state)
+    {}
 
     template <typename T>
     void operator()(const T &term) const {

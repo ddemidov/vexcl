@@ -4,6 +4,7 @@
 #include <vexcl/vector.hpp>
 #include <vexcl/vector_view.hpp>
 #include <vexcl/element_index.hpp>
+#include <vexcl/temporary.hpp>
 #include <vexcl/reductor.hpp>
 #include "context_setup.hpp"
 
@@ -134,6 +135,15 @@ BOOST_AUTO_TEST_CASE(vector_permutation)
         Y = 0;
 
         reverse(Y) = X;
+        check_sample(Y, [&](size_t idx, double v) { BOOST_CHECK_EQUAL(v, x[N - 1 - idx]); });
+    }
+
+    Y = 0;
+
+    {
+        auto i = vex::make_temp<1>( vex::element_index() + 1);
+        Y = vex::permutation( N - i )(X);
+
         check_sample(Y, [&](size_t idx, double v) { BOOST_CHECK_EQUAL(v, x[N - 1 - idx]); });
     }
 }
