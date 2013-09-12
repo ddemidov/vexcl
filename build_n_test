@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Build everything with all configured compilers and runs the tests under given
+# Builds everything with all configured compilers and runs the tests under given
 # OpenCL platforms for each of the compilers.
 #
 # Assumes that each compiler has its own build directory which is named
