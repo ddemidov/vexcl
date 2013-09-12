@@ -37,33 +37,6 @@ THE SOFTWARE.
 
 namespace vex {
 
-template <class F, class Expr>
-struct fft_expr
-    : vector_expression< boost::proto::terminal< additive_vector_transform >::type >
-{
-    typedef typename F::input_t T0;
-    typedef typename F::value_type value_type;
-    value_type scale;
-
-    F &f;
-    const Expr &input;
-
-    fft_expr(F &f, const Expr &x) : scale(1), f(f), input(x) {}
-
-    template <bool negate, bool append>
-    void apply(vector<typename F::output_t> &output) const {
-        f.template execute<negate, append>(input, output, scale);
-    }
-};
-
-namespace traits {
-
-template <class F, class E>
-struct is_scalable<fft_expr<F, E>> : std::true_type {};
-
-} // namespace traits
-
-
 /// Fast Fourier Transform.
 /**
  * Usage:
@@ -80,13 +53,11 @@ struct is_scalable<fft_expr<F, E>> : std::true_type {};
  * output = fft(input);
  * \endcode
  */
-template <typename T0, typename T1 = T0, class Planner = fft::planner>
+template <typename Tin, typename Tout = Tin, class Planner = fft::planner>
 struct FFT {
-    typedef T0 input_t;
-    typedef T1 output_t;
-    typedef typename cl_scalar_of<T1>::type value_type;
+    typedef typename cl_scalar_of<Tin>::type value_type;
 
-    fft::plan<T0, T1, Planner> plan;
+    fft::plan<Tin, Planner> plan;
 
     /// 1D constructor
     FFT(const std::vector<cl::CommandQueue> &queues,
@@ -152,16 +123,11 @@ struct FFT {
 #endif
 #endif
 
-    template <bool negate, bool append, class Expr>
-    void execute(const Expr &input, vector<T1> &output, value_type scale) {
-        plan(input, output, append, negate ? -scale : scale);
-    }
-
-
     // User call
     template <class Expr>
-    fft_expr<FFT<T0, T1, Planner>, Expr> operator()(const Expr &x) {
-        return fft_expr< FFT<T0, T1, Planner>, Expr>(*this, x);
+    auto operator()(const Expr &x) -> decltype(plan.template apply<Tout>(x))
+    {
+        return plan.template apply<Tout>(x);
     }
 };
 

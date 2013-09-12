@@ -45,7 +45,6 @@ namespace vex {
 /// Fast Fourier Transform
 namespace fft {
 
-
 /// Returns successive prime numbers on each call.
 struct prime_generator {
     typedef std::pair<size_t, size_t> P;
@@ -175,23 +174,23 @@ enum direction {
 };
 
 
-template <class T0, class T1, class Planner = planner>
+template <class Tv, class Planner = planner>
 struct plan {
-    typedef typename cl_scalar_of<T0>::type T0s;
-    typedef typename cl_scalar_of<T1>::type T1s;
-    static_assert(std::is_same<T0s, T1s>::value, "Input and output must have same precision.");
-    typedef T0s T;
-    static_assert(std::is_same<T, cl_float>::value || std::is_same<T, cl_double>::value,
-        "Only float and double data supported.");
+    typedef typename cl_scalar_of<Tv>::type Ts;
+    static_assert(
+            std::is_same<Ts, cl_float >::value ||
+            std::is_same<Ts, cl_double>::value,
+            "Only float and double data supported."
+            );
 
-    typedef typename cl_vector_of<T, 2>::type T2;
+    typedef typename cl_vector_of<Ts, 2>::type T2;
 
-    VEX_FUNCTION(r2c, T2(T), "return (" + type_name<T2>() + ")(prm1, 0);");
-    VEX_FUNCTION(c2r, T(T2), "return prm1.x;");
+    VEX_FUNCTION(r2c, T2(Ts), "return (" + type_name<T2>() + ")(prm1, 0);");
+    VEX_FUNCTION(c2r, Ts(T2), "return prm1.x;");
 
     const std::vector<cl::CommandQueue> &queues;
     Planner planner;
-    T scale;
+    Ts scale;
     const std::vector<size_t> sizes;
 
     std::vector<kernel_call> kernels;
@@ -230,7 +229,7 @@ struct plan {
         for(size_t i = 0 ; i < sizes.size() ; i++)
             if(dirs[i] == inverse)
                 inv_n *= sizes[i];
-        scale = (T)1 / inv_n;
+        scale = (Ts)1 / inv_n;
 
         // Build the list of kernels.
         input = current;
@@ -243,7 +242,7 @@ struct plan {
                     plan_cooley_tukey(dirs[j] == inverse, w, h, current, other, false);
 
                 if(h > 1 && !(dirs.size() == 2 && dirs[0] == none)) {
-                    kernels.push_back(transpose_kernel<T>(queue, w, h, bufs[current](), bufs[other]()));
+                    kernels.push_back(transpose_kernel<Ts>(queue, w, h, bufs[current](), bufs[other]()));
                     std::swap(current, other);
                 }
             }
@@ -259,7 +258,7 @@ struct plan {
                 plan_bluestein(n, batch, inverse, r->base, p, current, other);
                 p *= r->base;
             } else {
-                kernels.push_back(radix_kernel<T>(once, queues[0], n, batch,
+                kernels.push_back(radix_kernel<Ts>(once, queues[0], n, batch,
                     inverse, *r, p, bufs[current](), bufs[other]()));
                 std::swap(current, other);
                 p *= r->value;
@@ -279,30 +278,30 @@ struct plan {
         size_t a_other   = bufs.size(); bufs.push_back(vex::vector<T2>(queues, conv_n * batch * threads));
 
         // calculate twiddle factors
-        kernels.push_back(bluestein_twiddle<T>(queues[0], n, inverse,
+        kernels.push_back(bluestein_twiddle<Ts>(queues[0], n, inverse,
             bufs[b_twiddle]())); // once
 
         // first part of the convolution
-        kernels.push_back(bluestein_pad_kernel<T>(queues[0], n, conv_n,
+        kernels.push_back(bluestein_pad_kernel<Ts>(queues[0], n, conv_n,
             bufs[b_twiddle](), bufs[b_current]())); // once
 
         plan_cooley_tukey(false, conv_n, 1, b_current, b_other, /*once*/true);
 
         // other part of convolution
-        kernels.push_back(bluestein_mul_in<T>(queues[0], inverse, batch, n, p, threads, conv_n,
+        kernels.push_back(bluestein_mul_in<Ts>(queues[0], inverse, batch, n, p, threads, conv_n,
             bufs[current](), bufs[b_twiddle](), bufs[a_current]()));
 
         plan_cooley_tukey(false, conv_n, threads * batch, a_current, a_other, false);
 
         // calculate convolution
-        kernels.push_back(bluestein_mul<T>(queues[0], conv_n, threads * batch,
+        kernels.push_back(bluestein_mul<Ts>(queues[0], conv_n, threads * batch,
             bufs[a_current](), bufs[b_current](), bufs[a_other]()));
         std::swap(a_current, a_other);
 
         plan_cooley_tukey(true, conv_n, threads * batch, a_current, a_other, false);
 
         // twiddle again
-        kernels.push_back(bluestein_mul_out<T>(queues[0], batch, p, n, threads, conv_n,
+        kernels.push_back(bluestein_mul_out<Ts>(queues[0], batch, p, n, threads, conv_n,
             bufs[a_current](), bufs[b_twiddle](), bufs[other]()));
         std::swap(current, other);
     }
@@ -310,7 +309,7 @@ struct plan {
     /// Execute the complete transformation.
     /// Converts real-valued input and output, supports multiply-adding to output.
     template<class Expr>
-    void operator()(const Expr &in, vector<T1> &out, bool append, T ex_scale) {
+    void transform(const Expr &in) {
         if(profile) {
             std::ostringstream prof_name;
             prof_name << "fft(n={";
@@ -318,12 +317,12 @@ struct plan {
                 if(i != 0) prof_name << ", ";
                 prof_name << sizes[i];
             }
-            prof_name << "}, append=" << append << ", scale=" << (ex_scale * scale) << ")";
+            prof_name << "}, scale=" << scale << ")";
             profile->tic_cl(prof_name.str());
             profile->tic_cl("in");
         }
         vector<T2> &in_c = bufs[input];
-        if(std::is_same<T0, T>::value) in_c = r2c(in);
+        if(cl_vector_length<Tv>::value == 1) in_c = r2c(in);
         else in_c = in;
         if(profile) profile->toc("in");
         for(auto run = kernels.begin(); run != kernels.end(); ++run) {
@@ -350,20 +349,28 @@ struct plan {
         for(auto b = bufs.begin(); b != bufs.end(); ++b)
             std::cerr << "   " << (*b)()() << " = " << (*b) << std::endl;
 #endif
+    }
 
-        if(profile) profile->tic_cl("out");
-        vector<T2> &out_c = bufs[output];
-        if(std::is_same<T1, T>::value) {
-            if(append) out += c2r(out_c) * (ex_scale * scale);
-            else out = c2r(out_c) * (ex_scale * scale);
-        } else {
-            if(append) out += out_c * (ex_scale * scale);
-            else out = out_c * (ex_scale * scale);
-        }
-        if(profile) {
-            profile->toc("out");
-            profile->toc("");
-        }
+    template <typename Tout, class Expr>
+    auto apply(const Expr &expr) ->
+        typename std::enable_if<
+            cl_vector_length<Tout>::value == 1,
+            decltype( scale * c2r(bufs[output]) )
+        >::type
+    {
+        transform(expr);
+        return scale * c2r(bufs[output]);
+    }
+
+    template <typename Tout, class Expr>
+    auto apply(const Expr &expr) ->
+        typename std::enable_if<
+            cl_vector_length<Tout>::value == 2,
+            decltype( scale * bufs[output] )
+        >::type
+    {
+        transform(expr);
+        return scale * bufs[output];
     }
 
     std::string desc() const {
@@ -388,8 +395,8 @@ struct plan {
 };
 
 
-template <class T0, class T1, class P>
-inline std::ostream &operator<<(std::ostream &o, const plan<T0,T1,P> &p) {
+template <class T, class P>
+inline std::ostream &operator<<(std::ostream &o, const plan<T,P> &p) {
     o << p.desc() << "{\n";
     for(auto k = p.kernels.begin() ; k != p.kernels.end() ; k++) {
         o << "  ";
