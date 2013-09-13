@@ -1878,25 +1878,25 @@ template <bool dummy>
 std::deque<kernel_cache*> cache_register<dummy>::caches;
 
 struct kernel_cache {
-    std::map<cl_context, kernel_cache_entry> store;
+    typedef std::map<cl_context, kernel_cache_entry> store_type;
+
+    store_type store;
 
     kernel_cache() {
         cache_register<>::add(this);
     }
 
     template <typename T>
-    auto insert(T&& item) -> decltype( store.insert( std::forward<T>(item) ) )
-    {
+    std::pair<store_type::iterator, bool> insert(T&& item) {
         return store.insert(std::forward<T>(item));
     }
 
-    auto end() const -> decltype( store.end() ) {
+    store_type::const_iterator end() const {
         return store.end();
     }
 
     template <typename T>
-    auto find(T&& key) -> decltype( store.find( std::forward<T>(key) ) )
-    {
+    store_type::iterator find(T&& key) {
         return store.find( std::forward<T>(key) );
     }
 
