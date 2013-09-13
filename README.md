@@ -40,10 +40,10 @@ performance of several GPGPU libraries, including VexCL.
     * [Permutations](#permutations)
     * [Slicing](#slicing)
     * [Scattered data interpolation with multilevel B-Splines](#mba)
+    * [Fast Fourier Transform](#fast-fourier-transform)
 * [Reductions](#reductions)
 * [Sparse matrix-vector products](#sparse-matrix-vector-products)
 * [Stencil convolutions](#stencil-convolutions)
-* [Fast Fourier Transform](#fast-fourier-transform)
 * [Multivectors](#multivectors)
 * [Converting generic C++ algorithms to OpenCL](#converting-generic-c-algorithms-to-opencl)
     * [Kernel generator](#kernel-generator)
@@ -285,8 +285,7 @@ Y = (tmp1 - tmp2) * (tmp1 + tmp2);
 ~~~
 
 Any valid vector or multivector expression (but not additive expressions, such
-as sparse matrix-vector products or FFT) may be wrapped into `make_temp()`
-call.
+as sparse matrix-vector products) may be wrapped into `make_temp()` call.
 
 ### <a name="random-number-generation"></a>Random number generation
 
@@ -432,6 +431,25 @@ vex::mba<2> surf(ctx, xmin, xmax, coords, values, grid);
 z = surf(x, y);
 ~~~
 
+### <a name="fast-fourier-transform"></a>Fast Fourier Transform
+
+VexCL provides implementation of Fast Fourier Transform (FFT) that accepts
+arbitrary vector expressions as input, allows to perform multidimensional
+transforms (of any number of dimensions), and supports arbitrary sized vectors:
+
+~~~{.cpp}
+vex::FFT<double, cl_double2> fft(ctx, n);
+vex::FFT<cl_double2, double> ifft(ctx, n, vex::fft::inverse);
+
+vex::vector<double> rhs(ctx, n), u(ctx, n), K(ctx, n);
+
+// Solve Poisson equation with FFT:
+u = ifft( K * fft(rhs) );
+~~~
+
+The restriction of FFT is that it currently only supports contexts with a
+single compute device.
+
 ## <a name="reductions"></a>Reductions
 
 An instance of `vex::Reductor<T, OP>` allows to reduce an arbitrary vector
@@ -531,31 +549,6 @@ array that is indexed relatively to the stencil center.
 
 Stencil convolution operations, similar to the matrix-vector products, are only
 allowed in additive expressions.
-
-## <a name="fast-fourier-transform"></a>Fast Fourier Transform
-
-VexCL provides implementation of Fast Fourier Transform (FFT) that accepts
-arbitrary vector expressions as input, allows to perform multidimensional
-transforms (of any number of dimensions), and supports arbitrary sized vectors:
-
-~~~{.cpp}
-vex::FFT<double, cl_double2> fft(ctx, n);
-vex::FFT<cl_double2, double> ifft(ctx, n, vex::fft::inverse);
-
-vex::vector<double> in(ctx, n), back(ctx, n);
-vex::vector<cl_double2> out(ctx, n);
-
-// ...
-
-out  = fft (in);
-back = ifft(out);
-
-Z = fft(sin(X) + cos(Y));
-~~~
-
-FFT is another example of operation that is only available in additive
-expressions. Another restriction is that FFT currently only supports contexts
-with a single compute device.
 
 ## <a name="multivectors"></a>Multivectors
 
