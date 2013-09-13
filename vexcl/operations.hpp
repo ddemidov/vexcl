@@ -37,6 +37,7 @@ THE SOFTWARE.
 
 #include <array>
 #include <tuple>
+#include <deque>
 #include <memory>
 
 #include <boost/proto/proto.hpp>
@@ -1857,8 +1858,68 @@ struct kernel_cache_entry {
     {}
 };
 
-typedef std::map< cl_context, kernel_cache_entry > kernel_cache;
+struct kernel_cache;
 
+template <bool dummy = true>
+struct cache_register {
+    static_assert(dummy, "Dummy parameter should be true");
+
+    static std::deque<kernel_cache*> caches;
+
+    static void add(kernel_cache *cache) {
+        caches.push_back(cache);
+    }
+
+    static void clear();
+    static void erase(cl_context key);
+};
+
+template <bool dummy>
+std::deque<kernel_cache*> cache_register<dummy>::caches;
+
+struct kernel_cache {
+    std::map<cl_context, kernel_cache_entry> store;
+
+    kernel_cache() {
+        cache_register<>::add(this);
+    }
+
+    template <typename T>
+    auto insert(T&& item) -> decltype( store.insert( std::forward<T>(item) ) )
+    {
+        return store.insert(std::forward<T>(item));
+    }
+
+    auto end() const -> decltype( store.end() ) {
+        return store.end();
+    }
+
+    template <typename T>
+    auto find(T&& key) -> decltype( store.find( std::forward<T>(key) ) )
+    {
+        return store.find( std::forward<T>(key) );
+    }
+
+    void clear() {
+        store.clear();
+    }
+
+    void erase(cl_context key) {
+        store.erase(key);
+    }
+};
+
+template <bool dummy>
+void cache_register<dummy>::clear() {
+    for(auto c = caches.begin(); c != caches.end(); ++c)
+        (*c)->clear();
+}
+
+template <bool dummy>
+void cache_register<dummy>::erase(cl_context key) {
+    for(auto c = caches.begin(); c != caches.end(); ++c)
+        (*c)->erase(key);
+}
 
 //---------------------------------------------------------------------------
 // Assign expression to lhs
@@ -2308,6 +2369,16 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, TIE_VECTORS, ~)
 #undef PRINT_TYPES
 
 #endif
+
+/// Clears cached OpenCL kernels, allowing to release OpenCL contexts.
+void purge_kernel_caches() {
+    detail::cache_register<>::clear();
+}
+
+/// Clears cached OpenCL kernels, allowing to release OpenCL contexts.
+void purge_kernel_caches(const cl::Context &context) {
+    detail::cache_register<>::erase(context());
+}
 
 } // namespace vex;
 
