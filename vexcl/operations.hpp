@@ -2380,6 +2380,12 @@ void purge_kernel_caches(const cl::Context &context) {
     detail::cache_register<>::erase(context());
 }
 
+/// Clears cached OpenCL kernels, allowing to release OpenCL contexts.
+void purge_kernel_caches(const std::vector<cl::CommandQueue> &queue) {
+    for(auto q = queue.begin(); q != queue.end(); ++q)
+        detail::cache_register<>::erase( qctx(*q)() );
+}
+
 } // namespace vex;
 
 
