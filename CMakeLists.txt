@@ -11,6 +11,11 @@ if (VEXCL_SHOW_KERNELS)
     add_definitions(-DVEXCL_SHOW_KERNELS)
 endif (VEXCL_SHOW_KERNELS)
 
+option(VEXCL_CACHE_KERNELS "Cache compiled kernels offline")
+if (VEXCL_CACHE_KERNELS)
+    add_definitions(-DVEXCL_CACHE_KERNELS)
+endif (VEXCL_CACHE_KERNELS)
+
 #----------------------------------------------------------------------------
 # Find Boost
 #----------------------------------------------------------------------------
