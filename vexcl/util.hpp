@@ -286,7 +286,8 @@ inline std::string program_binaries_path(const std::string &hash, bool create = 
 }
 
 /// Saves program binaries for future reuse.
-inline void save_program_binaries(const std::string &hash, const cl::Program &program)
+inline void save_program_binaries(const std::string &hash, const cl::Program &program,
+        const cl::Device &device, const std::string &source, const std::string &options)
 {
     std::ofstream bfile(program_binaries_path(hash, true), std::ios::binary);
     if (!bfile) return;
@@ -299,6 +300,13 @@ inline void save_program_binaries(const std::string &hash, const cl::Program &pr
     bfile.write((char*)&sizes[0], sizeof(size_t));
     bfile.write(binaries[0], sizes[0]);
     delete[] binaries[0];
+
+    bfile
+        << "\n"
+        << "\n" << cl::Platform(device.getInfo<CL_DEVICE_PLATFORM>()).getInfo<CL_PLATFORM_NAME>()
+        << "\n" << device.getInfo<CL_DEVICE_NAME>()
+        << "\noptions: " << options << "\n"
+        << "\n" << source << "\n";
 }
 
 /// Tries to read program binaries from file cache.
@@ -399,7 +407,7 @@ inline cl::Program build_sources(
 
 #ifdef VEXCL_CACHE_KERNELS
     // Save program binaries for future reuse:
-    save_program_binaries(hash, program);
+    save_program_binaries(hash, program, device[0], source, compile_options);
 #endif
 
     return program;
