@@ -192,6 +192,7 @@ class mba {
         index n, stride;
 
         /**
+         * \param queue  command queue list.
          * \param cmin   corner of bounding box with smallest coordinates.
          * \param cmax   corner of bounding box with largest coordinates.
          * \param coo    coordinates of data points.

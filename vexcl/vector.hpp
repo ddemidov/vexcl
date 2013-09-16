@@ -178,6 +178,8 @@ inline std::vector<size_t> partition(size_t n,
     return partitioning_scheme<>::get(n, queue);
 }
 
+/// \cond INTERNAL
+
 //--- Vector Type -----------------------------------------------------------
 struct vector_terminal {};
 
@@ -201,6 +203,8 @@ struct hold_terminal_by_reference< T,
 { };
 
 } // namespace traits
+
+/// \endcond
 
 /// Device vector.
 template <typename T>
@@ -940,6 +944,9 @@ struct stored_on_device<Iterator,
 
 /// Copy range from device vector to host vector.
 template<class InputIterator, class OutputIterator>
+#ifdef DOXYGEN
+OutputIterator
+#else
 typename std::enable_if<
     std::is_same<
         typename std::iterator_traits<InputIterator>::value_type,
@@ -949,6 +956,7 @@ typename std::enable_if<
     !stored_on_device<OutputIterator>::value,
     OutputIterator
     >::type
+#endif
 copy(InputIterator first, InputIterator last,
         OutputIterator result, cl_bool blocking = CL_TRUE)
 {
@@ -958,6 +966,9 @@ copy(InputIterator first, InputIterator last,
 
 /// Copy range from host vector to device vector.
 template<class InputIterator, class OutputIterator>
+#ifdef DOXYGEN
+OutputIterator
+#else
 typename std::enable_if<
     std::is_same<
         typename std::iterator_traits<InputIterator>::value_type,
@@ -967,6 +978,7 @@ typename std::enable_if<
     stored_on_device<OutputIterator>::value,
     OutputIterator
     >::type
+#endif
 copy(InputIterator first, InputIterator last,
         OutputIterator result, cl_bool blocking = CL_TRUE)
 {

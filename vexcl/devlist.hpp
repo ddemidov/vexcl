@@ -545,6 +545,7 @@ class StaticContext {
 template <bool dummy>
 Context* StaticContext<dummy>::instance = 0;
 
+/// Returns reference to the latest instance of vex::Context.
 inline const Context& current_context() {
     return StaticContext<>::get();
 }

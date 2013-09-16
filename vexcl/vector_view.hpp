@@ -607,12 +607,16 @@ struct expr_permutation {
  * \endcode
  */
 template <class Expr>
+#ifdef DOXYGEN
+expr_permutation<Expr>
+#else
 typename std::enable_if<
     std::is_integral<typename detail::return_type<Expr>::type>::value,
     expr_permutation<
         typename boost::proto::result_of::as_child<const Expr, vector_domain>::type
     >
 >::type
+#endif
 permutation(const Expr &expr) {
     return expr_permutation<
         typename boost::proto::result_of::as_child<const Expr, vector_domain>::type

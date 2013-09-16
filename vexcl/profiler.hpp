@@ -65,13 +65,20 @@ THE SOFTWARE.
 
 namespace vex {
 
+/// Kind of averaging used in vex::profiler.
+/**
+ * When an event is measured multiple times, vex::profiler shows average
+ * runtime in its output. The enum controls the averaging algorithm.
+ */
 enum AvgKind {
-    AvgMean,
-    AvgMedian
+    AvgMean,    ///< Show mean value in output.
+    AvgMedian   ///< Show median value in output.
 };
 
 template <AvgKind Avg>
 struct averager {};
+
+/// \cond INTERNAL
 
 template <>
 struct averager<AvgMean> {
@@ -127,6 +134,8 @@ struct averager<AvgMedian> {
         return values.size();
     }
 };
+
+/// \endcond
 
 /// A stopwatch that computes the median and mean of individual timings.
 /**

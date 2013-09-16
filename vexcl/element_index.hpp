@@ -46,7 +46,11 @@ struct elem_index {
 /// \endcond
 
 /// When used in vector expression, returns current element index plus offset.
+#ifdef DOXYGEN
+elem_index
+#else
 inline boost::proto::result_of::as_expr<elem_index, vector_domain>::type
+#endif
 element_index(size_t offset = 0) {
     return boost::proto::as_expr<vector_domain>(elem_index(offset));
 }
