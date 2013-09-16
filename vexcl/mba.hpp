@@ -742,6 +742,7 @@ struct expression_properties< mba_interp<MBA, ExprTuple> > {
             size_t &size
             )
     {
+        boost::fusion::for_each(term.coord, extrprop(queue_list, partition, size));
     }
 
     struct extrprop {
