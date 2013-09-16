@@ -286,8 +286,9 @@ inline std::string program_binaries_path(const std::string &hash, bool create = 
 }
 
 /// Saves program binaries for future reuse.
-inline void save_program_binaries(const std::string &hash, const cl::Program &program,
-        const cl::Device &device, const std::string &source, const std::string &options)
+inline void save_program_binaries(
+        const std::string &hash, const cl::Program &program, const std::string &source
+        )
 {
     std::ofstream bfile(program_binaries_path(hash, true), std::ios::binary);
     if (!bfile) return;
@@ -402,7 +403,7 @@ inline cl::Program build_sources(
 
 #ifdef VEXCL_CACHE_KERNELS
     // Save program binaries for future reuse:
-    save_program_binaries(hash, program, device[0], hashsrc.str(), compile_options);
+    save_program_binaries(hash, program, hashsrc.str());
 #endif
 
     return program;
