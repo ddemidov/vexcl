@@ -52,6 +52,34 @@ BOOST_AUTO_TEST_CASE(kernel_generator)
             });
 }
 
+BOOST_AUTO_TEST_CASE(kernel_generator_with_user_function)
+{
+    typedef vex::symbolic<double> sym_state;
+
+    const size_t n  = 1024;
+
+    std::ostringstream body;
+    vex::generator::set_recorder(body);
+
+    sym_state sym_x(sym_state::VectorParameter, sym_state::Const);
+    sym_state sym_y(sym_state::VectorParameter);
+
+    VEX_FUNCTION(sin2, double(double), "double s = sin(prm1); return s * s;");
+
+    sym_y = sin2(sym_x);
+
+    auto kernel = vex::generator::build_kernel(
+            ctx, "test_sin2", body.str(), sym_x, sym_y);
+
+    vex::vector<double> X(ctx, random_vector<double>(n));
+    vex::vector<double> Y(ctx, n);
+
+    for(int i = 0; i < 100; i++) kernel(X, Y);
+
+    check_sample(X, Y, [&](size_t, double x, double y) {
+            BOOST_CHECK_CLOSE(y, sin(x) * sin(x), 1e-8);
+            });
+}
 BOOST_AUTO_TEST_CASE(function_generator)
 {
     typedef vex::symbolic<double> sym_state;
