@@ -301,12 +301,7 @@ inline void save_program_binaries(const std::string &hash, const cl::Program &pr
     bfile.write(binaries[0], sizes[0]);
     delete[] binaries[0];
 
-    bfile
-        << "\n"
-        << "\n" << cl::Platform(device.getInfo<CL_DEVICE_PLATFORM>()).getInfo<CL_PLATFORM_NAME>()
-        << "\n" << device.getInfo<CL_DEVICE_NAME>()
-        << "\noptions: " << options << "\n"
-        << "\n" << source << "\n";
+    bfile << "\n" << source << "\n";
 }
 
 /// Tries to read program binaries from file cache.
@@ -378,10 +373,10 @@ inline cl::Program build_sources(
     std::ostringstream hashsrc;
 
     hashsrc
-        << source
-        << compile_options
-        << device[0].getInfo<CL_DEVICE_NAME>()
-        << cl::Platform(device[0].getInfo<CL_DEVICE_PLATFORM>()).getInfo<CL_PLATFORM_NAME>();
+        << "\n" << cl::Platform(device[0].getInfo<CL_DEVICE_PLATFORM>()).getInfo<CL_PLATFORM_NAME>()
+        << "\n" << device[0].getInfo<CL_DEVICE_NAME>()
+        << "\noptions: " << compile_options
+        << "\n" << source;
 
     std::string hash = sha1( hashsrc.str() );
 
@@ -407,7 +402,7 @@ inline cl::Program build_sources(
 
 #ifdef VEXCL_CACHE_KERNELS
     // Save program binaries for future reuse:
-    save_program_binaries(hash, program, device[0], source, compile_options);
+    save_program_binaries(hash, program, device[0], hashsrc.str(), compile_options);
 #endif
 
     return program;
