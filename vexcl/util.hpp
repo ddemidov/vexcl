@@ -256,7 +256,7 @@ inline std::string standard_kernel_header(const cl::Device &dev) {
 #ifdef VEXCL_CACHE_KERNELS
 /// Path delimiter symbol.
 inline const std::string& path_delim() {
-    static const std::string delim = boost::filesystem::path("/").make_preferred().native();
+    static const std::string delim = boost::filesystem::path("/").make_preferred().string();
     return delim;
 }
 
