@@ -1840,7 +1840,9 @@ struct return_type {
         typename std::decay<
                 typename boost::result_of<
                     deduce_value_type(
-                        typename boost::proto::result_of::as_expr<Expr>::type
+                        typename boost::proto::result_of::as_expr<
+                            typename std::decay<Expr>::type
+                        >::type
                         )
                 >::type
             >::type
