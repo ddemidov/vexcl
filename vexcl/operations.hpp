@@ -1104,7 +1104,6 @@ struct extract_terminals
 struct expression_context {
     std::ostream &os;
     const cl::Device &device;
-    int cmp_idx;
     mutable int prm_idx;
     int fun_idx;
     std::string prefix;
@@ -1112,17 +1111,12 @@ struct expression_context {
 
     expression_context(
             std::ostream &os, const cl::Device &device,
-            int cmp_idx = 1, const std::string &prefix = "",
-            kernel_generator_state_ptr state = empty_state()
+            const std::string &prefix,
+            kernel_generator_state_ptr state
             )
-        : os(os), device(device), cmp_idx(cmp_idx), prm_idx(0), fun_idx(0),
+        : os(os), device(device), prm_idx(0), fun_idx(0),
           prefix(prefix), state(state)
     {}
-
-    void set_cmp(int c) {
-        cmp_idx = c;
-    }
-
 };
 
 // Outputs kernel preamble.
@@ -1130,10 +1124,10 @@ struct output_terminal_preamble : public expression_context {
 
     output_terminal_preamble(
             std::ostream &os, const cl::Device &device,
-            int cmp_idx = 1, const std::string &prefix = "",
-            kernel_generator_state_ptr state = empty_state()
+            const std::string &prefix,
+            kernel_generator_state_ptr state
             )
-        : expression_context(os, device, cmp_idx, prefix, state)
+        : expression_context(os, device, prefix, state)
     {}
 
     // Any expression except user function or terminal is only interesting
@@ -1187,7 +1181,7 @@ struct output_terminal_preamble : public expression_context {
 	>::type
 	operator()(const FunCall &expr, output_terminal_preamble &ctx) const {
 	    std::ostringstream name;
-	    name << ctx.prefix << "func_" << ctx.cmp_idx << "_" << ++ctx.fun_idx;
+	    name << ctx.prefix << "func_" << ++ctx.fun_idx;
 
 	    // Output function definition and continue with parameters.
             boost::proto::result_of::value<
@@ -1209,7 +1203,7 @@ struct output_terminal_preamble : public expression_context {
 	void operator()(const Term &term, output_terminal_preamble &ctx) const
         {
             std::ostringstream prm_name;
-            prm_name << ctx.prefix << "prm_" << ctx.cmp_idx << "_" << ++ctx.prm_idx;
+            prm_name << ctx.prefix << "_" << ++ctx.prm_idx;
 
             ctx.os << traits::terminal_preamble<
                 typename std::decay<Term>::type
@@ -1223,10 +1217,10 @@ struct output_local_preamble : public expression_context {
 
     output_local_preamble(
             std::ostream &os, const cl::Device &device,
-            int cmp_idx = 1, const std::string &prefix = "",
-            kernel_generator_state_ptr state = empty_state()
+            const std::string &prefix,
+            kernel_generator_state_ptr state
             )
-        : expression_context(os, device, cmp_idx, prefix, state)
+        : expression_context(os, device, prefix, state)
     {}
 
     // Any expression except user function or terminal is only interesting
@@ -1266,7 +1260,7 @@ struct output_local_preamble : public expression_context {
 	void operator()(const Term &term, output_local_preamble &ctx) const
         {
             std::ostringstream prm_name;
-            prm_name << ctx.prefix << "prm_" << ctx.cmp_idx << "_" << ++ctx.prm_idx;
+            prm_name << ctx.prefix << "_" << ++ctx.prm_idx;
 
             ctx.os << traits::local_terminal_init<
                 typename std::decay<Term>::type
@@ -1280,10 +1274,10 @@ struct vector_expr_context : public expression_context {
 
     vector_expr_context(
             std::ostream &os, const cl::Device &device,
-            int cmp_idx = 1, const std::string &prefix = "",
-            kernel_generator_state_ptr state = empty_state()
+            const std::string &prefix,
+            kernel_generator_state_ptr state
             )
-        : expression_context(os, device, cmp_idx, prefix, state)
+        : expression_context(os, device, prefix, state)
     {}
 
     template <typename Expr, typename Tag = typename Expr::proto_tag>
@@ -1438,7 +1432,7 @@ struct vector_expr_context : public expression_context {
         void
         >::type
         operator()(const FunCall &expr, vector_expr_context &ctx) const {
-            ctx.os << ctx.prefix << "func_" << ctx.cmp_idx << "_" << ++ctx.fun_idx << "( ";
+            ctx.os << ctx.prefix << "func_" << ++ctx.fun_idx << "( ";
             boost::fusion::for_each(
                     boost::fusion::pop_front(expr), do_eval(ctx)
                     );
@@ -1453,7 +1447,7 @@ struct vector_expr_context : public expression_context {
         template <typename Term>
         void operator()(const Term &term, vector_expr_context &ctx) const {
             std::ostringstream prm_name;
-            prm_name << ctx.prefix << "prm_" << ctx.cmp_idx << "_" << ++ctx.prm_idx;
+            prm_name << ctx.prefix << "_" << ++ctx.prm_idx;
 
             ctx.os << traits::partial_vector_expr<Term>::get(term,
                     ctx.device, prm_name.str(), ctx.state);
@@ -1464,16 +1458,16 @@ struct vector_expr_context : public expression_context {
 struct declare_expression_parameter : expression_context {
 
     declare_expression_parameter(std::ostream &os, const cl::Device &device,
-            int cmp_idx = 1, const std::string &prefix = "",
-            kernel_generator_state_ptr state = empty_state()
+            const std::string &prefix,
+            kernel_generator_state_ptr state
             )
-        : expression_context(os, device, cmp_idx, prefix, state)
+        : expression_context(os, device, prefix, state)
     {}
 
     template <typename T>
     void operator()(const T &term) const {
         std::ostringstream prm_name;
-        prm_name << prefix << "prm_" << cmp_idx << "_" << ++prm_idx;
+        prm_name << prefix << "_" << ++prm_idx;
 
         os << traits::kernel_param_declaration<T>::get(term,
                 device, prm_name.str(), state);
@@ -1487,7 +1481,7 @@ struct set_expression_argument {
     kernel_generator_state_ptr state;
 
     set_expression_argument(cl::Kernel &krn, unsigned dev, unsigned &pos, size_t part_start,
-            kernel_generator_state_ptr state = empty_state()
+            kernel_generator_state_ptr state
             )
         : krn(krn), dev(dev), pos(pos), part_start(part_start), state(state)
     {}
@@ -1969,7 +1963,7 @@ void assign_expression(LHS &lhs, const RHS &rhs,
 
             source << standard_kernel_header(device);
 
-            output_terminal_preamble termpream(source, device);
+            output_terminal_preamble termpream(source, device, "prm", empty_state());
 
             boost::proto::eval(boost::proto::as_child(lhs), termpream);
             boost::proto::eval(boost::proto::as_child(rhs), termpream);
@@ -1977,7 +1971,7 @@ void assign_expression(LHS &lhs, const RHS &rhs,
             source << "kernel void vexcl_vector_kernel(\n"
                    "\t" << type_name<size_t>() << " n";
 
-            declare_expression_parameter declare(source, device);
+            declare_expression_parameter declare(source, device, "prm", empty_state());
 
             extract_terminals()(boost::proto::as_child(lhs), declare);
             extract_terminals()(boost::proto::as_child(rhs), declare);
@@ -1995,11 +1989,11 @@ void assign_expression(LHS &lhs, const RHS &rhs,
                     "\tfor(size_t idx = get_global_id(0); idx < n; idx += get_global_size(0)) {\n";
             }
 
-            output_local_preamble loc_init(source, device);
+            output_local_preamble loc_init(source, device, "prm", empty_state());
             boost::proto::eval(boost::proto::as_child(lhs), loc_init);
             boost::proto::eval(boost::proto::as_child(rhs), loc_init);
 
-            vector_expr_context expr_ctx(source, device);
+            vector_expr_context expr_ctx(source, device, "prm", empty_state());
 
             source << "\t\t";
 
@@ -2026,7 +2020,7 @@ void assign_expression(LHS &lhs, const RHS &rhs,
             unsigned pos = 0;
             kernel->second.kernel.setArg(pos++, psize);
 
-            set_expression_argument setarg(kernel->second.kernel, d, pos, part[d]);
+            set_expression_argument setarg(kernel->second.kernel, d, pos, part[d], empty_state());
 
             extract_terminals()( boost::proto::as_child(lhs), setarg);
             extract_terminals()( boost::proto::as_child(rhs), setarg);
@@ -2095,15 +2089,12 @@ struct preamble_constructor {
             std::ostream &source, const cl::Device &device
             )
         : lhs(lhs), rhs(rhs),
-          lhs_ctx(source, device, 1, "lhs_"),
-          rhs_ctx(source, device, 1, "rhs_")
+          lhs_ctx(source, device, "lhs", empty_state()),
+          rhs_ctx(source, device, "rhs", empty_state())
     { }
 
     template <size_t I>
     void apply() const {
-        lhs_ctx.set_cmp(I + 1);
-        rhs_ctx.set_cmp(I + 1);
-
         boost::proto::eval(subexpression<I>::get(lhs), lhs_ctx);
         boost::proto::eval(subexpression<I>::get(rhs), rhs_ctx);
     }
@@ -2120,15 +2111,12 @@ struct parameter_declarator {
     parameter_declarator(const LHS &lhs, const RHS &rhs,
             std::ostream &source, const cl::Device &device)
         : lhs(lhs), rhs(rhs),
-          lhs_ctx(source, device, 1, "lhs_"),
-          rhs_ctx(source, device, 1, "rhs_")
+          lhs_ctx(source, device, "lhs", empty_state()),
+          rhs_ctx(source, device, "rhs", empty_state())
     { }
 
     template <size_t I>
     void apply() const {
-        lhs_ctx.set_cmp(I + 1);
-        rhs_ctx.set_cmp(I + 1);
-
         extract_terminals()(subexpression<I>::get(lhs), lhs_ctx);
         extract_terminals()(subexpression<I>::get(rhs), rhs_ctx);
     }
@@ -2149,17 +2137,14 @@ struct expression_init {
     expression_init(const LHS &lhs, const RHS &rhs,
             std::ostream &source, const cl::Device &device)
         : lhs(lhs), rhs(rhs), source(source),
-          lhs_pre(source, device, 1, "lhs_"),
-          rhs_pre(source, device, 1, "rhs_"),
-          lhs_ctx(source, device, 1, "lhs_"),
-          rhs_ctx(source, device, 1, "rhs_")
+          lhs_pre(source, device, "lhs", empty_state()),
+          rhs_pre(source, device, "rhs", empty_state()),
+          lhs_ctx(source, device, "lhs", empty_state()),
+          rhs_ctx(source, device, "rhs", empty_state())
     { }
 
     template <size_t I>
     void apply() const {
-        lhs_pre.set_cmp(I + 1);
-        rhs_pre.set_cmp(I + 1);
-
         boost::proto::eval(subexpression<I>::get(lhs), lhs_pre);
         boost::proto::eval(subexpression<I>::get(rhs), rhs_pre);
 
@@ -2169,7 +2154,6 @@ struct expression_init {
 
         source << "\t\t" << type_name<RT>() << " buf_" << I + 1 << " = ";
 
-        rhs_ctx.set_cmp(I + 1);
         boost::proto::eval(subexpression<I>::get(rhs), rhs_ctx);
         source << ";\n";
     }
@@ -2185,12 +2169,11 @@ struct expression_finalize {
 
     expression_finalize(const LHS &lhs,
             std::ostream &source, const cl::Device &device)
-        : lhs(lhs), source(source), lhs_ctx(source, device, 1, "lhs_")
+        : lhs(lhs), source(source), lhs_ctx(source, device, "lhs", empty_state())
     { }
 
     template <size_t I>
     void apply() const {
-        lhs_ctx.set_cmp(I + 1);
         source << "\t\t";
         boost::proto::eval(subexpression<I>::get(lhs), lhs_ctx);
         source << " " << OP::string() << " buf_" << I + 1 << ";\n";
@@ -2206,7 +2189,7 @@ struct kernel_arg_setter {
 
     kernel_arg_setter(const LHS &lhs, const RHS &rhs,
             cl::Kernel &krn, unsigned dev, size_t offset, unsigned &pos)
-        : lhs(lhs), rhs(rhs), ctx(krn, dev, pos, offset)
+        : lhs(lhs), rhs(rhs), ctx(krn, dev, pos, offset, empty_state())
     { }
 
     template <size_t I>

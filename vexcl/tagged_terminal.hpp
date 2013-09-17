@@ -106,11 +106,11 @@ struct terminal_preamble< tagged_terminal<Tag, Term> > {
             const std::string &prm_name,
             detail::kernel_generator_state_ptr state)
     {
-        auto s = state->find("tagged_terminal");
+        auto s = state->find("tag_pream");
 
         if (s == state->end()) {
             s = state->insert(std::make_pair(
-                        std::string("tagged_terminal"),
+                        std::string("tag_pream"),
                         boost::any(std::set<size_t>())
                         )).first;
         }
@@ -123,7 +123,7 @@ struct terminal_preamble< tagged_terminal<Tag, Term> > {
 
             std::ostringstream s;
 
-            detail::output_terminal_preamble termpream(s, device, 1, prm_name + "_");
+            detail::output_terminal_preamble termpream(s, device, prm_name, state);
             boost::proto::eval(boost::proto::as_child(term.term), termpream);
 
             return s.str();
@@ -139,11 +139,11 @@ struct kernel_param_declaration< tagged_terminal<Tag, Term> > {
             const cl::Device &device, const std::string &prm_name,
             detail::kernel_generator_state_ptr state)
     {
-        auto s = state->find("tagged_terminal");
+        auto s = state->find("tag_param");
 
         if (s == state->end()) {
             s = state->insert(std::make_pair(
-                        std::string("tagged_terminal"),
+                        std::string("tag_param"),
                         boost::any(std::set<size_t>())
                         )).first;
         }
@@ -156,7 +156,7 @@ struct kernel_param_declaration< tagged_terminal<Tag, Term> > {
 
             std::ostringstream s;
 
-            detail::declare_expression_parameter declare(s, device, 1, prm_name + "_");
+            detail::declare_expression_parameter declare(s, device, prm_name, state);
             detail::extract_terminals()(boost::proto::as_child(term.term),  declare);
 
             return s.str();
@@ -173,11 +173,11 @@ struct local_terminal_init< tagged_terminal<Tag, Term> > {
             const std::string &prm_name,
             detail::kernel_generator_state_ptr state)
     {
-        auto s = state->find("tagged_terminal");
+        auto s = state->find("tag_locinit");
 
         if (s == state->end()) {
             s = state->insert(std::make_pair(
-                        std::string("tagged_terminal"),
+                        std::string("tag_locinit"),
                         boost::any(std::set<size_t>())
                         )).first;
         }
@@ -190,7 +190,7 @@ struct local_terminal_init< tagged_terminal<Tag, Term> > {
 
             std::ostringstream s;
 
-            detail::output_local_preamble init_ctx(s, device, 1, prm_name + "_", state);
+            detail::output_local_preamble init_ctx(s, device, prm_name, state);
             boost::proto::eval(boost::proto::as_child(term.term), init_ctx);
 
             return s.str();
@@ -207,11 +207,11 @@ struct partial_vector_expr< tagged_terminal<Tag, Term> > {
             const std::string &prm_name,
             detail::kernel_generator_state_ptr state)
     {
-        auto s = state->find("tagged_terminal");
+        auto s = state->find("tag_expr");
 
         if (s == state->end()) {
             s = state->insert(std::make_pair(
-                        std::string("tagged_terminal"),
+                        std::string("tag_expr"),
                         boost::any(std::map<size_t, std::string>())
                         )).first;
         }
@@ -222,7 +222,7 @@ struct partial_vector_expr< tagged_terminal<Tag, Term> > {
         if (p == pos.end()) {
 			std::ostringstream s;
 
-            detail::vector_expr_context expr_ctx(s, device, 1, prm_name + "_");
+            detail::vector_expr_context expr_ctx(s, device, prm_name, state);
             boost::proto::eval(boost::proto::as_child(term.term), expr_ctx);
 
             return (pos[Tag] = s.str());
@@ -238,11 +238,11 @@ struct kernel_arg_setter< tagged_terminal<Tag, Term> > {
             cl::Kernel &kernel, unsigned device, size_t index_offset,
             unsigned &position, detail::kernel_generator_state_ptr state)
     {
-        auto s = state->find("tagged_terminal_arg");
+        auto s = state->find("tag_args");
 
         if (s == state->end()) {
             s = state->insert(std::make_pair(
-                        std::string("tagged_terminal_arg"),
+                        std::string("tag_args"),
                         boost::any(std::set<size_t>())
                         )).first;
         }
@@ -253,7 +253,7 @@ struct kernel_arg_setter< tagged_terminal<Tag, Term> > {
         if (p == pos.end()) {
             pos.insert(Tag);
 
-            detail::set_expression_argument setarg(kernel, device, position, index_offset);
+            detail::set_expression_argument setarg(kernel, device, position, index_offset, state);
             detail::extract_terminals()( boost::proto::as_child(term.term),  setarg);
         }
     }

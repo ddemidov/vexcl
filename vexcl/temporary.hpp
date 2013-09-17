@@ -157,11 +157,11 @@ struct terminal_preamble< temporary<T, Tag, Expr> > {
             const cl::Device &dev, const std::string &prm_name,
             detail::kernel_generator_state_ptr state)
     {
-        auto s = state->find("temporary");
+        auto s = state->find("tmp_pream");
 
         if (s == state->end()) {
             s = state->insert(std::make_pair(
-                        std::string("temporary"),
+                        std::string("tmp_pream"),
                         boost::any(std::set<size_t>())
                         )).first;
         }
@@ -174,7 +174,7 @@ struct terminal_preamble< temporary<T, Tag, Expr> > {
 
             std::ostringstream s;
 
-            detail::output_terminal_preamble termpream(s, dev, 1, prm_name + "_");
+            detail::output_terminal_preamble termpream(s, dev, prm_name, state);
             boost::proto::eval(boost::proto::as_child(term.expr), termpream);
 
             return s.str();
@@ -190,11 +190,11 @@ struct kernel_param_declaration< temporary<T, Tag, Expr> > {
             const cl::Device &dev, const std::string &prm_name,
             detail::kernel_generator_state_ptr state)
     {
-        auto s = state->find("temporary");
+        auto s = state->find("tmp_param");
 
         if (s == state->end()) {
             s = state->insert(std::make_pair(
-                        std::string("temporary"),
+                        std::string("tmp_param"),
                         boost::any(std::set<size_t>())
                         )).first;
         }
@@ -207,7 +207,7 @@ struct kernel_param_declaration< temporary<T, Tag, Expr> > {
 
             std::ostringstream s;
 
-            detail::declare_expression_parameter declare(s, dev, 1, prm_name + "_");
+            detail::declare_expression_parameter declare(s, dev, prm_name, state);
             detail::extract_terminals()(boost::proto::as_child(term.expr),  declare);
 
             return s.str();
@@ -223,11 +223,11 @@ struct local_terminal_init< temporary<T, Tag, Expr> > {
             const cl::Device &dev, const std::string &prm_name,
             detail::kernel_generator_state_ptr state)
     {
-        auto s = state->find("temporary");
+        auto s = state->find("tmp_locinit");
 
         if (s == state->end()) {
             s = state->insert(std::make_pair(
-                        std::string("temporary"),
+                        std::string("tmp_locinit"),
                         boost::any(std::set<size_t>())
                         )).first;
         }
@@ -240,12 +240,12 @@ struct local_terminal_init< temporary<T, Tag, Expr> > {
 
             std::ostringstream s;
 
-            detail::output_local_preamble init_ctx(s, dev, 1, prm_name + "_", state);
+            detail::output_local_preamble init_ctx(s, dev, prm_name, state);
             boost::proto::eval(boost::proto::as_child(term.expr), init_ctx);
 
             s << "\t\t" << type_name<T>() << " temp_" << Tag << " = ";
 
-            detail::vector_expr_context expr_ctx(s, dev, 1, prm_name + "_");
+            detail::vector_expr_context expr_ctx(s, dev, prm_name, state);
             boost::proto::eval(boost::proto::as_child(term.expr), expr_ctx);
             s << ";\n";
 
@@ -262,11 +262,11 @@ struct partial_vector_expr< temporary<T, Tag, Expr> > {
             const cl::Device&, const std::string &/*prm_name*/,
             detail::kernel_generator_state_ptr state)
     {
-        auto s = state->find("temporary");
+        auto s = state->find("tmp_expr");
 
         if (s == state->end()) {
             s = state->insert(std::make_pair(
-                        std::string("temporary"),
+                        std::string("tmp_expr"),
                         boost::any(std::map<size_t, std::string>())
                         )).first;
         }
@@ -288,11 +288,11 @@ struct kernel_arg_setter< temporary<T, Tag, Expr> > {
             cl::Kernel &kernel, unsigned device, size_t index_offset,
             unsigned &position, detail::kernel_generator_state_ptr state)
     {
-        auto s = state->find("temporary");
+        auto s = state->find("tmp_args");
 
         if (s == state->end()) {
             s = state->insert(std::make_pair(
-                        std::string("temporary"),
+                        std::string("tmp_args"),
                         boost::any(std::set<size_t>())
                         )).first;
         }
@@ -303,7 +303,7 @@ struct kernel_arg_setter< temporary<T, Tag, Expr> > {
         if (p == pos.end()) {
             pos.insert(Tag);
 
-            detail::set_expression_argument setarg(kernel, device, position, index_offset);
+            detail::set_expression_argument setarg(kernel, device, position, index_offset, state);
             detail::extract_terminals()( boost::proto::as_child(term.expr),  setarg);
         }
     }

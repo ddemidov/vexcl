@@ -226,10 +226,10 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
         if (kernel == cache.end()) {
             std::ostringstream increment_line;
 
-            output_local_preamble loc_init(increment_line, device);
+            output_local_preamble loc_init(increment_line, device, "prm", empty_state());
             boost::proto::eval(expr, loc_init);
 
-            vector_expr_context expr_ctx(increment_line, device);
+            vector_expr_context expr_ctx(increment_line, device, "prm", empty_state());
 
             increment_line << "\t\tmySum = reduce_operation(mySum, ";
             boost::proto::eval(expr, expr_ctx);
@@ -241,13 +241,13 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
             typedef typename RDC::template function<real> fun;
             fun::define(source, "reduce_operation");
 
-            output_terminal_preamble termpream(source, device);
+            output_terminal_preamble termpream(source, device, "prm", empty_state());
             boost::proto::eval(boost::proto::as_child(expr),  termpream);
 
             source << "kernel void vexcl_reductor_kernel(\n\t"
                 << type_name<size_t>() << " n";
 
-            extract_terminals()( expr, declare_expression_parameter(source, device) );
+            extract_terminals()( expr, declare_expression_parameter(source, device, "prm", empty_state()) );
 
             source << ",\n\tglobal " << type_name<real>() << " *g_odata,\n"
                 "\tlocal  " << type_name<real>() << " *sdata\n"
@@ -335,7 +335,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
 
             extract_terminals()(
                     expr,
-                    set_expression_argument(kernel->second.kernel, d, pos, prop.part_start(d))
+                    set_expression_argument(kernel->second.kernel, d, pos, prop.part_start(d), empty_state())
                     );
 
             kernel->second.kernel.setArg(pos++, dbuf[d]);

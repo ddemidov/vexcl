@@ -128,9 +128,9 @@ template <typename T, class Slice>
 struct terminal_preamble< vector_view<T, Slice> > {
     static std::string get(const vector_view<T, Slice> &term,
             const cl::Device &device, const std::string &prm_name,
-            detail::kernel_generator_state_ptr)
+            detail::kernel_generator_state_ptr state)
     {
-        return term.slice.preamble(prm_name, device);
+        return term.slice.preamble(prm_name, device, state);
     }
 };
 
@@ -138,9 +138,9 @@ template <typename T, class Slice>
 struct kernel_param_declaration< vector_view<T, Slice> > {
     static std::string get(const vector_view<T, Slice> &term,
             const cl::Device &device, const std::string &prm_name,
-            detail::kernel_generator_state_ptr)
+            detail::kernel_generator_state_ptr state)
     {
-        return term.slice.template parameter_declaration<T>(prm_name, device);
+        return term.slice.template parameter_declaration<T>(prm_name, device, state);
     }
 };
 
@@ -158,9 +158,9 @@ template <typename T, class Slice>
 struct partial_vector_expr< vector_view<T, Slice> > {
     static std::string get(const vector_view<T, Slice> &term,
             const cl::Device &device, const std::string &prm_name,
-            detail::kernel_generator_state_ptr)
+            detail::kernel_generator_state_ptr state)
     {
-        return term.slice.partial_expression(prm_name, device);
+        return term.slice.partial_expression(prm_name, device, state);
     }
 };
 
@@ -168,12 +168,12 @@ template <typename T, class Slice>
 struct kernel_arg_setter< vector_view<T, Slice> > {
     static void set(const vector_view<T, Slice> &term,
             cl::Kernel &kernel, unsigned device, size_t index_offset,
-            unsigned &position, detail::kernel_generator_state_ptr)
+            unsigned &position, detail::kernel_generator_state_ptr state)
     {
         assert(device == 0);
 
         kernel.setArg(position++, term.base(device));
-        term.slice.setArgs(kernel, device, index_offset, position);
+        term.slice.setArgs(kernel, device, index_offset, position, state);
     }
 };
 
@@ -252,7 +252,7 @@ struct gslice {
     }
 
     std::string preamble(const std::string &prm_name,
-            const cl::Device&) const
+            const cl::Device&, detail::kernel_generator_state_ptr) const
     {
         std::ostringstream s;
 
@@ -280,7 +280,7 @@ struct gslice {
 
     template <typename T>
     std::string parameter_declaration(const std::string &prm_name,
-            const cl::Device&) const
+            const cl::Device&, detail::kernel_generator_state_ptr) const
     {
         std::ostringstream s;
 
@@ -301,7 +301,7 @@ struct gslice {
     }
 
     std::string partial_expression(const std::string &prm_name,
-            const cl::Device&) const
+            const cl::Device&, detail::kernel_generator_state_ptr) const
     {
         std::ostringstream s;
 
@@ -316,7 +316,7 @@ struct gslice {
     }
 
     void setArgs(cl::Kernel &kernel, unsigned/*device*/, size_t/*index_offset*/,
-	    unsigned &position) const
+	    unsigned &position, detail::kernel_generator_state_ptr) const
     {
         kernel.setArg(position++, start);
         for(size_t k = 0; k < NDIM; ++k) {
@@ -537,11 +537,11 @@ struct expr_permutation {
     }
 
     std::string preamble(const std::string &prm_name,
-            const cl::Device &dev) const
+            const cl::Device &dev, detail::kernel_generator_state_ptr state) const
     {
         std::ostringstream s;
 
-        detail::output_terminal_preamble ctx(s, dev, 1, prm_name + "_");
+        detail::output_terminal_preamble ctx(s, dev, prm_name, state);
         boost::proto::eval(boost::proto::as_child(expr), ctx);
 
         return s.str();
@@ -549,13 +549,13 @@ struct expr_permutation {
 
     template <typename T>
     std::string parameter_declaration(const std::string &prm_name,
-            const cl::Device &dev) const
+            const cl::Device &dev, detail::kernel_generator_state_ptr state) const
     {
         std::ostringstream s;
 
         s << ",\n\tglobal " << type_name<T>() << " * " << prm_name << "_base";
 
-        detail::declare_expression_parameter ctx(s, dev, 1, prm_name + "_");
+        detail::declare_expression_parameter ctx(s, dev, prm_name, state);
         detail::extract_terminals()(boost::proto::as_child(expr), ctx);
 
         return s.str();
@@ -566,18 +566,18 @@ struct expr_permutation {
     {
         std::ostringstream s;
 
-        detail::output_local_preamble init_ctx(s, dev, 1, prm_name + "_", state);
+        detail::output_local_preamble init_ctx(s, dev, prm_name, state);
         boost::proto::eval(boost::proto::as_child(expr), init_ctx);
 
         return s.str();
     }
 
     std::string partial_expression(const std::string &prm_name,
-            const cl::Device &dev) const
+            const cl::Device &dev, detail::kernel_generator_state_ptr state) const
     {
         std::ostringstream s;
         s << prm_name << "_base[";
-        detail::vector_expr_context ctx(s, dev, 1, prm_name + "_");
+        detail::vector_expr_context ctx(s, dev, prm_name, state);
         boost::proto::eval(boost::proto::as_child(expr), ctx);
         s << "]";
 
@@ -585,10 +585,10 @@ struct expr_permutation {
     }
 
     void setArgs(cl::Kernel &kernel, unsigned device, size_t index_offset,
-	    unsigned &position) const
+	    unsigned &position, detail::kernel_generator_state_ptr state) const
     {
         detail::extract_terminals()( boost::proto::as_child(expr),
-                detail::set_expression_argument(kernel, device, position, index_offset));
+                detail::set_expression_argument(kernel, device, position, index_offset, state));
     }
 
     template <typename T>
@@ -710,9 +710,9 @@ template <typename T, size_t NDIM, size_t NR, class RDC>
 struct kernel_param_declaration< reduced_vector_view<T, NDIM, NR, RDC> > {
     static std::string get(const reduced_vector_view<T, NDIM, NR, RDC> &term,
             const cl::Device &device, const std::string &prm_name,
-            detail::kernel_generator_state_ptr)
+            detail::kernel_generator_state_ptr state)
     {
-        return term.slice.template parameter_declaration<T>(prm_name, device);
+        return term.slice.template parameter_declaration<T>(prm_name, device, state);
     }
 };
 

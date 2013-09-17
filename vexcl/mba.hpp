@@ -568,11 +568,11 @@ template <class MBA, class ExprTuple>
 struct kernel_param_declaration< mba_interp<MBA, ExprTuple> > {
     static std::string get(const mba_interp<MBA, ExprTuple> &term,
             const cl::Device &dev, const std::string &prm_name,
-            detail::kernel_generator_state_ptr)
+            detail::kernel_generator_state_ptr state)
     {
         std::ostringstream s;
 
-        boost::fusion::for_each(term.coord, prmdecl(s, dev, prm_name));
+        boost::fusion::for_each(term.coord, prmdecl(s, dev, prm_name, state));
 
         for(size_t k = 0; k < MBA::ndim; ++k) {
             s << ",\n\t" << type_name<typename MBA::value_type>() << " " << prm_name << "_c" << k
@@ -590,18 +590,20 @@ struct kernel_param_declaration< mba_interp<MBA, ExprTuple> > {
         std::ostream &s;
         const cl::Device &dev;
         const std::string &prm_name;
+        detail::kernel_generator_state_ptr state;
         mutable int pos;
 
         prmdecl(std::ostream &s,
-                const cl::Device &dev, const std::string &prm_name
-            ) : s(s), dev(dev), prm_name(prm_name), pos(0)
+                const cl::Device &dev, const std::string &prm_name,
+                detail::kernel_generator_state_ptr state
+            ) : s(s), dev(dev), prm_name(prm_name), state(state), pos(0)
         {}
 
         template <class Expr>
         void operator()(const Expr &expr) const {
             std::ostringstream prefix;
-            prefix << prm_name << "_x" << pos << "_";
-            detail::declare_expression_parameter ctx(s, dev, 1, prefix.str());
+            prefix << prm_name << "_x" << pos;
+            detail::declare_expression_parameter ctx(s, dev, prefix.str(), state);
             detail::extract_terminals()(boost::proto::as_child(expr), ctx);
 
             pos++;
@@ -638,9 +640,9 @@ struct local_terminal_init< mba_interp<MBA, ExprTuple> > {
         template <class Expr>
         void operator()(const Expr &expr) const {
             std::ostringstream prefix;
-            prefix << prm_name << "_x" << pos << "_";
+            prefix << prm_name << "_x" << pos;
 
-            detail::output_local_preamble init_ctx(s, dev, 1, prefix.str(), state);
+            detail::output_local_preamble init_ctx(s, dev, prefix.str(), state);
             boost::proto::eval(boost::proto::as_child(expr), init_ctx);
 
             pos++;
@@ -652,13 +654,13 @@ template <class MBA, class ExprTuple>
 struct partial_vector_expr< mba_interp<MBA, ExprTuple> > {
     static std::string get(const mba_interp<MBA, ExprTuple> &term,
             const cl::Device &dev, const std::string &prm_name,
-            detail::kernel_generator_state_ptr)
+            detail::kernel_generator_state_ptr state)
     {
         std::ostringstream s;
 
         s << prm_name << "_mba(";
 
-        boost::fusion::for_each(term.coord, buildexpr(s, dev, prm_name));
+        boost::fusion::for_each(term.coord, buildexpr(s, dev, prm_name, state));
 
         for(size_t k = 0; k < MBA::ndim; ++k) {
             s << ", " << prm_name << "_c" << k
@@ -676,11 +678,13 @@ struct partial_vector_expr< mba_interp<MBA, ExprTuple> > {
         std::ostream &s;
         const cl::Device &dev;
         const std::string &prm_name;
+        detail::kernel_generator_state_ptr state;
         mutable int pos;
 
         buildexpr(std::ostream &s,
-                const cl::Device &dev, const std::string &prm_name
-            ) : s(s), dev(dev), prm_name(prm_name), pos(0)
+                const cl::Device &dev, const std::string &prm_name,
+                detail::kernel_generator_state_ptr state
+            ) : s(s), dev(dev), prm_name(prm_name), state(state), pos(0)
         {}
 
         template <class Expr>
@@ -688,9 +692,9 @@ struct partial_vector_expr< mba_interp<MBA, ExprTuple> > {
             if(pos) s << ", ";
 
             std::ostringstream prefix;
-            prefix << prm_name << "_x" << pos << "_";
+            prefix << prm_name << "_x" << pos;
 
-            detail::vector_expr_context ctx(s, dev, 1, prefix.str());
+            detail::vector_expr_context ctx(s, dev, prefix.str(), state);
             boost::proto::eval(boost::proto::as_child(expr), ctx);
 
             pos++;
@@ -702,10 +706,11 @@ template <class MBA, class ExprTuple>
 struct kernel_arg_setter< mba_interp<MBA, ExprTuple> > {
     static void set(const mba_interp<MBA, ExprTuple> &term,
             cl::Kernel &kernel, unsigned device, size_t index_offset,
-            unsigned &position, detail::kernel_generator_state_ptr)
+            unsigned &position, detail::kernel_generator_state_ptr state)
     {
 
-        boost::fusion::for_each(term.coord, setargs(kernel, device, index_offset, position));
+        boost::fusion::for_each(term.coord,
+                setargs(kernel, device, index_offset, position, state));
 
         for(size_t k = 0; k < MBA::ndim; ++k) {
             kernel.setArg(position++, term.cloud.xmin[k]);
@@ -721,15 +726,18 @@ struct kernel_arg_setter< mba_interp<MBA, ExprTuple> > {
         unsigned device;
         size_t index_offset;
         unsigned &position;
+        detail::kernel_generator_state_ptr state;
 
         setargs(
-                cl::Kernel &kernel, unsigned device, size_t index_offset, unsigned &position
-               ) : kernel(kernel), device(device), index_offset(index_offset), position(position)
+                cl::Kernel &kernel, unsigned device, size_t index_offset, unsigned &position,
+                detail::kernel_generator_state_ptr state
+               )
+            : kernel(kernel), device(device), index_offset(index_offset), position(position), state(state)
         {}
 
         template <class Expr>
         void operator()(const Expr &expr) const {
-            detail::set_expression_argument ctx(kernel, device, position, index_offset);
+            detail::set_expression_argument ctx(kernel, device, position, index_offset, state);
             detail::extract_terminals()( boost::proto::as_child(expr), ctx);
         }
     };
