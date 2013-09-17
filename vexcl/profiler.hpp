@@ -57,6 +57,13 @@ THE SOFTWARE.
 #include <boost/multi_index/global_fun.hpp>
 #include <boost/io/ios_state.hpp>
 
+#include <boost/accumulators/accumulators.hpp>
+#include <boost/accumulators/statistics/stats.hpp>
+#include <boost/accumulators/statistics/count.hpp>
+#include <boost/accumulators/statistics/sum.hpp>
+#include <boost/accumulators/statistics/median.hpp>
+#include <boost/accumulators/statistics/mean.hpp>
+
 #ifndef __CL_ENABLE_EXCEPTIONS
 #  define __CL_ENABLE_EXCEPTIONS
 #endif
@@ -65,94 +72,30 @@ THE SOFTWARE.
 
 namespace vex {
 
-/// Kind of averaging used in vex::profiler.
-/**
- * When an event is measured multiple times, vex::profiler shows average
- * runtime in its output. The enum controls the averaging algorithm.
- */
-enum AvgKind {
-    AvgMean,    ///< Show mean value in output.
-    AvgMedian   ///< Show median value in output.
-};
-
-template <AvgKind Avg>
-struct averager {};
-
-/// \cond INTERNAL
-
-template <>
-struct averager<AvgMean> {
-    double sum;
-    size_t n;
-
-    averager() : sum(0), n(0) {}
-
-    inline void push(double val) {
-        sum += val;
-        ++n;
-    }
-
-    inline double value() const {
-        return sum / n;
-    }
-
-    inline double total() const {
-        return sum;
-    }
-
-    inline size_t size() const {
-        return n;
-    }
-};
-
-template <>
-struct averager<AvgMedian> {
-    double sum;
-    std::vector<double> values;
-
-    averager() : sum(0) {
-        values.reserve(32);
-    }
-
-    inline void push(double val) {
-        sum += val;
-        values.push_back(val);
-        std::stable_sort(values.begin(), values.end());
-    }
-
-    inline double value() const {
-        if (values.empty()) return 0;
-
-        return values[(values.size() - 1) / 2];
-    }
-
-    inline double total() const {
-        return sum;
-    }
-
-    inline size_t size() const {
-        return values.size();
-    }
-};
-
-/// \endcond
-
 /// A stopwatch that computes the median and mean of individual timings.
 /**
  * \param Clock class that provides interface compatible with either
  *              boost::chrono or std::chrono clocks.
- * \param Avg   Kind of averaging used. AvgMedian is more stable, but may
- *              have high overhead when profiling is made in a loop.
  */
+template <
 #ifdef VEXCL_USE_BOOST_CHRONO
-template <class Clock = boost::chrono::high_resolution_clock, AvgKind Avg = AvgMedian>
+    class Clock = boost::chrono::high_resolution_clock
 #else
-template <class Clock = std::chrono::high_resolution_clock, AvgKind Avg = AvgMedian>
+    class Clock = std::chrono::high_resolution_clock
 #endif
+    >
 class stopwatch {
-    public:
-        averager<Avg> avg;
+    boost::accumulators::accumulator_set<
+        double,
+        boost::accumulators::stats<
+            boost::accumulators::tag::count,
+            boost::accumulators::tag::sum,
+            boost::accumulators::tag::mean,
+            boost::accumulators::tag::median(boost::accumulators::with_p_square_quantile)
+            >
+        > acc;
 
+    public:
         stopwatch() { tic(); }
 
         /// Start timer.
@@ -164,22 +107,23 @@ class stopwatch {
         inline double toc() {
             const double delta = seconds(start, Clock::now());
 
-            avg.push(delta);
+            acc(delta);
 
             return delta;
         }
 
-        /// Return the average measured time in seconds.
-        inline double average() const {
-            return avg.value();
+        inline double median() const {
+            namespace ba = boost::accumulators;
+
+            return ba::count(acc) >= 3 ? ba::median(acc) : ba::mean(acc);
         }
 
         inline double total() const {
-            return avg.total();
+            return boost::accumulators::sum(acc);
         }
 
         inline size_t tics() const {
-            return avg.size();
+            return boost::accumulators::count(acc);
         }
     private:
         static double seconds(typename Clock::time_point begin, typename Clock::time_point end) {
@@ -198,11 +142,13 @@ class stopwatch {
  * \param Avg   Kind of averaging used. AvgMedian is more stable, but may
  *              have high overhead when profiling is made in a loop.
  */
+template <
 #ifdef VEXCL_USE_BOOST_CHRONO
-template <class Clock = boost::chrono::high_resolution_clock, AvgKind Avg = AvgMedian>
+    class Clock = boost::chrono::high_resolution_clock
 #else
-template <class Clock = std::chrono::high_resolution_clock, AvgKind Avg = AvgMedian>
+    class Clock = std::chrono::high_resolution_clock
 #endif
+    >
 class profiler {
     private:
         class profile_unit {
@@ -210,7 +156,7 @@ class profiler {
                 profile_unit(std::string name) : watch(), name(name), children() {}
                 virtual ~profile_unit() {}
 
-                stopwatch<Clock, Avg> watch;
+                stopwatch<Clock> watch;
                 std::string name;
 
                 static std::string _name(const std::shared_ptr<profile_unit> &u) {
@@ -259,8 +205,8 @@ class profiler {
                     print_line(out, name, watch.total(), 100 * watch.total() / total, width, level);
 
                     out << " (" << setw(6) << watch.tics()
-                        << "x; average:"
-                        << setprecision(6) << scientific << (watch.average() * 1e6)
+                        << "x; median: "
+                        << setprecision(6) << scientific << (watch.median() * 1e6)
                         << " usec.)" << endl;
 
                     if (!children.empty()) {
@@ -390,8 +336,8 @@ class profiler {
 
 } // namespace vex
 
-template <class Clock, vex::AvgKind Avg>
-inline std::ostream& operator<<(std::ostream &os, vex::profiler<Clock, Avg> &prof) {
+template <class Clock>
+inline std::ostream& operator<<(std::ostream &os, vex::profiler<Clock> &prof) {
     prof.print(os);
     return os;
 }

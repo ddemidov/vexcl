@@ -164,7 +164,7 @@ std::pair<double, double> benchmark_reductor(
                 << std::endl;
         }
 
-        std::cout << "  res = " << fabs(sum_cl - sum_cpp)
+        std::cout << "  res = " << fabs( (sum_cl - sum_cpp) / sum_cpp )
                   << std::endl << std::endl;
     }
 
