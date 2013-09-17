@@ -349,6 +349,7 @@ struct plan {
         for(auto b = bufs.begin(); b != bufs.end(); ++b)
             std::cerr << "   " << (*b)()() << " = " << (*b) << std::endl;
 #endif
+        if (profile) profile->toc("");
     }
 
     template <typename Tout, class Expr>
