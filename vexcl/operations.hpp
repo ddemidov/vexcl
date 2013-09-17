@@ -423,6 +423,10 @@ struct user_function {};
             boost::proto::bitwise_xor   < grammar, grammar > \
         >, \
         boost::proto::or_< \
+            boost::proto::address_of < grammar >, \
+            boost::proto::dereference< grammar > \
+        >, \
+        boost::proto::or_< \
             boost::proto::if_else_< grammar, grammar, grammar > \
         > \
     >, \
@@ -1353,6 +1357,26 @@ struct vector_expr_context : public expression_context {
     UNARY_POST_OPERATION(post_dec, --);
 
 #undef UNARY_POST_OPERATION
+
+    template <typename Expr>
+    struct eval<Expr, boost::proto::tag::address_of> {
+        typedef void result_type;
+        void operator()(const Expr &expr, vector_expr_context &ctx) const {
+            ctx.os << "( &( ";
+            boost::proto::eval(boost::proto::child(expr), ctx);
+            ctx.os << ") )";
+        }
+    };
+
+    template <typename Expr>
+    struct eval<Expr, boost::proto::tag::dereference> {
+        typedef void result_type;
+        void operator()(const Expr &expr, vector_expr_context &ctx) const {
+            ctx.os << "( *( ";
+            boost::proto::eval(boost::proto::child(expr), ctx);
+            ctx.os << ") )";
+        }
+    };
 
     template <typename Expr>
     struct eval<Expr, boost::proto::tag::if_else_> {

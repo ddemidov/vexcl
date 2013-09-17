@@ -115,7 +115,8 @@ BOOST_AUTO_TEST_CASE(ternary_operator)
     vex::vector<double> x;
     vex::vector<int> y;
 
-    check<int>( if_else(x < 0, 1, y) );
+    check<int>   (  if_else(x < 0,  1,  y) );
+    check<double>( *if_else(x < 0, &x, &y) );
 }
 
 BOOST_AUTO_TEST_CASE(builtin_functions)

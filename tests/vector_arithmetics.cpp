@@ -216,6 +216,25 @@ BOOST_AUTO_TEST_CASE(ternary_operator)
             });
 }
 
+BOOST_AUTO_TEST_CASE(assign_to_ternary_operator)
+{
+    const size_t n = 32;
+
+    vex::vector<double> x(ctx, random_vector<double>(n));
+    vex::vector<double> y(ctx, n);
+    vex::vector<double> z(ctx, n);
+
+    y = 0;
+    z = 0;
+
+    vex::tie( *if_else(x < 0.5, &y, &z) ) = 42;
+
+    check_sample(x, y, z, [&](size_t, double X, double Y, double Z) {
+            BOOST_CHECK_EQUAL(X < 0.5 ? Y : Z, 42);
+            BOOST_CHECK_EQUAL(X < 0.5 ? Z : Y, 0);
+            });
+}
+
 BOOST_AUTO_TEST_CASE(combine_expressions)
 {
     const size_t n = 1024;
