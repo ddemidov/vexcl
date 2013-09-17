@@ -112,7 +112,7 @@ class stopwatch {
             return delta;
         }
 
-        inline double median() const {
+        inline double average() const {
             namespace ba = boost::accumulators;
 
             return ba::count(acc) >= 3 ? ba::median(acc) : ba::mean(acc);
@@ -205,8 +205,8 @@ class profiler {
                     print_line(out, name, watch.total(), 100 * watch.total() / total, width, level);
 
                     out << " (" << setw(6) << watch.tics()
-                        << "x; median: "
-                        << setprecision(6) << scientific << (watch.median() * 1e6)
+                        << "x; avg: "
+                        << setprecision(6) << scientific << (watch.average() * 1e6)
                         << " usec.)" << endl;
 
                     if (!children.empty()) {

@@ -123,7 +123,7 @@ void info(watch w, size_t size, size_t dim) {
     if(w.tics() == 0)
         std::cout << '-';
     else
-        std::cout << std::scientific << (ops / w.median());
+        std::cout << std::scientific << (ops / w.average());
 }
 
 int main(int argc, char **argv) {
