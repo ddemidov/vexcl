@@ -182,4 +182,11 @@ BOOST_AUTO_TEST_CASE(initialize_with_expression)
     check_sample(Y, [&](size_t idx, double v) { BOOST_CHECK_CLOSE(v, sin(x[idx]), 1e-8); });
 }
 
+BOOST_AUTO_TEST_CASE(some_devices_are_empty)
+{
+    vex::vector<double> x(ctx, 1);
+    x = 0;
+    BOOST_CHECK(x[0] == 0);
+}
+
 BOOST_AUTO_TEST_SUITE_END()
