@@ -2082,15 +2082,16 @@ struct preamble_constructor {
     const LHS &lhs;
     const RHS &rhs;
 
+    kernel_generator_state_ptr state;
     mutable detail::output_terminal_preamble lhs_ctx;
     mutable detail::output_terminal_preamble rhs_ctx;
 
     preamble_constructor(const LHS &lhs, const RHS &rhs,
             std::ostream &source, const cl::Device &device
             )
-        : lhs(lhs), rhs(rhs),
-          lhs_ctx(source, device, "lhs", empty_state()),
-          rhs_ctx(source, device, "rhs", empty_state())
+        : lhs(lhs), rhs(rhs), state(empty_state()),
+          lhs_ctx(source, device, "lhs", state),
+          rhs_ctx(source, device, "rhs", state)
     { }
 
     template <size_t I>
@@ -2105,14 +2106,15 @@ struct parameter_declarator {
     const LHS &lhs;
     const RHS &rhs;
 
+    kernel_generator_state_ptr state;
     mutable detail::declare_expression_parameter lhs_ctx;
     mutable detail::declare_expression_parameter rhs_ctx;
 
     parameter_declarator(const LHS &lhs, const RHS &rhs,
             std::ostream &source, const cl::Device &device)
-        : lhs(lhs), rhs(rhs),
-          lhs_ctx(source, device, "lhs", empty_state()),
-          rhs_ctx(source, device, "rhs", empty_state())
+        : lhs(lhs), rhs(rhs), state(empty_state()),
+          lhs_ctx(source, device, "lhs", state),
+          rhs_ctx(source, device, "rhs", state)
     { }
 
     template <size_t I>
@@ -2129,23 +2131,19 @@ struct expression_init {
 
     std::ostream &source;
 
-    mutable detail::output_local_preamble lhs_pre;
+    kernel_generator_state_ptr state;
     mutable detail::output_local_preamble rhs_pre;
-    mutable detail::vector_expr_context   lhs_ctx;
     mutable detail::vector_expr_context   rhs_ctx;
 
     expression_init(const LHS &lhs, const RHS &rhs,
             std::ostream &source, const cl::Device &device)
-        : lhs(lhs), rhs(rhs), source(source),
-          lhs_pre(source, device, "lhs", empty_state()),
-          rhs_pre(source, device, "rhs", empty_state()),
-          lhs_ctx(source, device, "lhs", empty_state()),
-          rhs_ctx(source, device, "rhs", empty_state())
+        : lhs(lhs), rhs(rhs), source(source), state(empty_state()),
+          rhs_pre(source, device, "rhs", state),
+          rhs_ctx(source, device, "rhs", state)
     { }
 
     template <size_t I>
     void apply() const {
-        boost::proto::eval(subexpression<I>::get(lhs), lhs_pre);
         boost::proto::eval(subexpression<I>::get(rhs), rhs_pre);
 
         typedef
@@ -2165,15 +2163,20 @@ struct expression_finalize {
 
     std::ostream &source;
 
-    mutable detail::vector_expr_context lhs_ctx;
+    kernel_generator_state_ptr state;
+    mutable detail::output_local_preamble lhs_pre;
+    mutable detail::vector_expr_context   lhs_ctx;
 
     expression_finalize(const LHS &lhs,
             std::ostream &source, const cl::Device &device)
-        : lhs(lhs), source(source), lhs_ctx(source, device, "lhs", empty_state())
+        : lhs(lhs), source(source), state(empty_state()),
+          lhs_pre(source, device, "lhs", state),
+          lhs_ctx(source, device, "lhs", state)
     { }
 
     template <size_t I>
     void apply() const {
+        boost::proto::eval(subexpression<I>::get(lhs), lhs_pre);
         source << "\t\t";
         boost::proto::eval(subexpression<I>::get(lhs), lhs_ctx);
         source << " " << OP::string() << " buf_" << I + 1 << ";\n";
