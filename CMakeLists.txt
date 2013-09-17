@@ -16,6 +16,11 @@ if (VEXCL_CACHE_KERNELS)
     add_definitions(-DVEXCL_CACHE_KERNELS)
 endif (VEXCL_CACHE_KERNELS)
 
+option(VEXCL_SHOW_COPIES "Log vector copies to stdout for debugging purposes")
+if (VEXCL_SHOW_COPIES)
+    add_definitions(-DVEXCL_SHOW_COPIES)
+endif (VEXCL_SHOW_COPIES)
+
 #----------------------------------------------------------------------------
 # Find Boost
 #----------------------------------------------------------------------------
