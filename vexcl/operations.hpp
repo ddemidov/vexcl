@@ -1181,7 +1181,7 @@ struct output_terminal_preamble : public expression_context {
 	>::type
 	operator()(const FunCall &expr, output_terminal_preamble &ctx) const {
 	    std::ostringstream name;
-	    name << ctx.prefix << "func_" << ++ctx.fun_idx;
+	    name << ctx.prefix << "_func_" << ++ctx.fun_idx;
 
 	    // Output function definition and continue with parameters.
             boost::proto::result_of::value<
@@ -1432,7 +1432,7 @@ struct vector_expr_context : public expression_context {
         void
         >::type
         operator()(const FunCall &expr, vector_expr_context &ctx) const {
-            ctx.os << ctx.prefix << "func_" << ++ctx.fun_idx << "( ";
+            ctx.os << ctx.prefix << "_func_" << ++ctx.fun_idx << "( ";
             boost::fusion::for_each(
                     boost::fusion::pop_front(expr), do_eval(ctx)
                     );
