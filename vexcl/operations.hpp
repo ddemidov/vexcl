@@ -1358,7 +1358,7 @@ struct vector_expr_context : public expression_context {
         void operator()(const Expr &expr, vector_expr_context &ctx) const {
             ctx.os << "( &( ";
             boost::proto::eval(boost::proto::child(expr), ctx);
-            ctx.os << ") )";
+            ctx.os << " ) )";
         }
     };
 
@@ -1368,7 +1368,7 @@ struct vector_expr_context : public expression_context {
         void operator()(const Expr &expr, vector_expr_context &ctx) const {
             ctx.os << "( *( ";
             boost::proto::eval(boost::proto::child(expr), ctx);
-            ctx.os << ") )";
+            ctx.os << " ) )";
         }
     };
 
@@ -2213,9 +2213,14 @@ void assign_multiexpression( LHS &lhs, const RHS &rhs,
 
     static kernel_cache cache;
 
-    // If any device in context is CPU, then do not fuse the kernel,
-    // but assign components individually.
+    // 1. If any device in context is CPU, then do not fuse the kernel,
+    //    but assign components individually (this works better with CPU
+    //    caches).
+    // 2. If dimension of the multiexpression is 1, then assign_expression()
+    //    would work better as well (no need to spend registers on temp
+    //    variables).
     if (
+            (N::value == 1) ||
             std::any_of(queue.begin(), queue.end(),
                 [](const cl::CommandQueue &q) { return is_cpu(qdev(q)); })
        )
