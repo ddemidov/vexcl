@@ -140,7 +140,12 @@ struct kernel_param_declaration< vector_view<T, Slice> > {
             const cl::Device &device, const std::string &prm_name,
             detail::kernel_generator_state_ptr state)
     {
-        return term.slice.template parameter_declaration<T>(prm_name, device, state);
+        std::ostringstream s;
+
+        s << ",\n\tglobal " << type_name<T>() << " * " << prm_name << "_base"
+          << term.slice.template parameter_declaration<T>(prm_name, device, state);
+
+        return s.str();
     }
 };
 
@@ -284,8 +289,7 @@ struct gslice {
     {
         std::ostringstream s;
 
-        s << ",\n\tglobal " << type_name<T>() << " * " << prm_name << "_base"
-          << ", " << type_name<size_t>() << " " << prm_name << "_start";
+        s << ", " << type_name<size_t>() << " " << prm_name << "_start";
 
         for(size_t k = 0; k < NDIM; ++k)
             s << ", " << type_name<size_t>()    << " " << prm_name << "_length" << k
@@ -553,8 +557,6 @@ struct expr_permutation {
     {
         std::ostringstream s;
 
-        s << ",\n\tglobal " << type_name<T>() << " * " << prm_name << "_base";
-
         detail::declare_expression_parameter ctx(s, dev, prm_name, state);
         detail::extract_terminals()(boost::proto::as_child(expr), ctx);
 
@@ -633,17 +635,16 @@ typedef vector_expression<
     typename boost::proto::terminal< reduced_vector_view_terminal >::type
     > reduced_vector_view_terminal_expression;
 
-template <typename T, size_t NDIM, size_t NR, class RDC>
+template <class Expr, size_t NDIM, size_t NR, class RDC>
 struct reduced_vector_view : public reduced_vector_view_terminal_expression
 {
-    const vector<T>        &base;
-    gslice<NDIM>           slice;
+    const Expr   &expr;
+    gslice<NDIM> slice;
     std::array<size_t, NR> reduce_dims;
 
     reduced_vector_view(
-            const vector_view< T, gslice<NDIM> > &view,
-            std::array<size_t, NR> dims
-            ) : base(view.base), slice(view.slice)
+            const Expr &expr, const gslice<NDIM> slice, std::array<size_t, NR> dims
+            ) : expr(expr), slice(slice)
     {
         std::copy(dims.begin(), dims.end(), reduce_dims.begin());
         std::sort(reduce_dims.begin(), reduce_dims.end());
@@ -657,91 +658,116 @@ struct is_vector_expr_terminal< reduced_vector_view_terminal >
     : std::true_type
 { };
 
-template <typename T, size_t NDIM, size_t NR, class RDC>
-struct terminal_preamble< reduced_vector_view<T, NDIM, NR, RDC> > {
-    static std::string get(const reduced_vector_view<T, NDIM, NR, RDC>&,
+template <class Expr, size_t NDIM, size_t NR, class RDC>
+struct terminal_preamble< reduced_vector_view<Expr, NDIM, NR, RDC> > {
+    static std::string get(const reduced_vector_view<Expr, NDIM, NR, RDC>&,
             const cl::Device&, const std::string &prm_name,
             detail::kernel_generator_state_ptr)
     {
         std::ostringstream s;
         std::ostringstream rdc_name;
-
         rdc_name << "reduce_op_" << prm_name;
 
+        typedef typename detail::return_type<Expr>::type T;
         typedef typename RDC::template function<T> fun;
+
         fun::define(s, rdc_name.str());
-
-        s << type_name<T>()
-          << " reduce_" << prm_name << "(\n"
-          "\tglobal " << type_name<T>() << " * base,\n"
-          "\t" << type_name<size_t>() << " start";
-        for(size_t k = 0; k < NDIM; ++k)
-            s << ",\n\t" << type_name<size_t>() << " length" << k
-              << ", " << type_name<ptrdiff_t>() << " stride" << k;
-        s << ",\n\t" << type_name<size_t>() << " idx)\n{\n"
-          "\tsize_t ptr" << NDIM - NR - 1 << " = start + (idx % length" << NDIM - NR - 1
-          << ") * stride" << NDIM - NR - 1 << ";\n";
-        for(size_t k = NDIM - NR - 1; k-- > 0;)
-            s << "\tidx /= length" << k + 1 << ";\n"
-              "\tptr" << NDIM - NR - 1 << " += (idx % length" << k
-              << ") * stride" << k << ";\n";
-
-        s << "\t" << type_name<T>() << " sum = " << RDC::template initial<T>() << ";\n";
-
-        std::ostringstream indent;
-        indent << "\t";
-
-        for(size_t k = NDIM - NR; k < NDIM; ++k) {
-            s << indent.str() << "for(size_t i" << k << " = 0, ptr" << k
-              << " = ptr" << k - 1 << "; i" << k << " < length" << k << "; ++i"
-              << k << ", ptr" << k << " += stride" << k << ")\n";
-            indent << "\t";
-        }
-
-        s << indent.str() << "sum = " << rdc_name.str()
-          << "(sum, base[ptr" << NDIM - 1 << "]);\n"
-          "\treturn sum;\n}\n";
 
         return s.str();
     }
 };
 
-template <typename T, size_t NDIM, size_t NR, class RDC>
-struct kernel_param_declaration< reduced_vector_view<T, NDIM, NR, RDC> > {
-    static std::string get(const reduced_vector_view<T, NDIM, NR, RDC> &term,
+template <typename Expr, size_t NDIM, size_t NR, class RDC>
+struct local_terminal_init< reduced_vector_view<Expr, NDIM, NR, RDC> > {
+    static std::string get(const reduced_vector_view<Expr, NDIM, NR, RDC> &term,
             const cl::Device &device, const std::string &prm_name,
             detail::kernel_generator_state_ptr state)
     {
-        return term.slice.template parameter_declaration<T>(prm_name, device, state);
+        typedef typename detail::return_type<Expr>::type T;
+
+        std::ostringstream s;
+        std::ostringstream rdc_name;
+        rdc_name << "reduce_op_" << prm_name;
+
+        s << "\t\t" << type_name<T>() << " " << prm_name << "_sum = "
+          << RDC::template initial<T>() << ";\n\t\t{\n";
+
+        std::ostringstream indent;
+        indent << "\t\t\t";
+
+        s << indent.str() << "size_t pos = idx;\n";
+        s << indent.str() << "size_t ptr" << NDIM - NR - 1 << " = " << prm_name << "_start + (pos % " << prm_name << "_length" << NDIM - NR - 1
+          << ") * " << prm_name << "_stride" << NDIM - NR - 1 << ";\n";
+        for(size_t k = NDIM - NR - 1; k-- > 0;)
+            s << indent.str() << "pos /= " << prm_name << "_length" << k + 1 << ";\n"
+              "\tptr" << NDIM - NR - 1 << " += (pos % " << prm_name << "_length" << k
+              << ") * " << prm_name << "_stride" << k << ";\n";
+
+        for(size_t k = NDIM - NR; k < NDIM; ++k) {
+            s << indent.str() << "for(size_t i" << k << " = 0, ptr" << k
+              << " = ptr" << k - 1 << "; i" << k << " < " << prm_name << "_length" << k << "; ++i"
+              << k << ", ptr" << k << " += " << prm_name << "_stride" << k << ")\n";
+            indent << "\t";
+        }
+
+        s << indent.str() << "{\n"
+          << indent.str() << "\tsize_t idx = ptr" << NDIM - 1 << ";\n";
+
+        detail::output_local_preamble init_ctx(s, device, prm_name, state);
+        boost::proto::eval(boost::proto::as_child(term.expr), init_ctx);
+
+        s << indent.str() << "\t" << prm_name << "_sum = "
+          << rdc_name.str() << "(" << prm_name << "_sum, ";
+
+        detail::vector_expr_context expr_ctx(s, device, prm_name, state);
+        boost::proto::eval(boost::proto::as_child(term.expr), expr_ctx);
+
+        s << ");\n" << indent.str() << "}\n\t\t}\n";
+
+        return s.str();
     }
 };
 
-template <typename T, size_t NDIM, size_t NR, class RDC>
-struct partial_vector_expr< reduced_vector_view<T, NDIM, NR, RDC> > {
-    static std::string get(const reduced_vector_view<T, NDIM, NR, RDC>&,
+template <typename Expr, size_t NDIM, size_t NR, class RDC>
+struct kernel_param_declaration< reduced_vector_view<Expr, NDIM, NR, RDC> > {
+    static std::string get(const reduced_vector_view<Expr, NDIM, NR, RDC> &term,
+            const cl::Device &device, const std::string &prm_name,
+            detail::kernel_generator_state_ptr state)
+    {
+        typedef typename detail::return_type<Expr>::type T;
+
+        std::ostringstream s;
+
+        detail::declare_expression_parameter declare(s, device, prm_name, state);
+        detail::extract_terminals()(boost::proto::as_child(term.expr), declare);
+
+        s << term.slice.template parameter_declaration<T>(prm_name, device, state);
+
+        return s.str();
+    }
+};
+
+template <typename Expr, size_t NDIM, size_t NR, class RDC>
+struct partial_vector_expr< reduced_vector_view<Expr, NDIM, NR, RDC> > {
+    static std::string get(const reduced_vector_view<Expr, NDIM, NR, RDC>&,
             const cl::Device&, const std::string &prm_name,
             detail::kernel_generator_state_ptr)
     {
         std::ostringstream s;
-        s << "reduce_" << prm_name << "("
-          << prm_name << "_base, "
-          << prm_name << "_start, ";
-        for(size_t k = 0; k < NDIM; ++k)
-            s << prm_name << "_length" << k << ", "
-              << prm_name << "_stride" << k << ", ";
-        s << "idx)";
-
+        s << prm_name << "_sum";
         return s.str();
     }
 };
 
-template <typename T, size_t NDIM, size_t NR, class RDC>
-struct kernel_arg_setter< reduced_vector_view<T, NDIM, NR, RDC> > {
-    static void set(const reduced_vector_view<T, NDIM, NR, RDC> &term,
-            cl::Kernel &kernel, unsigned device, size_t/*index_offset*/,
-            unsigned &position, detail::kernel_generator_state_ptr)
+template <typename Expr, size_t NDIM, size_t NR, class RDC>
+struct kernel_arg_setter< reduced_vector_view<Expr, NDIM, NR, RDC> > {
+    static void set(const reduced_vector_view<Expr, NDIM, NR, RDC> &term,
+            cl::Kernel &kernel, unsigned device, size_t index_offset,
+            unsigned &position, detail::kernel_generator_state_ptr state)
     {
-        kernel.setArg(position++, term.base(device));
+        detail::set_expression_argument setarg(kernel, device, position, index_offset, state);
+        detail::extract_terminals()( boost::proto::as_child(term.expr), setarg);
+
         kernel.setArg(position++, term.slice.start);
 
         for(size_t k = 0; k < NDIM; ++k) {
@@ -758,14 +784,19 @@ struct kernel_arg_setter< reduced_vector_view<T, NDIM, NR, RDC> > {
     }
 };
 
-template <typename T, size_t NDIM, size_t NR, class RDC>
-struct expression_properties< reduced_vector_view<T, NDIM, NR, RDC> > {
-    static void get(const reduced_vector_view<T, NDIM, NR, RDC> &term,
+template <typename Expr, size_t NDIM, size_t NR, class RDC>
+struct expression_properties< reduced_vector_view<Expr, NDIM, NR, RDC> > {
+    static void get(const reduced_vector_view<Expr, NDIM, NR, RDC> &term,
             std::vector<cl::CommandQueue> &queue_list,
             std::vector<size_t> &partition,
             size_t &size
             )
     {
+        detail::get_expression_properties prop;
+        detail::extract_terminals()(boost::proto::as_child(term.expr), prop);
+
+        queue_list = prop.queue;
+
         queue_list = term.base.queue_list();
         partition  = std::vector<size_t>(2, 0);
         size       = 1;
@@ -783,23 +814,56 @@ struct expression_properties< reduced_vector_view<T, NDIM, NR, RDC> > {
 
 /// Reduce vector_view along specified dimensions.
 template <class RDC, typename T, size_t NDIM, size_t NR>
-reduced_vector_view<T, NDIM, NR, RDC> reduce(
+reduced_vector_view<vector<T>, NDIM, NR, RDC> reduce(
         const vector_view<T, gslice<NDIM> > &view,
         const std::array<size_t, NR> &reduce_dims
         )
 {
-    return reduced_vector_view<T, NDIM, NR, RDC>(view, reduce_dims);
+    return reduced_vector_view<vector<T>, NDIM, NR, RDC>(view.base, view.slice, reduce_dims);
 }
 
 /// Reduce vector_view along specified dimension.
 template <class RDC, typename T, size_t NDIM>
-reduced_vector_view<T, NDIM, 1, RDC> reduce(
+reduced_vector_view<vector<T>, NDIM, 1, RDC> reduce(
         const vector_view<T, gslice<NDIM> > &view,
         size_t reduce_dim
         )
 {
     std::array<size_t, 1> dim = {{reduce_dim}};
-    return reduced_vector_view<T, NDIM, 1, RDC>(view, dim);
+    return reduced_vector_view<vector<T>, NDIM, 1, RDC>(view.base, view.slice, dim);
+}
+
+/// Reduce sliced expression along specified dimensions.
+template <class RDC, typename Expr, size_t NDIM, size_t NR>
+reduced_vector_view<
+    typename boost::proto::result_of::as_child<const Expr, vector_domain>::type,
+    NDIM, NR, RDC
+> reduce(
+        const gslice<NDIM> &slice,
+        const Expr &expr,
+        const std::array<size_t, NR> &reduce_dims
+        )
+{
+    return reduced_vector_view<
+        typename boost::proto::result_of::as_child<const Expr, vector_domain>::type,
+        NDIM, NR, RDC>(boost::proto::as_child(expr), slice, reduce_dims);
+}
+
+/// Reduce sliced expression along specified dimension.
+template <class RDC, typename Expr, size_t NDIM>
+reduced_vector_view<
+    typename boost::proto::result_of::as_child<const Expr, vector_domain>::type,
+    NDIM, 1, RDC
+> reduce(
+        const gslice<NDIM> &slice,
+        const Expr &expr,
+        size_t reduce_dim
+        )
+{
+    std::array<size_t, 1> dim = {{reduce_dim}};
+    return reduced_vector_view<
+        typename boost::proto::result_of::as_child<const Expr, vector_domain>::type,
+        NDIM, 1, RDC>(boost::proto::as_child(expr), slice, dim);
 }
 
 } // namespace vex

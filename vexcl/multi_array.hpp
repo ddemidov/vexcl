@@ -119,22 +119,22 @@ class multi_array
 };
 
 template <class RDC, typename T, size_t NDIM, size_t NR>
-reduced_vector_view<T, NDIM, NR, RDC> reduce(
+reduced_vector_view<vector<T>, NDIM, NR, RDC> reduce(
         const multi_array<T, NDIM> &m,
         const std::array<size_t, NR> &reduce_dims
         )
 {
-    return reduced_vector_view<T, NDIM, NR, RDC>(m.slice[_](m.vec()), reduce_dims);
+    return reduced_vector_view<vector<T>, NDIM, NR, RDC>(m.vec(), m.slice[_], reduce_dims);
 }
 
 template <class RDC, typename T, size_t NDIM>
-reduced_vector_view<T, NDIM, 1, RDC> reduce(
+reduced_vector_view<vector<T>, NDIM, 1, RDC> reduce(
         const multi_array<T, NDIM> &m,
         size_t reduce_dim
         )
 {
     std::array<size_t, 1> dim = {{reduce_dim}};
-    return reduced_vector_view<T, NDIM, 1, RDC>(m.slice[_](m.vec()), dim);
+    return reduced_vector_view<vector<T>, NDIM, 1, RDC>(m.vec(), m.slice[_], dim);
 }
 
 } // namespace vex

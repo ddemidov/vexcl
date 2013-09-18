@@ -223,9 +223,11 @@ BOOST_AUTO_TEST_CASE(slice_reductor_single_dim)
     vex::slicer<2> slice(extents[32][32]);
 
     int isum = 0;
+    int i2sum = 0;
     for(int i = 0; i < 32; ++i) {
         slice[i](x) = i;
         isum += i;
+        i2sum += i * i;
     }
 
     y = vex::reduce<vex::SUM>(slice[_][_](x), 1);
@@ -237,6 +239,17 @@ BOOST_AUTO_TEST_CASE(slice_reductor_single_dim)
 
     for(size_t i = 0; i < 32; ++i)
         BOOST_CHECK_EQUAL(y[i], isum);
+
+    auto t = vex::make_temp<1>(x);
+    y = vex::reduce<vex::SUM>(slice[_][_], t * t, 1);
+
+    for(int i = 0; i < 32; ++i)
+        BOOST_CHECK_EQUAL(y[i], i * i * 32);
+
+    y = vex::reduce<vex::SUM>(slice[_][_], t * t, 0);
+
+    for(size_t i = 0; i < 32; ++i)
+        BOOST_CHECK_EQUAL(y[i], i2sum);
 }
 
 BOOST_AUTO_TEST_CASE(slice_reductor_multi_dim)
