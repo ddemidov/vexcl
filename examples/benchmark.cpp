@@ -14,6 +14,7 @@
 
 //---------------------------------------------------------------------------
 struct Options {
+    bool bm_saxpy;
     bool bm_vector;
     bool bm_reductor;
     bool bm_stencil;
@@ -21,6 +22,7 @@ struct Options {
     bool bm_cpu;
 
     Options() :
+        bm_saxpy(true),
         bm_vector(true),
         bm_reductor(true),
         bm_stencil(true),
@@ -40,6 +42,73 @@ std::vector<real> random_vector(size_t n) {
 
     return x;
 }
+
+//---------------------------------------------------------------------------
+template <typename real>
+std::pair<double,double> benchmark_saxpy(
+        const vex::Context &ctx, vex::profiler<> &prof
+        )
+{
+    const size_t N = 1024 * 1024;
+    const size_t M = 1024;
+    double time_elapsed;
+
+    std::vector<real> A(N, 0);
+    std::vector<real> B = random_vector<real>(N);
+    std::vector<real> alphavec = random_vector<real>(1);
+    real alpha = alphavec[0];
+
+    vex::vector<real> a(ctx, A);
+    vex::vector<real> b(ctx, B);
+
+    a = alpha * a + b;
+    a = 0;
+
+    prof.tic_cpu("OpenCL");
+    for(size_t i = 0; i < M; i++)
+        a = alpha * a + b;
+    ctx.finish();
+    time_elapsed = prof.toc("OpenCL");
+
+    double gflops = (2.0 * N * M) / time_elapsed / 1e9;
+    double bwidth = (3.0 * N * M * sizeof(real)) / time_elapsed / 1e9;
+
+    std::cout
+        << "Vector SAXPY (" << vex::type_name<real>() << ")\n"
+        << "  OpenCL"
+        << "\n    GFLOPS:    " << gflops
+        << "\n    Bandwidth: " << bwidth
+        << std::endl;
+
+    if (options.bm_cpu) {
+        prof.tic_cpu("C++");
+        for(size_t i = 0; i < M; i++)
+            for(size_t j = 0; j < N; j++)
+                A[j] = alpha * A[j] + B[j];
+        time_elapsed = prof.toc("C++");
+
+        {
+            double gflops = (2.0 * N * M) / time_elapsed / 1e9;
+            double bwidth = (3.0 * N * M * sizeof(real)) / time_elapsed / 1e9;
+
+            std::cout
+                << "  C++"
+                << "\n    GFLOPS:    " << gflops
+                << "\n    Bandwidth: " << bwidth
+                << std::endl;
+        }
+
+        vex::copy(A, b);
+        vex::Reductor<real, vex::SUM> sum(ctx);
+
+        a -= b;
+        std::cout << "  res = " << sum(a * a)
+                  << std::endl << std::endl;
+    }
+
+    return std::make_pair(gflops, bwidth);
+}
+
 
 //---------------------------------------------------------------------------
 template <typename real>
@@ -518,6 +587,14 @@ void run_tests(const vex::Context &ctx, vex::profiler<> &prof)
     double gflops, bwidth;
 
     prof.tic_cpu( vex::type_name<real>() );
+
+    if (options.bm_saxpy) {
+        prof.tic_cpu("Vector SAXPY");
+        std::tie(gflops, bwidth) = benchmark_saxpy<real>(ctx, prof);
+        prof.toc("Vector SAXPY");
+
+        log << gflops << " " << bwidth << " ";
+    }
 
     if (options.bm_vector) {
         prof.tic_cpu("Vector arithmetic");
