@@ -666,11 +666,15 @@ struct proto_terminal_is_value< reduced_vector_view_terminal >
 
 template <class Expr, size_t NDIM, size_t NR, class RDC>
 struct terminal_preamble< reduced_vector_view<Expr, NDIM, NR, RDC> > {
-    static std::string get(const reduced_vector_view<Expr, NDIM, NR, RDC>&,
-            const cl::Device&, const std::string &prm_name,
-            detail::kernel_generator_state_ptr)
+    static std::string get(const reduced_vector_view<Expr, NDIM, NR, RDC> &term,
+            const cl::Device &device, const std::string &prm_name,
+            detail::kernel_generator_state_ptr state)
     {
         std::ostringstream s;
+
+        detail::output_terminal_preamble termpream(s, device, prm_name, state);
+        boost::proto::eval(boost::proto::as_child(term.expr), termpream);
+
         std::ostringstream rdc_name;
         rdc_name << "reduce_op_" << prm_name;
 

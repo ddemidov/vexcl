@@ -279,4 +279,36 @@ BOOST_AUTO_TEST_CASE(slice_reductor_multi_dim)
     test(0, 2);
 }
 
+BOOST_AUTO_TEST_CASE(nested_reduce)
+{
+    using vex::extents;
+    using vex::_;
+
+    const size_t n = 32;
+
+    std::vector<cl::CommandQueue> queue(1, ctx.queue(0));
+
+    std::vector<double> X = random_vector<double>(n * n * n);
+
+    vex::vector<double> x(queue, X);
+    vex::vector<double> y(queue, n);
+
+    vex::slicer<2> s2(extents[n][n]);
+    vex::slicer<3> s3(extents[n][n][n]);
+
+    y = vex::reduce<vex::MAX>( s2[_], vex::reduce<vex::SUM>(s3[_], sin(x), 2), 1 );
+
+    check_sample(y, [&](size_t k, double Y) {
+            double ms = -std::numeric_limits<double>::max();
+            for(size_t j = 0, idx = k * n * n; j < n; ++j) {
+                double sum = 0;
+                for(size_t i = 0; i < n; ++i, ++idx) {
+                    sum += sin(X[idx]);
+                }
+                ms = std::max(ms, sum);
+            }
+            BOOST_CHECK_CLOSE(ms, Y, 1e-8);
+            });
+}
+
 BOOST_AUTO_TEST_SUITE_END()
