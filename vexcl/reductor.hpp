@@ -155,7 +155,8 @@ class Reductor {
         std::array<real, N>
 #else
         typename std::enable_if<
-            boost::proto::matches<Expr, multivector_expr_grammar>::value,
+            boost::proto::matches<Expr, multivector_expr_grammar>::value &&
+            !boost::proto::matches<Expr, vector_expr_grammar>::value,
             std::array<real, std::result_of<traits::multiex_dimension(Expr)>::type::value>
         >::type
 #endif
@@ -366,7 +367,8 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
 
 template <typename real, class RDC> template <class Expr>
 typename std::enable_if<
-    boost::proto::matches<Expr, multivector_expr_grammar>::value,
+    boost::proto::matches<Expr, multivector_expr_grammar>::value &&
+    !boost::proto::matches<Expr, vector_expr_grammar>::value,
     std::array<real, std::result_of<traits::multiex_dimension(Expr)>::type::value>
 >::type
 Reductor<real,RDC>::operator()(const Expr &expr) const {

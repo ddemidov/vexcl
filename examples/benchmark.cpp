@@ -19,6 +19,7 @@ struct Options {
     bool bm_reductor;
     bool bm_stencil;
     bool bm_spmv;
+    bool bm_rng;
     bool bm_cpu;
 
     Options() :
@@ -27,6 +28,7 @@ struct Options {
         bm_reductor(true),
         bm_stencil(true),
         bm_spmv(true),
+        bm_rng(true),
         bm_cpu(true)
     {}
 } options;
@@ -61,12 +63,14 @@ std::pair<double,double> benchmark_saxpy(
     vex::vector<real> a(ctx, A);
     vex::vector<real> b(ctx, B);
 
-    a = alpha * a + b;
-    a = 0;
+    auto ta = vex::tag<1>(a);
+
+    ta = alpha * ta + b;
+    ta = 0;
 
     prof.tic_cpu("OpenCL");
     for(size_t i = 0; i < M; i++)
-        a = alpha * a + b;
+        ta = alpha * ta + b;
     ctx.finish();
     time_elapsed = prof.toc("OpenCL");
 
@@ -569,6 +573,63 @@ std::pair<double,double> benchmark_spmv_ccsr(
 }
 
 //---------------------------------------------------------------------------
+template <typename real, class GF>
+double rng_throughput(const vex::Context &ctx, size_t N, size_t M) {
+
+    vex::Random<real, GF> rnd;
+    vex::Reductor<real, vex::MAX> max(ctx);
+
+    real s = max( rnd( vex::element_index(0, N), std::rand() ) );
+
+    vex::stopwatch<> w;
+
+    for(size_t i = 0; i < M; i++)
+        s = std::max(s, max( rnd( vex::element_index(0, N), std::rand() ) ));
+    ctx.finish();
+
+    return N * M / w.toc();
+}
+
+//---------------------------------------------------------------------------
+template <typename real>
+void benchmark_rng(
+        const vex::Context &ctx, vex::profiler<> &prof
+        )
+{
+    const size_t N = 16 * 1024 * 1024;
+    const size_t M = 1024;
+
+    prof.tic_cpu("OpenCL (threefry)");
+    double rps = rng_throughput<real, vex::random::threefry>(ctx, N, M);
+    prof.toc("OpenCL (threefry)");
+
+    std::cout
+        << "Random numbers per second (" << vex::type_name<real>() << ")\n"
+        << "    OpenCL (threefry): " << rps << std::endl;
+
+    prof.tic_cpu("OpenCL (philox)");
+    rps = rng_throughput<real, vex::random::philox>(ctx, N, M);
+    prof.toc("OpenCL (philox)");
+
+    std::cout
+        << "    OpenCL (philox):   " << rps << std::endl;
+
+    if (options.bm_cpu) {
+        std::mt19937 rng( std::rand() );
+        std::uniform_real_distribution<real> rnd(0.0, 1.0);
+
+        prof.tic_cpu("C++ (mt19937)");
+        real s = 0;
+        for(size_t j = 0; j < N; j++)
+            s = std::max(s, rnd(rng));
+        double time_elapsed = prof.toc("C++ (mt19937)");
+
+        std::cout
+            << "    C++    (mt19937):  " << N / time_elapsed << std::endl;
+    }
+}
+
+//---------------------------------------------------------------------------
 template <typename real>
 void run_tests(const vex::Context &ctx, vex::profiler<> &prof)
 {
@@ -632,6 +693,12 @@ void run_tests(const vex::Context &ctx, vex::profiler<> &prof)
         prof.toc("SpMV (CCSR)");
     }
 
+    if (options.bm_rng) {
+        prof.tic_cpu("Random number generation");
+        benchmark_rng<real>(ctx, prof);
+        prof.toc("Random number generation");
+    }
+
     prof.toc( vex::type_name<real>() );
 
     std::cout << std::endl << std::endl;
@@ -659,6 +726,10 @@ int main(int argc, char *argv[]) {
         ("bm_spm",
             po::value<bool>(&options.bm_spmv)->default_value(true),
             "benchmark sparse matrix - vector product (on/off)"
+            )
+        ("bm_rng",
+            po::value<bool>(&options.bm_rng)->default_value(true),
+            "benchmark random number generation (on/off)"
             )
         ("bm_cpu",
             po::value<bool>(&options.bm_cpu)->default_value(true),
