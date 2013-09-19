@@ -4,6 +4,8 @@
 #include <vexcl/element_index.hpp>
 #include <vexcl/random.hpp>
 #include <vexcl/reductor.hpp>
+#include <vexcl/tagged_terminal.hpp>
+#include <vexcl/temporary.hpp>
 #include <boost/math/constants/constants.hpp>
 #include "context_setup.hpp"
 
@@ -56,6 +58,24 @@ BOOST_AUTO_TEST_CASE(random_numbers)
     vex::Random<cl_double, vex::random::threefry> rand6;
     vex::vector<cl_double4> x6(ctx, N);
     x6 = rand6(vex::element_index(), std::rand());
+}
+
+BOOST_AUTO_TEST_CASE(monte_carlo_pi)
+{
+    vex::Random<double, vex::random::threefry> rnd;
+
+    vex::Reductor<size_t, vex::SUM> sum(ctx);
+
+    const size_t n = 1 << 20;
+
+    auto i = vex::tag<0>(vex::element_index(0, n));
+
+    auto x = vex::make_temp<1>(rnd(i, std::rand()));
+    auto y = vex::make_temp<2>(rnd(i, std::rand()));
+
+    double pi = 4.0 * sum( (x * x + y * y) < 1 ) / n;
+
+    BOOST_CHECK_CLOSE(pi, boost::math::constants::pi<double>(), 0.5);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

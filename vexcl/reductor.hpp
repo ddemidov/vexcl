@@ -217,6 +217,10 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
     get_expression_properties prop;
     extract_terminals()(expr, prop);
 
+    // Sometimes the expression only knows its size:
+    if (prop.size && prop.part.empty())
+        prop.part = vex::partition(prop.size, queue);
+
     for(unsigned d = 0; d < queue.size(); ++d) {
         cl::Context context = qctx(queue[d]);
         cl::Device  device  = qdev(queue[d]);

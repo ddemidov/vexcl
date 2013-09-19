@@ -39,20 +39,26 @@ namespace vex {
 struct elem_index {
     typedef size_t value_type;
 
-    size_t offset;
+    size_t offset, length;
 
-    elem_index(size_t offset = 0) : offset(offset) {}
+    elem_index(size_t offset = 0, size_t length = 0)
+        : offset(offset), length(length) {}
 };
 /// \endcond
 
 /// When used in vector expression, returns current element index plus offset.
+/**
+ * \param length Specify length of vector expression. This is only relevant
+ * when parent expression does not contain any vectors. See monte_carlo_pi test
+ * in tests/random.cpp for an example.
+ */
 #ifdef DOXYGEN
 elem_index
 #else
 inline boost::proto::result_of::as_expr<elem_index, vector_domain>::type
 #endif
-element_index(size_t offset = 0) {
-    return boost::proto::as_expr<vector_domain>(elem_index(offset));
+element_index(size_t offset = 0, size_t length = 0) {
+    return boost::proto::as_expr<vector_domain>(elem_index(offset, length));
 }
 
 namespace traits {
@@ -112,6 +118,24 @@ struct kernel_arg_setter< T, typename std::enable_if<
             unsigned &position, detail::kernel_generator_state_ptr)
     {
         kernel.setArg(position++, boost::proto::value(term).offset + index_offset);
+    }
+};
+
+template <class T>
+struct expression_properties< T, typename std::enable_if<
+        boost::proto::matches<
+            T,
+            boost::proto::terminal<elem_index>
+        >::value
+    >::type>
+ {
+    static void get(const T &term,
+            std::vector<cl::CommandQueue> &/*queue_list*/,
+            std::vector<size_t> &/*partition*/,
+            size_t &size
+            )
+    {
+        size = boost::proto::value(term).length;
     }
 };
 
