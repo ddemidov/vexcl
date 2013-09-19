@@ -638,6 +638,7 @@ typedef vector_expression<
 template <class Expr, size_t NDIM, size_t NR, class RDC>
 struct reduced_vector_view : public reduced_vector_view_terminal_expression
 {
+    typedef typename detail::return_type<Expr>::type value_type;
     const Expr   &expr;
     gslice<NDIM> slice;
     std::array<size_t, NR> reduce_dims;
@@ -655,6 +656,11 @@ namespace traits {
 
 template <>
 struct is_vector_expr_terminal< reduced_vector_view_terminal >
+    : std::true_type
+{ };
+
+template <>
+struct proto_terminal_is_value< reduced_vector_view_terminal >
     : std::true_type
 { };
 

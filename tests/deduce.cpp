@@ -7,6 +7,7 @@
 #include <vexcl/tagged_terminal.hpp>
 #include <vexcl/temporary.hpp>
 #include <vexcl/vector_view.hpp>
+#include <vexcl/reductor.hpp>
 #include "context_setup.hpp"
 
 template <typename T>
@@ -126,6 +127,18 @@ BOOST_AUTO_TEST_CASE(builtin_functions)
 
     check<double>( cos(x) - sin(y) );
     check<double>( pow(x, 2.0 * y) );
+}
+
+BOOST_AUTO_TEST_CASE(reduced_view)
+{
+    const size_t n = 1024;
+
+    std::vector<cl::CommandQueue> q1(1, ctx.queue(0));
+    vex::vector<double> x(q1, n);
+
+    vex::slicer<2> s(vex::extents[32][32]);
+
+    check<double>( vex::reduce<vex::SUM>(s[vex::_](x), 1) );
 }
 
 BOOST_AUTO_TEST_SUITE_END()
