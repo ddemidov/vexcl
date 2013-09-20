@@ -163,10 +163,10 @@ namespace constants {
     }                                                                          \
   };                                                                           \
   inline typename boost::proto::result_of::as_expr<                            \
-      user_constant<constant_##name>, vector_domain>::type                     \
+      vex::user_constant<constant_##name>, vex::vector_domain>::type           \
   name() {                                                                     \
-    return boost::proto::as_expr<vector_domain>(                               \
-        user_constant<constant_##name>());                                     \
+    return boost::proto::as_expr<vex::vector_domain>(                          \
+        vex::user_constant<constant_##name>());                                \
   }
 
 VEX_GLOBAL_CONSTANT( pi, boost::math::constants::pi<double>() );
