@@ -162,8 +162,7 @@ struct kernel_param_declaration {
             detail::kernel_generator_state_ptr)
     {
         std::ostringstream s;
-        s << ",\n\t" << type_name<typename boost::proto::result_of::value<Term>::type>()
-          << " " << prm_name;
+        s << ",\n\t" << type_name<Term>() << " " << prm_name;
         return s.str();
     }
 };
@@ -197,7 +196,7 @@ struct kernel_arg_setter {
             cl::Kernel &kernel, unsigned/*device*/, size_t/*index_offset*/,
             unsigned &position, detail::kernel_generator_state_ptr)
     {
-        kernel.setArg(position++, boost::proto::value(term));
+        kernel.setArg(position++, term);
     }
 };
 
@@ -325,6 +324,17 @@ struct is_multivector_expr_terminal< T,
 // Extract component directly from terminal rather than from value(terminal):
 template <class T, class Enable = void>
 struct proto_terminal_is_value : std::false_type { };
+
+template <class T>
+struct terminal_is_value :
+    boost::proto::matches<
+            typename boost::proto::result_of::as_expr<T>::type,
+            boost::proto::and_<
+                boost::proto::terminal< boost::proto::_ >,
+                boost::proto::if_< proto_terminal_is_value< boost::proto::_value >() >
+            >
+    >
+{};
 
 /* Type trait to determine if an expression is scalable.
  *
@@ -1238,11 +1248,13 @@ struct output_terminal_preamble : public expression_context {
     };
 
     // Some terminals have preambles too:
-    template <typename Term>
-    struct eval<Term, boost::proto::tag::terminal> {
+    template <typename T>
+    struct eval<T, boost::proto::tag::terminal> {
 	typedef void result_type;
 
-	void operator()(const Term &term, output_terminal_preamble &ctx) const
+        template <class Term>
+	typename std::enable_if<traits::terminal_is_value<Term>::value, void>::type
+        operator()(const Term &term, output_terminal_preamble &ctx) const
         {
             std::ostringstream prm_name;
             prm_name << ctx.prefix << "_" << ++ctx.prm_idx;
@@ -1250,6 +1262,22 @@ struct output_terminal_preamble : public expression_context {
             ctx.os << traits::terminal_preamble<
                 typename std::decay<Term>::type
                 >::get(term, ctx.device, prm_name.str(), ctx.state);
+	}
+
+        template <class Term>
+	typename std::enable_if<!traits::terminal_is_value<Term>::value, void>::type
+        operator()(const Term &term, output_terminal_preamble &ctx) const
+        {
+            std::ostringstream prm_name;
+            prm_name << ctx.prefix << "_" << ++ctx.prm_idx;
+
+            ctx.os << traits::terminal_preamble<
+                    typename std::decay<
+                        typename boost::proto::result_of::value<
+                            typename std::decay<Term>::type
+                        >::type
+                    >::type
+                >::get(boost::proto::value(term), ctx.device, prm_name.str(), ctx.state);
 	}
     };
 };
@@ -1295,11 +1323,13 @@ struct output_local_preamble : public expression_context {
     };
 
     // Some terminals need to be initialized:
-    template <typename Term>
-    struct eval<Term, boost::proto::tag::terminal> {
+    template <typename T>
+    struct eval<T, boost::proto::tag::terminal> {
 	typedef void result_type;
 
-	void operator()(const Term &term, output_local_preamble &ctx) const
+        template <class Term>
+        typename std::enable_if<traits::terminal_is_value<Term>::value, void>::type
+        operator()(const Term &term, output_local_preamble &ctx) const
         {
             std::ostringstream prm_name;
             prm_name << ctx.prefix << "_" << ++ctx.prm_idx;
@@ -1307,6 +1337,22 @@ struct output_local_preamble : public expression_context {
             ctx.os << traits::local_terminal_init<
                 typename std::decay<Term>::type
                 >::get(term, ctx.device, prm_name.str(), ctx.state);
+	}
+
+        template <class Term>
+        typename std::enable_if<!traits::terminal_is_value<Term>::value, void>::type
+        operator()(const Term &term, output_local_preamble &ctx) const
+        {
+            std::ostringstream prm_name;
+            prm_name << ctx.prefix << "_" << ++ctx.prm_idx;
+
+            ctx.os << traits::local_terminal_init<
+                    typename std::decay<
+                        typename boost::proto::result_of::value<
+                            typename std::decay<Term>::type
+                        >::type
+                    >::type
+                >::get(boost::proto::value(term), ctx.device, prm_name.str(), ctx.state);
 	}
     };
 };
@@ -1487,12 +1533,29 @@ struct vector_expr_context : public expression_context {
         typedef void result_type;
 
         template <typename Term>
-        void operator()(const Term &term, vector_expr_context &ctx) const {
+        typename std::enable_if<traits::terminal_is_value<Term>::value, void>::type
+        operator()(const Term &term, vector_expr_context &ctx) const {
             std::ostringstream prm_name;
             prm_name << ctx.prefix << "_" << ++ctx.prm_idx;
 
-            ctx.os << traits::partial_vector_expr<Term>::get(term,
-                    ctx.device, prm_name.str(), ctx.state);
+            ctx.os << traits::partial_vector_expr<
+                    typename std::decay<Term>::type
+                >::get(term, ctx.device, prm_name.str(), ctx.state);
+        }
+
+        template <typename Term>
+        typename std::enable_if<!traits::terminal_is_value<Term>::value, void>::type
+        operator()(const Term &term, vector_expr_context &ctx) const {
+            std::ostringstream prm_name;
+            prm_name << ctx.prefix << "_" << ++ctx.prm_idx;
+
+            ctx.os << traits::partial_vector_expr<
+                    typename std::decay<
+                        typename boost::proto::result_of::value<
+                            typename std::decay<Term>::type
+                        >::type
+                    >::type
+                >::get(boost::proto::value(term), ctx.device, prm_name.str(), ctx.state);
         }
     };
 };
@@ -1506,13 +1569,30 @@ struct declare_expression_parameter : expression_context {
         : expression_context(os, device, prefix, state)
     {}
 
-    template <typename T>
-    void operator()(const T &term) const {
+    template <typename Term>
+    typename std::enable_if<traits::terminal_is_value<Term>::value, void>::type
+    operator()(const Term &term) const {
         std::ostringstream prm_name;
         prm_name << prefix << "_" << ++prm_idx;
 
-        os << traits::kernel_param_declaration<T>::get(term,
-                device, prm_name.str(), state);
+        os << traits::kernel_param_declaration<
+                typename std::decay<Term>::type
+            >::get(term, device, prm_name.str(), state);
+    }
+
+    template <typename Term>
+    typename std::enable_if<!traits::terminal_is_value<Term>::value, void>::type
+    operator()(const Term &term) const {
+        std::ostringstream prm_name;
+        prm_name << prefix << "_" << ++prm_idx;
+
+        os << traits::kernel_param_declaration<
+                    typename std::decay<
+                        typename boost::proto::result_of::value<
+                            typename std::decay<Term>::type
+                        >::type
+                    >::type
+            >::get(boost::proto::value(term), device, prm_name.str(), state);
     }
 };
 
@@ -1528,10 +1608,24 @@ struct set_expression_argument {
         : krn(krn), dev(dev), pos(pos), part_start(part_start), state(state)
     {}
 
-    template <typename T>
-    void operator()(const T &term) const {
-        traits::kernel_arg_setter<T>::set(term,
-                krn, dev, part_start, pos, state);
+    template <typename Term>
+    typename std::enable_if<traits::terminal_is_value<Term>::value, void>::type
+    operator()(const Term &term) const {
+        traits::kernel_arg_setter<
+            typename std::decay<Term>::type
+            >::set(term, krn, dev, part_start, pos, state);
+    }
+
+    template <typename Term>
+    typename std::enable_if<!traits::terminal_is_value<Term>::value, void>::type
+    operator()(const Term &term) const {
+        traits::kernel_arg_setter<
+                    typename std::decay<
+                        typename boost::proto::result_of::value<
+                            typename std::decay<Term>::type
+                        >::type
+                    >::type
+            >::set(boost::proto::value(term), krn, dev, part_start, pos, state);
     }
 };
 
@@ -1550,10 +1644,26 @@ struct get_expression_properties {
         return part.empty() ? 0 : part[d + 1] - part[d];
     }
 
-    template <typename T>
-    void operator()(const T &term) const {
+    template <typename Term>
+    typename std::enable_if<traits::terminal_is_value<Term>::value, void>::type
+    operator()(const Term &term) const {
         if (queue.empty())
-            traits::expression_properties<T>::get(term, queue, part, size);
+            traits::expression_properties<
+                typename std::decay<Term>::type
+                >::get(term, queue, part, size);
+    }
+
+    template <typename Term>
+    typename std::enable_if<!traits::terminal_is_value<Term>::value, void>::type
+    operator()(const Term &term) const {
+        if (queue.empty())
+            traits::expression_properties<
+                    typename std::decay<
+                        typename boost::proto::result_of::value<
+                            typename std::decay<Term>::type
+                        >::type
+                    >::type
+                >::get(boost::proto::value(term), queue, part, size);
     }
 };
 

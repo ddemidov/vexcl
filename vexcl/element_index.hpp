@@ -69,15 +69,10 @@ struct is_vector_expr_terminal< elem_index > : std::true_type {};
 template <>
 struct is_multivector_expr_terminal< elem_index > : std::true_type {};
 
-template <class T>
-struct kernel_param_declaration< T, typename std::enable_if<
-        boost::proto::matches<
-            T,
-            boost::proto::terminal<elem_index>
-        >::value
-    >::type>
+template <>
+struct kernel_param_declaration< elem_index >
 {
-    static std::string get(const T&,
+    static std::string get(const elem_index&,
             const cl::Device&, const std::string &prm_name,
             detail::kernel_generator_state_ptr)
     {
@@ -87,15 +82,10 @@ struct kernel_param_declaration< T, typename std::enable_if<
     }
 };
 
-template <class T>
-struct partial_vector_expr< T, typename std::enable_if<
-        boost::proto::matches<
-            T,
-            boost::proto::terminal<elem_index>
-        >::value
-    >::type >
+template <>
+struct partial_vector_expr< elem_index >
 {
-    static std::string get(const T&,
+    static std::string get(const elem_index&,
             const cl::Device&, const std::string &prm_name,
             detail::kernel_generator_state_ptr)
     {
@@ -105,37 +95,27 @@ struct partial_vector_expr< T, typename std::enable_if<
     }
 };
 
-template <class T>
-struct kernel_arg_setter< T, typename std::enable_if<
-        boost::proto::matches<
-            T,
-            boost::proto::terminal<elem_index>
-        >::value
-    >::type>
+template <>
+struct kernel_arg_setter< elem_index >
 {
-    static void set(const T &term,
+    static void set(const elem_index &term,
             cl::Kernel &kernel, unsigned/*device*/, size_t index_offset,
             unsigned &position, detail::kernel_generator_state_ptr)
     {
-        kernel.setArg(position++, boost::proto::value(term).offset + index_offset);
+        kernel.setArg(position++, term.offset + index_offset);
     }
 };
 
-template <class T>
-struct expression_properties< T, typename std::enable_if<
-        boost::proto::matches<
-            T,
-            boost::proto::terminal<elem_index>
-        >::value
-    >::type>
- {
-    static void get(const T &term,
+template <>
+struct expression_properties< elem_index >
+{
+    static void get(const elem_index &term,
             std::vector<cl::CommandQueue> &/*queue_list*/,
             std::vector<size_t> &/*partition*/,
             size_t &size
             )
     {
-        size = boost::proto::value(term).length;
+        size = term.length;
     }
 };
 
