@@ -31,6 +31,7 @@ THE SOFTWARE.
  * \brief  Constants for use in vector expressions.
  */
 
+#include <sstream>
 #include <string>
 #include <type_traits>
 
@@ -117,15 +118,14 @@ struct partial_vector_expr< boost_math_constant<Impl> >
             const cl::Device&, const std::string &/*prm_name*/,
             detail::kernel_generator_state_ptr)
     {
-        typedef boost::math::policies::policy<
-            boost::math::policies::digits2<16>
-            > policy;
-
-        return Impl::get(
-                typename boost::math::constants::construction_traits<
-                    std::string, policy
+        std::ostringstream s;
+        s << std::scientific << std::setprecision(16)
+          << Impl::get(
+                    typename boost::math::constants::construction_traits<
+                    double, boost::math::policies::policy<>
                     >::type()
-                );
+                    );
+        return s.str();
     }
 };
 
@@ -151,10 +151,10 @@ namespace constants { }
   namespace constants {                                                        \
   inline typename boost::proto::result_of::as_expr<                            \
       boost_math_constant<                                                     \
-          boost::math::constants::detail::constant_##name<std::string> >,      \
+          boost::math::constants::detail::constant_##name<double> >,           \
       vector_domain>::type name() {                                            \
     return boost::proto::as_expr<vector_domain>(boost_math_constant<           \
-        boost::math::constants::detail::constant_##name<std::string> >());     \
+        boost::math::constants::detail::constant_##name<double> >());          \
   }                                                                            \
   }
 
