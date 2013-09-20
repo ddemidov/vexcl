@@ -207,7 +207,7 @@ Z = sqrt(2 * X) + pow(cos(Y), 2.0);
 ### <a name="constants"></a>Constants
 
 As you have seen above, `2` in the expression `2 * Y - sin(Z)` is passed to the
-generated OpenCL kernel as an `int` parameter (`prm_1`). Sometimes this is
+generated OpenCL kernel as an `int` parameter (`prm_2`). Sometimes this is
 desired behaviour, because same kernel will be reused for expressions `42 *
 Z - sin(Y)` or `a * Y - sin(Y)` (where `a` is an integer variable). But this
 may lead to a slight overhead if an expression involves true constant that will
