@@ -136,7 +136,7 @@ struct kernel_arg_setter< user_constant<Impl> >
 /// Mathematical constants imported from Boost.
 namespace constants { }
 
-/// Register boost::math::constant for use in VexCL expressions
+/// Create constant for use in VexCL expressions
 #define VEX_CONSTANT(name, value)                                              \
   namespace constants {                                                        \
   struct constant_##name {                                                     \
