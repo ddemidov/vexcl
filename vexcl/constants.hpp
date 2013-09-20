@@ -38,9 +38,7 @@ THE SOFTWARE.
 #include <vexcl/types.hpp>
 #include <vexcl/operations.hpp>
 
-#if BOOST_VERSION >= 105000
-#  include <boost/math/constants/constants.hpp>
-#endif
+#include <boost/math/constants/constants.hpp>
 
 namespace vex {
 
@@ -88,22 +86,21 @@ struct kernel_arg_setter< std::integral_constant<T, v> >
 
 } // namespace traits
 
-#if (BOOST_VERSION >= 105000) || defined(DOXYGEN)
 //---------------------------------------------------------------------------
 // boost::math::constants wrappers
 //---------------------------------------------------------------------------
 template <class Impl>
-struct boost_math_constant { };
+struct user_constant { };
 
 template <class Impl>
-struct is_cl_native< boost_math_constant<Impl> > : std::true_type {};
+struct is_cl_native< user_constant<Impl> > : std::true_type {};
 
 namespace traits {
 
 template <class Impl>
-struct kernel_param_declaration< boost_math_constant<Impl> >
+struct kernel_param_declaration< user_constant<Impl> >
 {
-    static std::string get(const boost_math_constant<Impl>&,
+    static std::string get(const user_constant<Impl>&,
             const cl::Device&, const std::string &/*prm_name*/,
             detail::kernel_generator_state_ptr)
     {
@@ -112,27 +109,20 @@ struct kernel_param_declaration< boost_math_constant<Impl> >
 };
 
 template <class Impl>
-struct partial_vector_expr< boost_math_constant<Impl> >
+struct partial_vector_expr< user_constant<Impl> >
 {
-    static std::string get(const boost_math_constant<Impl>&,
+    static std::string get(const user_constant<Impl>&,
             const cl::Device&, const std::string &/*prm_name*/,
             detail::kernel_generator_state_ptr)
     {
-        std::ostringstream s;
-        s << std::scientific << std::setprecision(16)
-          << Impl::get(
-                    typename boost::math::constants::construction_traits<
-                    double, boost::math::policies::policy<>
-                    >::type()
-                    );
-        return s.str();
+        return Impl::get();
     }
 };
 
 template <class Impl>
-struct kernel_arg_setter< boost_math_constant<Impl> >
+struct kernel_arg_setter< user_constant<Impl> >
 {
-    static void set(const boost_math_constant<Impl>&,
+    static void set(const user_constant<Impl>&,
             cl::Kernel&, unsigned/*device*/, size_t/*index_offset*/,
             unsigned &/*position*/, detail::kernel_generator_state_ptr)
     {
@@ -147,84 +137,90 @@ struct kernel_arg_setter< boost_math_constant<Impl> >
 namespace constants { }
 
 /// Register boost::math::constant for use in VexCL expressions
-#define VEX_REGISTER_BOOST_MATH_CONSTANT(name)                                 \
+#define VEX_CONSTANT(name, value)                                              \
   namespace constants {                                                        \
+  struct constant_##name {                                                     \
+    static std::string get() {                                                 \
+      std::ostringstream s;                                                    \
+      s << "( " << std::scientific << std::setprecision(16) << value << " )";  \
+      return s.str();                                                          \
+    }                                                                          \
+  };                                                                           \
   inline typename boost::proto::result_of::as_expr<                            \
-      boost_math_constant<                                                     \
-          boost::math::constants::detail::constant_##name<double> >,           \
-      vector_domain>::type name() {                                            \
-    return boost::proto::as_expr<vector_domain>(boost_math_constant<           \
-        boost::math::constants::detail::constant_##name<double> >());          \
+      user_constant<constant_##name>, vector_domain>::type name() {            \
+    return boost::proto::as_expr<vector_domain>(                               \
+        user_constant<constant_##name>());                                     \
   }                                                                            \
   }
 
-VEX_REGISTER_BOOST_MATH_CONSTANT( catalan )
-VEX_REGISTER_BOOST_MATH_CONSTANT( cbrt_pi )
-VEX_REGISTER_BOOST_MATH_CONSTANT( cosh_one )
-VEX_REGISTER_BOOST_MATH_CONSTANT( cos_one )
-VEX_REGISTER_BOOST_MATH_CONSTANT( degree )
-VEX_REGISTER_BOOST_MATH_CONSTANT( e )
-VEX_REGISTER_BOOST_MATH_CONSTANT( e_pow_pi )
-VEX_REGISTER_BOOST_MATH_CONSTANT( euler )
-VEX_REGISTER_BOOST_MATH_CONSTANT( euler_sqr )
-VEX_REGISTER_BOOST_MATH_CONSTANT( exp_minus_half )
-VEX_REGISTER_BOOST_MATH_CONSTANT( extreme_value_skewness )
-VEX_REGISTER_BOOST_MATH_CONSTANT( four_minus_pi )
-VEX_REGISTER_BOOST_MATH_CONSTANT( four_thirds_pi )
-VEX_REGISTER_BOOST_MATH_CONSTANT( glaisher )
-VEX_REGISTER_BOOST_MATH_CONSTANT( half )
-VEX_REGISTER_BOOST_MATH_CONSTANT( half_pi )
-VEX_REGISTER_BOOST_MATH_CONSTANT( half_root_two )
-VEX_REGISTER_BOOST_MATH_CONSTANT( khinchin )
-VEX_REGISTER_BOOST_MATH_CONSTANT( ln_ln_two )
-VEX_REGISTER_BOOST_MATH_CONSTANT( ln_phi )
-VEX_REGISTER_BOOST_MATH_CONSTANT( ln_ten )
-VEX_REGISTER_BOOST_MATH_CONSTANT( ln_two )
-VEX_REGISTER_BOOST_MATH_CONSTANT( log10_e )
-VEX_REGISTER_BOOST_MATH_CONSTANT( one_div_cbrt_pi )
-VEX_REGISTER_BOOST_MATH_CONSTANT( one_div_euler )
-VEX_REGISTER_BOOST_MATH_CONSTANT( one_div_ln_phi )
-VEX_REGISTER_BOOST_MATH_CONSTANT( one_div_log10_e )
-VEX_REGISTER_BOOST_MATH_CONSTANT( one_div_root_pi )
-VEX_REGISTER_BOOST_MATH_CONSTANT( one_div_root_two )
-VEX_REGISTER_BOOST_MATH_CONSTANT( one_div_root_two_pi )
-VEX_REGISTER_BOOST_MATH_CONSTANT( one_div_two_pi )
-VEX_REGISTER_BOOST_MATH_CONSTANT( phi )
-VEX_REGISTER_BOOST_MATH_CONSTANT( pi )
-VEX_REGISTER_BOOST_MATH_CONSTANT( pi_cubed )
-VEX_REGISTER_BOOST_MATH_CONSTANT( pi_minus_three )
-VEX_REGISTER_BOOST_MATH_CONSTANT( pi_pow_e )
-VEX_REGISTER_BOOST_MATH_CONSTANT( pi_sqr )
-VEX_REGISTER_BOOST_MATH_CONSTANT( pi_sqr_div_six )
-VEX_REGISTER_BOOST_MATH_CONSTANT( pow23_four_minus_pi )
-VEX_REGISTER_BOOST_MATH_CONSTANT( radian )
-VEX_REGISTER_BOOST_MATH_CONSTANT( rayleigh_kurtosis )
-VEX_REGISTER_BOOST_MATH_CONSTANT( rayleigh_kurtosis_excess )
-VEX_REGISTER_BOOST_MATH_CONSTANT( rayleigh_skewness )
-VEX_REGISTER_BOOST_MATH_CONSTANT( root_e )
-VEX_REGISTER_BOOST_MATH_CONSTANT( root_half_pi )
-VEX_REGISTER_BOOST_MATH_CONSTANT( root_ln_four )
-VEX_REGISTER_BOOST_MATH_CONSTANT( root_one_div_pi )
-VEX_REGISTER_BOOST_MATH_CONSTANT( root_pi )
-VEX_REGISTER_BOOST_MATH_CONSTANT( root_three )
-VEX_REGISTER_BOOST_MATH_CONSTANT( root_two )
-VEX_REGISTER_BOOST_MATH_CONSTANT( root_two_div_pi )
-VEX_REGISTER_BOOST_MATH_CONSTANT( root_two_pi )
-VEX_REGISTER_BOOST_MATH_CONSTANT( sinh_one )
-VEX_REGISTER_BOOST_MATH_CONSTANT( sin_one )
-VEX_REGISTER_BOOST_MATH_CONSTANT( sixth_pi )
-VEX_REGISTER_BOOST_MATH_CONSTANT( third )
-VEX_REGISTER_BOOST_MATH_CONSTANT( third_pi )
-VEX_REGISTER_BOOST_MATH_CONSTANT( three_quarters )
-VEX_REGISTER_BOOST_MATH_CONSTANT( three_quarters_pi )
-VEX_REGISTER_BOOST_MATH_CONSTANT( two_div_pi )
-VEX_REGISTER_BOOST_MATH_CONSTANT( two_pi )
-VEX_REGISTER_BOOST_MATH_CONSTANT( two_thirds )
-VEX_REGISTER_BOOST_MATH_CONSTANT( twothirds )
-VEX_REGISTER_BOOST_MATH_CONSTANT( two_thirds_pi )
-VEX_REGISTER_BOOST_MATH_CONSTANT( zeta_three )
-VEX_REGISTER_BOOST_MATH_CONSTANT( zeta_two )
+VEX_CONSTANT( pi, boost::math::constants::pi<double>() )
+VEX_CONSTANT( root_pi, boost::math::constants::root_pi<double>() )
+VEX_CONSTANT( root_half_pi, boost::math::constants::root_half_pi<double>() )
+VEX_CONSTANT( root_two_pi, boost::math::constants::root_two_pi<double>() )
+VEX_CONSTANT( root_ln_four, boost::math::constants::root_ln_four<double>() )
+VEX_CONSTANT( e, boost::math::constants::e<double>() )
+VEX_CONSTANT( half, boost::math::constants::half<double>() )
+VEX_CONSTANT( euler, boost::math::constants::euler<double>() )
+VEX_CONSTANT( root_two, boost::math::constants::root_two<double>() )
+VEX_CONSTANT( ln_two, boost::math::constants::ln_two<double>() )
+VEX_CONSTANT( ln_ln_two, boost::math::constants::ln_ln_two<double>() )
+VEX_CONSTANT( third, boost::math::constants::third<double>() )
+VEX_CONSTANT( twothirds, boost::math::constants::twothirds<double>() )
+VEX_CONSTANT( pi_minus_three, boost::math::constants::pi_minus_three<double>() )
+VEX_CONSTANT( four_minus_pi, boost::math::constants::four_minus_pi<double>() )
+VEX_CONSTANT( two_pi, boost::math::constants::two_pi<double>() )
+VEX_CONSTANT( one_div_two_pi, boost::math::constants::one_div_two_pi<double>() )
+VEX_CONSTANT( half_root_two, boost::math::constants::half_root_two<double>() )
+VEX_CONSTANT( pow23_four_minus_pi, boost::math::constants::pow23_four_minus_pi<double>() )
+VEX_CONSTANT( exp_minus_half, boost::math::constants::exp_minus_half<double>() )
 
+#if (BOOST_VERSION >= 105000) || defined(DOXYGEN)
+VEX_CONSTANT( catalan, boost::math::constants::catalan<double>() )
+VEX_CONSTANT( cbrt_pi, boost::math::constants::cbrt_pi<double>() )
+VEX_CONSTANT( cosh_one, boost::math::constants::cosh_one<double>() )
+VEX_CONSTANT( cos_one, boost::math::constants::cos_one<double>() )
+VEX_CONSTANT( degree, boost::math::constants::degree<double>() )
+VEX_CONSTANT( e_pow_pi, boost::math::constants::e_pow_pi<double>() )
+VEX_CONSTANT( euler_sqr, boost::math::constants::euler_sqr<double>() )
+VEX_CONSTANT( extreme_value_skewness, boost::math::constants::extreme_value_skewness<double>() )
+VEX_CONSTANT( four_thirds_pi, boost::math::constants::four_thirds_pi<double>() )
+VEX_CONSTANT( glaisher, boost::math::constants::glaisher<double>() )
+VEX_CONSTANT( half_pi, boost::math::constants::half_pi<double>() )
+VEX_CONSTANT( khinchin, boost::math::constants::khinchin<double>() )
+VEX_CONSTANT( ln_phi, boost::math::constants::ln_phi<double>() )
+VEX_CONSTANT( ln_ten, boost::math::constants::ln_ten<double>() )
+VEX_CONSTANT( log10_e, boost::math::constants::log10_e<double>() )
+VEX_CONSTANT( one_div_cbrt_pi, boost::math::constants::one_div_cbrt_pi<double>() )
+VEX_CONSTANT( one_div_euler, boost::math::constants::one_div_euler<double>() )
+VEX_CONSTANT( one_div_ln_phi, boost::math::constants::one_div_ln_phi<double>() )
+VEX_CONSTANT( one_div_log10_e, boost::math::constants::one_div_log10_e<double>() )
+VEX_CONSTANT( one_div_root_pi, boost::math::constants::one_div_root_pi<double>() )
+VEX_CONSTANT( one_div_root_two, boost::math::constants::one_div_root_two<double>() )
+VEX_CONSTANT( one_div_root_two_pi, boost::math::constants::one_div_root_two_pi<double>() )
+VEX_CONSTANT( phi, boost::math::constants::phi<double>() )
+VEX_CONSTANT( pi_cubed, boost::math::constants::pi_cubed<double>() )
+VEX_CONSTANT( pi_pow_e, boost::math::constants::pi_pow_e<double>() )
+VEX_CONSTANT( pi_sqr, boost::math::constants::pi_sqr<double>() )
+VEX_CONSTANT( pi_sqr_div_six, boost::math::constants::pi_sqr_div_six<double>() )
+VEX_CONSTANT( radian, boost::math::constants::radian<double>() )
+VEX_CONSTANT( rayleigh_kurtosis, boost::math::constants::rayleigh_kurtosis<double>() )
+VEX_CONSTANT( rayleigh_kurtosis_excess, boost::math::constants::rayleigh_kurtosis_excess<double>() )
+VEX_CONSTANT( rayleigh_skewness, boost::math::constants::rayleigh_skewness<double>() )
+VEX_CONSTANT( root_e, boost::math::constants::root_e<double>() )
+VEX_CONSTANT( root_one_div_pi, boost::math::constants::root_one_div_pi<double>() )
+VEX_CONSTANT( root_three, boost::math::constants::root_three<double>() )
+VEX_CONSTANT( root_two_div_pi, boost::math::constants::root_two_div_pi<double>() )
+VEX_CONSTANT( sinh_one, boost::math::constants::sinh_one<double>() )
+VEX_CONSTANT( sin_one, boost::math::constants::sin_one<double>() )
+VEX_CONSTANT( sixth_pi, boost::math::constants::sixth_pi<double>() )
+VEX_CONSTANT( third_pi, boost::math::constants::third_pi<double>() )
+VEX_CONSTANT( three_quarters, boost::math::constants::three_quarters<double>() )
+VEX_CONSTANT( three_quarters_pi, boost::math::constants::three_quarters_pi<double>() )
+VEX_CONSTANT( two_div_pi, boost::math::constants::two_div_pi<double>() )
+VEX_CONSTANT( two_thirds, boost::math::constants::two_thirds<double>() )
+VEX_CONSTANT( two_thirds_pi, boost::math::constants::two_thirds_pi<double>() )
+VEX_CONSTANT( zeta_three, boost::math::constants::zeta_three<double>() )
+VEX_CONSTANT( zeta_two, boost::math::constants::zeta_two<double>() )
 #endif
 
 } // namespace vex

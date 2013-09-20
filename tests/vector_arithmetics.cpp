@@ -242,8 +242,7 @@ BOOST_AUTO_TEST_CASE(combine_expressions)
 
     vex::vector<double> x(ctx, n);
 
-    auto alpha  = vex::tag<1>(boost::math::constants::two_pi<double>()) *
-                  vex::tag<2>(vex::element_index());
+    auto alpha  = vex::constants::two_pi() * vex::tag<1>(vex::element_index());
     auto sine   = sin(alpha);
     auto cosine = cos(alpha);
 
@@ -261,10 +260,8 @@ BOOST_AUTO_TEST_CASE(constants)
     x = std::integral_constant<int, 42>();
     check_sample(x, [](size_t, double v) { BOOST_CHECK_EQUAL(v, 42); });
 
-#if BOOST_VERSION >= 105000
     x = vex::constants::pi();
     check_sample(x, [](size_t, double v) { BOOST_CHECK_CLOSE(v, boost::math::constants::pi<double>(), 1e-8); });
-#endif
 }
 
 BOOST_AUTO_TEST_SUITE_END()
