@@ -253,7 +253,7 @@ struct gslice {
 
     size_t size() const {
         return std::accumulate(length, length + NDIM,
-	    static_cast<size_t>(1), std::multiplies<size_t>());
+            static_cast<size_t>(1), std::multiplies<size_t>());
     }
 
     std::string preamble(const std::string &prm_name,
@@ -320,7 +320,7 @@ struct gslice {
     }
 
     void setArgs(cl::Kernel &kernel, unsigned/*device*/, size_t/*index_offset*/,
-	    unsigned &position, detail::kernel_generator_state_ptr) const
+            unsigned &position, detail::kernel_generator_state_ptr) const
     {
         kernel.setArg(position++, start);
         for(size_t k = 0; k < NDIM; ++k) {
@@ -587,7 +587,7 @@ struct expr_permutation {
     }
 
     void setArgs(cl::Kernel &kernel, unsigned device, size_t index_offset,
-	    unsigned &position, detail::kernel_generator_state_ptr state) const
+            unsigned &position, detail::kernel_generator_state_ptr state) const
     {
         detail::extract_terminals()( boost::proto::as_child(expr),
                 detail::set_expression_argument(kernel, device, position, index_offset, state));

@@ -220,7 +220,7 @@ struct partial_vector_expr< tagged_terminal<Tag, Term> > {
         auto p = pos.find(Tag);
 
         if (p == pos.end()) {
-			std::ostringstream s;
+            std::ostringstream s;
 
             detail::vector_expr_context expr_ctx(s, device, prm_name, state);
             boost::proto::eval(boost::proto::as_child(term.term), expr_ctx);
@@ -294,18 +294,18 @@ struct expression_properties< tagged_terminal<Tag, Term> > {
  */
 template <size_t Tag, class Expr>
 auto tag(const Expr& expr)
-	-> tagged_terminal<
-			Tag,
-			decltype(boost::proto::as_child<vector_domain>(expr))
-		>
+        -> tagged_terminal<
+                        Tag,
+                        decltype(boost::proto::as_child<vector_domain>(expr))
+                >
 {
-	static_assert(
-		boost::proto::matches<
-			typename boost::proto::result_of::as_expr<Expr>::type,
-			boost::proto::terminal<boost::proto::_>
-		>::value,
-		"Tagging non-terminals is not allowed"
-		);
+        static_assert(
+                boost::proto::matches<
+                        typename boost::proto::result_of::as_expr<Expr>::type,
+                        boost::proto::terminal<boost::proto::_>
+                >::value,
+                "Tagging non-terminals is not allowed"
+                );
 
     return tagged_terminal<
                 Tag,

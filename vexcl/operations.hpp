@@ -1186,74 +1186,74 @@ struct output_terminal_preamble : public expression_context {
     // for its children:
     template <typename Expr, typename Tag = typename Expr::proto_tag>
     struct eval {
-	typedef void result_type;
+        typedef void result_type;
 
-	void operator()(const Expr &expr, output_terminal_preamble &ctx) const
+        void operator()(const Expr &expr, output_terminal_preamble &ctx) const
         {
-	    boost::fusion::for_each( expr,
-		    do_eval<output_terminal_preamble>(ctx));
-	}
+            boost::fusion::for_each( expr,
+                    do_eval<output_terminal_preamble>(ctx));
+        }
     };
 
     // Function is either builtin (not interesting) or user-defined:
     template <typename Expr>
     struct eval<Expr, boost::proto::tag::function> {
-	typedef void result_type;
+        typedef void result_type;
 
         // Builtin function is only interesting for its children:
-	template <class FunCall>
-	typename std::enable_if<
-	    std::is_base_of<
-		builtin_function,
-		typename boost::proto::result_of::value<
-		    typename boost::proto::result_of::child_c<FunCall,0>::type
-		>::type
-	    >::value,
-	void
-	>::type
-	operator()(const FunCall &expr, output_terminal_preamble &ctx) const
+        template <class FunCall>
+        typename std::enable_if<
+            std::is_base_of<
+                builtin_function,
+                typename boost::proto::result_of::value<
+                    typename boost::proto::result_of::child_c<FunCall,0>::type
+                >::type
+            >::value,
+        void
+        >::type
+        operator()(const FunCall &expr, output_terminal_preamble &ctx) const
         {
-	    boost::fusion::for_each(
-		    boost::fusion::pop_front(expr),
-		    do_eval<output_terminal_preamble>(ctx)
-		    );
-	}
+            boost::fusion::for_each(
+                    boost::fusion::pop_front(expr),
+                    do_eval<output_terminal_preamble>(ctx)
+                    );
+        }
 
         // User-defined function needs to be defined.
         // Then look at its children:
-	template <class FunCall>
-	typename std::enable_if<
-	    std::is_base_of<
-		user_function,
-		typename boost::proto::result_of::value<
-		    typename boost::proto::result_of::child_c<FunCall,0>::type
-		>::type
-	    >::value,
-	void
-	>::type
-	operator()(const FunCall &expr, output_terminal_preamble &ctx) const {
-	    std::ostringstream name;
-	    name << ctx.prefix << "_func_" << ++ctx.fun_idx;
+        template <class FunCall>
+        typename std::enable_if<
+            std::is_base_of<
+                user_function,
+                typename boost::proto::result_of::value<
+                    typename boost::proto::result_of::child_c<FunCall,0>::type
+                >::type
+            >::value,
+        void
+        >::type
+        operator()(const FunCall &expr, output_terminal_preamble &ctx) const {
+            std::ostringstream name;
+            name << ctx.prefix << "_func_" << ++ctx.fun_idx;
 
-	    // Output function definition and continue with parameters.
+            // Output function definition and continue with parameters.
             boost::proto::result_of::value<
-		typename boost::proto::result_of::child_c<FunCall,0>::type
-	    >::type::define(ctx.os, name.str());
+                typename boost::proto::result_of::child_c<FunCall,0>::type
+            >::type::define(ctx.os, name.str());
 
-	    boost::fusion::for_each(
-		    boost::fusion::pop_front(expr),
-		    do_eval<output_terminal_preamble>(ctx)
-		    );
-	}
+            boost::fusion::for_each(
+                    boost::fusion::pop_front(expr),
+                    do_eval<output_terminal_preamble>(ctx)
+                    );
+        }
     };
 
     // Some terminals have preambles too:
     template <typename T>
     struct eval<T, boost::proto::tag::terminal> {
-	typedef void result_type;
+        typedef void result_type;
 
         template <class Term>
-	typename std::enable_if<traits::terminal_is_value<Term>::value, void>::type
+        typename std::enable_if<traits::terminal_is_value<Term>::value, void>::type
         operator()(const Term &term, output_terminal_preamble &ctx) const
         {
             std::ostringstream prm_name;
@@ -1262,10 +1262,10 @@ struct output_terminal_preamble : public expression_context {
             ctx.os << traits::terminal_preamble<
                 typename std::decay<Term>::type
                 >::get(term, ctx.device, prm_name.str(), ctx.state);
-	}
+        }
 
         template <class Term>
-	typename std::enable_if<!traits::terminal_is_value<Term>::value, void>::type
+        typename std::enable_if<!traits::terminal_is_value<Term>::value, void>::type
         operator()(const Term &term, output_terminal_preamble &ctx) const
         {
             std::ostringstream prm_name;
@@ -1278,7 +1278,7 @@ struct output_terminal_preamble : public expression_context {
                         >::type
                     >::type
                 >::get(boost::proto::value(term), ctx.device, prm_name.str(), ctx.state);
-	}
+        }
     };
 };
 
@@ -1297,35 +1297,35 @@ struct output_local_preamble : public expression_context {
     // for its children:
     template <typename Expr, typename Tag = typename Expr::proto_tag>
     struct eval {
-	typedef void result_type;
+        typedef void result_type;
 
-	void operator()(const Expr &expr, output_local_preamble &ctx) const
+        void operator()(const Expr &expr, output_local_preamble &ctx) const
         {
-	    boost::fusion::for_each( expr,
-		    do_eval<output_local_preamble>(ctx));
-	}
+            boost::fusion::for_each( expr,
+                    do_eval<output_local_preamble>(ctx));
+        }
     };
 
     // Functions are only interesting for their parameters:
     template <typename Expr>
     struct eval<Expr, boost::proto::tag::function> {
-	typedef void result_type;
+        typedef void result_type;
 
         // Builtin function is only interesting for its children:
-	template <class FunCall>
-	void operator()(const FunCall &expr, output_local_preamble &ctx) const
+        template <class FunCall>
+        void operator()(const FunCall &expr, output_local_preamble &ctx) const
         {
-	    boost::fusion::for_each(
-		    boost::fusion::pop_front(expr),
-		    do_eval<output_local_preamble>(ctx)
-		    );
-	}
+            boost::fusion::for_each(
+                    boost::fusion::pop_front(expr),
+                    do_eval<output_local_preamble>(ctx)
+                    );
+        }
     };
 
     // Some terminals need to be initialized:
     template <typename T>
     struct eval<T, boost::proto::tag::terminal> {
-	typedef void result_type;
+        typedef void result_type;
 
         template <class Term>
         typename std::enable_if<traits::terminal_is_value<Term>::value, void>::type
@@ -1337,7 +1337,7 @@ struct output_local_preamble : public expression_context {
             ctx.os << traits::local_terminal_init<
                 typename std::decay<Term>::type
                 >::get(term, ctx.device, prm_name.str(), ctx.state);
-	}
+        }
 
         template <class Term>
         typename std::enable_if<!traits::terminal_is_value<Term>::value, void>::type
@@ -1353,7 +1353,7 @@ struct output_local_preamble : public expression_context {
                         >::type
                     >::type
                 >::get(boost::proto::value(term), ctx.device, prm_name.str(), ctx.state);
-	}
+        }
     };
 };
 

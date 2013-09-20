@@ -296,9 +296,9 @@ class vector : public vector_terminal_expression {
                     return pos != it.pos;
                 }
 
-		bool operator<(const iterator_type &it) const {
-		    return pos < it.pos;
-		}
+                bool operator<(const iterator_type &it) const {
+                    return pos < it.pos;
+                }
 
                 vector_type *vec;
                 size_t  pos;
@@ -410,7 +410,7 @@ class vector : public vector_terminal_expression {
          */
         template <class Expr
 #ifndef BOOST_NO_CXX11_FUNCTION_TEMPLATE_DEFAULT_ARGS
-	    , class Enable = typename std::enable_if<
+            , class Enable = typename std::enable_if<
             !std::is_integral<Expr>::value &&
                 boost::proto::matches<
                     typename boost::proto::result_of::as_expr<Expr>::type,
@@ -418,16 +418,16 @@ class vector : public vector_terminal_expression {
                 >::value
             >::type
 #endif
-	>
+        >
         vector(const Expr &expr) {
 #ifdef BOOST_NO_CXX11_FUNCTION_TEMPLATE_DEFAULT_ARGS
-	    static_assert(
+            static_assert(
                 boost::proto::matches<
                     typename boost::proto::result_of::as_expr<Expr>::type,
                     vector_expr_grammar
                 >::value,
-		"Only vector expressions can be used to initialize a vector"
-		);
+                "Only vector expressions can be used to initialize a vector"
+                );
 #endif
             detail::get_expression_properties prop;
             detail::extract_terminals()(expr, prop);
