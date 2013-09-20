@@ -32,6 +32,7 @@ performance of several GPGPU libraries, including VexCL.
 * [Copies between host and devices](#copies-between-host-and-devices)
 * [Vector expressions](#vector-expressions)
     * [Builtin operations](#builtin-operations)
+    * [Constants](#constants)
     * [Element indices](#element-indices)
     * [User-defined functions](#user-defined-functions)
     * [Tagged terminals](#tagged-terminals)
@@ -176,16 +177,16 @@ X = 2 * Y - sin(Z);
 ~~~
 will lead to the launch of the following OpenCL kernel:
 ~~~{.c}
-kernel void minus_multiplies_term_term_sin_term_(
+kernel void vexcl_vector_kernel(
     ulong n,
-    global double *res,
-    int prm_1,
-    global double *prm_2,
-    global double *prm_3
+    global double * prm_1,
+    int prm_2,
+    global double * prm_3,
+    global double * prm_4
 )
 {
     for(size_t idx = get_global_id(0); idx < n; idx += get_global_size(0)) {
-        res[idx] = ( ( prm_1 * prm_2[idx] ) - sin( prm_3[idx] ) );
+        prm_1[idx] = ( ( prm_2 * prm_3[idx] ) - sin( prm_4[idx] ) );
     }
 }
 ~~~
@@ -202,6 +203,39 @@ Please do not hesitate to open an issue in this case.
 ~~~{.cpp}
 Z = sqrt(2 * X) + pow(cos(Y), 2.0);
 ~~~
+
+### <a name="constants"></a>Constants
+
+As you have seen above, `2` in the expression `2 * Y - sin(Z)` is passed to the
+generated OpenCL kernel as an `int` parameter (`prm_1`). Sometimes this is
+desired behaviour, because same kernel will be reused for expressions `42 *
+Z - sin(Y)` or `a * Y - sin(Y)` (where `a` is an integer variable). But this
+may lead to a slight overhead if an expression involves true constant that will
+always have same value. Macro `VEX_CONSTANT` allows to define such constants
+for use in vector expressions. Compare the generated kernel for the following
+example with the kernel above:
+~~~{.cpp}
+VEX_CONSTANT(two, 2);
+
+X = two() * Y - sin(Z);
+~~~
+
+~~~{.c}
+kernel void vexcl_vector_kernel(
+    ulong n,
+    global double * prm_1,
+    global double * prm_3,
+    global double * prm_4
+)
+{
+    for(size_t idx = get_global_id(0); idx < n; idx += get_global_size(0)) {
+        prm_1[idx] = ( ( ( 2 ) * prm_3[idx] ) - sin( prm_4[idx] ) );
+    }
+}
+~~~
+
+VexCL provides some predefined constants in `vex::constants` namespace that
+correspond to boost::math::constants (e.g. `vex::constants::pi()`).
 
 ### <a name="element-indices"></a>Element indices
 
