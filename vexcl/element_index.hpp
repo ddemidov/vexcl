@@ -48,6 +48,7 @@ struct elem_index {
 
 /// When used in vector expression, returns current element index plus offset.
 /**
+ * \param offset Element indices will start from this value.
  * \param length Specify length of vector expression. This is only relevant
  * when parent expression does not contain any vectors. See monte_carlo_pi test
  * in tests/random.cpp for an example.

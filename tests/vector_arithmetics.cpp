@@ -252,14 +252,19 @@ BOOST_AUTO_TEST_CASE(combine_expressions)
     check_sample(x, [](size_t, double v) { BOOST_CHECK_CLOSE(v, 1.0, 1e-8); });
 }
 
-BOOST_AUTO_TEST_CASE(integral_constants)
+BOOST_AUTO_TEST_CASE(constants)
 {
     const size_t n = 1024;
 
     vex::vector<double> x(ctx, n);
-    x = std::integral_constant<int, 42>();
 
+    x = std::integral_constant<int, 42>();
     check_sample(x, [](size_t, double v) { BOOST_CHECK_EQUAL(v, 42); });
+
+#if BOOST_VERSION >= 105000
+    x = vex::constants::pi();
+    check_sample(x, [](size_t, double v) { BOOST_CHECK_CLOSE(v, boost::math::constants::pi<double>(), 1e-8); });
+#endif
 }
 
 BOOST_AUTO_TEST_SUITE_END()
