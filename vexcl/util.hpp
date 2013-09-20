@@ -42,6 +42,7 @@ THE SOFTWARE.
 #include <map>
 #include <stdexcept>
 #include <algorithm>
+#include <type_traits>
 
 #include <boost/config.hpp>
 

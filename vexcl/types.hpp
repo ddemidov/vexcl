@@ -32,6 +32,7 @@ THE SOFTWARE.
  */
 
 #include <string>
+#include <type_traits>
 
 #ifndef __CL_ENABLE_EXCEPTIONS
 #  define __CL_ENABLE_EXCEPTIONS

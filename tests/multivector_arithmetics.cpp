@@ -1,5 +1,6 @@
 #define BOOST_TEST_MODULE MultivectorArithmetics
 #include <boost/test/unit_test.hpp>
+#include <vexcl/constants.hpp>
 #include <vexcl/multivector.hpp>
 #include <vexcl/reductor.hpp>
 #include <vexcl/element_index.hpp>
@@ -205,6 +206,21 @@ BOOST_AUTO_TEST_CASE(compound_assignment)
     check_sample(x, y, [](size_t, elem_t a, elem_t b) {
             BOOST_CHECK_CLOSE(a[0], b[1], 1e-8);
             BOOST_CHECK_CLOSE(a[1], sin(b[0]), 1e-8);
+            });
+}
+
+BOOST_AUTO_TEST_CASE(integral_constants)
+{
+    typedef std::array<double, 4> elem_t;
+
+    const size_t n = 1024;
+
+    vex::multivector<double, 4> x(ctx, n);
+
+    x = std::integral_constant<int, 42>();
+
+    check_sample(x, [](size_t, elem_t a) {
+            for(size_t i = 0; i < 4; ++i) BOOST_CHECK_EQUAL(a[i], 42);
             });
 }
 

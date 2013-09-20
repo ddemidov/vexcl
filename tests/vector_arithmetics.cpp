@@ -1,5 +1,6 @@
 #define BOOST_TEST_MODULE VectorArithmetics
 #include <boost/test/unit_test.hpp>
+#include <vexcl/constants.hpp>
 #include <vexcl/vector.hpp>
 #include <vexcl/reductor.hpp>
 #include <vexcl/element_index.hpp>
@@ -249,6 +250,16 @@ BOOST_AUTO_TEST_CASE(combine_expressions)
     x = pow(sine, 2.0) + pow(cosine, 2.0);
 
     check_sample(x, [](size_t, double v) { BOOST_CHECK_CLOSE(v, 1.0, 1e-8); });
+}
+
+BOOST_AUTO_TEST_CASE(integral_constants)
+{
+    const size_t n = 1024;
+
+    vex::vector<double> x(ctx, n);
+    x = std::integral_constant<int, 42>();
+
+    check_sample(x, [](size_t, double v) { BOOST_CHECK_EQUAL(v, 42); });
 }
 
 BOOST_AUTO_TEST_SUITE_END()

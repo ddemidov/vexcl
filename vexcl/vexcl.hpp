@@ -32,6 +32,7 @@ THE SOFTWARE.
  */
 
 #include <vexcl/devlist.hpp>
+#include <vexcl/constants.hpp>
 #include <vexcl/element_index.hpp>
 #include <vexcl/vector.hpp>
 #include <vexcl/vector_view.hpp>
