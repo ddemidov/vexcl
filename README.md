@@ -249,7 +249,7 @@ double x0 = 0.0, dx = 1.0 / (X.size() - 1);
 X = x0 + dx * vex::element_index();
 
 // Single period of sine function:
-Y = sin(2 * M_PI * vex::element_index() / Y.size());
+Y = sin(vex::constants::two_pi() * vex::element_index() / Y.size());
 ~~~
 
 ### <a name="user-defined-functions"></a>User-defined functions
