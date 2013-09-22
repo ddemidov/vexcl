@@ -226,7 +226,7 @@ class vector : public vector_terminal_expression {
                 operator T() const {
                     T val;
                     queue->enqueueReadBuffer(
-                            buf, CL_TRUE,
+                            *buf, CL_TRUE,
                             index * sizeof(T), sizeof(T),
                             &val
                             );
@@ -236,19 +236,30 @@ class vector : public vector_terminal_expression {
                 /// Write associated element of a vector.
                 T operator=(T val) {
                     queue->enqueueWriteBuffer(
-                            buf, CL_TRUE,
+                            *buf, CL_TRUE,
                             index * sizeof(T), sizeof(T),
                             &val
                             );
                     return val;
                 }
+
+                T operator=(const element &other) {
+                    return (*this) = static_cast<T>(other);
+                }
+
+                friend void swap(element &&a, element &&b) {
+                    T tmp = static_cast<T>(a);
+                    a = static_cast<T>(b);
+                    b = tmp;
+                }
+
             private:
-                element(const cl::CommandQueue &q, cl::Buffer b, size_t i)
-                    : queue(&q), buf(b), index(i) {}
+                element(const cl::CommandQueue &q, const cl::Buffer &b, size_t i)
+                    : queue(&q), buf(&b), index(i) {}
 
                 const cl::CommandQueue  *queue;
-                cl::Buffer              buf;
-                const size_t            index;
+                const cl::Buffer        *buf;
+                size_t                   index;
 
                 friend class vector;
         };

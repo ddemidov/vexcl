@@ -91,5 +91,15 @@ BOOST_AUTO_TEST_CASE(gather)
         BOOST_CHECK(data[p] == x[i[p]]);
 }
 
+BOOST_AUTO_TEST_CASE(std_sort_vex_vector)
+{
+    const size_t n = 1 << 10;
+
+    vex::vector<double> x(ctx, random_vector<double>(n));
+
+    std::sort(x.begin(), x.end());
+    BOOST_CHECK(std::is_sorted(x.begin(), x.end()));
+}
+
 BOOST_AUTO_TEST_SUITE_END()
 
