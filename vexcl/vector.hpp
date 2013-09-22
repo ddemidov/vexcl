@@ -225,7 +225,7 @@ class vector : public vector_terminal_expression {
                 /// Read associated element of a vector.
                 operator T() const {
                     T val;
-                    queue.enqueueReadBuffer(
+                    queue->enqueueReadBuffer(
                             buf, CL_TRUE,
                             index * sizeof(T), sizeof(T),
                             &val
@@ -235,7 +235,7 @@ class vector : public vector_terminal_expression {
 
                 /// Write associated element of a vector.
                 T operator=(T val) {
-                    queue.enqueueWriteBuffer(
+                    queue->enqueueWriteBuffer(
                             buf, CL_TRUE,
                             index * sizeof(T), sizeof(T),
                             &val
@@ -244,9 +244,9 @@ class vector : public vector_terminal_expression {
                 }
             private:
                 element(const cl::CommandQueue &q, cl::Buffer b, size_t i)
-                    : queue(q), buf(b), index(i) {}
+                    : queue(&q), buf(b), index(i) {}
 
-                const cl::CommandQueue  &queue;
+                const cl::CommandQueue  *queue;
                 cl::Buffer              buf;
                 const size_t            index;
 
@@ -274,14 +274,25 @@ class vector : public vector_terminal_expression {
                 }
 
                 iterator_type& operator++() {
-                    pos++;
+                    ++pos;
                     while (part < vec->nparts() && pos >= vec->part[part + 1])
-                        part++;
+                        ++part;
+                    return *this;
+                }
+
+                iterator_type& operator--() {
+                    --pos;
+                    while (part > 0 && pos < vec->part[part])
+                        --part;
                     return *this;
                 }
 
                 iterator_type operator+(ptrdiff_t d) const {
                     return iterator_type(*vec, pos + d);
+                }
+
+                iterator_type operator-(ptrdiff_t d) const {
+                    return iterator_type(*vec, pos - d);
                 }
 
                 ptrdiff_t operator-(iterator_type it) const {
