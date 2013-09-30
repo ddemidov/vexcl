@@ -216,11 +216,11 @@ struct SpMatCSR : public sparse_matrix {
         if (rem.nnz) mul<assign::ADD>(rem, in, out, scale, wait_for_it);
     }
 
-    static std::string inline_preamble(int component, int position) {
+    static std::string inline_preamble(const std::string &prm_name) {
         std::ostringstream s;
 
         s << type_name<val_t>() <<
-          " csr_spmv_" << component << "_" << position << "(\n"
+          " csr_spmv_" << prm_name << "(\n"
           "    global const " << type_name<idx_t>() << " * row,\n"
           "    global const " << type_name<col_t>() << " * col,\n"
           "    global const " << type_name<val_t>() << " * val,\n"
@@ -237,30 +237,24 @@ struct SpMatCSR : public sparse_matrix {
         return s.str();
     }
 
-    static std::string inline_expression(int component, int position) {
-        std::ostringstream prm;
-        prm << "prm_" << component << "_" << position << "_";
-
+    static std::string inline_expression(const std::string &prm_name) {
         std::ostringstream s;
-        s << "csr_spmv_" << component << "_" << position << "("
-          << prm.str() << "row, "
-          << prm.str() << "col, "
-          << prm.str() << "val, "
-          << prm.str() << "vec, idx)";
+        s << "csr_spmv_" << prm_name << "("
+          << prm_name << "_row, "
+          << prm_name << "_col, "
+          << prm_name << "_val, "
+          << prm_name << "_vec, idx)";
 
         return s.str();
     }
 
-    static std::string inline_parameters(int component, int position) {
-        std::ostringstream prm;
-        prm << "prm_" << component << "_" << position << "_";
-
+    static std::string inline_parameters(const std::string &prm_name) {
         std::ostringstream s;
         s <<
-          ",\n\tglobal const " << type_name<idx_t>() << " * " << prm.str() << "row"
-          ",\n\tglobal const " << type_name<col_t>() << " * " << prm.str() << "col"
-          ",\n\tglobal const " << type_name<val_t>() << " * " << prm.str() << "val"
-          ",\n\tglobal const " << type_name<val_t>() << " * " << prm.str() << "vec";
+          ",\n\tglobal const " << type_name<idx_t>() << " * " << prm_name << "_row"
+          ",\n\tglobal const " << type_name<col_t>() << " * " << prm_name << "_col"
+          ",\n\tglobal const " << type_name<val_t>() << " * " << prm_name << "_val"
+          ",\n\tglobal const " << type_name<val_t>() << " * " << prm_name << "_vec";
 
         return s.str();
     }

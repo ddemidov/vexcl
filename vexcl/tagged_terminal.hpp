@@ -34,6 +34,8 @@ THE SOFTWARE.
 #include <vector>
 #include <string>
 #include <sstream>
+#include <map>
+#include <set>
 
 #include <vexcl/operations.hpp>
 
@@ -49,7 +51,10 @@ typedef vector_expression<
 template <size_t Tag, class Term>
 struct tagged_terminal : tagged_terminal_expression
 {
-    const Term & term;
+    typedef typename detail::return_type<Term>::type value_type;
+
+    Term term;
+
     tagged_terminal(const Term &term) : term(term) {}
 
     // Expression assignments.
@@ -89,39 +94,39 @@ struct tagged_terminal : tagged_terminal_expression
 namespace traits {
 
 template <>
-struct is_vector_expr_terminal< tagged_terminal_terminal >
-    : std::true_type
-{ };
+struct is_vector_expr_terminal< tagged_terminal_terminal > : std::true_type {};
+
+template <>
+struct proto_terminal_is_value< tagged_terminal_terminal > : std::true_type {};
 
 template <size_t Tag, class Term>
 struct terminal_preamble< tagged_terminal<Tag, Term> > {
-    static std::string get(const cl::Device &device,
-            int component, int position,
-            detail::kernel_generator_state &state)
+    static std::string get(const tagged_terminal<Tag, Term> &term,
+            const cl::Device &device,
+            const std::string &prm_name,
+            detail::kernel_generator_state_ptr state)
     {
-        auto s = state.find("tagged_terminal");
+        auto s = state->find("tag_pream");
 
-        if (s == state.end()) {
-            s = state.insert(std::make_pair(
-                        std::string("tagged_terminal"),
-                        boost::any(std::map<size_t, int>())
+        if (s == state->end()) {
+            s = state->insert(std::make_pair(
+                        std::string("tag_pream"),
+                        boost::any(std::set<size_t>())
                         )).first;
         }
 
-        auto &pos = boost::any_cast< std::map<size_t, int>& >(s->second);
+        auto &pos = boost::any_cast< std::set<size_t>& >(s->second);
         auto p = pos.find(Tag);
 
-        typedef
-            typename boost::remove_const<
-                typename boost::remove_reference<
-                    typename boost::proto::result_of::as_child<Term>::type
-                >::type
-            >::type TermType;
-
         if (p == pos.end()) {
-            pos[Tag] = position;
+            pos.insert(Tag);
 
-            return terminal_preamble<TermType>::get(device, component, position, state);
+            std::ostringstream s;
+
+            detail::output_terminal_preamble termpream(s, device, prm_name, state);
+            boost::proto::eval(boost::proto::as_child(term.term), termpream);
+
+            return s.str();
         } else {
             return "";
         }
@@ -130,33 +135,65 @@ struct terminal_preamble< tagged_terminal<Tag, Term> > {
 
 template <size_t Tag, class Term>
 struct kernel_param_declaration< tagged_terminal<Tag, Term> > {
-    static std::string get(const cl::Device &device,
-            int component, int position,
-            detail::kernel_generator_state &state)
+    static std::string get(const tagged_terminal<Tag, Term> &term,
+            const cl::Device &device, const std::string &prm_name,
+            detail::kernel_generator_state_ptr state)
     {
-        auto s = state.find("tagged_terminal");
+        auto s = state->find("tag_param");
 
-        if (s == state.end()) {
-            s = state.insert(std::make_pair(
-                        std::string("tagged_terminal"),
-                        boost::any(std::map<size_t, int>())
+        if (s == state->end()) {
+            s = state->insert(std::make_pair(
+                        std::string("tag_param"),
+                        boost::any(std::set<size_t>())
                         )).first;
         }
 
-        auto &pos = boost::any_cast< std::map<size_t, int>& >(s->second);
+        auto &pos = boost::any_cast< std::set<size_t>& >(s->second);
         auto p = pos.find(Tag);
 
-        typedef
-            typename boost::remove_const<
-                typename boost::remove_reference<
-                    typename boost::proto::result_of::as_child<Term>::type
-                >::type
-            >::type TermType;
+        if (p == pos.end()) {
+            pos.insert(Tag);
+
+            std::ostringstream s;
+
+            detail::declare_expression_parameter declare(s, device, prm_name, state);
+            detail::extract_terminals()(boost::proto::as_child(term.term),  declare);
+
+            return s.str();
+        } else {
+            return "";
+        }
+    }
+};
+
+template <size_t Tag, class Term>
+struct local_terminal_init< tagged_terminal<Tag, Term> > {
+    static std::string get(const tagged_terminal<Tag, Term> &term,
+            const cl::Device &device,
+            const std::string &prm_name,
+            detail::kernel_generator_state_ptr state)
+    {
+        auto s = state->find("tag_locinit");
+
+        if (s == state->end()) {
+            s = state->insert(std::make_pair(
+                        std::string("tag_locinit"),
+                        boost::any(std::set<size_t>())
+                        )).first;
+        }
+
+        auto &pos = boost::any_cast< std::set<size_t>& >(s->second);
+        auto p = pos.find(Tag);
 
         if (p == pos.end()) {
-            pos[Tag] = position;
+            pos.insert(Tag);
 
-            return kernel_param_declaration<TermType>::get(device, component, position, state);
+            std::ostringstream s;
+
+            detail::output_local_preamble init_ctx(s, device, prm_name, state);
+            boost::proto::eval(boost::proto::as_child(term.term), init_ctx);
+
+            return s.str();
         } else {
             return "";
         }
@@ -165,66 +202,59 @@ struct kernel_param_declaration< tagged_terminal<Tag, Term> > {
 
 template <size_t Tag, class Term>
 struct partial_vector_expr< tagged_terminal<Tag, Term> > {
-    static std::string get(const cl::Device &device,
-            int component, int position,
-            detail::kernel_generator_state &state)
+    static std::string get(const tagged_terminal<Tag, Term> &term,
+            const cl::Device &device,
+            const std::string &prm_name,
+            detail::kernel_generator_state_ptr state)
     {
-        auto s = state.find("tagged_terminal");
+        auto s = state->find("tag_expr");
 
-        if (s == state.end()) {
-            s = state.insert(std::make_pair(
-                        std::string("tagged_terminal"),
-                        boost::any(std::map<size_t, int>())
+        if (s == state->end()) {
+            s = state->insert(std::make_pair(
+                        std::string("tag_expr"),
+                        boost::any(std::map<size_t, std::string>())
                         )).first;
         }
 
-        auto &pos = boost::any_cast< std::map<size_t, int>& >(s->second);
+        auto &pos = boost::any_cast< std::map<size_t, std::string>& >(s->second);
         auto p = pos.find(Tag);
 
-        typedef
-            typename boost::remove_const<
-                typename boost::remove_reference<
-                    typename boost::proto::result_of::as_child<Term>::type
-                >::type
-            >::type TermType;
-
         if (p == pos.end()) {
-            pos[Tag] = position;
-            return partial_vector_expr<TermType>::get(device, component, position, state);
+            std::ostringstream s;
+
+            detail::vector_expr_context expr_ctx(s, device, prm_name, state);
+            boost::proto::eval(boost::proto::as_child(term.term), expr_ctx);
+
+            return (pos[Tag] = s.str());
         } else {
-            return partial_vector_expr<TermType>::get(device, component, p->second, state);
+            return p->second;
         }
     }
 };
 
 template <size_t Tag, class Term>
 struct kernel_arg_setter< tagged_terminal<Tag, Term> > {
-    static void set(cl::Kernel &kernel, unsigned device, size_t index_offset,
-            unsigned &position, const tagged_terminal<Tag, Term> &term,
-            detail::kernel_generator_state &state)
+    static void set(const tagged_terminal<Tag, Term> &term,
+            cl::Kernel &kernel, unsigned device, size_t index_offset,
+            unsigned &position, detail::kernel_generator_state_ptr state)
     {
-        auto s = state.find("tagged_terminal_arg");
+        auto s = state->find("tag_args");
 
-        if (s == state.end()) {
-            s = state.insert(std::make_pair(
-                        std::string("tagged_terminal_arg"),
-                        boost::any(std::map<size_t, unsigned>())
+        if (s == state->end()) {
+            s = state->insert(std::make_pair(
+                        std::string("tag_args"),
+                        boost::any(std::set<size_t>())
                         )).first;
         }
 
-        auto &pos = boost::any_cast< std::map<size_t, unsigned>& >(s->second);
+        auto &pos = boost::any_cast< std::set<size_t>& >(s->second);
         auto p = pos.find(Tag);
 
-        typedef
-            typename boost::remove_const<
-                typename boost::remove_reference<
-                    decltype(boost::proto::as_child(term.term))
-                >::type
-            >::type TermType;
-
         if (p == pos.end()) {
-            pos[Tag] = position;
-            kernel_arg_setter<TermType>::set(kernel, device, index_offset, position, boost::proto::as_child(term.term), state);
+            pos.insert(Tag);
+
+            detail::set_expression_argument setarg(kernel, device, position, index_offset, state);
+            detail::extract_terminals()( boost::proto::as_child(term.term),  setarg);
         }
     }
 };
@@ -237,14 +267,12 @@ struct expression_properties< tagged_terminal<Tag, Term> > {
             size_t &size
             )
     {
-        typedef
-            typename boost::remove_const<
-                typename boost::remove_reference<
-                    decltype(boost::proto::as_child(term.term))
-                >::type
-            >::type TermType;
+        detail::get_expression_properties prop;
+        detail::extract_terminals()(boost::proto::as_child(term.term), prop);
 
-        expression_properties<TermType>::get(boost::proto::as_child(term.term), queue_list, partition, size);
+        queue_list = prop.queue;
+        partition  = prop.part;
+        size       = prop.size;
     }
 };
 
@@ -265,19 +293,24 @@ struct expression_properties< tagged_terminal<Tag, Term> > {
  * \endcode
  */
 template <size_t Tag, class Expr>
-#ifdef DOXYGEN
-tagged_terminal<Tag, Expr>
-#else
-typename std::enable_if<
-    boost::proto::matches<
-        typename boost::proto::result_of::as_expr<Expr>::type,
-        boost::proto::terminal<boost::proto::_>
-    >::value,
-    tagged_terminal<Tag, Expr>
->::type
-#endif
-tag(const Expr &expr) {
-    return tagged_terminal<Tag, Expr>(expr);
+auto tag(const Expr& expr)
+        -> tagged_terminal<
+                        Tag,
+                        decltype(boost::proto::as_child<vector_domain>(expr))
+                >
+{
+        static_assert(
+                boost::proto::matches<
+                        typename boost::proto::result_of::as_expr<Expr>::type,
+                        boost::proto::terminal<boost::proto::_>
+                >::value,
+                "Tagging non-terminals is not allowed"
+                );
+
+    return tagged_terminal<
+                Tag,
+                decltype(boost::proto::as_child<vector_domain>(expr))
+                >(boost::proto::as_child<vector_domain>(expr));
 }
 
 } //namespace vex

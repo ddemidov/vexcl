@@ -91,7 +91,7 @@ struct philox {
         const size_t w = cl_vector_length<T>::value;
         static_assert(w == 2 || w == 4, "Only supports 2- and 4-vectors.");
         typedef typename cl_scalar_of<T>::type Ts;
-        static_assert(boost::is_same<Ts, cl_uint>::value || boost::is_same<Ts, cl_ulong>::value,
+        static_assert(std::is_same<Ts, cl_uint>::value || std::is_same<Ts, cl_ulong>::value,
             "Only supports 32 or 64 bit integers.");
         typedef T ctr_t;
         typedef typename cl_vector_of<Ts, w/2>::type key_t;
@@ -104,7 +104,7 @@ struct philox {
           << "ctr_t __mul;\\\n";
         o << type_name<Ts>() << " ";
         // constants
-        if(boost::is_same<Ts, cl_uint>::value) { // 32
+        if(std::is_same<Ts, cl_uint>::value) { // 32
             o << "W0 = 0x9E3779B9, ";
             if(w == 2)
                 o << "M0 = 0xD256D193;\\\n";

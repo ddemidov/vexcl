@@ -95,6 +95,7 @@ typedef vector_expression<
 template <typename val_t, typename col_t, typename idx_t, typename T>
 struct ccsr_product : public ccsr_product_terminal_expression
 {
+    typedef val_t value_type;
     typedef SpMatCCSR<val_t, col_t, idx_t> matrix;
 
     const matrix    &A;
@@ -148,9 +149,10 @@ operator*(
 namespace traits {
 
 template <>
-struct is_vector_expr_terminal< ccsr_product_terminal >
-    : std::true_type
-{ };
+struct is_vector_expr_terminal< ccsr_product_terminal > : std::true_type {};
+
+template <>
+struct proto_terminal_is_value< ccsr_product_terminal > : std::true_type {};
 
 #ifdef VEXCL_MULTIVECTOR_HPP
 template <>
@@ -172,43 +174,17 @@ struct component< I, mv_ccsr_product<val_t, col_t, idx_t, MV> > {
 #endif
 
 template <typename val_t, typename col_t, typename idx_t, typename T>
-struct kernel_name< ccsr_product<val_t, col_t, idx_t, T> > {
-    static std::string get() {
-        return "spmv_";
-    }
-};
-
-template <typename val_t, typename col_t, typename idx_t, typename T>
-struct partial_vector_expr< ccsr_product<val_t, col_t, idx_t, T> > {
-    static std::string get(const cl::Device&, int component, int position,
-            detail::kernel_generator_state&)
-    {
-        std::ostringstream prm;
-        prm << "prm_" << component << "_" << position << "_";
-
-        std::ostringstream s;
-        s << "spmv_" << component << "_" << position << "("
-          << prm.str() << "idx, "
-          << prm.str() << "row, "
-          << prm.str() << "col, "
-          << prm.str() << "val, "
-          << prm.str() << "vec, idx)";
-
-        return s.str();
-    }
-};
-
-template <typename val_t, typename col_t, typename idx_t, typename T>
 struct terminal_preamble< ccsr_product<val_t, col_t, idx_t, T> > {
-    static std::string get(const cl::Device&, int component, int position,
-            detail::kernel_generator_state&)
+    static std::string get(const ccsr_product<val_t, col_t, idx_t, T>&,
+            const cl::Device&, const std::string &prm_name,
+            detail::kernel_generator_state_ptr)
     {
         std::ostringstream s;
 
         typedef decltype(val_t() * T()) res_t;
 
         s << type_name<res_t>() <<
-          " spmv_" << component << "_" << position << "(\n"
+          " spmv_" << prm_name << "(\n"
           "\tglobal " << type_name<idx_t>() << " * idx,\n"
           "\tglobal " << type_name<idx_t>() << " * row,\n"
           "\tglobal " << type_name<col_t>() << " * col,\n"
@@ -226,18 +202,34 @@ struct terminal_preamble< ccsr_product<val_t, col_t, idx_t, T> > {
 
 template <typename val_t, typename col_t, typename idx_t, typename T>
 struct kernel_param_declaration< ccsr_product<val_t, col_t, idx_t, T> > {
-    static std::string get(const cl::Device&, int component, int position,
-            detail::kernel_generator_state&)
+    static std::string get(const ccsr_product<val_t, col_t, idx_t, T>&,
+            const cl::Device&, const std::string &prm_name,
+            detail::kernel_generator_state_ptr)
     {
-        std::ostringstream prm;
-        prm << "prm_" << component << "_" << position << "_";
-
         std::ostringstream s;
-        s << ",\n\tglobal " << type_name<idx_t>() << " * " << prm.str() << "idx"
-          << ",\n\tglobal " << type_name<idx_t>() << " * " << prm.str() << "row"
-          << ",\n\tglobal " << type_name<col_t>() << " * " << prm.str() << "col"
-          << ",\n\tglobal " << type_name<val_t>() << " * " << prm.str() << "val"
-          << ",\n\tglobal " << type_name<T>()     << " * " << prm.str() << "vec";
+        s << ",\n\tglobal " << type_name<idx_t>() << " * " << prm_name << "_idx"
+          << ",\n\tglobal " << type_name<idx_t>() << " * " << prm_name << "_row"
+          << ",\n\tglobal " << type_name<col_t>() << " * " << prm_name << "_col"
+          << ",\n\tglobal " << type_name<val_t>() << " * " << prm_name << "_val"
+          << ",\n\tglobal " << type_name<T>()     << " * " << prm_name << "_vec";
+
+        return s.str();
+    }
+};
+
+template <typename val_t, typename col_t, typename idx_t, typename T>
+struct partial_vector_expr< ccsr_product<val_t, col_t, idx_t, T> > {
+    static std::string get(const ccsr_product<val_t, col_t, idx_t, T>&,
+            const cl::Device&, const std::string &prm_name,
+            detail::kernel_generator_state_ptr)
+    {
+        std::ostringstream s;
+        s << "spmv_" << prm_name << "("
+          << prm_name << "_idx, "
+          << prm_name << "_row, "
+          << prm_name << "_col, "
+          << prm_name << "_val, "
+          << prm_name << "_vec, idx)";
 
         return s.str();
     }
@@ -245,9 +237,9 @@ struct kernel_param_declaration< ccsr_product<val_t, col_t, idx_t, T> > {
 
 template <typename val_t, typename col_t, typename idx_t, typename T>
 struct kernel_arg_setter< ccsr_product<val_t, col_t, idx_t, T> > {
-    static void set(cl::Kernel &kernel, unsigned device, size_t/*index_offset*/,
-            unsigned &position, const ccsr_product<val_t, col_t, idx_t, T> &term,
-            detail::kernel_generator_state&)
+    static void set(const ccsr_product<val_t, col_t, idx_t, T> &term,
+            cl::Kernel &kernel, unsigned device, size_t/*index_offset*/,
+            unsigned &position, detail::kernel_generator_state_ptr)
     {
         assert(device == 0);
 

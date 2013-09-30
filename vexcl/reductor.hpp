@@ -48,16 +48,29 @@ namespace vex {
 
 /// Summation. Should be used as a template parameter for Reductor class.
 struct SUM {
+    /* In order to define a reduction kind for vex::Reductor, one should:
+     *
+     * 1. Define initial value (e.g. 0 for sums, 1 for products, plus-minus
+     *    infinity for extrema):
+     */
     template <typename T>
     static T initial() {
         return T();
     };
 
+    /*
+     * 2. Provide an OpenCL function that will be used on compute device to do
+     *    incremental reductions. That is nested struct "function":
+     */
     template <typename T>
     struct function : UserFunction<function<T>, T(T, T)> {
         static std::string body() { return "return prm1 + prm2;"; }
     };
 
+    /*
+     * 3. Provide a host-side function that will be used for final reduction of
+     *    small result vector on host:
+     */
     template <class Iterator>
     static typename std::iterator_traits<Iterator>::value_type
     reduce(Iterator begin, Iterator end) {
@@ -118,7 +131,11 @@ template <typename real, class RDC>
 class Reductor {
     public:
         /// Constructor.
-        Reductor(const std::vector<cl::CommandQueue> &queue = current_context().queue());
+        Reductor(const std::vector<cl::CommandQueue> &queue
+#ifndef VEXCL_NO_STATIC_CONTEXT_CONSTRUCTORS
+                = current_context().queue()
+#endif
+                );
 
         /// Compute reduction of a vector expression.
         template <class Expr>
@@ -138,8 +155,9 @@ class Reductor {
         std::array<real, N>
 #else
         typename std::enable_if<
-            boost::proto::matches<Expr, multivector_expr_grammar>::value,
-            std::array<real, boost::result_of<traits::multiex_dimension(Expr)>::type::value>
+            boost::proto::matches<Expr, multivector_expr_grammar>::value &&
+            !boost::proto::matches<Expr, vector_expr_grammar>::value,
+            std::array<real, std::result_of<traits::multiex_dimension(Expr)>::type::value>
         >::type
 #endif
         operator()(const Expr &expr) const;
@@ -166,6 +184,7 @@ class Reductor {
         }
 };
 
+#ifndef DOXYGEN
 template <typename real, class RDC>
 Reductor<real,RDC>::Reductor(const std::vector<cl::CommandQueue> &queue)
     : queue(queue), event(queue.size())
@@ -199,6 +218,10 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
     get_expression_properties prop;
     extract_terminals()(expr, prop);
 
+    // Sometimes the expression only knows its size:
+    if (prop.size && prop.part.empty())
+        prop.part = vex::partition(prop.size, queue);
+
     for(unsigned d = 0; d < queue.size(); ++d) {
         cl::Context context = qctx(queue[d]);
         cl::Device  device  = qdev(queue[d]);
@@ -206,16 +229,14 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
         auto kernel = cache.find( context() );
 
         if (kernel == cache.end()) {
-            std::ostringstream kernel_name;
-            vector_name_context name_ctx(kernel_name);
-
-            kernel_name << "reduce_";
-            boost::proto::eval(expr, name_ctx);
-
             std::ostringstream increment_line;
-            vector_expr_context expr_ctx(increment_line, device);
 
-            increment_line << "mySum = reduce_operation(mySum, ";
+            output_local_preamble loc_init(increment_line, device, "prm", empty_state());
+            boost::proto::eval(expr, loc_init);
+
+            vector_expr_context expr_ctx(increment_line, device, "prm", empty_state());
+
+            increment_line << "\t\tmySum = reduce_operation(mySum, ";
             boost::proto::eval(expr, expr_ctx);
             increment_line << ");\n";
 
@@ -225,12 +246,13 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
             typedef typename RDC::template function<real> fun;
             fun::define(source, "reduce_operation");
 
-            construct_preamble(expr, source, device);
+            output_terminal_preamble termpream(source, device, "prm", empty_state());
+            boost::proto::eval(boost::proto::as_child(expr),  termpream);
 
-            source << "kernel void " << kernel_name.str() << "(\n\t"
+            source << "kernel void vexcl_reductor_kernel(\n\t"
                 << type_name<size_t>() << " n";
 
-            extract_terminals()( expr, declare_expression_parameter(source, device) );
+            extract_terminals()( expr, declare_expression_parameter(source, device, "prm", empty_state()) );
 
             source << ",\n\tglobal " << type_name<real>() << " *g_odata,\n"
                 "\tlocal  " << type_name<real>() << " *sdata\n"
@@ -245,7 +267,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
                     "    size_t stop       = min(n, chunk_size * (chunk_id + 1));\n"
                     "    " << type_name<real>() << " mySum = " << RDC::template initial<real>() << ";\n"
                     "    for (size_t idx = start; idx < stop; idx++) {\n"
-                    "        " << increment_line.str() <<
+                    << increment_line.str() <<
                     "    }\n"
                     "\n"
                     "    g_odata[get_group_id(0)] = mySum;\n"
@@ -260,10 +282,11 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
                     "    " << type_name<real>() << " mySum = " << RDC::template initial<real>() << ";\n"
                     "    while (p < n) {\n"
                     "        idx = p;\n"
-                    "        " << increment_line.str() <<
+                    << increment_line.str() <<
                     "        idx = p + block_size;\n"
-                    "        if (idx < n)\n"
-                    "            " << increment_line.str() <<
+                    "        if (idx < n) {\n"
+                    << increment_line.str() <<
+                    "        }\n"
                     "        p += gridSize;\n"
                     "    }\n"
                     "    sdata[tid] = mySum;\n"
@@ -289,7 +312,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
 
             auto program = build_sources(context, source.str());
 
-            cl::Kernel krn(program, kernel_name.str().c_str());
+            cl::Kernel krn(program, "vexcl_reductor_kernel");
             size_t wgs;
             if (is_cpu(device)) {
                 wgs = 1;
@@ -317,7 +340,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
 
             extract_terminals()(
                     expr,
-                    set_expression_argument(kernel->second.kernel, d, pos, prop.part_start(d))
+                    set_expression_argument(kernel->second.kernel, d, pos, prop.part_start(d), empty_state())
                     );
 
             kernel->second.kernel.setArg(pos++, dbuf[d]);
@@ -344,16 +367,43 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
 
 template <typename real, class RDC> template <class Expr>
 typename std::enable_if<
-    boost::proto::matches<Expr, multivector_expr_grammar>::value,
-    std::array<real, boost::result_of<traits::multiex_dimension(Expr)>::type::value>
+    boost::proto::matches<Expr, multivector_expr_grammar>::value &&
+    !boost::proto::matches<Expr, vector_expr_grammar>::value,
+    std::array<real, std::result_of<traits::multiex_dimension(Expr)>::type::value>
 >::type
 Reductor<real,RDC>::operator()(const Expr &expr) const {
-    const size_t dim = boost::result_of<traits::multiex_dimension(Expr)>::type::value;
+    const size_t dim = std::result_of<traits::multiex_dimension(Expr)>::type::value;
     std::array<real, dim> result;
 
     assign_subexpressions<0, dim, Expr>(result, expr);
 
     return result;
+}
+#endif
+
+/// Returns a reference to a static instance of vex::Reductor<T,R>
+template <typename T, class R>
+const vex::Reductor<T, R>& get_reductor(const std::vector<cl::CommandQueue> &queue)
+{
+    // We will hold one static reductor per set of queues (or, rather, contexts):
+    static std::map< std::vector<cl_context>, vex::Reductor<T, R> > cache;
+
+    // Extract OpenCL context handles from command queues:
+    std::vector<cl_context> ctx;
+    ctx.reserve(queue.size());
+    for(auto q = queue.begin(); q != queue.end(); ++q)
+        ctx.push_back( vex::qctx(*q)() );
+
+    // See if there is suitable instance of reductor already:
+    auto r = cache.find(ctx);
+
+    // If not, create new instance and move it to the cache.
+    if (r == cache.end())
+        r = cache.insert( std::make_pair(
+                    std::move(ctx), vex::Reductor<T, R>(queue)
+                    ) ).first;
+
+    return r->second;
 }
 
 } // namespace vex

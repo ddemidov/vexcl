@@ -19,6 +19,7 @@ Slides from VexCL-related talks:
 * [Meeting C++ 2012, Dusseldorf](https://speakerdeck.com/ddemidov/vexcl-at-meeting-c-plus-plus-2012)
 * [SIAM CSE 2013, Boston](https://speakerdeck.com/ddemidov/vexcl-at-cse13)
 * [FOSDEM 2013, Brussels](https://fosdem.org/2013/schedule/event/odes_cuda_opencl)
+* [GPU-SMP-2013, Changchun, China](https://speakerdeck.com/ddemidov/converting-generic-c-plus-plus-algorithms-to-opencl-with-vexcl-library)
 
 The paper [Programming CUDA and OpenCL: A Case Study Using Modern C++
 Libraries](http://arxiv.org/abs/1212.6326) compares both convenience and
@@ -31,16 +32,19 @@ performance of several GPGPU libraries, including VexCL.
 * [Copies between host and devices](#copies-between-host-and-devices)
 * [Vector expressions](#vector-expressions)
     * [Builtin operations](#builtin-operations)
+    * [Constants](#constants)
     * [Element indices](#element-indices)
     * [User-defined functions](#user-defined-functions)
     * [Tagged terminals](#tagged-terminals)
+    * [Temporary values](#temporary-values)
     * [Random number generation](#random-number-generation)
     * [Permutations](#permutations)
     * [Slicing](#slicing)
+    * [Scattered data interpolation with multilevel B-Splines](#mba)
+    * [Fast Fourier Transform](#fast-fourier-transform)
 * [Reductions](#reductions)
 * [Sparse matrix-vector products](#sparse-matrix-vector-products)
 * [Stencil convolutions](#stencil-convolutions)
-* [Fast Fourier Transform](#fast-fourier-transform)
 * [Multivectors](#multivectors)
 * [Converting generic C++ algorithms to OpenCL](#converting-generic-c-algorithms-to-opencl)
     * [Kernel generator](#kernel-generator)
@@ -173,16 +177,16 @@ X = 2 * Y - sin(Z);
 ~~~
 will lead to the launch of the following OpenCL kernel:
 ~~~{.c}
-kernel void minus_multiplies_term_term_sin_term_(
+kernel void vexcl_vector_kernel(
     ulong n,
-    global double *res,
-    int prm_1,
-    global double *prm_2,
-    global double *prm_3
+    global double * prm_1,
+    int prm_2,
+    global double * prm_3,
+    global double * prm_4
 )
 {
     for(size_t idx = get_global_id(0); idx < n; idx += get_global_size(0)) {
-        res[idx] = ( ( prm_1 * prm_2[idx] ) - sin( prm_3[idx] ) );
+        prm_1[idx] = ( ( prm_2 * prm_3[idx] ) - sin( prm_4[idx] ) );
     }
 }
 ~~~
@@ -200,6 +204,39 @@ Please do not hesitate to open an issue in this case.
 Z = sqrt(2 * X) + pow(cos(Y), 2.0);
 ~~~
 
+### <a name="constants"></a>Constants
+
+As you have seen above, `2` in the expression `2 * Y - sin(Z)` is passed to the
+generated OpenCL kernel as an `int` parameter (`prm_2`). Sometimes this is
+desired behaviour, because same kernel will be reused for expressions `42 *
+Z - sin(Y)` or `a * Y - sin(Y)` (where `a` is an integer variable). But this
+may lead to a slight overhead if an expression involves true constant that will
+always have same value. Macro `VEX_CONSTANT` allows to define such constants
+for use in vector expressions. Compare the generated kernel for the following
+example with the kernel above:
+~~~{.cpp}
+VEX_CONSTANT(two, 2);
+
+X = two() * Y - sin(Z);
+~~~
+
+~~~{.c}
+kernel void vexcl_vector_kernel(
+    ulong n,
+    global double * prm_1,
+    global double * prm_3,
+    global double * prm_4
+)
+{
+    for(size_t idx = get_global_id(0); idx < n; idx += get_global_size(0)) {
+        prm_1[idx] = ( ( ( 2 ) * prm_3[idx] ) - sin( prm_4[idx] ) );
+    }
+}
+~~~
+
+VexCL provides some predefined constants in `vex::constants` namespace that
+correspond to boost::math::constants (e.g. `vex::constants::pi()`).
+
 ### <a name="element-indices"></a>Element indices
 
 Function `vex::element_index(size_t offset = 0)` allows to use an index of each
@@ -212,7 +249,7 @@ double x0 = 0.0, dx = 1.0 / (X.size() - 1);
 X = x0 + dx * vex::element_index();
 
 // Single period of sine function:
-Y = sin(2 * M_PI * vex::element_index() / Y.size());
+Y = sin(vex::constants::two_pi() * vex::element_index() / Y.size());
 ~~~
 
 ### <a name="user-defined-functions"></a>User-defined functions
@@ -257,6 +294,33 @@ Z = sqrt(tag<1>(X) * tag<1>(X) + tag<2>(Y) * tag<2>(Y));
 ~~~
 Here, the generated kernel will have one parameter per vectors `X` and `Y`.
 
+### <a name="temporary-values"></a>Temporary values
+
+Some expressions may have several occurences of the same subexpression.
+Unfortunately, VexCL is not able to determine these cases without programmer's
+help. For example, let's look at the following expression:
+~~~{.cpp}
+Y = log(X) * (log(X) + Z);
+~~~
+Here, `log(X)` would be computed twice. One could tag vector `X` as in:
+~~~{.cpp}
+auto x = vex::tag<1>(X);
+Y = log(x) * (log(x) + Z);
+~~~
+and hope that optimizing OpenCL compiler is smart enough to reuse result of
+`log(x)` call (e.g. NVIDIA's compiler _is_ smart enough to do this). But it is
+also possible to explicitly ask VexCL to store result of a subexpression in a
+local variable and reuse it. `vex::make_temp()` function template serves this
+purpose:
+~~~{.cpp}
+auto tmp1 = vex::make_temp<1>( sin(X) );
+auto tmp2 = vex::make_temp<2>( cos(X) );
+Y = (tmp1 - tmp2) * (tmp1 + tmp2);
+~~~
+
+Any valid vector or multivector expression (but not additive expressions, such
+as sparse matrix-vector products) may be wrapped into `make_temp()` call.
+
 ### <a name="random-number-generation"></a>Random number generation
 
 VexCL provides counter-based random number generators from [Random123][] suite,
@@ -284,18 +348,30 @@ a sequence position N.
 
 ### <a name="permutations"></a>Permutations
 
-`vex::permutation` allows to use permuted vector in a vector expression. The
-class constructor accepts `vex::vector<size_t>` of indices. The following
-example assigns reversed vector `X` to `Y`:
+`vex::permutation()` function allows to use permuted vector in a vector
+expression. The function accepts a vector expression that returns integral
+values (indices).  The following example assigns reversed vector `X` to `Y`:
 
 ~~~{.cpp}
 vex::vector<size_t> I(ctx, N);
 I = N - 1 - vex::element_index();
-
-vex::permutation reverse(I);
+auto reverse = vex::permutation(I)
 
 Y = reverse(X);
 ~~~
+
+The drawback of the above approach is that you have to store and access an
+index vector. Sometimes this is a necessary evil, but in this simple example we
+can do better. In the following snippet lightweight expression is used to
+construct the same permutation:
+
+~~~{.cpp}
+auto reverse = vex::permutation( N - 1 - vex::element_index() );
+Y = reverse(X);
+~~~
+
+Note that any valid vector expression may be used as an index, including
+user-defined functions.
 
 _Permutation operation is only supported in single-device contexts._
 
@@ -324,7 +400,8 @@ using vex::range;
 vex::vector<double> X(ctx, n * n); // n-by-n matrix stored in row-major order.
 vex::vector<double> Y(ctx, n);
 
-vex::slicer<2> slice({n, n});
+// vex::extents is a helper object similar to boost::multi_array::extents
+vex::slicer<2> slice(vex::extents[n][n]);
 
 Y = slice[42](X);          // Put 42-nd row of X into Y.
 Y = slice[range()][42](X); // Put 42-nd column of X into Y.
@@ -337,6 +414,75 @@ assert(Z.size() == 100);
 ~~~
 
 _Slicing is only supported in single-device contexts._
+
+### <a name="mba"></a>Scattered data interpolation with multilevel B-Splines
+
+VexCL provides an implementation of the MBA algorithm based on paper by Lee,
+Wolberg, and Shin (<em>S. Lee, G. Wolberg, and S. Y. Shin. Scattered data
+interpolation with multilevel B-Splines. IEEE Transactions on Visualization and
+Computer Graphics, 3:228–244, 1997.</em>). This is a fast algorithm for scattered
+N-dimensional data interpolation and approximation.  Multilevel B-splines are
+used to compute a C2-continuous surface through a set of irregularly spaced
+points. The algorithm makes use of a coarse-to-fine hierarchy of control
+lattices to generate a sequence of bicubic B-spline functions whose sum
+approaches the desired interpolation function. Large performance gains are
+realized by using B-spline refinement to reduce the sum of these functions into
+one equivalent B-spline function.  High-fidelity reconstruction is possible
+from a selected set of sparse and irregular samples.
+
+The algorithm is first prepared on a CPU. After that, it may be used in vector
+expressions. Here is an example in 2D:
+~~~{.cpp}
+// Coordinates of data points:
+std::vector< std::array<double,2> > coords = {
+    {0.0, 0.0},
+    {0.0, 1.0},
+    {1.0, 0.0},
+    {1.0, 1.0},
+    {0.4, 0.4},
+    {0.6, 0.6}
+};
+
+// Data values:
+std::vector<double> values = {
+    0.2, 0.0, 0.0, -0.2, -1.0, 1.0
+};
+
+// Bounding box:
+std::array<double, 2> xmin = {-0.01, -0.01};
+std::array<double, 2> xmax = { 1.01,  1.01};
+
+// Initial grid size:
+std::array<size_t, 2> grid = {5, 5};
+
+// Algorithm setup.
+vex::mba<2> surf(ctx, xmin, xmax, coords, values, grid);
+
+// x and y are coordinates of arbitrary 2D points:
+// vex::vector<double> x, y, z;
+
+// Get interpolated values:
+z = surf(x, y);
+~~~
+
+### <a name="fast-fourier-transform"></a>Fast Fourier Transform
+
+VexCL provides implementation of Fast Fourier Transform (FFT) that accepts
+arbitrary vector expressions as input, allows to perform multidimensional
+transforms (of any number of dimensions), and supports arbitrary sized vectors:
+
+~~~{.cpp}
+vex::FFT<double, cl_double2> fft(ctx, n);
+vex::FFT<cl_double2, double> ifft(ctx, n, vex::fft::inverse);
+
+vex::vector<double> rhs(ctx, n), u(ctx, n), K(ctx, n);
+
+// Solve Poisson equation with FFT:
+u = ifft( K * fft(rhs) );
+~~~
+
+The restriction of FFT is that it currently only supports contexts with a
+single compute device.
 
 ## <a name="reductions"></a>Reductions
 
@@ -437,31 +583,6 @@ array that is indexed relatively to the stencil center.
 
 Stencil convolution operations, similar to the matrix-vector products, are only
 allowed in additive expressions.
-
-## <a name="fast-fourier-transform"></a>Fast Fourier Transform
-
-VexCL provides implementation of Fast Fourier Transform (FFT) that accepts
-arbitrary vector expressions as input, allows to perform multidimensional
-transforms (of any number of dimensions), and supports arbitrary sized vectors:
-
-~~~{.cpp}
-vex::FFT<double, cl_double2> fft(ctx, n);
-vex::FFT<cl_double2, double> ifft(ctx, n, vex::fft::inverse);
-
-vex::vector<double> in(ctx, n), back(ctx, n);
-vex::vector<cl_double2> out(ctx, n);
-
-// ...
-
-out  = fft (in);
-back = ifft(out);
-
-Z = fft(sin(X) + cos(Y));
-~~~
-
-FFT is another example of operation that is only available in additive
-expressions. Another restriction is that FFT currently only supports contexts
-with a single compute device.
 
 ## <a name="multivectors"></a>Multivectors
 

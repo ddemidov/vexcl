@@ -40,6 +40,11 @@ THE SOFTWARE.
 
 #include <vexcl/vector.hpp>
 
+#include <boost/fusion/container/vector.hpp>
+#include <boost/fusion/container/vector/convert.hpp>
+#include <boost/fusion/algorithm/transformation/push_back.hpp>
+#include <boost/fusion/include/value_at.hpp>
+
 namespace vex {
 
 /// \cond INTERNAL
@@ -53,8 +58,10 @@ typedef vector_expression<
 template <typename T, class Slice>
 struct vector_view : public vector_view_terminal_expression
 {
+    typedef T value_type;
+
     const vector<T> &base;
-    const Slice     &slice;
+    const Slice      slice;
 
     vector_view(const vector<T> &base, const Slice &slice)
         : base(base), slice(slice)
@@ -65,7 +72,8 @@ struct vector_view : public vector_view_terminal_expression
                 );
     }
 
-    // Expression assignments.
+    // Expression assignments (copy assignment needs to be explicitly defined
+    // to allow vector_view to vector_view assignment).
 #define ASSIGNMENT(cop, op) \
     template <class Expr> \
     typename std::enable_if< \
@@ -78,7 +86,15 @@ struct vector_view : public vector_view_terminal_expression
     operator cop(const Expr &expr) { \
         std::vector<size_t> part(2, 0); \
         part.back() = slice.size(); \
+        if (part.back() == 0) part.back() = base.size(); \
         detail::assign_expression<op>(*this, expr, base.queue_list(), part); \
+        return *this; \
+    } \
+    const vector_view& operator cop(const vector_view &other) { \
+        std::vector<size_t> part(2, 0); \
+        part.back() = slice.size(); \
+        if (part.back() == 0) part.back() = base.size(); \
+        detail::assign_expression<op>(*this, other, base.queue_list(), part); \
         return *this; \
     }
 
@@ -103,53 +119,66 @@ struct vector_view : public vector_view_terminal_expression
 namespace traits {
 
 template <>
-struct is_vector_expr_terminal< vector_view_terminal >
-    : std::true_type
-{ };
+struct is_vector_expr_terminal< vector_view_terminal > : std::true_type {};
 
-template <typename T, class Slice>
-struct kernel_name< vector_view<T, Slice> > {
-    static std::string get() {
-        return "view_";
-    }
-};
-
-template <typename T, class Slice>
-struct partial_vector_expr< vector_view<T, Slice> > {
-    static std::string get(const cl::Device&, int component, int position,
-            detail::kernel_generator_state&)
-    {
-        return Slice::partial_expression(component, position);
-    }
-};
+template <>
+struct proto_terminal_is_value< vector_view_terminal > : std::true_type {};
 
 template <typename T, class Slice>
 struct terminal_preamble< vector_view<T, Slice> > {
-    static std::string get(const cl::Device&, int component, int position,
-            detail::kernel_generator_state&)
+    static std::string get(const vector_view<T, Slice> &term,
+            const cl::Device &device, const std::string &prm_name,
+            detail::kernel_generator_state_ptr state)
     {
-        return Slice::indexing_function(component, position);
+        return term.slice.preamble(prm_name, device, state);
     }
 };
 
 template <typename T, class Slice>
 struct kernel_param_declaration< vector_view<T, Slice> > {
-    static std::string get(const cl::Device&, int component, int position,
-            detail::kernel_generator_state&)
+    static std::string get(const vector_view<T, Slice> &term,
+            const cl::Device &device, const std::string &prm_name,
+            detail::kernel_generator_state_ptr state)
     {
-        return Slice::template parameter_declaration<T>(component, position);
+        std::ostringstream s;
+
+        s << ",\n\tglobal " << type_name<T>() << " * " << prm_name << "_base"
+          << term.slice.template parameter_declaration<T>(prm_name, device, state);
+
+        return s.str();
+    }
+};
+
+template <typename T, class Slice>
+struct local_terminal_init< vector_view<T, Slice> > {
+    static std::string get(const vector_view<T, Slice> &term,
+            const cl::Device &device, const std::string &prm_name,
+            detail::kernel_generator_state_ptr state)
+    {
+        return term.slice.local_preamble(prm_name, device, state);
+    }
+};
+
+template <typename T, class Slice>
+struct partial_vector_expr< vector_view<T, Slice> > {
+    static std::string get(const vector_view<T, Slice> &term,
+            const cl::Device &device, const std::string &prm_name,
+            detail::kernel_generator_state_ptr state)
+    {
+        return term.slice.partial_expression(prm_name, device, state);
     }
 };
 
 template <typename T, class Slice>
 struct kernel_arg_setter< vector_view<T, Slice> > {
-    static void set(cl::Kernel &kernel, unsigned device, size_t index_offset,
-            unsigned &position, const vector_view<T, Slice> &term,
-            detail::kernel_generator_state&)
+    static void set(const vector_view<T, Slice> &term,
+            cl::Kernel &kernel, unsigned device, size_t index_offset,
+            unsigned &position, detail::kernel_generator_state_ptr state)
     {
         assert(device == 0);
 
-        Slice::setArgs(kernel, device, index_offset, position, term);
+        kernel.setArg(position++, term.base(device));
+        term.slice.setArgs(kernel, device, index_offset, position, state);
     }
 };
 
@@ -224,13 +253,15 @@ struct gslice {
 
     size_t size() const {
         return std::accumulate(length, length + NDIM,
-	    static_cast<size_t>(1), std::multiplies<size_t>());
+            static_cast<size_t>(1), std::multiplies<size_t>());
     }
 
-    static std::string indexing_function(int component, int position) {
+    std::string preamble(const std::string &prm_name,
+            const cl::Device&, detail::kernel_generator_state_ptr) const
+    {
         std::ostringstream s;
 
-        s << type_name<size_t>() << " slice_" << component << "_" << position
+        s << type_name<size_t>() << " slice_" << prm_name
           << "(\n\t" << type_name<size_t>() << " start";
         for(size_t k = 0; k < NDIM; ++k)
             s << ",\n\t" << type_name<size_t>() << " length" << k
@@ -252,49 +283,49 @@ struct gslice {
         return s.str();
     }
 
-    static std::string partial_expression(int component, int position) {
-        std::ostringstream prm;
-        prm << "prm_" << component << "_" << position << "_";
-
+    template <typename T>
+    std::string parameter_declaration(const std::string &prm_name,
+            const cl::Device&, detail::kernel_generator_state_ptr) const
+    {
         std::ostringstream s;
 
-        s << prm.str() << "base["
-          << "slice_" << component << "_" << position << "("
-          << prm.str() << "start";
+        s << ", " << type_name<size_t>() << " " << prm_name << "_start";
+
         for(size_t k = 0; k < NDIM; ++k)
-            s << ", " << prm.str() << "length" << k
-              << ", " << prm.str() << "stride" << k;
+            s << ", " << type_name<size_t>()    << " " << prm_name << "_length" << k
+              << ", " << type_name<ptrdiff_t>() << " " << prm_name << "_stride" << k;
+
+        return s.str();
+    }
+
+    std::string local_preamble(const std::string&/*prm_name*/,
+            const cl::Device&, detail::kernel_generator_state_ptr) const
+    {
+        return "";
+    }
+
+    std::string partial_expression(const std::string &prm_name,
+            const cl::Device&, detail::kernel_generator_state_ptr) const
+    {
+        std::ostringstream s;
+
+        s << prm_name << "_base[" << "slice_" << prm_name << "("
+          << prm_name << "_start";
+        for(size_t k = 0; k < NDIM; ++k)
+            s << ", " << prm_name << "_length" << k
+              << ", " << prm_name << "_stride" << k;
         s << ", idx)]";
 
         return s.str();
     }
 
-    template <typename T>
-    static std::string parameter_declaration(int component, int position) {
-        std::ostringstream prm;
-        prm << "prm_" << component << "_" << position << "_";
-
-        std::ostringstream s;
-
-        s << ",\n\tglobal " << type_name<T>() << " * " << prm.str() << "base"
-          << ", " << type_name<size_t>() << " " << prm.str() << "start";
-
-        for(size_t k = 0; k < NDIM; ++k)
-            s << ", " << type_name<size_t>()    << " " << prm.str() << "length" << k
-              << ", " << type_name<ptrdiff_t>() << " " << prm.str() << "stride" << k;
-
-        return s.str();
-    }
-
-    template <typename T>
-    static void setArgs(cl::Kernel &kernel, unsigned device, size_t/*index_offset*/,
-	    unsigned &position, const vector_view<T, gslice> &term)
+    void setArgs(cl::Kernel &kernel, unsigned/*device*/, size_t/*index_offset*/,
+            unsigned &position, detail::kernel_generator_state_ptr) const
     {
-        kernel.setArg(position++, term.base(device));
-        kernel.setArg(position++, term.slice.start);
+        kernel.setArg(position++, start);
         for(size_t k = 0; k < NDIM; ++k) {
-            kernel.setArg(position++, term.slice.length[k]);
-            kernel.setArg(position++, term.slice.stride[k]);
+            kernel.setArg(position++, length[k]);
+            kernel.setArg(position++, stride[k]);
         }
     }
 
@@ -316,6 +347,10 @@ struct range {
     /// All elements in this dimension.
     range () : start(0), stride(0), stop(0) {}
 
+    /// Range with a single element.
+    range(size_t i)
+        : start(i), stride(1), stop(i + 1) {}
+
     /// Elements from open interval with given stride.
     range(size_t start, size_t stride, size_t stop)
         : start(start), stride(stride), stop(stop) {}
@@ -328,6 +363,63 @@ struct range {
         return !(start || stride || stop);
     }
 };
+
+const range _;
+
+template <size_t NDIM>
+struct extent_gen {
+    std::array<size_t, NDIM> dim;
+
+    extent_gen() {}
+
+    extent_gen<NDIM + 1> operator[](size_t new_dim) const {
+        extent_gen<NDIM + 1> new_extent;
+        std::copy(dim.begin(), dim.end(), new_extent.dim.begin());
+        new_extent.dim.back() = new_dim;
+        return new_extent;
+    }
+
+    size_t size() const {
+        return std::accumulate(dim.begin(), dim.end(),
+                static_cast<size_t>(1), std::multiplies<size_t>());
+    }
+};
+
+const extent_gen<0> extents;
+
+template <size_t NR, class Dimensions = boost::fusion::vector<> >
+struct index_gen {
+    std::array<range, NR> ranges;
+
+    index_gen() {}
+
+    typedef
+        typename boost::fusion::result_of::as_vector<
+            typename boost::fusion::result_of::push_back<
+                Dimensions,
+                boost::mpl::size_t<NR>
+            >::type
+        >::type next_dim;
+
+    index_gen<NR+1, next_dim> operator[](const range &r) const {
+        return append_range<next_dim>(r);
+    }
+
+    index_gen<NR+1, Dimensions> operator[](size_t i) const {
+        return append_range<Dimensions>(i);
+    }
+
+    private:
+        template <class Dim>
+        index_gen<NR+1, Dim> append_range(const range &r) const {
+            index_gen<NR+1, Dim> idx;
+            std::copy(ranges.begin(), ranges.end(), idx.ranges.begin());
+            idx.ranges.back() = r;
+            return idx;
+        }
+};
+
+const index_gen<0> indices;
 
 /// Slicing operator.
 /**
@@ -347,159 +439,442 @@ struct range {
  * z = slice[range(0, 2, n)][5](x); // Put even elements of 5-th column of x into z.
  * \endcode
  */
-template <size_t NDIM>
-class slicer {
-    private:
-        std::array<size_t, NDIM> dim;
+template <size_t NR>
+struct slicer {
+    std::array<size_t, NR> dim;
+    std::array<size_t, NR> stride;
 
-    public:
-        template <size_t CDIM>
-        struct slice : public gslice<NDIM> {
-            std::array<size_t, NDIM> dim;
+    template <typename T>
+    slicer(const std::array<T, NR> &target_dimensions) {
+        init(target_dimensions.data());
+    }
 
-#ifndef BOOST_NO_INITIALIZER_LISTS
-            template <typename T1, typename T2>
-            slice(size_t start,
-                  const std::initializer_list<T1> &length,
-                  const std::initializer_list<T2> &stride,
-                  const std::array<size_t, NDIM> &dim
-                 ) : gslice<NDIM>(start, length, stride), dim(dim) {}
+    template <typename T>
+    slicer(const T *target_dimensions) {
+        init(target_dimensions);
+    }
+
+    slicer(const extent_gen<NR> &ext) {
+        init(ext.dim.data());
+    }
+
+    template <class Dimensions>
+    gslice<NR> operator()(const index_gen<NR, Dimensions> &idx) const {
+        size_t start = 0;
+        std::array<size_t, NR> len;
+        std::array<size_t, NR> str;
+
+        for(size_t i = 0; i < NR; ++i) {
+            range r = idx.ranges[i].empty() ? range(0, dim[i]) : idx.ranges[i];
+
+            start += r.start * stride[i];
+            len[i] = (r.stop - r.start + r.stride - 1) / r.stride;
+            str[i] = r.stride * stride[i];
+        }
+
+        return gslice<NR>(start, len, str);
+    }
+
+    template <size_t C>
+    struct slice : public gslice<NR> {
+        const slicer &parent;
+
+        slice(const slicer &parent, const range &r)
+            : gslice<NR>(r.start * parent.stride[0], parent.dim, parent.stride),
+              parent(parent)
+        {
+            static_assert(C == 0, "Wrong slice constructor!");
+
+            this->length[0] = (r.stop - r.start + r.stride - 1) / r.stride;
+            this->stride[0] *= r.stride;
+        }
+
+        slice(const slice<C-1> &parent, const range &r)
+            : gslice<NR>(parent),
+              parent(parent.parent)
+        {
+            static_assert(C > 0, "Wrong slice constructor!");
+
+            this->start += r.start * this->stride[C];
+            this->length[C] = (r.stop - r.start + r.stride - 1) / r.stride;
+            this->stride[C] *= r.stride;
+        }
+
+#ifdef _MSC_VER
+#  pragma warning(push)
+#  pragma warning(disable: 4307)
 #endif
-
-            template <typename T1, typename T2>
-            slice(size_t start,
-                  const std::array<T1, NDIM> &length,
-                  const std::array<T2, NDIM> &stride,
-                  const std::array<size_t, NDIM> &dim
-                 ) : gslice<NDIM>(start, length, stride), dim(dim) {}
-
-            template <typename T1, typename T2>
-            slice(size_t start,
-                  const T1 *length,
-                  const T2 *stride,
-                  const std::array<size_t, NDIM> &dim
-                 ) : gslice<NDIM>(start, length, stride), dim(dim) {}
-
-            slice(const slice<CDIM - 1> &parent, const range &r)
-                : gslice<NDIM>(parent.start, parent.length, parent.stride), dim(parent.dim)
-            {
-                this->start += r.start * this->stride[CDIM];
-                this->length[CDIM] = (r.stop - r.start + r.stride - 1) / r.stride;
-                this->stride[CDIM] *= r.stride;
-            }
-
-            slice<CDIM + 1> operator[](const range &r) const {
-                static_assert(CDIM + 1 < NDIM, "Incorrect dimensions in vex::slicer[]");
-
-                if (r.empty())
-                    return slice<CDIM + 1>(*this, range(0, dim[CDIM + 1]));
-                else
-                    return slice<CDIM + 1>(*this, r);
-            };
-
-            slice<CDIM + 1> operator[](size_t i) const {
-                return this->operator[](range(i, i + 1));
-            }
-        };
-
-#ifndef BOOST_NO_INITIALIZER_LISTS
-        template <typename T>
-        slicer(const std::initializer_list<T> &target_dimensions) {
-            std::copy(target_dimensions.begin(), target_dimensions.end(), dim.begin());
+        slice<C+1> operator[](const range &r) const {
+            return slice<C+1>(*this, r.empty() ? range(0, parent.dim[C + 1]) : r);
         }
+#ifdef _MSC_VER
+#  pragma warning(pop)
 #endif
-        template <typename T>
-        slicer(const std::array<T, NDIM> &target_dimensions) {
-            std::copy(target_dimensions.begin(), target_dimensions.end(), dim.begin());
-        }
+    };
 
-        template <typename T>
-        slicer(const T *target_dimensions) {
-            std::copy(target_dimensions, target_dimensions + NDIM, dim.begin());
-        }
+    slice<0> operator[](const range &r) const {
+        return slice<0>(*this, r.empty() ? range(0, dim[0]) : r);
+    }
 
-        slice<0> operator[](const range &r) const {
-            if (r.empty())
-                return get_slice(range(0, dim[0]));
-            else
-                return get_slice(r);
-        }
-
-        slice<0> operator[](size_t i) const {
-            return this->operator[](range(i, i + 1));
-        }
     private:
-        slice<0> get_slice(const range &r) const {
-            std::array<size_t, NDIM> stride;
+        template <typename T>
+        void init(const T *target_dim) {
+            std::copy(target_dim, target_dim + NR, dim.begin());
 
-            stride[NDIM - 1] = 1;
-            for(size_t j = 1, i = NDIM - 2; j < NDIM; ++j, --i)
+            stride.back() = 1;
+            for(size_t j = 1, i = NR - 2; j < NR; ++j, --i)
                 stride[i] = stride[i + 1] * dim[j - 1];
-
-            size_t start = r.start * stride[0];
-            stride[0] *= r.stride;
-
-            std::array<size_t, NDIM> length = {{(r.stop - r.start + r.stride - 1) / r.stride}};
-            std::copy(dim.begin() + 1, dim.end(), length.begin() + 1);
-
-            return slice<0>(start, length, stride, dim);
         }
 };
 
+/// Expression-based permutation operator.
+template <class Expr>
+struct expr_permutation {
+    const Expr expr;
 
-/// Permutation operator.
-struct permutation {
-    const vector<size_t> &index;
-
-    permutation(const vector<size_t> &index) : index(index) {
-        assert(index.queue_list().size() == 1);
-    }
+    expr_permutation(const Expr &expr) : expr(expr) {}
 
     size_t size() const {
-        return index.size();
+        detail::get_expression_properties prop;
+        detail::extract_terminals()(expr, prop);
+        return prop.size;
     }
 
-    static std::string partial_expression(int component, int position) {
-        std::ostringstream prm;
-        prm << "prm_" << component << "_" << position << "_";
-
-        std::ostringstream s;
-        s << prm.str() << "base[" << prm.str() << "index[idx]]";
-
-        return s.str();
-    }
-
-    static std::string indexing_function(int/*component*/, int/*position*/) {
-        return "";
-    }
-
-    template <typename T>
-    static std::string parameter_declaration(int component, int position) {
-        std::ostringstream prm;
-        prm << "prm_" << component << "_" << position << "_";
-
-        std::ostringstream s;
-
-        s << ",\n\tglobal " << type_name<T>() << " * " << prm.str() << "base"
-          << ", global " << type_name<size_t>() << " * " << prm.str() << "index";
-
-        return s.str();
-    }
-
-    template <typename T>
-    static void setArgs(cl::Kernel &kernel, unsigned device, size_t/*index_offset*/,
-	    unsigned &position, const vector_view<T, permutation> &term)
+    std::string preamble(const std::string &prm_name,
+            const cl::Device &dev, detail::kernel_generator_state_ptr state) const
     {
-        kernel.setArg(position++, term.base(device));
-        kernel.setArg(position++, term.slice.index(device));
+        std::ostringstream s;
+
+        detail::output_terminal_preamble ctx(s, dev, prm_name, state);
+        boost::proto::eval(boost::proto::as_child(expr), ctx);
+
+        return s.str();
     }
 
     template <typename T>
-    vector_view<T, permutation> operator()(const vector<T> &base) const {
+    std::string parameter_declaration(const std::string &prm_name,
+            const cl::Device &dev, detail::kernel_generator_state_ptr state) const
+    {
+        std::ostringstream s;
+
+        detail::declare_expression_parameter ctx(s, dev, prm_name, state);
+        detail::extract_terminals()(boost::proto::as_child(expr), ctx);
+
+        return s.str();
+    }
+
+    std::string local_preamble(const std::string &prm_name,
+            const cl::Device &dev, detail::kernel_generator_state_ptr state) const
+    {
+        std::ostringstream s;
+
+        detail::output_local_preamble init_ctx(s, dev, prm_name, state);
+        boost::proto::eval(boost::proto::as_child(expr), init_ctx);
+
+        return s.str();
+    }
+
+    std::string partial_expression(const std::string &prm_name,
+            const cl::Device &dev, detail::kernel_generator_state_ptr state) const
+    {
+        std::ostringstream s;
+        s << prm_name << "_base[";
+        detail::vector_expr_context ctx(s, dev, prm_name, state);
+        boost::proto::eval(boost::proto::as_child(expr), ctx);
+        s << "]";
+
+        return s.str();
+    }
+
+    void setArgs(cl::Kernel &kernel, unsigned device, size_t index_offset,
+            unsigned &position, detail::kernel_generator_state_ptr state) const
+    {
+        detail::extract_terminals()( boost::proto::as_child(expr),
+                detail::set_expression_argument(kernel, device, position, index_offset, state));
+    }
+
+    template <typename T>
+    vector_view<T, expr_permutation> operator()(const vector<T> &base) const {
         assert(base.queue_list().size() == 1);
-        return vector_view<T, permutation>(base, *this);
+        return vector_view<T, expr_permutation>(base, *this);
     }
 };
+
+/// Returns permutation functor which is based on an integral expression.
+/**
+ * Example:
+ * \code
+ * auto reverse = vex::eslice(N - 1 - vex::element_index());
+ * Y = reverse(X);
+ * \endcode
+ */
+template <class Expr>
+#ifdef DOXYGEN
+expr_permutation<Expr>
+#else
+typename std::enable_if<
+    std::is_integral<typename detail::return_type<Expr>::type>::value,
+    expr_permutation<
+        typename boost::proto::result_of::as_child<const Expr, vector_domain>::type
+    >
+>::type
+#endif
+permutation(const Expr &expr) {
+    return expr_permutation<
+        typename boost::proto::result_of::as_child<const Expr, vector_domain>::type
+        >(boost::proto::as_child(expr));
+}
+
+//---------------------------------------------------------------------------
+// Slice reduction
+//---------------------------------------------------------------------------
+/// \cond INTERNAL
+struct reduced_vector_view_terminal {};
+
+typedef vector_expression<
+    typename boost::proto::terminal< reduced_vector_view_terminal >::type
+    > reduced_vector_view_terminal_expression;
+
+template <class Expr, size_t NDIM, size_t NR, class RDC>
+struct reduced_vector_view : public reduced_vector_view_terminal_expression
+{
+    typedef typename detail::return_type<Expr>::type value_type;
+    const Expr   &expr;
+    gslice<NDIM> slice;
+    std::array<size_t, NR> reduce_dims;
+
+    reduced_vector_view(
+            const Expr &expr, const gslice<NDIM> slice, std::array<size_t, NR> dims
+            ) : expr(expr), slice(slice)
+    {
+        std::copy(dims.begin(), dims.end(), reduce_dims.begin());
+        std::sort(reduce_dims.begin(), reduce_dims.end());
+    }
+};
+
+namespace traits {
+
+template <>
+struct is_vector_expr_terminal< reduced_vector_view_terminal >
+    : std::true_type
+{ };
+
+template <>
+struct proto_terminal_is_value< reduced_vector_view_terminal >
+    : std::true_type
+{ };
+
+template <class Expr, size_t NDIM, size_t NR, class RDC>
+struct terminal_preamble< reduced_vector_view<Expr, NDIM, NR, RDC> > {
+    static std::string get(const reduced_vector_view<Expr, NDIM, NR, RDC> &term,
+            const cl::Device &device, const std::string &prm_name,
+            detail::kernel_generator_state_ptr state)
+    {
+        std::ostringstream s;
+
+        detail::output_terminal_preamble termpream(s, device, prm_name, state);
+        boost::proto::eval(boost::proto::as_child(term.expr), termpream);
+
+        std::ostringstream rdc_name;
+        rdc_name << "reduce_op_" << prm_name;
+
+        typedef typename detail::return_type<Expr>::type T;
+        typedef typename RDC::template function<T> fun;
+
+        fun::define(s, rdc_name.str());
+
+        return s.str();
+    }
+};
+
+template <typename Expr, size_t NDIM, size_t NR, class RDC>
+struct local_terminal_init< reduced_vector_view<Expr, NDIM, NR, RDC> > {
+    static std::string get(const reduced_vector_view<Expr, NDIM, NR, RDC> &term,
+            const cl::Device &device, const std::string &prm_name,
+            detail::kernel_generator_state_ptr state)
+    {
+        typedef typename detail::return_type<Expr>::type T;
+
+        std::ostringstream s;
+        std::ostringstream rdc_name;
+        rdc_name << "reduce_op_" << prm_name;
+
+        s << "\t\t" << type_name<T>() << " " << prm_name << "_sum = "
+          << RDC::template initial<T>() << ";\n\t\t{\n";
+
+        std::ostringstream indent;
+        indent << "\t\t\t";
+
+        s << indent.str() << "size_t pos = idx;\n";
+        s << indent.str() << "size_t ptr" << NDIM - NR - 1 << " = " << prm_name << "_start + (pos % " << prm_name << "_length" << NDIM - NR - 1
+          << ") * " << prm_name << "_stride" << NDIM - NR - 1 << ";\n";
+        for(size_t k = NDIM - NR - 1; k-- > 0;)
+            s << indent.str() << "pos /= " << prm_name << "_length" << k + 1 << ";\n"
+              "\tptr" << NDIM - NR - 1 << " += (pos % " << prm_name << "_length" << k
+              << ") * " << prm_name << "_stride" << k << ";\n";
+
+        for(size_t k = NDIM - NR; k < NDIM; ++k) {
+            s << indent.str() << "for(size_t i" << k << " = 0, ptr" << k
+              << " = ptr" << k - 1 << "; i" << k << " < " << prm_name << "_length" << k << "; ++i"
+              << k << ", ptr" << k << " += " << prm_name << "_stride" << k << ")\n";
+            indent << "\t";
+        }
+
+        s << indent.str() << "{\n"
+          << indent.str() << "\tsize_t idx = ptr" << NDIM - 1 << ";\n";
+
+        detail::output_local_preamble init_ctx(s, device, prm_name, state);
+        boost::proto::eval(boost::proto::as_child(term.expr), init_ctx);
+
+        s << indent.str() << "\t" << prm_name << "_sum = "
+          << rdc_name.str() << "(" << prm_name << "_sum, ";
+
+        detail::vector_expr_context expr_ctx(s, device, prm_name, state);
+        boost::proto::eval(boost::proto::as_child(term.expr), expr_ctx);
+
+        s << ");\n" << indent.str() << "}\n\t\t}\n";
+
+        return s.str();
+    }
+};
+
+template <typename Expr, size_t NDIM, size_t NR, class RDC>
+struct kernel_param_declaration< reduced_vector_view<Expr, NDIM, NR, RDC> > {
+    static std::string get(const reduced_vector_view<Expr, NDIM, NR, RDC> &term,
+            const cl::Device &device, const std::string &prm_name,
+            detail::kernel_generator_state_ptr state)
+    {
+        typedef typename detail::return_type<Expr>::type T;
+
+        std::ostringstream s;
+
+        detail::declare_expression_parameter declare(s, device, prm_name, state);
+        detail::extract_terminals()(boost::proto::as_child(term.expr), declare);
+
+        s << term.slice.template parameter_declaration<T>(prm_name, device, state);
+
+        return s.str();
+    }
+};
+
+template <typename Expr, size_t NDIM, size_t NR, class RDC>
+struct partial_vector_expr< reduced_vector_view<Expr, NDIM, NR, RDC> > {
+    static std::string get(const reduced_vector_view<Expr, NDIM, NR, RDC>&,
+            const cl::Device&, const std::string &prm_name,
+            detail::kernel_generator_state_ptr)
+    {
+        std::ostringstream s;
+        s << prm_name << "_sum";
+        return s.str();
+    }
+};
+
+template <typename Expr, size_t NDIM, size_t NR, class RDC>
+struct kernel_arg_setter< reduced_vector_view<Expr, NDIM, NR, RDC> > {
+    static void set(const reduced_vector_view<Expr, NDIM, NR, RDC> &term,
+            cl::Kernel &kernel, unsigned device, size_t index_offset,
+            unsigned &position, detail::kernel_generator_state_ptr state)
+    {
+        detail::set_expression_argument setarg(kernel, device, position, index_offset, state);
+        detail::extract_terminals()( boost::proto::as_child(term.expr), setarg);
+
+        kernel.setArg(position++, term.slice.start);
+
+        for(size_t k = 0; k < NDIM; ++k) {
+            if (!std::binary_search(term.reduce_dims.begin(), term.reduce_dims.end(), k)) {
+                kernel.setArg(position++, term.slice.length[k]);
+                kernel.setArg(position++, term.slice.stride[k]);
+            }
+        }
+
+        for(size_t k = 0; k < NR; ++k) {
+            kernel.setArg(position++, term.slice.length[term.reduce_dims[k]]);
+            kernel.setArg(position++, term.slice.stride[term.reduce_dims[k]]);
+        }
+    }
+};
+
+template <typename Expr, size_t NDIM, size_t NR, class RDC>
+struct expression_properties< reduced_vector_view<Expr, NDIM, NR, RDC> > {
+    static void get(const reduced_vector_view<Expr, NDIM, NR, RDC> &term,
+            std::vector<cl::CommandQueue> &queue_list,
+            std::vector<size_t> &partition,
+            size_t &size
+            )
+    {
+        detail::get_expression_properties prop;
+        detail::extract_terminals()(boost::proto::as_child(term.expr), prop);
+
+        queue_list = prop.queue;
+
+        queue_list = term.base.queue_list();
+        partition  = std::vector<size_t>(2, 0);
+        size       = 1;
+
+        for(size_t k = 0; k < NDIM; ++k)
+            if (!std::binary_search(term.reduce_dims.begin(), term.reduce_dims.end(), k))
+                size *= term.slice[k];
+
+        partition.back() = size;
+    }
+};
+
+} // namespace traits
+/// \endcond
+
+/// Reduce vector_view along specified dimensions.
+template <class RDC, typename T, size_t NDIM, size_t NR>
+reduced_vector_view<vector<T>, NDIM, NR, RDC> reduce(
+        const vector_view<T, gslice<NDIM> > &view,
+        const std::array<size_t, NR> &reduce_dims
+        )
+{
+    return reduced_vector_view<vector<T>, NDIM, NR, RDC>(view.base, view.slice, reduce_dims);
+}
+
+/// Reduce vector_view along specified dimension.
+template <class RDC, typename T, size_t NDIM>
+reduced_vector_view<vector<T>, NDIM, 1, RDC> reduce(
+        const vector_view<T, gslice<NDIM> > &view,
+        size_t reduce_dim
+        )
+{
+    std::array<size_t, 1> dim = {{reduce_dim}};
+    return reduced_vector_view<vector<T>, NDIM, 1, RDC>(view.base, view.slice, dim);
+}
+
+/// Reduce sliced expression along specified dimensions.
+template <class RDC, typename Expr, size_t NDIM, size_t NR>
+reduced_vector_view<
+    typename boost::proto::result_of::as_child<const Expr, vector_domain>::type,
+    NDIM, NR, RDC
+> reduce(
+        const gslice<NDIM> &slice,
+        const Expr &expr,
+        const std::array<size_t, NR> &reduce_dims
+        )
+{
+    return reduced_vector_view<
+        typename boost::proto::result_of::as_child<const Expr, vector_domain>::type,
+        NDIM, NR, RDC>(boost::proto::as_child(expr), slice, reduce_dims);
+}
+
+/// Reduce sliced expression along specified dimension.
+template <class RDC, typename Expr, size_t NDIM>
+reduced_vector_view<
+    typename boost::proto::result_of::as_child<const Expr, vector_domain>::type,
+    NDIM, 1, RDC
+> reduce(
+        const gslice<NDIM> &slice,
+        const Expr &expr,
+        size_t reduce_dim
+        )
+{
+    std::array<size_t, 1> dim = {{reduce_dim}};
+    return reduced_vector_view<
+        typename boost::proto::result_of::as_child<const Expr, vector_domain>::type,
+        NDIM, 1, RDC>(boost::proto::as_child(expr), slice, dim);
+}
 
 } // namespace vex
 

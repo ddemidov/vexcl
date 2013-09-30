@@ -178,6 +178,8 @@ inline std::vector<size_t> partition(size_t n,
     return partitioning_scheme<>::get(n, queue);
 }
 
+/// \cond INTERNAL
+
 //--- Vector Type -----------------------------------------------------------
 struct vector_terminal {};
 
@@ -202,6 +204,8 @@ struct hold_terminal_by_reference< T,
 
 } // namespace traits
 
+/// \endcond
+
 /// Device vector.
 template <typename T>
 class vector : public vector_terminal_expression {
@@ -221,8 +225,8 @@ class vector : public vector_terminal_expression {
                 /// Read associated element of a vector.
                 operator T() const {
                     T val;
-                    queue.enqueueReadBuffer(
-                            buf, CL_TRUE,
+                    queue->enqueueReadBuffer(
+                            *buf, CL_TRUE,
                             index * sizeof(T), sizeof(T),
                             &val
                             );
@@ -231,20 +235,31 @@ class vector : public vector_terminal_expression {
 
                 /// Write associated element of a vector.
                 T operator=(T val) {
-                    queue.enqueueWriteBuffer(
-                            buf, CL_TRUE,
+                    queue->enqueueWriteBuffer(
+                            *buf, CL_TRUE,
                             index * sizeof(T), sizeof(T),
                             &val
                             );
                     return val;
                 }
-            private:
-                element(const cl::CommandQueue &q, cl::Buffer b, size_t i)
-                    : queue(q), buf(b), index(i) {}
 
-                const cl::CommandQueue  &queue;
-                cl::Buffer              buf;
-                const size_t            index;
+                T operator=(const element &other) {
+                    return (*this) = static_cast<T>(other);
+                }
+
+                friend void swap(element &&a, element &&b) {
+                    T tmp = static_cast<T>(a);
+                    a = static_cast<T>(b);
+                    b = tmp;
+                }
+
+            private:
+                element(const cl::CommandQueue &q, const cl::Buffer &b, size_t i)
+                    : queue(&q), buf(&b), index(i) {}
+
+                const cl::CommandQueue  *queue;
+                const cl::Buffer        *buf;
+                size_t                   index;
 
                 friend class vector;
         };
@@ -270,14 +285,25 @@ class vector : public vector_terminal_expression {
                 }
 
                 iterator_type& operator++() {
-                    pos++;
+                    ++pos;
                     while (part < vec->nparts() && pos >= vec->part[part + 1])
-                        part++;
+                        ++part;
+                    return *this;
+                }
+
+                iterator_type& operator--() {
+                    --pos;
+                    while (part > 0 && pos < vec->part[part])
+                        --part;
                     return *this;
                 }
 
                 iterator_type operator+(ptrdiff_t d) const {
                     return iterator_type(*vec, pos + d);
+                }
+
+                iterator_type operator-(ptrdiff_t d) const {
+                    return iterator_type(*vec, pos - d);
                 }
 
                 ptrdiff_t operator-(iterator_type it) const {
@@ -292,9 +318,9 @@ class vector : public vector_terminal_expression {
                     return pos != it.pos;
                 }
 
-		bool operator<(const iterator_type &it) const {
-		    return pos < it.pos;
-		}
+                bool operator<(const iterator_type &it) const {
+                    return pos < it.pos;
+                }
 
                 vector_type *vec;
                 size_t  pos;
@@ -320,6 +346,7 @@ class vector : public vector_terminal_expression {
         /// Empty constructor.
         vector() {}
 
+#ifndef VEXCL_NO_STATIC_CONTEXT_CONSTRUCTORS
         /// Construct by size and use static context.
         vector(size_t size) :
             queue(current_context().queue()),
@@ -328,12 +355,17 @@ class vector : public vector_terminal_expression {
         {
             if (size) allocate_buffers(CL_MEM_READ_WRITE, 0);
         }
+#endif
 
         /// Copy constructor.
         vector(const vector &v)
             : queue(v.queue), part(v.part),
               buf(queue.size()), event(queue.size())
         {
+#ifdef VEXCL_SHOW_COPIES
+            std::cout << "Copying vex::vector<" << type_name<T>()
+                      << "> of size " << size() << std::endl;
+#endif
             if (size()) allocate_buffers(CL_MEM_READ_WRITE, 0);
             *this = v;
         }
@@ -356,6 +388,7 @@ class vector : public vector_terminal_expression {
             if (size) allocate_buffers(flags, host);
         }
 
+#ifndef VEXCL_NO_STATIC_CONTEXT_CONSTRUCTORS
         /// Copy host data to the new buffer, use static context.
         vector(size_t size, const T *host,
                 cl_mem_flags flags = CL_MEM_READ_WRITE
@@ -364,6 +397,7 @@ class vector : public vector_terminal_expression {
         {
             if (size) allocate_buffers(flags, host);
         }
+#endif
 
         /// Copy host data to the new buffer.
         vector(const std::vector<cl::CommandQueue> &queue,
@@ -375,6 +409,7 @@ class vector : public vector_terminal_expression {
             if (!host.empty()) allocate_buffers(flags, host.data());
         }
 
+#ifndef VEXCL_NO_STATIC_CONTEXT_CONSTRUCTORS
         /// Copy host data to the new buffer, use static context.
         vector(const std::vector<T> &host,
                 cl_mem_flags flags = CL_MEM_READ_WRITE
@@ -383,6 +418,7 @@ class vector : public vector_terminal_expression {
         {
             if (!host.empty()) allocate_buffers(flags, host.data());
         }
+#endif
 
         /// Move constructor
         vector(vector &&v) noexcept {
@@ -396,7 +432,7 @@ class vector : public vector_terminal_expression {
          */
         template <class Expr
 #ifndef BOOST_NO_CXX11_FUNCTION_TEMPLATE_DEFAULT_ARGS
-	    , class Enable = typename std::enable_if<
+            , class Enable = typename std::enable_if<
             !std::is_integral<Expr>::value &&
                 boost::proto::matches<
                     typename boost::proto::result_of::as_expr<Expr>::type,
@@ -404,16 +440,16 @@ class vector : public vector_terminal_expression {
                 >::value
             >::type
 #endif
-	>
+        >
         vector(const Expr &expr) {
 #ifdef BOOST_NO_CXX11_FUNCTION_TEMPLATE_DEFAULT_ARGS
-	    static_assert(
+            static_assert(
                 boost::proto::matches<
                     typename boost::proto::result_of::as_expr<Expr>::type,
                     vector_expr_grammar
                 >::value,
-		"Only vector expressions can be used to initialize a vector"
-		);
+                "Only vector expressions can be used to initialize a vector"
+                );
 #endif
             detail::get_expression_properties prop;
             detail::extract_terminals()(expr, prop);
@@ -826,7 +862,7 @@ class vector : public vector_terminal_expression {
             if (hostptr) write_data(0, size(), hostptr, CL_TRUE);
         }
 
-        template <typename S, size_t N, bool own>
+        template <typename S, size_t N>
         friend class multivector;
 };
 
@@ -836,46 +872,40 @@ class vector : public vector_terminal_expression {
 namespace traits {
 
 template <>
-struct is_vector_expr_terminal< vector_terminal >
-    : std::true_type
-{ };
+struct is_vector_expr_terminal< vector_terminal > : std::true_type {};
+
+template <>
+struct proto_terminal_is_value< vector_terminal > : std::true_type {};
 
 template <typename T>
-struct kernel_name< vector<T> > {
-    static std::string get() {
-        return "vector_";
-    }
-};
-
-template <typename T>
-struct partial_vector_expr< vector<T> > {
-    static std::string get(const cl::Device&,
-            int component, int position,
-            detail::kernel_generator_state&)
+struct kernel_param_declaration< vector<T> > {
+    static std::string get(const vector<T>&,
+            const cl::Device&, const std::string &prm_name,
+            detail::kernel_generator_state_ptr)
     {
         std::ostringstream s;
-        s << "prm_" << component << "_" << position << "[idx]";
+        s << ",\n\tglobal " << type_name<T>() << " * " << prm_name;
         return s.str();
     }
 };
 
 template <typename T>
-struct kernel_param_declaration< vector<T> > {
-    static std::string get(const cl::Device&,
-            int component, int position,
-            detail::kernel_generator_state&)
+struct partial_vector_expr< vector<T> > {
+    static std::string get(const vector<T>&,
+            const cl::Device&, const std::string &prm_name,
+            detail::kernel_generator_state_ptr)
     {
         std::ostringstream s;
-        s << ",\n\tglobal " << type_name<T>() << " * prm_" << component << "_" << position;
+        s << prm_name << "[idx]";
         return s.str();
     }
 };
 
 template <typename T>
 struct kernel_arg_setter< vector<T> > {
-    static void set(cl::Kernel &kernel, unsigned device, size_t/*index_offset*/,
-            unsigned &position, const vector<T> &term,
-            detail::kernel_generator_state&)
+    static void set(const vector<T> &term,
+            cl::Kernel &kernel, unsigned device, size_t/*index_offset*/,
+            unsigned &position, detail::kernel_generator_state_ptr)
     {
         kernel.setArg(position++, term(device));
     }
@@ -936,6 +966,9 @@ struct stored_on_device<Iterator,
 
 /// Copy range from device vector to host vector.
 template<class InputIterator, class OutputIterator>
+#ifdef DOXYGEN
+OutputIterator
+#else
 typename std::enable_if<
     std::is_same<
         typename std::iterator_traits<InputIterator>::value_type,
@@ -945,6 +978,7 @@ typename std::enable_if<
     !stored_on_device<OutputIterator>::value,
     OutputIterator
     >::type
+#endif
 copy(InputIterator first, InputIterator last,
         OutputIterator result, cl_bool blocking = CL_TRUE)
 {
@@ -954,6 +988,9 @@ copy(InputIterator first, InputIterator last,
 
 /// Copy range from host vector to device vector.
 template<class InputIterator, class OutputIterator>
+#ifdef DOXYGEN
+OutputIterator
+#else
 typename std::enable_if<
     std::is_same<
         typename std::iterator_traits<InputIterator>::value_type,
@@ -963,6 +1000,7 @@ typename std::enable_if<
     stored_on_device<OutputIterator>::value,
     OutputIterator
     >::type
+#endif
 copy(InputIterator first, InputIterator last,
         OutputIterator result, cl_bool blocking = CL_TRUE)
 {

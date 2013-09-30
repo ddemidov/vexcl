@@ -321,11 +321,11 @@ struct SpMatHELL : public sparse_matrix {
         mul<assign::ADD>(rem, in, out, scale, wait_for_it);
     }
 
-    static std::string inline_preamble(int component, int position) {
+    static std::string inline_preamble(const std::string &prm_name) {
         std::ostringstream s;
 
         s << type_name<val_t>() <<
-          " hell_spmv_" << component << "_" << position << "(\n"
+          " hell_spmv_" << prm_name << "(\n"
           "    " << type_name<size_t>() << " ell_w,\n"
           "    " << type_name<size_t>() << " ell_pitch,\n"
           "    global const " << type_name<col_t>() << " * ell_col,\n"
@@ -353,38 +353,32 @@ struct SpMatHELL : public sparse_matrix {
         return s.str();
     }
 
-    static std::string inline_expression(int component, int position) {
-        std::ostringstream prm;
-        prm << "prm_" << component << "_" << position << "_";
-
+    static std::string inline_expression(const std::string &prm_name) {
         std::ostringstream s;
-        s << "hell_spmv_" << component << "_" << position << "("
-          << prm.str() << "ell_w, "
-          << prm.str() << "ell_pitch, "
-          << prm.str() << "ell_col, "
-          << prm.str() << "ell_val, "
-          << prm.str() << "csr_row, "
-          << prm.str() << "csr_col, "
-          << prm.str() << "csr_val, "
-          << prm.str() << "vec, idx)";
+        s << "hell_spmv_" << prm_name << "("
+          << prm_name << "_ell_w, "
+          << prm_name << "_ell_pitch, "
+          << prm_name << "_ell_col, "
+          << prm_name << "_ell_val, "
+          << prm_name << "_csr_row, "
+          << prm_name << "_csr_col, "
+          << prm_name << "_csr_val, "
+          << prm_name << "_vec, idx)";
 
         return s.str();
     }
 
-    static std::string inline_parameters(int component, int position) {
-        std::ostringstream prm;
-        prm << "prm_" << component << "_" << position << "_";
-
+    static std::string inline_parameters(const std::string &prm_name) {
         std::ostringstream s;
         s <<
-          ",\n\t" << type_name<size_t>() << " " << prm.str() << "ell_w"
-          ",\n\t" << type_name<size_t>() << " " << prm.str() << "ell_pitch"
-          ",\n\tglobal const " << type_name<col_t>() << " * " << prm.str() << "ell_col"
-          ",\n\tglobal const " << type_name<val_t>() << " * " << prm.str() << "ell_val"
-          ",\n\tglobal const " << type_name<idx_t>() << " * " << prm.str() << "csr_row"
-          ",\n\tglobal const " << type_name<col_t>() << " * " << prm.str() << "csr_col"
-          ",\n\tglobal const " << type_name<val_t>() << " * " << prm.str() << "csr_val"
-          ",\n\tglobal const " << type_name<val_t>() << " * " << prm.str() << "vec";
+          ",\n\t" << type_name<size_t>() << " " << prm_name << "_ell_w"
+          ",\n\t" << type_name<size_t>() << " " << prm_name << "_ell_pitch"
+          ",\n\tglobal const " << type_name<col_t>() << " * " << prm_name << "_ell_col"
+          ",\n\tglobal const " << type_name<val_t>() << " * " << prm_name << "_ell_val"
+          ",\n\tglobal const " << type_name<idx_t>() << " * " << prm_name << "_csr_row"
+          ",\n\tglobal const " << type_name<col_t>() << " * " << prm_name << "_csr_col"
+          ",\n\tglobal const " << type_name<val_t>() << " * " << prm_name << "_csr_val"
+          ",\n\tglobal const " << type_name<val_t>() << " * " << prm_name << "_vec";
 
         return s.str();
     }

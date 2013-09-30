@@ -1,9 +1,11 @@
 #define BOOST_TEST_MODULE VectorArithmetics
 #include <boost/test/unit_test.hpp>
+#include <vexcl/constants.hpp>
 #include <vexcl/vector.hpp>
 #include <vexcl/reductor.hpp>
 #include <vexcl/element_index.hpp>
 #include <vexcl/tagged_terminal.hpp>
+#include <boost/math/constants/constants.hpp>
 #include "context_setup.hpp"
 
 BOOST_AUTO_TEST_CASE(assign_expression)
@@ -56,6 +58,18 @@ BOOST_AUTO_TEST_CASE(reduce_expression)
     BOOST_CHECK_CLOSE(max(X), *std::max_element(x.begin(), x.end()), 1e-6);
 
     BOOST_CHECK_SMALL(max(fabs(X - X)), 1e-12);
+}
+
+BOOST_AUTO_TEST_CASE(static_reductor)
+{
+    const size_t N = 1024;
+
+    vex::vector<double> X(ctx, random_vector<double>(N));
+
+    const vex::Reductor<double,vex::SUM> sum(ctx);
+    const vex::Reductor<double,vex::SUM> &static_sum = vex::get_reductor<double, vex::SUM>(ctx);
+
+    BOOST_CHECK_CLOSE(sum(X), static_sum(X), 1e-6);
 }
 
 BOOST_AUTO_TEST_CASE(builtin_functions)
@@ -112,7 +126,7 @@ BOOST_AUTO_TEST_CASE(element_index)
 
     x = sin(0.5 * vex::element_index());
 
-    check_sample(x, [](size_t idx, double a) { BOOST_CHECK_CLOSE(a, sin(0.5 * idx), 1e-8); });
+    check_sample(x, [](size_t idx, double a) { BOOST_CHECK_CLOSE(a, sin(0.5 * idx), 1e-6); });
 }
 
 BOOST_AUTO_TEST_CASE(vector_values)
@@ -203,19 +217,51 @@ BOOST_AUTO_TEST_CASE(ternary_operator)
             });
 }
 
+BOOST_AUTO_TEST_CASE(assign_to_ternary_operator)
+{
+    const size_t n = 32;
+
+    vex::vector<double> x(ctx, random_vector<double>(n));
+    vex::vector<double> y(ctx, n);
+    vex::vector<double> z(ctx, n);
+
+    y = 0;
+    z = 0;
+
+    vex::tie( *if_else(x < 0.5, &y, &z) ) = 42;
+
+    check_sample(x, y, z, [&](size_t, double X, double Y, double Z) {
+            BOOST_CHECK_EQUAL(X < 0.5 ? Y : Z, 42);
+            BOOST_CHECK_EQUAL(X < 0.5 ? Z : Y, 0);
+            });
+}
+
 BOOST_AUTO_TEST_CASE(combine_expressions)
 {
     const size_t n = 1024;
 
     vex::vector<double> x(ctx, n);
 
-    auto alpha  = vex::tag<1>(2 * M_PI) * vex::tag<2>(vex::element_index());
+    auto alpha  = vex::constants::two_pi() * vex::tag<1>(vex::element_index());
     auto sine   = sin(alpha);
     auto cosine = cos(alpha);
 
     x = pow(sine, 2.0) + pow(cosine, 2.0);
 
     check_sample(x, [](size_t, double v) { BOOST_CHECK_CLOSE(v, 1.0, 1e-8); });
+}
+
+BOOST_AUTO_TEST_CASE(constants)
+{
+    const size_t n = 1024;
+
+    vex::vector<double> x(ctx, n);
+
+    x = std::integral_constant<int, 42>();
+    check_sample(x, [](size_t, double v) { BOOST_CHECK_EQUAL(v, 42); });
+
+    x = vex::constants::pi();
+    check_sample(x, [](size_t, double v) { BOOST_CHECK_CLOSE(v, boost::math::constants::pi<double>(), 1e-8); });
 }
 
 BOOST_AUTO_TEST_SUITE_END()

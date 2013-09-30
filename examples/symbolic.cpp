@@ -10,7 +10,6 @@
 #include <boost/numeric/odeint.hpp>
 
 namespace odeint = boost::numeric::odeint;
-namespace fusion = boost::fusion;
 
 typedef double value_type;
 typedef vex::symbolic< value_type > sym_value;

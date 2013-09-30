@@ -75,10 +75,18 @@ class recorder {
     public:
         static void set(std::ostream &s) {
             os = &s;
+
+            // Reset preamble.
+            preamble.str("");
+            preamble.clear();
         }
 
         static std::ostream& get() {
             return os ? *os : std::cout;
+        }
+
+        static std::ostringstream& get_preamble() {
+            return preamble;
         }
 
         static size_t var_id() {
@@ -87,6 +95,7 @@ class recorder {
     private:
         static size_t index;
         static std::ostream *os;
+        static std::ostringstream preamble;
 };
 
 template <bool dummy>
@@ -95,15 +104,21 @@ size_t recorder<dummy>::index = 0;
 template <bool dummy>
 std::ostream *recorder<dummy>::os = 0;
 
+template <bool dummy>
+std::ostringstream recorder<dummy>::preamble;
+
 inline size_t var_id() {
     return recorder<>::var_id();
 }
-/// \endcond
 
 inline std::ostream& get_recorder() {
     return recorder<>::get();
 }
 
+inline std::ostringstream& get_preamble() {
+    return recorder<>::get_preamble();
+}
+/// \endcond
 
 /// Set output stream for kernel recorder.
 inline void set_recorder(std::ostream &os) {
@@ -126,7 +141,8 @@ struct symbolic_grammar
                   boost::proto::if_< is_cl_native< boost::proto::_value >() >
               >
           >,
-          BUILTIN_OPERATIONS(symbolic_grammar)
+          BUILTIN_OPERATIONS(symbolic_grammar),
+          USER_FUNCTIONS(symbolic_grammar)
       >
 {};
 
@@ -241,8 +257,45 @@ struct symbolic_context {
             }
         };
 
-        void operator()(const Expr &expr, symbolic_context &ctx) const {
+        template <class FunCall>
+	typename std::enable_if<
+	    std::is_base_of<
+		builtin_function,
+		typename boost::proto::result_of::value<
+		    typename boost::proto::result_of::child_c<FunCall,0>::type
+		>::type
+	    >::value,
+            void
+	>::type
+        operator()(const FunCall &expr, symbolic_context &ctx) const {
             get_recorder() << boost::proto::value(boost::proto::child_c<0>(expr)).name() << "( ";
+
+            boost::fusion::for_each(
+                    boost::fusion::pop_front(expr),
+                    display(ctx)
+                    );
+
+            get_recorder() << " )";
+        }
+
+        template <class FunCall>
+	typename std::enable_if<
+	    std::is_base_of<
+		user_function,
+		typename boost::proto::result_of::value<
+		    typename boost::proto::result_of::child_c<FunCall,0>::type
+		>::type
+	    >::value,
+            void
+	>::type
+        operator()(const FunCall &expr, symbolic_context &ctx) const {
+            std::string fname = std::string("fun") + std::to_string(var_id());
+
+            boost::proto::result_of::value<
+		typename boost::proto::result_of::child_c<FunCall,0>::type
+	    >::type::define(get_preamble(), fname);
+
+            get_recorder() << fname << "( ";
 
             boost::fusion::for_each(
                     boost::fusion::pop_front(expr),
@@ -458,6 +511,7 @@ class Kernel {
 
                 source
                     << standard_kernel_header(device)
+                    << get_preamble().str()
                     << "kernel void " << name << "(\n"
                     << "\t" << type_name<size_t>() << " n";
 

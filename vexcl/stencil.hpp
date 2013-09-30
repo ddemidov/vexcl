@@ -89,8 +89,8 @@ struct multiconv
 
     multiconv(const S &s, const V &x) : s(s), x(x), scale(1) {}
 
-    template <bool negate, bool append, bool own>
-    void apply(multivector<value_type, traits::number_of_components<V>::value, own> &y) const
+    template <bool negate, bool append>
+    void apply(multivector<value_type, traits::number_of_components<V>::value> &y) const
     {
         for(size_t i = 0; i < traits::number_of_components<V>::value; i++)
             s.convolve(x(i), y(i), append ? 1 : 0, negate ? -scale : scale);
@@ -597,16 +597,16 @@ operator*(const vector<T> &x, const stencil<T> &s) {
 
 #ifdef VEXCL_MULTIVECTOR_HPP
 
-template <typename T, size_t N, bool own>
-multiconv< stencil<T>, multivector<T, N, own> >
-operator*( const stencil<T> &s, const multivector<T, N, own> &x ) {
-    return multiconv< stencil<T>, multivector<T, N, own> >(s, x);
+template <typename T, size_t N>
+multiconv< stencil<T>, multivector<T, N> >
+operator*( const stencil<T> &s, const multivector<T, N> &x ) {
+    return multiconv< stencil<T>, multivector<T, N> >(s, x);
 }
 
-template <typename T, size_t N, bool own>
-multiconv< stencil<T>, multivector<T, N, own> >
-operator*( const multivector<T, N, own> &x, const stencil<T> &s ) {
-    return multiconv< stencil<T>, multivector<T, N, own> >(s, x);
+template <typename T, size_t N>
+multiconv< stencil<T>, multivector<T, N> >
+operator*( const multivector<T, N> &x, const stencil<T> &s ) {
+    return multiconv< stencil<T>, multivector<T, N> >(s, x);
 }
 
 #endif
@@ -639,10 +639,10 @@ class StencilOperator : private stencil_base<T> {
         }
 
 #ifdef VEXCL_MULTIVECTOR_HPP
-        template <size_t N, bool own>
-        multiconv< StencilOperator, multivector<T, N, own> >
-        operator()(const multivector<T, N, own> &x) const {
-            return multiconv< StencilOperator, multivector<T, N, own> >(*this, x);
+        template <size_t N>
+        multiconv< StencilOperator, multivector<T, N> >
+        operator()(const multivector<T, N> &x) const {
+            return multiconv< StencilOperator, multivector<T, N> >(*this, x);
         }
 #endif
 

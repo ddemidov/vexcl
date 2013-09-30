@@ -3,6 +3,7 @@
 #include <vexcl/vector.hpp>
 #include <vexcl/element_index.hpp>
 #include <vexcl/tagged_terminal.hpp>
+#include <vexcl/temporary.hpp>
 #include <vexcl/reductor.hpp>
 #include <vexcl/vector_view.hpp>
 #include "context_setup.hpp"
@@ -58,6 +59,28 @@ BOOST_AUTO_TEST_CASE(tagged_slice)
 
     check_sample(Y, [&](size_t idx, double v) {
             BOOST_CHECK_CLOSE(v, 42 * x[idx], 1e-8); });
+}
+
+BOOST_AUTO_TEST_CASE(temporary_inside_tag)
+{
+    using vex::tag;
+
+    const size_t n = 1024;
+
+    std::vector<cl::CommandQueue> queue(1, ctx.queue(0));
+
+    std::vector<double> x = random_vector<double>(n);
+
+    vex::vector<double> X(queue, x);
+
+    auto i = vex::make_temp<1>(vex::element_index() + 1);
+    auto reverse = vex::permutation(n - i);
+    vex::vector<double> Y(queue, n);
+
+    Y = vex::tag<1>(reverse(X));
+
+    check_sample(Y, [&](size_t idx, double v) {
+            BOOST_CHECK_EQUAL(v, x[n - (idx + 1)]); });
 }
 
 BOOST_AUTO_TEST_SUITE_END()

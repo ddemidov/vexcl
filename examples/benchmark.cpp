@@ -1,38 +1,54 @@
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <vector>
 #include <tuple>
 #include <numeric>
 #include <random>
+#include <boost/program_options.hpp>
 #include <vexcl/vexcl.hpp>
 
-using namespace vex;
-
-typedef double real;
-
-#define BENCHMARK_VECTOR
-#define BENCHMARK_REDUCTOR
-#define BENCHMARK_STENCIL
-#define BENCHMARK_SPMAT
-#define BENCHMARK_CPU
-
-#ifdef WIN32
+#ifdef _MSC_VER
 #  pragma warning(disable : 4267)
 #endif
 
-std::vector<double> random_vector(size_t n) {
-    static std::default_random_engine rng( std::rand() );
-    static std::uniform_real_distribution<double> rnd(0.0, 1.0);
+//---------------------------------------------------------------------------
+struct Options {
+    bool bm_saxpy;
+    bool bm_vector;
+    bool bm_reductor;
+    bool bm_stencil;
+    bool bm_spmv;
+    bool bm_rng;
+    bool bm_cpu;
 
-    std::vector<double> x(n);
-    std::generate(x.begin(), x.end(), []() { return rnd(rng); });
+    Options() :
+        bm_saxpy(true),
+        bm_vector(true),
+        bm_reductor(true),
+        bm_stencil(true),
+        bm_spmv(true),
+        bm_rng(true),
+        bm_cpu(true)
+    {}
+} options;
+
+//---------------------------------------------------------------------------
+template <typename real>
+std::vector<real> random_vector(size_t n) {
+    std::default_random_engine rng( std::rand() );
+    std::uniform_real_distribution<real> rnd(0.0, 1.0);
+
+    std::vector<real> x(n);
+    std::generate(x.begin(), x.end(), [&]() { return rnd(rng); });
 
     return x;
 }
 
 //---------------------------------------------------------------------------
-std::pair<double,double> benchmark_vector(
-        const std::vector<cl::CommandQueue> &queue, profiler<> &prof
+template <typename real>
+std::pair<double,double> benchmark_saxpy(
+        const vex::Context &ctx, vex::profiler<> &prof
         )
 {
     const size_t N = 1024 * 1024;
@@ -40,194 +56,269 @@ std::pair<double,double> benchmark_vector(
     double time_elapsed;
 
     std::vector<real> A(N, 0);
-    std::vector<real> B = random_vector(N);
-    std::vector<real> C = random_vector(N);
-    std::vector<real> D = random_vector(N);
+    std::vector<real> B = random_vector<real>(N);
+    std::vector<real> alphavec = random_vector<real>(1);
+    real alpha = alphavec[0];
 
-    vex::vector<real> a(queue, A);
-    vex::vector<real> b(queue, B);
-    vex::vector<real> c(queue, C);
-    vex::vector<real> d(queue, D);
+    vex::vector<real> a(ctx, A);
+    vex::vector<real> b(ctx, B);
+
+    auto ta = vex::tag<1>(a);
+
+    ta = alpha * ta + b;
+    ta = 0;
+
+    prof.tic_cpu("OpenCL");
+    for(size_t i = 0; i < M; i++)
+        ta = alpha * ta + b;
+    ctx.finish();
+    time_elapsed = prof.toc("OpenCL");
+
+    double gflops = (2.0 * N * M) / time_elapsed / 1e9;
+    double bwidth = (3.0 * N * M * sizeof(real)) / time_elapsed / 1e9;
+
+    std::cout
+        << "Vector SAXPY (" << vex::type_name<real>() << ")\n"
+        << "  OpenCL"
+        << "\n    GFLOPS:    " << gflops
+        << "\n    Bandwidth: " << bwidth
+        << std::endl;
+
+    if (options.bm_cpu) {
+        prof.tic_cpu("C++");
+        for(size_t i = 0; i < M; i++)
+            for(size_t j = 0; j < N; j++)
+                A[j] = alpha * A[j] + B[j];
+        time_elapsed = prof.toc("C++");
+
+        {
+            double gflops = (2.0 * N * M) / time_elapsed / 1e9;
+            double bwidth = (3.0 * N * M * sizeof(real)) / time_elapsed / 1e9;
+
+            std::cout
+                << "  C++"
+                << "\n    GFLOPS:    " << gflops
+                << "\n    Bandwidth: " << bwidth
+                << std::endl;
+        }
+
+        vex::copy(A, b);
+        vex::Reductor<real, vex::SUM> sum(ctx);
+
+        a -= b;
+        std::cout << "  res = " << sum(a * a)
+                  << std::endl << std::endl;
+    }
+
+    return std::make_pair(gflops, bwidth);
+}
+
+
+//---------------------------------------------------------------------------
+template <typename real>
+std::pair<double,double> benchmark_vector(
+        const vex::Context &ctx, vex::profiler<> &prof
+        )
+{
+    const size_t N = 1024 * 1024;
+    const size_t M = 1024;
+    double time_elapsed;
+
+    std::vector<real> A(N, 0);
+    std::vector<real> B = random_vector<real>(N);
+    std::vector<real> C = random_vector<real>(N);
+    std::vector<real> D = random_vector<real>(N);
+
+    vex::vector<real> a(ctx, A);
+    vex::vector<real> b(ctx, B);
+    vex::vector<real> c(ctx, C);
+    vex::vector<real> d(ctx, D);
 
     a += b + c * d;
     a = 0;
 
-    prof.tic_cl("OpenCL");
+    prof.tic_cpu("OpenCL");
     for(size_t i = 0; i < M; i++)
         a += b + c * d;
+    ctx.finish();
     time_elapsed = prof.toc("OpenCL");
 
     double gflops = (3.0 * N * M) / time_elapsed / 1e9;
     double bwidth = (5.0 * N * M * sizeof(real)) / time_elapsed / 1e9;
 
     std::cout
-        << "Vector arithmetic\n"
+        << "Vector arithmetic (" << vex::type_name<real>() << ")\n"
         << "  OpenCL"
         << "\n    GFLOPS:    " << gflops
         << "\n    Bandwidth: " << bwidth
         << std::endl;
 
-#ifdef BENCHMARK_CPU
-    prof.tic_cpu("C++");
-    for(size_t i = 0; i < M; i++)
-        for(size_t j = 0; j < N; j++)
-            A[j] += B[j] + C[j] * D[j];
-    time_elapsed = prof.toc("C++");
+    if (options.bm_cpu) {
+        prof.tic_cpu("C++");
+        for(size_t i = 0; i < M; i++)
+            for(size_t j = 0; j < N; j++)
+                A[j] += B[j] + C[j] * D[j];
+        time_elapsed = prof.toc("C++");
 
-    {
-        double gflops = (3.0 * N * M) / time_elapsed / 1e9;
-        double bwidth = (5.0 * N * M * sizeof(real)) / time_elapsed / 1e9;
+        {
+            double gflops = (3.0 * N * M) / time_elapsed / 1e9;
+            double bwidth = (5.0 * N * M * sizeof(real)) / time_elapsed / 1e9;
 
-        std::cout
-            << "  C++"
-            << "\n    GFLOPS:    " << gflops
-            << "\n    Bandwidth: " << bwidth
-            << std::endl;
+            std::cout
+                << "  C++"
+                << "\n    GFLOPS:    " << gflops
+                << "\n    Bandwidth: " << bwidth
+                << std::endl;
+        }
+
+        vex::copy(A, b);
+        vex::Reductor<real, vex::SUM> sum(ctx);
+
+        a -= b;
+        std::cout << "  res = " << sum(a * a)
+                  << std::endl << std::endl;
     }
-
-    vex::copy(A, b);
-    Reductor<real,SUM> sum(queue);
-
-    a -= b;
-    std::cout << "  res = " << sum(a * a)
-              << std::endl << std::endl;
-#endif
 
     return std::make_pair(gflops, bwidth);
 }
 
 //---------------------------------------------------------------------------
+template <typename real>
 std::pair<double, double> benchmark_reductor(
-        const std::vector<cl::CommandQueue> &queue, profiler<> &prof
+        const vex::Context &ctx, vex::profiler<> &prof
         )
 {
     const size_t N = 16 * 1024 * 1024;
     const size_t M = 1024 / 16;
     double time_elapsed;
 
-    std::vector<real> A = random_vector(N);
-    std::vector<real> B = random_vector(N);
+    std::vector<real> A = random_vector<real>(N);
+    std::vector<real> B = random_vector<real>(N);
 
-    vex::vector<real> a(queue, A);
-    vex::vector<real> b(queue, B);
+    vex::vector<real> a(ctx, A);
+    vex::vector<real> b(ctx, B);
 
-    Reductor<real,SUM> sum(queue);
+    vex::Reductor<real, vex::SUM> sum(ctx);
 
-    double sum_cl = sum(a * b);
+    real sum_cl = sum(a * b);
     sum_cl = 0;
 
-    prof.tic_cl("OpenCL");
+    prof.tic_cpu("OpenCL");
     for(size_t i = 0; i < M; i++)
         sum_cl += sum(a * b);
+    ctx.finish();
     time_elapsed = prof.toc("OpenCL");
 
     double gflops = 2.0 * N * M / time_elapsed / 1e9;
     double bwidth = 2.0 * N * M * sizeof(real) / time_elapsed / 1e9;
 
     std::cout
-        << "Reduction\n"
+        << "Reduction (" << vex::type_name<real>() << ")\n"
         << "  OpenCL"
         << "\n    GFLOPS:    " << gflops
         << "\n    Bandwidth: " << bwidth
         << std::endl;
 
-#ifdef BENCHMARK_CPU
-    double sum_cpp = 0;
-    prof.tic_cpu("C++");
-    for(size_t i = 0; i < M; i++)
-        sum_cpp += std::inner_product(A.begin(), A.end(), B.begin(), 0.0);
-    time_elapsed = prof.toc("C++");
+    if (options.bm_cpu) {
+        real sum_cpp = 0;
+        prof.tic_cpu("C++");
+        for(size_t i = 0; i < M; i++)
+            sum_cpp += std::inner_product(A.begin(), A.end(), B.begin(), static_cast<real>(0));
+        time_elapsed = prof.toc("C++");
 
-    {
-        double gflops = 2.0 * N * M / time_elapsed / 1e9;
-        double bwidth = 2.0 * N * M * sizeof(real) / time_elapsed / 1e9;
+        {
+            double gflops = 2.0 * N * M / time_elapsed / 1e9;
+            double bwidth = 2.0 * N * M * sizeof(real) / time_elapsed / 1e9;
 
-        std::cout
-            << "  C++"
-            << "\n    GFLOPS:    " << gflops
-            << "\n    Bandwidth: " << bwidth
-            << std::endl;
+            std::cout
+                << "  C++"
+                << "\n    GFLOPS:    " << gflops
+                << "\n    Bandwidth: " << bwidth
+                << std::endl;
+        }
+
+        std::cout << "  res = " << fabs( (sum_cl - sum_cpp) / sum_cpp )
+                  << std::endl << std::endl;
     }
-
-    std::cout << "  res = " << fabs(sum_cl - sum_cpp)
-              << std::endl << std::endl;
-#endif
 
     return std::make_pair(gflops, bwidth);
 }
 
 //---------------------------------------------------------------------------
+template <typename real>
 std::pair<double, double> benchmark_stencil(
-        const std::vector<cl::CommandQueue> &queue, profiler<> &prof
+        const vex::Context &ctx, vex::profiler<> &prof
         )
 {
     const long N = 1024 * 1024;
     const long M = 1024;
     double time_elapsed;
 
-    std::vector<real> A = random_vector(N);
+    std::vector<real> A = random_vector<real>(N);
     std::vector<real> B(N);
 
-    std::vector<real> S(21, 1.0 / 21);
+    std::vector<real> S(21, static_cast<real>(1) / 21);
     long center = S.size() / 2;
-    vex::stencil<real> s(queue, S, center);
+    vex::stencil<real> s(ctx, S, center);
 
-    vex::vector<real> a(queue, A);
-    vex::vector<real> b(queue, N);
+    vex::vector<real> a(ctx, A);
+    vex::vector<real> b(ctx, N);
 
     b = a * s;
 
-    prof.tic_cl("OpenCL");
+    prof.tic_cpu("OpenCL");
     for(long i = 0; i < M; i++)
         b = a * s;
+    ctx.finish();
     time_elapsed = prof.toc("OpenCL");
 
     double gflops = 2.0 * S.size() * N * M / time_elapsed / 1e9;
     double bwidth = 2.0 * S.size() * N * M * sizeof(real) / time_elapsed / 1e9;
 
     std::cout
-        << "Stencil convolution\n"
+        << "Stencil convolution (" << vex::type_name<real>() << ")\n"
         << "  OpenCL"
         << "\n    GFLOPS:    " << gflops
         << "\n    Bandwidth: " << bwidth
         << std::endl;
 
-#ifdef BENCHMARK_CPU
-    prof.tic_cpu("C++");
-    for(long j = 0; j < M; j++) {
-        for(long i = 0; i < N; i++) {
-            real sum = 0;
-            for(long k = 0; k < (long)S.size(); k++)
-                sum += S[k] * A[std::min<long>(N-1, std::max<long>(0, i + k - center))];
-            B[i] = sum;
+    if (options.bm_cpu) {
+        prof.tic_cpu("C++");
+        for(long j = 0; j < M; j++) {
+            for(long i = 0; i < N; i++) {
+                real sum = 0;
+                for(long k = 0; k < (long)S.size(); k++)
+                    sum += S[k] * A[std::min<long>(N-1, std::max<long>(0, i + k - center))];
+                B[i] = sum;
+            }
         }
+        time_elapsed = prof.toc("C++");
+
+        {
+            double gflops = 2.0 * S.size() * N * M / time_elapsed / 1e9;
+            double bwidth = 2.0 * S.size() * N * M * sizeof(real) / time_elapsed / 1e9;
+
+            std::cout
+                << "  C++"
+                << "\n    GFLOPS:    " << gflops
+                << "\n    Bandwidth: " << bwidth
+                << std::endl;
+        }
+
+        vex::Reductor<real, vex::MAX> max(ctx);
+        copy(B, a);
+
+        std::cout << "  res = " << max(fabs(a - b))
+                  << std::endl << std::endl;
     }
-    time_elapsed = prof.toc("C++");
-
-    {
-        double gflops = 2.0 * S.size() * N * M / time_elapsed / 1e9;
-        double bwidth = 2.0 * S.size() * N * M * sizeof(real) / time_elapsed / 1e9;
-
-        std::cout
-            << "  C++"
-            << "\n    GFLOPS:    " << gflops
-            << "\n    Bandwidth: " << bwidth
-            << std::endl;
-    }
-
-    Reductor<real,MAX> max(queue);
-    copy(B, a);
-
-    std::cout << "  res = " << max(fabs(a - b))
-              << std::endl << std::endl;
-#endif
 
     return std::make_pair(gflops, bwidth);
 }
 
 //---------------------------------------------------------------------------
+template <typename real>
 std::pair<double,double> benchmark_spmv(
-        const std::vector<cl::CommandQueue> &queue, profiler<> &prof
+        const vex::Context &ctx, vex::profiler<> &prof
         )
 {
     // Construct matrix for 3D Poisson problem in cubic domain.
@@ -242,7 +333,7 @@ std::pair<double,double> benchmark_spmv(
     std::vector<size_t> row;
     std::vector<uint>   col;
     std::vector<real>   val;
-    std::vector<real>   X(n * n * n, 1e-2);
+    std::vector<real>   X(n * n * n, static_cast<real>(1e-2));
     std::vector<real>   Y(n * n * n, 0);
 
     row.reserve(n * n * n + 1);
@@ -293,67 +384,69 @@ std::pair<double,double> benchmark_spmv(
     size_t nnz = row.back();
 
     // Transfer data to compute devices.
-    vex::SpMat<real,uint> A(queue, n * n * n, n * n * n, row.data(), col.data(), val.data());
+    vex::SpMat<real,uint> A(ctx, n * n * n, n * n * n, row.data(), col.data(), val.data());
 
-    vex::vector<real> x(queue, X);
-    vex::vector<real> y(queue, Y);
+    vex::vector<real> x(ctx, X);
+    vex::vector<real> y(ctx, Y);
 
     // Get timings.
     y += A * x;
     y = 0;
 
-    prof.tic_cl("OpenCL");
+    prof.tic_cpu("OpenCL");
     for(size_t i = 0; i < M; i++)
         y += A * x;
+    ctx.finish();
     time_elapsed = prof.toc("OpenCL");
 
     double gflops = (2.0 * nnz + N) * M / time_elapsed / 1e9;
     double bwidth = M * (nnz * (2 * sizeof(real) + sizeof(size_t)) + 4 * N * sizeof(real)) / time_elapsed / 1e9;
 
     std::cout
-        << "SpMV\n"
+        << "SpMV (" << vex::type_name<real>() << ")\n"
         << "  OpenCL"
         << "\n    GFLOPS:    " << gflops
         << "\n    Bandwidth: " << bwidth
         << std::endl;
 
-#ifdef BENCHMARK_CPU
-    prof.tic_cpu("C++");
-    for(size_t k = 0; k < M; k++)
-        for(size_t i = 0; i < N; i++) {
-            real s = 0;
-            for(size_t j = row[i]; j < row[i + 1]; j++)
-                s += val[j] * X[col[j]];
-            Y[i] += s;
+    if (options.bm_cpu) {
+        prof.tic_cpu("C++");
+        for(size_t k = 0; k < M; k++)
+            for(size_t i = 0; i < N; i++) {
+                real s = 0;
+                for(size_t j = row[i]; j < row[i + 1]; j++)
+                    s += val[j] * X[col[j]];
+                Y[i] += s;
+            }
+        time_elapsed = prof.toc("C++");
+
+        {
+            double gflops = (2.0 * nnz + N) * M / time_elapsed / 1e9;
+            double bwidth = M * (nnz * (2 * sizeof(real) + sizeof(size_t)) + 4 * N * sizeof(real)) / time_elapsed / 1e9;
+
+            std::cout
+                << "  C++"
+                << "\n    GFLOPS:    " << gflops
+                << "\n    Bandwidth: " << bwidth
+                << std::endl;
         }
-    time_elapsed = prof.toc("C++");
 
-    {
-        double gflops = (2.0 * nnz + N) * M / time_elapsed / 1e9;
-        double bwidth = M * (nnz * (2 * sizeof(real) + sizeof(size_t)) + 4 * N * sizeof(real)) / time_elapsed / 1e9;
+        copy(Y, x);
 
-        std::cout
-            << "  C++"
-            << "\n    GFLOPS:    " << gflops
-            << "\n    Bandwidth: " << bwidth
-            << std::endl;
+        y -= x;
+
+        vex::Reductor<real, vex::SUM> sum(ctx);
+
+        std::cout << "  res = " << sum(y * y) << std::endl << std::endl;
     }
-
-    copy(Y, x);
-
-    y -= x;
-
-    Reductor<real,SUM> sum(queue);
-
-    std::cout << "  res = " << sum(y * y) << std::endl << std::endl;
-#endif
 
     return std::make_pair(gflops, bwidth);
 }
 
 //---------------------------------------------------------------------------
+template <typename real>
 std::pair<double,double> benchmark_spmv_ccsr(
-        const std::vector<cl::CommandQueue> &queue, profiler<> &prof
+        const vex::Context &ctx, vex::profiler<> &prof
         )
 {
     // Construct matrix for 3D Poisson problem in cubic domain.
@@ -370,7 +463,7 @@ std::pair<double,double> benchmark_spmv_ccsr(
     std::vector<int>    col(8);
     std::vector<real>   val(8);
 
-    std::vector<real>   X(n * n * n, 1e-2);
+    std::vector<real>   X(n * n * n, static_cast<real>(1e-2));
     std::vector<real>   Y(n * n * n, 0);
 
     idx.reserve(n * n * n);
@@ -418,10 +511,10 @@ std::pair<double,double> benchmark_spmv_ccsr(
     size_t nnz = 6 * (n - 2) * (n - 2) * (n - 2) + n * n * n;
 
     // Transfer data to compute devices.
-    vex::SpMatCCSR<real,int> A(queue[0], n * n * n, 2,
+    vex::SpMatCCSR<real,int> A(ctx.queue(0), n * n * n, 2,
             idx.data(), row.data(), col.data(), val.data());
 
-    std::vector<cl::CommandQueue> q1(1, queue[0]);
+    std::vector<cl::CommandQueue> q1(1, ctx.queue(0));
     vex::vector<real> x(q1, X);
     vex::vector<real> y(q1, Y);
 
@@ -429,110 +522,241 @@ std::pair<double,double> benchmark_spmv_ccsr(
     y += A * x;
     y = 0;
 
-    prof.tic_cl("OpenCL");
+    prof.tic_cpu("OpenCL");
     for(size_t i = 0; i < M; i++)
         y += A * x;
+    ctx.finish();
     time_elapsed = prof.toc("OpenCL");
 
     double gflops = (2.0 * nnz + N) * M / time_elapsed / 1e9;
     double bwidth = M * (nnz * (2 * sizeof(real) + sizeof(int)) + 4 * N * sizeof(real)) / time_elapsed / 1e9;
 
     std::cout
-        << "SpMV (CCSR)\n"
+        << "SpMV (CCSR) (" << vex::type_name<real>() << ")\n"
         << "  OpenCL"
         << "\n    GFLOPS:    " << gflops
         << "\n    Bandwidth: " << bwidth
         << std::endl;
 
-#ifdef BENCHMARK_CPU
-    prof.tic_cpu("C++");
-    for(size_t k = 0; k < M; k++)
-        for(size_t i = 0; i < N; i++) {
-            real s = 0;
-            for(size_t j = row[idx[i]]; j < row[idx[i] + 1]; j++)
-                s += val[j] * X[i + col[j]];
-            Y[i] += s;
+    if (options.bm_cpu) {
+        prof.tic_cpu("C++");
+        for(size_t k = 0; k < M; k++)
+            for(size_t i = 0; i < N; i++) {
+                real s = 0;
+                for(size_t j = row[idx[i]]; j < row[idx[i] + 1]; j++)
+                    s += val[j] * X[i + col[j]];
+                Y[i] += s;
+            }
+        time_elapsed = prof.toc("C++");
+
+        {
+            double gflops = (2.0 * nnz + N) * M / time_elapsed / 1e9;
+            double bwidth = M * (nnz * (2 * sizeof(real) + sizeof(int)) + 4 * N * sizeof(real)) / time_elapsed / 1e9;
+
+            std::cout
+                << "  C++"
+                << "\n    GFLOPS:    " << gflops
+                << "\n    Bandwidth: " << bwidth
+                << std::endl;
         }
-    time_elapsed = prof.toc("C++");
 
-    {
-        double gflops = (2.0 * nnz + N) * M / time_elapsed / 1e9;
-        double bwidth = M * (nnz * (2 * sizeof(real) + sizeof(int)) + 4 * N * sizeof(real)) / time_elapsed / 1e9;
+        copy(Y, x);
 
-        std::cout
-            << "  C++"
-            << "\n    GFLOPS:    " << gflops
-            << "\n    Bandwidth: " << bwidth
-            << std::endl;
+        y -= x;
+
+        vex::Reductor<real, vex::SUM> sum(q1);
+
+        std::cout << "  res = " << sum(y * y) << std::endl << std::endl;
     }
-
-    copy(Y, x);
-
-    y -= x;
-
-    Reductor<real,SUM> sum(q1);
-
-    std::cout << "  res = " << sum(y * y) << std::endl << std::endl;
-#endif
 
     return std::make_pair(gflops, bwidth);
 }
 
 //---------------------------------------------------------------------------
-int main() {
-    try {
-        vex::Context ctx(Filter::DoublePrecision && Filter::Env);
+template <typename real, class GF>
+double rng_throughput(const vex::Context &ctx, size_t N, size_t M) {
 
-        if (!ctx.size()) {
-            std::cerr << "No compute devices found" << std::endl;
-            return 1;
-        }
+    vex::Random<real, GF> rnd;
+    vex::Reductor<real, vex::MAX> max(ctx);
 
-        std::cout << ctx << std::endl;
+    real s = max( rnd( vex::element_index(0, N), std::rand() ) );
 
-        std::ofstream log("profiling.dat", std::ios::app);
+    vex::stopwatch<> w;
 
-        log << ctx.size() << " ";
+    for(size_t i = 0; i < M; i++)
+        s = std::max(s, max( rnd( vex::element_index(0, N), std::rand() ) ));
+    ctx.finish();
 
-        double gflops, bwidth;
+    return N * M / w.toc();
+}
 
-        profiler<> prof(ctx);
+//---------------------------------------------------------------------------
+template <typename real>
+void benchmark_rng(
+        const vex::Context &ctx, vex::profiler<> &prof
+        )
+{
+    const size_t N = 16 * 1024 * 1024;
+    const size_t M = 1024;
 
-#ifdef BENCHMARK_VECTOR
+    prof.tic_cpu("OpenCL (threefry)");
+    double rps = rng_throughput<real, vex::random::threefry>(ctx, N, M);
+    prof.toc("OpenCL (threefry)");
+
+    std::cout
+        << "Random numbers per second (" << vex::type_name<real>() << ")\n"
+        << "    OpenCL (threefry): " << rps << std::endl;
+
+    prof.tic_cpu("OpenCL (philox)");
+    rps = rng_throughput<real, vex::random::philox>(ctx, N, M);
+    prof.toc("OpenCL (philox)");
+
+    std::cout
+        << "    OpenCL (philox):   " << rps << std::endl;
+
+    if (options.bm_cpu) {
+        std::mt19937 rng( std::rand() );
+        std::uniform_real_distribution<real> rnd(0.0, 1.0);
+
+        prof.tic_cpu("C++ (mt19937)");
+        real s = 0;
+        for(size_t j = 0; j < N; j++)
+            s = std::max(s, rnd(rng));
+        double time_elapsed = prof.toc("C++ (mt19937)");
+
+        std::cout
+            << "    C++    (mt19937):  " << N / time_elapsed << std::endl;
+    }
+}
+
+//---------------------------------------------------------------------------
+template <typename real>
+void run_tests(const vex::Context &ctx, vex::profiler<> &prof)
+{
+    std::cout
+        << "----------------------------------------------------------\n"
+        << "Profiling \"" << vex::type_name<real>() << "\" performance\n"
+        << "----------------------------------------------------------\n"
+        << ctx << std::endl;
+
+    std::ostringstream fname;
+    fname << "profile_" << vex::type_name<real>() << ".dat";
+    std::ofstream log(fname.str().c_str(), std::ios::app);
+
+    log << ctx.size() << " ";
+
+    double gflops, bwidth;
+
+    prof.tic_cpu( vex::type_name<real>() );
+
+    if (options.bm_saxpy) {
+        prof.tic_cpu("Vector SAXPY");
+        std::tie(gflops, bwidth) = benchmark_saxpy<real>(ctx, prof);
+        prof.toc("Vector SAXPY");
+
+        log << gflops << " " << bwidth << " ";
+    }
+
+    if (options.bm_vector) {
         prof.tic_cpu("Vector arithmetic");
-        std::tie(gflops, bwidth) = benchmark_vector(ctx, prof);
+        std::tie(gflops, bwidth) = benchmark_vector<real>(ctx, prof);
         prof.toc("Vector arithmetic");
 
         log << gflops << " " << bwidth << " ";
-#endif
+    }
 
-#ifdef BENCHMARK_REDUCTOR
+    if (options.bm_reductor) {
         prof.tic_cpu("Reduction");
-        std::tie(gflops, bwidth) = benchmark_reductor(ctx, prof);
+        std::tie(gflops, bwidth) = benchmark_reductor<real>(ctx, prof);
         prof.toc("Reduction");
 
         log << gflops << " " << bwidth << " ";
-#endif
+    }
 
-#ifdef BENCHMARK_STENCIL
+    if (options.bm_stencil) {
         prof.tic_cpu("Stencil");
-        std::tie(gflops, bwidth) = benchmark_stencil(ctx, prof);
+        std::tie(gflops, bwidth) = benchmark_stencil<real>(ctx, prof);
         prof.toc("Stencil");
 
         log << gflops << " " << bwidth << " ";
-#endif
+    }
 
-#ifdef BENCHMARK_SPMAT
+    if (options.bm_spmv) {
         prof.tic_cpu("SpMV");
-        std::tie(gflops, bwidth) = benchmark_spmv(ctx, prof);
+        std::tie(gflops, bwidth) = benchmark_spmv<real>(ctx, prof);
         prof.toc("SpMV");
 
         log << gflops << " " << bwidth << std::endl;
 
         prof.tic_cpu("SpMV (CCSR)");
-        std::tie(gflops, bwidth) = benchmark_spmv_ccsr(ctx, prof);
+        std::tie(gflops, bwidth) = benchmark_spmv_ccsr<real>(ctx, prof);
         prof.toc("SpMV (CCSR)");
-#endif
+    }
+
+    if (options.bm_rng) {
+        prof.tic_cpu("Random number generation");
+        benchmark_rng<real>(ctx, prof);
+        prof.toc("Random number generation");
+    }
+
+    prof.toc( vex::type_name<real>() );
+
+    std::cout << std::endl << std::endl;
+}
+
+//---------------------------------------------------------------------------
+int main(int argc, char *argv[]) {
+    namespace po = boost::program_options;
+    po::options_description desc("Options");
+
+    desc.add_options()
+        ("help,h", "show help")
+        ("bm_vec",
+            po::value<bool>(&options.bm_vector)->default_value(true),
+            "benchmark vector arithmetics (on/off)"
+            )
+        ("bm_rdc",
+            po::value<bool>(&options.bm_reductor)->default_value(true),
+            "benchmark reduction (on/off)"
+            )
+        ("bm_stn",
+            po::value<bool>(&options.bm_stencil)->default_value(true),
+            "benchmark stencil convolution (on/off)"
+            )
+        ("bm_spm",
+            po::value<bool>(&options.bm_spmv)->default_value(true),
+            "benchmark sparse matrix - vector product (on/off)"
+            )
+        ("bm_rng",
+            po::value<bool>(&options.bm_rng)->default_value(true),
+            "benchmark random number generation (on/off)"
+            )
+        ("bm_cpu",
+            po::value<bool>(&options.bm_cpu)->default_value(true),
+            "benchmark host CPU performance (on/off)"
+            )
+        ;
+    po::variables_map vm;
+    po::store(po::parse_command_line(argc, argv, desc), vm);
+    po::notify(vm);
+
+    if (vm.count("help")) {
+        std::cout << desc << std::endl;
+        return 0;
+    }
+
+    try {
+        vex::profiler<> prof;
+
+        {
+            vex::Context ctx(vex::Filter::DoublePrecision && vex::Filter::Env);
+            if (ctx) run_tests<double>(ctx, prof);
+        }
+
+        {
+            vex::Context ctx(vex::Filter::Env);
+            if (ctx) run_tests<float>(ctx, prof);
+        }
 
         std::cout << prof << std::endl;
     } catch (const cl::Error &e) {

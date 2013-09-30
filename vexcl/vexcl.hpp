@@ -32,10 +32,12 @@ THE SOFTWARE.
  */
 
 #include <vexcl/devlist.hpp>
+#include <vexcl/constants.hpp>
 #include <vexcl/element_index.hpp>
 #include <vexcl/vector.hpp>
 #include <vexcl/vector_view.hpp>
 #include <vexcl/tagged_terminal.hpp>
+#include <vexcl/temporary.hpp>
 #include <vexcl/multivector.hpp>
 #include <vexcl/reductor.hpp>
 #include <vexcl/spmat.hpp>
@@ -43,7 +45,9 @@ THE SOFTWARE.
 #include <vexcl/gather.hpp>
 #include <vexcl/random.hpp>
 #include <vexcl/fft.hpp>
+#include <vexcl/mba.hpp>
 #include <vexcl/generator.hpp>
+#include <vexcl/mba.hpp>
 #include <vexcl/profiler.hpp>
 
 #endif

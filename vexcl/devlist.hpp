@@ -545,6 +545,7 @@ class StaticContext {
 template <bool dummy>
 Context* StaticContext<dummy>::instance = 0;
 
+/// Returns reference to the latest instance of vex::Context.
 inline const Context& current_context() {
     return StaticContext<>::get();
 }
@@ -616,6 +617,11 @@ class Context {
 
         operator bool() const {
             return !empty();
+        }
+
+        void finish() const {
+            for(auto queue = q.begin(); queue != q.end(); ++queue)
+                queue->finish();
         }
     private:
         std::vector<cl::Context>      c;

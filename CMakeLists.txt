@@ -11,31 +11,39 @@ if (VEXCL_SHOW_KERNELS)
     add_definitions(-DVEXCL_SHOW_KERNELS)
 endif (VEXCL_SHOW_KERNELS)
 
-#----------------------------------------------------------------------------
-# Enable math constants in Win32
-#----------------------------------------------------------------------------
-if (WIN32)
-    add_definitions(-D_USE_MATH_DEFINES)
-endif (WIN32)
+option(VEXCL_CACHE_KERNELS "Cache compiled kernels offline")
+if (VEXCL_CACHE_KERNELS)
+    add_definitions(-DVEXCL_CACHE_KERNELS)
+endif (VEXCL_CACHE_KERNELS)
+
+option(VEXCL_SHOW_COPIES "Log vector copies to stdout for debugging purposes")
+if (VEXCL_SHOW_COPIES)
+    add_definitions(-DVEXCL_SHOW_COPIES)
+endif (VEXCL_SHOW_COPIES)
 
 #----------------------------------------------------------------------------
 # Find Boost
 #----------------------------------------------------------------------------
 if (WIN32)
     set(Boost_USE_STATIC_LIBS ON)
+    add_definitions(-D_VARIADIC_MAX=10)
 else (WIN32)
     add_definitions(-DBOOST_TEST_DYN_LINK)
 endif (WIN32)
 
-find_package(Boost COMPONENTS
-    chrono
+set(BOOST_COMPONENTS
     date_time
     filesystem
     system
-    thread
     unit_test_framework
     program_options
     )
+
+if (MSVC10)
+    set(BOOST_COMPONENTS ${BOOST_COMPONENTS} chrono)
+endif (MSVC10)
+
+find_package(Boost COMPONENTS ${BOOST_COMPONENTS})
 
 include_directories( ${Boost_INCLUDE_DIRS} )
 
@@ -61,11 +69,11 @@ endif (OpenMP_CXX_FLAGS)
 # Enable C++11 support, set compilation flags
 #----------------------------------------------------------------------------
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -Wall -Wclobbered -Wempty-body -Wignored-qualifiers -Wmissing-field-initializers -Wsign-compare -Wtype-limits -Wuninitialized -Wunused-parameter -Wunused-but-set-parameter")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -Wall -Wclobbered -Wempty-body -Wignored-qualifiers -Wmissing-field-initializers -Wsign-compare -Wtype-limits -Wuninitialized -Wunused-parameter -Wunused-but-set-parameter -Wno-comment")
 endif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -Wall -Wempty-body -Wignored-qualifiers -Wmissing-field-initializers -Wsign-compare -Wtype-limits -Wuninitialized -Wunused-parameter -Wno-comment")
 
     option(USE_LIBCPP "Use libc++ with Clang" OFF)
     if (USE_LIBCPP)

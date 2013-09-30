@@ -32,6 +32,7 @@ THE SOFTWARE.
  */
 
 #include <string>
+#include <type_traits>
 
 #ifndef __CL_ENABLE_EXCEPTIONS
 #  define __CL_ENABLE_EXCEPTIONS
@@ -108,7 +109,7 @@ inline std::ostream &operator<<(std::ostream &os, const cl_##base_type##len &val
 namespace vex { \
     template <> struct cl_scalar_of<cl_##base_type##len> { typedef cl_##base_type type; }; \
     template <> struct cl_vector_of<cl_##base_type, len> { typedef cl_##base_type##len type; }; \
-    template <> struct cl_vector_length<cl_##base_type##len> { enum { value = len }; }; \
+    template <> struct cl_vector_length<cl_##base_type##len> : std::integral_constant<unsigned, len>{ }; \
 }
 
 #define CL_TYPES(base_type) \
@@ -119,7 +120,7 @@ CL_VEC_TYPE(base_type, 16); \
 namespace vex { \
     template <> struct cl_scalar_of<cl_##base_type> { typedef cl_##base_type type; }; \
     template <> struct cl_vector_of<cl_##base_type, 1> { typedef cl_##base_type type; }; \
-    template <> struct cl_vector_length<cl_##base_type> { enum { value = 1 }; }; \
+    template <> struct cl_vector_length<cl_##base_type> : std::integral_constant<unsigned, 1> { }; \
 }
 
 #ifdef _MSC_VER
@@ -192,8 +193,15 @@ CL_TYPES(long);  CL_TYPES(ulong);
 #undef STRINGIFY
 
 // char and cl_char are different types. Hence, special handling is required:
-template <> inline std::string type_name<char>() { return "char"; } \
+template <> inline std::string type_name<char>() { return "char"; }
 template <> struct is_cl_native<char> : std::true_type {};
+template <> struct cl_vector_length<char> : std::integral_constant<unsigned, 1> {};
+template <> struct cl_scalar_of<char> { typedef char type; };
+
+// One can not pass bool to the kernel, but the overload is needed for type
+// deduction:
+template <> inline std::string type_name<bool>() { return "bool"; }
+
 
 #if defined(__APPLE__)
 template <> inline std::string type_name<size_t>() {
@@ -206,7 +214,26 @@ template <> inline std::string type_name<ptrdiff_t>() {
 
 template <> struct is_cl_native<size_t>    : std::true_type {};
 template <> struct is_cl_native<ptrdiff_t> : std::true_type {};
+
+template <> struct cl_vector_length<size_t>    : std::integral_constant<unsigned, 1> {};
+template <> struct cl_vector_length<ptrdiff_t> : std::integral_constant<unsigned, 1> {};
 #endif
+
+template <class T>
+struct is_cl_scalar :
+    std::integral_constant<
+        bool,
+        is_cl_native<T>::value && (cl_vector_length<T>::value == 1)
+        >
+{};
+
+template <class T>
+struct is_cl_vector :
+    std::integral_constant<
+        bool,
+        is_cl_native<T>::value && (cl_vector_length<T>::value > 1)
+        >
+{};
 
 }
 

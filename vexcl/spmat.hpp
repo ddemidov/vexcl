@@ -90,7 +90,9 @@ class SpMat {
             std::vector<std::set<col_t>> ghost_cols = setup_exchange(col_part, row, col);
 
             // Each device get it's own strip of the matrix.
-#pragma omp parallel for schedule(static,1)
+#ifdef _OPENMP
+#  pragma omp parallel for schedule(static,1)
+#endif
             for(int d = 0; d < static_cast<int>(queue.size()); d++) {
                 if (part[d + 1] > part[d]) {
                     cl::Device device = qdev(queue[d]);
@@ -218,39 +220,39 @@ class SpMat {
         size_t nonzeros() const { return nnz;   }
 
         static std::string inline_preamble(
-                const cl::Device &device, int component, int position,
-                detail::kernel_generator_state&)
+                const cl::Device &device, const std::string &prm_name,
+                detail::kernel_generator_state_ptr)
         {
             if (is_cpu(device))
-                return SpMatCSR::inline_preamble(component, position);
+                return SpMatCSR::inline_preamble(prm_name);
             else
-                return SpMatHELL::inline_preamble(component, position);
+                return SpMatHELL::inline_preamble(prm_name);
         }
 
         static std::string inline_expression(
-                const cl::Device &device, int component, int position,
-                detail::kernel_generator_state&)
+                const cl::Device &device, const std::string &prm_name,
+                detail::kernel_generator_state_ptr)
         {
             if (is_cpu(device))
-                return SpMatCSR::inline_expression(component, position);
+                return SpMatCSR::inline_expression(prm_name);
             else
-                return SpMatHELL::inline_expression(component, position);
+                return SpMatHELL::inline_expression(prm_name);
         }
 
         static std::string inline_parameters(
-                const cl::Device &device, int component, int position,
-                detail::kernel_generator_state&)
+                const cl::Device &device, const std::string &prm_name,
+                detail::kernel_generator_state_ptr)
         {
             if (is_cpu(device))
-                return SpMatCSR::inline_parameters(component, position);
+                return SpMatCSR::inline_parameters(prm_name);
             else
-                return SpMatHELL::inline_parameters(component, position);
+                return SpMatHELL::inline_parameters(prm_name);
         }
 
         static void inline_arguments(cl::Kernel &kernel, unsigned device,
                 size_t /*index_offset*/, unsigned &position,
                 const SpMat &A, const vector<val_t> &x,
-                detail::kernel_generator_state&)
+                detail::kernel_generator_state_ptr)
         {
             A.mtx[device]->setArgs(kernel, device, position, x);
         }
@@ -319,7 +321,9 @@ class SpMat {
             if (queue.size() <= 1) return ghost_cols;
 
             // Build sets of ghost points.
-#pragma omp parallel for schedule(static,1)
+#ifdef _OPENMP
+#  pragma omp parallel for schedule(static,1)
+#endif
             for(int d = 0; d < static_cast<int>(queue.size()); d++) {
                 for(size_t i = part[d]; i < part[d + 1]; i++) {
                     for(idx_t j = row[i]; j < row[i + 1]; j++) {
@@ -342,7 +346,9 @@ class SpMat {
 
             // Build local structures to facilitate exchange.
             if (cols_to_send.size()) {
-#pragma omp parallel for schedule(static,1)
+#ifdef _OPENMP
+#  pragma omp parallel for schedule(static,1)
+#endif
                 for(int d = 0; d < static_cast<int>(queue.size()); d++) {
                     if (size_t rcols = ghost_cols[d].size()) {
                         exc[d].cols_to_recv.resize(rcols);

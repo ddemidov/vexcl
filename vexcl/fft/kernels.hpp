@@ -31,7 +31,7 @@ THE SOFTWARE.
  * \brief  Kernel generator for FFT.
  */
 
-#include <cmath>
+#include <boost/math/constants/constants.hpp>
 
 namespace vex {
 namespace fft {
@@ -91,7 +91,7 @@ inline void kernel_radix(std::ostringstream &o, pow radix, bool invert) {
     // twiddle
     o << "  if(p != 1) {\n";
     for(size_t i = 1 ; i < radix.value ; i++) {
-        const T alpha = -2 * static_cast<T>(M_PI) * i / radix.value;
+        const T alpha = -boost::math::constants::two_pi<T>() * i / radix.value;
         o << "    v" << i << " = mul(v" << i << ", twiddle("
           << "(real_t)" << alpha << " * k / p));\n";
     }

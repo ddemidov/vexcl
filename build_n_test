@@ -1,0 +1,33 @@
+#!/bin/bash
+
+# Builds everything with all configured compilers and runs the tests under given
+# OpenCL platforms for each of the compilers.
+#
+# Assumes that each compiler has its own build directory which is named
+# 'build-<compiler id>'. As an example, here is what I have:
+# build-4.6.4 -- g++-4.6.4
+# build-4.7.3 -- g++-4.7.3
+# build-4.8.1 -- g++-4.8.1
+# build-clang -- current clang
+
+# Stop on errors:
+set -e
+
+# Make with every configured compiler:
+parallel --ungroup make -C ::: build-*
+
+# List of platforms to test:
+available_platforms="NVIDIA AMD Intel Portable"
+
+# Run tests for each OpenCL platform ...
+for platform in ${available_platforms}; do
+    # ... built with every possible compiler:
+    for compiler in build-*; do
+        echo
+        echo "----------------------------------------------------------------------"
+        echo "OCL_PLATFORM=${platform} compiler=${compiler}"
+        echo "----------------------------------------------------------------------"
+        echo
+        OCL_PLATFORM=${platform} make -C ${compiler} test
+    done
+done

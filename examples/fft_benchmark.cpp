@@ -7,7 +7,7 @@
 
 using namespace vex;
 
-typedef stopwatch<boost::chrono::high_resolution_clock, AvgMedian> watch;
+typedef stopwatch<> watch;
 
 #ifdef HAVE_CUDA
 #  include <cufft.h>
@@ -114,27 +114,22 @@ watch test_clfft(Context &ctx, cl_float2 *data, size_t n, size_t m, size_t runs,
     return w;
 }
 
-void info(watch w, size_t size, size_t dim, bool dump_times) {
+void info(watch w, size_t size, size_t dim) {
     // FFT is O(n log n)
     double ops = dim == 1
         ? size * std::log(static_cast<double>(size)) // O(n log n)
         : 2.0 * size * size * std::log(static_cast<double>(size)); // O(n log n)[1D fft] * n[rows] * 2[transposed]
     std::cout << '\t';
-    if(w.tics() == 0) std::cout << '-';
-    else {
+    if(w.tics() == 0)
+        std::cout << '-';
+    else
         std::cout << std::scientific << (ops / w.average());
-        if(dump_times) {
-            for(auto t = w.avg.values.begin() ; t != w.avg.values.end() ; t++)
-                std::cerr << '\t' << std::scientific << *t;
-            std::cerr << std::endl;
-        }
-    }
 }
 
 int main(int argc, char **argv) {
     using namespace boost::program_options;
     options_description desc("Options");
-    bool add_prime = false, dump_plan = false, dump_times = false;
+    bool add_prime = false, dump_plan = false;
     size_t composite = 0, min, max, runs;
     desc.add_options()
         ("help,h", "show help")
@@ -149,9 +144,7 @@ int main(int argc, char **argv) {
         ("composite,c", value(&composite)->implicit_value(23),
             "add nearest multiple of this number (for each power of two)")
         ("dump-plan", bool_switch(&dump_plan),
-            "show each CLFFT plan on stderr")
-        ("dump-times", bool_switch(&dump_times),
-            "show each measured time on stderr");
+            "show each CLFFT plan on stderr");
     variables_map vm;
     store(parse_command_line(argc, argv, desc), vm);
     notify(vm);
@@ -210,9 +203,9 @@ int main(int argc, char **argv) {
     std::cout << "#n\tfftw^1\tclfft^1\tcufft^1" << std::endl;
     for(auto n = ns.begin() ; n != ns.end() ; n++) {
         std::cout << *n;
-        info(test_fftw (     data, *n, 1, runs, dump_plan), *n, 1, dump_times);
-        info(test_clfft(ctx, data, *n, 1, runs, dump_plan), *n, 1, dump_times);
-        info(test_cufft(     data, *n, 1, runs, dump_plan), *n, 1, dump_times);
+        info(test_fftw (     data, *n, 1, runs, dump_plan), *n, 1);
+        info(test_clfft(ctx, data, *n, 1, runs, dump_plan), *n, 1);
+        info(test_cufft(     data, *n, 1, runs, dump_plan), *n, 1);
         std::cout << std::endl;
     }
     std::cout << std::endl;
@@ -223,9 +216,9 @@ int main(int argc, char **argv) {
     for(auto n = ns.begin() ; n != ns.end() ; n++)
         if(*n * *n <= max_len) {
             std::cout << *n;
-            info(test_fftw (     data, *n, *n, runs, dump_plan), *n, 2, dump_times);
-            info(test_clfft(ctx, data, *n, *n, runs, dump_plan), *n, 2, dump_times);
-            info(test_cufft(     data, *n, *n, runs, dump_plan), *n, 2, dump_times);
+            info(test_fftw (     data, *n, *n, runs, dump_plan), *n, 2);
+            info(test_clfft(ctx, data, *n, *n, runs, dump_plan), *n, 2);
+            info(test_cufft(     data, *n, *n, runs, dump_plan), *n, 2);
             std::cout << std::endl;
         }
 
