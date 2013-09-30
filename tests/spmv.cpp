@@ -36,7 +36,7 @@ void random_matrix(size_t n, size_t m, size_t nnz_per_row,
         row.push_back(static_cast<RT>(col.size()));
     }
 
-    random_vector<double>( col.size() ).swap(val);
+    random_vector<VT>( col.size() ).swap(val);
 }
 
 BOOST_AUTO_TEST_CASE(vector_product)
@@ -465,6 +465,114 @@ BOOST_AUTO_TEST_CASE(ccsr_multivector_product)
 
             BOOST_CHECK_CLOSE(a[0], x[0 + ii] + sum[0], 1e-8);
             BOOST_CHECK_CLOSE(a[1], x[N + ii] + sum[1], 1e-8);
+            });
+}
+
+BOOST_AUTO_TEST_CASE(vector_valued_matrix)
+{
+    const size_t n = 1024;
+
+    std::vector<size_t>     row;
+    std::vector<size_t>     col;
+    std::vector<cl_double2> val;
+
+    random_matrix(n, n, 16, row, col, val);
+
+    std::vector<cl_double2> x = random_vector<cl_double2>(n);
+
+    vex::SpMat <cl_double2> A(ctx, n, n, row.data(), col.data(), val.data());
+    vex::vector<cl_double2> X(ctx, x);
+    vex::vector<cl_double2> Y(ctx, n);
+
+    Y = A * X;
+
+    check_sample(Y, [&](size_t idx, cl_double2 a) {
+            cl_double2 sum = {{0, 0}};
+            for(size_t j = row[idx]; j < row[idx + 1]; j++)
+                sum += val[j] * x[col[j]];
+
+            BOOST_CHECK_CLOSE(a.s[0], sum.s[0], 1e-8);
+            BOOST_CHECK_CLOSE(a.s[1], sum.s[1], 1e-8);
+            });
+}
+
+cl_double2 make_d2(double v) {
+    cl_double2 d2 = {{v, v}};
+    return d2;
+}
+
+BOOST_AUTO_TEST_CASE(vector_valued_ccsr_matrix)
+{
+    const size_t n = 32;
+    const double h2i = (n - 1) * (n - 1);
+
+    std::vector<size_t> idx;
+    std::vector<size_t> row(3);
+    std::vector<int>    col(8);
+    std::vector<cl_double2> val(8);
+
+    idx.reserve(n * n * n);
+
+    row[0] = 0;
+    row[1] = 1;
+    row[2] = 8;
+
+    col[0] = 0;
+    val[0] = make_d2(1);
+
+    col[1] = -static_cast<int>(n * n);
+    col[2] = -static_cast<int>(n);
+    col[3] =    -1;
+    col[4] =     0;
+    col[5] =     1;
+    col[6] =     n;
+    col[7] =  (n * n);
+
+    val[1] = make_d2(-h2i);
+    val[2] = make_d2(-h2i);
+    val[3] = make_d2(-h2i);
+    val[4] = make_d2( h2i * 6);
+    val[5] = make_d2(-h2i);
+    val[6] = make_d2(-h2i);
+    val[7] = make_d2(-h2i);
+
+    for(size_t k = 0; k < n; k++) {
+        for(size_t j = 0; j < n; j++) {
+            for(size_t i = 0; i < n; i++) {
+                if (
+                        i == 0 || i == (n - 1) ||
+                        j == 0 || j == (n - 1) ||
+                        k == 0 || k == (n - 1)
+                   )
+                {
+                    idx.push_back(0);
+                } else {
+                    idx.push_back(1);
+                }
+            }
+        }
+    }
+
+    std::vector<cl_double2> x = random_vector<cl_double2>(n * n * n);
+
+    std::vector<cl::CommandQueue> queue(1, ctx.queue(0));
+
+    vex::SpMatCCSR<cl_double2,int> A(queue[0], x.size(), row.size() - 1,
+            idx.data(), row.data(), col.data(), val.data());
+
+    vex::vector<cl_double2> X(queue, x);
+    vex::vector<cl_double2> Y(queue, x.size());
+
+    Y = A * X;
+
+    check_sample(Y, [&](size_t ii, cl_double2 a) {
+            cl_double2 sum = {{0, 0}};
+            size_t i = idx[ii];
+            for(size_t j = row[i]; j < row[i + 1]; j++)
+                sum += val[j] * x[ii + col[j]];
+
+            BOOST_CHECK_CLOSE(a.s[0], sum.s[0], 1e-8);
+            BOOST_CHECK_CLOSE(a.s[1], sum.s[1], 1e-8);
             });
 }
 

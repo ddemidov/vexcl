@@ -138,9 +138,9 @@ struct SpMatHELL : public sparse_matrix {
         const col_t not_a_column = static_cast<col_t>(-1);
 
         std::vector<col_t> lell_col(pitch * loc.ell.width, not_a_column);
-        std::vector<val_t> lell_val(pitch * loc.ell.width, 0);
+        std::vector<val_t> lell_val(pitch * loc.ell.width, val_t());
         std::vector<col_t> rell_col(pitch * rem.ell.width, not_a_column);
-        std::vector<val_t> rell_val(pitch * rem.ell.width, 0);
+        std::vector<val_t> rell_val(pitch * rem.ell.width, val_t());
 
         std::vector<idx_t> lcsr_row;
         std::vector<col_t> lcsr_col;
@@ -219,8 +219,7 @@ struct SpMatHELL : public sparse_matrix {
     template <class OP>
     void mul(
             const matrix_part &part,
-            const cl::Buffer &in, const cl::Buffer &out,
-            val_t scale,
+            const cl::Buffer &in, const cl::Buffer &out, scalar_type scale,
             const std::vector<cl::Event> &wait_for_it = std::vector<cl::Event>()
             ) const
     {
@@ -239,7 +238,7 @@ struct SpMatHELL : public sparse_matrix {
             source << standard_kernel_header(device) <<
                 "kernel void hybrid_ell_spmv(\n"
                 "    " << type_name<size_t>() << " n,\n"
-                "    " << type_name<val_t>()  << " scale,\n"
+                "    " << type_name<scalar_type>()  << " scale,\n"
                 "    " << type_name<size_t>() << " ell_w,\n"
                 "    " << type_name<size_t>() << " ell_pitch,\n"
                 "    global const " << type_name<col_t>() << " * ell_col,\n"
@@ -308,14 +307,16 @@ struct SpMatHELL : public sparse_matrix {
                 wait_for_it.empty() ? NULL : &wait_for_it);
     }
 
-    void mul_local(const cl::Buffer &in, const cl::Buffer &out, val_t scale, bool append) const {
+    void mul_local(const cl::Buffer &in, const cl::Buffer &out,
+            scalar_type scale, bool append) const
+    {
         if (append)
             mul<assign::ADD>(loc, in, out, scale);
         else
             mul<assign::SET>(loc, in, out, scale);
     }
 
-    void mul_remote(const cl::Buffer &in, const cl::Buffer &out, val_t scale,
+    void mul_remote(const cl::Buffer &in, const cl::Buffer &out, scalar_type scale,
             const std::vector<cl::Event> &wait_for_it) const
     {
         mul<assign::ADD>(rem, in, out, scale, wait_for_it);

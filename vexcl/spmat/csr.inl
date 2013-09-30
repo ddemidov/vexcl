@@ -136,8 +136,7 @@ struct SpMatCSR : public sparse_matrix {
     template <class OP>
     void mul(
             const matrix_part &part,
-            const cl::Buffer &in, const cl::Buffer &out,
-            val_t scale,
+            const cl::Buffer &in, const cl::Buffer &out, scalar_type scale,
             const std::vector<cl::Event> &wait_for_it = std::vector<cl::Event>()
             ) const
     {
@@ -156,7 +155,7 @@ struct SpMatCSR : public sparse_matrix {
             source << standard_kernel_header(device) <<
                 "kernel void csr_spmv(\n"
                 "    " << type_name<size_t>() << " n,\n"
-                "    " << type_name<val_t>()  << " scale,\n"
+                "    " << type_name<scalar_type>() << " scale,\n"
                 "    global const " << type_name<idx_t>() << " * row,\n"
                 "    global const " << type_name<col_t>() << " * col,\n"
                 "    global const " << type_name<val_t>() << " * val,\n"
@@ -199,7 +198,9 @@ struct SpMatCSR : public sparse_matrix {
                 wait_for_it.empty() ? NULL : &wait_for_it);
     }
 
-    void mul_local(const cl::Buffer &in, const cl::Buffer &out, val_t scale, bool append) const {
+    void mul_local(const cl::Buffer &in, const cl::Buffer &out,
+            scalar_type scale, bool append) const
+    {
         if (append) {
             if (loc.nnz) mul<assign::ADD>(loc, in, out, scale);
         } else {
@@ -210,7 +211,7 @@ struct SpMatCSR : public sparse_matrix {
         }
     }
 
-    void mul_remote(const cl::Buffer &in, const cl::Buffer &out, val_t scale,
+    void mul_remote(const cl::Buffer &in, const cl::Buffer &out, scalar_type scale,
             const std::vector<cl::Event> &wait_for_it) const
     {
         if (rem.nnz) mul<assign::ADD>(rem, in, out, scale, wait_for_it);
