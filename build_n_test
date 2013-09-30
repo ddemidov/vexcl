@@ -17,7 +17,7 @@ set -e
 parallel --ungroup make -C ::: build-*
 
 # List of platforms to test:
-available_platforms="NVIDIA Intel Portable AMD"
+available_platforms="NVIDIA AMD Intel Portable"
 
 # Run tests for each OpenCL platform ...
 for platform in ${available_platforms}; do
