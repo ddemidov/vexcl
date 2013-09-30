@@ -222,10 +222,10 @@ BOOST_AUTO_TEST_CASE(integral_constants)
             for(size_t i = 0; i < 4; ++i) BOOST_CHECK_EQUAL(a[i], 42);
             });
 
-    x = sin( vex::constants::two_pi() * vex::element_index() );
+    x = sin( vex::constants::e() * vex::element_index() );
     check_sample(x, [](size_t idx, elem_t a) {
             for(size_t i = 0; i < 4; ++i)
-                BOOST_CHECK_CLOSE(a[i], sin(boost::math::constants::two_pi<double>() * idx), 1e-8);
+                BOOST_CHECK_CLOSE(a[i], sin(boost::math::constants::e<double>() * idx), 1e-8);
             });
 }
 

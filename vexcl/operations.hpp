@@ -100,7 +100,7 @@ namespace detail {
 typedef std::map<std::string, boost::any> kernel_generator_state;
 typedef std::shared_ptr<kernel_generator_state> kernel_generator_state_ptr;
 
-kernel_generator_state_ptr empty_state() {
+inline kernel_generator_state_ptr empty_state() {
     return std::make_shared<kernel_generator_state>();
 }
 
@@ -2540,17 +2540,17 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, TIE_VECTORS, ~)
 #endif
 
 /// Clears cached OpenCL kernels, allowing to release OpenCL contexts.
-void purge_kernel_caches() {
+inline void purge_kernel_caches() {
     detail::cache_register<>::clear();
 }
 
 /// Clears cached OpenCL kernels, allowing to release OpenCL contexts.
-void purge_kernel_caches(const cl::Context &context) {
+inline void purge_kernel_caches(const cl::Context &context) {
     detail::cache_register<>::erase(context());
 }
 
 /// Clears cached OpenCL kernels, allowing to release OpenCL contexts.
-void purge_kernel_caches(const std::vector<cl::CommandQueue> &queue) {
+inline void purge_kernel_caches(const std::vector<cl::CommandQueue> &queue) {
     for(auto q = queue.begin(); q != queue.end(); ++q)
         detail::cache_register<>::erase( qctx(*q)() );
 }

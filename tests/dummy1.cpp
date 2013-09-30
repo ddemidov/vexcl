@@ -1,6 +1,6 @@
 #define BOOST_TEST_MODULE MultipleObjects
 #include <boost/test/unit_test.hpp>
-#include <vexcl/devlist.hpp>
+#include <vexcl/vexcl.hpp>
 
 bool empty_context();
 

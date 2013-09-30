@@ -53,6 +53,7 @@ template <typename val_t, typename col_t = size_t, typename idx_t = size_t>
 class SpMat {
     public:
         typedef val_t value_type;
+        typedef typename cl_scalar_of<val_t>::type scalar_type;
 
         /// Empty constructor.
         SpMat() : nrows(0), ncols(0), nnz(0) {}
@@ -126,7 +127,7 @@ class SpMat {
          *               Otherwise, y is replaced with matrix-vector product.
          */
         void mul(const vex::vector<val_t> &x, vex::vector<val_t> &y,
-                 val_t alpha = 1, bool append = false) const
+                 scalar_type alpha = 1, bool append = false) const
         {
             using namespace detail;
 
@@ -265,12 +266,12 @@ class SpMat {
         struct sparse_matrix {
             virtual void mul_local(
                     const cl::Buffer &x, const cl::Buffer &y,
-                    val_t alpha, bool append
+                    scalar_type alpha, bool append
                     ) const = 0;
 
             virtual void mul_remote(
                     const cl::Buffer &x, const cl::Buffer &y,
-                    val_t alpha, const std::vector<cl::Event> &event
+                    scalar_type alpha, const std::vector<cl::Event> &event
                     ) const = 0;
 
             virtual void setArgs(cl::Kernel &kernel, unsigned device, unsigned &position, const vector<val_t> &x) const = 0;
@@ -412,7 +413,7 @@ struct spmv
     const mat &A;
     const vec &x;
 
-    val_t scale;
+    typename cl_scalar_of<val_t>::type scale;
 
     spmv(const mat &A, const vec &x) : A(A), x(x), scale(1) {}
 
@@ -449,7 +450,7 @@ struct multispmv
     const mat &A;
     const MV  &x;
 
-    val_t scale;
+    typename cl_scalar_of<val_t>::type scale;
 
     multispmv(const mat &A, const MV &x) : A(A), x(x), scale(1) {}
 
