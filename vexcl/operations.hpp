@@ -100,7 +100,7 @@ namespace detail {
 typedef std::map<std::string, boost::any> kernel_generator_state;
 typedef std::shared_ptr<kernel_generator_state> kernel_generator_state_ptr;
 
-kernel_generator_state_ptr empty_state() {
+inline kernel_generator_state_ptr empty_state() {
     return std::make_shared<kernel_generator_state>();
 }
 
