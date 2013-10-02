@@ -21,6 +21,10 @@ if (VEXCL_SHOW_COPIES)
     add_definitions(-DVEXCL_SHOW_COPIES)
 endif (VEXCL_SHOW_COPIES)
 
+option(BOOST_TEST_DYN_LINK 
+    "Link tests against dynamic version of boost unittest library" 
+    ON)
+
 #----------------------------------------------------------------------------
 # Find Boost
 #----------------------------------------------------------------------------
@@ -28,7 +32,9 @@ if (WIN32)
     set(Boost_USE_STATIC_LIBS ON)
     add_definitions(-D_VARIADIC_MAX=10)
 else (WIN32)
+  if (BOOST_TEST_DYN_LINK)
     add_definitions(-DBOOST_TEST_DYN_LINK)
+  endif (BOOST_TEST_DYN_LINK)
 endif (WIN32)
 
 set(BOOST_COMPONENTS
