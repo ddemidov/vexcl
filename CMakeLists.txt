@@ -28,7 +28,9 @@ if (WIN32)
     set(Boost_USE_STATIC_LIBS ON)
     add_definitions(-D_VARIADIC_MAX=10)
 else (WIN32)
+  if (NOT DEFINED BOOST_TEST_DYN_LINK)
     add_definitions(-DBOOST_TEST_DYN_LINK)
+  endif ()
 endif (WIN32)
 
 set(BOOST_COMPONENTS
