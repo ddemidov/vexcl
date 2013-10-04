@@ -221,7 +221,7 @@ struct plan {
         auto device  = qdev(queue);
 
         size_t total_n = std::accumulate(sizes.begin(), sizes.end(),
-	    static_cast<size_t>(1), std::multiplies<size_t>());
+            static_cast<size_t>(1), std::multiplies<size_t>());
         size_t current = bufs.size(); bufs.push_back(vex::vector<T2>(queues, total_n));
         size_t other   = bufs.size(); bufs.push_back(vex::vector<T2>(queues, total_n));
 

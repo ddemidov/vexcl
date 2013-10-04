@@ -129,7 +129,7 @@ class multivector : public multivector_terminal_expression {
     public:
         typedef vex::vector<T>  subtype;
         typedef std::array<T,N> value_type;
-	typedef T               sub_value_type;
+        typedef T               sub_value_type;
 
         const static size_t NDIM = N;
 

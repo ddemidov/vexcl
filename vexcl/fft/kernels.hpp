@@ -40,7 +40,7 @@ namespace fft {
 struct pow {
     size_t base, exponent, value;
     pow(size_t b, size_t e) : base(b), exponent(e),
-	value(static_cast<size_t>(std::pow(static_cast<double>(b), static_cast<double>(e)))) {}
+        value(static_cast<size_t>(std::pow(static_cast<double>(b), static_cast<double>(e)))) {}
 };
 
 inline std::ostream &operator<<(std::ostream &o, const pow &p) {

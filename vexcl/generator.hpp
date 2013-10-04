@@ -254,15 +254,15 @@ struct symbolic_context {
         };
 
         template <class FunCall>
-	typename std::enable_if<
-	    std::is_base_of<
-		builtin_function,
-		typename boost::proto::result_of::value<
-		    typename boost::proto::result_of::child_c<FunCall,0>::type
-		>::type
-	    >::value,
+        typename std::enable_if<
+            std::is_base_of<
+                builtin_function,
+                typename boost::proto::result_of::value<
+                    typename boost::proto::result_of::child_c<FunCall,0>::type
+                >::type
+            >::value,
             void
-	>::type
+        >::type
         operator()(const FunCall &expr, symbolic_context &ctx) const {
             get_recorder() << boost::proto::value(boost::proto::child_c<0>(expr)).name() << "( ";
 
