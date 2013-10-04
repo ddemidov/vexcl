@@ -212,10 +212,13 @@ class profiler {
                     using namespace std;
                     print_line(out, name, watch.total(), 100 * watch.total() / total, width, level);
 
-                    out << " (" << setw(6) << watch.tics()
-                        << "x; avg: "
-                        << setprecision(6) << scientific << (watch.average() * 1e6)
-                        << " usec.)" << endl;
+                    if (watch.tics() > 1) {
+                        out << " (" << setw(6) << watch.tics()
+                            << "x; avg: " << setprecision(6) << scientific
+                            << (watch.average() * 1e6) << " usec.)";
+                    }
+
+                    out << endl;
 
                     if (!children.empty()) {
                         double sec = watch.total() - children_time();
