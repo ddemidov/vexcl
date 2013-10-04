@@ -31,10 +31,6 @@ THE SOFTWARE.
  * \brief  Stencil convolution.
  */
 
-#ifdef _MSC_VER
-#  define NOMINMAX
-#endif
-
 #include <vector>
 #include <map>
 #include <sstream>

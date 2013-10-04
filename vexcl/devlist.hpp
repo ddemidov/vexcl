@@ -31,10 +31,6 @@ THE SOFTWARE.
  * \brief  OpenCL device enumeration and context initialization.
  */
 
-#ifdef _MSC_VER
-#  define NOMINMAX
-#endif
-
 #include <vector>
 #include <string>
 #include <fstream>

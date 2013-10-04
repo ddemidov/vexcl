@@ -31,10 +31,6 @@ THE SOFTWARE.
  * \brief  Templates used for expression tree traversal and kernel generation.
  */
 
-#ifdef _MSC_VER
-#  define NOMINMAX
-#endif
-
 #include <array>
 #include <tuple>
 #include <deque>

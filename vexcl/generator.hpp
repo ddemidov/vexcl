@@ -31,10 +31,6 @@ THE SOFTWARE.
  * \brief  OpenCL kernel generator.
  */
 
-#ifdef _MSC_VER
-#  define NOMINMAX
-#endif
-
 #include <iostream>
 #include <sstream>
 #include <string>

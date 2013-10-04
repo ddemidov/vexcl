@@ -31,10 +31,6 @@ THE SOFTWARE.
  * \brief  OpenCL sparse matrix.
  */
 
-#ifdef _MSC_VER
-#  define NOMINMAX
-#endif
-
 #include <vector>
 #include <set>
 #include <unordered_map>

@@ -54,6 +54,13 @@ find_package(Boost COMPONENTS ${BOOST_COMPONENTS})
 include_directories( ${Boost_INCLUDE_DIRS} )
 
 #----------------------------------------------------------------------------
+# Protect Visual Studio from itself
+#----------------------------------------------------------------------------
+if (WIN32)
+    add_definitions(-DNOMINMAX)
+endif (WIN32)
+
+#----------------------------------------------------------------------------
 # Find OpenCL
 #----------------------------------------------------------------------------
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)

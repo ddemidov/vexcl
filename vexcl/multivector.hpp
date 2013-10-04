@@ -31,10 +31,6 @@ THE SOFTWARE.
  * \brief  OpenCL device multi-vector.
  */
 
-#ifdef _MSC_VER
-#  define NOMINMAX
-#endif
-
 #include <array>
 #include <vector>
 #include <map>

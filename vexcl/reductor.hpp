@@ -31,10 +31,6 @@ THE SOFTWARE.
  * \brief  Vector expression reduction.
  */
 
-#ifdef _MSC_VER
-#  define NOMINMAX
-#endif
-
 #include <vector>
 #include <array>
 #include <string>

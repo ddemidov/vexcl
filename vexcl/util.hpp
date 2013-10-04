@@ -31,8 +31,8 @@ THE SOFTWARE.
  * \brief  OpenCL general utilities.
  */
 
-#ifdef _MSC_VER
-#  define NOMINMAX
+#if defined(_MSC_VER) && ( defined(min) || defined(max) )
+#  error Please define NOMINMAX macro globally in your project
 #endif
 
 #include <iostream>
