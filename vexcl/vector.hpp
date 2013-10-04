@@ -294,6 +294,18 @@ class vector : public vector_terminal_expression {
                     return *this;
                 }
 
+                iterator_type operator++(int) {
+                    iterator_type copy = *this;
+                    ++(*this);
+                    return copy;
+                }
+
+                iterator_type operator--(int) {
+                    iterator_type copy = *this;
+                    --(*this);
+                    return copy;
+                }
+
                 iterator_type operator+(ptrdiff_t d) const {
                     return iterator_type(*vec, pos + d);
                 }
