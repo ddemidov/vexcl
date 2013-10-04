@@ -745,9 +745,10 @@ void StencilOperator<T, width, center, Impl>::convolve(
             cl::Kernel krn(program, "convolve");
             size_t wgs = kernel_workgroup_size(krn, device);
 
-            size_t available_lmem = (device.getInfo<CL_DEVICE_LOCAL_MEM_SIZE>() -
+            size_t available_lmem = (static_cast<size_t>(
+                    device.getInfo<CL_DEVICE_LOCAL_MEM_SIZE>() -
                     krn.getWorkGroupInfo<CL_KERNEL_LOCAL_MEM_SIZE>(device)
-                    ) / sizeof(T);
+                    ) ) / sizeof(T);
 
             assert(available_lmem >= width + 64);
 
