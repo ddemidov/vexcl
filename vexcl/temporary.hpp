@@ -275,8 +275,9 @@ struct partial_vector_expr< temporary<T, Tag, Expr> > {
         auto p = pos.find(Tag);
 
         if (p == pos.end()) {
-            return (pos[Tag] = std::string("temp_") +
-              std::to_string(static_cast<unsigned long long>(Tag)));
+            std::ostringstream s;
+            s << "temp_" << Tag;
+            return (pos[Tag] = s.str());
         } else {
             return p->second;
         }

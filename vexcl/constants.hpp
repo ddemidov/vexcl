@@ -70,7 +70,9 @@ struct partial_vector_expr< std::integral_constant<T, v> >
             const cl::Device&, const std::string &/*prm_name*/,
             detail::kernel_generator_state_ptr)
     {
-        return std::to_string(v);
+        std::ostringstream s;
+        s << v;
+        return s.str();
     }
 };
 

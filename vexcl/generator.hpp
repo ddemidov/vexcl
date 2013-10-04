@@ -275,23 +275,24 @@ struct symbolic_context {
         }
 
         template <class FunCall>
-	typename std::enable_if<
-	    std::is_base_of<
-		user_function,
-		typename boost::proto::result_of::value<
-		    typename boost::proto::result_of::child_c<FunCall,0>::type
-		>::type
-	    >::value,
+        typename std::enable_if<
+            std::is_base_of<
+                user_function,
+                typename boost::proto::result_of::value<
+                    typename boost::proto::result_of::child_c<FunCall,0>::type
+                >::type
+            >::value,
             void
-	>::type
+        >::type
         operator()(const FunCall &expr, symbolic_context &ctx) const {
-            std::string fname = std::string("fun") + std::to_string(var_id());
+            std::ostringstream fname;
+            fname << "fun" << var_id();
 
             boost::proto::result_of::value<
-		typename boost::proto::result_of::child_c<FunCall,0>::type
-	    >::type::define(get_preamble(), fname);
+                typename boost::proto::result_of::child_c<FunCall,0>::type
+            >::type::define(get_preamble(), fname.str());
 
-            get_recorder() << fname << "( ";
+            get_recorder() << fname.str() << "( ";
 
             boost::fusion::for_each(
                     boost::fusion::pop_front(expr),
