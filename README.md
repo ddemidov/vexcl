@@ -193,6 +193,14 @@ kernel void vexcl_vector_kernel(
 Here and in the rest of examples `X`, `Y`, and `Z` are compatible instances
 of `vex::vector<double>`.
 
+VexCL is able to cache the compiled kernels offline. The compiled binaries are
+stored in `$HOME/.vexcl` on Linux and MacOSX, and in `%APPDATA%\vexcl` on
+Windows systems. In order to enable this functionality, user has to define
+`VEXCL_CACHE_KERNELS` macro. NVIDIA OpenCL implementation does the caching
+already, but on AMD or Intel platforms this may lead to dramatic decrease of
+program initialization time (e.g. VexCL tests take around 20 seconds to
+complete without kernel caches, and 2 seconds when caches are available).
+
 ### <a name="builtin-operations"></a>Builtin operations
 
 VexCL expressions may combine device vectors and scalars with arithmetic,
