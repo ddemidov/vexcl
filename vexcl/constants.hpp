@@ -92,7 +92,9 @@ struct kernel_arg_setter< std::integral_constant<T, v> >
 // boost::math::constants wrappers
 //---------------------------------------------------------------------------
 template <class Impl>
-struct user_constant { };
+struct user_constant {
+    typedef typename Impl::value_type value_type;
+};
 
 template <class Impl>
 struct is_cl_native< user_constant<Impl> > : std::true_type {};
@@ -138,6 +140,7 @@ struct kernel_arg_setter< user_constant<Impl> >
 /// Create user-defined constant for use in VexCL expressions
 #define VEX_CONSTANT(name, value)                                              \
   struct constant_##name {                                                     \
+    typedef decltype(value) value_type;                                        \
     static std::string get() {                                                 \
       std::ostringstream s;                                                    \
       s << "( " << std::scientific << std::setprecision(16) << value << " )";  \
@@ -158,6 +161,7 @@ namespace constants {
 // Can not implement these as functors, could end up in multiple object files.
 #define VEX_GLOBAL_CONSTANT(name, value)                                       \
   struct constant_##name {                                                     \
+    typedef decltype(value) value_type;                                        \
     static std::string get() {                                                 \
       std::ostringstream s;                                                    \
       s << "( " << std::scientific << std::setprecision(16) << value << " )";  \
