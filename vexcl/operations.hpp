@@ -788,7 +788,7 @@ struct UserFunction<Impl, RetType(ArgType...)> : user_function
     }
 
     template <class Head, class... Tail>
-    static typename std::enable_if<sizeof...(Tail), void>::type
+    static typename std::enable_if<(sizeof...(Tail) > 0), void>::type
     show_arg(std::ostream &os, unsigned pos) {
         if (pos > 1) os << ",";
         show_arg<Tail...>(
