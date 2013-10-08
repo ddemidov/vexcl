@@ -160,10 +160,23 @@ inline To cl_convert(const From &val) {
 template <class T> struct is_cl_native : std::false_type {};
 
 /// Convert typename to string.
-template <class T> inline std::string type_name() {
+template <class T>
+inline
+typename std::enable_if<!std::is_pointer<T>::value, std::string>::type
+type_name() {
     throw std::logic_error("Trying to use an undefined type in a kernel.");
 }
 
+template<typename T>
+inline
+typename std::enable_if<std::is_pointer<T>::value, std::string>::type
+type_name() {
+    std::ostringstream s;
+    s << "global "
+      << type_name<typename std::remove_pointer<T>::type>()
+      << " * ";
+    return s.str();
+}
 
 #define STRINGIFY(type) \
 template <> inline std::string type_name<cl_##type>() { return #type; } \
