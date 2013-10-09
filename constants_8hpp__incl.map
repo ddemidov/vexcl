@@ -1,0 +1,17 @@
+<map id="vexcl/constants.hpp" name="vexcl/constants.hpp">
+<area shape="rect" id="node6" href="$backend_8hpp.html" title="Compile&#45;time selection of backend (OpenCL/CUDA). " alt="" coords="978,244,1107,271"/>
+<area shape="rect" id="node28" href="$types_8hpp.html" title="Support for using native C++ and OpenCL types in expressions. " alt="" coords="451,579,563,606"/>
+<area shape="rect" id="node34" href="$operations_8hpp.html" title="Templates used for expression tree traversal and kernel generation. " alt="" coords="695,87,835,114"/>
+<area shape="rect" id="node7" href="$opencl_8hpp.html" title="OpenCL backend for compute kernel generation/compilation/launching. " alt="" coords="1511,319,1681,345"/>
+<area shape="rect" id="node9" href="$opencl_2error_8hpp.html" title="Output OpenCL errors to a std::stream. " alt="" coords="1104,572,1251,613"/>
+<area shape="rect" id="node11" href="$opencl_2context_8hpp.html" title="OpenCL device enumeration and context initialization. " alt="" coords="1472,572,1619,613"/>
+<area shape="rect" id="node13" href="$opencl_2filter_8hpp.html" title="Device filters for OpenCL backend. " alt="" coords="1845,572,1992,613"/>
+<area shape="rect" id="node20" href="$opencl_2device__vector_8hpp.html" title="OpenCL device vector. " alt="" coords="1523,393,1669,435"/>
+<area shape="rect" id="node21" href="$opencl_2source_8hpp.html" title="Helper class for OpenCL source code generation. " alt="" coords="980,483,1127,524"/>
+<area shape="rect" id="node31" href="$opencl_2compiler_8hpp.html" title="OpenCL source code compilation wrapper. " alt="" coords="1845,483,1992,524"/>
+<area shape="rect" id="node33" href="$opencl_2kernel_8hpp.html" title="An abstraction over OpenCL compute kernel. " alt="" coords="1845,393,1992,435"/>
+<area shape="rect" id="node24" href="$common_8hpp.html" title="Common backend utilities. " alt="" coords="2067,579,2250,606"/>
+<area shape="rect" id="node32" href="$backtrace_8hpp.html" title="Print backtrace if possible. " alt="" coords="1275,579,1447,606"/>
+<area shape="rect" id="node43" href="$util_8hpp.html" title="OpenCL general utilities. " alt="" coords="739,579,837,606"/>
+<area shape="rect" id="node45" href="$cache_8hpp.html" title="Generic online cache implementation. " alt="" coords="1131,169,1245,196"/>
+</map>

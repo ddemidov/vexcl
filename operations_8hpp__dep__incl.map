@@ -1,0 +1,32 @@
+<map id="vexcl/operations.hpp" name="vexcl/operations.hpp">
+<area shape="rect" id="node2" href="$cast_8hpp.html" title="Cast an expression to a type. " alt="" coords="2448,155,2554,181"/>
+<area shape="rect" id="node4" href="$constants_8hpp.html" title="Constants for use in vector expressions. " alt="" coords="2591,155,2728,181"/>
+<area shape="rect" id="node5" href="$devlist_8hpp.html" title="OpenCL device enumeration and context initialization. " alt="" coords="1006,80,1122,107"/>
+<area shape="rect" id="node6" href="$vector_8hpp.html" title="OpenCL device vector. " alt="" coords="1007,155,1120,181"/>
+<area shape="rect" id="node11" href="$gather_8hpp.html" title="Gather scattered points from OpenCL device vector. " alt="" coords="1378,311,1493,338"/>
+<area shape="rect" id="node12" href="$generator_8hpp.html" title="OpenCL kernel generator. " alt="" coords="29,229,162,256"/>
+<area shape="rect" id="node14" href="$multivector_8hpp.html" title="OpenCL device multi&#45;vector. " alt="" coords="1785,229,1926,256"/>
+<area shape="rect" id="node21" href="$vector__pointer_8hpp.html" title="Cast vex::vector to a raw pointer. " alt="" coords="1332,229,1491,256"/>
+<area shape="rect" id="node23" href="$tensordot_8hpp.html" title="Tensor dot product along specified axes for multidimensional arrays. " alt="" coords="1787,311,1922,338"/>
+<area shape="rect" id="node24" href="$element__index_8hpp.html" title="Element index for use in vector expressions. " alt="" coords="1455,155,1619,181"/>
+<area shape="rect" id="node25" href="$function_8hpp.html" title="User&#45;defined device functions. " alt="" coords="358,155,484,181"/>
+<area shape="rect" id="node26" href="$logical_8hpp.html" title="Implementation of any_of and all_of primitives. " alt="" coords="1868,80,1985,107"/>
+<area shape="rect" id="node27" href="$mba_8hpp.html" title="Scattered data interpolation with multilevel B&#45;Splines. " alt="" coords="2008,80,2114,107"/>
+<area shape="rect" id="node28" href="$random_8hpp.html" title="Random number generators. " alt="" coords="2138,80,2261,107"/>
+<area shape="rect" id="node29" href="$reductor_8hpp.html" title="Vector expression reduction. " alt="" coords="2286,80,2412,107"/>
+<area shape="rect" id="node30" href="$tagged__terminal_8hpp.html" title="Tagged terminal wrapper. " alt="" coords="1643,155,1815,181"/>
+<area shape="rect" id="node31" href="$temporary_8hpp.html" title="Container for intermediate results. " alt="" coords="2436,80,2574,107"/>
+<area shape="rect" id="node3" href="$vexcl_8hpp.html" title="Vector expression template library for OpenCL. " alt="" coords="1476,393,1585,420"/>
+<area shape="rect" id="node7" href="$boost__compute_8hpp.html" title="Provides wrappers for some of Boost.Compute (https://github.com/kylelutz/compute) algorithms..." alt="" coords="882,304,1019,345"/>
+<area shape="rect" id="node8" href="$clogs_8hpp.html" title="Enables use of CLOGS (http://clogs.sourceforge.net) primitives. " alt="" coords="696,311,858,338"/>
+<area shape="rect" id="node9" href="$plan_8hpp.html" title="FFT plan, stores kernels and buffers for one configuration. " alt="" coords="652,229,771,256"/>
+<area shape="rect" id="node10" href="$fft_8hpp.html" title="Fast Fourier Transformation. " alt="" coords="530,311,621,338"/>
+<area shape="rect" id="node13" href="$multi__array_8hpp.html" title="An analog of boost::multi_array. " alt="" coords="1568,311,1711,338"/>
+<area shape="rect" id="node15" href="$reduce__by__key_8hpp.html" title="Reduce by key algortihm. " alt="" coords="288,311,455,338"/>
+<area shape="rect" id="node16" href="$scan_8hpp.html" title="Inclusive/Exclusive scan algortihms. " alt="" coords="288,229,396,256"/>
+<area shape="rect" id="node17" href="$scan__by__key_8hpp.html" title="Scan by key algortihm. " alt="" coords="420,229,576,256"/>
+<area shape="rect" id="node18" href="$sort_8hpp.html" title="Sorting algorithms. " alt="" coords="847,229,950,256"/>
+<area shape="rect" id="node19" href="$spmat_8hpp.html" title="OpenCL sparse matrix. " alt="" coords="1238,311,1354,338"/>
+<area shape="rect" id="node20" href="$stencil_8hpp.html" title="Stencil convolution. " alt="" coords="1095,311,1214,338"/>
+<area shape="rect" id="node22" href="$vector__view_8hpp.html" title="Provides sub&#45;view for an existing vex::vector. " alt="" coords="1566,229,1710,256"/>
+</map>

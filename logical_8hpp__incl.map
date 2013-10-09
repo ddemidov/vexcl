@@ -1,0 +1,17 @@
+<map id="vexcl/logical.hpp" name="vexcl/logical.hpp">
+<area shape="rect" id="node3" href="$operations_8hpp.html" title="Templates used for expression tree traversal and kernel generation. " alt="" coords="625,80,765,107"/>
+<area shape="rect" id="node12" href="$backend_8hpp.html" title="Compile&#45;time selection of backend (OpenCL/CUDA). " alt="" coords="1194,229,1323,256"/>
+<area shape="rect" id="node36" href="$types_8hpp.html" title="Support for using native C++ and OpenCL types in expressions. " alt="" coords="384,565,496,591"/>
+<area shape="rect" id="node43" href="$util_8hpp.html" title="OpenCL general utilities. " alt="" coords="262,565,359,591"/>
+<area shape="rect" id="node45" href="$cache_8hpp.html" title="Generic online cache implementation. " alt="" coords="527,155,641,181"/>
+<area shape="rect" id="node13" href="$opencl_8hpp.html" title="OpenCL backend for compute kernel generation/compilation/launching. " alt="" coords="1441,304,1612,331"/>
+<area shape="rect" id="node15" href="$opencl_2error_8hpp.html" title="Output OpenCL errors to a std::stream. " alt="" coords="1283,557,1429,599"/>
+<area shape="rect" id="node17" href="$opencl_2context_8hpp.html" title="OpenCL device enumeration and context initialization. " alt="" coords="1112,557,1259,599"/>
+<area shape="rect" id="node18" href="$opencl_2filter_8hpp.html" title="Device filters for OpenCL backend. " alt="" coords="1453,557,1600,599"/>
+<area shape="rect" id="node26" href="$opencl_2device__vector_8hpp.html" title="OpenCL device vector. " alt="" coords="1615,379,1761,420"/>
+<area shape="rect" id="node27" href="$opencl_2source_8hpp.html" title="Helper class for OpenCL source code generation. " alt="" coords="652,468,799,509"/>
+<area shape="rect" id="node40" href="$opencl_2compiler_8hpp.html" title="OpenCL source code compilation wrapper. " alt="" coords="1896,468,2043,509"/>
+<area shape="rect" id="node42" href="$opencl_2kernel_8hpp.html" title="An abstraction over OpenCL compute kernel. " alt="" coords="1785,379,1932,420"/>
+<area shape="rect" id="node31" href="$common_8hpp.html" title="Common backend utilities. " alt="" coords="1878,565,2061,591"/>
+<area shape="rect" id="node41" href="$backtrace_8hpp.html" title="Print backtrace if possible. " alt="" coords="865,565,1037,591"/>
+</map>

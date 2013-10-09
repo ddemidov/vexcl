@@ -1,0 +1,19 @@
+<map id="vexcl/sort.hpp" name="vexcl/sort.hpp">
+<area shape="rect" id="node4" href="$backend_8hpp.html" title="Compile&#45;time selection of backend (OpenCL/CUDA). " alt="" coords="1819,393,1949,420"/>
+<area shape="rect" id="node25" href="$util_8hpp.html" title="OpenCL general utilities. " alt="" coords="539,550,637,577"/>
+<area shape="rect" id="node29" href="$vector_8hpp.html" title="OpenCL device vector. " alt="" coords="967,80,1081,107"/>
+<area shape="rect" id="node44" href="$function_8hpp.html" title="User&#45;defined device functions. " alt="" coords="2963,80,3088,107"/>
+<area shape="rect" id="node5" href="$opencl_8hpp.html" title="OpenCL backend for compute kernel generation/compilation/launching. " alt="" coords="1875,468,2045,495"/>
+<area shape="rect" id="node7" href="$opencl_2error_8hpp.html" title="Output OpenCL errors to a std::stream. " alt="" coords="1815,632,1961,673"/>
+<area shape="rect" id="node9" href="$opencl_2context_8hpp.html" title="OpenCL device enumeration and context initialization. " alt="" coords="1653,543,1800,584"/>
+<area shape="rect" id="node11" href="$opencl_2filter_8hpp.html" title="Device filters for OpenCL backend. " alt="" coords="1211,543,1357,584"/>
+<area shape="rect" id="node13" href="$opencl_2device__vector_8hpp.html" title="OpenCL device vector. " alt="" coords="1976,543,2123,584"/>
+<area shape="rect" id="node14" href="$opencl_2source_8hpp.html" title="Helper class for OpenCL source code generation. " alt="" coords="1381,543,1528,584"/>
+<area shape="rect" id="node22" href="$opencl_2compiler_8hpp.html" title="OpenCL source code compilation wrapper. " alt="" coords="2193,632,2340,673"/>
+<area shape="rect" id="node24" href="$opencl_2kernel_8hpp.html" title="An abstraction over OpenCL compute kernel. " alt="" coords="2248,543,2395,584"/>
+<area shape="rect" id="node18" href="$types_8hpp.html" title="Support for using native C++ and OpenCL types in expressions. " alt="" coords="1425,639,1537,666"/>
+<area shape="rect" id="node33" href="$operations_8hpp.html" title="Templates used for expression tree traversal and kernel generation. " alt="" coords="1157,244,1297,271"/>
+<area shape="rect" id="node40" href="$profiler_8hpp.html" title="Simple OpenCL/Host profiler. " alt="" coords="720,319,837,345"/>
+<area shape="rect" id="node43" href="$devlist_8hpp.html" title="OpenCL device enumeration and context initialization. " alt="" coords="1017,162,1133,189"/>
+<area shape="rect" id="node39" href="$cache_8hpp.html" title="Generic online cache implementation. " alt="" coords="1683,319,1797,345"/>
+</map>
