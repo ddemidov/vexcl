@@ -45,6 +45,7 @@ performance of several GPGPU libraries, including VexCL.
 * [Reductions](#reductions)
 * [Sparse matrix-vector products](#sparse-matrix-vector-products)
 * [Stencil convolutions](#stencil-convolutions)
+* [Raw pointers](#raw-pointers)
 * [Multivectors](#multivectors)
 * [Converting generic C++ algorithms to OpenCL](#converting-generic-c-algorithms-to-opencl)
     * [Kernel generator](#kernel-generator)
@@ -591,6 +592,64 @@ array that is indexed relatively to the stencil center.
 
 Stencil convolution operations, similar to the matrix-vector products, are only
 allowed in additive expressions.
+
+## <a name="raw-pointers"></a>Raw pointers
+
+Unforunately, describing two dimensional stencils (e.g. discretization of
+Laplace operator) would not be effective, because stencil width would be too
+large. One can solve this problem by using combination of function
+`raw_pointer(const vector<T>&)` with a derefence operator (essentially doing
+pointer arithmetic inside compute kernel). For the sake of siplicity, the
+example below implements simple 3-point laplace operator for a one-dimensional
+vector; but this could be easily extended for a two-dimensional case:
+~~~{.cpp}
+VEX_CONSTANT(zero, 0);
+VEX_CONSTANT(one,  1);
+VEX_CONSTANT(two,  2);
+
+auto N   = vex::tag<1>( x.size() );
+auto ptr = vex::tag<2>( vex::raw_pointer(x) );
+
+auto i     = vex::make_temp<1>( vex::element_index() );
+auto left  = vex::make_temp<2>( if_else(i > zero(),    i - one(), i) );
+auto right = vex::make_temp<3>( if_else(i + one() < N, i + one(), i) );
+
+y = *(ptr + i) * two() - *(ptr + left) - *(ptr + right);
+~~~
+
+This would result in the following OpenCL kernel:
+~~~{.c}
+kernel void vexcl_vector_kernel(
+    ulong n,
+    global double * prm_1,
+    global double * prm_2,
+    ulong prm_3,
+    ulong prm_4
+)
+{
+    for(size_t idx = get_global_id(0); idx < n; idx += get_global_size(0)) {
+        ulong temp_1 = prm_3 + idx;
+        ulong temp_2 = temp_1 > 0 ? temp_1 - 1 : temp_1;
+        ulong temp_3 = temp_1 + 1 < prm_4 ? temp_1 + 1 : temp_1;
+        prm_1[idx] = *(prm_2 + temp_1) * 2 - *(prm_2 + temp_2) - *(prm_2 + temp_3);
+    }
+}
+~~~
+
+Same approach could be used, for example, to implement an N-body problem with a
+user-defined function:
+~~~{.cpp}
+// Takes vector size, current element position, and pointer to a vector to sum:
+VEX_FUNCTION(global_interaction, double(size_t, size_t, double*),
+    "double sum = 0;\n"
+    "double myval = prm3[prm2];\n"
+    "for(size_t i = 0; i < prm1; ++i)\n"
+    "    if (i != prm2) sum += fabs(prm3[i] - myval);\n"
+    "return sum;\n"
+    );
+
+y = global_interaction(x.size(), vex::element_index(), vex::raw_pointer(x));
+~~~
 
 ## <a name="multivectors"></a>Multivectors
 

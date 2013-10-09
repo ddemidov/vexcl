@@ -47,19 +47,18 @@ BOOST_AUTO_TEST_CASE(manual_stencil)
     vex::vector<double> x(queue, X);
     vex::vector<double> y(queue, n);
 
-    auto p = vex::tag<1>( vex::raw_pointer(x) );
-    auto N = vex::tag<3>( n );
-
     VEX_CONSTANT(nil, 0);
     VEX_CONSTANT(one, 1);
     VEX_CONSTANT(two, 2);
 
-    auto i   = vex::make_temp<0>( vex::element_index() );
-    auto x_l = vex::make_temp<1>( if_else(i > nil(), *(p + i - one()), *(p + i) ) );
-    auto x_c = vex::make_temp<2>( *(p + i) );
-    auto x_r = vex::make_temp<3>( if_else(i + one() < N, *(p + i + one()), *(p + i) ) );
+    auto N = vex::tag<1>( x.size() );
+    auto p = vex::tag<2>( vex::raw_pointer(x) );
 
-    y = (two() * x_c - x_l - x_r);
+    auto i     = vex::make_temp<1>( vex::element_index() );
+    auto left  = vex::make_temp<2>( if_else(i > nil(), i - one(), i ) );
+    auto right = vex::make_temp<3>( if_else(i + one() < N, i + one(), i ) );
+
+    y = *(p + i) * two() - *(p + left) - *(p + right);
 
     check_sample(y, [&](size_t idx, double v) {
             double xc = X[idx];
