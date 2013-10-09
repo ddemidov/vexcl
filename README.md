@@ -651,6 +651,9 @@ VEX_FUNCTION(global_interaction, double(size_t, size_t, double*),
 y = global_interaction(x.size(), vex::element_index(), vex::raw_pointer(x));
 ~~~
 
+Note that use of `raw_pointer()` function is limited to single-device contexts
+for obvious reasons.
+
 ## <a name="multivectors"></a>Multivectors
 
 Class template `vex::multivector<T,N>` allows to store several equally sized
