@@ -599,7 +599,7 @@ Unforunately, describing two dimensional stencils (e.g. discretization of
 Laplace operator) would not be effective, because stencil width would be too
 large. One can solve this problem by using combination of function
 `raw_pointer(const vector<T>&)` with a derefence operator (essentially doing
-pointer arithmetic inside compute kernel). For the sake of siplicity, the
+pointer arithmetic inside compute kernel). For the sake of simplicity, the
 example below implements simple 3-point laplace operator for a one-dimensional
 vector; but this could be easily extended for a two-dimensional case:
 ~~~{.cpp}
