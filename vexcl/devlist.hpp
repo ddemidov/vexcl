@@ -32,6 +32,7 @@ THE SOFTWARE.
  */
 
 #include <vector>
+#include <functional>
 #include <string>
 #include <fstream>
 #include <limits>
