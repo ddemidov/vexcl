@@ -4,7 +4,7 @@
 #include <vexcl/vector.hpp>
 
 void local_context() {
-    vex::Context ctx( vex::Filter::Exclusive( vex::Filter::Env) );
+    vex::Context ctx( vex::Filter::Exclusive( vex::Filter::Env ) );
     std::cout << ctx << std::endl;
 
     BOOST_CHECK( !ctx.empty() );

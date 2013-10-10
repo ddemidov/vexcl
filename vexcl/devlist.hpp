@@ -71,38 +71,38 @@ namespace Filter {
 
     /// Selects devices whose vendor name match given value.
     struct Vendor {
-        explicit Vendor(const std::string &name) : vendor(name) {}
+        explicit Vendor(std::string name) : vendor(std::move(name)) {}
 
         bool operator()(const cl::Device &d) const {
             return d.getInfo<CL_DEVICE_VENDOR>().find(vendor) != std::string::npos;
         }
 
         private:
-            const std::string &vendor;
+            std::string vendor;
     };
 
     /// Selects devices whose platform name match given value.
     struct Platform {
-        explicit Platform(const std::string &name) : platform(name) {}
+        explicit Platform(std::string name) : platform(std::move(name)) {}
 
         bool operator()(const cl::Device &d) const {
             return cl::Platform(d.getInfo<CL_DEVICE_PLATFORM>()).getInfo<CL_PLATFORM_NAME>().find(platform) != std::string::npos;
         }
 
         private:
-            const std::string &platform;
+            std::string platform;
     };
 
     /// Selects devices whose names match given value.
     struct Name {
-        explicit Name(const std::string &name) : devname(name) {}
+        explicit Name(std::string name) : devname(std::move(name)) {}
 
         bool operator()(const cl::Device &d) const {
             return d.getInfo<CL_DEVICE_NAME>().find(devname) != std::string::npos;
         }
 
         private:
-            const std::string &devname;
+            std::string devname;
     };
 
     /// Selects devices by type.
@@ -227,10 +227,9 @@ namespace Filter {
     const EnvFilter Env;
 
     /// \internal Exclusive access to selected devices.
-    template <class Filter>
     class ExclusiveFilter {
         private:
-            const Filter &filter;
+            std::function<bool(const cl::Device&)> filter;
 
             static std::map<cl_device_id, std::string> get_uids() {
                 std::map<cl_device_id, std::string> uids;
@@ -321,7 +320,9 @@ namespace Filter {
                 std::unique_ptr<boost::interprocess::file_lock> flock;
             };
         public:
-            ExclusiveFilter(const Filter &filter) : filter(filter) {}
+            template <class Filter>
+            ExclusiveFilter(Filter&& filter)
+                : filter(std::forward<Filter>(filter)) {}
 
             bool operator()(const cl::Device &d) const {
                 static std::map<cl_device_id, std::string> dev_uids = get_uids();
@@ -354,24 +355,25 @@ namespace Filter {
      * and be writable by the running user.
      */
     template <class Filter>
-    ExclusiveFilter<Filter> Exclusive(const Filter &filter) {
-        return ExclusiveFilter<Filter>(filter);
+    ExclusiveFilter Exclusive(Filter&& filter) {
+        return ExclusiveFilter(std::forward<Filter>(filter));
     }
 
     /// \cond INTERNAL
 
     /// Negation of a filter.
-    template <class Flt>
-        struct NegateFilter {
-            NegateFilter(const Flt &flt) : flt(flt) {}
+    struct NegateFilter {
+        template <class Filter>
+        NegateFilter(Filter&& filter)
+          : filter(std::forward<Filter>(filter)) {}
 
-            bool operator()(const cl::Device &d) const {
-                return !flt(d);
-            }
+        bool operator()(const cl::Device &d) const {
+            return !filter(d);
+        }
 
-            private:
-            const Flt &flt;
-        };
+        private:
+            std::function<bool(const cl::Device&)> filter;
+    };
 
     /// Filter join operators.
     enum FilterOp {
@@ -379,50 +381,52 @@ namespace Filter {
     };
 
     /// Filter join expression template.
-    template <class LeftFilter, class RightFilter, FilterOp op>
-        struct FilterBinaryOp {
-            FilterBinaryOp(const LeftFilter &l, const RightFilter &r)
-                : left(l), right(r) {}
+    template <FilterOp op>
+    struct FilterBinaryOp {
+        template <class LHS, class RHS>
+        FilterBinaryOp(LHS&& lhs, RHS&& rhs)
+            : lhs(std::forward<LHS>(lhs)), rhs(std::forward<RHS>(rhs)) {}
 
-            bool operator()(const cl::Device &d) const {
-                switch (op) {
-                    case FilterOr:
-                        return left(d) || right(d);
-                    case FilterAnd:
-                    default:
-                        return left(d) && right(d);
-                }
+        bool operator()(const cl::Device &d) const {
+            // This could be hidden into FilterOp::apply() call (with FilterOp
+            // being a struct instead of enum), but this form allows to rely on
+            // short-circuit evaluation (important for mutable filters as Count
+            // or Position).
+            switch (op) {
+                case FilterOr:
+                    return lhs(d) || rhs(d);
+                case FilterAnd:
+                default:
+                    return lhs(d) && rhs(d);
             }
+        }
 
-            private:
-                const LeftFilter &left;
-                const RightFilter &right;
-        };
+        private:
+            std::function<bool(const cl::Device&)> lhs;
+            std::function<bool(const cl::Device&)> rhs;
+    };
 
     /// \endcond
 
     /// Join two filters with AND operator.
-    template <class LeftFilter, class RightFilter>
-        FilterBinaryOp<LeftFilter, RightFilter, FilterAnd> operator&&(
-                const LeftFilter &left, const RightFilter &right)
-        {
-            return FilterBinaryOp<LeftFilter, RightFilter, FilterAnd>(left, right);
-        }
+    template <class LHS, class RHS>
+    FilterBinaryOp<FilterAnd> operator&&(LHS&& lhs, RHS&& rhs)
+    {
+        return FilterBinaryOp<FilterAnd>(std::forward<LHS>(lhs), std::forward<RHS>(rhs));
+    }
 
     /// Join two filters with OR operator.
-    template <class LeftFilter, class RightFilter>
-        FilterBinaryOp<LeftFilter, RightFilter, FilterOr> operator||(
-                const LeftFilter &left, const RightFilter &right)
-        {
-            return FilterBinaryOp<LeftFilter, RightFilter, FilterOr>(left, right);
-        }
+    template <class LHS, class RHS>
+    FilterBinaryOp<FilterOr> operator||(LHS&& lhs, RHS&& rhs)
+    {
+        return FilterBinaryOp<FilterOr>(std::forward<LHS>(lhs), std::forward<RHS>(rhs));
+    }
 
     /// Negate a filter.
-    template <class Flt>
-        NegateFilter<Flt> operator!(const Flt &flt) {
-            return NegateFilter<Flt>(flt);
-        }
-
+    template <class Filter>
+    NegateFilter operator!(Filter&& filter) {
+        return NegateFilter(std::forward<Filter>(filter));
+    }
 } // namespace Filter
 
 /// Select devices by given criteria.
@@ -438,13 +442,8 @@ namespace Filter {
  *          );
  * \endcode
  */
-template<class DevFilter
-#ifndef BOOST_NO_CXX11_FUNCTION_TEMPLATE_DEFAULT_ARGS
-    = Filter::AllFilter
-#endif
-    >
-std::vector<cl::Device> device_list(DevFilter filter = Filter::All)
-{
+template<class DevFilter>
+std::vector<cl::Device> device_list(DevFilter&& filter) {
     std::vector<cl::Device> device;
 
     std::vector<cl::Platform> platforms;
@@ -475,17 +474,9 @@ std::vector<cl::Device> device_list(DevFilter filter = Filter::All)
  * \returns list of queues accociated with selected devices.
  * \see device_list
  */
-template<class DevFilter
-#ifndef BOOST_NO_CXX11_FUNCTION_TEMPLATE_DEFAULT_ARGS
-    = Filter::AllFilter
-#endif
-    >
+template<class DevFilter>
 std::pair<std::vector<cl::Context>, std::vector<cl::CommandQueue>>
-queue_list(
-        DevFilter filter = Filter::All,
-        cl_command_queue_properties properties = 0
-        )
-{
+queue_list(DevFilter &&filter, cl_command_queue_properties properties = 0) {
     std::vector<cl::Context>      context;
     std::vector<cl::CommandQueue> queue;
 
@@ -555,10 +546,10 @@ class Context {
         /// Initialize context from a device filter.
         template <class DevFilter>
         explicit Context(
-                DevFilter filter, cl_command_queue_properties properties = 0
+                DevFilter&& filter, cl_command_queue_properties properties = 0
                 )
         {
-            std::tie(c, q) = queue_list(filter, properties);
+            std::tie(c, q) = queue_list(std::forward<DevFilter>(filter), properties);
 
 #ifdef VEXCL_THROW_ON_EMPTY_CONTEXT
             precondition(!q.empty(), "No compute devices found");
