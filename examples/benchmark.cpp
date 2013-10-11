@@ -21,6 +21,10 @@ struct Options {
     bool bm_spmv;
     bool bm_rng;
     bool bm_cpu;
+    bool ctx_cpu_only;
+    bool ctx_gpu_only;
+    bool ctx_accel_only;
+    int  ctx_device_num;
 
     Options() :
         bm_saxpy(true),
@@ -29,7 +33,11 @@ struct Options {
         bm_stencil(true),
         bm_spmv(true),
         bm_rng(true),
-        bm_cpu(true)
+        bm_cpu(true),
+        ctx_cpu_only(false),
+        ctx_gpu_only(false),
+        ctx_accel_only(false),
+        ctx_device_num(-1)
     {}
 } options;
 
@@ -735,6 +743,22 @@ int main(int argc, char *argv[]) {
             po::value<bool>(&options.bm_cpu)->default_value(true),
             "benchmark host CPU performance (on/off)"
             )
+        ("ctx_cpu_only",
+            po::value<bool>(&options.ctx_cpu_only)->default_value(false),
+            "benchmark using only CPU devices(on/off)"
+            )
+        ("ctx_gpu_only",
+            po::value<bool>(&options.ctx_gpu_only)->default_value(false),
+            "benchmark using only GPU devices(on/off)"
+            )
+        ("ctx_accel_only",
+            po::value<bool>(&options.ctx_accel_only)->default_value(false),
+            "benchmark using only accelerator devices(on/off)"
+            )
+        ("ctx_device_num",
+            po::value<int>(&options.ctx_device_num)->default_value(-1),
+            "benchmark using only device number(0/1/etc)"
+            )
         ;
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -748,14 +772,30 @@ int main(int argc, char *argv[]) {
     try {
         vex::profiler<> prof;
 
+        vex::Filter::General f = vex::Filter::All;
+
+        if (options.ctx_device_num >= 0)
+          f = f && vex::Filter::Position(options.ctx_device_num);
+
+        if (options.ctx_cpu_only)
+          f = f && vex::Filter::Type(CL_DEVICE_TYPE_CPU);
+
+        if (options.ctx_gpu_only)
+          f = f && vex::Filter::Type(CL_DEVICE_TYPE_GPU);
+
+        if (options.ctx_accel_only)
+          f = f && vex::Filter::Type(CL_DEVICE_TYPE_ACCELERATOR);
+
         {
-            vex::Context ctx(vex::Filter::DoublePrecision && vex::Filter::Env);
-            if (ctx) run_tests<double>(ctx, prof);
+            vex::Context ctx(f && vex::Filter::DoublePrecision && vex::Filter::Env);
+            if (ctx)
+                run_tests<double>(ctx, prof);
         }
 
         {
-            vex::Context ctx(vex::Filter::Env);
-            if (ctx) run_tests<float>(ctx, prof);
+            vex::Context ctx(f && vex::Filter::Env);
+            if (ctx)
+                run_tests<float>(ctx, prof);
         }
 
         std::cout << prof << std::endl;
