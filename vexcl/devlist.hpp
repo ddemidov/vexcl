@@ -322,8 +322,7 @@ namespace Filter {
             };
         public:
             template <class Filter>
-            ExclusiveFilter(Filter&& filter)
-                : filter(std::forward<Filter>(filter)) {}
+            ExclusiveFilter(Filter filter) : filter(filter) {}
 
             bool operator()(const cl::Device &d) const {
                 static std::map<cl_device_id, std::string> dev_uids = get_uids();
@@ -356,8 +355,8 @@ namespace Filter {
      * and be writable by the running user.
      */
     template <class Filter>
-    ExclusiveFilter Exclusive(Filter&& filter) {
-        return ExclusiveFilter(std::forward<Filter>(filter));
+    ExclusiveFilter Exclusive(Filter filter) {
+        return ExclusiveFilter(filter);
     }
 
     /// \cond INTERNAL
@@ -365,8 +364,8 @@ namespace Filter {
     /// Negation of a filter.
     struct NegateFilter {
         template <class Filter>
-        NegateFilter(Filter&& filter)
-          : filter(std::forward<Filter>(filter)) {}
+        NegateFilter(Filter filter)
+          : filter(filter) {}
 
         bool operator()(const cl::Device &d) const {
             return !filter(d);
@@ -385,8 +384,7 @@ namespace Filter {
     template <FilterOp op>
     struct FilterBinaryOp {
         template <class LHS, class RHS>
-        FilterBinaryOp(LHS&& lhs, RHS&& rhs)
-            : lhs(std::forward<LHS>(lhs)), rhs(std::forward<RHS>(rhs)) {}
+        FilterBinaryOp(LHS lhs, RHS rhs) : lhs(lhs), rhs(rhs) {}
 
         bool operator()(const cl::Device &d) const {
             // This could be hidden into FilterOp::apply() call (with FilterOp
@@ -411,22 +409,22 @@ namespace Filter {
 
     /// Join two filters with AND operator.
     template <class LHS, class RHS>
-    FilterBinaryOp<FilterAnd> operator&&(LHS&& lhs, RHS&& rhs)
+    FilterBinaryOp<FilterAnd> operator&&(LHS lhs, RHS rhs)
     {
-        return FilterBinaryOp<FilterAnd>(std::forward<LHS>(lhs), std::forward<RHS>(rhs));
+        return FilterBinaryOp<FilterAnd>(lhs, rhs);
     }
 
     /// Join two filters with OR operator.
     template <class LHS, class RHS>
-    FilterBinaryOp<FilterOr> operator||(LHS&& lhs, RHS&& rhs)
+    FilterBinaryOp<FilterOr> operator||(LHS lhs, RHS rhs)
     {
-        return FilterBinaryOp<FilterOr>(std::forward<LHS>(lhs), std::forward<RHS>(rhs));
+        return FilterBinaryOp<FilterOr>(lhs, rhs);
     }
 
     /// Negate a filter.
     template <class Filter>
-    NegateFilter operator!(Filter&& filter) {
-        return NegateFilter(std::forward<Filter>(filter));
+    NegateFilter operator!(Filter filter) {
+        return NegateFilter(filter);
     }
 } // namespace Filter
 
