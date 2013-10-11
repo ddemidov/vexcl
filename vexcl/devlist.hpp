@@ -426,6 +426,26 @@ namespace Filter {
     NegateFilter operator!(Filter filter) {
         return NegateFilter(filter);
     }
+
+    /// Runtime filter holder.
+    /**
+     * The filter maybe changed at runtime as in:
+     * \code
+     * vex::Filter::General f = vex::Filter::Env;
+     * if (need_double) f = f && vex::Filter::DoublePrecision;
+     * \endcode
+     */
+    struct General {
+        template<class Filter>
+        General(Filter filter) : filter(filter) { }
+
+        bool operator()(const cl::Device &d) const {
+            return filter(d);
+        }
+
+        private:
+            std::function<bool(const cl::Device&)> filter;
+    };
 } // namespace Filter
 
 /// Select devices by given criteria.
