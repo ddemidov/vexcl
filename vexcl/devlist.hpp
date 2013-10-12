@@ -413,6 +413,7 @@ namespace Filter {
      * \li OCL_DEVICE   -- device name;
      * \li OCL_TYPE     -- device type (CPU, GPU, ACCELERATOR);
      * \li OCL_MAX_DEVICES -- maximum number of devices to use.
+     * \li OCL_POSITION -- devices position in the device list.
      *
      * \note Since this filter possibly counts passed devices, it should be the
      * last in filter expression. Same reasoning applies as in case of
@@ -429,6 +430,7 @@ namespace Filter {
             const char *name     = getenv("OCL_DEVICE");
             const char *devtype  = getenv("OCL_TYPE");
             const char *maxdev   = getenv("OCL_MAX_DEVICES");
+            const char *position = getenv("OCL_POSITION");
 #ifdef _MSC_VER
 #  pragma warning(pop)
 #endif
@@ -438,6 +440,7 @@ namespace Filter {
             if (name)     filter = filter && Name(name);
             if (devtype)  filter = filter && Type(devtype);
             if (maxdev)   filter = filter && Count(std::stoi(maxdev));
+            if (position) filter = filter && Position(std::stoi(position));
         }
 
         bool operator()(const cl::Device &d) const {
