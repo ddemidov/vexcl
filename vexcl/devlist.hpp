@@ -108,7 +108,8 @@ namespace Filter {
 
     /// Selects devices by type.
     struct Type {
-        explicit Type(cl_device_type t) : type(t) {}
+        explicit Type(cl_device_type t)    : type(t)              {}
+        explicit Type(const std::string t) : type(device_type(t)) {}
 
         bool operator()(const cl::Device &d) const {
             return d.getInfo<CL_DEVICE_TYPE>() == type;
@@ -116,6 +117,19 @@ namespace Filter {
 
         private:
             cl_device_type type;
+
+            static cl_device_type device_type(const std::string &t) {
+                if (t.find("CPU") != std::string::npos)
+                    return CL_DEVICE_TYPE_CPU;
+
+                if (t.find("GPU") != std::string::npos)
+                    return CL_DEVICE_TYPE_GPU;
+
+                if (t.find("ACCELERATOR") != std::string::npos)
+                    return CL_DEVICE_TYPE_ACCELERATOR;
+
+                return CL_DEVICE_TYPE_ALL;
+            }
     };
 
     /// Selects devices supporting double precision.
@@ -166,66 +180,6 @@ namespace Filter {
         private:
             mutable int pos;
     };
-
-    /// Environment filter
-    /**
-     * Selects devices with respect to environment variables. Recognized
-     * variables are:
-     *
-     * \li OCL_PLATFORM -- platform name;
-     * \li OCL_VENDOR   -- device vendor;
-     * \li OCL_DEVICE   -- device name;
-     * \li OCL_MAX_DEVICES -- maximum number of devices to use.
-     *
-     * \note Since this filter possibly counts passed devices, it should be the
-     * last in filter expression. Same reasoning applies as in case of
-     * Filter::Count.
-     */
-    struct EnvFilter {
-#ifdef _MSC_VER
-#  pragma warning(push)
-#  pragma warning(disable: 4996)
-#endif
-        EnvFilter()
-            : platform(getenv("OCL_PLATFORM")),
-              vendor  (getenv("OCL_VENDOR")),
-              name    (getenv("OCL_DEVICE")),
-              maxdev  (getenv("OCL_MAX_DEVICES")),
-              count(maxdev ? atoi(maxdev) : std::numeric_limits<int>::max())
-        {}
-#ifdef _MSC_VER
-#  pragma warning(pop)
-#endif
-
-        bool operator()(const cl::Device &d) const {
-            if (platform &&
-                    cl::Platform(
-                        d.getInfo<CL_DEVICE_PLATFORM>()
-                        ).getInfo<CL_PLATFORM_NAME>().find(platform) == std::string::npos
-               ) return false;
-
-            if (vendor &&
-                    d.getInfo<CL_DEVICE_VENDOR>().find(vendor) == std::string::npos
-               ) return false;
-
-            if (name &&
-                    d.getInfo<CL_DEVICE_NAME>().find(name) == std::string::npos
-               ) return false;
-
-            if (maxdev) return --count >= 0;
-
-            return true;
-        }
-
-        private:
-            const char *platform;
-            const char *vendor;
-            const char *name;
-            const char *maxdev;
-            mutable int count;
-    };
-
-    const EnvFilter Env;
 
     /// \internal Exclusive access to selected devices.
     class ExclusiveFilter {
@@ -448,6 +402,54 @@ namespace Filter {
         private:
             std::function<bool(const cl::Device&)> filter;
     };
+
+    /// Environment filter
+    /**
+     * Selects devices with respect to environment variables. Recognized
+     * variables are:
+     *
+     * \li OCL_PLATFORM -- platform name;
+     * \li OCL_VENDOR   -- device vendor;
+     * \li OCL_DEVICE   -- device name;
+     * \li OCL_TYPE     -- device type (CPU, GPU, ACCELERATOR);
+     * \li OCL_MAX_DEVICES -- maximum number of devices to use.
+     *
+     * \note Since this filter possibly counts passed devices, it should be the
+     * last in filter expression. Same reasoning applies as in case of
+     * Filter::Count.
+     */
+    struct EnvFilter {
+        EnvFilter() : filter(All) {
+#ifdef _MSC_VER
+#  pragma warning(push)
+#  pragma warning(disable: 4996)
+#endif
+            const char *platform = getenv("OCL_PLATFORM");
+            const char *vendor   = getenv("OCL_VENDOR");
+            const char *name     = getenv("OCL_DEVICE");
+            const char *devtype  = getenv("OCL_TYPE");
+            const char *maxdev   = getenv("OCL_MAX_DEVICES");
+#ifdef _MSC_VER
+#  pragma warning(pop)
+#endif
+
+            if (platform) filter = filter && Platform(platform);
+            if (vendor)   filter = filter && Vendor(vendor);
+            if (name)     filter = filter && Name(name);
+            if (devtype)  filter = filter && Type(devtype);
+            if (maxdev)   filter = filter && Count(std::stoi(maxdev));
+        }
+
+        bool operator()(const cl::Device &d) const {
+            return filter(d);
+        }
+
+        private:
+            General filter;
+    };
+
+    const EnvFilter Env;
+
 } // namespace Filter
 
 /// Select devices by given criteria.
