@@ -749,7 +749,7 @@ int main(int argc, char *argv[]) {
         vex::profiler<> prof;
 
         {
-            vex::Context ctx(vex::Filter::DoublePrecision && vex::Filter::Env);
+            vex::Context ctx(vex::Filter::Env && vex::Filter::DoublePrecision);
             if (ctx) run_tests<double>(ctx, prof);
         }
 
