@@ -71,7 +71,7 @@ struct tagged_terminal : tagged_terminal_expression
         std::vector<cl::CommandQueue> queue; \
         std::vector<size_t> part; \
         size_t size; \
-        traits::expression_properties<tagged_terminal>::get(*this, queue, part, size); \
+        traits::get_expression_properties(*this, queue, part, size); \
         detail::assign_expression<op>(*this, expr, queue, part); \
         return *this; \
     }
