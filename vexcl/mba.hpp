@@ -212,12 +212,19 @@ class mba {
         }
 
         /**
-         * \param queue  command queue list.
-         * \param cmin   corner of bounding box with smallest coordinates.
-         * \param cmax   corner of bounding box with largest coordinates.
-         * \param grid   initial control lattice size (excluding boundary points).
-         * \param levels number of levels in hierarchy.
-         * \param tol    stop if residual is less than this.
+         * \param queue     command queue list.
+         * \param cmin      corner of bounding box with smallest coordinates.
+         * \param cmax      corner of bounding box with largest coordinates.
+         * \param coo_begin input iterator to the initial position in a
+         *                  sequence of scattered data coordinates.
+         * \param coo_end   input iterator to the final position in a sequence
+         *                  of scattered data coordinates.
+         * \param val_begin input iterator to the initial position in a
+         *                  sequence of scattered data values.
+         * \param grid      initial control lattice size (excluding boundary
+         *                  points).
+         * \param levels    number of levels in hierarchy.
+         * \param tol       stop if residual is less than this.
          */
         template <class CooIter, class ValIter>
         mba(
