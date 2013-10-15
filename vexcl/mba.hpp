@@ -208,47 +208,26 @@ class mba {
                 std::array<size_t, NDIM> grid, size_t levels = 8, real tol = 1e-8
            ) : queue(queue)
         {
-#ifndef NDEBUG
-            assert(coo.size() == val.size());
+            init(cmin, cmax, coo.begin(), coo.end(), val.begin(), grid, levels, tol);
+        }
 
-            for(size_t k = 0; k < NDIM; ++k)
-                assert(grid[k] > 1);
-#endif
-
-            double res0 = std::accumulate(val.begin(), val.end(), static_cast<real>(0),
-                    [](real sum, real v) { return sum + v * v; });
-
-            std::unique_ptr<lattice> psi( new lattice(cmin, cmax, grid, coo, val) );
-            double res = psi->update_data(coo, val);
-#ifdef VEXCL_MBA_VERBOSE
-            std::cout << "level  0: res = " << std::scientific << res << std::endl;
-#endif
-
-            for (size_t k = 1; (res > res0 * tol) && (k < levels); ++k) {
-                for(size_t d = 0; d < NDIM; ++d) grid[d] = 2 * grid[d] - 1;
-
-                std::unique_ptr<lattice> f( new lattice(cmin, cmax, grid, coo, val) );
-                res = f->update_data(coo, val);
-#ifdef VEXCL_MBA_VERBOSE
-                std::cout << "level " << k << std::scientific << ": res = " << res << std::endl;
-#endif
-
-                f->append_refined(*psi);
-                psi = std::move(f);
-            }
-
-            xmin   = psi->xmin;
-            hinv   = psi->hinv;
-            n      = psi->n;
-            stride = psi->stride;
-
-            phi.reserve(queue.size());
-
-            for(auto q = queue.begin(); q != queue.end(); ++q)
-                phi.push_back( cl::Buffer(
-                            qctx(*q), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-                            sizeof(real) * psi->phi.size(), psi->phi.data()
-                            ) );
+        /**
+         * \param queue  command queue list.
+         * \param cmin   corner of bounding box with smallest coordinates.
+         * \param cmax   corner of bounding box with largest coordinates.
+         * \param grid   initial control lattice size (excluding boundary points).
+         * \param levels number of levels in hierarchy.
+         * \param tol    stop if residual is less than this.
+         */
+        template <class CooIter, class ValIter>
+        mba(
+                const std::vector<cl::CommandQueue> &queue,
+                const point &cmin, const point &cmax,
+                CooIter coo_begin, CooIter coo_end, ValIter val_begin,
+                std::array<size_t, NDIM> grid, size_t levels = 8, real tol = 1e-8
+           ) : queue(queue)
+        {
+            init(cmin, cmax, coo_begin, coo_end, val_begin, grid, levels, tol);
         }
 
 #if !defined(BOOST_NO_VARIADIC_TEMPLATES) && ((!defined(__GNUC__) || (__GNUC__ > 4 || __GNUC__ == 4 && __GNUC_MINOR__ > 6)) || defined(__clang__))
@@ -278,15 +257,69 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, FUNCALL_OPERATOR, ~)
 #undef FUNCALL_OPERATOR
 #endif
     private:
+        template <class CooIter, class ValIter>
+        void init(
+                const point &cmin, const point &cmax,
+                CooIter coo_begin, CooIter coo_end, ValIter val_begin,
+                std::array<size_t, NDIM> grid, size_t levels = 8, real tol = 1e-8
+                )
+        {
+            for(size_t k = 0; k < NDIM; ++k)
+                assert(grid[k] > 1);
+
+            double res0 = std::accumulate(
+                    val_begin, val_begin + (coo_end - coo_begin),
+                    static_cast<real>(0),
+                    [](real sum, real v) { return sum + v * v; }
+                    );
+
+            std::unique_ptr<lattice> psi(
+                    new lattice(cmin, cmax, grid, coo_begin, coo_end, val_begin)
+                    );
+            double res = psi->update_data(coo_begin, coo_end, val_begin);
+#ifdef VEXCL_MBA_VERBOSE
+            std::cout << "level  0: res = " << std::scientific << res << std::endl;
+#endif
+
+            for (size_t k = 1; (res > res0 * tol) && (k < levels); ++k) {
+                for(size_t d = 0; d < NDIM; ++d) grid[d] = 2 * grid[d] - 1;
+
+                std::unique_ptr<lattice> f(
+                        new lattice(cmin, cmax, grid, coo_begin, coo_end, val_begin)
+                        );
+                res = f->update_data(coo_begin, coo_end, val_begin);
+#ifdef VEXCL_MBA_VERBOSE
+                std::cout << "level " << k << std::scientific << ": res = " << res << std::endl;
+#endif
+
+                f->append_refined(*psi);
+                psi = std::move(f);
+            }
+
+            xmin   = psi->xmin;
+            hinv   = psi->hinv;
+            n      = psi->n;
+            stride = psi->stride;
+
+            phi.reserve(queue.size());
+
+            for(auto q = queue.begin(); q != queue.end(); ++q)
+                phi.push_back( cl::Buffer(
+                            qctx(*q), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+                            sizeof(real) * psi->phi.size(), psi->phi.data()
+                            ) );
+        }
+
         // Control lattice.
         struct lattice {
             point xmin, hinv;
             index n, stride;
             std::vector<real> phi;
 
+            template <class CooIter, class ValIter>
             lattice(
                     const point &cmin, const point &cmax, std::array<size_t, NDIM> grid,
-                    const std::vector<point> &coo, const std::vector<real> &val
+                    CooIter coo_begin, CooIter coo_end, ValIter val_begin
                    ) : xmin(cmin), n(grid)
             {
                 for(size_t d = 0; d < NDIM; ++d) {
@@ -302,9 +335,9 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, FUNCALL_OPERATOR, ~)
                 std::vector<real> delta(n[0] * stride[0], 0.0);
                 std::vector<real> omega(n[0] * stride[0], 0.0);
 
-                auto p = coo.begin();
-                auto v = val.begin();
-                for(; p != coo.end(); ++p, ++v) {
+                auto p = coo_begin;
+                auto v = val_begin;
+                for(; p != coo_end; ++p, ++v) {
                     if (!contained(cmin, cmax, *p)) continue;
 
                     index i;
@@ -386,13 +419,17 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, FUNCALL_OPERATOR, ~)
             }
 
             // Subtract interpolated values from data points.
-            real update_data(const std::vector<point> &coo, std::vector<real> &val) const {
-                auto c = coo.begin();
-                auto v = val.begin();
+            template <class CooIter, class ValIter>
+            real update_data(
+                    CooIter coo_begin, CooIter coo_end, ValIter val_begin
+                    ) const
+            {
+                auto c = coo_begin;
+                auto v = val_begin;
 
                 real res = 0;
 
-                for(; c != coo.end(); ++c, ++v) {
+                for(; c != coo_end; ++c, ++v) {
                     *v -= (*this)(*c);
 
                     res += (*v) * (*v);
