@@ -32,6 +32,7 @@ THE SOFTWARE.
  */
 
 #include <iostream>
+#include <iomanip>
 #include <sstream>
 #include <string>
 #include <stdexcept>
@@ -43,6 +44,7 @@ THE SOFTWARE.
 #include <boost/function_types/function_arity.hpp>
 #include <vexcl/util.hpp>
 #include <vexcl/operations.hpp>
+#include <vexcl/vector.hpp>
 #include <boost/preprocessor/repetition.hpp>
 #ifndef VEXCL_MAX_ARITY
 #  define VEXCL_MAX_ARITY BOOST_PROTO_MAX_ARITY
