@@ -20,6 +20,8 @@ Slides from VexCL-related talks:
 * [SIAM CSE 2013, Boston](https://speakerdeck.com/ddemidov/vexcl-at-cse13)
 * [FOSDEM 2013, Brussels](https://fosdem.org/2013/schedule/event/odes_cuda_opencl)
 * [GPU-SMP-2013, Changchun, China](https://speakerdeck.com/ddemidov/converting-generic-c-plus-plus-algorithms-to-opencl-with-vexcl-library)
+* [Overview of VexCL interface, UTexas, Austin, USA](https://speakerdeck.com/ddemidov/vexcl-at-pecos-university-of-texas-2013)
+* [VexCL implementation, UTexas, Austin, USA](https://speakerdeck.com/ddemidov/vexcl-implementation-university-of-texas-2013)
 
 The paper [Programming CUDA and OpenCL: A Case Study Using Modern C++
 Libraries](http://arxiv.org/abs/1212.6326) compares both convenience and
