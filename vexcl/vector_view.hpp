@@ -806,14 +806,12 @@ struct expression_properties< reduced_vector_view<Expr, NDIM, NR, RDC> > {
         detail::extract_terminals()(boost::proto::as_child(term.expr), prop);
 
         queue_list = prop.queue;
-
-        queue_list = term.base.queue_list();
         partition  = std::vector<size_t>(2, 0);
         size       = 1;
 
         for(size_t k = 0; k < NDIM; ++k)
             if (!std::binary_search(term.reduce_dims.begin(), term.reduce_dims.end(), k))
-                size *= term.slice[k];
+                size *= term.slice.length[k];
 
         partition.back() = size;
     }
