@@ -233,6 +233,11 @@ template <> struct is_cl_native<ptrdiff_t> : std::true_type {};
 
 template <> struct cl_vector_length<size_t>    : std::integral_constant<unsigned, 1> {};
 template <> struct cl_vector_length<ptrdiff_t> : std::integral_constant<unsigned, 1> {};
+
+template <> struct cl_scalar_of<size_t>       { typedef size_t    type; };
+template <> struct cl_vector_of<size_t, 1>    { typedef size_t    type; };
+template <> struct cl_scalar_of<ptrdiff_t>    { typedef ptrdiff_t type; };
+template <> struct cl_vector_of<ptrdiff_t, 1> { typedef ptrdiff_t type; };
 #endif
 
 template <class T>
