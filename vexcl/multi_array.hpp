@@ -43,17 +43,17 @@ class multi_array_view
 {
     public:
         typedef boost::mpl::size_t<boost::fusion::result_of::size<Dimensions>::type::value> ndim;
-        typedef vector_view< T, gslice<NR> > base_type;
+        typedef vector_view< vector<T>, gslice<NR> > base_type;
 
         multi_array_view(vector<T> &data, const gslice<NR> &slice)
             : data(data), slice(slice)
         {}
 
-        const vector_view< T, gslice<NR> > vec() const {
+        const vector_view< vector<T>, gslice<NR> > vec() const {
             return slice(data);
         }
 
-        vector_view< T, gslice<NR> > vec() {
+        vector_view< vector<T>, gslice<NR> > vec() {
             return slice(data);
         }
 
