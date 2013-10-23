@@ -176,6 +176,10 @@ struct local_terminal_init< vector_view<Expr, Slice> > {
           << "\t\t\tsize_t pos = "
           << term.slice.index(prm_name + "_slice", device, state) << ";\n";
         s << "\t\t\tsize_t idx = pos;\n";
+
+        detail::output_local_preamble init_ctx(s, device, prm_name + "_expr", state);
+        boost::proto::eval(boost::proto::as_child(term.expr), init_ctx);
+
         s << "\t\t\t" << prm_name << "_val = ";
         detail::vector_expr_context ctx(s, device, prm_name + "_expr", state);
         boost::proto::eval(boost::proto::as_child(term.expr), ctx);
