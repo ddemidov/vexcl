@@ -24,8 +24,10 @@ BOOST_AUTO_TEST_CASE(vector_view_1d)
     vex::gslice<1> slice(0, &size, &stride);
 
     Y = slice(X);
-
     check_sample(Y, [&](size_t idx, double v) { BOOST_CHECK(v == x[idx * 2]); });
+
+    Y = slice(X * X);
+    check_sample(Y, [&](size_t idx, double v) { BOOST_CHECK(v == x[idx * 2] * x[idx * 2]); });
 }
 
 BOOST_AUTO_TEST_CASE(vector_view_2)
