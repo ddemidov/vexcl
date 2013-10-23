@@ -49,11 +49,11 @@ class multi_array_view
             : data(data), slice(slice)
         {}
 
-        const vector_view< vector<T>, gslice<NR> > vec() const {
+        const vector_view< const vector<T>&, gslice<NR> > vec() const {
             return slice(data);
         }
 
-        vector_view< vector<T>, gslice<NR> > vec() {
+        vector_view< const vector<T>&, gslice<NR> > vec() {
             return slice(data);
         }
 

@@ -59,7 +59,7 @@ template <class Expr, class Slice>
 struct vector_view : public vector_view_terminal_expression
 {
     typedef typename detail::return_type<Expr>::type value_type;
-    const Expr   &expr;
+    const Expr   expr;
     const Slice  slice;
 
     vector_view(const Expr &expr, const Slice &slice)
@@ -189,8 +189,8 @@ struct local_terminal_init< vector_view<Expr, Slice> > {
 };
 
 template <typename T, class Slice>
-struct local_terminal_init< vector_view<vector<T>, Slice> > {
-    static std::string get(const vector_view<vector<T>, Slice> &term,
+struct local_terminal_init< vector_view<const vector<T>&, Slice> > {
+    static std::string get(const vector_view<const vector<T>&, Slice> &term,
             const cl::Device &device, const std::string &prm_name,
             detail::kernel_generator_state_ptr state)
     {
@@ -211,8 +211,8 @@ struct partial_vector_expr< vector_view<Expr, Slice> > {
 };
 
 template <typename T, class Slice>
-struct partial_vector_expr< vector_view<vector<T>, Slice> > {
-    static std::string get(const vector_view<vector<T>, Slice> &term,
+struct partial_vector_expr< vector_view<const vector<T>&, Slice> > {
+    static std::string get(const vector_view<const vector<T>&, Slice> &term,
             const cl::Device &device, const std::string &prm_name,
             detail::kernel_generator_state_ptr state)
     {
@@ -388,8 +388,15 @@ struct gslice {
 
     /// Returns sliced vector.
     template <class Expr>
-    vector_view<Expr, gslice> operator()(const Expr &expr) const {
-        return vector_view<Expr, gslice>(expr, *this);
+    vector_view<
+        typename boost::proto::result_of::as_child<const Expr, vector_domain>::type,
+        gslice
+        >
+    operator()(const Expr &expr) const {
+        return vector_view<
+                    typename boost::proto::result_of::as_child<const Expr, vector_domain>::type,
+                    gslice
+                >(boost::proto::as_child<vector_domain>(expr), *this);
     }
 };
 
@@ -646,8 +653,15 @@ struct expr_permutation {
     }
 
     template <class Base>
-    vector_view<Base, expr_permutation> operator()(const Base &base) const {
-        return vector_view<Base, expr_permutation>(base, *this);
+    vector_view<
+        typename boost::proto::result_of::as_child<const Base, vector_domain>::type,
+        expr_permutation
+        >
+    operator()(const Base &base) const {
+        return vector_view<
+                    typename boost::proto::result_of::as_child<const Base, vector_domain>::type,
+                    expr_permutation
+                >(boost::proto::as_child<vector_domain>(base), *this);
     }
 };
 
@@ -655,7 +669,7 @@ struct expr_permutation {
 /**
  * Example:
  * \code
- * auto reverse = vex::eslice(N - 1 - vex::element_index());
+ * auto reverse = vex::permutation(N - 1 - vex::element_index());
  * Y = reverse(X);
  * \endcode
  */
@@ -690,7 +704,7 @@ template <class Expr, size_t NDIM, size_t NR, class RDC>
 struct reduced_vector_view : public reduced_vector_view_terminal_expression
 {
     typedef typename detail::return_type<Expr>::type value_type;
-    const Expr   &expr;
+    const Expr   expr;
     gslice<NDIM> slice;
     std::array<size_t, NR> reduce_dims;
 
