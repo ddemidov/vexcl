@@ -124,6 +124,12 @@ BOOST_AUTO_TEST_CASE(vector_permutation)
 
         Y = reverse(X);
         check_sample(Y, [&](size_t idx, double v) { BOOST_CHECK_EQUAL(v, x[N - 1 - idx]); });
+
+        Y = reverse(X * X);
+        check_sample(Y, [&](size_t idx, double v) {
+                double t = x[N - 1 - idx];
+                BOOST_CHECK_EQUAL(v, t * t);
+                });
     }
 
     Y = 0;
