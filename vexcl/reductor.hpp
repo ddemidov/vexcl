@@ -52,7 +52,7 @@ struct SUM {
     template <typename T>
     static T initial() {
         return T();
-    };
+    }
 
     /*
      * 2. Provide an OpenCL function that will be used on compute device to do
@@ -84,7 +84,7 @@ struct MAX {
         // But negating maximum possible unsigned value gives 0 on
         // 2s complement systems, so...
         return -std::numeric_limits<T>::max();
-    };
+    }
 
     template <typename T>
     struct function : UserFunction<function<T>, T(T, T)> {
@@ -103,7 +103,7 @@ struct MIN {
     template <typename T>
     static T initial() {
         return std::numeric_limits<T>::max();
-    };
+    }
 
     template <typename T>
     struct function : UserFunction<function<T>, T(T, T)> {

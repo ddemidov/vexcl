@@ -670,17 +670,17 @@ class vector : public vector_terminal_expression {
         }
 #endif
 
-        ASSIGNMENT(=,   assign::SET);
-        ASSIGNMENT(+=,  assign::ADD);
-        ASSIGNMENT(-=,  assign::SUB);
-        ASSIGNMENT(*=,  assign::MUL);
-        ASSIGNMENT(/=,  assign::DIV);
-        ASSIGNMENT(%=,  assign::MOD);
-        ASSIGNMENT(&=,  assign::AND);
-        ASSIGNMENT(|=,  assign::OR);
-        ASSIGNMENT(^=,  assign::XOR);
-        ASSIGNMENT(<<=, assign::LSH);
-        ASSIGNMENT(>>=, assign::RSH);
+        ASSIGNMENT(=,   assign::SET)
+        ASSIGNMENT(+=,  assign::ADD)
+        ASSIGNMENT(-=,  assign::SUB)
+        ASSIGNMENT(*=,  assign::MUL)
+        ASSIGNMENT(/=,  assign::DIV)
+        ASSIGNMENT(%=,  assign::MOD)
+        ASSIGNMENT(&=,  assign::AND)
+        ASSIGNMENT(|=,  assign::OR)
+        ASSIGNMENT(^=,  assign::XOR)
+        ASSIGNMENT(<<=, assign::LSH)
+        ASSIGNMENT(>>=, assign::RSH)
 
 #undef ASSIGNMENT
 

@@ -116,10 +116,10 @@ namespace vex { \
 }
 
 #define CL_TYPES(base_type) \
-CL_VEC_TYPE(base_type, 2); \
-CL_VEC_TYPE(base_type, 4); \
-CL_VEC_TYPE(base_type, 8); \
-CL_VEC_TYPE(base_type, 16); \
+CL_VEC_TYPE(base_type, 2) \
+CL_VEC_TYPE(base_type, 4) \
+CL_VEC_TYPE(base_type, 8) \
+CL_VEC_TYPE(base_type, 16) \
 namespace vex { \
     template <> struct cl_scalar_of<cl_##base_type> { typedef cl_##base_type type; }; \
     template <> struct cl_vector_of<cl_##base_type, 1> { typedef cl_##base_type type; }; \
@@ -130,12 +130,12 @@ namespace vex { \
 #  pragma warning(push)
 #  pragma warning(disable : 4146)
 #endif
-CL_TYPES(float);
-CL_TYPES(double);
-CL_TYPES(char);  CL_TYPES(uchar);
-CL_TYPES(short); CL_TYPES(ushort);
-CL_TYPES(int);   CL_TYPES(uint);
-CL_TYPES(long);  CL_TYPES(ulong);
+CL_TYPES(float)
+CL_TYPES(double)
+CL_TYPES(char)  CL_TYPES(uchar)
+CL_TYPES(short) CL_TYPES(ushort)
+CL_TYPES(int)   CL_TYPES(uint)
+CL_TYPES(long)  CL_TYPES(ulong)
 #ifdef _MSC_VER
 #  pragma warning(pop)
 #endif
@@ -191,18 +191,18 @@ template <> inline std::string type_name<cl_##type##len>() { return #type #len; 
 template <> struct is_cl_native<cl_##type##len> : std::true_type {};
 
 #define CL_TYPES(type) \
-STRINGIFY(type); \
-CL_VEC_TYPE(type, 2); \
-CL_VEC_TYPE(type, 4); \
-CL_VEC_TYPE(type, 8); \
-CL_VEC_TYPE(type, 16);
+STRINGIFY(type) \
+CL_VEC_TYPE(type, 2) \
+CL_VEC_TYPE(type, 4) \
+CL_VEC_TYPE(type, 8) \
+CL_VEC_TYPE(type, 16)
 
-CL_TYPES(float);
-CL_TYPES(double);
-CL_TYPES(char);  CL_TYPES(uchar);
-CL_TYPES(short); CL_TYPES(ushort);
-CL_TYPES(int);   CL_TYPES(uint);
-CL_TYPES(long);  CL_TYPES(ulong);
+CL_TYPES(float)
+CL_TYPES(double)
+CL_TYPES(char)  CL_TYPES(uchar)
+CL_TYPES(short) CL_TYPES(ushort)
+CL_TYPES(int)   CL_TYPES(uint)
+CL_TYPES(long)  CL_TYPES(ulong)
 
 #undef CL_TYPES
 #undef CL_VEC_TYPE

@@ -399,16 +399,16 @@ class symbolic
             return *this = *this op expr; \
         }
 
-        COMPOUND_ASSIGNMENT(+=, +);
-        COMPOUND_ASSIGNMENT(-=, -);
-        COMPOUND_ASSIGNMENT(*=, *);
-        COMPOUND_ASSIGNMENT(/=, /);
-        COMPOUND_ASSIGNMENT(%=, %);
-        COMPOUND_ASSIGNMENT(&=, &);
-        COMPOUND_ASSIGNMENT(|=, |);
-        COMPOUND_ASSIGNMENT(^=, ^);
-        COMPOUND_ASSIGNMENT(<<=, <<);
-        COMPOUND_ASSIGNMENT(>>=, >>);
+        COMPOUND_ASSIGNMENT(+=, +)
+        COMPOUND_ASSIGNMENT(-=, -)
+        COMPOUND_ASSIGNMENT(*=, *)
+        COMPOUND_ASSIGNMENT(/=, /)
+        COMPOUND_ASSIGNMENT(%=, %)
+        COMPOUND_ASSIGNMENT(&=, &)
+        COMPOUND_ASSIGNMENT(|=, |)
+        COMPOUND_ASSIGNMENT(^=, ^)
+        COMPOUND_ASSIGNMENT(<<=, <<)
+        COMPOUND_ASSIGNMENT(>>=, >>)
 
 #undef COMPOUND_ASSIGNMENT
 
