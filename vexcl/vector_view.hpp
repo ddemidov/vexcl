@@ -585,8 +585,8 @@ struct slicer {
             std::copy(target_dim, target_dim + NR, dim.begin());
 
             stride.back() = 1;
-            for(size_t j = 1, i = NR - 2; j < NR; ++j, --i)
-                stride[i] = stride[i + 1] * dim[j - 1];
+            for(size_t i = NR - 1; i-- > 0;)
+                stride[i] = stride[i + 1] * dim[i + 1];
         }
 };
 
