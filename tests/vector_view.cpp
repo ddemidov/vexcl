@@ -319,4 +319,30 @@ BOOST_AUTO_TEST_CASE(nested_reduce)
             });
 }
 
+BOOST_AUTO_TEST_CASE(reshape)
+{
+    auto dim_out = vex::make_array<size_t>(4, 2);
+    auto dim_in  = vex::make_array<size_t>(1, 0);
+
+    std::vector<cl::CommandQueue> queue(1, ctx.queue(0));
+
+    vex::vector<int> x(queue, std::accumulate(
+                dim_out.begin(), dim_out.end(),
+                1, std::multiplies<size_t>()
+                ));
+
+    x = vex::element_index();
+
+    vex::vector<int> y = vex::reshape(
+            x, dim_out, dim_in
+            );
+
+    check_sample(y, [&](size_t k, int v) {
+            int i = k % dim_out[1];
+            int j = k / dim_out[1];
+            BOOST_CHECK_EQUAL(i, v / dim_out[0]);
+            BOOST_CHECK_EQUAL(j, v % dim_out[0]);
+            });
+}
+
 BOOST_AUTO_TEST_SUITE_END()

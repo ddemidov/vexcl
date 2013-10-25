@@ -124,6 +124,14 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, IS_TUPLE, ~)
 
 #endif
 
+/// Create std::array from arguments
+template <class T, class... Tail>
+std::array<T, 1 + sizeof...(Tail)>
+make_array(T t, Tail... tail) {
+    std::array<T, 1 + sizeof...(Tail)> a = {{t, static_cast<T>(tail)...}};
+    return a;
+}
+
 /// Shortcut for q.getInfo<CL_QUEUE_CONTEXT>()
 inline cl::Context qctx(const cl::CommandQueue& q) {
     cl::Context ctx;

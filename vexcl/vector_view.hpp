@@ -39,6 +39,7 @@ THE SOFTWARE.
 #include <algorithm>
 
 #include <vexcl/vector.hpp>
+#include <vexcl/element_index.hpp>
 
 #include <boost/fusion/container/vector.hpp>
 #include <boost/fusion/container/vector/convert.hpp>
@@ -937,6 +938,111 @@ reduced_vector_view<
     return reduced_vector_view<
         typename boost::proto::result_of::as_child<const Expr, vector_domain>::type,
         NDIM, 1, RDC>(boost::proto::as_child(expr), slice, dim);
+}
+
+//---------------------------------------------------------------------------
+// Matrix reshaper
+//---------------------------------------------------------------------------
+
+namespace detail {
+
+template <size_t Nout, size_t Nin>
+struct reshape_helper {
+    std::array<size_t, Nout> dst_dims;
+    std::array<size_t, Nin>  src_dims;
+    std::array<size_t, Nout> dst_stride;
+    std::array<size_t, Nin>  src_stride;
+
+    decltype( vex::element_index() ) idx;
+
+    reshape_helper(
+            std::array<size_t, Nout> dst_dims,
+            std::array<size_t, Nin>  src_dims
+            )
+        : dst_dims(dst_dims), src_dims(src_dims),
+        idx(vex::element_index(0,
+                    std::accumulate(dst_dims.begin(), dst_dims.end(),
+                        static_cast<size_t>(1), std::multiplies<size_t>())
+                    )
+           )
+    {
+        src_stride[Nin - 1] = 1;
+        for(size_t k = Nin - 1; k-- > 0;)
+            src_stride[k] = src_stride[k + 1] * dst_dims[src_dims[k + 1]];
+
+        dst_stride[Nout - 1] = 1;
+        for(size_t k = Nout - 1; k-- > 0;)
+            dst_stride[k] = dst_stride[k + 1] * dst_dims[k + 1];
+    }
+
+    template <class T>
+    static T fake_instance();
+
+    template <size_t I, class Enable = void>
+    struct return_type;
+
+    template <size_t I>
+    struct return_type<I, typename std::enable_if<I == 0>::type> {
+        typedef
+            decltype(
+                    size_t(1) * ( ( vex::element_index() / size_t(1) ) % size_t(1) )
+                    )
+            type;
+    };
+
+    template <size_t I>
+    struct return_type<I, typename std::enable_if<(I > 0)>::type> {
+        typedef
+            decltype(
+                    size_t(1) * ( ( vex::element_index() / size_t(1) ) % size_t(1) )
+                    + fake_instance<typename return_type<I - 1>::type>()
+                    )
+            type;
+    };
+
+    template <size_t I>
+    auto tail_sum() const ->
+        typename std::enable_if<
+            (I == 0),
+            typename return_type<I>::type
+        >::type
+    {
+        size_t j = src_dims[I];
+        return src_stride[I] * ( ( idx / dst_stride[j] ) % dst_dims[j] );
+    }
+
+    template <size_t I>
+        typename std::enable_if<
+            (I > 0),
+            typename return_type<I>::type
+        >::type
+    tail_sum() const
+    {
+        size_t j = src_dims[I];
+        return src_stride[I] * ( ( idx / dst_stride[j] ) % dst_dims[j] )
+            + tail_sum<I - 1>();
+    }
+
+    typename return_type<Nin - 1>::type
+    operator()() const
+    {
+        return tail_sum<Nin - 1>();
+    }
+
+};
+
+} //namespace detail
+
+/// Reshapes given expression.
+template <class Expr, size_t Nout, size_t Nin>
+auto reshape(
+        const Expr &expr,
+        const std::array<size_t, Nout> &dst_dims,
+        const std::array<size_t, Nin>  &src_dims
+        ) ->
+    decltype(vex::permutation(detail::reshape_helper<Nout, Nin>(dst_dims, src_dims)())(expr))
+{
+    return vex::permutation(detail::reshape_helper<Nout, Nin>(dst_dims, src_dims)())(expr);
 }
 
 } // namespace vex
