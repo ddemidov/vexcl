@@ -810,8 +810,6 @@ struct kernel_param_declaration< reduced_vector_view<Expr, NDIM, NR, RDC> > {
             const cl::Device &device, const std::string &prm_name,
             detail::kernel_generator_state_ptr state)
     {
-        typedef typename detail::return_type<Expr>::type T;
-
         std::ostringstream s;
 
         detail::declare_expression_parameter declare(s, device, prm_name, state);
