@@ -133,6 +133,23 @@ make_array(T t, Tail... tail) {
     std::array<T, 1 + sizeof...(Tail)> a = {{t, static_cast<T>(tail)...}};
     return a;
 }
+#else
+
+#define PRINT_PARAM(z, n, data) T ## n t ## n
+#define INIT_ARRAY(z, n, data) static_cast<T0>(t ## n)
+#define MAKE_ARRAY(z, n, data)                                                 \
+  template <BOOST_PP_ENUM_PARAMS(n, class T)>                                  \
+  std::array<T0, n> make_array(BOOST_PP_ENUM(n, PRINT_PARAM, ~)) {             \
+    std::array<T0, n> a = { { BOOST_PP_ENUM_PARAMS(n, INIT_ARRAY, ~) } };      \
+    return a;                                                                  \
+  }
+
+BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, MAKE_ARRAY, ~)
+
+#undef MAKE_ARRAY
+#undef INIT_ARRAY
+#undef PRINT_PARAM
+
 #endif
 
 /// Shortcut for q.getInfo<CL_QUEUE_CONTEXT>()
