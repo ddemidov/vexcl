@@ -140,7 +140,7 @@ make_array(T t, Tail... tail) {
 #define MAKE_ARRAY(z, n, data)                                                 \
   template <BOOST_PP_ENUM_PARAMS(n, class T)>                                  \
   std::array<T0, n> make_array(BOOST_PP_ENUM(n, PRINT_PARAM, ~)) {             \
-    std::array<T0, n> a = { { BOOST_PP_ENUM_PARAMS(n, INIT_ARRAY, ~) } };      \
+    std::array<T0, n> a = { { BOOST_PP_ENUM(n, INIT_ARRAY, ~) } };             \
     return a;                                                                  \
   }
 

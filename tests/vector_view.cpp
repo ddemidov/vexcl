@@ -328,7 +328,7 @@ BOOST_AUTO_TEST_CASE(reshape)
 
     vex::vector<int> x(queue, std::accumulate(
                 dim_out.begin(), dim_out.end(),
-                1, std::multiplies<size_t>()
+                static_cast<size_t>(1), std::multiplies<size_t>()
                 ));
 
     x = vex::element_index();
@@ -338,8 +338,8 @@ BOOST_AUTO_TEST_CASE(reshape)
             );
 
     check_sample(y, [&](size_t k, int v) {
-            int i = k % dim_out[1];
-            int j = k / dim_out[1];
+            size_t i = k % dim_out[1];
+            size_t j = k / dim_out[1];
             BOOST_CHECK_EQUAL(i, v / dim_out[0]);
             BOOST_CHECK_EQUAL(j, v % dim_out[0]);
             });
