@@ -6,6 +6,7 @@
 #include <vexcl/spmat.hpp>
 #include <vexcl/tagged_terminal.hpp>
 #include <vexcl/temporary.hpp>
+#include <vexcl/cast.hpp>
 #include <vexcl/vector_view.hpp>
 #include <vexcl/reductor.hpp>
 #include "context_setup.hpp"
@@ -139,6 +140,12 @@ BOOST_AUTO_TEST_CASE(reduced_view)
     vex::slicer<2> s(vex::extents[32][32]);
 
     check<double>( vex::reduce<vex::SUM>(s[vex::_](x), 1) );
+}
+
+BOOST_AUTO_TEST_CASE(casted_terminals)
+{
+    check<double>(vex::cast<double>(42));
+    check<int>(vex::cast<int>(4.2));
 }
 
 BOOST_AUTO_TEST_SUITE_END()

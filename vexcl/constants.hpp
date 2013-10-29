@@ -146,7 +146,7 @@ struct kernel_arg_setter< user_constant<Impl> >
       s << "( " << std::scientific << std::setprecision(16) << value << " )";  \
       return s.str();                                                          \
     }                                                                          \
-    boost::proto::result_of::as_expr<                                          \
+    typename boost::proto::result_of::as_expr<                                 \
         vex::user_constant<constant_##name>,                                   \
         vex::vector_domain>::type                                              \
     operator()() const {                                                       \

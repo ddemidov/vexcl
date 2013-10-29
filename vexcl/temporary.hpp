@@ -32,6 +32,10 @@ THE SOFTWARE.
  */
 
 #include <set>
+#include <map>
+
+#include <boost/any.hpp>
+
 #include <vexcl/operations.hpp>
 
 namespace vex {
