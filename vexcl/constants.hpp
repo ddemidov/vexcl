@@ -32,6 +32,7 @@ THE SOFTWARE.
  */
 
 #include <sstream>
+#include <iomanip>
 #include <string>
 #include <type_traits>
 
