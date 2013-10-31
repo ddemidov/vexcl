@@ -147,6 +147,18 @@ namespace Filter {
 
     const DoublePrecisionFilter DoublePrecision;
 
+    /// Selects devices supporting OpenGL Sharing Extension
+    struct GLSharingFilter {
+        GLSharingFilter() {}
+        
+        bool operator()(const cl::Device& d) const {
+            std::string ext = d.getInfo<CL_DEVICE_EXTENSIONS>();
+            return ext.find("cl_khr_gl_sharing") != std::string::npos;
+        }
+    };
+
+    const GLSharingFilter GLSharing;
+
     /// Selects no more than given number of devices.
     /**
      * \note This filter should be the last in filter expression. In this case,
