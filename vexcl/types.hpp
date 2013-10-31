@@ -177,7 +177,7 @@ type_name() {
     std::ostringstream s;
     s << "global "
       << type_name<typename std::remove_pointer<T>::type>()
-      << " * ";
+      << " *";
     return s.str();
 }
 
