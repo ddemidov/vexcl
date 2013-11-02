@@ -2141,9 +2141,7 @@ void assign_expression(LHS &lhs, const RHS &rhs,
 
             source << standard_kernel_header(device);
 
-            auto state = empty_state();
-
-            output_terminal_preamble termpream(source, device, "prm", state);
+            output_terminal_preamble termpream(source, device, "prm", empty_state());
 
             boost::proto::eval(boost::proto::as_child(lhs), termpream);
             boost::proto::eval(boost::proto::as_child(rhs), termpream);
@@ -2151,7 +2149,7 @@ void assign_expression(LHS &lhs, const RHS &rhs,
             source << "kernel void vexcl_vector_kernel(\n"
                    "\t" << type_name<size_t>() << " n";
 
-            declare_expression_parameter declare(source, device, "prm", state);
+            declare_expression_parameter declare(source, device, "prm", empty_state());
 
             extract_terminals()(boost::proto::as_child(lhs), declare);
             extract_terminals()(boost::proto::as_child(rhs), declare);
@@ -2169,11 +2167,11 @@ void assign_expression(LHS &lhs, const RHS &rhs,
                     "\tfor(size_t idx = get_global_id(0); idx < n; idx += get_global_size(0)) {\n";
             }
 
-            output_local_preamble loc_init(source, device, "prm", state);
+            output_local_preamble loc_init(source, device, "prm", empty_state());
             boost::proto::eval(boost::proto::as_child(lhs), loc_init);
             boost::proto::eval(boost::proto::as_child(rhs), loc_init);
 
-            vector_expr_context expr_ctx(source, device, "prm", state);
+            vector_expr_context expr_ctx(source, device, "prm", empty_state());
 
             source << "\t\t";
 
@@ -2267,10 +2265,9 @@ struct preamble_constructor {
     mutable detail::output_terminal_preamble rhs_ctx;
 
     preamble_constructor(const LHS &lhs, const RHS &rhs,
-            std::ostream &source, const cl::Device &device,
-            kernel_generator_state_ptr state
+            std::ostream &source, const cl::Device &device
             )
-        : lhs(lhs), rhs(rhs), state(state),
+        : lhs(lhs), rhs(rhs), state(empty_state()),
           lhs_ctx(source, device, "lhs", state),
           rhs_ctx(source, device, "rhs", state)
     { }
@@ -2292,10 +2289,8 @@ struct parameter_declarator {
     mutable detail::declare_expression_parameter rhs_ctx;
 
     parameter_declarator(const LHS &lhs, const RHS &rhs,
-            std::ostream &source, const cl::Device &device,
-            kernel_generator_state_ptr state
-            )
-        : lhs(lhs), rhs(rhs), state(state),
+            std::ostream &source, const cl::Device &device)
+        : lhs(lhs), rhs(rhs), state(empty_state()),
           lhs_ctx(source, device, "lhs", state),
           rhs_ctx(source, device, "rhs", state)
     { }
@@ -2319,10 +2314,8 @@ struct expression_init {
     mutable detail::vector_expr_context   rhs_ctx;
 
     expression_init(const LHS &lhs, const RHS &rhs,
-            std::ostream &source, const cl::Device &device,
-            kernel_generator_state_ptr state
-            )
-        : lhs(lhs), rhs(rhs), source(source), state(state),
+            std::ostream &source, const cl::Device &device)
+        : lhs(lhs), rhs(rhs), source(source), state(empty_state()),
           rhs_pre(source, device, "rhs", state),
           rhs_ctx(source, device, "rhs", state)
     { }
@@ -2353,9 +2346,8 @@ struct expression_finalize {
     mutable detail::vector_expr_context   lhs_ctx;
 
     expression_finalize(const LHS &lhs,
-            std::ostream &source, const cl::Device &device,
-            kernel_generator_state_ptr state)
-        : lhs(lhs), source(source), state(state),
+            std::ostream &source, const cl::Device &device)
+        : lhs(lhs), source(source), state(empty_state()),
           lhs_pre(source, device, "lhs", state),
           lhs_ctx(source, device, "lhs", state)
     { }
@@ -2428,25 +2420,23 @@ void assign_multiexpression( LHS &lhs, const RHS &rhs,
 
             source << standard_kernel_header(device);
 
-            auto state = empty_state();
-
             static_for<0, N::value>::loop(
-                    preamble_constructor<LHS, RHS>(lhs, rhs, source, device, state)
+                    preamble_constructor<LHS, RHS>(lhs, rhs, source, device)
                     );
 
             source << "kernel void vexcl_multivector_kernel(\n\t"
                    << type_name<size_t>() << " n";
 
             static_for<0, N::value>::loop(
-                    parameter_declarator<LHS, RHS>(lhs, rhs, source, device, state)
+                    parameter_declarator<LHS, RHS>(lhs, rhs, source, device)
                     );
 
             source <<
                 "\n)\n{\n"
                 "\tfor(size_t idx = get_global_id(0); idx < n; idx += get_global_size(0)) {\n";
 
-            static_for<0, N::value>::loop(expression_init<LHS, RHS>(lhs, rhs, source, device, state));
-            static_for<0, N::value>::loop(expression_finalize<OP, LHS>(lhs, source, device, state));
+            static_for<0, N::value>::loop(expression_init<LHS, RHS>(lhs, rhs, source, device));
+            static_for<0, N::value>::loop(expression_finalize<OP, LHS>(lhs, source, device));
 
             source << "\t}\n}\n";
 
