@@ -2398,6 +2398,9 @@ void assign_multiexpression( LHS &lhs, const RHS &rhs,
     //    would work better as well (no need to spend registers on temp
     //    variables).
     if (
+#ifdef VEXCL_SPLIT_MULTIEXPRESSIONS
+            1 ||
+#endif
             (N::value == 1) ||
             std::any_of(queue.begin(), queue.end(),
                 [](const cl::CommandQueue &q) { return is_cpu(qdev(q)); })
