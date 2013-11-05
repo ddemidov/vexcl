@@ -36,6 +36,7 @@ THE SOFTWARE.
 #include <vexcl/element_index.hpp>
 #include <vexcl/vector.hpp>
 #include <vexcl/vector_view.hpp>
+#include <vexcl/vector_pointer.hpp>
 #include <vexcl/tagged_terminal.hpp>
 #include <vexcl/temporary.hpp>
 #include <vexcl/cast.hpp>
