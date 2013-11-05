@@ -356,7 +356,7 @@ class multivector : public multivector_terminal_expression {
 
 #ifdef DOXYGEN
 #  define ASSIGNMENT(cop, op) \
-        /** \brief Multiector expression assignment.
+        /** \brief Multivector expression assignment.
          \details All operations are delegated to components of the multivector.
          */ \
         template <class Expr> \
