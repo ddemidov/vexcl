@@ -140,7 +140,7 @@ class SpMat {
                     if (gather == cache.end()) {
                         std::ostringstream source;
 
-                        source << standard_kernel_header(device) <<
+                        source << backend::standard_kernel_header(device) <<
                             "typedef " << type_name<val_t>() << " val_t;\n"
                             "kernel void gather_vals_to_send(\n"
                             "    " << type_name<size_t>() << " n,\n"
@@ -153,7 +153,7 @@ class SpMat {
                             "    if (i < n) vals_to_send[i] = vals[cols_to_send[i]];\n"
                             "}\n";
 
-                        auto program = build_sources(context, source.str());
+                        auto program = backend::build_sources(context, source.str());
 
                         cl::Kernel krn(program, "gather_vals_to_send");
                         size_t wgs = kernel_workgroup_size(krn, device);

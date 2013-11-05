@@ -237,7 +237,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
             increment_line << ");\n";
 
             std::ostringstream source;
-            source << standard_kernel_header(device);
+            source << backend::standard_kernel_header(device);
 
             typedef typename RDC::template function<real> fun;
             fun::define(source, "reduce_operation");
@@ -306,7 +306,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
                     "}\n";
             }
 
-            auto program = build_sources(context, source.str());
+            auto program = backend::build_sources(context, source.str());
 
             cl::Kernel krn(program, "vexcl_reductor_kernel");
             size_t wgs;

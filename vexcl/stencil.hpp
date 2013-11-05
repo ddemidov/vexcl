@@ -352,7 +352,7 @@ const detail::kernel_cache_entry& stencil<T>::slow_conv(const cl::CommandQueue &
     if (kernel == cache.end()) {
         std::ostringstream source;
 
-        source << standard_kernel_header(device) <<
+        source << backend::standard_kernel_header(device) <<
             "typedef " << type_name<T>() << " real;\n"
             "real read_x(\n"
             "    long g_id,\n"
@@ -410,7 +410,7 @@ const detail::kernel_cache_entry& stencil<T>::slow_conv(const cl::CommandQueue &
             "    }\n"
             "}\n";
 
-        auto program = build_sources(context, source.str());
+        auto program = backend::build_sources(context, source.str());
 
         cl::Kernel krn(program, "slow_conv");
         size_t     wgs = kernel_workgroup_size(krn, device);
@@ -437,7 +437,7 @@ const detail::kernel_cache_entry& stencil<T>::fast_conv(const cl::CommandQueue &
     if (kernel == cache.end()) {
         std::ostringstream source;
 
-        source << standard_kernel_header(device) <<
+        source << backend::standard_kernel_header(device) <<
             "typedef " << type_name<T>() << " real;\n"
             "real read_x(\n"
             "    long g_id,\n"
@@ -497,7 +497,7 @@ const detail::kernel_cache_entry& stencil<T>::fast_conv(const cl::CommandQueue &
             "    }\n"
             "}\n";
 
-        auto program = build_sources(context, source.str());
+        auto program = backend::build_sources(context, source.str());
 
         cl::Kernel krn(program, "fast_conv");
         size_t     wgs = kernel_workgroup_size(krn, device);
@@ -681,7 +681,7 @@ void StencilOperator<T, width, center, Impl>::convolve(
         if (kernel == cache.end()) {
             std::ostringstream source;
 
-            source << standard_kernel_header(device) <<
+            source << backend::standard_kernel_header(device) <<
                 "typedef " << type_name<T>() << " real;\n"
                 "real read_x(\n"
                 "    long g_id,\n"
@@ -740,7 +740,7 @@ void StencilOperator<T, width, center, Impl>::convolve(
                 "}\n";
 
 
-            auto program = build_sources(context, source.str());
+            auto program = backend::build_sources(context, source.str());
 
             cl::Kernel krn(program, "convolve");
             size_t wgs = kernel_workgroup_size(krn, device);

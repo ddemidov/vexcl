@@ -509,7 +509,7 @@ class Kernel {
                 std::ostringstream source;
 
                 source
-                    << standard_kernel_header(device)
+                    << backend::standard_kernel_header(device)
                     << get_preamble().str()
                     << "kernel void " << name << "(\n"
                     << "\t" << type_name<size_t>() << " n";
@@ -537,7 +537,7 @@ class Kernel {
 
                 source << "\t}\n}\n";
 
-                auto program = build_sources(context, source.str());
+                auto program = backend::build_sources(context, source.str());
 
                 krn[context()] = cl::Kernel(program, name.c_str());
                 wgs[context()] = kernel_workgroup_size(krn[context()], device);

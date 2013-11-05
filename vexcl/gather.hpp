@@ -94,7 +94,7 @@ class gather {
                 if (kernel == cache.end()) {
                     std::ostringstream source;
 
-                    source << standard_kernel_header(device) <<
+                    source << backend::standard_kernel_header(device) <<
                         "typedef " << type_name<T>() << " real;\n"
                         "kernel void gather(\n"
                         "    " << type_name<size_t>() << " n,\n"
@@ -107,7 +107,7 @@ class gather {
                         "    if (i < n) dst[i] = src[col[i]];\n"
                         "}\n";
 
-                    auto program = build_sources(context, source.str());
+                    auto program = backend::build_sources(context, source.str());
                     cl::Kernel krn(program, "gather");
                     size_t wgs = kernel_workgroup_size(krn, device);
 

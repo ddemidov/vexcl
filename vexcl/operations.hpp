@@ -48,6 +48,8 @@ THE SOFTWARE.
 #include <vexcl/types.hpp>
 #include <vexcl/util.hpp>
 
+#include <vexcl/backend/opencl.hpp>
+
 // Include boost.preprocessor header if variadic templates are not available.
 // Also include it if we use gcc v4.6.
 // This is required due to bug http://gcc.gnu.org/bugzilla/show_bug.cgi?id=35722
@@ -2139,7 +2141,7 @@ void assign_expression(LHS &lhs, const RHS &rhs,
         if (kernel == cache.end()) {
             std::ostringstream source;
 
-            source << standard_kernel_header(device);
+            source << backend::standard_kernel_header(device);
 
             output_terminal_preamble termpream(source, device, "prm", empty_state());
 
@@ -2181,7 +2183,7 @@ void assign_expression(LHS &lhs, const RHS &rhs,
 
             source << ";\n\t}\n}\n";
 
-            auto program = build_sources(context, source.str());
+            auto program = backend::build_sources(context, source.str());
 
             cl::Kernel krn(program, "vexcl_vector_kernel");
             size_t wgs = kernel_workgroup_size(krn, device);
@@ -2421,7 +2423,7 @@ void assign_multiexpression( LHS &lhs, const RHS &rhs,
         if (kernel == cache.end()) {
             std::ostringstream source;
 
-            source << standard_kernel_header(device);
+            source << backend::standard_kernel_header(device);
 
             static_for<0, N::value>::loop(
                     preamble_constructor<LHS, RHS>(lhs, rhs, source, device)
@@ -2443,7 +2445,7 @@ void assign_multiexpression( LHS &lhs, const RHS &rhs,
 
             source << "\t}\n}\n";
 
-            auto program = build_sources(context, source.str());
+            auto program = backend::build_sources(context, source.str());
 
             cl::Kernel krn(program, "vexcl_multivector_kernel");
             size_t wgs = kernel_workgroup_size(krn, device);

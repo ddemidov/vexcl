@@ -114,7 +114,7 @@ inline void kernel_radix(std::ostringstream &o, pow radix, bool invert) {
 template <class T>
 inline void kernel_common(std::ostringstream &o, const cl::Device& device) {
     if(std::is_same<T, cl_double>::value) {
-        o << standard_kernel_header(device)
+        o << backend::standard_kernel_header(device)
           << "typedef double real_t;\n"
           << "typedef double2 real2_t;\n";
     } else {
@@ -161,7 +161,7 @@ inline kernel_call radix_kernel(bool once, const cl::CommandQueue &queue, size_t
     const size_t m = n / radix.value;
     kernel_radix<T>(o, radix, invert);
 
-    auto program = build_sources(qctx(queue), o.str(), "-cl-mad-enable -cl-fast-relaxed-math");
+    auto program = backend::build_sources(qctx(queue), o.str(), "-cl-mad-enable -cl-fast-relaxed-math");
     cl::Kernel kernel(program, "radix");
     kernel.setArg(0, in);
     kernel.setArg(1, out);
@@ -221,7 +221,7 @@ inline kernel_call transpose_kernel(const cl::CommandQueue &queue, size_t width,
       << "    output[target_x + target_y * height] = block[local_x + local_y * block_size];\n"
       << "}\n";
 
-    auto program = build_sources(qctx(queue), o.str());
+    auto program = backend::build_sources(qctx(queue), o.str());
     cl::Kernel kernel(program, "transpose");
     kernel.setArg(0, in);
     kernel.setArg(1, out);
@@ -257,7 +257,7 @@ inline kernel_call bluestein_twiddle(const cl::CommandQueue &queue, size_t n, bo
       << "  output[x] = twiddle(sign * M_PI * xx / n);\n"
       << "}\n";
 
-    auto program = build_sources(qctx(queue), o.str());
+    auto program = backend::build_sources(qctx(queue), o.str());
     cl::Kernel kernel(program, "bluestein_twiddle");
     kernel.setArg(0, out);
 
@@ -283,7 +283,7 @@ inline kernel_call bluestein_pad_kernel(const cl::CommandQueue &queue, size_t n,
       << "    output[x] = (real2_t)(0,0);\n"
       << "}\n";
 
-    auto program = build_sources(qctx(queue), o.str());
+    auto program = backend::build_sources(qctx(queue), o.str());
     cl::Kernel kernel(program, "bluestein_pad_kernel");
     kernel.setArg(0, in);
     kernel.setArg(1, out);
@@ -328,7 +328,7 @@ inline kernel_call bluestein_mul_in(const cl::CommandQueue &queue, bool inverse,
       << "  }\n"
       << "}\n";
 
-    auto program = build_sources(qctx(queue), o.str());
+    auto program = backend::build_sources(qctx(queue), o.str());
     cl::Kernel kernel(program, "bluestein_mul_in");
     kernel.setArg(0, data);
     kernel.setArg(1, exp);
@@ -368,7 +368,7 @@ inline kernel_call bluestein_mul_out(const cl::CommandQueue &queue, size_t batch
       << "  }\n"
       << "}\n";
 
-    auto program = build_sources(qctx(queue), o.str());
+    auto program = backend::build_sources(qctx(queue), o.str());
     cl::Kernel kernel(program, "bluestein_mul_out");
     kernel.setArg(0, data);
     kernel.setArg(1, exp);
@@ -401,7 +401,7 @@ inline kernel_call bluestein_mul(const cl::CommandQueue &queue, size_t n, size_t
       << "  }\n"
       << "}\n";
 
-    auto program = build_sources(qctx(queue), o.str());
+    auto program = backend::build_sources(qctx(queue), o.str());
     cl::Kernel kernel(program, "bluestein_mul");
     kernel.setArg(0, data);
     kernel.setArg(1, exp);

@@ -235,7 +235,7 @@ struct SpMatHELL : public sparse_matrix {
         if (kernel == cache.end()) {
             std::ostringstream source;
 
-            source << standard_kernel_header(device) <<
+            source << backend::standard_kernel_header(device) <<
                 "kernel void hybrid_ell_spmv(\n"
                 "    " << type_name<size_t>() << " n,\n"
                 "    " << type_name<scalar_type>()  << " scale,\n"
@@ -265,7 +265,7 @@ struct SpMatHELL : public sparse_matrix {
                 "    }\n"
                 "}\n";
 
-            auto program = build_sources(context, source.str());
+            auto program = backend::build_sources(context, source.str());
 
             cl::Kernel krn(program, "hybrid_ell_spmv");
             size_t     wgs = kernel_workgroup_size(krn, device);
