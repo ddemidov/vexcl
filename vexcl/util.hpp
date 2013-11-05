@@ -309,9 +309,11 @@ inline const std::string& appdata_path() {
 /// Path to cached binaries.
 inline std::string program_binaries_path(const std::string &hash, bool create = false)
 {
-    std::string dir = appdata_path() + path_delim() + hash.substr(0, 2);
+    std::string dir = appdata_path()    + path_delim()
+                    + hash.substr(0, 2) + path_delim()
+                    + hash.substr(2);
     if (create) boost::filesystem::create_directories(dir);
-    return dir + path_delim() + hash.substr(2);
+    return dir + path_delim();
 }
 
 /// Saves program binaries for future reuse.
@@ -319,7 +321,7 @@ inline void save_program_binaries(
         const std::string &hash, const cl::Program &program, const std::string &source
         )
 {
-    std::ofstream bfile(program_binaries_path(hash, true), std::ios::binary);
+    std::ofstream bfile(program_binaries_path(hash, true) + "kernel", std::ios::binary);
     if (!bfile) return;
 
     std::vector<size_t> sizes    = program.getInfo<CL_PROGRAM_BINARY_SIZES>();
@@ -340,7 +342,7 @@ inline boost::optional<cl::Program> load_program_binaries(
         const std::vector<cl::Device> &device
         )
 {
-    std::ifstream bfile(program_binaries_path(hash), std::ios::binary);
+    std::ifstream bfile(program_binaries_path(hash) + "kernel", std::ios::binary);
     if (!bfile) return boost::optional<cl::Program>();
 
     size_t n;
