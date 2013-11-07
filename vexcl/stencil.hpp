@@ -327,8 +327,7 @@ class stencil : private stencil_base<T> {
         using Base::lhalo;
         using Base::rhalo;
 
-        mutable std::vector<cl::Kernel> conv;
-        std::vector<size_t>             wgs;
+        mutable std::vector<backend::kernel> conv;
         std::vector<cl::LocalSpaceArg>  loc_s;
         std::vector<cl::LocalSpaceArg>  loc_x;
 
@@ -410,14 +409,10 @@ const detail::kernel_cache_entry& stencil<T>::slow_conv(const cl::CommandQueue &
             "    }\n"
             "}\n";
 
-        auto program = backend::build_sources(context, source.str());
+        backend::kernel krn(queue[d], source.str(), "slow_conv",
+                [](size_t){ return 2 * sizeof(T); });
 
-        cl::Kernel krn(program, "slow_conv");
-        size_t     wgs = kernel_workgroup_size(krn, device);
-
-        kernel = cache.insert(std::make_pair(
-                    context(), kernel_cache_entry(krn, wgs)
-                    )).first;
+        kernel = cache.insert(std::make_pair(context(), krn)).first;
     }
 
     return kernel->second;
@@ -497,14 +492,12 @@ const detail::kernel_cache_entry& stencil<T>::fast_conv(const cl::CommandQueue &
             "    }\n"
             "}\n";
 
-        auto program = backend::build_sources(context, source.str());
+        backend::kernel krn(queue[d], source.str(), "fast_conv",
+                [width](size_t wgs) {
+                    return (wgs + 2 * width - 1) * sizeof(T);
+                });
 
-        cl::Kernel krn(program, "fast_conv");
-        size_t     wgs = kernel_workgroup_size(krn, device);
-
-        kernel = cache.insert(std::make_pair(
-                    context(), kernel_cache_entry(krn, wgs)
-                    )).first;
+        kernel = cache.insert(std::make_pair(context(), krn)).first;
     }
 
     return kernel->second;

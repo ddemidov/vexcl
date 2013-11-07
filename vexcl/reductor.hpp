@@ -190,9 +190,8 @@ Reductor<real,RDC>::Reductor(const std::vector<cl::CommandQueue> &queue)
 
     for(auto q = queue.begin(); q != queue.end(); q++) {
         cl::Context context = qctx(*q);
-        cl::Device  device  = qdev(*q);
 
-        size_t bufsize = num_workgroups(device);
+        size_t bufsize = backend::kernel::num_workgroups(*q);
         idx.push_back(idx.back() + bufsize);
 
         dbuf.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, bufsize * sizeof(real)));
@@ -306,44 +305,27 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
                     "}\n";
             }
 
-            auto program = backend::build_sources(context, source.str());
-
-            cl::Kernel krn(program, "vexcl_reductor_kernel");
-            size_t wgs;
-            if (is_cpu(device)) {
-                wgs = 1;
+            if ( is_cpu(device) ) {
+                backend::kernel krn(queue[d], source.str(), "vexcl_reductor_kernel", backend::fixed_workgroup_size(1));
+                kernel = cache.insert(std::make_pair(context(), krn)).first;
             } else {
-                wgs = kernel_workgroup_size(krn, device);
-
-                size_t smem = static_cast<size_t>(device.getInfo<CL_DEVICE_LOCAL_MEM_SIZE>())
-                            - static_cast<size_t>(krn.getWorkGroupInfo<CL_KERNEL_LOCAL_MEM_SIZE>(device));
-                while(wgs * sizeof(real) > smem)
-                    wgs /= 2;
+                backend::kernel krn(queue[d], source.str(), "vexcl_reductor_kernel", sizeof(real));
+                kernel = cache.insert(std::make_pair(context(), krn)).first;
             }
-
-            kernel = cache.insert(std::make_pair(
-                        context(), kernel_cache_entry(krn, wgs)
-                        )).first;
         }
 
         if (size_t psize = prop.part_size(d)) {
-            size_t w_size = kernel->second.wgsize;
-            size_t g_size = (idx[d + 1] - idx[d]) * w_size;
-            auto   lmem   = vex::Local(w_size * sizeof(real));
-
-            unsigned pos = 0;
-            kernel->second.kernel.setArg(pos++, psize);
+            kernel->second.push_arg(psize);
 
             extract_terminals()(
                     expr,
-                    set_expression_argument(kernel->second.kernel, d, pos, prop.part_start(d), empty_state())
+                    set_expression_argument(kernel->second, d, prop.part_start(d), empty_state())
                     );
 
-            kernel->second.kernel.setArg(pos++, dbuf[d]);
-            kernel->second.kernel.setArg(pos++, lmem);
+            kernel->second.push_arg(dbuf[d]);
+            kernel->second.push_smem(sizeof(real));
 
-            queue[d].enqueueNDRangeKernel(kernel->second.kernel,
-                    cl::NullRange, g_size, w_size);
+            kernel->second(queue[d]);
         }
     }
 

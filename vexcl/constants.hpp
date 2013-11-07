@@ -81,8 +81,8 @@ template <class T, T v>
 struct kernel_arg_setter< std::integral_constant<T, v> >
 {
     static void set(const std::integral_constant<T, v>&,
-            cl::Kernel&, unsigned/*device*/, size_t/*index_offset*/,
-            unsigned &/*position*/, detail::kernel_generator_state_ptr)
+            backend::kernel&, unsigned/*device*/, size_t/*index_offset*/,
+            detail::kernel_generator_state_ptr)
     {
     }
 };
@@ -128,8 +128,8 @@ template <class Impl>
 struct kernel_arg_setter< user_constant<Impl> >
 {
     static void set(const user_constant<Impl>&,
-            cl::Kernel&, unsigned/*device*/, size_t/*index_offset*/,
-            unsigned &/*position*/, detail::kernel_generator_state_ptr)
+            backend::kernel&, unsigned/*device*/, size_t/*index_offset*/,
+            detail::kernel_generator_state_ptr)
     {
     }
 };

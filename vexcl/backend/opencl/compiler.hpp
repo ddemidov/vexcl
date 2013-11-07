@@ -41,6 +41,11 @@ THE SOFTWARE.
 #  include <boost/filesystem.hpp>
 #endif
 
+#ifndef __CL_ENABLE_EXCEPTIONS
+#  define __CL_ENABLE_EXCEPTIONS
+#endif
+#include <CL/cl.hpp>
+
 namespace vex {
 namespace backend {
 

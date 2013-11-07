@@ -150,10 +150,10 @@ class source_generator {
         std::ostringstream src;
 
     public:
-        source_generator(const cl::Device &device)
-            : indent(0), first_prm(true), cpu( is_cpu(device) )
+        source_generator(const cl::CommandQueue &queue)
+            : indent(0), first_prm(true), cpu( is_cpu(qdev(queue)) )
         {
-            src << standard_kernel_header(device);
+            src << standard_kernel_header(qdev(queue));
         }
 
         source_generator& new_line() {

@@ -103,31 +103,22 @@ class gather {
                         "    global real *dst\n"
                         "    )\n"
                         "{\n"
-                        "    size_t i = get_global_id(0);\n"
-                        "    if (i < n) dst[i] = src[col[i]];\n"
+                        "    for(size_t i = get_global_id(0); i < n; i += get_global_size(0))\n"
+                        "        dst[i] = src[col[i]];\n"
                         "}\n";
 
-                    auto program = backend::build_sources(context, source.str());
-                    cl::Kernel krn(program, "gather");
-                    size_t wgs = kernel_workgroup_size(krn, device);
+                    backend::kernel krn(queue[d], source.str(), "gather");
 
-                    kernel = cache.insert(std::make_pair(
-                                context(), kernel_cache_entry(krn, wgs)
-                                )).first;
+                    kernel = cache.insert(std::make_pair(context(), krn)).first;
                 }
 
                 if (size_t n = ptr[d + 1] - ptr[d]) {
-                    size_t w_size = kernel->second.wgsize;
-                    size_t g_size = alignup(n, w_size);
+                    kernel->second.push_arg(n);
+                    kernel->second.push_arg(src(d));
+                    kernel->second.push_arg(idx[d]);
+                    kernel->second.push_arg(val[d]);
 
-                    unsigned pos = 0;
-                    kernel->second.kernel.setArg(pos++, n);
-                    kernel->second.kernel.setArg(pos++, src(d));
-                    kernel->second.kernel.setArg(pos++, idx[d]);
-                    kernel->second.kernel.setArg(pos++, val[d]);
-
-                    queue[d].enqueueNDRangeKernel(kernel->second.kernel,
-                            cl::NullRange, g_size, w_size);
+                    kernel->second(queue[d]);
 
                     queue[d].enqueueReadBuffer(
                             val[d], CL_FALSE, 0, n * sizeof(T), &dst[ptr[d]],

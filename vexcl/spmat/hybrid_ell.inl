@@ -265,44 +265,34 @@ struct SpMatHELL : public sparse_matrix {
                 "    }\n"
                 "}\n";
 
-            auto program = backend::build_sources(context, source.str());
-
-            cl::Kernel krn(program, "hybrid_ell_spmv");
-            size_t     wgs = kernel_workgroup_size(krn, device);
-
-            kernel = cache.insert(std::make_pair(
-                        context(), kernel_cache_entry(krn, wgs)
-                        )).first;
+            backend::kernel krn(queue, source.str(), "hybrid_ell_spmv");
+            kernel = cache.insert(std::make_pair(context(), krn)).first;
         }
 
-        cl::Kernel krn    = kernel->second.kernel;
-        size_t     wgsize = kernel->second.wgsize;
-        size_t     g_size = num_workgroups(device) * wgsize;
-
-        unsigned pos = 0;
-        krn.setArg(pos++, n);
-        krn.setArg(pos++, scale);
-        krn.setArg(pos++, part.ell.width);
-        krn.setArg(pos++, pitch);
+        kernel->second.push_arg(n);
+        kernel->second.push_arg(scale);
+        kernel->second.push_arg(part.ell.width);
+        kernel->second.push_arg(pitch);
         if (part.ell.width) {
-            krn.setArg(pos++, part.ell.col);
-            krn.setArg(pos++, part.ell.val);
+            kernel->second.push_arg(part.ell.col);
+            kernel->second.push_arg(part.ell.val);
         } else {
-            krn.setArg(pos++, static_cast<void*>(0));
-            krn.setArg(pos++, static_cast<void*>(0));
+            kernel->second.push_arg(static_cast<void*>(0));
+            kernel->second.push_arg(static_cast<void*>(0));
         }
         if (part.csr.nnz) {
-            krn.setArg(pos++, part.csr.row);
-            krn.setArg(pos++, part.csr.col);
-            krn.setArg(pos++, part.csr.val);
+            kernel->second.push_arg(part.csr.row);
+            kernel->second.push_arg(part.csr.col);
+            kernel->second.push_arg(part.csr.val);
         } else {
-            krn.setArg(pos++, static_cast<void*>(0));
-            krn.setArg(pos++, static_cast<void*>(0));
-            krn.setArg(pos++, static_cast<void*>(0));
+            kernel->second.push_arg(static_cast<void*>(0));
+            kernel->second.push_arg(static_cast<void*>(0));
+            kernel->second.push_arg(static_cast<void*>(0));
         }
-        krn.setArg(pos++, in);
-        krn.setArg(pos++, out);
+        kernel->second.push_arg(in);
+        kernel->second.push_arg(out);
 
+        // TODO: event list
         queue.enqueueNDRangeKernel(krn, cl::NullRange, g_size, wgsize,
                 wait_for_it.empty() ? NULL : &wait_for_it);
     }

@@ -100,10 +100,10 @@ template <>
 struct kernel_arg_setter< elem_index >
 {
     static void set(const elem_index &term,
-            cl::Kernel &kernel, unsigned/*device*/, size_t index_offset,
-            unsigned &position, detail::kernel_generator_state_ptr)
+            backend::kernel &kernel, unsigned/*device*/, size_t index_offset,
+            detail::kernel_generator_state_ptr)
     {
-        kernel.setArg(position++, term.offset + index_offset);
+        kernel.push_arg(term.offset + index_offset);
     }
 };
 

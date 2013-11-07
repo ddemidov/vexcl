@@ -749,39 +749,38 @@ struct partial_vector_expr< mba_interp<MBA, ExprTuple> > {
 template <class MBA, class ExprTuple>
 struct kernel_arg_setter< mba_interp<MBA, ExprTuple> > {
     static void set(const mba_interp<MBA, ExprTuple> &term,
-            cl::Kernel &kernel, unsigned device, size_t index_offset,
-            unsigned &position, detail::kernel_generator_state_ptr state)
+            backend::kernel &kernel, unsigned device, size_t index_offset,
+            detail::kernel_generator_state_ptr state)
     {
 
         boost::fusion::for_each(term.coord,
-                setargs(kernel, device, index_offset, position, state));
+                setargs(kernel, device, index_offset, state));
 
         for(size_t k = 0; k < MBA::ndim; ++k) {
-            kernel.setArg(position++, term.cloud.xmin[k]);
-            kernel.setArg(position++, term.cloud.hinv[k]);
-            kernel.setArg(position++, term.cloud.n[k]);
-            kernel.setArg(position++, term.cloud.stride[k]);
+            kernel.push_arg(term.cloud.xmin[k]);
+            kernel.push_arg(term.cloud.hinv[k]);
+            kernel.push_arg(term.cloud.n[k]);
+            kernel.push_arg(term.cloud.stride[k]);
         }
-        kernel.setArg(position++, term.cloud.phi[device]);
+        kernel.push_arg(term.cloud.phi[device]);
     }
 
     struct setargs {
-        cl::Kernel &kernel;
+        backend::kernel &kernel;
         unsigned device;
         size_t index_offset;
-        unsigned &position;
         detail::kernel_generator_state_ptr state;
 
         setargs(
-                cl::Kernel &kernel, unsigned device, size_t index_offset, unsigned &position,
+                backend::kernel &kernel, unsigned device, size_t index_offset,
                 detail::kernel_generator_state_ptr state
                )
-            : kernel(kernel), device(device), index_offset(index_offset), position(position), state(state)
+            : kernel(kernel), device(device), index_offset(index_offset), state(state)
         {}
 
         template <class Expr>
         void operator()(const Expr &expr) const {
-            detail::set_expression_argument ctx(kernel, device, position, index_offset, state);
+            detail::set_expression_argument ctx(kernel, device, index_offset, state);
             detail::extract_terminals()( boost::proto::as_child(expr), ctx);
         }
     };

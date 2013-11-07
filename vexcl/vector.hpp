@@ -912,10 +912,10 @@ struct partial_vector_expr< vector<T> > {
 template <typename T>
 struct kernel_arg_setter< vector<T> > {
     static void set(const vector<T> &term,
-            cl::Kernel &kernel, unsigned device, size_t/*index_offset*/,
-            unsigned &position, detail::kernel_generator_state_ptr)
+            backend::kernel &kernel, unsigned device, size_t/*index_offset*/,
+            detail::kernel_generator_state_ptr)
     {
-        kernel.setArg(position++, term(device));
+        kernel.push_arg(term(device));
     }
 };
 

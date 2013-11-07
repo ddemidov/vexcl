@@ -239,8 +239,8 @@ struct partial_vector_expr< tagged_terminal<Tag, Term> > {
 template <size_t Tag, class Term>
 struct kernel_arg_setter< tagged_terminal<Tag, Term> > {
     static void set(const tagged_terminal<Tag, Term> &term,
-            cl::Kernel &kernel, unsigned device, size_t index_offset,
-            unsigned &position, detail::kernel_generator_state_ptr state)
+            backend::kernel &kernel, unsigned device, size_t index_offset,
+            detail::kernel_generator_state_ptr state)
     {
         auto s = state->find("tag_args");
 
@@ -257,7 +257,7 @@ struct kernel_arg_setter< tagged_terminal<Tag, Term> > {
         if (p == pos.end()) {
             pos.insert(Tag);
 
-            detail::set_expression_argument setarg(kernel, device, position, index_offset, state);
+            detail::set_expression_argument setarg(kernel, device, index_offset, state);
             detail::extract_terminals()( boost::proto::as_child(term.term),  setarg);
         }
     }

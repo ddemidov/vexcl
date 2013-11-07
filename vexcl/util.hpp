@@ -168,28 +168,6 @@ inline bool is_cpu(const cl::Device &d) {
 #endif
 }
 
-/// Get maximum possible workgroup size for given kernel.
-inline unsigned kernel_workgroup_size(
-        const cl::Kernel &kernel,
-        const cl::Device &device
-        )
-{
-    unsigned wgsz = 1024U;
-
-    unsigned dev_wgsz = static_cast<unsigned>(
-        kernel.getWorkGroupInfo<CL_KERNEL_WORK_GROUP_SIZE>(device));
-    while(wgsz > dev_wgsz) wgsz /= 2;
-
-    return wgsz;
-}
-
-/// Standard number of workgroups to launch on a device.
-inline size_t num_workgroups(const cl::Device &device) {
-    // This is a simple heuristic-based estimate. More advanced technique may
-    // be employed later.
-    return 4 * device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>();
-}
-
 struct column_owner {
     const std::vector<size_t> &part;
 

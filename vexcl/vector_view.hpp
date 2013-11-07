@@ -228,14 +228,14 @@ struct partial_vector_expr< vector_view<const vector<T>&, Slice> > {
 template <typename Expr, class Slice>
 struct kernel_arg_setter< vector_view<Expr, Slice> > {
     static void set(const vector_view<Expr, Slice> &term,
-            cl::Kernel &kernel, unsigned device, size_t index_offset,
-            unsigned &position, detail::kernel_generator_state_ptr state)
+            backend::kernel &kernel, unsigned device, size_t index_offset,
+            detail::kernel_generator_state_ptr state)
     {
         assert(device == 0);
 
-        detail::set_expression_argument setarg(kernel, device, position, index_offset, state);
+        detail::set_expression_argument setarg(kernel, device, index_offset, state);
         detail::extract_terminals()( boost::proto::as_child(term.expr),  setarg);
-        term.slice.setArgs(kernel, device, index_offset, position, state);
+        term.slice.setArgs(kernel, device, index_offset, state);
     }
 };
 
@@ -377,13 +377,13 @@ struct gslice {
         return s.str();
     }
 
-    void setArgs(cl::Kernel &kernel, unsigned/*device*/, size_t/*index_offset*/,
-            unsigned &position, detail::kernel_generator_state_ptr) const
+    void setArgs(backend::kernel &kernel, unsigned/*device*/, size_t/*index_offset*/,
+            detail::kernel_generator_state_ptr) const
     {
-        kernel.setArg(position++, start);
+        kernel.push_arg(start);
         for(size_t k = 0; k < NDIM; ++k) {
-            kernel.setArg(position++, length[k]);
-            kernel.setArg(position++, stride[k]);
+            kernel.push_arg(length[k]);
+            kernel.push_arg(stride[k]);
         }
     }
 
@@ -646,11 +646,11 @@ struct expr_permutation {
         return s.str();
     }
 
-    void setArgs(cl::Kernel &kernel, unsigned device, size_t index_offset,
-            unsigned &position, detail::kernel_generator_state_ptr state) const
+    void setArgs(backend::kernel &kernel, unsigned device, size_t index_offset,
+            detail::kernel_generator_state_ptr state) const
     {
         detail::extract_terminals()( boost::proto::as_child(expr),
-                detail::set_expression_argument(kernel, device, position, index_offset, state));
+                detail::set_expression_argument(kernel, device, index_offset, state));
     }
 
     template <class Base>
@@ -836,24 +836,24 @@ struct partial_vector_expr< reduced_vector_view<Expr, NDIM, NR, RDC> > {
 template <typename Expr, size_t NDIM, size_t NR, class RDC>
 struct kernel_arg_setter< reduced_vector_view<Expr, NDIM, NR, RDC> > {
     static void set(const reduced_vector_view<Expr, NDIM, NR, RDC> &term,
-            cl::Kernel &kernel, unsigned device, size_t index_offset,
-            unsigned &position, detail::kernel_generator_state_ptr state)
+            backend::kernel &kernel, unsigned device, size_t index_offset,
+            detail::kernel_generator_state_ptr state)
     {
-        detail::set_expression_argument setarg(kernel, device, position, index_offset, state);
+        detail::set_expression_argument setarg(kernel, device, index_offset, state);
         detail::extract_terminals()( boost::proto::as_child(term.expr), setarg);
 
-        kernel.setArg(position++, term.slice.start);
+        kernel.push_arg(term.slice.start);
 
         for(size_t k = 0; k < NDIM; ++k) {
             if (!std::binary_search(term.reduce_dims.begin(), term.reduce_dims.end(), k)) {
-                kernel.setArg(position++, term.slice.length[k]);
-                kernel.setArg(position++, term.slice.stride[k]);
+                kernel.push_arg(term.slice.length[k]);
+                kernel.push_arg(term.slice.stride[k]);
             }
         }
 
         for(size_t k = 0; k < NR; ++k) {
-            kernel.setArg(position++, term.slice.length[term.reduce_dims[k]]);
-            kernel.setArg(position++, term.slice.stride[term.reduce_dims[k]]);
+            kernel.push_arg(term.slice.length[term.reduce_dims[k]]);
+            kernel.push_arg(term.slice.stride[term.reduce_dims[k]]);
         }
     }
 };

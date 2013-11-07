@@ -291,8 +291,8 @@ struct partial_vector_expr< temporary<T, Tag, Expr> > {
 template <typename T, size_t Tag, class Expr>
 struct kernel_arg_setter< temporary<T, Tag, Expr> > {
     static void set(const temporary<T, Tag, Expr> &term,
-            cl::Kernel &kernel, unsigned device, size_t index_offset,
-            unsigned &position, detail::kernel_generator_state_ptr state)
+            backend::kernel &kernel, unsigned device, size_t index_offset,
+            detail::kernel_generator_state_ptr state)
     {
         auto s = state->find("tmp_args");
 
@@ -309,7 +309,7 @@ struct kernel_arg_setter< temporary<T, Tag, Expr> > {
         if (p == pos.end()) {
             pos.insert(Tag);
 
-            detail::set_expression_argument setarg(kernel, device, position, index_offset, state);
+            detail::set_expression_argument setarg(kernel, device, index_offset, state);
             detail::extract_terminals()( boost::proto::as_child(term.expr),  setarg);
         }
     }

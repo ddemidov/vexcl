@@ -38,5 +38,6 @@ THE SOFTWARE.
 
 #include <vexcl/backend/opencl/source.hpp>
 #include <vexcl/backend/opencl/compiler.hpp>
+#include <vexcl/backend/opencl/kernel.hpp>
 
 #endif

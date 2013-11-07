@@ -149,31 +149,21 @@ class SpMat {
                             "    global val_t *vals_to_send\n"
                             "    )\n"
                             "{\n"
-                            "    size_t i = get_global_id(0);\n"
-                            "    if (i < n) vals_to_send[i] = vals[cols_to_send[i]];\n"
+                            "    for(size_t i = get_global_id(0); i < n; i += get_global_size(0))\n"
+                            "        vals_to_send[i] = vals[cols_to_send[i]];\n"
                             "}\n";
 
-                        auto program = backend::build_sources(context, source.str());
-
-                        cl::Kernel krn(program, "gather_vals_to_send");
-                        size_t wgs = kernel_workgroup_size(krn, device);
-
-                        gather = cache.insert(std::make_pair(
-                                    context(), kernel_cache_entry(krn, wgs)
-                                    )).first;
+                        backend::kernel krn(queue[d], source.str(), "gather_vals_to_send");
+                        gather = cache.insert(std::make_pair(context(), krn)).first;
                     }
 
                     if (size_t ncols = cidx[d + 1] - cidx[d]) {
-                        size_t g_size = alignup(ncols, gather->second.wgsize);
+                        gather->second.push_arg(ncols);
+                        gather->second.push_arg(x(d));
+                        gather->second.push_arg(exc[d].cols_to_send);
+                        gather->second.push_arg(exc[d].vals_to_send);
 
-                        unsigned pos = 0;
-                        gather->second.kernel.setArg(pos++, ncols);
-                        gather->second.kernel.setArg(pos++, x(d));
-                        gather->second.kernel.setArg(pos++, exc[d].cols_to_send);
-                        gather->second.kernel.setArg(pos++, exc[d].vals_to_send);
-
-                        queue[d].enqueueNDRangeKernel(gather->second.kernel,
-                                cl::NullRange, g_size, gather->second.wgsize, 0, &event1[d][0]);
+                        gather->second(queue[d]);
 
                         squeue[d].enqueueReadBuffer(exc[d].vals_to_send, CL_FALSE,
                                 0, ncols * sizeof(val_t), &rx[cidx[d]], &event1[d], &event2[d][0]
@@ -246,12 +236,11 @@ class SpMat {
                 return SpMatHELL::inline_parameters(prm_name);
         }
 
-        static void inline_arguments(cl::Kernel &kernel, unsigned device,
-                size_t /*index_offset*/, unsigned &position,
-                const SpMat &A, const vector<val_t> &x,
+        static void inline_arguments(backend::kernel &kernel, unsigned device,
+                size_t /*index_offset*/, const SpMat &A, const vector<val_t> &x,
                 detail::kernel_generator_state_ptr)
         {
-            A.mtx[device]->setArgs(kernel, device, position, x);
+            A.mtx[device]->setArgs(kernel, device, x);
         }
     private:
         template <typename T>
@@ -270,7 +259,7 @@ class SpMat {
                     scalar_type alpha, const std::vector<cl::Event> &event
                     ) const = 0;
 
-            virtual void setArgs(cl::Kernel &kernel, unsigned device, unsigned &position, const vector<val_t> &x) const = 0;
+            virtual void setArgs(backend::kernel &kernel, unsigned device, const vector<val_t> &x) const = 0;
 
             virtual ~sparse_matrix() {}
         };

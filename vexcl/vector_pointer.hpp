@@ -100,10 +100,10 @@ template <typename T>
 struct kernel_arg_setter< vector_pointer<T> >
 {
     static void set(const vector_pointer<T> &term,
-            cl::Kernel &kernel, unsigned/*device*/, size_t/*index_offset*/,
-            unsigned &position, detail::kernel_generator_state_ptr)
+            backend::kernel &kernel, unsigned/*device*/, size_t/*index_offset*/,
+            detail::kernel_generator_state_ptr)
     {
-        kernel.setArg(position++, term.v(0));
+        kernel.push_arg(term.v(0));
     }
 };
 

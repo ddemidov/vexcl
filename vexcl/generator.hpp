@@ -537,10 +537,7 @@ class Kernel {
 
                 source << "\t}\n}\n";
 
-                auto program = backend::build_sources(context, source.str());
-
-                krn[context()] = cl::Kernel(program, name.c_str());
-                wgs[context()] = kernel_workgroup_size(krn[context()], device);
+                krn.insert(std::make_pair(context(), backend::kernel(*q, source.str(), name.c_str())));
             }
         }
 
@@ -577,18 +574,13 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, FUNCALL_OPERATOR, ~)
             for(unsigned d = 0; d < queue.size(); d++) {
                 if (size_t psize = boost::fusion::fold(param, 0, param_size(d))) {
                     cl::Context context = qctx(queue[d]);
-                    cl::Device  device  = qdev(queue[d]);
 
-                    unsigned pos = 0;
-                    krn[context()].setArg(pos++, psize);
+                    krn[context()].push_arg(psize);
 
-                    set_params setprm(krn[context()], d, pos);
+                    set_params setprm(krn[context()], d);
                     boost::fusion::for_each(param, setprm);
 
-                    size_t g_size = num_workgroups(device) * wgs[context()];
-
-                    queue[d].enqueueNDRangeKernel(krn[context()],
-                            cl::NullRange, g_size, wgs[context()]);
+                    krn[context()](queue[d]);
                 }
             }
         }
@@ -627,26 +619,25 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, FUNCALL_OPERATOR, ~)
         };
 
         struct set_params {
-            cl::Kernel &krn;
-            unsigned d, &pos;
+            backend::kernel &krn;
+            unsigned d;
 
-            set_params(cl::Kernel &krn, unsigned d, unsigned &pos)
-                : krn(krn), d(d), pos(pos) {};
+            set_params(backend::kernel &krn, unsigned d)
+                : krn(krn), d(d) {};
 
             template <class T>
             void operator()(const T &v) const {
-                krn.setArg(pos++, v);
+                krn.push_arg(v);
             }
             template <class T>
             void operator()(const vector<T> &v) const {
-                krn.setArg(pos++, v(d));
+                krn.push_arg(v(d));
             }
         };
 
         std::vector<cl::CommandQueue> queue;
 
-        std::map<cl_context, cl::Kernel> krn;
-        std::map<cl_context, unsigned>   wgs;
+        std::map<cl_context, backend::kernel> krn;
 
         struct param_size {
             unsigned device;

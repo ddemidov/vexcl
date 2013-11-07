@@ -35,8 +35,8 @@ endfunction()
 #----------------------------------------------------------------------------
 # General tests
 #----------------------------------------------------------------------------
-add_vexcl_test(types                    types.cpp)
-add_vexcl_test(deduce                   deduce.cpp)
+#add_vexcl_test(types                    types.cpp)
+#add_vexcl_test(deduce                   deduce.cpp)
 add_vexcl_test(context                  context.cpp)
 add_vexcl_test(vector_create            vector_create.cpp)
 add_vexcl_test(vector_copy              vector_copy.cpp)
@@ -49,12 +49,12 @@ add_vexcl_test(cast                     cast.cpp)
 add_vexcl_test(multivector_create       multivector_create.cpp)
 add_vexcl_test(multivector_arithmetics  multivector_arithmetics.cpp)
 add_vexcl_test(multi_array              multi_array.cpp)
-add_vexcl_test(spmv                     spmv.cpp)
-add_vexcl_test(stencil                  stencil.cpp)
+#add_vexcl_test(spmv                     spmv.cpp)
+#add_vexcl_test(stencil                  stencil.cpp)
 add_vexcl_test(generator                generator.cpp)
 add_vexcl_test(random                   random.cpp)
 add_vexcl_test(mba                      mba.cpp)
-add_vexcl_test(multiple_objects         "dummy1.cpp;dummy2.cpp")
+#add_vexcl_test(multiple_objects         "dummy1.cpp;dummy2.cpp")
 
 #----------------------------------------------------------------------------
 # Test interoperation with Boost.compute

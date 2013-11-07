@@ -235,21 +235,21 @@ std::string get_partial_vector_expr(
 template <class Term, class Enable = void>
 struct kernel_arg_setter {
     static void set(const Term &term,
-            cl::Kernel &kernel, unsigned/*device*/, size_t/*index_offset*/,
-            unsigned &position, detail::kernel_generator_state_ptr)
+            backend::kernel &kernel, unsigned/*device*/, size_t/*index_offset*/,
+            detail::kernel_generator_state_ptr)
     {
-        kernel.setArg(position++, term);
+        kernel.push_arg(term);
     }
 };
 
 template <class T>
 void set_kernel_args(
-        const T &term, cl::Kernel &kernel, unsigned device, size_t index_offset,
-        unsigned &position, detail::kernel_generator_state_ptr state)
+        const T &term, backend::kernel &kernel, unsigned device, size_t index_offset,
+        detail::kernel_generator_state_ptr state)
 {
     kernel_arg_setter<
         typename std::decay<T>::type
-    >::set(term, kernel, device, index_offset, position, state);
+    >::set(term, kernel, device, index_offset, state);
 }
 
 // How to deduce queue list, partitioning and size from a terminal:
@@ -1638,29 +1638,27 @@ struct declare_expression_parameter : expression_context {
 };
 
 struct set_expression_argument {
-    cl::Kernel &krn;
-    unsigned dev, &pos;
+    backend::kernel &krn;
+    unsigned dev;
     size_t part_start;
     kernel_generator_state_ptr state;
 
-    set_expression_argument(cl::Kernel &krn, unsigned dev, unsigned &pos, size_t part_start,
+    set_expression_argument(backend::kernel &krn, unsigned dev, size_t part_start,
             kernel_generator_state_ptr state
             )
-        : krn(krn), dev(dev), pos(pos), part_start(part_start), state(state)
+        : krn(krn), dev(dev), part_start(part_start), state(state)
     {}
 
     template <typename Term>
     typename std::enable_if<traits::terminal_is_value<Term>::value, void>::type
     operator()(const Term &term) const {
-        traits::set_kernel_args(
-                term, krn, dev, part_start, pos, state);
+        traits::set_kernel_args(term, krn, dev, part_start, state);
     }
 
     template <typename Term>
     typename std::enable_if<!traits::terminal_is_value<Term>::value, void>::type
     operator()(const Term &term) const {
-        traits::set_kernel_args(
-                boost::proto::value(term), krn, dev, part_start, pos, state);
+        traits::set_kernel_args(boost::proto::value(term), krn, dev, part_start, state);
     }
 };
 
@@ -2049,15 +2047,7 @@ struct return_type {
 
 
 // Kernel cache (is a map from context handle to a kernel)
-struct kernel_cache_entry {
-    cl::Kernel kernel;
-    size_t     wgsize;
-
-    kernel_cache_entry(const cl::Kernel &kernel, size_t wgsize)
-        : kernel(kernel), wgsize(wgsize)
-    {}
-};
-
+typedef backend::kernel kernel_cache_entry;
 struct kernel_cache;
 
 template <bool dummy = true>
@@ -2183,31 +2173,20 @@ void assign_expression(LHS &lhs, const RHS &rhs,
 
             source << ";\n\t}\n}\n";
 
-            auto program = backend::build_sources(context, source.str());
+            backend::kernel krn(queue[d], source.str(), "vexcl_vector_kernel");
 
-            cl::Kernel krn(program, "vexcl_vector_kernel");
-            size_t wgs = kernel_workgroup_size(krn, device);
-
-            kernel = cache.insert(std::make_pair(
-                        context(), kernel_cache_entry(krn, wgs)
-                        )).first;
+            kernel = cache.insert(std::make_pair(context(), krn)).first;
         }
 
         if (size_t psize = part[d + 1] - part[d]) {
-            size_t w_size = kernel->second.wgsize;
-            size_t g_size = num_workgroups(device) * w_size;
+            kernel->second.push_arg(psize);
 
-            unsigned pos = 0;
-            kernel->second.kernel.setArg(pos++, psize);
-
-            set_expression_argument setarg(kernel->second.kernel, d, pos, part[d], empty_state());
+            set_expression_argument setarg(kernel->second, d, part[d], empty_state());
 
             extract_terminals()( boost::proto::as_child(lhs), setarg);
             extract_terminals()( boost::proto::as_child(rhs), setarg);
 
-            queue[d].enqueueNDRangeKernel(
-                    kernel->second.kernel, cl::NullRange, g_size, w_size
-                    );
+            kernel->second(queue[d]);
         }
     }
 }
@@ -2371,8 +2350,8 @@ struct kernel_arg_setter {
     mutable detail::set_expression_argument ctx;
 
     kernel_arg_setter(const LHS &lhs, const RHS &rhs,
-            cl::Kernel &krn, unsigned dev, size_t offset, unsigned &pos)
-        : lhs(lhs), rhs(rhs), ctx(krn, dev, pos, offset, empty_state())
+            backend::kernel &krn, unsigned dev, size_t offset)
+        : lhs(lhs), rhs(rhs), ctx(krn, dev, offset, empty_state())
     { }
 
     template <size_t I>
@@ -2445,30 +2424,19 @@ void assign_multiexpression( LHS &lhs, const RHS &rhs,
 
             source << "\t}\n}\n";
 
-            auto program = backend::build_sources(context, source.str());
+            backend::kernel krn(queue[d], source.str(), "vexcl_multivector_kernel");
 
-            cl::Kernel krn(program, "vexcl_multivector_kernel");
-            size_t wgs = kernel_workgroup_size(krn, device);
-
-            kernel = cache.insert(std::make_pair(
-                        context(), kernel_cache_entry(krn, wgs)
-                        )).first;
+            kernel = cache.insert(std::make_pair(context(), krn)).first;
         }
 
         if (size_t psize = part[d + 1] - part[d]) {
-            size_t w_size = kernel->second.wgsize;
-            size_t g_size = num_workgroups(device) * w_size;
-
-            unsigned pos = 0;
-            kernel->second.kernel.setArg(pos++, psize);
+            kernel->second.push_arg(psize);
 
             static_for<0, N::value>::loop(
-                    kernel_arg_setter<LHS, RHS>(lhs, rhs, kernel->second.kernel, d, part[d], pos)
+                    kernel_arg_setter<LHS, RHS>(lhs, rhs, kernel->second, d, part[d])
                     );
 
-            queue[d].enqueueNDRangeKernel(
-                    kernel->second.kernel, cl::NullRange, g_size, w_size
-                    );
+            kernel->second(queue[d]);
         }
     }
 }
