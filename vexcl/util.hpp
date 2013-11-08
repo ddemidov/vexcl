@@ -444,13 +444,17 @@ inline unsigned kernel_workgroup_size(
         const cl::Device &device
         )
 {
-    unsigned wgsz = 1024U;
+    if (is_cpu(device)) {
+        return 1U;
+    } else {
+        unsigned wgsz = 1024U;
 
-    unsigned dev_wgsz = static_cast<unsigned>(
-        kernel.getWorkGroupInfo<CL_KERNEL_WORK_GROUP_SIZE>(device));
-    while(wgsz > dev_wgsz) wgsz /= 2;
+        unsigned dev_wgsz = static_cast<unsigned>(
+                kernel.getWorkGroupInfo<CL_KERNEL_WORK_GROUP_SIZE>(device));
+        while(wgsz > dev_wgsz) wgsz /= 2;
 
-    return wgsz;
+        return wgsz;
+    }
 }
 
 /// Standard number of workgroups to launch on a device.
