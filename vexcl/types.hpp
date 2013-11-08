@@ -163,32 +163,55 @@ inline To cl_convert(const From &val) {
 template <class T> struct is_cl_native : std::false_type {};
 
 /// Convert typename to string.
+template <class T, class Enable = void>
+struct type_name_impl;
+
 template <class T>
-inline
-typename std::enable_if<!std::is_pointer<T>::value, std::string>::type
-type_name() {
-    throw std::logic_error("Trying to use an undefined type in a kernel.");
+inline std::string type_name() {
+    return type_name_impl<T>::get();
 }
+
+template <class T> struct global_ptr {};
+template <class T> struct shared_ptr {};
+
+template <class T>
+struct type_name_impl <global_ptr<T> > {
+    static std::string get() {
+        std::ostringstream s;
+        s << "global " << type_name<T>() << " *";
+        return s.str();
+    }
+};
+
+template <class T>
+struct type_name_impl <shared_ptr<T> > {
+    static std::string get() {
+        std::ostringstream s;
+        s << "local " << type_name<T>() << " *";
+        return s.str();
+    }
+};
 
 template<typename T>
-inline
-typename std::enable_if<std::is_pointer<T>::value, std::string>::type
-type_name() {
-    std::ostringstream s;
-    s << "global "
-      << type_name<typename std::remove_pointer<T>::type>()
-      << " *";
-    return s.str();
-}
+struct type_name_impl<T*>
+{
+    static std::string get() {
+        return type_name_impl< global_ptr<T> >::get();
+    }
+};
 
-#define STRINGIFY(type) \
-template <> inline std::string type_name<cl_##type>() { return #type; } \
-template <> struct is_cl_native<cl_##type> : std::true_type {};
+#define STRINGIFY(type)                                                        \
+  template<> struct type_name_impl<cl_##type> {                                \
+    static std::string get() { return #type; }                                 \
+  };                                                                           \
+  template<> struct is_cl_native<cl_##type> : std::true_type { };
 
 // enable use of OpenCL vector types as literals
-#define CL_VEC_TYPE(type, len) \
-template <> inline std::string type_name<cl_##type##len>() { return #type #len; } \
-template <> struct is_cl_native<cl_##type##len> : std::true_type {};
+#define CL_VEC_TYPE(type, len)                                                 \
+  template <> struct type_name_impl<cl_##type##len> {                          \
+    static std::string get() { return #type #len; }                            \
+  };                                                                           \
+  template <> struct is_cl_native<cl_##type##len> : std::true_type { };
 
 #define CL_TYPES(type) \
 STRINGIFY(type) \
@@ -209,24 +232,32 @@ CL_TYPES(long)  CL_TYPES(ulong)
 #undef STRINGIFY
 
 // char and cl_char are different types. Hence, special handling is required:
-template <> inline std::string type_name<char>() { return "char"; }
+template <> struct type_name_impl<char> {
+    static std::string get() { return "char"; }
+};
 template <> struct is_cl_native<char> : std::true_type {};
 template <> struct cl_vector_length<char> : std::integral_constant<unsigned, 1> {};
 template <> struct cl_scalar_of<char> { typedef char type; };
 
 // One can not pass bool to the kernel, but the overload is needed for type
 // deduction:
-template <> inline std::string type_name<bool>() { return "bool"; }
+template <> struct type_name_impl<bool> {
+    static std::string get() { return "bool"; }
+};
 
 
 #if defined(__APPLE__)
-template <> inline std::string type_name<size_t>() {
-    return sizeof(std::size_t) == sizeof(uint) ? "uint" : "ulong";
-}
+template <> struct type_name_impl<size_t> {
+    static std::string get() {
+        return sizeof(std::size_t) == sizeof(uint) ? "uint" : "ulong";
+    }
+};
 
-template <> inline std::string type_name<ptrdiff_t>() {
-    return sizeof(std::size_t) == sizeof(uint) ? "int" : "long";
-}
+template <> struct type_name_impl<ptrdiff_t> {
+    static std::string get() {
+        return sizeof(std::size_t) == sizeof(uint) ? "int" : "long";
+    }
+};
 
 template <> struct is_cl_native<size_t>    : std::true_type {};
 template <> struct is_cl_native<ptrdiff_t> : std::true_type {};

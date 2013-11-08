@@ -887,25 +887,23 @@ struct proto_terminal_is_value< vector_terminal > : std::true_type {};
 
 template <typename T>
 struct kernel_param_declaration< vector<T> > {
-    static std::string get(const vector<T>&,
+    static void get(backend::source_generator &src,
+            const vector<T>&,
             const cl::Device&, const std::string &prm_name,
             detail::kernel_generator_state_ptr)
     {
-        std::ostringstream s;
-        s << ",\n\tglobal " << type_name<T>() << " * " << prm_name;
-        return s.str();
+        src.parameter< global_ptr<T> >(prm_name);
     }
 };
 
 template <typename T>
 struct partial_vector_expr< vector<T> > {
-    static std::string get(const vector<T>&,
+    static void get(backend::source_generator &src,
+            const vector<T>&,
             const cl::Device&, const std::string &prm_name,
             detail::kernel_generator_state_ptr)
     {
-        std::ostringstream s;
-        s << prm_name << "[idx]";
-        return s.str();
+        src << prm_name << "[idx]";
     }
 };
 

@@ -224,19 +224,18 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
         auto kernel = cache.find( context() );
 
         if (kernel == cache.end()) {
-            std::ostringstream increment_line;
 
-            output_local_preamble loc_init(increment_line, device, "prm", empty_state());
-            boost::proto::eval(expr, loc_init);
+#define INCREMENT_MY_SUM                                                       \
+  {                                                                            \
+    output_local_preamble loc_init(source, device, "prm", empty_state());      \
+    boost::proto::eval(expr, loc_init);                                        \
+    vector_expr_context expr_ctx(source, device, "prm", empty_state());        \
+    source.new_line() << "mySum = reduce_operation(mySum, ";                   \
+    boost::proto::eval(expr, expr_ctx);                                        \
+    source << ");";                                                            \
+  }
 
-            vector_expr_context expr_ctx(increment_line, device, "prm", empty_state());
-
-            increment_line << "\t\tmySum = reduce_operation(mySum, ";
-            boost::proto::eval(expr, expr_ctx);
-            increment_line << ");\n";
-
-            std::ostringstream source;
-            source << backend::standard_kernel_header(device);
+            backend::source_generator source(queue[d]);
 
             typedef typename RDC::template function<real> fun;
             fun::define(source, "reduce_operation");
@@ -244,71 +243,62 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
             output_terminal_preamble termpream(source, device, "prm", empty_state());
             boost::proto::eval(boost::proto::as_child(expr),  termpream);
 
-            source << "kernel void vexcl_reductor_kernel(\n\t"
-                << type_name<size_t>() << " n";
+            source.kernel("vexcl_reductor_kernel")
+                .open("(").parameter<size_t>("n");
 
             extract_terminals()( expr, declare_expression_parameter(source, device, "prm", empty_state()) );
 
-            source << ",\n\tglobal " << type_name<real>() << " *g_odata,\n"
-                "\tlocal  " << type_name<real>() << " *sdata\n"
-                "\t)\n"
-                "{\n";
-            if ( is_cpu(device) ) {
-                source <<
-                    "    size_t grid_size  = get_global_size(0);\n"
-                    "    size_t chunk_size = (n + grid_size - 1) / grid_size;\n"
-                    "    size_t chunk_id   = get_global_id(0);\n"
-                    "    size_t start      = min(n, chunk_size * chunk_id);\n"
-                    "    size_t stop       = min(n, chunk_size * (chunk_id + 1));\n"
-                    "    " << type_name<real>() << " mySum = " << RDC::template initial<real>() << ";\n"
-                    "    for (size_t idx = start; idx < stop; idx++) {\n"
-                    << increment_line.str() <<
-                    "    }\n"
-                    "\n"
-                    "    g_odata[get_group_id(0)] = mySum;\n"
-                    "}\n";
-            } else {
-                source <<
-                    "    size_t tid        = get_local_id(0);\n"
-                    "    size_t block_size = get_local_size(0);\n"
-                    "    size_t p          = get_group_id(0) * block_size * 2 + tid;\n"
-                    "    size_t gridSize   = get_global_size(0) * 2;\n"
-                    "    size_t idx;\n"
-                    "    " << type_name<real>() << " mySum = " << RDC::template initial<real>() << ";\n"
-                    "    while (p < n) {\n"
-                    "        idx = p;\n"
-                    << increment_line.str() <<
-                    "        idx = p + block_size;\n"
-                    "        if (idx < n) {\n"
-                    << increment_line.str() <<
-                    "        }\n"
-                    "        p += gridSize;\n"
-                    "    }\n"
-                    "    sdata[tid] = mySum;\n"
-                    "\n"
-                    "    barrier(CLK_LOCAL_MEM_FENCE);\n"
-                    "    if (block_size >= 1024) { if (tid < 512) { sdata[tid] = mySum = reduce_operation(mySum, sdata[tid + 512]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
-                    "    if (block_size >=  512) { if (tid < 256) { sdata[tid] = mySum = reduce_operation(mySum, sdata[tid + 256]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
-                    "    if (block_size >=  256) { if (tid < 128) { sdata[tid] = mySum = reduce_operation(mySum, sdata[tid + 128]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
-                    "    if (block_size >=  128) { if (tid <  64) { sdata[tid] = mySum = reduce_operation(mySum, sdata[tid +  64]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
-                    "\n"
-                    "    if (tid < 32) {\n"
-                    "        local volatile " << type_name<real>() << "* smem = sdata;\n"
-                    "        if (block_size >=  64) { smem[tid] = mySum = reduce_operation(mySum, smem[tid + 32]); }\n"
-                    "        if (block_size >=  32) { smem[tid] = mySum = reduce_operation(mySum, smem[tid + 16]); }\n"
-                    "        if (block_size >=  16) { smem[tid] = mySum = reduce_operation(mySum, smem[tid +  8]); }\n"
-                    "        if (block_size >=   8) { smem[tid] = mySum = reduce_operation(mySum, smem[tid +  4]); }\n"
-                    "        if (block_size >=   4) { smem[tid] = mySum = reduce_operation(mySum, smem[tid +  2]); }\n"
-                    "        if (block_size >=   2) { smem[tid] = mySum = reduce_operation(mySum, smem[tid +  1]); }\n"
-                    "    }\n"
-                    "    if (tid == 0) g_odata[get_group_id(0)] = sdata[0];\n"
-                    "}\n";
-            }
+            source
+                .template parameter< global_ptr<real> >("g_odata")
+                .template parameter< shared_ptr<real> >("sdata")
+                .close(")");
+
 
             if ( is_cpu(device) ) {
+                source.open("{");
+                source.new_line() << "size_t grid_size  = get_global_size(0);";
+                source.new_line() << "size_t chunk_size = (n + grid_size - 1) / grid_size;";
+                source.new_line() << "size_t chunk_id   = get_global_id(0);";
+                source.new_line() << "size_t start      = min(n, chunk_size * chunk_id);";
+                source.new_line() << "size_t stop       = min(n, chunk_size * (chunk_id + 1));";
+                source.new_line() << type_name<real>() << " mySum = " << RDC::template initial<real>() << ";";
+                source.new_line() << "for (size_t idx = start; idx < stop; idx++)";
+                source.open("{");
+                INCREMENT_MY_SUM
+                source.close("}");
+                source.new_line() << "g_odata[get_group_id(0)] = mySum;";
+                source.close("}");
+
                 backend::kernel krn(queue[d], source.str(), "vexcl_reductor_kernel", backend::fixed_workgroup_size(1));
                 kernel = cache.insert(std::make_pair(context(), krn)).first;
             } else {
+                source.open("{");
+                source.new_line() << "size_t tid        = get_local_id(0);";
+                source.new_line() << "size_t block_size = get_local_size(0);";
+                source.new_line() << type_name<real>() << " mySum = " << RDC::template initial<real>() << ";";
+
+                source.grid_stride_loop().open("{");
+                INCREMENT_MY_SUM
+                source.close("}");
+                source.new_line() << "sdata[tid] = mySum;";
+                source.barrier();
+                for(unsigned bs = 512; bs > 32; bs /= 2) {
+                    source.new_line() << "if (block_size >= " << bs * 2 << ")";
+                    source.open("{").new_line() << "if (tid < " << bs << ") "
+                        "{ sdata[tid] = mySum = reduce_operation(mySum, sdata[tid + " << bs << "]); }";
+                    source.new_line().barrier().close("}");
+                }
+                source.new_line() << "if (tid < 32)";
+                source.open("{");
+                source.new_line() << "local volatile " << type_name<real>() << "* smem = sdata;";
+                for(unsigned bs = 32; bs > 0; bs /= 2) {
+                    source.new_line() << "if (block_size >= " << 2 * bs << ") "
+                        "{ smem[tid] = mySum = reduce_operation(mySum, smem[tid + " << bs << "]); }";
+                }
+                source.close("}");
+                source.new_line() << "if (tid == 0) g_odata[get_group_id(0)] = sdata[0];";
+                source.close("}");
+
                 backend::kernel krn(queue[d], source.str(), "vexcl_reductor_kernel", sizeof(real));
                 kernel = cache.insert(std::make_pair(context(), krn)).first;
             }

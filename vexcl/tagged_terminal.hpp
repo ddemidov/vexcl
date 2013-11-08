@@ -101,9 +101,9 @@ struct proto_terminal_is_value< tagged_terminal_terminal > : std::true_type {};
 
 template <size_t Tag, class Term>
 struct terminal_preamble< tagged_terminal<Tag, Term> > {
-    static std::string get(const tagged_terminal<Tag, Term> &term,
-            const cl::Device &device,
-            const std::string&/*prm_name*/,
+    static void get(backend::source_generator &src,
+            const tagged_terminal<Tag, Term> &term,
+            const cl::Device &device, const std::string&/*prm_name*/,
             detail::kernel_generator_state_ptr state)
     {
         auto s = state->find("tag_pream");
@@ -121,22 +121,19 @@ struct terminal_preamble< tagged_terminal<Tag, Term> > {
         if (p == pos.end()) {
             pos.insert(Tag);
 
-            std::ostringstream s, prm_name;
+            std::ostringstream prm_name;
             prm_name << "prm_tag_" << Tag;
 
-            detail::output_terminal_preamble termpream(s, device, prm_name.str(), state);
+            detail::output_terminal_preamble termpream(src, device, prm_name.str(), state);
             boost::proto::eval(boost::proto::as_child(term.term), termpream);
-
-            return s.str();
-        } else {
-            return "";
         }
     }
 };
 
 template <size_t Tag, class Term>
 struct kernel_param_declaration< tagged_terminal<Tag, Term> > {
-    static std::string get(const tagged_terminal<Tag, Term> &term,
+    static void get(backend::source_generator &src,
+            const tagged_terminal<Tag, Term> &term,
             const cl::Device &device, const std::string&/*prm_name*/,
             detail::kernel_generator_state_ptr state)
     {
@@ -155,22 +152,19 @@ struct kernel_param_declaration< tagged_terminal<Tag, Term> > {
         if (p == pos.end()) {
             pos.insert(Tag);
 
-            std::ostringstream s, prm_name;
+            std::ostringstream prm_name;
             prm_name << "prm_tag_" << Tag;
 
-            detail::declare_expression_parameter declare(s, device, prm_name.str(), state);
+            detail::declare_expression_parameter declare(src, device, prm_name.str(), state);
             detail::extract_terminals()(boost::proto::as_child(term.term),  declare);
-
-            return s.str();
-        } else {
-            return "";
         }
     }
 };
 
 template <size_t Tag, class Term>
 struct local_terminal_init< tagged_terminal<Tag, Term> > {
-    static std::string get(const tagged_terminal<Tag, Term> &term,
+    static void get(backend::source_generator &src,
+            const tagged_terminal<Tag, Term> &term,
             const cl::Device &device,
             const std::string&/*prm_name*/,
             detail::kernel_generator_state_ptr state)
@@ -190,49 +184,28 @@ struct local_terminal_init< tagged_terminal<Tag, Term> > {
         if (p == pos.end()) {
             pos.insert(Tag);
 
-            std::ostringstream s, prm_name;
+            std::ostringstream prm_name;
             prm_name << "prm_tag_" << Tag;
 
-            detail::output_local_preamble init_ctx(s, device, prm_name.str(), state);
+            detail::output_local_preamble init_ctx(src, device, prm_name.str(), state);
             boost::proto::eval(boost::proto::as_child(term.term), init_ctx);
-
-            return s.str();
-        } else {
-            return "";
         }
     }
 };
 
 template <size_t Tag, class Term>
 struct partial_vector_expr< tagged_terminal<Tag, Term> > {
-    static std::string get(const tagged_terminal<Tag, Term> &term,
+    static void get(backend::source_generator &src,
+            const tagged_terminal<Tag, Term> &term,
             const cl::Device &device,
             const std::string&/*prm_name*/,
             detail::kernel_generator_state_ptr state)
     {
-        auto s = state->find("tag_expr");
+        std::ostringstream prm_name;
+        prm_name << "prm_tag_" << Tag;
 
-        if (s == state->end()) {
-            s = state->insert(std::make_pair(
-                        std::string("tag_expr"),
-                        boost::any(std::map<size_t, std::string>())
-                        )).first;
-        }
-
-        auto &pos = boost::any_cast< std::map<size_t, std::string>& >(s->second);
-        auto p = pos.find(Tag);
-
-        if (p == pos.end()) {
-            std::ostringstream s, prm_name;
-            prm_name << "prm_tag_" << Tag;
-
-            detail::vector_expr_context expr_ctx(s, device, prm_name.str(), state);
-            boost::proto::eval(boost::proto::as_child(term.term), expr_ctx);
-
-            return (pos[Tag] = s.str());
-        } else {
-            return p->second;
-        }
+        detail::vector_expr_context expr_ctx(src, device, prm_name.str(), state);
+        boost::proto::eval(boost::proto::as_child(term.term), expr_ctx);
     }
 };
 

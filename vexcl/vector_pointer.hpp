@@ -75,24 +75,12 @@ struct is_vector_expr_terminal< vector_pointer<T> > : std::true_type {};
 template <typename T>
 struct kernel_param_declaration< vector_pointer<T> >
 {
-    static std::string get(const vector_pointer<T>&,
+    static void get(backend::source_generator &src,
+            const vector_pointer<T>&,
             const cl::Device&, const std::string &prm_name,
             detail::kernel_generator_state_ptr)
     {
-        std::ostringstream s;
-        s << ",\n\tglobal " << type_name<T>() << " * " << prm_name;
-        return s.str();
-    }
-};
-
-template <typename T>
-struct partial_vector_expr< vector_pointer<T> >
-{
-    static std::string get(const vector_pointer<T>&,
-            const cl::Device&, const std::string &prm_name,
-            detail::kernel_generator_state_ptr)
-    {
-        return prm_name ;
+        src.parameter< global_ptr<T> >(prm_name);
     }
 };
 

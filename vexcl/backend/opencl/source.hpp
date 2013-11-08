@@ -219,6 +219,11 @@ class source_generator {
             return *this;
         }
 
+        source_generator& barrier() {
+            src << "barrier(CLK_LOCAL_MEM_FENCE);";
+            return *this;
+        }
+
         std::string str() const {
             return src.str();
         }
