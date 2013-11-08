@@ -281,7 +281,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
                 INCREMENT_MY_SUM
                 source.close("}");
                 source.new_line() << "sdata[tid] = mySum;";
-                source.barrier();
+                source.new_line().barrier();
                 for(unsigned bs = 512; bs > 32; bs /= 2) {
                     source.new_line() << "if (block_size >= " << bs * 2 << ")";
                     source.open("{").new_line() << "if (tid < " << bs << ") "
