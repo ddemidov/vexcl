@@ -224,17 +224,6 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
         auto kernel = cache.find( context() );
 
         if (kernel == cache.end()) {
-
-#define INCREMENT_MY_SUM                                                       \
-  {                                                                            \
-    output_local_preamble loc_init(source, device, "prm", empty_state());      \
-    boost::proto::eval(expr, loc_init);                                        \
-    vector_expr_context expr_ctx(source, device, "prm", empty_state());        \
-    source.new_line() << "mySum = reduce_operation(mySum, ";                   \
-    boost::proto::eval(expr, expr_ctx);                                        \
-    source << ");";                                                            \
-  }
-
             backend::source_generator source(queue[d]);
 
             typedef typename RDC::template function<real> fun;
@@ -253,6 +242,15 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
                 .template parameter< shared_ptr<real> >("sdata")
                 .close(")");
 
+#define INCREMENT_MY_SUM                                                       \
+  {                                                                            \
+    output_local_preamble loc_init(source, device, "prm", empty_state());      \
+    boost::proto::eval(expr, loc_init);                                        \
+    vector_expr_context expr_ctx(source, device, "prm", empty_state());        \
+    source.new_line() << "mySum = reduce_operation(mySum, ";                   \
+    boost::proto::eval(expr, expr_ctx);                                        \
+    source << ");";                                                            \
+  }
 
             if ( is_cpu(device) ) {
                 source.open("{");
@@ -303,6 +301,8 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
                 kernel = cache.insert(std::make_pair(context(), krn)).first;
             }
         }
+
+#undef INCREMENT_MY_SUM
 
         if (size_t psize = prop.part_size(d)) {
             kernel->second.push_arg(psize);
