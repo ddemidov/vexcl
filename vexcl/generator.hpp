@@ -36,6 +36,8 @@ THE SOFTWARE.
 #include <sstream>
 #include <string>
 #include <stdexcept>
+#include <memory>
+
 #include <boost/proto/proto.hpp>
 #include <boost/tuple/tuple.hpp>
 #include <boost/fusion/adapted/boost_tuple.hpp>
@@ -75,16 +77,15 @@ class recorder {
             os = &s;
 
             // Reset preamble.
-            preamble.str("");
-            preamble.clear();
+            preamble.reset(new backend::source_generator);
         }
 
         static std::ostream& get() {
             return os ? *os : std::cout;
         }
 
-        static std::ostringstream& get_preamble() {
-            return preamble;
+        static backend::source_generator& get_preamble() {
+            return *preamble;
         }
 
         static size_t var_id() {
@@ -93,7 +94,7 @@ class recorder {
     private:
         static size_t index;
         static std::ostream *os;
-        static std::ostringstream preamble;
+        static std::unique_ptr<backend::source_generator> preamble;
 };
 
 template <bool dummy>
@@ -103,7 +104,7 @@ template <bool dummy>
 std::ostream *recorder<dummy>::os = 0;
 
 template <bool dummy>
-std::ostringstream recorder<dummy>::preamble;
+std::unique_ptr<backend::source_generator> recorder<dummy>::preamble;
 
 inline size_t var_id() {
     return recorder<>::var_id();
@@ -113,7 +114,7 @@ inline std::ostream& get_recorder() {
     return recorder<>::get();
 }
 
-inline std::ostringstream& get_preamble() {
+inline backend::source_generator& get_preamble() {
     return recorder<>::get_preamble();
 }
 /// \endcond
@@ -502,28 +503,16 @@ class Kernel {
                 cl::Context context = qctx(*q);
                 cl::Device  device  = qdev(*q);
 
-                std::ostringstream source;
+                backend::source_generator source(*q);
 
-                source
-                    << backend::standard_kernel_header(device)
-                    << get_preamble().str()
-                    << "kernel void " << name << "(\n"
-                    << "\t" << type_name<size_t>() << " n";
+                source << get_preamble().str();
+
+                source.kernel(name).open("(")
+                    .parameter<size_t>("n");
 
                 boost::fusion::for_each(args, declare_params(source));
 
-                source << "\n)\n{\n";
-
-                if ( is_cpu(device) ) {
-                    source <<
-                        "\tsize_t chunk_size  = (n + get_global_size(0) - 1) / get_global_size(0);\n"
-                        "\tsize_t chunk_start = get_global_id(0) * chunk_size;\n"
-                        "\tsize_t chunk_end   = min(n, chunk_start + chunk_size);\n"
-                        "\tfor(size_t idx = chunk_start; idx < chunk_end; ++idx) {\n";
-                } else {
-                    source <<
-                        "\tfor(size_t idx = get_global_id(0); idx < n; idx += get_global_size(0)) {\n";
-                }
+                source.close(")").open("{").grid_stride_loop().open("{");
 
                 boost::fusion::for_each(args, read_params(source));
 
@@ -531,7 +520,7 @@ class Kernel {
 
                 boost::fusion::for_each(args, write_params(source));
 
-                source << "\t}\n}\n";
+                source.close("}").close("}");
 
                 krn.insert(std::make_pair(context(), backend::kernel(*q, source.str(), name.c_str())));
             }
@@ -583,35 +572,35 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, FUNCALL_OPERATOR, ~)
         }
 
         struct declare_params {
-            std::ostream &os;
+            backend::source_generator &src;
 
-            declare_params(std::ostream &os) : os(os) {}
+            declare_params(backend::source_generator &src) : src(src) {}
 
             template <class T>
             void operator()(const T &v) const {
-                os << ",\n\t" << v.prmdecl();
+                src << ",\n\t" << v.prmdecl();
             }
         };
 
         struct read_params {
-            std::ostream &os;
+            backend::source_generator &src;
 
-            read_params(std::ostream &os) : os(os) {}
+            read_params(backend::source_generator &src) : src(src) {}
 
             template <class T>
             void operator()(const T &v) const {
-                os << v.init();
+                src << v.init();
             }
         };
 
         struct write_params {
-            std::ostream &os;
+            backend::source_generator &src;
 
-            write_params(std::ostream &os) : os(os) {}
+            write_params(backend::source_generator &src) : src(src) {}
 
             template <class T>
             void operator()(const T &v) const {
-                os << v.write();
+                src << v.write();
             }
         };
 
@@ -694,7 +683,7 @@ Kernel<sizeof...(Args)> build_kernel(
     return Kernel<sizeof...(Args)>(queue, name, body, boost::tie(args...));
 }
 
-/// Builds function body from recorded expression and symbolic return value and parameters.
+/// Builds futemplate nction body from recorded expression and symbolic return value and parameters.
 template <class Ret, class... Args>
 std::string make_function(std::string body, const Ret &ret, const Args&... args) {
     return Function(body, ret, boost::tie(args...)).get();
@@ -703,8 +692,8 @@ std::string make_function(std::string body, const Ret &ret, const Args&... args)
 
 #define PRINT_ARG(z, n, data) const Arg ## n &arg ## n
 
-#define BUILD_KERNEL(z, n, data)                                               \
-  template<BOOST_PP_ENUM_PARAMS(n, class Arg)> Kernel<n> build_kernel(         \
+#define BUILDtemplate _KERNEL(z, n, data)                                               \
+  template<BOtemplate OST_PP_ENUM_PARAMS(n, class Arg)> Kernel<n> build_kernel(         \
       const std::vector<cl::CommandQueue> & queue, const std::string & name,   \
       const std::string & body, BOOST_PP_ENUM(n, PRINT_ARG, ~)) {              \
     return Kernel<n>(queue, name, body,                                        \
@@ -715,7 +704,7 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, BUILD_KERNEL, ~)
 
 #undef BUILD_KERNEL
 
-#define MAKE_FUNCTION(z, n, data)                                              \
+#define MAKE_template FUNCTION(z, n, data)                                              \
   template<class Ret, BOOST_PP_ENUM_PARAMS(n, class Arg)> std::string          \
   make_function(std::string body, const Ret & ret,                             \
                 BOOST_PP_ENUM(n, PRINT_ARG, ~)) {                              \

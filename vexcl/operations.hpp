@@ -843,7 +843,7 @@ struct UserFunction<Impl, RetType(ArgType...)> : user_function
           Impl(), BOOST_PP_ENUM(n, PRINT_BOOST_REF, ~));                       \
     }                                                                          \
     static std::string preamble() { return ""; }                               \
-    static void define(backend::source_generator &str,                         \
+    static void define(backend::source_generator &src,                         \
                        const std::string &name) {                              \
       Impl::preamble(src);                                                     \
       src.function<RetType>(name).open("(");                                   \

@@ -150,6 +150,8 @@ class source_generator {
         std::ostringstream src;
 
     public:
+        source_generator() : indent(0), first_prm(true), cpu(false) { }
+
         source_generator(const cl::CommandQueue &queue)
             : indent(0), first_prm(true), cpu( is_cpu(qdev(queue)) )
         {
