@@ -219,8 +219,7 @@ struct SpMatHELL : public sparse_matrix {
     template <class OP>
     void mul(
             const matrix_part &part,
-            const cl::Buffer &in, const cl::Buffer &out, scalar_type scale,
-            const std::vector<cl::Event> &wait_for_it = std::vector<cl::Event>()
+            const cl::Buffer &in, const cl::Buffer &out, scalar_type scale
             ) const
     {
         using namespace detail;
@@ -303,8 +302,7 @@ struct SpMatHELL : public sparse_matrix {
         krn.setArg(pos++, in);
         krn.setArg(pos++, out);
 
-        queue.enqueueNDRangeKernel(krn, cl::NullRange, g_size, wgsize,
-                wait_for_it.empty() ? NULL : &wait_for_it);
+        queue.enqueueNDRangeKernel(krn, cl::NullRange, g_size, wgsize);
     }
 
     void mul_local(const cl::Buffer &in, const cl::Buffer &out,
@@ -316,10 +314,9 @@ struct SpMatHELL : public sparse_matrix {
             mul<assign::SET>(loc, in, out, scale);
     }
 
-    void mul_remote(const cl::Buffer &in, const cl::Buffer &out, scalar_type scale,
-            const std::vector<cl::Event> &wait_for_it) const
+    void mul_remote(const cl::Buffer &in, const cl::Buffer &out, scalar_type scale) const
     {
-        mul<assign::ADD>(rem, in, out, scale, wait_for_it);
+        mul<assign::ADD>(rem, in, out, scale);
     }
 
     static std::string inline_preamble(const std::string &prm_name) {
