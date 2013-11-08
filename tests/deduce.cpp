@@ -3,7 +3,9 @@
 #include <vexcl/vector.hpp>
 #include <vexcl/element_index.hpp>
 #include <vexcl/mba.hpp>
+#ifdef RESOLVED_70
 #include <vexcl/spmat.hpp>
+#endif
 #include <vexcl/tagged_terminal.hpp>
 #include <vexcl/temporary.hpp>
 #include <vexcl/cast.hpp>
@@ -47,6 +49,7 @@ BOOST_AUTO_TEST_CASE(terminals)
         check<float>( (*surf)(x, y) );
     }
 
+#ifdef RESOLVED_70
     {
         vex::SpMatCCSR<double> *A = 0;
         check<double>( (*A) * x );
@@ -58,6 +61,7 @@ BOOST_AUTO_TEST_CASE(terminals)
         vex::SpMat<double> *A = 0;
         check<double>( vex::make_inline( (*A) * x1 ) );
     }
+#endif
 
     check<double>( vex::tag<1>(x) );
 
