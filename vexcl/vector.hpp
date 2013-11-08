@@ -643,31 +643,25 @@ class vector : public vector_terminal_expression {
         }
 
 #ifdef DOXYGEN
-#  define ASSIGNMENT(cop, op) \
-        /** \brief Vector expression assignment.
-
-         \details
-         The appropriate kernel is compiled first time the assignment is
-         made. Vectors participating in expression should have same number
-         of parts; corresponding parts of the vectors should reside on the
-         same compute devices.
-         */ \
-        template <class Expr> \
-        const vector& operator cop(const Expr &expr);
+#define ASSIGNMENT(cop, op)                                                    \
+  /** \brief Vector expression assignment.
+   * \details The appropriate kernel is compiled first time the assignment is
+   * made. Vectors participating in expression should have same number of
+   * parts; corresponding parts of the vectors should reside on the same
+   * compute devices.
+   */                                                                          \
+  template <class Expr> const vector &operator cop(const Expr & expr);
 #else
-#  define ASSIGNMENT(cop, op) \
-        template <class Expr> \
-        typename std::enable_if< \
-            boost::proto::matches< \
-                typename boost::proto::result_of::as_expr<Expr>::type, \
-                vector_expr_grammar \
-            >::value, \
-            const vector& \
-        >::type \
-        operator cop(const Expr &expr) { \
-            detail::assign_expression<op>(*this, expr, queue, part); \
-            return *this; \
-        }
+#define ASSIGNMENT(cop, op)                                                    \
+  template <class Expr>                                                        \
+  typename std::enable_if<                                                     \
+      boost::proto::matches<                                                   \
+          typename boost::proto::result_of::as_expr<Expr>::type,               \
+          vector_expr_grammar>::value,                                         \
+      const vector &>::type operator cop(const Expr & expr) {                  \
+    detail::assign_expression<op>(*this, expr, queue, part);                   \
+    return *this;                                                              \
+  }
 #endif
 
         ASSIGNMENT(=,   assign::SET)

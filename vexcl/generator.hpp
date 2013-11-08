@@ -169,18 +169,17 @@ struct symbolic_context {
     template <typename Expr, typename Tag = typename Expr::proto_tag>
     struct eval {};
 
-#define BINARY_OPERATION(bin_tag, bin_op) \
-    template <typename Expr> \
-    struct eval<Expr, boost::proto::tag::bin_tag> { \
-        typedef void result_type; \
-        void operator()(const Expr &expr, symbolic_context &ctx) const { \
-            get_recorder() << "( "; \
-            boost::proto::eval(boost::proto::left(expr), ctx); \
-            get_recorder() << " " #bin_op " "; \
-            boost::proto::eval(boost::proto::right(expr), ctx); \
-            get_recorder() << " )"; \
-        } \
-    }
+#define BINARY_OPERATION(bin_tag, bin_op)                                      \
+  template <typename Expr> struct eval<Expr, boost::proto::tag::bin_tag> {     \
+    typedef void result_type;                                                  \
+    void operator()(const Expr &expr, symbolic_context &ctx) const {           \
+      get_recorder() << "( ";                                                  \
+      boost::proto::eval(boost::proto::left(expr), ctx);                       \
+      get_recorder() << " " #bin_op " ";                                       \
+      boost::proto::eval(boost::proto::right(expr), ctx);                      \
+      get_recorder() << " )";                                                  \
+    }                                                                          \
+  }
 
     BINARY_OPERATION(plus,          +);
     BINARY_OPERATION(minus,         -);
@@ -203,16 +202,15 @@ struct symbolic_context {
 
 #undef BINARY_OPERATION
 
-#define UNARY_PRE_OPERATION(the_tag, the_op) \
-    template <typename Expr> \
-    struct eval<Expr, boost::proto::tag::the_tag> { \
-        typedef void result_type; \
-        void operator()(const Expr &expr, symbolic_context &ctx) const { \
-            get_recorder() << "( " #the_op "( "; \
-            boost::proto::eval(boost::proto::child(expr), ctx); \
-            get_recorder() << " ) )"; \
-        } \
-    }
+#define UNARY_PRE_OPERATION(the_tag, the_op)                                   \
+  template <typename Expr> struct eval<Expr, boost::proto::tag::the_tag> {     \
+    typedef void result_type;                                                  \
+    void operator()(const Expr &expr, symbolic_context &ctx) const {           \
+      get_recorder() << "( " #the_op "( ";                                     \
+      boost::proto::eval(boost::proto::child(expr), ctx);                      \
+      get_recorder() << " ) )";                                                \
+    }                                                                          \
+  }
 
     UNARY_PRE_OPERATION(unary_plus,   +);
     UNARY_PRE_OPERATION(negate,       -);
@@ -222,16 +220,15 @@ struct symbolic_context {
 
 #undef UNARY_PRE_OPERATION
 
-#define UNARY_POST_OPERATION(the_tag, the_op) \
-    template <typename Expr> \
-    struct eval<Expr, boost::proto::tag::the_tag> { \
-        typedef void result_type; \
-        void operator()(const Expr &expr, symbolic_context &ctx) const { \
-            get_recorder() << "( ( "; \
-            boost::proto::eval(boost::proto::child(expr), ctx); \
-            get_recorder() << " )" #the_op " )"; \
-        } \
-    }
+#define UNARY_POST_OPERATION(the_tag, the_op)                                  \
+  template <typename Expr> struct eval<Expr, boost::proto::tag::the_tag> {     \
+    typedef void result_type;                                                  \
+    void operator()(const Expr &expr, symbolic_context &ctx) const {           \
+      get_recorder() << "( ( ";                                                \
+      boost::proto::eval(boost::proto::child(expr), ctx);                      \
+      get_recorder() << " )" #the_op " )";                                     \
+    }                                                                          \
+  }
 
     UNARY_POST_OPERATION(post_inc, ++);
     UNARY_POST_OPERATION(post_dec, --);
@@ -393,11 +390,10 @@ class symbolic
             return *this;
         }
 
-#define COMPOUND_ASSIGNMENT(cop, op) \
-        template <class Expr> \
-        const symbolic& operator cop(const Expr &expr) { \
-            return *this = *this op expr; \
-        }
+#define COMPOUND_ASSIGNMENT(cop, op)                                           \
+  template <class Expr> const symbolic &operator cop(const Expr & expr) {      \
+    return *this = *this op expr;                                              \
+  }
 
         COMPOUND_ASSIGNMENT(+=, +)
         COMPOUND_ASSIGNMENT(-=, -)
@@ -550,11 +546,12 @@ class Kernel {
 #else
 
 #define PRINT_PARAM(z, n, data) const Param ## n &param ## n
-#define FUNCALL_OPERATOR(z, n, data) \
-        template < BOOST_PP_ENUM_PARAMS(n, class Param) > \
-        void operator()( BOOST_PP_ENUM(n, PRINT_PARAM, ~) ) { \
-            launch(boost::tie( BOOST_PP_ENUM_PARAMS(n, param) )); \
-        }
+
+#define FUNCALL_OPERATOR(z, n, data)                                           \
+  template <BOOST_PP_ENUM_PARAMS(n, class Param)>                              \
+  void operator()(BOOST_PP_ENUM(n, PRINT_PARAM, ~)) {                          \
+    launch(boost::tie(BOOST_PP_ENUM_PARAMS(n, param)));                        \
+  }
 
 BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, FUNCALL_OPERATOR, ~)
 
@@ -706,27 +703,28 @@ std::string make_function(std::string body, const Ret &ret, const Args&... args)
 
 #define PRINT_ARG(z, n, data) const Arg ## n &arg ## n
 
-#define BUILD_KERNEL(z, n, data) \
-template < BOOST_PP_ENUM_PARAMS(n, class Arg) > \
-Kernel<n> build_kernel( \
-        const std::vector<cl::CommandQueue> &queue, \
-        const std::string &name, const std::string& body, \
-        BOOST_PP_ENUM(n, PRINT_ARG, ~) \
-        ) \
-{ \
-    return Kernel<n>(queue, name, body, boost::tie( BOOST_PP_ENUM_PARAMS(n, arg) )); \
-}
+#define BUILD_KERNEL(z, n, data)                                               \
+  template<BOOST_PP_ENUM_PARAMS(n, class Arg)> Kernel<n> build_kernel(         \
+      const std::vector<cl::CommandQueue> & queue, const std::string & name,   \
+      const std::string & body, BOOST_PP_ENUM(n, PRINT_ARG, ~)) {              \
+    return Kernel<n>(queue, name, body,                                        \
+                     boost::tie(BOOST_PP_ENUM_PARAMS(n, arg)));                \
+  }
+
 BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, BUILD_KERNEL, ~)
+
 #undef BUILD_KERNEL
 
-#define MAKE_FUNCTION(z, n, data) \
-template <class Ret, BOOST_PP_ENUM_PARAMS(n, class Arg)> \
-std::string make_function(std::string body, const Ret &ret, \
-        BOOST_PP_ENUM(n, PRINT_ARG, ~)) \
-{ \
-    return Function(body, ret, boost::tie( BOOST_PP_ENUM_PARAMS(n, arg) )).get(); \
-}
+#define MAKE_FUNCTION(z, n, data)                                              \
+  template<class Ret, BOOST_PP_ENUM_PARAMS(n, class Arg)> std::string          \
+  make_function(std::string body, const Ret & ret,                             \
+                BOOST_PP_ENUM(n, PRINT_ARG, ~)) {                              \
+    return Function(body, ret, boost::tie(BOOST_PP_ENUM_PARAMS(n, arg)))       \
+        .get();                                                                \
+  }
+
 BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, MAKE_FUNCTION, ~)
+
 #undef MAKE_FUNCTION
 
 #undef PRINT_ARG
@@ -754,22 +752,26 @@ struct FunctorAdapter : UserFunction<FunctorAdapter<Signature, Functor>, Signatu
         return body_string;
     }
 
-#define PRINT_PRM(z, n, data) \
-    typedef symbolic< typename boost::mpl::at<params, boost::mpl::int_<n>>::type > Prm ## n; \
-    Prm ## n prm ## n(Prm ## n::ScalarParameter); \
-    source << "\t\t" << type_name<typename Prm ## n::value_type>() << " " << prm ## n << " = prm" << n + 1 << ";\n";
+#define PRINT_PRM(z, n, data)                                                  \
+  typedef symbolic<                                                            \
+      typename boost::mpl::at<params, boost::mpl::int_<n> >::type> Prm##n;     \
+  Prm##n prm##n(Prm##n::ScalarParameter);                                      \
+  source << "\t\t" << type_name<typename Prm##n::value_type>() << " "          \
+         << prm##n << " = prm" << n + 1 << ";\n";
 
-#define BODY_GETTER(z, n, data)                                                          \
-    static std::string get_body(Functor &&f, boost::mpl::size_t<n>) {                                 \
-        typedef typename boost::function_types::result_type<Signature>::type     result; \
-        typedef typename boost::function_types::parameter_types<Signature>::type params; \
-        std::ostringstream source;                                                       \
-        set_recorder(source);                                                            \
-        BOOST_PP_REPEAT(n, PRINT_PRM, ~)                                                 \
-        symbolic< result > ret = f( BOOST_PP_ENUM_PARAMS(n, prm) );              \
-        source << "\t\treturn " << ret << ";\n";                                         \
-        return source.str();                                                             \
-    }
+#define BODY_GETTER(z, n, data)                                                \
+  static std::string get_body(Functor && f, boost::mpl::size_t<n>) {           \
+    typedef typename boost::function_types::result_type<Signature>::type       \
+        result;                                                                \
+    typedef typename boost::function_types::parameter_types<Signature>::type   \
+        params;                                                                \
+    std::ostringstream source;                                                 \
+    set_recorder(source);                                                      \
+    BOOST_PP_REPEAT(n, PRINT_PRM, ~) symbolic<result> ret =                    \
+        f(BOOST_PP_ENUM_PARAMS(n, prm));                                       \
+    source << "\t\treturn " << ret << ";\n";                                   \
+    return source.str();                                                       \
+  }
 
     BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, BODY_GETTER, ~)
 

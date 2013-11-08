@@ -355,27 +355,23 @@ class multivector : public multivector_terminal_expression {
         }
 
 #ifdef DOXYGEN
-#  define ASSIGNMENT(cop, op) \
-        /** \brief Multivector expression assignment.
-         \details All operations are delegated to components of the multivector.
-         */ \
-        template <class Expr> \
-            const multivector& \
-        operator cop(const Expr &expr);
+#define ASSIGNMENT(cop, op)                                                    \
+  /** \brief Multivector expression assignment.
+   \details All operations are delegated to components of the multivector.
+   */                                                                          \
+  template <class Expr> const multivector &operator cop(const Expr & expr);
 #else
-#  define ASSIGNMENT(cop, op) \
-        template <class Expr> \
-        typename std::enable_if< \
-            boost::proto::matches< \
-                typename boost::proto::result_of::as_expr<Expr>::type, \
-                multivector_expr_grammar \
-            >::value || is_tuple<Expr>::value, \
-            const multivector& \
-        >::type \
-        operator cop(const Expr &expr) { \
-            detail::assign_multiexpression<op>(*this, expr, vec[0].queue_list(), vec[0].partition()); \
-            return *this; \
-        }
+#define ASSIGNMENT(cop, op)                                                    \
+  template <class Expr>                                                        \
+          typename std::enable_if <                                            \
+          boost::proto::matches<                                               \
+              typename boost::proto::result_of::as_expr<Expr>::type,           \
+              multivector_expr_grammar>::value || is_tuple<Expr>::value,       \
+      const multivector & > ::type operator cop(const Expr & expr) {           \
+    detail::assign_multiexpression<op>(*this, expr, vec[0].queue_list(),       \
+                                       vec[0].partition());                    \
+    return *this;                                                              \
+  }
 #endif
 
         ASSIGNMENT(=,   assign::SET)

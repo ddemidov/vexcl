@@ -76,33 +76,32 @@ struct vector_view : public vector_view_terminal_expression
 
     // Expression assignments (copy assignment needs to be explicitly defined
     // to allow vector_view to vector_view assignment).
-#define ASSIGNMENT(cop, op) \
-    template <class RHS> \
-    typename std::enable_if< \
-        boost::proto::matches< \
-            typename boost::proto::result_of::as_expr<RHS>::type, \
-            vector_expr_grammar \
-        >::value, \
-        const vector_view& \
-    >::type \
-    operator cop(const RHS &rhs) { \
-        detail::get_expression_properties prop; \
-        detail::extract_terminals()(boost::proto::as_child(expr), prop); \
-        std::vector<size_t> part(2, 0); \
-        part.back() = slice.size(); \
-        if (part.back() == 0) part.back() = prop.size; \
-        detail::assign_expression<op>(*this, rhs, prop.queue, part); \
-        return *this; \
-    } \
-    const vector_view& operator cop(const vector_view &other) { \
-        detail::get_expression_properties prop; \
-        detail::extract_terminals()(boost::proto::as_child(expr), prop); \
-        std::vector<size_t> part(2, 0); \
-        part.back() = slice.size(); \
-        if (part.back() == 0) part.back() = prop.size; \
-        detail::assign_expression<op>(*this, other, prop.queue, part); \
-        return *this; \
-    }
+#define ASSIGNMENT(cop, op)                                                    \
+  template <class RHS>                                                         \
+  typename std::enable_if<                                                     \
+      boost::proto::matches<                                                   \
+          typename boost::proto::result_of::as_expr<RHS>::type,                \
+          vector_expr_grammar>::value,                                         \
+      const vector_view &>::type operator cop(const RHS & rhs) {               \
+    detail::get_expression_properties prop;                                    \
+    detail::extract_terminals()(boost::proto::as_child(expr), prop);           \
+    std::vector<size_t> part(2, 0);                                            \
+    part.back() = slice.size();                                                \
+    if (part.back() == 0)                                                      \
+      part.back() = prop.size;                                                 \
+    detail::assign_expression<op>(*this, rhs, prop.queue, part);               \
+    return *this;                                                              \
+  }                                                                            \
+  const vector_view &operator cop(const vector_view & other) {                 \
+    detail::get_expression_properties prop;                                    \
+    detail::extract_terminals()(boost::proto::as_child(expr), prop);           \
+    std::vector<size_t> part(2, 0);                                            \
+    part.back() = slice.size();                                                \
+    if (part.back() == 0)                                                      \
+      part.back() = prop.size;                                                 \
+    detail::assign_expression<op>(*this, other, prop.queue, part);             \
+    return *this;                                                              \
+  }
 
     ASSIGNMENT(=,   assign::SET);
     ASSIGNMENT(+=,  assign::ADD);

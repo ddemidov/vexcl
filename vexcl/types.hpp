@@ -64,67 +64,87 @@ namespace vex {
 
 } // namespace vex
 
-#define BIN_OP(base_type, len, op) \
-inline cl_##base_type##len &operator op##= (cl_##base_type##len &a, const cl_##base_type##len &b) { \
-    for(size_t i = 0 ; i < len ; i++) a.s[i] op##= b.s[i]; \
-    return a; \
-} \
-inline cl_##base_type##len operator op(const cl_##base_type##len &a, const cl_##base_type##len &b) { \
-    cl_##base_type##len res = a; return res op##= b; \
-}
+#define BIN_OP(base_type, len, op)                                             \
+  inline cl_##base_type##len &operator op## =(cl_##base_type##len & a,         \
+                                              const cl_##base_type##len & b) { \
+    for (size_t i = 0; i < len; i++)                                           \
+      a.s[i] op## = b.s[i];                                                    \
+    return a;                                                                  \
+  }                                                                            \
+  inline cl_##base_type##len operator op(const cl_##base_type##len & a,        \
+                                         const cl_##base_type##len & b) {      \
+    cl_##base_type##len res = a;                                               \
+    return res op## = b;                                                       \
+  }
 
 // `scalar OP vector` acts like `(vector_t)(scalar) OP vector` in OpenCl:
 // all components are set to the scalar value.
-#define BIN_SCALAR_OP(base_type, len, op) \
-inline cl_##base_type##len &operator op##= (cl_##base_type##len &a, const cl_##base_type &b) { \
-    for(size_t i = 0 ; i < len ; i++) a.s[i] op##= b; \
-    return a; \
-} \
-inline cl_##base_type##len operator op(const cl_##base_type##len &a, const cl_##base_type &b) { \
-    cl_##base_type##len res = a; return res op##= b; \
-} \
-inline cl_##base_type##len operator op(const cl_##base_type &a, const cl_##base_type##len &b) { \
-    cl_##base_type##len res = b; return res op##= a; \
-}
+#define BIN_SCALAR_OP(base_type, len, op)                                      \
+  inline cl_##base_type##len &operator op## =(cl_##base_type##len & a,         \
+                                              const cl_##base_type & b) {      \
+    for (size_t i = 0; i < len; i++)                                           \
+      a.s[i] op## = b;                                                         \
+    return a;                                                                  \
+  }                                                                            \
+  inline cl_##base_type##len operator op(const cl_##base_type##len & a,        \
+                                         const cl_##base_type & b) {           \
+    cl_##base_type##len res = a;                                               \
+    return res op## = b;                                                       \
+  }                                                                            \
+  inline cl_##base_type##len operator op(const cl_##base_type & a,             \
+                                         const cl_##base_type##len & b) {      \
+    cl_##base_type##len res = b;                                               \
+    return res op## = a;                                                       \
+  }
 
-#define CL_VEC_TYPE(base_type, len) \
-BIN_OP(base_type, len, +) \
-BIN_OP(base_type, len, -) \
-BIN_OP(base_type, len, *) \
-BIN_OP(base_type, len, /) \
-BIN_SCALAR_OP(base_type, len, +) \
-BIN_SCALAR_OP(base_type, len, -) \
-BIN_SCALAR_OP(base_type, len, *) \
-BIN_SCALAR_OP(base_type, len, /) \
-inline cl_##base_type##len operator -(const cl_##base_type##len &a) { \
-    cl_##base_type##len res; \
-    for(size_t i = 0 ; i < len ; i++) res.s[i] = -a.s[i]; \
-    return res; \
-} \
-inline std::ostream &operator<<(std::ostream &os, const cl_##base_type##len &value) { \
-    os << "(" #base_type #len ")("; \
-    for(std::size_t i = 0 ; i < len ; i++) { \
-        if(i != 0) os << ','; \
-        os << value.s[i]; \
-    } \
-    return os << ')'; \
-} \
-namespace vex { \
-    template <> struct cl_scalar_of<cl_##base_type##len> { typedef cl_##base_type type; }; \
-    template <> struct cl_vector_of<cl_##base_type, len> { typedef cl_##base_type##len type; }; \
-    template <> struct cl_vector_length<cl_##base_type##len> : std::integral_constant<unsigned, len>{ }; \
-}
+#define CL_VEC_TYPE(base_type, len)                                            \
+  BIN_OP(base_type, len, +) BIN_OP(base_type, len, -)                          \
+      BIN_OP(base_type, len, *)BIN_OP(base_type, len, / )                      \
+      BIN_SCALAR_OP(base_type, len, +) BIN_SCALAR_OP(base_type, len, -)        \
+      BIN_SCALAR_OP(base_type, len, *)BIN_SCALAR_OP(base_type, len, / )        \
+      inline cl_##base_type##len operator-(const cl_##base_type##len & a) {    \
+    cl_##base_type##len res;                                                   \
+    for (size_t i = 0; i < len; i++)                                           \
+      res.s[i] = -a.s[i];                                                      \
+    return res;                                                                \
+  }                                                                            \
+  inline std::ostream &operator<<(std::ostream & os,                           \
+                                  const cl_##base_type##len & value) {         \
+    os << "(" #base_type #len ")(";                                            \
+    for (std::size_t i = 0; i < len; i++) {                                    \
+      if (i != 0)                                                              \
+        os << ',';                                                             \
+      os << value.s[i];                                                        \
+    }                                                                          \
+    return os << ')';                                                          \
+  }                                                                            \
+  namespace vex {                                                              \
+    template <> struct cl_scalar_of<cl_##base_type##len> {                     \
+      typedef cl_##base_type type;                                             \
+    };                                                                         \
+    template <> struct cl_vector_of<cl_##base_type, len> {                     \
+      typedef cl_##base_type##len type;                                        \
+    };                                                                         \
+    template <>                                                                \
+    struct cl_vector_length<cl_##base_type##len> : std::integral_constant<     \
+        unsigned, len> {                                                       \
+    };                                                                         \
+  }
 
-#define CL_TYPES(base_type) \
-CL_VEC_TYPE(base_type, 2) \
-CL_VEC_TYPE(base_type, 4) \
-CL_VEC_TYPE(base_type, 8) \
-CL_VEC_TYPE(base_type, 16) \
-namespace vex { \
-    template <> struct cl_scalar_of<cl_##base_type> { typedef cl_##base_type type; }; \
-    template <> struct cl_vector_of<cl_##base_type, 1> { typedef cl_##base_type type; }; \
-    template <> struct cl_vector_length<cl_##base_type> : std::integral_constant<unsigned, 1> { }; \
-}
+#define CL_TYPES(base_type)                                                    \
+  CL_VEC_TYPE(base_type, 2) CL_VEC_TYPE(base_type, 4)                          \
+      CL_VEC_TYPE(base_type, 8) CL_VEC_TYPE(base_type, 16) namespace vex {     \
+    template <> struct cl_scalar_of<cl_##base_type> {                          \
+      typedef cl_##base_type type;                                             \
+    };                                                                         \
+    template <> struct cl_vector_of<cl_##base_type, 1> {                       \
+      typedef cl_##base_type type;                                             \
+    };                                                                         \
+    template <>                                                                \
+    struct cl_vector_length<cl_##base_type> : std::integral_constant<unsigned, \
+                                                                     1> {      \
+    };                                                                         \
+  }
 
 #ifdef _MSC_VER
 #  pragma warning(push)
@@ -213,12 +233,9 @@ struct type_name_impl<T*>
   };                                                                           \
   template <> struct is_cl_native<cl_##type##len> : std::true_type { };
 
-#define CL_TYPES(type) \
-STRINGIFY(type) \
-CL_VEC_TYPE(type, 2) \
-CL_VEC_TYPE(type, 4) \
-CL_VEC_TYPE(type, 8) \
-CL_VEC_TYPE(type, 16)
+#define CL_TYPES(type)                                                         \
+  STRINGIFY(type) CL_VEC_TYPE(type, 2) CL_VEC_TYPE(type, 4)                    \
+      CL_VEC_TYPE(type, 8) CL_VEC_TYPE(type, 16)
 
 CL_TYPES(float)
 CL_TYPES(double)

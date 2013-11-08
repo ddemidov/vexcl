@@ -69,12 +69,10 @@ namespace vex {
 //---------------------------------------------------------------------------
 namespace assign {
 
-#define ASSIGN_OP(name, op) \
-    struct name { \
-        static std::string string() { \
-            return #op; \
-        } \
-    };
+#define ASSIGN_OP(name, op)                                                    \
+  struct name {                                                                \
+    static std::string string() { return #op; }                                \
+  };
 
     ASSIGN_OP(SET, =)
     ASSIGN_OP(ADD, +=)
@@ -880,11 +878,11 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, USER_FUNCTION, ~)
  * save on OpenCL kernel recompilations). Otherwise VEX_FUNCTION should
  * be used locally.
  */
-#define VEX_FUNCTION_TYPE(name, signature, preamble_str, body_str) \
-    struct name : vex::UserFunction<name, signature> { \
-        static std::string preamble() { return preamble_str; } \
-        static std::string body()     { return body_str;     } \
-    }
+#define VEX_FUNCTION_TYPE(name, signature, preamble_str, body_str)             \
+  struct name : vex::UserFunction<name, signature> {                           \
+    static std::string preamble() { return preamble_str; }                     \
+    static std::string body() { return body_str; }                             \
+  }
 
 /// Macro to declare a user function.
 /**
@@ -2374,28 +2372,24 @@ struct expression_tuple {
     expression_tuple(const LHS &lhs) : lhs(lhs) {}
 
 #ifdef DOXYGEN
-#  define ASSIGNMENT(cop, op) \
-        /** \brief Multiexpression assignment.
-         \details All operations are delegated to components of the multivector.
-         */ \
-        template <class RHS> \
-        expression_tuple& operator cop(const RHS &rhs);
+#define ASSIGNMENT(cop, op)                                                    \
+  /** \brief Multiexpression assignment.                                       \
+   \details All operations are delegated to components of the multivector.     \
+   */                                                                          \
+  template <class RHS> expression_tuple &operator cop(const RHS & rhs);
 #else
-#  define ASSIGNMENT(cop, op) \
-    template <class RHS> \
-    typename std::enable_if< \
-        boost::proto::matches< \
-            typename boost::proto::result_of::as_expr<RHS>::type, \
-            multivector_expr_grammar \
-        >::value || is_tuple<RHS>::value, \
-        const expression_tuple& \
-    >::type \
-    operator cop(const RHS &rhs) const { \
-        detail::get_expression_properties prop; \
-        detail::extract_terminals()(detail::subexpression<0>::get(lhs), prop); \
-        detail::assign_multiexpression<op>(lhs, rhs, prop.queue, prop.part); \
-        return *this; \
-    }
+#define ASSIGNMENT(cop, op)                                                    \
+  template <class RHS>                                                         \
+          typename std::enable_if <                                            \
+          boost::proto::matches<                                               \
+              typename boost::proto::result_of::as_expr<RHS>::type,            \
+              multivector_expr_grammar>::value || is_tuple<RHS>::value,        \
+      const expression_tuple & > ::type operator cop(const RHS & rhs) const {  \
+    detail::get_expression_properties prop;                                    \
+    detail::extract_terminals()(detail::subexpression<0>::get(lhs), prop);     \
+    detail::assign_multiexpression<op>(lhs, rhs, prop.queue, prop.part);       \
+    return *this;                                                              \
+  }
 #endif
 
     ASSIGNMENT(=,   assign::SET)
@@ -2444,12 +2438,13 @@ tie(const Expr&... expr) {
 #define PRINT_TYPES(z, n, data) const Expr ## n &
 #define PRINT_PARAM(z, n, data) const Expr ## n &expr ## n
 
-#define TIE_VECTORS(z, n, data) \
-template<BOOST_PP_ENUM_PARAMS(n, class Expr)> \
-expression_tuple< std::tuple<BOOST_PP_ENUM(n, PRINT_TYPES, ~)> > \
-tie( BOOST_PP_ENUM(n, PRINT_PARAM, ~) ) { \
-    return expression_tuple< std::tuple<BOOST_PP_ENUM(n, PRINT_TYPES, ~)> >( std::tie(BOOST_PP_ENUM_PARAMS(n, expr)) ); \
-}
+#define TIE_VECTORS(z, n, data)                                                \
+  template<BOOST_PP_ENUM_PARAMS(n, class Expr)>                                \
+  expression_tuple<std::tuple<BOOST_PP_ENUM(n, PRINT_TYPES, ~)> > tie(         \
+      BOOST_PP_ENUM(n, PRINT_PARAM, ~)) {                                      \
+    return expression_tuple<std::tuple<BOOST_PP_ENUM(n, PRINT_TYPES, ~)> >(    \
+        std::tie(BOOST_PP_ENUM_PARAMS(n, expr)));                              \
+  }
 
 BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, TIE_VECTORS, ~)
 

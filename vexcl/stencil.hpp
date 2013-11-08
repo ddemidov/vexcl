@@ -794,11 +794,12 @@ void StencilOperator<T, width, center, Impl>::convolve(
  * save on OpenCL kernel recompilations). Otherwise VEX_STENCIL_OPERATOR should
  * be used locally.
  */
-#define VEX_STENCIL_OPERATOR_TYPE(name, type, width, center, body_str) \
-    struct name : vex::StencilOperator<type, width, center, name> { \
-        name(const std::vector<cl::CommandQueue> &q) : vex::StencilOperator<type, width, center, name>(q) {} \
-        static std::string body() { return body_str; } \
-    }
+#define VEX_STENCIL_OPERATOR_TYPE(name, type, width, center, body_str)         \
+  struct name : vex::StencilOperator<type, width, center, name> {              \
+    name(const std::vector<cl::CommandQueue> &q)                               \
+        : vex::StencilOperator<type, width, center, name>(q) {}                \
+    static std::string body() { return body_str; }                             \
+  }
 
 /// Macro to declare a user-defined stencil operator.
 /**
@@ -807,8 +808,9 @@ void StencilOperator<T, width, center, Impl>::convolve(
  * output = pow3_oper(input);
  * \endcode
  */
-#define VEX_STENCIL_OPERATOR(name, type, width, center, body, queue) \
-    VEX_STENCIL_OPERATOR_TYPE(stencil_operator_##name##_t, type, width, center, body) name(queue)
+#define VEX_STENCIL_OPERATOR(name, type, width, center, body, queue)           \
+  VEX_STENCIL_OPERATOR_TYPE(stencil_operator_##name##_t, type, width, center,  \
+                            body) name(queue)
 
 } // namespace vex
 

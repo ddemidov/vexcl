@@ -103,11 +103,11 @@ struct is_tuple < std::tuple<Elem...> > : std::true_type {};
 
 #else
 
-#define IS_TUPLE(z, n, unused)                                    \
-  template < BOOST_PP_ENUM_PARAMS(n, class Elem) >                \
-  struct is_tuple< std::tuple < BOOST_PP_ENUM_PARAMS(n, Elem) > > \
-    : std::true_type                                              \
-  {};
+#define IS_TUPLE(z, n, unused)                                                 \
+  template <BOOST_PP_ENUM_PARAMS(n, class Elem)>                               \
+  struct is_tuple<                                                             \
+      std::tuple<BOOST_PP_ENUM_PARAMS(n, Elem)> > : std::true_type {           \
+  };
 
 BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, IS_TUPLE, ~)
 
