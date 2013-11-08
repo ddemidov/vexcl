@@ -3,8 +3,11 @@
 #include <array>
 #include <functional>
 
-//#define VEXCL_SHOW_KERNELS
-#include <vexcl/vexcl.hpp>
+#include <vexcl/devlist.hpp>
+#include <vexcl/vector.hpp>
+#include <vexcl/multivector.hpp>
+#include <vexcl/generator.hpp>
+#include <vexcl/element_index.hpp>
 
 // http://headmyshoulder.github.com/odeint-v2
 #include <boost/numeric/odeint.hpp>

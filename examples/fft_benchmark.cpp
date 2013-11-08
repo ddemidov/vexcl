@@ -3,7 +3,9 @@
 #include <random>
 #include <boost/program_options.hpp>
 
-#include <vexcl/vexcl.hpp>
+#include <vexcl/devlist.hpp>
+#include <vexcl/vector.hpp>
+#include <vexcl/fft.hpp>
 
 using namespace vex;
 

@@ -98,7 +98,7 @@ endif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
 enable_testing()
 add_subdirectory(tests)
 
-#add_subdirectory(examples)
+add_subdirectory(examples)
 add_subdirectory(doc)
 add_subdirectory(cmake)
 

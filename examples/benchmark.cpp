@@ -6,7 +6,12 @@
 #include <numeric>
 #include <random>
 #include <boost/program_options.hpp>
-#include <vexcl/vexcl.hpp>
+#include <vexcl/devlist.hpp>
+#include <vexcl/vector.hpp>
+#include <vexcl/reductor.hpp>
+#include <vexcl/random.hpp>
+#include <vexcl/tagged_terminal.hpp>
+#include <vexcl/element_index.hpp>
 
 #ifdef _MSC_VER
 #  pragma warning(disable : 4267)
@@ -244,6 +249,7 @@ std::pair<double, double> benchmark_reductor(
     return std::make_pair(gflops, bwidth);
 }
 
+#ifdef RESOLVED_70
 //---------------------------------------------------------------------------
 template <typename real>
 std::pair<double, double> benchmark_stencil(
@@ -571,6 +577,7 @@ std::pair<double,double> benchmark_spmv_ccsr(
 
     return std::make_pair(gflops, bwidth);
 }
+#endif
 
 //---------------------------------------------------------------------------
 template <typename real, class GF>
@@ -673,6 +680,7 @@ void run_tests(const vex::Context &ctx, vex::profiler<> &prof)
         log << gflops << " " << bwidth << " ";
     }
 
+#ifdef RESOLVED_70
     if (options.bm_stencil) {
         prof.tic_cpu("Stencil");
         std::tie(gflops, bwidth) = benchmark_stencil<real>(ctx, prof);
@@ -692,6 +700,7 @@ void run_tests(const vex::Context &ctx, vex::profiler<> &prof)
         std::tie(gflops, bwidth) = benchmark_spmv_ccsr<real>(ctx, prof);
         prof.toc("SpMV (CCSR)");
     }
+#endif
 
     if (options.bm_rng) {
         prof.tic_cpu("Random number generation");
