@@ -845,11 +845,10 @@ struct UserFunction<Impl, RetType(ArgType...)> : user_function
     static std::string preamble() { return ""; }                               \
     static void define(backend::source_generator &src,                         \
                        const std::string &name) {                              \
-      Impl::preamble(src);                                                     \
+      src << Impl::preamble();                                                 \
       src.function<RetType>(name).open("(");                                   \
       BOOST_PP_REPEAT(n, PRINT_PRM_DEF, n);                                    \
-      src.close("(").open("{");                                                \
-      src << Impl::body();                                                     \
+      src.close(")").open("{").new_line() << Impl::body();                     \
       src.close("}");                                                          \
     }                                                                          \
   };
