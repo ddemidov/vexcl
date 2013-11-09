@@ -193,42 +193,41 @@ class SpMat {
         /// Number of non-zero entries.
         size_t nonzeros() const { return nnz;   }
 
-        static std::string inline_preamble(
+        static void inline_preamble(backend::source_generator &src,
                 const cl::Device &device, const std::string &prm_name,
                 detail::kernel_generator_state_ptr)
         {
             if (is_cpu(device))
-                return SpMatCSR::inline_preamble(prm_name);
+                SpMatCSR::inline_preamble(src, prm_name);
             else
-                return SpMatHELL::inline_preamble(prm_name);
+                SpMatHELL::inline_preamble(src, prm_name);
         }
 
-        static std::string inline_expression(
+        static void inline_expression(backend::source_generator &src,
                 const cl::Device &device, const std::string &prm_name,
                 detail::kernel_generator_state_ptr)
         {
             if (is_cpu(device))
-                return SpMatCSR::inline_expression(prm_name);
+                SpMatCSR::inline_expression(src, prm_name);
             else
-                return SpMatHELL::inline_expression(prm_name);
+                SpMatHELL::inline_expression(src, prm_name);
         }
 
-        static std::string inline_parameters(
+        static void inline_parameters(backend::source_generator &src,
                 const cl::Device &device, const std::string &prm_name,
                 detail::kernel_generator_state_ptr)
         {
             if (is_cpu(device))
-                return SpMatCSR::inline_parameters(prm_name);
+                SpMatCSR::inline_parameters(src, prm_name);
             else
-                return SpMatHELL::inline_parameters(prm_name);
+                SpMatHELL::inline_parameters(src, prm_name);
         }
 
-        static void inline_arguments(cl::Kernel &kernel, unsigned device,
-                size_t /*index_offset*/, unsigned &position,
-                const SpMat &A, const vector<val_t> &x,
+        static void inline_arguments(backend::kernel &kernel, unsigned device,
+                size_t /*index_offset*/, const SpMat &A, const vector<val_t> &x,
                 detail::kernel_generator_state_ptr)
         {
-            A.mtx[device]->setArgs(kernel, device, position, x);
+            A.mtx[device]->setArgs(kernel, device, x);
         }
     private:
         template <typename T>
@@ -247,7 +246,7 @@ class SpMat {
                     scalar_type alpha
                     ) const = 0;
 
-            virtual void setArgs(cl::Kernel &kernel, unsigned device, unsigned &position, const vector<val_t> &x) const = 0;
+            virtual void setArgs(backend::kernel &kernel, unsigned device, const vector<val_t> &x) const = 0;
 
             virtual ~sparse_matrix() {}
         };

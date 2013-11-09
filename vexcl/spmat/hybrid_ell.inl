@@ -232,77 +232,71 @@ struct SpMatHELL : public sparse_matrix {
         auto kernel = cache.find(context());
 
         if (kernel == cache.end()) {
-            std::ostringstream source;
+            backend::source_generator source(queue);
 
-            source << standard_kernel_header(device) <<
-                "kernel void hybrid_ell_spmv(\n"
-                "    " << type_name<size_t>() << " n,\n"
-                "    " << type_name<scalar_type>()  << " scale,\n"
-                "    " << type_name<size_t>() << " ell_w,\n"
-                "    " << type_name<size_t>() << " ell_pitch,\n"
-                "    global const " << type_name<col_t>() << " * ell_col,\n"
-                "    global const " << type_name<val_t>() << " * ell_val,\n"
-                "    global const " << type_name<idx_t>() << " * csr_row,\n"
-                "    global const " << type_name<col_t>() << " * csr_col,\n"
-                "    global const " << type_name<val_t>() << " * csr_val,\n"
-                "    global const " << type_name<val_t>() << " * in,\n"
-                "    global       " << type_name<val_t>() << " * out\n"
-                "    )\n"
-                "{\n"
-                "    for (size_t i = get_global_id(0); i < n; i += get_global_size(0)) {\n"
-                "        " << type_name<val_t>() << " sum = 0;\n"
-                "        for(size_t j = 0; j < ell_w; ++j) {\n"
-                "            " << type_name<col_t>() << " c = ell_col[i + j * ell_pitch];\n"
-                "            if (c != ("<< type_name<col_t>() << ")(-1))\n"
-                "                sum += ell_val[i + j * ell_pitch] * in[c];\n"
-                "        }\n"
-                "        if (csr_row) {\n"
-                "            for(size_t j = csr_row[i], e = csr_row[i + 1]; j < e; ++j)\n"
-                "                sum += csr_val[j] * in[csr_col[j]];\n"
-                "        }\n"
-                "        out[i] " << OP::string() << " scale * sum;\n"
-                "    }\n"
-                "}\n";
+            source.kernel("hybrid_ell_spmv")
+                .open("(")
+                    .template parameter<size_t>("n")
+                    .template parameter<scalar_type>("scale")
+                    .template parameter<size_t>("ell_w")
+                    .template parameter<size_t>("ell_pitch")
+                    .template parameter< global_ptr<const col_t> >("ell_col")
+                    .template parameter< global_ptr<const val_t> >("ell_val")
+                    .template parameter< global_ptr<const idx_t> >("csr_row")
+                    .template parameter< global_ptr<const col_t> >("csr_col")
+                    .template parameter< global_ptr<const val_t> >("csr_val")
+                    .template parameter< global_ptr<const val_t> >("in")
+                    .template parameter< global_ptr<val_t> >("out")
+                .close(")")
+                .open("{")
+                    .grid_stride_loop("i").open("{");
 
-            auto program = build_sources(context, source.str());
+            source.new_line() << type_name<val_t>() << " sum = 0;";
+            source.new_line() << "for(size_t j = 0; j < ell_w; ++j)";
+            source.open("{");
+            source.new_line() << type_name<col_t>() << " c = ell_col[i + j * ell_pitch];";
+            source.new_line() << "if (c != ("<< type_name<col_t>() << ")(-1))";
+            source.open("{").new_line() << "sum += ell_val[i + j * ell_pitch] * in[c];";
+            source.close("}").close("}");
+            source.new_line() << "if (csr_row)";
+            source.open("{");
+            source.new_line() << "for(size_t j = csr_row[i], e = csr_row[i + 1]; j < e; ++j)";
+            source.open("{");
+            source.new_line() << "sum += csr_val[j] * in[csr_col[j]];";
+            source.close("}").close("}");
+            source.new_line() << "out[i] " << OP::string() << " scale * sum;";
+            source.close("}").close("}");
 
-            cl::Kernel krn(program, "hybrid_ell_spmv");
-            size_t     wgs = kernel_workgroup_size(krn, device);
-
-            kernel = cache.insert(std::make_pair(
-                        context(), kernel_cache_entry(krn, wgs)
-                        )).first;
+            backend::kernel krn(queue, source.str(), "hybrid_ell_spmv");
+            kernel = cache.insert(std::make_pair(context(), krn)).first;
         }
 
-        cl::Kernel krn    = kernel->second.kernel;
-        size_t     wgsize = kernel->second.wgsize;
-        size_t     g_size = num_workgroups(device) * wgsize;
+        kernel->second.push_arg(n);
+        kernel->second.push_arg(scale);
+        kernel->second.push_arg(part.ell.width);
+        kernel->second.push_arg(pitch);
 
-        unsigned pos = 0;
-        krn.setArg(pos++, n);
-        krn.setArg(pos++, scale);
-        krn.setArg(pos++, part.ell.width);
-        krn.setArg(pos++, pitch);
         if (part.ell.width) {
-            krn.setArg(pos++, part.ell.col);
-            krn.setArg(pos++, part.ell.val);
+            kernel->second.push_arg(part.ell.col);
+            kernel->second.push_arg(part.ell.val);
         } else {
-            krn.setArg(pos++, static_cast<void*>(0));
-            krn.setArg(pos++, static_cast<void*>(0));
+            kernel->second.push_arg(static_cast<void*>(0));
+            kernel->second.push_arg(static_cast<void*>(0));
         }
-        if (part.csr.nnz) {
-            krn.setArg(pos++, part.csr.row);
-            krn.setArg(pos++, part.csr.col);
-            krn.setArg(pos++, part.csr.val);
-        } else {
-            krn.setArg(pos++, static_cast<void*>(0));
-            krn.setArg(pos++, static_cast<void*>(0));
-            krn.setArg(pos++, static_cast<void*>(0));
-        }
-        krn.setArg(pos++, in);
-        krn.setArg(pos++, out);
 
-        queue.enqueueNDRangeKernel(krn, cl::NullRange, g_size, wgsize);
+        if (part.csr.nnz) {
+            kernel->second.push_arg(part.csr.row);
+            kernel->second.push_arg(part.csr.col);
+            kernel->second.push_arg(part.csr.val);
+        } else {
+            kernel->second.push_arg(static_cast<void*>(0));
+            kernel->second.push_arg(static_cast<void*>(0));
+            kernel->second.push_arg(static_cast<void*>(0));
+        }
+        kernel->second.push_arg(in);
+        kernel->second.push_arg(out);
+
+        kernel->second(queue);
     }
 
     void mul_local(const cl::Buffer &in, const cl::Buffer &out,
@@ -319,88 +313,84 @@ struct SpMatHELL : public sparse_matrix {
         mul<assign::ADD>(rem, in, out, scale);
     }
 
-    static std::string inline_preamble(const std::string &prm_name) {
-        std::ostringstream s;
-
-        s << type_name<val_t>() <<
-          " hell_spmv_" << prm_name << "(\n"
-          "    " << type_name<size_t>() << " ell_w,\n"
-          "    " << type_name<size_t>() << " ell_pitch,\n"
-          "    global const " << type_name<col_t>() << " * ell_col,\n"
-          "    global const " << type_name<val_t>() << " * ell_val,\n"
-          "    global const " << type_name<idx_t>() << " * csr_row,\n"
-          "    global const " << type_name<col_t>() << " * csr_col,\n"
-          "    global const " << type_name<val_t>() << " * csr_val,\n"
-          "    global const " << type_name<val_t>() << " * in,\n"
-          "    " << type_name<size_t>() << " i\n"
-          "    )\n"
-          "{\n"
-          "    " << type_name<val_t>() << " sum = 0;\n"
-          "    for(size_t j = 0; j < ell_w; ++j) {\n"
-          "        " << type_name<col_t>() << " c = ell_col[i + j * ell_pitch];\n"
-          "        if (c != ("<< type_name<col_t>() << ")(-1))\n"
-          "            sum += ell_val[i + j * ell_pitch] * in[c];\n"
-          "    }\n"
-          "    if (csr_row) {\n"
-          "        for(size_t j = csr_row[i], e = csr_row[i + 1]; j < e; ++j)\n"
-          "            sum += csr_val[j] * in[csr_col[j]];\n"
-          "    }\n"
-          "    return sum;\n"
-          "}\n";
-
-        return s.str();
+    static void inline_preamble(backend::source_generator &src,
+        const std::string &prm_name)
+    {
+        src.function<val_t>(prm_name + "_hell_spmv")
+            .open("(")
+                .template parameter<size_t>("ell_w")
+                .template parameter<size_t>("ell_pitch")
+                .template parameter< global_ptr<const col_t> >("ell_col")
+                .template parameter< global_ptr<const val_t> >("ell_val")
+                .template parameter< global_ptr<const idx_t> >("csr_row")
+                .template parameter< global_ptr<const col_t> >("csr_col")
+                .template parameter< global_ptr<const val_t> >("csr_val")
+                .template parameter< global_ptr<const val_t> >("in")
+                .template parameter< size_t >("i")
+            .close(")").open("{");
+        src.new_line() << type_name<val_t>() << " sum = 0;";
+        src.new_line() << "for(size_t j = 0; j < ell_w; ++j)";
+        src.open("{");
+        src.new_line() << type_name<col_t>() << " c = ell_col[i + j * ell_pitch];";
+        src.new_line() << "if (c != ("<< type_name<col_t>() << ")(-1))";
+        src.open("{").new_line() << "sum += ell_val[i + j * ell_pitch] * in[c];";
+        src.close("}").close("}");
+        src.new_line() << "if (csr_row)";
+        src.open("{");
+        src.new_line() << "for(size_t j = csr_row[i], e = csr_row[i + 1]; j < e; ++j)";
+        src.open("{").new_line() << "sum += csr_val[j] * in[csr_col[j]];";
+        src.close("}").close("}");
+        src.new_line() << "return sum;";
+        src.close("}");
     }
 
-    static std::string inline_expression(const std::string &prm_name) {
-        std::ostringstream s;
-        s << "hell_spmv_" << prm_name << "("
-          << prm_name << "_ell_w, "
-          << prm_name << "_ell_pitch, "
-          << prm_name << "_ell_col, "
-          << prm_name << "_ell_val, "
-          << prm_name << "_csr_row, "
-          << prm_name << "_csr_col, "
-          << prm_name << "_csr_val, "
-          << prm_name << "_vec, idx)";
-
-        return s.str();
+    static void inline_expression(backend::source_generator &src,
+            const std::string &prm_name)
+    {
+        src << prm_name << "_hell_spmv" << "("
+            << prm_name << "_ell_w, "
+            << prm_name << "_ell_pitch, "
+            << prm_name << "_ell_col, "
+            << prm_name << "_ell_val, "
+            << prm_name << "_csr_row, "
+            << prm_name << "_csr_col, "
+            << prm_name << "_csr_val, "
+            << prm_name << "_vec, idx)";
     }
 
-    static std::string inline_parameters(const std::string &prm_name) {
-        std::ostringstream s;
-        s <<
-          ",\n\t" << type_name<size_t>() << " " << prm_name << "_ell_w"
-          ",\n\t" << type_name<size_t>() << " " << prm_name << "_ell_pitch"
-          ",\n\tglobal const " << type_name<col_t>() << " * " << prm_name << "_ell_col"
-          ",\n\tglobal const " << type_name<val_t>() << " * " << prm_name << "_ell_val"
-          ",\n\tglobal const " << type_name<idx_t>() << " * " << prm_name << "_csr_row"
-          ",\n\tglobal const " << type_name<col_t>() << " * " << prm_name << "_csr_col"
-          ",\n\tglobal const " << type_name<val_t>() << " * " << prm_name << "_csr_val"
-          ",\n\tglobal const " << type_name<val_t>() << " * " << prm_name << "_vec";
-
-        return s.str();
+    static void inline_parameters(backend::source_generator &src,
+            const std::string &prm_name)
+    {
+        src.template parameter<size_t>(prm_name) << "_ell_w";
+        src.template parameter<size_t>(prm_name) << "_ell_pitch";
+        src.template parameter< global_ptr<const col_t> >(prm_name) << "_ell_col";
+        src.template parameter< global_ptr<const val_t> >(prm_name) << "_ell_val";
+        src.template parameter< global_ptr<const idx_t> >(prm_name) << "_csr_row";
+        src.template parameter< global_ptr<const col_t> >(prm_name) << "_csr_col";
+        src.template parameter< global_ptr<const val_t> >(prm_name) << "_csr_val";
+        src.template parameter< global_ptr<const val_t> >(prm_name) << "_vec";
     }
 
-    void setArgs(cl::Kernel &krn, unsigned device, unsigned &pos, const vector<val_t> &x) const {
-        krn.setArg(pos++, loc.ell.width);
-        krn.setArg(pos++, pitch);
+    void setArgs(backend::kernel &krn, unsigned device, const vector<val_t> &x) const {
+        krn.push_arg(loc.ell.width);
+        krn.push_arg(pitch);
         if (loc.ell.width) {
-            krn.setArg(pos++, loc.ell.col);
-            krn.setArg(pos++, loc.ell.val);
+            krn.push_arg(loc.ell.col);
+            krn.push_arg(loc.ell.val);
         } else {
-            krn.setArg(pos++, static_cast<void*>(0));
-            krn.setArg(pos++, static_cast<void*>(0));
+            krn.push_arg(static_cast<void*>(0));
+            krn.push_arg(static_cast<void*>(0));
         }
         if (loc.csr.nnz) {
-            krn.setArg(pos++, loc.csr.row);
-            krn.setArg(pos++, loc.csr.col);
-            krn.setArg(pos++, loc.csr.val);
+            krn.push_arg(loc.csr.row);
+            krn.push_arg(loc.csr.col);
+            krn.push_arg(loc.csr.val);
         } else {
-            krn.setArg(pos++, static_cast<void*>(0));
-            krn.setArg(pos++, static_cast<void*>(0));
-            krn.setArg(pos++, static_cast<void*>(0));
+            krn.push_arg(static_cast<void*>(0));
+            krn.push_arg(static_cast<void*>(0));
+            krn.push_arg(static_cast<void*>(0));
         }
-        krn.setArg(pos++, x(device));
+        krn.push_arg(x(device));
     }
 };
 

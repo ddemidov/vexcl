@@ -12,6 +12,7 @@
 #include <vexcl/random.hpp>
 #include <vexcl/tagged_terminal.hpp>
 #include <vexcl/element_index.hpp>
+#include <vexcl/spmat.hpp>
 
 #ifdef _MSC_VER
 #  pragma warning(disable : 4267)
@@ -320,6 +321,7 @@ std::pair<double, double> benchmark_stencil(
 
     return std::make_pair(gflops, bwidth);
 }
+#endif
 
 //---------------------------------------------------------------------------
 template <typename real>
@@ -577,7 +579,6 @@ std::pair<double,double> benchmark_spmv_ccsr(
 
     return std::make_pair(gflops, bwidth);
 }
-#endif
 
 //---------------------------------------------------------------------------
 template <typename real, class GF>
@@ -688,6 +689,7 @@ void run_tests(const vex::Context &ctx, vex::profiler<> &prof)
 
         log << gflops << " " << bwidth << " ";
     }
+#endif
 
     if (options.bm_spmv) {
         prof.tic_cpu("SpMV");
@@ -700,7 +702,6 @@ void run_tests(const vex::Context &ctx, vex::profiler<> &prof)
         std::tie(gflops, bwidth) = benchmark_spmv_ccsr<real>(ctx, prof);
         prof.toc("SpMV (CCSR)");
     }
-#endif
 
     if (options.bm_rng) {
         prof.tic_cpu("Random number generation");

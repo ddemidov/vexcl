@@ -204,6 +204,15 @@ struct type_name_impl <global_ptr<T> > {
 };
 
 template <class T>
+struct type_name_impl < global_ptr<const T> > {
+    static std::string get() {
+        std::ostringstream s;
+        s << "global const " << type_name<T>() << " *";
+        return s.str();
+    }
+};
+
+template <class T>
 struct type_name_impl <shared_ptr<T> > {
     static std::string get() {
         std::ostringstream s;

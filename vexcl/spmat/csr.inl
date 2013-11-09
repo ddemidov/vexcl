@@ -144,56 +144,45 @@ struct SpMatCSR : public sparse_matrix {
         static kernel_cache cache;
 
         cl::Context context = qctx(queue);
-        cl::Device  device  = qdev(queue);
 
         auto kernel = cache.find(context());
 
         if (kernel == cache.end()) {
-            std::ostringstream source;
+            backend::source_generator source(queue);
 
-            source << standard_kernel_header(device) <<
-                "kernel void csr_spmv(\n"
-                "    " << type_name<size_t>() << " n,\n"
-                "    " << type_name<scalar_type>() << " scale,\n"
-                "    global const " << type_name<idx_t>() << " * row,\n"
-                "    global const " << type_name<col_t>() << " * col,\n"
-                "    global const " << type_name<val_t>() << " * val,\n"
-                "    global const " << type_name<val_t>() << " * in,\n"
-                "    global       " << type_name<val_t>() << " * out\n"
-                "    )\n"
-                "{\n"
-                "    for (size_t i = get_global_id(0); i < n; i += get_global_size(0)) {\n"
-                "        " << type_name<val_t>() << " sum = 0;\n"
-                "        for(size_t j = row[i], e = row[i + 1]; j < e; ++j)\n"
-                "            sum += val[j] * in[col[j]];\n"
-                "        out[i] " << OP::string() << " scale * sum;\n"
-                "    }\n"
-                "}\n";
+            source.kernel("csr_spmv")
+                .open("(")
+                    .template parameter<size_t>("n")
+                    .template parameter<scalar_type>("scale")
+                    .template parameter< global_ptr< const idx_t > >("row")
+                    .template parameter< global_ptr< const col_t > >("col")
+                    .template parameter< global_ptr< const val_t > >("val")
+                    .template parameter< global_ptr< const val_t > >("in")
+                    .template parameter< global_ptr< val_t > >("out")
+                .close(")")
+                .open("{")
+                    .grid_stride_loop("i").open("{");
+            source.new_line() << type_name<val_t>() << " sum = 0;";
+            source.new_line() << "for(size_t j = row[i], e = row[i + 1]; j < e; ++j)";
+            source.open("{");
+            source.new_line() << "sum += val[j] * in[col[j]];";
+            source.close("}");
+            source.new_line() << "out[i] " << OP::string() << " scale * sum;";
+            source.close("}").close("}");
 
-            auto program = build_sources(context, source.str());
-
-            cl::Kernel krn(program, "csr_spmv");
-            size_t     wgs = kernel_workgroup_size(krn, device);
-
-            kernel = cache.insert(std::make_pair(
-                        context(), kernel_cache_entry(krn, wgs)
-                        )).first;
+            backend::kernel krn(queue, source.str(), "csr_spmv");
+            kernel = cache.insert(std::make_pair(context(), krn)).first;
         }
 
-        cl::Kernel krn    = kernel->second.kernel;
-        size_t     wgsize = kernel->second.wgsize;
-        size_t     g_size = num_workgroups(device) * wgsize;
+        kernel->second.push_arg(n);
+        kernel->second.push_arg(scale);
+        kernel->second.push_arg(part.row);
+        kernel->second.push_arg(part.col);
+        kernel->second.push_arg(part.val);
+        kernel->second.push_arg(in);
+        kernel->second.push_arg(out);
 
-        unsigned pos = 0;
-        krn.setArg(pos++, n);
-        krn.setArg(pos++, scale);
-        krn.setArg(pos++, part.row);
-        krn.setArg(pos++, part.col);
-        krn.setArg(pos++, part.val);
-        krn.setArg(pos++, in);
-        krn.setArg(pos++, out);
-
-        queue.enqueueNDRangeKernel(krn, cl::NullRange, g_size, wgsize);
+        kernel->second(queue);
     }
 
     void mul_local(const cl::Buffer &in, const cl::Buffer &out,
@@ -214,54 +203,50 @@ struct SpMatCSR : public sparse_matrix {
         if (rem.nnz) mul<assign::ADD>(rem, in, out, scale);
     }
 
-    static std::string inline_preamble(const std::string &prm_name) {
-        std::ostringstream s;
-
-        s << type_name<val_t>() <<
-          " csr_spmv_" << prm_name << "(\n"
-          "    global const " << type_name<idx_t>() << " * row,\n"
-          "    global const " << type_name<col_t>() << " * col,\n"
-          "    global const " << type_name<val_t>() << " * val,\n"
-          "    global const " << type_name<val_t>() << " * in,\n"
-          "    " << type_name<size_t>() << " i\n"
-          "    )\n"
-          "{\n"
-          "    " << type_name<val_t>() << " sum = 0;\n"
-          "    for(size_t j = row[i], e = row[i + 1]; j < e; ++j)\n"
-          "        sum += val[j] * in[col[j]];\n"
-          "    return sum;\n"
-          "}\n";
-
-        return s.str();
+    static void inline_preamble(backend::source_generator &src,
+            const std::string &prm_name)
+    {
+        src.function<val_t>(prm_name + "_csr_spmv")
+            .open("(")
+                .template parameter< global_ptr<const idx_t> >("row")
+                .template parameter< global_ptr<const col_t> >("col")
+                .template parameter< global_ptr<const val_t> >("val")
+                .template parameter< global_ptr<const val_t> >("in")
+                .template parameter< size_t >("i")
+            .close(")").open("{");
+        src.new_line() << type_name<val_t>() << " sum = 0;";
+        src.new_line() << "for(size_t j = row[i], e = row[i + 1]; j < e; ++j)";
+        src.open("{");
+        src.new_line() << "sum += val[j] * in[col[j]];";
+        src.close("}");
+        src.new_line() << "return sum;";
+        src.close("}");
     }
 
-    static std::string inline_expression(const std::string &prm_name) {
-        std::ostringstream s;
-        s << "csr_spmv_" << prm_name << "("
-          << prm_name << "_row, "
-          << prm_name << "_col, "
-          << prm_name << "_val, "
-          << prm_name << "_vec, idx)";
-
-        return s.str();
+    static void inline_expression(backend::source_generator &src,
+            const std::string &prm_name)
+    {
+        src << prm_name << "_csr_spmv" << "("
+            << prm_name << "_row, "
+            << prm_name << "_col, "
+            << prm_name << "_val, "
+            << prm_name << "_vec, idx)";
     }
 
-    static std::string inline_parameters(const std::string &prm_name) {
-        std::ostringstream s;
-        s <<
-          ",\n\tglobal const " << type_name<idx_t>() << " * " << prm_name << "_row"
-          ",\n\tglobal const " << type_name<col_t>() << " * " << prm_name << "_col"
-          ",\n\tglobal const " << type_name<val_t>() << " * " << prm_name << "_val"
-          ",\n\tglobal const " << type_name<val_t>() << " * " << prm_name << "_vec";
-
-        return s.str();
+    static void inline_parameters(backend::source_generator &src,
+            const std::string &prm_name)
+    {
+        src.template parameter< global_ptr<const idx_t> >(prm_name) << "_row";
+        src.template parameter< global_ptr<const col_t> >(prm_name) << "_col";
+        src.template parameter< global_ptr<const val_t> >(prm_name) << "_val";
+        src.template parameter< global_ptr<const val_t> >(prm_name) << "_vec";
     }
 
-    void setArgs(cl::Kernel &krn, unsigned device, unsigned &pos, const vector<val_t> &x) const {
-        krn.setArg(pos++, loc.row);
-        krn.setArg(pos++, loc.col);
-        krn.setArg(pos++, loc.val);
-        krn.setArg(pos++, x(device));
+    void setArgs(backend::kernel &krn, unsigned device, const vector<val_t> &x) const {
+        krn.push_arg(loc.row);
+        krn.push_arg(loc.col);
+        krn.push_arg(loc.val);
+        krn.push_arg(x(device));
     }
 };
 
