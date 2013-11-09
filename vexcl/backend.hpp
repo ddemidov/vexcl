@@ -1,5 +1,5 @@
-#ifndef VEXCL_VEXCL_HPP
-#define VEXCL_VEXCL_HPP
+#ifndef VEXCL_BACKEND_HPP
+#define VEXCL_BACKEND_HPP
 
 /*
 The MIT License
@@ -26,31 +26,18 @@ THE SOFTWARE.
 */
 
 /**
- * \file   vexcl.hpp
+ * \file   vexcl/backend.hpp
  * \author Denis Demidov <ddemidov@ksu.ru>
- * \brief  Vector expression template library for OpenCL.
+ * \brief  Compile-time selection of backend (OpenCL/CUDA).
  */
 
-#include <vexcl/backend.hpp>
-#include <vexcl/devlist.hpp>
-#include <vexcl/constants.hpp>
-#include <vexcl/element_index.hpp>
-#include <vexcl/vector.hpp>
-#include <vexcl/vector_view.hpp>
-#include <vexcl/vector_pointer.hpp>
-#include <vexcl/tagged_terminal.hpp>
-#include <vexcl/temporary.hpp>
-#include <vexcl/cast.hpp>
-#include <vexcl/multivector.hpp>
-#include <vexcl/reductor.hpp>
-#include <vexcl/spmat.hpp>
-#include <vexcl/stencil.hpp>
-#include <vexcl/gather.hpp>
-#include <vexcl/random.hpp>
-#include <vexcl/fft.hpp>
-#include <vexcl/mba.hpp>
-#include <vexcl/generator.hpp>
-#include <vexcl/mba.hpp>
-#include <vexcl/profiler.hpp>
+#if defined(VEXCL_BACKEND_OPENCL)
+#  include <vexcl/backend/opencl.hpp>
+#elif defined(VEXCL_BACKEND_CUDA)
+#  error Sorry, CUDA backend is not implemented yet.
+#  include <vexcl/backend/cuda.hpp>
+#else
+#  include <vexcl/backend/opencl.hpp>
+#endif
 
 #endif

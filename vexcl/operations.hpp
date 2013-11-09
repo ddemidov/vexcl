@@ -48,8 +48,6 @@ THE SOFTWARE.
 #include <vexcl/types.hpp>
 #include <vexcl/util.hpp>
 
-#include <vexcl/backend/opencl.hpp>
-
 // Include boost.preprocessor header if variadic templates are not available.
 // Also include it if we use gcc v4.6.
 // This is required due to bug http://gcc.gnu.org/bugzilla/show_bug.cgi?id=35722

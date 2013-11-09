@@ -1,6 +1,7 @@
 #define BOOST_TEST_MODULE VectorView
 #include <valarray>
 #include <boost/test/unit_test.hpp>
+#include <vexcl/backend.hpp>
 #include <vexcl/vector.hpp>
 #include <vexcl/vector_view.hpp>
 #include <vexcl/element_index.hpp>

@@ -60,15 +60,14 @@ namespace vex {
 /// Device filters.
 namespace Filter {
     /// Selects any device.
-    struct AllFilter {
-        AllFilter() {}
-
-        bool operator()(const cl::Device &) const {
+    struct AnyFilter {
+        bool operator()(const cl::Device&) const {
             return true;
         }
     };
 
-    const AllFilter All;
+    const AnyFilter All = {};
+    const AnyFilter Any = {};
 
     /// Selects devices whose vendor name match given value.
     struct Vendor {
@@ -134,8 +133,6 @@ namespace Filter {
 
     /// Selects devices supporting double precision.
     struct DoublePrecisionFilter {
-        DoublePrecisionFilter() {}
-
         bool operator()(const cl::Device &d) const {
             std::string ext = d.getInfo<CL_DEVICE_EXTENSIONS>();
             return (
@@ -145,7 +142,7 @@ namespace Filter {
         }
     };
 
-    const DoublePrecisionFilter DoublePrecision;
+    const DoublePrecisionFilter DoublePrecision = {};
 
     /// Selects devices providing given OpenCL extensions.
     struct Extension {

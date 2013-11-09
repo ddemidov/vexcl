@@ -31,10 +31,15 @@ THE SOFTWARE.
  * \brief  Helper class for OpenCL source code generation.
  */
 
+#include <map>
 #include <string>
 #include <iostream>
 #include <sstream>
 #include <cassert>
+
+// TODO: remove this?
+#include <vexcl/util.hpp>
+#include <vexcl/types.hpp>
 
 namespace vex {
 namespace backend {

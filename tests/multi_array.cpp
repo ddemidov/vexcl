@@ -1,5 +1,6 @@
 #define BOOST_TEST_MODULE MultiArray
 #include <boost/test/unit_test.hpp>
+#include <vexcl/backend.hpp>
 #include <vexcl/element_index.hpp>
 #include <vexcl/multi_array.hpp>
 #include <vexcl/reductor.hpp>

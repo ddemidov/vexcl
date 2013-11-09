@@ -1,5 +1,6 @@
 #define BOOST_TEST_MODULE StencilConvolution
 #include <boost/test/unit_test.hpp>
+#include <vexcl/backend.hpp>
 #include <vexcl/vector.hpp>
 #include <vexcl/multivector.hpp>
 #include <vexcl/stencil.hpp>

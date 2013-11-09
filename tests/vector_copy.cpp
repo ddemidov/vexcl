@@ -1,5 +1,6 @@
 #define BOOST_TEST_MODULE VectorCopy
 #include <boost/test/unit_test.hpp>
+#include <vexcl/backend.hpp>
 #include <vexcl/vector.hpp>
 #include <vexcl/gather.hpp>
 #include "context_setup.hpp"
