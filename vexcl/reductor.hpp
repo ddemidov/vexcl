@@ -288,7 +288,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
                 }
                 source.new_line() << "if (tid < 32)";
                 source.open("{");
-                source.new_line() << "local volatile " << type_name<real>() << "* smem = sdata;";
+                source.new_line() << "volatile " << type_name< shared_ptr<real> >() << " smem = sdata;";
                 for(unsigned bs = 32; bs > 0; bs /= 2) {
                     source.new_line() << "if (block_size >= " << 2 * bs << ") "
                         "{ smem[tid] = mySum = reduce_operation(mySum, smem[tid + " << bs << "]); }";

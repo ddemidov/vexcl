@@ -591,7 +591,7 @@ struct terminal_preamble< mba_interp<MBA, ExprTuple> > {
             src.parameter<size_t>("m") << k;
         }
 
-        src.template parameter< global_ptr<real> >("phi");
+        src.template parameter< global_ptr<const real> >("phi");
         src.close(")").open("{");
         src.new_line() << type_name<real>() << " u;";
         for(size_t k = 0; k < MBA::ndim; ++k) {
@@ -643,7 +643,7 @@ struct kernel_param_declaration< mba_interp<MBA, ExprTuple> > {
             src.parameter<size_t>(prm_name + "_m") << k;
         }
 
-        src.parameter< global_ptr<real> >(prm_name + "_phi");
+        src.parameter< global_ptr<const real> >(prm_name + "_phi");
     }
 
     struct prmdecl {
