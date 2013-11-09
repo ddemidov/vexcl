@@ -142,16 +142,20 @@ class kernel {
         void get_launch_cfg(const cl::CommandQueue &queue, std::function<size_t(size_t)> smem) {
             cl::Device dev = qdev(queue);
 
-            // Select workgroup size that would fit into the device.
-            w_size = dev.getInfo<CL_DEVICE_MAX_WORK_ITEM_SIZES>()[0];
+            if ( is_cpu(dev) ) {
+                w_size = 1;
+            } else {
+                // Select workgroup size that would fit into the device.
+                w_size = dev.getInfo<CL_DEVICE_MAX_WORK_ITEM_SIZES>()[0];
 
-            size_t max_ws   = K.getWorkGroupInfo<CL_KERNEL_WORK_GROUP_SIZE>(dev);
-            size_t max_smem = static_cast<size_t>(dev.getInfo<CL_DEVICE_LOCAL_MEM_SIZE>())
-                            - static_cast<size_t>(K.getWorkGroupInfo<CL_KERNEL_LOCAL_MEM_SIZE>(dev));
+                size_t max_ws   = K.getWorkGroupInfo<CL_KERNEL_WORK_GROUP_SIZE>(dev);
+                size_t max_smem = static_cast<size_t>(dev.getInfo<CL_DEVICE_LOCAL_MEM_SIZE>())
+                                - static_cast<size_t>(K.getWorkGroupInfo<CL_KERNEL_LOCAL_MEM_SIZE>(dev));
 
-            // Reduce workgroup size until it satisfies resource requirements:
-            while( (w_size > max_ws) || (smem(w_size) > max_smem) )
-                w_size /= 2;
+                // Reduce workgroup size until it satisfies resource requirements:
+                while( (w_size > max_ws) || (smem(w_size) > max_smem) )
+                    w_size /= 2;
+            }
 
             g_size = w_size * num_workgroups(queue);
         }
