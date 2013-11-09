@@ -136,8 +136,7 @@ struct SpMatCSR : public sparse_matrix {
     template <class OP>
     void mul(
             const matrix_part &part,
-            const cl::Buffer &in, const cl::Buffer &out, scalar_type scale,
-            const std::vector<cl::Event> &wait_for_it = std::vector<cl::Event>()
+            const cl::Buffer &in, const cl::Buffer &out, scalar_type scale
             ) const
     {
         using namespace detail;
@@ -152,7 +151,7 @@ struct SpMatCSR : public sparse_matrix {
         if (kernel == cache.end()) {
             std::ostringstream source;
 
-            source << backend::standard_kernel_header(device) <<
+            source << standard_kernel_header(device) <<
                 "kernel void csr_spmv(\n"
                 "    " << type_name<size_t>() << " n,\n"
                 "    " << type_name<scalar_type>() << " scale,\n"
@@ -171,7 +170,7 @@ struct SpMatCSR : public sparse_matrix {
                 "    }\n"
                 "}\n";
 
-            auto program = backend::build_sources(context, source.str());
+            auto program = build_sources(context, source.str());
 
             cl::Kernel krn(program, "csr_spmv");
             size_t     wgs = kernel_workgroup_size(krn, device);
@@ -194,8 +193,7 @@ struct SpMatCSR : public sparse_matrix {
         krn.setArg(pos++, in);
         krn.setArg(pos++, out);
 
-        queue.enqueueNDRangeKernel(krn, cl::NullRange, g_size, wgsize,
-                wait_for_it.empty() ? NULL : &wait_for_it);
+        queue.enqueueNDRangeKernel(krn, cl::NullRange, g_size, wgsize);
     }
 
     void mul_local(const cl::Buffer &in, const cl::Buffer &out,
@@ -211,10 +209,9 @@ struct SpMatCSR : public sparse_matrix {
         }
     }
 
-    void mul_remote(const cl::Buffer &in, const cl::Buffer &out, scalar_type scale,
-            const std::vector<cl::Event> &wait_for_it) const
+    void mul_remote(const cl::Buffer &in, const cl::Buffer &out, scalar_type scale) const
     {
-        if (rem.nnz) mul<assign::ADD>(rem, in, out, scale, wait_for_it);
+        if (rem.nnz) mul<assign::ADD>(rem, in, out, scale);
     }
 
     static std::string inline_preamble(const std::string &prm_name) {

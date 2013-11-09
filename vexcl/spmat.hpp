@@ -41,6 +41,7 @@ THE SOFTWARE.
 #include <type_traits>
 
 #include <vexcl/vector.hpp>
+#include <vexcl/vector_view.hpp>
 
 namespace vex {
 
@@ -73,8 +74,6 @@ class SpMat {
               size_t n, size_t m, const idx_t *row, const col_t *col, const val_t *val
               )
             : queue(queue), part(partition(n, queue)),
-              event1(queue.size(), std::vector<cl::Event>(1)),
-              event2(queue.size(), std::vector<cl::Event>(1)),
               mtx(queue.size()), exc(queue.size()),
               nrows(n), ncols(m), nnz(row[n])
         {
@@ -130,70 +129,58 @@ class SpMat {
             static kernel_cache cache;
 
             if (rx.size()) {
-                // Transfer remote parts of the input vector.
+                // Gather values to send to neighbors.
                 for(unsigned d = 0; d < queue.size(); d++) {
-                    cl::Context context = qctx(queue[d]);
-                    cl::Device  device  = qdev(queue[d]);
+                    if (cidx[d + 1] > cidx[d]) {
+                        vex::vector<col_t> cols(queue[d], exc[d].cols_to_send);
+                        vex::vector<val_t> vals(queue[d], exc[d].vals_to_send);
+                        vex::vector<val_t> xloc(queue[d], x(d));
 
-                    auto gather = cache.find(context());
-
-                    if (gather == cache.end()) {
-                        std::ostringstream source;
-
-                        source << backend::standard_kernel_header(device) <<
-                            "typedef " << type_name<val_t>() << " val_t;\n"
-                            "kernel void gather_vals_to_send(\n"
-                            "    " << type_name<size_t>() << " n,\n"
-                            "    global const val_t *vals,\n"
-                            "    global const " << type_name<col_t>() << " *cols_to_send,\n"
-                            "    global val_t *vals_to_send\n"
-                            "    )\n"
-                            "{\n"
-                            "    for(size_t i = get_global_id(0); i < n; i += get_global_size(0))\n"
-                            "        vals_to_send[i] = vals[cols_to_send[i]];\n"
-                            "}\n";
-
-                        backend::kernel krn(queue[d], source.str(), "gather_vals_to_send");
-                        gather = cache.insert(std::make_pair(context(), krn)).first;
-                    }
-
-                    if (size_t ncols = cidx[d + 1] - cidx[d]) {
-                        gather->second.push_arg(ncols);
-                        gather->second.push_arg(x(d));
-                        gather->second.push_arg(exc[d].cols_to_send);
-                        gather->second.push_arg(exc[d].vals_to_send);
-
-                        gather->second(queue[d]);
-
-                        squeue[d].enqueueReadBuffer(exc[d].vals_to_send, CL_FALSE,
-                                0, ncols * sizeof(val_t), &rx[cidx[d]], &event1[d], &event2[d][0]
-                                );
+                        vals = permutation(cols)(xloc);
                     }
                 }
+
+                for(unsigned d = 0; d < queue.size(); d++)
+                    if (cidx[d + 1] > cidx[d]) queue[d].finish();
             }
 
-            // Compute contribution from local part of the matrix.
+            // Start computing contribution from local part of the matrix.
             for(unsigned d = 0; d < queue.size(); d++)
                 if (mtx[d]) mtx[d]->mul_local(x(d), y(d), alpha, append);
 
-            // Compute contribution from remote part of the matrix.
+
             if (rx.size()) {
-                for(unsigned d = 0; d < queue.size(); d++)
-                    if (cidx[d + 1] > cidx[d]) event2[d][0].wait();
-
+                // Meanwhile, get gathered values to host, ...
                 for(unsigned d = 0; d < queue.size(); d++) {
-                    cl::Context context = qctx(queue[d]);
+                    if (cidx[d + 1] > cidx[d]) {
+                        vex::vector<val_t> vals(squeue[d], exc[d].vals_to_send);
+                        vex::copy(vals.begin(), vals.end(), &rx[cidx[d]], /*blocking=*/CL_FALSE);
+                    }
+                }
 
+                for(unsigned d = 0; d < queue.size(); d++)
+                    if (cidx[d + 1] > cidx[d]) squeue[d].finish();
+
+                // ... send ghost points from our neighbors to device, ...
+                for(unsigned d = 0; d < queue.size(); d++) {
                     if (exc[d].cols_to_recv.size()) {
                         for(size_t i = 0; i < exc[d].cols_to_recv.size(); i++)
                             exc[d].vals_to_recv[i] = rx[exc[d].cols_to_recv[i]];
 
                         squeue[d].enqueueWriteBuffer(
                                 exc[d].rx, CL_FALSE, 0, bytes(exc[d].vals_to_recv),
-                                exc[d].vals_to_recv.data(), 0, &event2[d][0]
+                                exc[d].vals_to_recv.data()
                                 );
+                    }
+                }
 
-                        mtx[d]->mul_remote(exc[d].rx, y(d), alpha, event2[d]);
+                for(unsigned d = 0; d < queue.size(); d++)
+                    if (exc[d].cols_to_recv.size()) squeue[d].finish();
+
+                // Compute contribution from remote part of the matrix.
+                for(unsigned d = 0; d < queue.size(); d++) {
+                    if (exc[d].cols_to_recv.size()) {
+                        mtx[d]->mul_remote(exc[d].rx, y(d), alpha);
                     }
                 }
             }
@@ -236,11 +223,12 @@ class SpMat {
                 return SpMatHELL::inline_parameters(prm_name);
         }
 
-        static void inline_arguments(backend::kernel &kernel, unsigned device,
-                size_t /*index_offset*/, const SpMat &A, const vector<val_t> &x,
+        static void inline_arguments(cl::Kernel &kernel, unsigned device,
+                size_t /*index_offset*/, unsigned &position,
+                const SpMat &A, const vector<val_t> &x,
                 detail::kernel_generator_state_ptr)
         {
-            A.mtx[device]->setArgs(kernel, device, x);
+            A.mtx[device]->setArgs(kernel, device, position, x);
         }
     private:
         template <typename T>
@@ -256,10 +244,10 @@ class SpMat {
 
             virtual void mul_remote(
                     const cl::Buffer &x, const cl::Buffer &y,
-                    scalar_type alpha, const std::vector<cl::Event> &event
+                    scalar_type alpha
                     ) const = 0;
 
-            virtual void setArgs(backend::kernel &kernel, unsigned device, const vector<val_t> &x) const = 0;
+            virtual void setArgs(cl::Kernel &kernel, unsigned device, unsigned &position, const vector<val_t> &x) const = 0;
 
             virtual ~sparse_matrix() {}
         };
@@ -279,9 +267,6 @@ class SpMat {
         const std::vector<cl::CommandQueue> queue;
         std::vector<cl::CommandQueue>       squeue;
         const std::vector<size_t>           part;
-
-        mutable std::vector<std::vector<cl::Event>> event1;
-        mutable std::vector<std::vector<cl::Event>> event2;
 
         std::vector< std::unique_ptr<sparse_matrix> > mtx;
 

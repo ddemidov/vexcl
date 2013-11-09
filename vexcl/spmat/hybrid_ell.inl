@@ -219,8 +219,7 @@ struct SpMatHELL : public sparse_matrix {
     template <class OP>
     void mul(
             const matrix_part &part,
-            const cl::Buffer &in, const cl::Buffer &out, scalar_type scale,
-            const std::vector<cl::Event> &wait_for_it = std::vector<cl::Event>()
+            const cl::Buffer &in, const cl::Buffer &out, scalar_type scale
             ) const
     {
         using namespace detail;
@@ -235,7 +234,7 @@ struct SpMatHELL : public sparse_matrix {
         if (kernel == cache.end()) {
             std::ostringstream source;
 
-            source << backend::standard_kernel_header(device) <<
+            source << standard_kernel_header(device) <<
                 "kernel void hybrid_ell_spmv(\n"
                 "    " << type_name<size_t>() << " n,\n"
                 "    " << type_name<scalar_type>()  << " scale,\n"
@@ -265,36 +264,45 @@ struct SpMatHELL : public sparse_matrix {
                 "    }\n"
                 "}\n";
 
-            backend::kernel krn(queue, source.str(), "hybrid_ell_spmv");
-            kernel = cache.insert(std::make_pair(context(), krn)).first;
+            auto program = build_sources(context, source.str());
+
+            cl::Kernel krn(program, "hybrid_ell_spmv");
+            size_t     wgs = kernel_workgroup_size(krn, device);
+
+            kernel = cache.insert(std::make_pair(
+                        context(), kernel_cache_entry(krn, wgs)
+                        )).first;
         }
 
-        kernel->second.push_arg(n);
-        kernel->second.push_arg(scale);
-        kernel->second.push_arg(part.ell.width);
-        kernel->second.push_arg(pitch);
+        cl::Kernel krn    = kernel->second.kernel;
+        size_t     wgsize = kernel->second.wgsize;
+        size_t     g_size = num_workgroups(device) * wgsize;
+
+        unsigned pos = 0;
+        krn.setArg(pos++, n);
+        krn.setArg(pos++, scale);
+        krn.setArg(pos++, part.ell.width);
+        krn.setArg(pos++, pitch);
         if (part.ell.width) {
-            kernel->second.push_arg(part.ell.col);
-            kernel->second.push_arg(part.ell.val);
+            krn.setArg(pos++, part.ell.col);
+            krn.setArg(pos++, part.ell.val);
         } else {
-            kernel->second.push_arg(static_cast<void*>(0));
-            kernel->second.push_arg(static_cast<void*>(0));
+            krn.setArg(pos++, static_cast<void*>(0));
+            krn.setArg(pos++, static_cast<void*>(0));
         }
         if (part.csr.nnz) {
-            kernel->second.push_arg(part.csr.row);
-            kernel->second.push_arg(part.csr.col);
-            kernel->second.push_arg(part.csr.val);
+            krn.setArg(pos++, part.csr.row);
+            krn.setArg(pos++, part.csr.col);
+            krn.setArg(pos++, part.csr.val);
         } else {
-            kernel->second.push_arg(static_cast<void*>(0));
-            kernel->second.push_arg(static_cast<void*>(0));
-            kernel->second.push_arg(static_cast<void*>(0));
+            krn.setArg(pos++, static_cast<void*>(0));
+            krn.setArg(pos++, static_cast<void*>(0));
+            krn.setArg(pos++, static_cast<void*>(0));
         }
-        kernel->second.push_arg(in);
-        kernel->second.push_arg(out);
+        krn.setArg(pos++, in);
+        krn.setArg(pos++, out);
 
-        // TODO: event list
-        queue.enqueueNDRangeKernel(krn, cl::NullRange, g_size, wgsize,
-                wait_for_it.empty() ? NULL : &wait_for_it);
+        queue.enqueueNDRangeKernel(krn, cl::NullRange, g_size, wgsize);
     }
 
     void mul_local(const cl::Buffer &in, const cl::Buffer &out,
@@ -306,10 +314,9 @@ struct SpMatHELL : public sparse_matrix {
             mul<assign::SET>(loc, in, out, scale);
     }
 
-    void mul_remote(const cl::Buffer &in, const cl::Buffer &out, scalar_type scale,
-            const std::vector<cl::Event> &wait_for_it) const
+    void mul_remote(const cl::Buffer &in, const cl::Buffer &out, scalar_type scale) const
     {
-        mul<assign::ADD>(rem, in, out, scale, wait_for_it);
+        mul<assign::ADD>(rem, in, out, scale);
     }
 
     static std::string inline_preamble(const std::string &prm_name) {
