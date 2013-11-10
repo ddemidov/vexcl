@@ -118,7 +118,6 @@ class stencil_base {
         mutable std::vector<T>  hbuf;
         std::vector<cl::Buffer> dbuf;
         std::vector<cl::Buffer> s;
-        mutable std::vector<cl::Event> event;
 
         int lhalo;
         int rhalo;
@@ -130,7 +129,7 @@ stencil_base<T>::stencil_base(
         unsigned width, unsigned center, Iterator begin, Iterator end
         )
     : queue(queue), hbuf(queue.size() * (width - 1)),
-      dbuf(queue.size()), s(queue.size()), event(queue.size()),
+      dbuf(queue.size()), s(queue.size()),
       lhalo(center), rhalo(width - center - 1)
 {
     assert(queue.size());
@@ -147,22 +146,14 @@ stencil_base<T>::stencil_base(
             s[d] = cl::Buffer(context, CL_MEM_READ_ONLY, (end - begin) * sizeof(T));
 
             queue[d].enqueueWriteBuffer(s[d], CL_FALSE, 0,
-                    (end - begin) * sizeof(T), &begin[0], 0, &event[d]);
-        } else {
-            // This device is not used (its partition is empty).
-            // Allocate and write single byte to be able to consistently wait
-            // for all events.
-            char dummy = 0;
-
-            s[d] = cl::Buffer(context, CL_MEM_READ_ONLY, sizeof(char));
-            queue[d].enqueueWriteBuffer(s[d], CL_FALSE, 0, sizeof(char), &dummy, 0, &event[d]);
+                    (end - begin) * sizeof(T), &begin[0]);
         }
 
         // Allocate one element more than needed, to be sure size is nonzero.
         dbuf[d] = cl::Buffer(context, CL_MEM_READ_WRITE, width * sizeof(T));
     }
 
-    for(unsigned d = 0; d < queue.size(); d++) event[d].wait();
+    for(unsigned d = 0; d < queue.size(); d++) queue[d].finish();
 }
 
 template <typename T>
@@ -180,7 +171,7 @@ void stencil_base<T>::exchange_halos(const vex::vector<T> &x) const {
             size_t end   = x.part_start(d);
             size_t begin = end >= static_cast<unsigned>(lhalo) ?  end - lhalo : 0;
             size_t size  = end - begin;
-            x.read_data(begin, size, &hbuf[d * width + lhalo - size], CL_FALSE, &event);
+            x.read_data(begin, size, &hbuf[d * width + lhalo - size], CL_FALSE);
         }
 
         // Get halo from right neighbour.
@@ -188,12 +179,12 @@ void stencil_base<T>::exchange_halos(const vex::vector<T> &x) const {
             size_t begin = x.part_start(d + 1);
             size_t end   = std::min(begin + rhalo, x.size());
             size_t size  = end - begin;
-            x.read_data(begin, size, &hbuf[d * width + lhalo], CL_FALSE, &event);
+            x.read_data(begin, size, &hbuf[d * width + lhalo], CL_FALSE);
         }
     }
 
     // Wait for the end of transfer.
-    for(unsigned d = 0; d < queue.size(); d++) event[d].wait();
+    for(unsigned d = 0; d < queue.size(); d++) queue[d].finish();
 
     // Write halos to a local buffer.
     for(unsigned d = 0; d < queue.size(); d++) {
@@ -222,11 +213,11 @@ void stencil_base<T>::exchange_halos(const vex::vector<T> &x) const {
 
         if ((d > 0 && lhalo > 0) || (d + 1 < queue.size() && rhalo > 0))
             queue[d].enqueueWriteBuffer(dbuf[d], CL_FALSE, 0, width * sizeof(T),
-                    &hbuf[d * width], 0, &event[d]);
+                    &hbuf[d * width]);
     }
 
     // Wait for the end of transfer.
-    for(unsigned d = 0; d < queue.size(); d++) event[d].wait();
+    for(unsigned d = 0; d < queue.size(); d++) queue[d].finish();
 }
 
 /// \endcond
@@ -323,7 +314,6 @@ class stencil : private stencil_base<T> {
         using Base::hbuf;
         using Base::dbuf;
         using Base::s;
-        using Base::event;
         using Base::lhalo;
         using Base::rhalo;
 
@@ -650,7 +640,6 @@ class StencilOperator : private stencil_base<T> {
         using Base::queue;
         using Base::hbuf;
         using Base::dbuf;
-        using Base::event;
         using Base::lhalo;
         using Base::rhalo;
 };
