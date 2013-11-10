@@ -2,6 +2,7 @@
 #include <boost/test/unit_test.hpp>
 #include <vexcl/backend.hpp>
 #include <vexcl/vector.hpp>
+#include <vexcl/multivector.hpp>
 #include <vexcl/element_index.hpp>
 #include <vexcl/tagged_terminal.hpp>
 #include <vexcl/temporary.hpp>
@@ -82,6 +83,27 @@ BOOST_AUTO_TEST_CASE(temporary_inside_tag)
 
     check_sample(Y, [&](size_t idx, double v) {
             BOOST_CHECK_EQUAL(v, x[n - (idx + 1)]); });
+}
+
+BOOST_AUTO_TEST_CASE(tied_tagged_terminals)
+{
+    using vex::tag;
+
+    const size_t n = 1024;
+
+    vex::multivector<double, 2> X(ctx, random_vector<double>(2 * n));
+    vex::multivector<double, 2> Y(ctx, n);
+
+#define X0 tag<0>(X(0))
+#define X1 tag<1>(X(1))
+
+    Y = std::tie(X1, X0);
+
+    check_sample(Y(1), X(0), [&](size_t, double y, double x) {
+            BOOST_CHECK_EQUAL(y, x); });
+
+    check_sample(Y(0), X(1), [&](size_t, double y, double x) {
+            BOOST_CHECK_EQUAL(y, x); });
 }
 
 BOOST_AUTO_TEST_SUITE_END()

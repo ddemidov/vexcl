@@ -64,7 +64,7 @@ struct tagged_terminal : tagged_terminal_expression
       boost::proto::matches<                                                   \
           typename boost::proto::result_of::as_expr<Expr>::type,               \
           vector_expr_grammar>::value,                                         \
-      const tagged_terminal &>::type operator cop(const Expr & expr) {         \
+      const tagged_terminal &>::type operator cop(const Expr & expr) const {   \
     std::vector<cl::CommandQueue> queue;                                       \
     std::vector<size_t> part;                                                  \
     size_t size;                                                               \
@@ -268,7 +268,7 @@ struct expression_properties< tagged_terminal<Tag, Term> > {
  */
 template <size_t Tag, class Expr>
 auto tag(const Expr& expr)
-        -> tagged_terminal<
+        -> const tagged_terminal<
                         Tag,
                         decltype(boost::proto::as_child<vector_domain>(expr))
                 >
