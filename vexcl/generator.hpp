@@ -683,7 +683,7 @@ Kernel<sizeof...(Args)> build_kernel(
     return Kernel<sizeof...(Args)>(queue, name, body, boost::tie(args...));
 }
 
-/// Builds futemplate nction body from recorded expression and symbolic return value and parameters.
+/// Builds function body from recorded expression and symbolic return value and parameters.
 template <class Ret, class... Args>
 std::string make_function(std::string body, const Ret &ret, const Args&... args) {
     return Function(body, ret, boost::tie(args...)).get();
@@ -692,8 +692,8 @@ std::string make_function(std::string body, const Ret &ret, const Args&... args)
 
 #define PRINT_ARG(z, n, data) const Arg ## n &arg ## n
 
-#define BUILDtemplate _KERNEL(z, n, data)                                               \
-  template<BOtemplate OST_PP_ENUM_PARAMS(n, class Arg)> Kernel<n> build_kernel(         \
+#define BUILD_KERNEL(z, n, data)                                               \
+  template<BOOST_PP_ENUM_PARAMS(n, class Arg)> Kernel<n> build_kernel(         \
       const std::vector<cl::CommandQueue> & queue, const std::string & name,   \
       const std::string & body, BOOST_PP_ENUM(n, PRINT_ARG, ~)) {              \
     return Kernel<n>(queue, name, body,                                        \
@@ -704,7 +704,7 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, BUILD_KERNEL, ~)
 
 #undef BUILD_KERNEL
 
-#define MAKE_template FUNCTION(z, n, data)                                              \
+#define MAKE_FUNCTION(z, n, data)                                              \
   template<class Ret, BOOST_PP_ENUM_PARAMS(n, class Arg)> std::string          \
   make_function(std::string body, const Ret & ret,                             \
                 BOOST_PP_ENUM(n, PRINT_ARG, ~)) {                              \
