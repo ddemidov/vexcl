@@ -72,7 +72,7 @@ typename std::enable_if<
     >::value,
     temporary<T, Tag,
         typename boost::proto::result_of::as_child<const Expr, vector_domain>::type
-    >
+    > const
 #endif
 >::type
 make_temp(const Expr &expr)
@@ -99,7 +99,7 @@ typename std::enable_if<
         typename detail::return_type<Expr>::type,
         Tag,
         typename boost::proto::result_of::as_child<const Expr, vector_domain>::type
-    >
+    > const
 >::type
 #endif
 make_temp(const Expr &expr)
@@ -137,7 +137,7 @@ typename std::enable_if<
         typename boost::proto::result_of::as_expr< Expr >::type,
         multivector_expr_grammar
     >::value,
-    mv_temporary<T, Tag, Expr>
+    mv_temporary<T, Tag, Expr> const
 >::type
 make_temp(const Expr &expr) {
     return mv_temporary<T, Tag, Expr>(expr);
