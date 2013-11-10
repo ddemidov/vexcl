@@ -201,7 +201,7 @@ class source_generator {
             else
                 src << ",";
 
-            new_line() << type_name<Prm>() << " " << name;
+            new_line() << type_name<typename std::decay<Prm>::type>() << " " << name;
             return *this;
         }
 

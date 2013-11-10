@@ -221,6 +221,15 @@ struct type_name_impl <shared_ptr<T> > {
     }
 };
 
+template <class T>
+struct type_name_impl <shared_ptr<const T> > {
+    static std::string get() {
+        std::ostringstream s;
+        s << "local const " << type_name<T>() << " *";
+        return s.str();
+    }
+};
+
 template<typename T>
 struct type_name_impl<T*>
 {
