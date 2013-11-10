@@ -45,6 +45,7 @@ THE SOFTWARE.
 #endif
 #include <CL/cl.hpp>
 
+#include <vexcl/backend.hpp>
 #include <vexcl/types.hpp>
 #include <vexcl/util.hpp>
 

@@ -36,6 +36,7 @@ THE SOFTWARE.
 #endif
 #include <CL/cl.hpp>
 
+#include <vexcl/backend/opencl/filter.hpp>
 #include <vexcl/backend/opencl/source.hpp>
 #include <vexcl/backend/opencl/compiler.hpp>
 #include <vexcl/backend/opencl/kernel.hpp>

@@ -1,6 +1,5 @@
 #define BOOST_TEST_MODULE TypeSystem
 #include <boost/test/unit_test.hpp>
-#include <vexcl/backend.hpp>
 #include <vexcl/types.hpp>
 #include <vexcl/vector.hpp>
 #include <vexcl/element_index.hpp>

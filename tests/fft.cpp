@@ -3,7 +3,6 @@
 #ifdef HAVE_FFTW
 #  include <fftw3.h>
 #endif
-#include <vexcl/backend.hpp>
 #include <vexcl/vector.hpp>
 #include <vexcl/fft.hpp>
 #include <vexcl/random.hpp>

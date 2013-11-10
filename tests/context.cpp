@@ -1,6 +1,5 @@
 #define BOOST_TEST_MODULE VexContext
 #include <boost/test/unit_test.hpp>
-#include <vexcl/backend.hpp>
 #include <vexcl/devlist.hpp>
 #include <vexcl/vector.hpp>
 

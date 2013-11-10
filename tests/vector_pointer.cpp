@@ -1,6 +1,5 @@
 #define BOOST_TEST_MODULE VectorPointer
 #include <boost/test/unit_test.hpp>
-#include <vexcl/backend.hpp>
 #include <vexcl/vector.hpp>
 #include <vexcl/vector_pointer.hpp>
 #include <vexcl/element_index.hpp>

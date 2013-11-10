@@ -34,19 +34,9 @@ THE SOFTWARE.
 #include <vector>
 #include <functional>
 #include <string>
-#include <fstream>
-#include <limits>
 #include <cstdlib>
 
-#include <boost/config.hpp>
-#include <boost/interprocess/sync/file_lock.hpp>
-#include <boost/filesystem.hpp>
-
-#ifndef __CL_ENABLE_EXCEPTIONS
-#  define __CL_ENABLE_EXCEPTIONS
-#endif
-#include <CL/cl.hpp>
-
+#include <vexcl/backend.hpp>
 #include <vexcl/util.hpp>
 
 #ifdef __GNUC__
@@ -61,103 +51,13 @@ namespace vex {
 namespace Filter {
     /// Selects any device.
     struct AnyFilter {
-        bool operator()(const cl::Device&) const {
+        bool operator()(const backend::device&) const {
             return true;
         }
     };
 
     const AnyFilter All = {};
     const AnyFilter Any = {};
-
-    /// Selects devices whose vendor name match given value.
-    struct Vendor {
-        explicit Vendor(std::string name) : vendor(std::move(name)) {}
-
-        bool operator()(const cl::Device &d) const {
-            return d.getInfo<CL_DEVICE_VENDOR>().find(vendor) != std::string::npos;
-        }
-
-        private:
-            std::string vendor;
-    };
-
-    /// Selects devices whose platform name match given value.
-    struct Platform {
-        explicit Platform(std::string name) : platform(std::move(name)) {}
-
-        bool operator()(const cl::Device &d) const {
-            return cl::Platform(d.getInfo<CL_DEVICE_PLATFORM>()).getInfo<CL_PLATFORM_NAME>().find(platform) != std::string::npos;
-        }
-
-        private:
-            std::string platform;
-    };
-
-    /// Selects devices whose names match given value.
-    struct Name {
-        explicit Name(std::string name) : devname(std::move(name)) {}
-
-        bool operator()(const cl::Device &d) const {
-            return d.getInfo<CL_DEVICE_NAME>().find(devname) != std::string::npos;
-        }
-
-        private:
-            std::string devname;
-    };
-
-    /// Selects devices by type.
-    struct Type {
-        explicit Type(cl_device_type t)    : type(t)              {}
-        explicit Type(const std::string t) : type(device_type(t)) {}
-
-        bool operator()(const cl::Device &d) const {
-            return d.getInfo<CL_DEVICE_TYPE>() == type;
-        }
-
-        private:
-            cl_device_type type;
-
-            static cl_device_type device_type(const std::string &t) {
-                if (t.find("CPU") != std::string::npos)
-                    return CL_DEVICE_TYPE_CPU;
-
-                if (t.find("GPU") != std::string::npos)
-                    return CL_DEVICE_TYPE_GPU;
-
-                if (t.find("ACCELERATOR") != std::string::npos)
-                    return CL_DEVICE_TYPE_ACCELERATOR;
-
-                return CL_DEVICE_TYPE_ALL;
-            }
-    };
-
-    /// Selects devices supporting double precision.
-    struct DoublePrecisionFilter {
-        bool operator()(const cl::Device &d) const {
-            std::string ext = d.getInfo<CL_DEVICE_EXTENSIONS>();
-            return (
-                    ext.find("cl_khr_fp64") != std::string::npos ||
-                    ext.find("cl_amd_fp64") != std::string::npos
-                   );
-        }
-    };
-
-    const DoublePrecisionFilter DoublePrecision = {};
-
-    /// Selects devices providing given OpenCL extensions.
-    struct Extension {
-        std::string extension;
-
-        Extension(std::string ext) : extension(std::move(ext)) {}
-
-        bool operator()(const cl::Device& d) const {
-            std::string ext = d.getInfo<CL_DEVICE_EXTENSIONS>();
-            return ext.find(extension) != std::string::npos;
-        }
-    };
-
-    /// Selects devices supporting OpenGL Sharing Extension
-    const Extension GLSharing("cl_khr_gl_sharing");
 
     /// Selects no more than given number of devices.
     /**
@@ -169,7 +69,7 @@ namespace Filter {
     struct Count {
         explicit Count(int c) : count(c) {}
 
-        bool operator()(const cl::Device &) const {
+        bool operator()(const backend::device&) const {
             return --count >= 0;
         }
 
@@ -185,146 +85,13 @@ namespace Filter {
     struct Position {
         explicit Position(int p) : pos(p) {}
 
-        bool operator()(const cl::Device &) const {
+        bool operator()(const backend::device&) const {
             return 0 == pos--;
         }
 
         private:
             mutable int pos;
     };
-
-    /// \internal Exclusive access to selected devices.
-    class ExclusiveFilter {
-        private:
-            std::function<bool(const cl::Device&)> filter;
-
-            static std::map<cl_device_id, std::string> get_uids() {
-                std::map<cl_device_id, std::string> uids;
-
-                std::vector<cl::Platform> platform;
-                cl::Platform::get(&platform);
-
-#ifdef _MSC_VER
-#  pragma warning(push)
-#  pragma warning(disable: 4996)
-#endif
-                const char *lock_dir = getenv("VEXCL_LOCK_DIR");
-#ifdef _MSC_VER
-#  pragma warning(pop)
-#endif
-
-                for(size_t p_id = 0; p_id < platform.size(); p_id++) {
-                    std::vector<cl::Device> device;
-
-                    platform[p_id].getDevices(CL_DEVICE_TYPE_ALL, &device);
-
-                    for(size_t d_id = 0; d_id < device.size(); d_id++) {
-                        std::ostringstream id;
-#ifdef WIN32
-#  ifdef _MSC_VER
-#    pragma warning(push)
-#    pragma warning(disable: 4996)
-#  endif
-                        id << (lock_dir ? lock_dir : getenv("TEMP")) << "\\";
-#  ifdef _MSC_VER
-#    pragma warning(pop)
-#  endif
-#else
-                        id << (lock_dir ? lock_dir : "/tmp") << "/";
-#endif
-                        id << "vexcl_device_" << p_id << "_" << d_id << ".lock";
-
-                        uids[device[d_id]()] = id.str();
-                    }
-                }
-
-                return uids;
-            }
-
-            struct locker {
-                locker(std::string fname) : file(fname)
-                {
-                    if (!file.is_open() || file.fail()) {
-                        std::cerr
-                            << "WARNING: failed to open file \"" << fname << "\"\n"
-                            << "  Check that target directory is exists and is writable.\n"
-                            << "  Exclusive mode is off.\n"
-                            << std::endl;
-                    } else {
-                        flock.reset(new boost::interprocess::file_lock(fname.c_str()));
-#if BOOST_VERSION >= 105000
-                        // In case we created the lock file,
-                        // lets make it writable by others:
-                        try {
-                            boost::filesystem::permissions(fname, boost::filesystem::all_all);
-                        } catch (const boost::filesystem::filesystem_error&) {
-                            (void)0;
-                        }
-#endif
-                    }
-                }
-
-                bool try_lock() {
-                    if (flock) {
-                        // Try and lock the file related to compute device.
-                        // If the file is locked already, it could mean two
-                        // things:
-                        // 1. Somebody locked the file, and uses the device.
-                        // 2. Somebody locked the file, and is in process of
-                        //    checking the device. If device is not good (for
-                        //    them) they will release the lock in a few
-                        //    moments.
-                        // To process case 2 correctly, we use timed_lock().
-
-                        return flock->timed_lock(
-                                boost::posix_time::microsec_clock::universal_time() +
-                                boost::posix_time::milliseconds(100)
-                                );
-                    } else return true;
-                }
-
-                std::ofstream file;
-                std::unique_ptr<boost::interprocess::file_lock> flock;
-            };
-        public:
-            template <class Filter>
-            ExclusiveFilter(Filter&& filter)
-                : filter(std::forward<Filter>(filter)) {}
-
-            bool operator()(const cl::Device &d) const {
-                static std::map<cl_device_id, std::string> dev_uids = get_uids();
-                static std::vector<std::unique_ptr<locker>> locks;
-
-                std::unique_ptr<locker> lck(new locker(dev_uids[d()]));
-
-                if (lck->try_lock() && filter(d)) {
-                    locks.push_back(std::move(lck));
-                    return true;
-                }
-
-                return false;
-            }
-
-    };
-
-    /// Allows exclusive access to compute devices across several processes.
-    /**
-     * Returns devices that pass through provided device filter and are not
-     * locked.
-     *
-     * \param filter Compute device filter
-     *
-     * \note Depends on boost::interprocess library.
-     *
-     * lock files are created in directory specified in VEXCL_LOCK_DIR
-     * environment variable. If the variable does not exist, /tmp is
-     * used on Linux and %TMPDIR% on Windows. The lock directory should exist
-     * and be writable by the running user.
-     */
-    template <class Filter>
-    ExclusiveFilter Exclusive(Filter&& filter) {
-        return ExclusiveFilter(std::forward<Filter>(filter));
-    }
 
     /// \cond INTERNAL
 
@@ -334,12 +101,12 @@ namespace Filter {
         NegateFilter(Filter&& filter)
           : filter(std::forward<Filter>(filter)) {}
 
-        bool operator()(const cl::Device &d) const {
+        bool operator()(const backend::device &d) const {
             return !filter(d);
         }
 
         private:
-            std::function<bool(const cl::Device&)> filter;
+            std::function<bool(const backend::device&)> filter;
     };
 
     /// Filter join operators.
@@ -354,7 +121,7 @@ namespace Filter {
         FilterBinaryOp(LHS&& lhs, RHS&& rhs)
             : lhs(std::forward<LHS>(lhs)), rhs(std::forward<RHS>(rhs)) {}
 
-        bool operator()(const cl::Device &d) const {
+        bool operator()(const backend::device &d) const {
             // This could be hidden into FilterOp::apply() call (with FilterOp
             // being a struct instead of enum), but this form allows to rely on
             // short-circuit evaluation (important for mutable filters as Count
@@ -369,8 +136,8 @@ namespace Filter {
         }
 
         private:
-            std::function<bool(const cl::Device&)> lhs;
-            std::function<bool(const cl::Device&)> rhs;
+            std::function<bool(const backend::device&)> lhs;
+            std::function<bool(const backend::device&)> rhs;
     };
 
     /// \endcond
@@ -407,12 +174,12 @@ namespace Filter {
         template<class Filter>
         General(Filter filter) : filter(filter) { }
 
-        bool operator()(const cl::Device &d) const {
+        bool operator()(const backend::device &d) const {
             return filter(d);
         }
 
         private:
-            std::function<bool(const cl::Device&)> filter;
+            std::function<bool(const backend::device&)> filter;
     };
 
     /// Environment filter
@@ -432,35 +199,35 @@ namespace Filter {
      * Filter::Count.
      */
     struct EnvFilter {
-        EnvFilter() : filter(All) {
+        EnvFilter()
+            : filter( backend_env_filters() )
+        {
 #ifdef _MSC_VER
 #  pragma warning(push)
 #  pragma warning(disable: 4996)
 #endif
-            const char *platform = getenv("OCL_PLATFORM");
-            const char *vendor   = getenv("OCL_VENDOR");
-            const char *name     = getenv("OCL_DEVICE");
-            const char *devtype  = getenv("OCL_TYPE");
             const char *maxdev   = getenv("OCL_MAX_DEVICES");
             const char *position = getenv("OCL_POSITION");
 #ifdef _MSC_VER
 #  pragma warning(pop)
 #endif
 
-            if (platform) filter = filter && Platform(platform);
-            if (vendor)   filter = filter && Vendor(vendor);
-            if (name)     filter = filter && Name(name);
-            if (devtype)  filter = filter && Type(devtype);
-            if (maxdev)   filter = filter && Count(std::stoi(maxdev));
-            if (position) filter = filter && Position(std::stoi(position));
+            if (maxdev)   filter.push_back(Count(std::stoi(maxdev)));
+            if (position) filter.push_back(Position(std::stoi(position)));
         }
 
-        bool operator()(const cl::Device &d) const {
-            return filter(d);
+        bool operator()(const backend::device &d) const {
+            if (filter.empty()) return true;
+
+            return std::all_of(
+                    filter.begin(), filter.end(),
+                    [d](const std::function<bool(const backend::device)> &f) {
+                        return f(d);
+                    });
         }
 
         private:
-            General filter;
+            std::vector< std::function<bool(const backend::device&)> > filter;
     };
 
     const EnvFilter Env;

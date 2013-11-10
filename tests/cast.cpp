@@ -1,6 +1,5 @@
 #define BOOST_TEST_MODULE VectorArithmetics
 #include <boost/test/unit_test.hpp>
-#include <vexcl/backend.hpp>
 #include <vexcl/vector.hpp>
 #include <vexcl/cast.hpp>
 #include "context_setup.hpp"

@@ -4,6 +4,7 @@
 #include <iterator>
 #include <set>
 #include <algorithm>
+#include <vexcl/backend.hpp>
 #include <vexcl/devlist.hpp>
 using namespace vex;
 

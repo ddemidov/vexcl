@@ -1,6 +1,5 @@
 #define BOOST_TEST_MODULE TaggedTerminal
 #include <boost/test/unit_test.hpp>
-#include <vexcl/backend.hpp>
 #include <vexcl/vector.hpp>
 #include <vexcl/multivector.hpp>
 #include <vexcl/element_index.hpp>
