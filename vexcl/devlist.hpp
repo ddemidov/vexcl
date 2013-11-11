@@ -269,9 +269,8 @@ class Context {
     public:
         /// Initialize context from a device filter.
         template <class DevFilter>
-        explicit Context(
-                DevFilter&& filter, cl_command_queue_properties properties = 0
-                )
+        explicit Context(DevFilter&& filter,
+                backend::command_queue_properties properties = 0)
         {
             std::tie(c, q) = backend::queue_list(std::forward<DevFilter>(filter), properties);
 

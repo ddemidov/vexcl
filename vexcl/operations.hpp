@@ -2029,7 +2029,7 @@ void cache_register<dummy>::clear() {
 }
 
 template <bool dummy>
-void cache_register<dummy>::erase(cl_context key) {
+void cache_register<dummy>::erase(backend::kernel_cache_key key) {
     for(auto c = caches.begin(); c != caches.end(); ++c)
         (*c)->erase(key);
 }

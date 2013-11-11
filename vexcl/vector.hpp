@@ -100,14 +100,14 @@ struct partitioning_scheme {
     private:
         static bool is_set;
         static weight_function weight;
-        static std::map<cl_device_id, double> device_weight;
+        static std::map<backend::device_id, double> device_weight;
 };
 
 template <bool dummy>
 bool partitioning_scheme<dummy>::is_set = false;
 
 template <bool dummy>
-std::map<cl_device_id, double> partitioning_scheme<dummy>::device_weight;
+std::map<backend::device_id, double> partitioning_scheme<dummy>::device_weight;
 
 template <bool dummy>
 std::vector<size_t> partitioning_scheme<dummy>::get(size_t n,
@@ -128,12 +128,11 @@ std::vector<size_t> partitioning_scheme<dummy>::get(size_t n,
         cumsum.push_back(0);
 
         for(auto q = queue.begin(); q != queue.end(); q++) {
-            cl::Device  device = qdev(*q);
-
-            auto dw = device_weight.find(device());
+            auto dev_id = backend::get_device_id(*q);
+            auto dw = device_weight.find(dev_id);
 
             double w = (dw == device_weight.end()) ?
-                (device_weight[device()] = weight(*q)) :
+                (device_weight[dev_id] = weight(*q)) :
                 dw->second;
 
             cumsum.push_back(cumsum.back() + w);
@@ -734,7 +733,7 @@ class vector : public vector_terminal_expression {
 #endif
 
         /// Copy data from host buffer to device(s).
-        void write_data(size_t offset, size_t size, const T *hostptr, cl_bool blocking)
+        void write_data(size_t offset, size_t size, const T *hostptr, bool blocking)
         {
             if (!size) return;
 
@@ -757,7 +756,7 @@ class vector : public vector_terminal_expression {
         }
 
         /// Copy data from device(s) to host buffer .
-        void read_data(size_t offset, size_t size, T *hostptr, cl_bool blocking) const
+        void read_data(size_t offset, size_t size, T *hostptr, bool blocking) const
         {
             if (!size) return;
 
@@ -862,25 +861,25 @@ struct expression_properties< vector<T> > {
 //---------------------------------------------------------------------------
 /// Copy device vector to host vector.
 template <class T>
-void copy(const vex::vector<T> &dv, std::vector<T> &hv, cl_bool blocking = CL_TRUE) {
+void copy(const vex::vector<T> &dv, std::vector<T> &hv, bool blocking = true) {
     dv.read_data(0, dv.size(), hv.data(), blocking);
 }
 
 /// Copy device vector to host pointer.
 template <class T>
-void copy(const vex::vector<T> &dv, T *hv, cl_bool blocking = CL_TRUE) {
+void copy(const vex::vector<T> &dv, T *hv, bool blocking = true) {
     dv.read_data(0, dv.size(), hv, blocking);
 }
 
 /// Copy host vector to device vector.
 template <class T>
-void copy(const std::vector<T> &hv, vex::vector<T> &dv, cl_bool blocking = CL_TRUE) {
+void copy(const std::vector<T> &hv, vex::vector<T> &dv, bool blocking = true) {
     dv.write_data(0, dv.size(), hv.data(), blocking);
 }
 
 /// Copy host pointer to device vector.
 template <class T>
-void copy(const T *hv, vex::vector<T> &dv, cl_bool blocking = CL_TRUE) {
+void copy(const T *hv, vex::vector<T> &dv, bool blocking = true) {
     dv.write_data(0, dv.size(), hv, blocking);
 }
 
@@ -912,7 +911,7 @@ typename std::enable_if<
     >::type
 #endif
 copy(InputIterator first, InputIterator last,
-        OutputIterator result, cl_bool blocking = CL_TRUE)
+        OutputIterator result, bool blocking = true)
 {
     first.vec->read_data(first.pos, last - first, &result[0], blocking);
     return result + (last - first);
@@ -934,7 +933,7 @@ typename std::enable_if<
     >::type
 #endif
 copy(InputIterator first, InputIterator last,
-        OutputIterator result, cl_bool blocking = CL_TRUE)
+        OutputIterator result, bool blocking = true)
 {
     result.vec->write_data(result.pos, last - first, &first[0], blocking);
     return result + (last - first);

@@ -348,10 +348,10 @@ template <typename T, class R>
 const vex::Reductor<T, R>& get_reductor(const std::vector<backend::command_queue> &queue)
 {
     // We will hold one static reductor per set of queues (or, rather, contexts):
-    static std::map< std::vector<cl_context>, vex::Reductor<T, R> > cache;
+    static std::map< std::vector<backend::kernel_cache_key>, vex::Reductor<T, R> > cache;
 
     // Extract OpenCL context handles from command queues:
-    std::vector<cl_context> ctx;
+    std::vector<backend::kernel_cache_key> ctx;
     ctx.reserve(queue.size());
     for(auto q = queue.begin(); q != queue.end(); ++q)
         ctx.push_back( vex::qctx(*q)() );

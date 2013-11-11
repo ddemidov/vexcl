@@ -42,11 +42,12 @@ THE SOFTWARE.
 namespace vex {
 namespace backend {
 
-typedef cl::Context      context;
-typedef cl::Device       device;
-typedef cl::CommandQueue command_queue;
-typedef cl_device_id     device_id;
-typedef cl_context       kernel_cache_key;
+typedef cl::Context                 context;
+typedef cl::Device                  device;
+typedef cl::CommandQueue            command_queue;
+typedef cl_command_queue_properties command_queue_properties;
+typedef cl_device_id                device_id;
+typedef cl_context                  kernel_cache_key;
 
 inline cl_device_id get_device_id(const cl::CommandQueue &q) {
     return q.getInfo<CL_QUEUE_DEVICE>()();
