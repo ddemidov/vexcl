@@ -43,6 +43,17 @@ THE SOFTWARE.
 namespace vex {
 namespace backend {
 
+typedef cl::LocalSpaceArg local_mem_arg;
+
+/// Helper function for generating LocalSpaceArg objects.
+/**
+ * This is a copy of cl::Local that is absent in some of cl.hpp versions.
+ */
+inline local_mem_arg local_mem(size_t size) {
+    cl::LocalSpaceArg ret = { size };
+    return ret;
+}
+
 struct fixed_workgroup_size_impl {
     size_t size;
 };
@@ -63,7 +74,7 @@ class kernel {
                const std::string &name,
                size_t smem_per_thread = 0
                )
-            : argpos(0), K(build_sources(qctx(queue), src), name.c_str())
+            : argpos(0), K(build_sources(queue.getInfo<CL_QUEUE_CONTEXT>(), src), name.c_str())
         {
             get_launch_cfg(queue,
                     [smem_per_thread](size_t wgs){ return wgs * smem_per_thread; });
@@ -74,7 +85,7 @@ class kernel {
                const std::string &src, const std::string &name,
                std::function<size_t(size_t)> smem
                )
-            : argpos(0), K(build_sources(qctx(queue), src), name.c_str())
+            : argpos(0), K(build_sources(queue.getInfo<CL_QUEUE_CONTEXT>(), src), name.c_str())
         {
             get_launch_cfg(queue, smem);
         }
@@ -85,7 +96,7 @@ class kernel {
                fixed_workgroup_size_impl wgs
                )
             : argpos(0),
-              K(build_sources(qctx(queue), src), name.c_str()),
+              K(build_sources(queue.getInfo<CL_QUEUE_CONTEXT>(), src), name.c_str()),
               w_size(wgs.size),
               g_size(w_size * num_workgroups(queue))
         { }
@@ -94,6 +105,12 @@ class kernel {
         template <class Arg>
         void push_arg(Arg &&arg) {
             K.setArg(argpos++, arg);
+        }
+
+        /// Adds an argument to the kernel.
+        template <typename T>
+        void push_arg(device_vector<T> &&arg) {
+            K.setArg(argpos++, arg.raw());
         }
 
         /// Adds local memory to the kernel.
@@ -140,9 +157,9 @@ class kernel {
         size_t   g_size;
 
         void get_launch_cfg(const cl::CommandQueue &queue, std::function<size_t(size_t)> smem) {
-            cl::Device dev = qdev(queue);
+            cl::Device dev = queue.getInfo<CL_QUEUE_DEVICE>();
 
-            if ( is_cpu(dev) ) {
+            if ( is_cpu(queue) ) {
                 w_size = 1;
             } else {
                 // Select workgroup size that would fit into the device.

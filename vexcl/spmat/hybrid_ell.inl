@@ -32,26 +32,26 @@ THE SOFTWARE.
  */
 
 struct SpMatHELL : public sparse_matrix {
-    const cl::CommandQueue &queue;
+    const backend::command_queue &queue;
     size_t n, pitch;
 
     struct matrix_part {
         struct {
             size_t     width;
-            cl::Buffer col;
-            cl::Buffer val;
+            backend::device_vector<col_t> col;
+            backend::device_vector<val_t> val;
         } ell;
 
         struct {
             size_t     nnz;
-            cl::Buffer row;
-            cl::Buffer col;
-            cl::Buffer val;
+            backend::device_vector<idx_t> row;
+            backend::device_vector<col_t> col;
+            backend::device_vector<val_t> val;
         } csr;
     } loc, rem;
 
     SpMatHELL(
-            const cl::CommandQueue &queue,
+            const backend::command_queue &queue,
             const idx_t *row, const col_t *col, const val_t *val,
             size_t row_begin, size_t row_end, size_t col_begin, size_t col_end,
             std::set<col_t> ghost_cols
@@ -191,45 +191,43 @@ struct SpMatHELL : public sparse_matrix {
         }
 
         /* Copy data to device */
-        cl::Context ctx = qctx(queue);
-
         if (loc.ell.width) {
-            loc.ell.col = cl::Buffer(ctx, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, bytes(lell_col), lell_col.data());
-            loc.ell.val = cl::Buffer(ctx, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, bytes(lell_val), lell_val.data());
+            loc.ell.col = backend::device_vector<col_t>(queue, lell_col.size(), lell_col.data());
+            loc.ell.val = backend::device_vector<val_t>(queue, lell_val.size(), lell_val.data());
         }
 
         if (loc.csr.nnz) {
-            loc.csr.row = cl::Buffer(ctx, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, bytes(lcsr_row), lcsr_row.data());
-            loc.csr.col = cl::Buffer(ctx, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, bytes(lcsr_col), lcsr_col.data());
-            loc.csr.val = cl::Buffer(ctx, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, bytes(lcsr_val), lcsr_val.data());
+            loc.csr.row = backend::device_vector<idx_t>(queue, lcsr_row.size(), lcsr_row.data());
+            loc.csr.col = backend::device_vector<col_t>(queue, lcsr_col.size(), lcsr_col.data());
+            loc.csr.val = backend::device_vector<val_t>(queue, lcsr_val.size(), lcsr_val.data());
         }
 
         if (rem.ell.width) {
-            rem.ell.col = cl::Buffer(ctx, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, bytes(rell_col), rell_col.data());
-            rem.ell.val = cl::Buffer(ctx, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, bytes(rell_val), rell_val.data());
+            rem.ell.col = backend::device_vector<col_t>(queue, rell_col.size(), rell_col.data());
+            rem.ell.val = backend::device_vector<val_t>(queue, rell_val.size(), rell_val.data());
         }
 
         if (rem.csr.nnz) {
-            rem.csr.row = cl::Buffer(ctx, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, bytes(rcsr_row), rcsr_row.data());
-            rem.csr.col = cl::Buffer(ctx, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, bytes(rcsr_col), rcsr_col.data());
-            rem.csr.val = cl::Buffer(ctx, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, bytes(rcsr_val), rcsr_val.data());
+            rem.csr.row = backend::device_vector<idx_t>(queue, rcsr_row.size(), rcsr_row.data());
+            rem.csr.col = backend::device_vector<col_t>(queue, rcsr_col.size(), rcsr_col.data());
+            rem.csr.val = backend::device_vector<val_t>(queue, rcsr_val.size(), rcsr_val.data());
         }
     }
 
     template <class OP>
     void mul(
             const matrix_part &part,
-            const cl::Buffer &in, const cl::Buffer &out, scalar_type scale
+            const backend::device_vector<val_t> &in,
+            const backend::device_vector<val_t> &out,
+            scalar_type scale
             ) const
     {
         using namespace detail;
 
         static kernel_cache cache;
 
-        cl::Context context = qctx(queue);
-        cl::Device  device  = qdev(queue);
-
-        auto kernel = cache.find(context());
+        auto key    = backend::cache_key(queue);
+        auto kernel = cache.find(key);
 
         if (kernel == cache.end()) {
             backend::source_generator source(queue);
@@ -268,7 +266,7 @@ struct SpMatHELL : public sparse_matrix {
             source.close("}").close("}");
 
             backend::kernel krn(queue, source.str(), "hybrid_ell_spmv");
-            kernel = cache.insert(std::make_pair(context(), krn)).first;
+            kernel = cache.insert(std::make_pair(key, krn)).first;
         }
 
         kernel->second.push_arg(n);
@@ -299,7 +297,9 @@ struct SpMatHELL : public sparse_matrix {
         kernel->second(queue);
     }
 
-    void mul_local(const cl::Buffer &in, const cl::Buffer &out,
+    void mul_local(
+            const backend::device_vector<val_t> &in,
+            const backend::device_vector<val_t> &out,
             scalar_type scale, bool append) const
     {
         if (append)
@@ -308,7 +308,10 @@ struct SpMatHELL : public sparse_matrix {
             mul<assign::SET>(loc, in, out, scale);
     }
 
-    void mul_remote(const cl::Buffer &in, const cl::Buffer &out, scalar_type scale) const
+    void mul_remote(
+            const backend::device_vector<val_t> &in,
+            const backend::device_vector<val_t> &out,
+            scalar_type scale) const
     {
         mul<assign::ADD>(rem, in, out, scale);
     }

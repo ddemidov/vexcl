@@ -150,7 +150,7 @@ inline void twiddle_code(std::ostringstream &o) {
 
 
 template <class T>
-inline kernel_call radix_kernel(bool once, const cl::CommandQueue &queue, size_t n, size_t batch, bool invert, pow radix, size_t p, const cl::Buffer &in, const cl::Buffer &out) {
+inline kernel_call radix_kernel(bool once, const backend::command_queue &queue, size_t n, size_t batch, bool invert, pow radix, size_t p, const cl::Buffer &in, const cl::Buffer &out) {
     std::ostringstream o;
     o << std::setprecision(25);
     const auto device = qdev(queue);
@@ -184,7 +184,7 @@ inline kernel_call radix_kernel(bool once, const cl::CommandQueue &queue, size_t
 
 
 template <class T>
-inline kernel_call transpose_kernel(const cl::CommandQueue &queue, size_t width, size_t height, const cl::Buffer &in, const cl::Buffer &out) {
+inline kernel_call transpose_kernel(const backend::command_queue &queue, size_t width, size_t height, const cl::Buffer &in, const cl::Buffer &out) {
     std::ostringstream o;
     const auto dev = qdev(queue);
     kernel_common<T>(o, dev);
@@ -245,7 +245,7 @@ inline kernel_call transpose_kernel(const cl::CommandQueue &queue, size_t width,
 
 
 template <class T>
-inline kernel_call bluestein_twiddle(const cl::CommandQueue &queue, size_t n, bool inverse, const cl::Buffer &out) {
+inline kernel_call bluestein_twiddle(const backend::command_queue &queue, size_t n, bool inverse, const cl::Buffer &out) {
     std::ostringstream o;
     kernel_common<T>(o, qdev(queue));
     twiddle_code<T>(o);
@@ -267,7 +267,7 @@ inline kernel_call bluestein_twiddle(const cl::CommandQueue &queue, size_t n, bo
 }
 
 template <class T>
-inline kernel_call bluestein_pad_kernel(const cl::CommandQueue &queue, size_t n, size_t m, const cl::Buffer &in, const cl::Buffer &out) {
+inline kernel_call bluestein_pad_kernel(const backend::command_queue &queue, size_t n, size_t m, const cl::Buffer &in, const cl::Buffer &out) {
     std::ostringstream o;
     kernel_common<T>(o, qdev(queue));
 
@@ -296,7 +296,7 @@ inline kernel_call bluestein_pad_kernel(const cl::CommandQueue &queue, size_t n,
 }
 
 template <class T>
-inline kernel_call bluestein_mul_in(const cl::CommandQueue &queue, bool inverse, size_t batch, size_t radix, size_t p, size_t threads, size_t stride, const cl::Buffer &data, const cl::Buffer &exp, const cl::Buffer &out) {
+inline kernel_call bluestein_mul_in(const backend::command_queue &queue, bool inverse, size_t batch, size_t radix, size_t p, size_t threads, size_t stride, const cl::Buffer &data, const cl::Buffer &exp, const cl::Buffer &out) {
     std::ostringstream o;
     kernel_common<T>(o, qdev(queue));
     mul_code(o, false);
@@ -346,7 +346,7 @@ inline kernel_call bluestein_mul_in(const cl::CommandQueue &queue, bool inverse,
 }
 
 template <class T>
-inline kernel_call bluestein_mul_out(const cl::CommandQueue &queue, size_t batch, size_t p, size_t radix, size_t threads, size_t stride, const cl::Buffer &data, const cl::Buffer &exp, const cl::Buffer &out) {
+inline kernel_call bluestein_mul_out(const backend::command_queue &queue, size_t batch, size_t p, size_t radix, size_t threads, size_t stride, const cl::Buffer &data, const cl::Buffer &exp, const cl::Buffer &out) {
     std::ostringstream o;
     kernel_common<T>(o, qdev(queue));
     mul_code(o, false);
@@ -387,7 +387,7 @@ inline kernel_call bluestein_mul_out(const cl::CommandQueue &queue, size_t batch
 }
 
 template <class T>
-inline kernel_call bluestein_mul(const cl::CommandQueue &queue, size_t n, size_t batch, const cl::Buffer &data, const cl::Buffer &exp, const cl::Buffer &out) {
+inline kernel_call bluestein_mul(const backend::command_queue &queue, size_t n, size_t batch, const cl::Buffer &data, const cl::Buffer &exp, const cl::Buffer &out) {
     std::ostringstream o;
     kernel_common<T>(o, qdev(queue));
     mul_code(o, false);

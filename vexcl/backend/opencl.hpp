@@ -31,14 +31,21 @@ THE SOFTWARE.
  * \brief  OpenCL backend for compute kernel generation/compilation/launching.
  */
 
+#ifndef VEXCL_BACKEND_OPENCL
+#  define VEXCL_BACKEND_OPENCL
+#endif
+
 #ifndef __CL_ENABLE_EXCEPTIONS
 #  define __CL_ENABLE_EXCEPTIONS
 #endif
 #include <CL/cl.hpp>
 
+#include <vexcl/backend/opencl/context.hpp>
 #include <vexcl/backend/opencl/filter.hpp>
+#include <vexcl/backend/opencl/device_vector.hpp>
 #include <vexcl/backend/opencl/source.hpp>
 #include <vexcl/backend/opencl/compiler.hpp>
 #include <vexcl/backend/opencl/kernel.hpp>
+#include <vexcl/backend/opencl/error.hpp>
 
 #endif

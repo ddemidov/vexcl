@@ -6,13 +6,12 @@
 #include <algorithm>
 #include <vexcl/backend.hpp>
 #include <vexcl/devlist.hpp>
-using namespace vex;
 
 int main() {
     using namespace std;
 
     cout << "OpenCL devices:" << endl << endl;
-    auto dev = device_list(Filter::All);
+    auto dev = vex::backend::device_list(vex::Filter::Any);
     for (auto d = dev.begin(); d != dev.end(); d++) {
         cout << "  " << d->getInfo<CL_DEVICE_NAME>() << endl
              << "    " << left << setw(32) << "CL_PLATFORM_NAME" << " = "

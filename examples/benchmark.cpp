@@ -767,7 +767,7 @@ int main(int argc, char *argv[]) {
         }
 
         std::cout << prof << std::endl;
-    } catch (const cl::Error &e) {
+    } catch (const vex::backend::error &e) {
         std::cerr << e << std::endl;
         return 1;
     }

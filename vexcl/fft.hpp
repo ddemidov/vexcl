@@ -60,7 +60,7 @@ struct FFT {
     fft::plan<Tin, Planner> plan;
 
     /// 1D constructor
-    FFT(const std::vector<cl::CommandQueue> &queues,
+    FFT(const std::vector<backend::command_queue> &queues,
         size_t length, fft::direction dir = fft::forward,
         const Planner &planner = Planner())
         : plan(queues, std::vector<size_t>(1, length), std::vector<fft::direction>(1, dir), planner) {}
@@ -72,7 +72,7 @@ struct FFT {
 #endif
 
     /// N-D constructors
-    FFT(const std::vector<cl::CommandQueue> &queues,
+    FFT(const std::vector<backend::command_queue> &queues,
         const std::vector<size_t> &lengths, fft::direction dir = fft::forward,
         const Planner &planner = Planner())
         : plan(queues, lengths, std::vector<fft::direction>(lengths.size(), dir), planner) {}
@@ -83,7 +83,7 @@ struct FFT {
         : plan(current_context().queue(), lengths, std::vector<fft::direction>(lengths.size(), dir), planner) {}
 #endif
 
-    FFT(const std::vector<cl::CommandQueue> &queues,
+    FFT(const std::vector<backend::command_queue> &queues,
         const std::vector<size_t> &lengths,
         const std::vector<fft::direction> &dirs,
         const Planner &planner = Planner())
@@ -98,7 +98,7 @@ struct FFT {
 
 
 #ifndef BOOST_NO_INITIALIZER_LISTS
-    FFT(const std::vector<cl::CommandQueue> &queues,
+    FFT(const std::vector<backend::command_queue> &queues,
         const std::initializer_list<size_t> &lengths, fft::direction dir = fft::forward,
         const Planner &planner = Planner())
         : plan(queues, lengths, std::vector<fft::direction>(lengths.size(), dir), planner) {}
@@ -109,7 +109,7 @@ struct FFT {
         : plan(current_context().queue(), lengths, std::vector<fft::direction>(lengths.size(), dir), planner) {}
 #endif
 
-    FFT(const std::vector<cl::CommandQueue> &queues,
+    FFT(const std::vector<backend::command_queue> &queues,
         const std::initializer_list<size_t> &lengths,
         const std::initializer_list<fft::direction> &dirs,
         const Planner &planner = Planner())

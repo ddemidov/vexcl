@@ -188,7 +188,7 @@ struct plan {
     VEX_FUNCTION(r2c, T2(Ts), "return (" + type_name<T2>() + ")(prm1, 0);");
     VEX_FUNCTION(c2r, Ts(T2), "return prm1.x;");
 
-    const std::vector<cl::CommandQueue> &queues;
+    const std::vector<backend::command_queue> &queues;
     Planner planner;
     Ts scale;
     const std::vector<size_t> sizes;
@@ -204,7 +204,7 @@ struct plan {
     //  1D case: {n}.
     //  2D case: {h, w} in row-major format: x + y * w. (like FFTw)
     //  etc.
-    plan(const std::vector<cl::CommandQueue> &_queues, const std::vector<size_t> sizes,
+    plan(const std::vector<backend::command_queue> &_queues, const std::vector<size_t> sizes,
         const std::vector<direction> dirs, const Planner &planner = Planner())
         : queues(_queues), planner(planner), sizes(sizes), profile(NULL)
     {

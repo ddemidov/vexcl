@@ -75,7 +75,7 @@ struct kernel_param_declaration< elem_index >
 {
     static void get(backend::source_generator &src,
             const elem_index&,
-            const cl::Device&, const std::string &prm_name,
+            const backend::command_queue&, const std::string &prm_name,
             detail::kernel_generator_state_ptr)
     {
         src.parameter<size_t>(prm_name);
@@ -87,7 +87,7 @@ struct partial_vector_expr< elem_index >
 {
     static void get(backend::source_generator &src,
             const elem_index&,
-            const cl::Device&, const std::string &prm_name,
+            const backend::command_queue&, const std::string &prm_name,
             detail::kernel_generator_state_ptr)
     {
         src << "(" << prm_name << " + idx)";
@@ -98,7 +98,7 @@ template <>
 struct kernel_arg_setter< elem_index >
 {
     static void set(const elem_index &term,
-            backend::kernel &kernel, unsigned/*device*/, size_t index_offset,
+            backend::kernel &kernel, unsigned/*part*/, size_t index_offset,
             detail::kernel_generator_state_ptr)
     {
         kernel.push_arg(term.offset + index_offset);
@@ -109,7 +109,7 @@ template <>
 struct expression_properties< elem_index >
 {
     static void get(const elem_index &term,
-            std::vector<cl::CommandQueue> &/*queue_list*/,
+            std::vector<backend::command_queue> &/*queue_list*/,
             std::vector<size_t> &/*partition*/,
             size_t &size
             )

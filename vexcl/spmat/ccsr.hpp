@@ -67,22 +67,22 @@ struct SpMatCCSR {
      * \param col   column positions of nonzero elements wrt to diagonal.
      * \param val   values of nonzero elements of the matrix.
      */
-    SpMatCCSR(const cl::CommandQueue &queue, size_t n, size_t m,
+    SpMatCCSR(const backend::command_queue &queue, size_t n, size_t m,
             const idx_t *idx, const idx_t *row, const col_t *col, const val_t *val
             )
         : queue(queue), n(n),
-          idx(qctx(queue), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(idx_t) * n,      const_cast<idx_t*>(idx)),
-          row(qctx(queue), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(idx_t) * (m+1),  const_cast<idx_t*>(row)),
-          col(qctx(queue), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(col_t) * row[m], const_cast<col_t*>(col)),
-          val(qctx(queue), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(val_t) * row[m], const_cast<val_t*>(val))
+          idx(queue, n,      idx, CL_MEM_READ_ONLY),
+          row(queue, (m+1),  row, CL_MEM_READ_ONLY),
+          col(queue, row[m], col, CL_MEM_READ_ONLY),
+          val(queue, row[m], val, CL_MEM_READ_ONLY)
     { }
 
-    cl::CommandQueue queue;
+    backend::command_queue queue;
     size_t n;
-    cl::Buffer idx;
-    cl::Buffer row;
-    cl::Buffer col;
-    cl::Buffer val;
+    backend::device_vector<idx_t> idx;
+    backend::device_vector<idx_t> row;
+    backend::device_vector<col_t> col;
+    backend::device_vector<val_t> val;
 };
 
 /// \cond INTERNAL
@@ -177,7 +177,7 @@ template <typename val_t, typename col_t, typename idx_t, typename T>
 struct terminal_preamble< ccsr_product<val_t, col_t, idx_t, T> > {
     static void get(backend::source_generator &src,
             const ccsr_product<val_t, col_t, idx_t, T>&,
-            const cl::Device&, const std::string &prm_name,
+            const backend::command_queue&, const std::string &prm_name,
             detail::kernel_generator_state_ptr)
     {
         typedef decltype(val_t() * T()) res_t;
@@ -206,7 +206,7 @@ template <typename val_t, typename col_t, typename idx_t, typename T>
 struct kernel_param_declaration< ccsr_product<val_t, col_t, idx_t, T> > {
     static void get(backend::source_generator &src,
             const ccsr_product<val_t, col_t, idx_t, T>&,
-            const cl::Device&, const std::string &prm_name,
+            const backend::command_queue&, const std::string &prm_name,
             detail::kernel_generator_state_ptr)
     {
         src.template parameter< global_ptr<const idx_t> >(prm_name) << "_idx";
@@ -221,7 +221,7 @@ template <typename val_t, typename col_t, typename idx_t, typename T>
 struct partial_vector_expr< ccsr_product<val_t, col_t, idx_t, T> > {
     static void get(backend::source_generator &src,
             const ccsr_product<val_t, col_t, idx_t, T>&,
-            const cl::Device&, const std::string &prm_name,
+            const backend::command_queue&, const std::string &prm_name,
             detail::kernel_generator_state_ptr)
     {
         src << prm_name << "_spmv" << "("
@@ -236,23 +236,23 @@ struct partial_vector_expr< ccsr_product<val_t, col_t, idx_t, T> > {
 template <typename val_t, typename col_t, typename idx_t, typename T>
 struct kernel_arg_setter< ccsr_product<val_t, col_t, idx_t, T> > {
     static void set(const ccsr_product<val_t, col_t, idx_t, T> &term,
-            backend::kernel &kernel, unsigned device, size_t/*index_offset*/,
+            backend::kernel &kernel, unsigned part, size_t/*index_offset*/,
             detail::kernel_generator_state_ptr)
     {
-        assert(device == 0);
+        assert(part == 0);
 
         kernel.push_arg(term.A.idx);
         kernel.push_arg(term.A.row);
         kernel.push_arg(term.A.col);
         kernel.push_arg(term.A.val);
-        kernel.push_arg(term.x(device));
+        kernel.push_arg(term.x(part));
     }
 };
 
 template <typename val_t, typename col_t, typename idx_t, typename T>
 struct expression_properties< ccsr_product<val_t, col_t, idx_t, T> > {
     static void get(const ccsr_product<val_t, col_t, idx_t, T> &term,
-            std::vector<cl::CommandQueue> &queue_list,
+            std::vector<backend::command_queue> &queue_list,
             std::vector<size_t> &partition,
             size_t &size
             )

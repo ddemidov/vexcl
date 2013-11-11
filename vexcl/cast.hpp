@@ -89,10 +89,10 @@ template <typename T, class Expr>
 struct terminal_preamble< casted_expession<T, Expr> > {
     static void get(backend::source_generator &src,
             const casted_expession<T, Expr> &term,
-            const cl::Device &dev, const std::string &prm_name,
+            const backend::command_queue &queue, const std::string &prm_name,
             detail::kernel_generator_state_ptr state)
     {
-        detail::output_terminal_preamble termpream(src, dev, prm_name, state);
+        detail::output_terminal_preamble termpream(src, queue, prm_name, state);
         boost::proto::eval(boost::proto::as_child(term.expr), termpream);
     }
 };
@@ -101,10 +101,10 @@ template <typename T, class Expr>
 struct kernel_param_declaration< casted_expession<T, Expr> > {
     static void get(backend::source_generator &src,
             const casted_expession<T, Expr> &term,
-            const cl::Device &dev, const std::string &prm_name,
+            const backend::command_queue &queue, const std::string &prm_name,
             detail::kernel_generator_state_ptr state)
     {
-        detail::declare_expression_parameter declare(src, dev, prm_name, state);
+        detail::declare_expression_parameter declare(src, queue, prm_name, state);
         detail::extract_terminals()(boost::proto::as_child(term.expr),  declare);
     }
 };
@@ -113,10 +113,10 @@ template <typename T, class Expr>
 struct local_terminal_init< casted_expession<T, Expr> > {
     static void get(backend::source_generator &src,
             const casted_expession<T, Expr> &term,
-            const cl::Device &dev, const std::string &prm_name,
+            const backend::command_queue &queue, const std::string &prm_name,
             detail::kernel_generator_state_ptr state)
     {
-        detail::output_local_preamble init_ctx(src, dev, prm_name, state);
+        detail::output_local_preamble init_ctx(src, queue, prm_name, state);
         boost::proto::eval(boost::proto::as_child(term.expr), init_ctx);
     }
 };
@@ -125,10 +125,10 @@ template <typename T, class Expr>
 struct partial_vector_expr< casted_expession<T, Expr> > {
     static void get(backend::source_generator &src,
             const casted_expession<T, Expr> &term,
-            const cl::Device &dev, const std::string &prm_name,
+            const backend::command_queue &queue, const std::string &prm_name,
             detail::kernel_generator_state_ptr state)
     {
-        detail::vector_expr_context expr_ctx(src, dev, prm_name, state);
+        detail::vector_expr_context expr_ctx(src, queue, prm_name, state);
         boost::proto::eval(boost::proto::as_child(term.expr), expr_ctx);
     }
 };
@@ -147,7 +147,7 @@ struct kernel_arg_setter< casted_expession<T, Expr> > {
 template <typename T, class Expr>
 struct expression_properties< casted_expession<T, Expr> > {
     static void get(const casted_expession<T, Expr> &term,
-            std::vector<cl::CommandQueue> &queue_list,
+            std::vector<backend::command_queue> &queue_list,
             std::vector<size_t> &partition,
             size_t &size
             )

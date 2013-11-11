@@ -40,11 +40,6 @@ THE SOFTWARE.
 #include <boost/mpl/max.hpp>
 #include <boost/any.hpp>
 
-#ifndef __CL_ENABLE_EXCEPTIONS
-#  define __CL_ENABLE_EXCEPTIONS
-#endif
-#include <CL/cl.hpp>
-
 #include <vexcl/backend.hpp>
 #include <vexcl/types.hpp>
 #include <vexcl/util.hpp>
@@ -142,26 +137,26 @@ struct value_type<T,
 template <class T>
 struct terminal_preamble {
     static void get(backend::source_generator&, const T&,
-            const cl::Device&, const std::string &/*prm_name*/,
+            const backend::command_queue&, const std::string &/*prm_name*/,
             detail::kernel_generator_state_ptr)
     { }
 };
 
 template <class T>
 void get_terminal_preamble(backend::source_generator &src,
-        const T &term, const cl::Device &dev, const std::string &prm_name,
+        const T &term, const backend::command_queue &queue, const std::string &prm_name,
         detail::kernel_generator_state_ptr state)
 {
     terminal_preamble<
         typename std::decay<T>::type
-    >::get(src, term, dev, prm_name, state);
+    >::get(src, term, queue, prm_name, state);
 }
 
 // How to declare OpenCL kernel parameters for a terminal:
 template <class Term, class Enable = void>
 struct kernel_param_declaration {
     static void get(backend::source_generator &src, const Term&,
-            const cl::Device&, const std::string &prm_name,
+            const backend::command_queue&, const std::string &prm_name,
             detail::kernel_generator_state_ptr)
     {
         src.parameter<Term>(prm_name);
@@ -170,38 +165,38 @@ struct kernel_param_declaration {
 
 template <class T>
 void get_kernel_param_declaration(backend::source_generator &src,
-        const T &term, const cl::Device &dev, const std::string &prm_name,
+        const T &term, const backend::command_queue &queue, const std::string &prm_name,
         detail::kernel_generator_state_ptr state)
 {
     kernel_param_declaration<
         typename std::decay<T>::type
-    >::get(src, term, dev, prm_name, state);
+    >::get(src, term, queue, prm_name, state);
 }
 
 // Local terminal initialization (e.g. temporary declaration)
 template <class Term, class Enable = void>
 struct local_terminal_init {
     static void get(backend::source_generator&, const Term&,
-            const cl::Device&, const std::string &/*prm_name*/,
+            const backend::command_queue&, const std::string &/*prm_name*/,
             detail::kernel_generator_state_ptr)
     { }
 };
 
 template <class T>
 void get_local_terminal_init(backend::source_generator &src,
-        const T &term, const cl::Device &dev, const std::string &prm_name,
+        const T &term, const backend::command_queue &queue, const std::string &prm_name,
         detail::kernel_generator_state_ptr state)
 {
     local_terminal_init<
         typename std::decay<T>::type
-    >::get(src, term, dev, prm_name, state);
+    >::get(src, term, queue, prm_name, state);
 }
 
 // Partial expression for a terminal:
 template <class Term, class Enable = void>
 struct partial_vector_expr {
     static void get(backend::source_generator &src, const Term&,
-            const cl::Device&, const std::string &prm_name,
+            const backend::command_queue&, const std::string &prm_name,
             detail::kernel_generator_state_ptr)
     {
         src << prm_name;
@@ -210,12 +205,12 @@ struct partial_vector_expr {
 
 template <class T>
 void get_partial_vector_expr(backend::source_generator &src,
-        const T &term, const cl::Device &dev, const std::string &prm_name,
+        const T &term, const backend::command_queue &queue, const std::string &prm_name,
         detail::kernel_generator_state_ptr state)
 {
     partial_vector_expr<
         typename std::decay<T>::type
-    >::get(src, term, dev, prm_name, state);
+    >::get(src, term, queue, prm_name, state);
 }
 
 // How to set OpenCL kernel arguments for a terminal:
@@ -243,7 +238,7 @@ void set_kernel_args(
 template <class T, class Enable = void>
 struct expression_properties {
     static void get(const T &/*term*/,
-            std::vector<cl::CommandQueue> &/*queue_list*/,
+            std::vector<backend::command_queue> &/*queue_list*/,
             std::vector<size_t> &/*partition*/,
             size_t &/*size*/
             )
@@ -253,7 +248,7 @@ struct expression_properties {
 template <class T>
 void get_expression_properties(
         const T &term,
-        std::vector<cl::CommandQueue> &queue_list,
+        std::vector<backend::command_queue> &queue_list,
         std::vector<size_t> &partition,
         size_t &size
         )
@@ -1171,17 +1166,17 @@ struct extract_terminals
 // Base class for stateful expression evaluation contexts .
 struct expression_context {
     backend::source_generator &src;
-    const cl::Device &device;
+    const backend::command_queue &queue;
     mutable int prm_idx;
     int fun_idx;
     std::string prefix;
     kernel_generator_state_ptr state;
 
     expression_context(
-            backend::source_generator &src, const cl::Device &device,
+            backend::source_generator &src, const backend::command_queue &queue,
             const std::string &prefix, kernel_generator_state_ptr state
             )
-        : src(src), device(device), prm_idx(0), fun_idx(0),
+        : src(src), queue(queue), prm_idx(0), fun_idx(0),
           prefix(prefix), state(state)
     {}
 };
@@ -1190,10 +1185,10 @@ struct expression_context {
 struct output_terminal_preamble : public expression_context {
 
     output_terminal_preamble(
-            backend::source_generator &src, const cl::Device &device,
+            backend::source_generator &src, const backend::command_queue &queue,
             const std::string &prefix, kernel_generator_state_ptr state
             )
-        : expression_context(src, device, prefix, state)
+        : expression_context(src, queue, prefix, state)
     {}
 
     // Any expression except user function or terminal is only interesting
@@ -1273,7 +1268,7 @@ struct output_terminal_preamble : public expression_context {
             std::ostringstream prm_name;
             prm_name << ctx.prefix << "_" << ++ctx.prm_idx;
 
-            traits::get_terminal_preamble(ctx.src, term, ctx.device,
+            traits::get_terminal_preamble(ctx.src, term, ctx.queue,
                     prm_name.str(), ctx.state);
         }
 
@@ -1285,7 +1280,7 @@ struct output_terminal_preamble : public expression_context {
             prm_name << ctx.prefix << "_" << ++ctx.prm_idx;
 
             traits::get_terminal_preamble(ctx.src, boost::proto::value(term),
-                    ctx.device, prm_name.str(), ctx.state);
+                    ctx.queue, prm_name.str(), ctx.state);
         }
     };
 };
@@ -1294,11 +1289,11 @@ struct output_terminal_preamble : public expression_context {
 struct output_local_preamble : public expression_context {
 
     output_local_preamble(
-            backend::source_generator &src, const cl::Device &device,
+            backend::source_generator &src, const backend::command_queue &queue,
             const std::string &prefix,
             kernel_generator_state_ptr state
             )
-        : expression_context(src, device, prefix, state)
+        : expression_context(src, queue, prefix, state)
     {}
 
     // Any expression except user function or terminal is only interesting
@@ -1342,7 +1337,7 @@ struct output_local_preamble : public expression_context {
             std::ostringstream prm_name;
             prm_name << ctx.prefix << "_" << ++ctx.prm_idx;
 
-            traits::get_local_terminal_init(ctx.src, term, ctx.device,
+            traits::get_local_terminal_init(ctx.src, term, ctx.queue,
                     prm_name.str(), ctx.state);
         }
 
@@ -1354,7 +1349,7 @@ struct output_local_preamble : public expression_context {
             prm_name << ctx.prefix << "_" << ++ctx.prm_idx;
 
             traits::get_local_terminal_init(ctx.src, boost::proto::value(term),
-                    ctx.device, prm_name.str(), ctx.state);
+                    ctx.queue, prm_name.str(), ctx.state);
         }
     };
 };
@@ -1363,11 +1358,11 @@ struct output_local_preamble : public expression_context {
 struct vector_expr_context : public expression_context {
 
     vector_expr_context(
-            backend::source_generator &src, const cl::Device &device,
+            backend::source_generator &src, const backend::command_queue &queue,
             const std::string &prefix,
             kernel_generator_state_ptr state
             )
-        : expression_context(src, device, prefix, state)
+        : expression_context(src, queue, prefix, state)
     {}
 
     template <typename Expr, typename Tag = typename Expr::proto_tag>
@@ -1519,7 +1514,7 @@ struct vector_expr_context : public expression_context {
             std::ostringstream prm_name;
             prm_name << ctx.prefix << "_" << ++ctx.prm_idx;
 
-            traits::get_partial_vector_expr(ctx.src, term, ctx.device,
+            traits::get_partial_vector_expr(ctx.src, term, ctx.queue,
                     prm_name.str(), ctx.state);
         }
 
@@ -1530,7 +1525,7 @@ struct vector_expr_context : public expression_context {
             prm_name << ctx.prefix << "_" << ++ctx.prm_idx;
 
             traits::get_partial_vector_expr(ctx.src, boost::proto::value(term),
-                    ctx.device, prm_name.str(), ctx.state);
+                    ctx.queue, prm_name.str(), ctx.state);
         }
     };
 };
@@ -1538,10 +1533,10 @@ struct vector_expr_context : public expression_context {
 struct declare_expression_parameter : expression_context {
 
     declare_expression_parameter(backend::source_generator &src,
-            const cl::Device &device, const std::string &prefix,
+            const backend::command_queue &queue, const std::string &prefix,
             kernel_generator_state_ptr state
             )
-        : expression_context(src, device, prefix, state)
+        : expression_context(src, queue, prefix, state)
     {}
 
     template <typename Term>
@@ -1550,7 +1545,7 @@ struct declare_expression_parameter : expression_context {
         std::ostringstream prm_name;
         prm_name << prefix << "_" << ++prm_idx;
 
-        traits::get_kernel_param_declaration(src, term, device,
+        traits::get_kernel_param_declaration(src, term, queue,
                 prm_name.str(), state);
     }
 
@@ -1561,37 +1556,37 @@ struct declare_expression_parameter : expression_context {
         prm_name << prefix << "_" << ++prm_idx;
 
         traits::get_kernel_param_declaration(src, boost::proto::value(term),
-                device, prm_name.str(), state);
+                queue, prm_name.str(), state);
     }
 };
 
 struct set_expression_argument {
     backend::kernel &krn;
-    unsigned dev;
+    unsigned part;
     size_t part_start;
     kernel_generator_state_ptr state;
 
-    set_expression_argument(backend::kernel &krn, unsigned dev, size_t part_start,
+    set_expression_argument(backend::kernel &krn, unsigned part, size_t part_start,
             kernel_generator_state_ptr state
             )
-        : krn(krn), dev(dev), part_start(part_start), state(state)
+        : krn(krn), part(part), part_start(part_start), state(state)
     {}
 
     template <typename Term>
     typename std::enable_if<traits::terminal_is_value<Term>::value, void>::type
     operator()(const Term &term) const {
-        traits::set_kernel_args(term, krn, dev, part_start, state);
+        traits::set_kernel_args(term, krn, part, part_start, state);
     }
 
     template <typename Term>
     typename std::enable_if<!traits::terminal_is_value<Term>::value, void>::type
     operator()(const Term &term) const {
-        traits::set_kernel_args(boost::proto::value(term), krn, dev, part_start, state);
+        traits::set_kernel_args(boost::proto::value(term), krn, part, part_start, state);
     }
 };
 
 struct get_expression_properties {
-    mutable std::vector<cl::CommandQueue> queue;
+    mutable std::vector<backend::command_queue> queue;
     mutable std::vector<size_t> part;
     mutable size_t size;
 
@@ -1989,14 +1984,14 @@ struct cache_register {
     }
 
     static void clear();
-    static void erase(cl_context key);
+    static void erase(backend::kernel_cache_key key);
 };
 
 template <bool dummy>
 std::deque<kernel_cache*> cache_register<dummy>::caches;
 
 struct kernel_cache {
-    typedef std::map<cl_context, kernel_cache_entry> store_type;
+    typedef std::map<backend::kernel_cache_key, kernel_cache_entry> store_type;
 
     store_type store;
 
@@ -2022,7 +2017,7 @@ struct kernel_cache {
         store.clear();
     }
 
-    void erase(cl_context key) {
+    void erase(backend::kernel_cache_key key) {
         store.erase(key);
     }
 };
@@ -2044,22 +2039,20 @@ void cache_register<dummy>::erase(cl_context key) {
 //---------------------------------------------------------------------------
 template <class OP, class LHS, class RHS>
 void assign_expression(LHS &lhs, const RHS &rhs,
-        const std::vector<cl::CommandQueue> &queue,
+        const std::vector<backend::command_queue> &queue,
         const std::vector<size_t> &part
         )
 {
     static kernel_cache cache;
 
     for(unsigned d = 0; d < queue.size(); d++) {
-        cl::Context context = qctx(queue[d]);
-        cl::Device  device  = qdev(queue[d]);
-
-        auto kernel = cache.find(context());
+        auto key    = backend::cache_key(queue[d]);
+        auto kernel = cache.find(key);
 
         if (kernel == cache.end()) {
             backend::source_generator source(queue[d]);
 
-            output_terminal_preamble termpream(source, device, "prm", empty_state());
+            output_terminal_preamble termpream(source, queue[d], "prm", empty_state());
 
             boost::proto::eval(boost::proto::as_child(lhs), termpream);
             boost::proto::eval(boost::proto::as_child(rhs), termpream);
@@ -2068,7 +2061,7 @@ void assign_expression(LHS &lhs, const RHS &rhs,
                 .open("(")
                     .parameter<size_t>("n");
 
-            declare_expression_parameter declare(source, device, "prm", empty_state());
+            declare_expression_parameter declare(source, queue[d], "prm", empty_state());
 
             extract_terminals()(boost::proto::as_child(lhs), declare);
             extract_terminals()(boost::proto::as_child(rhs), declare);
@@ -2078,11 +2071,11 @@ void assign_expression(LHS &lhs, const RHS &rhs,
                     .grid_stride_loop()
                     .open("{");
 
-            output_local_preamble loc_init(source, device, "prm", empty_state());
+            output_local_preamble loc_init(source, queue[d], "prm", empty_state());
             boost::proto::eval(boost::proto::as_child(lhs), loc_init);
             boost::proto::eval(boost::proto::as_child(rhs), loc_init);
 
-            vector_expr_context expr_ctx(source, device, "prm", empty_state());
+            vector_expr_context expr_ctx(source, queue[d], "prm", empty_state());
 
             source.new_line();
             boost::proto::eval(boost::proto::as_child(lhs), expr_ctx);
@@ -2094,7 +2087,7 @@ void assign_expression(LHS &lhs, const RHS &rhs,
 
             backend::kernel krn(queue[d], source.str(), "vexcl_vector_kernel");
 
-            kernel = cache.insert(std::make_pair(context(), krn)).first;
+            kernel = cache.insert(std::make_pair(key, krn)).first;
         }
 
         if (size_t psize = part[d + 1] - part[d]) {
@@ -2137,11 +2130,11 @@ template <class OP, class LHS, class RHS>
 struct subexpression_assigner {
     const LHS &lhs;
     const RHS &rhs;
-    const std::vector<cl::CommandQueue> &queue;
+    const std::vector<backend::command_queue> &queue;
     const std::vector<size_t> &part;
 
     subexpression_assigner(LHS &lhs, const RHS &rhs,
-            const std::vector<cl::CommandQueue> &queue,
+            const std::vector<backend::command_queue> &queue,
             const std::vector<size_t> &part
             )
         : lhs(lhs), rhs(rhs), queue(queue), part(part) {}
@@ -2165,11 +2158,11 @@ struct preamble_constructor {
     mutable detail::output_terminal_preamble rhs_ctx;
 
     preamble_constructor(const LHS &lhs, const RHS &rhs,
-            backend::source_generator &source, const cl::Device &device
+            backend::source_generator &source, const backend::command_queue &queue
             )
         : lhs(lhs), rhs(rhs), state(empty_state()),
-          lhs_ctx(source, device, "lhs", state),
-          rhs_ctx(source, device, "rhs", state)
+          lhs_ctx(source, queue, "lhs", state),
+          rhs_ctx(source, queue, "rhs", state)
     { }
 
     template <size_t I>
@@ -2189,10 +2182,10 @@ struct parameter_declarator {
     mutable detail::declare_expression_parameter rhs_ctx;
 
     parameter_declarator(const LHS &lhs, const RHS &rhs,
-            backend::source_generator &source, const cl::Device &device)
+            backend::source_generator &source, const backend::command_queue &queue)
         : lhs(lhs), rhs(rhs), state(empty_state()),
-          lhs_ctx(source, device, "lhs", state),
-          rhs_ctx(source, device, "rhs", state)
+          lhs_ctx(source, queue, "lhs", state),
+          rhs_ctx(source, queue, "rhs", state)
     { }
 
     template <size_t I>
@@ -2214,10 +2207,10 @@ struct expression_init {
     mutable detail::vector_expr_context   rhs_ctx;
 
     expression_init(const LHS &lhs, const RHS &rhs,
-            backend::source_generator &source, const cl::Device &device)
+            backend::source_generator &source, const backend::command_queue &queue)
         : lhs(lhs), rhs(rhs), source(source), state(empty_state()),
-          rhs_pre(source, device, "rhs", state),
-          rhs_ctx(source, device, "rhs", state)
+          rhs_pre(source, queue, "rhs", state),
+          rhs_ctx(source, queue, "rhs", state)
     { }
 
     template <size_t I>
@@ -2246,10 +2239,10 @@ struct expression_finalize {
     mutable detail::vector_expr_context   lhs_ctx;
 
     expression_finalize(const LHS &lhs,
-            backend::source_generator &source, const cl::Device &device)
+            backend::source_generator &source, const backend::command_queue &queue)
         : lhs(lhs), source(source), state(empty_state()),
-          lhs_pre(source, device, "lhs", state),
-          lhs_ctx(source, device, "lhs", state)
+          lhs_pre(source, queue, "lhs", state),
+          lhs_ctx(source, queue, "lhs", state)
     { }
 
     template <size_t I>
@@ -2269,8 +2262,8 @@ struct kernel_arg_setter {
     mutable detail::set_expression_argument ctx;
 
     kernel_arg_setter(const LHS &lhs, const RHS &rhs,
-            backend::kernel &krn, unsigned dev, size_t offset)
-        : lhs(lhs), rhs(rhs), ctx(krn, dev, offset, empty_state())
+            backend::kernel &krn, unsigned part, size_t offset)
+        : lhs(lhs), rhs(rhs), ctx(krn, part, offset, empty_state())
     { }
 
     template <size_t I>
@@ -2282,7 +2275,7 @@ struct kernel_arg_setter {
 
 template <class OP, class LHS, class RHS>
 void assign_multiexpression( LHS &lhs, const RHS &rhs,
-        const std::vector<cl::CommandQueue> &queue,
+        const std::vector<backend::command_queue> &queue,
         const std::vector<size_t> &part
         )
 {
@@ -2303,7 +2296,7 @@ void assign_multiexpression( LHS &lhs, const RHS &rhs,
 #endif
             (N::value == 1) ||
             std::any_of(queue.begin(), queue.end(),
-                [](const cl::CommandQueue &q) { return is_cpu(qdev(q)); })
+                [](const backend::command_queue &q) { return backend::is_cpu(q); })
        )
     {
         static_for<0, N::value>::loop(
@@ -2313,16 +2306,14 @@ void assign_multiexpression( LHS &lhs, const RHS &rhs,
     }
 
     for(unsigned d = 0; d < queue.size(); d++) {
-        cl::Context context = qctx(queue[d]);
-        cl::Device  device  = qdev(queue[d]);
-
-        auto kernel = cache.find( context() );
+        auto key    = backend::cache_key(queue[d]);
+        auto kernel = cache.find(key);
 
         if (kernel == cache.end()) {
             backend::source_generator source(queue[d]);
 
             static_for<0, N::value>::loop(
-                    preamble_constructor<LHS, RHS>(lhs, rhs, source, device)
+                    preamble_constructor<LHS, RHS>(lhs, rhs, source, queue[d])
                     );
 
             source.kernel("vexcl_multivector_kernel")
@@ -2330,20 +2321,20 @@ void assign_multiexpression( LHS &lhs, const RHS &rhs,
                     .parameter<size_t>("n");
 
             static_for<0, N::value>::loop(
-                    parameter_declarator<LHS, RHS>(lhs, rhs, source, device)
+                    parameter_declarator<LHS, RHS>(lhs, rhs, source, queue[d])
                     );
 
             source.close(")").open("{")
                 .grid_stride_loop().open("{");
 
-            static_for<0, N::value>::loop(expression_init<LHS, RHS>(lhs, rhs, source, device));
-            static_for<0, N::value>::loop(expression_finalize<OP, LHS>(lhs, source, device));
+            static_for<0, N::value>::loop(expression_init<LHS, RHS>(lhs, rhs, source, queue[d]));
+            static_for<0, N::value>::loop(expression_finalize<OP, LHS>(lhs, source, queue[d]));
 
             source.close("}").close("}");
 
             backend::kernel krn(queue[d], source.str(), "vexcl_multivector_kernel");
 
-            kernel = cache.insert(std::make_pair(context(), krn)).first;
+            kernel = cache.insert(std::make_pair(key, krn)).first;
         }
 
         if (size_t psize = part[d + 1] - part[d]) {
@@ -2458,14 +2449,14 @@ inline void purge_kernel_caches() {
 }
 
 /// Clears cached OpenCL kernels, allowing to release OpenCL contexts.
-inline void purge_kernel_caches(const cl::Context &context) {
-    detail::cache_register<>::erase(context());
+inline void purge_kernel_caches(backend::kernel_cache_key key) {
+    detail::cache_register<>::erase(key);
 }
 
 /// Clears cached OpenCL kernels, allowing to release OpenCL contexts.
-inline void purge_kernel_caches(const std::vector<cl::CommandQueue> &queue) {
+inline void purge_kernel_caches(const std::vector<backend::command_queue> &queue) {
     for(auto q = queue.begin(); q != queue.end(); ++q)
-        detail::cache_register<>::erase( qctx(*q)() );
+        detail::cache_register<>::erase( backend::cache_key(*q) );
 }
 
 } // namespace vex;

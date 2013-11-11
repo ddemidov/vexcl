@@ -133,13 +133,13 @@ template <typename Expr, class Slice>
 struct terminal_preamble< vector_view<Expr, Slice> > {
     static void get(backend::source_generator &src,
             const vector_view<Expr, Slice> &term,
-            const cl::Device &device, const std::string &prm_name,
+            const backend::command_queue &queue, const std::string &prm_name,
             detail::kernel_generator_state_ptr state)
     {
-        detail::output_terminal_preamble termpream(src, device, prm_name + "_expr", state);
+        detail::output_terminal_preamble termpream(src, queue, prm_name + "_expr", state);
         boost::proto::eval(boost::proto::as_child(term.expr), termpream);
 
-        term.slice.preamble(src, prm_name + "_slice", device, state);
+        term.slice.preamble(src, prm_name + "_slice", queue, state);
     }
 };
 
@@ -147,13 +147,13 @@ template <typename Expr, class Slice>
 struct kernel_param_declaration< vector_view<Expr, Slice> > {
     static void get(backend::source_generator &src,
             const vector_view<Expr, Slice> &term,
-            const cl::Device &device, const std::string &prm_name,
+            const backend::command_queue &queue, const std::string &prm_name,
             detail::kernel_generator_state_ptr state)
     {
-        detail::declare_expression_parameter declare(src, device, prm_name + "_expr", state);
+        detail::declare_expression_parameter declare(src, queue, prm_name + "_expr", state);
         detail::extract_terminals()(boost::proto::as_child(term.expr),  declare);
 
-        term.slice.parameter_declaration(src, prm_name + "_slice", device, state);
+        term.slice.parameter_declaration(src, prm_name + "_slice", queue, state);
     }
 };
 
@@ -161,10 +161,10 @@ template <typename Expr, class Slice>
 struct local_terminal_init< vector_view<Expr, Slice> > {
     static void get(backend::source_generator &src,
             const vector_view<Expr, Slice> &term,
-            const cl::Device &device, const std::string &prm_name,
+            const backend::command_queue &queue, const std::string &prm_name,
             detail::kernel_generator_state_ptr state)
     {
-        term.slice.local_preamble(src, prm_name + "_slice", device, state);
+        term.slice.local_preamble(src, prm_name + "_slice", queue, state);
 
         src.new_line()
             << type_name<typename vector_view<Expr, Slice>::value_type>()
@@ -173,15 +173,15 @@ struct local_terminal_init< vector_view<Expr, Slice> > {
         src.open("{").new_line()
           << "size_t pos = ";
 
-        term.slice.index(src, prm_name + "_slice", device, state);
+        term.slice.index(src, prm_name + "_slice", queue, state);
         src << ";";
         src.new_line() << "size_t idx = pos;";
 
-        detail::output_local_preamble init_ctx(src, device, prm_name + "_expr", state);
+        detail::output_local_preamble init_ctx(src, queue, prm_name + "_expr", state);
         boost::proto::eval(boost::proto::as_child(term.expr), init_ctx);
 
         src.new_line() << prm_name << "_val = ";
-        detail::vector_expr_context ctx(src, device, prm_name + "_expr", state);
+        detail::vector_expr_context ctx(src, queue, prm_name + "_expr", state);
         boost::proto::eval(boost::proto::as_child(term.expr), ctx);
         src << ";";
         src.close("}");
@@ -192,10 +192,10 @@ template <typename T, class Slice>
 struct local_terminal_init< vector_view<const vector<T>&, Slice> > {
     static void get(backend::source_generator &src,
             const vector_view<const vector<T>&, Slice> &term,
-            const cl::Device &device, const std::string &prm_name,
+            const backend::command_queue &queue, const std::string &prm_name,
             detail::kernel_generator_state_ptr state)
     {
-        term.slice.local_preamble(src, prm_name + "_slice", device, state);
+        term.slice.local_preamble(src, prm_name + "_slice", queue, state);
     }
 };
 
@@ -203,7 +203,7 @@ template <typename Expr, class Slice>
 struct partial_vector_expr< vector_view<Expr, Slice> > {
     static void get(backend::source_generator &src,
             const vector_view<Expr, Slice>&,
-            const cl::Device&, const std::string &prm_name,
+            const backend::command_queue&, const std::string &prm_name,
             detail::kernel_generator_state_ptr)
     {
         src << prm_name << "_val";
@@ -214,11 +214,11 @@ template <typename T, class Slice>
 struct partial_vector_expr< vector_view<const vector<T>&, Slice> > {
     static void get(backend::source_generator &src,
             const vector_view<const vector<T>&, Slice> &term,
-            const cl::Device &device, const std::string &prm_name,
+            const backend::command_queue &queue, const std::string &prm_name,
             detail::kernel_generator_state_ptr state)
     {
         src << prm_name << "_expr_1[";
-        term.slice.index(src, prm_name + "_slice", device, state);
+        term.slice.index(src, prm_name + "_slice", queue, state);
         src << "]";
     }
 };
@@ -226,21 +226,21 @@ struct partial_vector_expr< vector_view<const vector<T>&, Slice> > {
 template <typename Expr, class Slice>
 struct kernel_arg_setter< vector_view<Expr, Slice> > {
     static void set(const vector_view<Expr, Slice> &term,
-            backend::kernel &kernel, unsigned device, size_t index_offset,
+            backend::kernel &kernel, unsigned part, size_t index_offset,
             detail::kernel_generator_state_ptr state)
     {
-        assert(device == 0);
+        assert(part == 0);
 
-        detail::set_expression_argument setarg(kernel, device, index_offset, state);
+        detail::set_expression_argument setarg(kernel, part, index_offset, state);
         detail::extract_terminals()( boost::proto::as_child(term.expr),  setarg);
-        term.slice.setArgs(kernel, device, index_offset, state);
+        term.slice.setArgs(kernel, part, index_offset, state);
     }
 };
 
 template <typename T, class Slice>
 struct expression_properties< vector_view<T, Slice> > {
     static void get(const vector_view<T, Slice> &term,
-            std::vector<cl::CommandQueue> &queue_list,
+            std::vector<backend::command_queue> &queue_list,
             std::vector<size_t> &partition,
             size_t &size
             )
@@ -315,7 +315,7 @@ struct gslice {
 
     void preamble(backend::source_generator &src,
             const std::string &prm_name,
-            const cl::Device&, detail::kernel_generator_state_ptr) const
+            const backend::command_queue&, detail::kernel_generator_state_ptr) const
     {
         src.function<size_t>(prm_name + "_func").open("(")
             .parameter<size_t>("start");
@@ -346,7 +346,7 @@ struct gslice {
 
     void parameter_declaration(backend::source_generator &src,
             const std::string &prm_name,
-            const cl::Device&, detail::kernel_generator_state_ptr) const
+            const backend::command_queue&, detail::kernel_generator_state_ptr) const
     {
         src.parameter<size_t>(prm_name + "_start");
 
@@ -358,13 +358,13 @@ struct gslice {
 
     void local_preamble(backend::source_generator&,
             const std::string&/*prm_name*/,
-            const cl::Device&, detail::kernel_generator_state_ptr) const
+            const backend::command_queue&, detail::kernel_generator_state_ptr) const
     {
     }
 
     void index(backend::source_generator &src,
             const std::string &prm_name,
-            const cl::Device&, detail::kernel_generator_state_ptr) const
+            const backend::command_queue&, detail::kernel_generator_state_ptr) const
     {
         src << prm_name << "_func" << "("
             << prm_name << "_start";
@@ -376,7 +376,7 @@ struct gslice {
         src << ", idx)";
     }
 
-    void setArgs(backend::kernel &kernel, unsigned/*device*/, size_t/*index_offset*/,
+    void setArgs(backend::kernel &kernel, unsigned/*part*/, size_t/*index_offset*/,
             detail::kernel_generator_state_ptr) const
     {
         kernel.push_arg(start);
@@ -605,7 +605,7 @@ struct expr_permutation {
 
     void preamble(backend::source_generator &src,
             const std::string &prm_name,
-            const cl::Device &dev, detail::kernel_generator_state_ptr state) const
+            const backend::command_queue &dev, detail::kernel_generator_state_ptr state) const
     {
         detail::output_terminal_preamble ctx(src, dev, prm_name, state);
         boost::proto::eval(boost::proto::as_child(expr), ctx);
@@ -613,7 +613,7 @@ struct expr_permutation {
 
     void parameter_declaration(backend::source_generator &src,
             const std::string &prm_name,
-            const cl::Device &dev, detail::kernel_generator_state_ptr state) const
+            const backend::command_queue &dev, detail::kernel_generator_state_ptr state) const
     {
         detail::declare_expression_parameter ctx(src, dev, prm_name, state);
         detail::extract_terminals()(boost::proto::as_child(expr), ctx);
@@ -621,7 +621,7 @@ struct expr_permutation {
 
     void local_preamble(backend::source_generator &src,
             const std::string &prm_name,
-            const cl::Device &dev, detail::kernel_generator_state_ptr state) const
+            const backend::command_queue &dev, detail::kernel_generator_state_ptr state) const
     {
         detail::output_local_preamble init_ctx(src, dev, prm_name, state);
         boost::proto::eval(boost::proto::as_child(expr), init_ctx);
@@ -629,17 +629,17 @@ struct expr_permutation {
 
     void index(backend::source_generator &src,
             const std::string &prm_name,
-            const cl::Device &dev, detail::kernel_generator_state_ptr state) const
+            const backend::command_queue &dev, detail::kernel_generator_state_ptr state) const
     {
         detail::vector_expr_context ctx(src, dev, prm_name, state);
         boost::proto::eval(boost::proto::as_child(expr), ctx);
     }
 
-    void setArgs(backend::kernel &kernel, unsigned device, size_t index_offset,
+    void setArgs(backend::kernel &kernel, unsigned part, size_t index_offset,
             detail::kernel_generator_state_ptr state) const
     {
         detail::extract_terminals()( boost::proto::as_child(expr),
-                detail::set_expression_argument(kernel, device, index_offset, state));
+                detail::set_expression_argument(kernel, part, index_offset, state));
     }
 
     template <class Base>
@@ -723,10 +723,10 @@ template <class Expr, size_t NDIM, size_t NR, class RDC>
 struct terminal_preamble< reduced_vector_view<Expr, NDIM, NR, RDC> > {
     static void get(backend::source_generator &src,
             const reduced_vector_view<Expr, NDIM, NR, RDC> &term,
-            const cl::Device &device, const std::string &prm_name,
+            const backend::command_queue &queue, const std::string &prm_name,
             detail::kernel_generator_state_ptr state)
     {
-        detail::output_terminal_preamble termpream(src, device, prm_name, state);
+        detail::output_terminal_preamble termpream(src, queue, prm_name, state);
         boost::proto::eval(boost::proto::as_child(term.expr), termpream);
 
         std::ostringstream rdc_name;
@@ -743,7 +743,7 @@ template <typename Expr, size_t NDIM, size_t NR, class RDC>
 struct local_terminal_init< reduced_vector_view<Expr, NDIM, NR, RDC> > {
     static void get(backend::source_generator &src,
             const reduced_vector_view<Expr, NDIM, NR, RDC> &term,
-            const cl::Device &device, const std::string &prm_name,
+            const backend::command_queue &queue, const std::string &prm_name,
             detail::kernel_generator_state_ptr state)
     {
         typedef typename detail::return_type<Expr>::type T;
@@ -783,14 +783,14 @@ struct local_terminal_init< reduced_vector_view<Expr, NDIM, NR, RDC> > {
 
         src.new_line() << "size_t idx = ptr" << NDIM - 1 << ";";
 
-        detail::output_local_preamble init_ctx(src, device, prm_name, state);
+        detail::output_local_preamble init_ctx(src, queue, prm_name, state);
         boost::proto::eval(boost::proto::as_child(term.expr), init_ctx);
 
         src.new_line()
             << prm_name << "_sum = " << rdc_name.str() << "("
             << prm_name << "_sum, ";
 
-        detail::vector_expr_context expr_ctx(src, device, prm_name, state);
+        detail::vector_expr_context expr_ctx(src, queue, prm_name, state);
         boost::proto::eval(boost::proto::as_child(term.expr), expr_ctx);
 
         src << ");";
@@ -804,12 +804,12 @@ template <typename Expr, size_t NDIM, size_t NR, class RDC>
 struct kernel_param_declaration< reduced_vector_view<Expr, NDIM, NR, RDC> > {
     static void get(backend::source_generator &src,
             const reduced_vector_view<Expr, NDIM, NR, RDC> &term,
-            const cl::Device &device, const std::string &prm_name,
+            const backend::command_queue &queue, const std::string &prm_name,
             detail::kernel_generator_state_ptr state)
     {
-        detail::declare_expression_parameter declare(src, device, prm_name, state);
+        detail::declare_expression_parameter declare(src, queue, prm_name, state);
         detail::extract_terminals()(boost::proto::as_child(term.expr), declare);
-        term.slice.parameter_declaration(src, prm_name, device, state);
+        term.slice.parameter_declaration(src, prm_name, queue, state);
     }
 };
 
@@ -817,7 +817,7 @@ template <typename Expr, size_t NDIM, size_t NR, class RDC>
 struct partial_vector_expr< reduced_vector_view<Expr, NDIM, NR, RDC> > {
     static void get(backend::source_generator &src,
             const reduced_vector_view<Expr, NDIM, NR, RDC>&,
-            const cl::Device&, const std::string &prm_name,
+            const backend::command_queue&, const std::string &prm_name,
             detail::kernel_generator_state_ptr)
     {
         src << prm_name << "_sum";
@@ -827,10 +827,10 @@ struct partial_vector_expr< reduced_vector_view<Expr, NDIM, NR, RDC> > {
 template <typename Expr, size_t NDIM, size_t NR, class RDC>
 struct kernel_arg_setter< reduced_vector_view<Expr, NDIM, NR, RDC> > {
     static void set(const reduced_vector_view<Expr, NDIM, NR, RDC> &term,
-            backend::kernel &kernel, unsigned device, size_t index_offset,
+            backend::kernel &kernel, unsigned part, size_t index_offset,
             detail::kernel_generator_state_ptr state)
     {
-        detail::set_expression_argument setarg(kernel, device, index_offset, state);
+        detail::set_expression_argument setarg(kernel, part, index_offset, state);
         detail::extract_terminals()( boost::proto::as_child(term.expr), setarg);
 
         kernel.push_arg(term.slice.start);
@@ -852,7 +852,7 @@ struct kernel_arg_setter< reduced_vector_view<Expr, NDIM, NR, RDC> > {
 template <typename Expr, size_t NDIM, size_t NR, class RDC>
 struct expression_properties< reduced_vector_view<Expr, NDIM, NR, RDC> > {
     static void get(const reduced_vector_view<Expr, NDIM, NR, RDC> &term,
-            std::vector<cl::CommandQueue> &queue_list,
+            std::vector<backend::command_queue> &queue_list,
             std::vector<size_t> &partition,
             size_t &size
             )

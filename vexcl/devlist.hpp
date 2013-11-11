@@ -234,87 +234,6 @@ namespace Filter {
 
 } // namespace Filter
 
-/// Select devices by given criteria.
-/**
- * \param filter  Device filter functor. Functors may be combined with logical
- *                operators.
- * \returns list of devices satisfying the provided filter.
- *
- * This example selects any GPU which supports double precision arithmetic:
- * \code
- * auto devices = device_list(
- *          Filter::Type(CL_DEVICE_TYPE_GPU) && Filter::DoublePrecision
- *          );
- * \endcode
- */
-template<class DevFilter>
-std::vector<cl::Device> device_list(DevFilter&& filter) {
-    std::vector<cl::Device> device;
-
-    std::vector<cl::Platform> platforms;
-    cl::Platform::get(&platforms);
-
-    for(auto p = platforms.begin(); p != platforms.end(); p++) {
-        std::vector<cl::Device> dev_list;
-
-        p->getDevices(CL_DEVICE_TYPE_ALL, &dev_list);
-
-        for(auto d = dev_list.begin(); d != dev_list.end(); d++) {
-            if (!d->getInfo<CL_DEVICE_AVAILABLE>()) continue;
-            if (!filter(*d)) continue;
-
-            device.push_back(*d);
-        }
-    }
-
-    return device;
-}
-
-/// Create command queues on devices by given criteria.
-/**
- * \param filter  Device filter functor. Functors may be combined with logical
- *                operators.
- * \param properties Command queue properties.
- *
- * \returns list of queues accociated with selected devices.
- * \see device_list
- */
-template<class DevFilter>
-std::pair<std::vector<cl::Context>, std::vector<cl::CommandQueue>>
-queue_list(DevFilter &&filter, cl_command_queue_properties properties = 0) {
-    std::vector<cl::Context>      context;
-    std::vector<cl::CommandQueue> queue;
-
-    std::vector<cl::Platform> platforms;
-    cl::Platform::get(&platforms);
-
-    for(auto p = platforms.begin(); p != platforms.end(); p++) {
-        std::vector<cl::Device> device;
-        std::vector<cl::Device> dev_list;
-
-        p->getDevices(CL_DEVICE_TYPE_ALL, &dev_list);
-
-        for(auto d = dev_list.begin(); d != dev_list.end(); d++) {
-            if (!d->getInfo<CL_DEVICE_AVAILABLE>()) continue;
-            if (!filter(*d)) continue;
-
-            device.push_back(*d);
-        }
-
-        if (device.empty()) continue;
-
-        for(auto d = device.begin(); d != device.end(); d++)
-            try {
-                context.push_back(cl::Context(std::vector<cl::Device>(1, *d)));
-                queue.push_back(cl::CommandQueue(context.back(), *d, properties));
-            } catch(const cl::Error&) {
-                // Something bad happened. Better skip this device.
-            }
-    }
-
-    return std::make_pair(context, queue);
-}
-
 class Context;
 
 template <bool dummy = true>
@@ -344,7 +263,7 @@ inline const Context& current_context() {
 
 /// VexCL context holder.
 /**
- * Holds vectors of cl::Contexts and cl::CommandQueues returned by queue_list.
+ * Holds vectors of backend::contexts and backend::command_queues returned by queue_list.
  */
 class Context {
     public:
@@ -354,7 +273,7 @@ class Context {
                 DevFilter&& filter, cl_command_queue_properties properties = 0
                 )
         {
-            std::tie(c, q) = queue_list(std::forward<DevFilter>(filter), properties);
+            std::tie(c, q) = backend::queue_list(std::forward<DevFilter>(filter), properties);
 
 #ifdef VEXCL_THROW_ON_EMPTY_CONTEXT
             precondition(!q.empty(), "No compute devices found");
@@ -363,8 +282,8 @@ class Context {
             StaticContext<>::set(*this);
         }
 
-        /// Initializes context from user-supplied list of cl::Contexts and cl::CommandQueues.
-        Context(const std::vector<std::pair<cl::Context, cl::CommandQueue>> &user_ctx) {
+        /// Initializes context from user-supplied list of backend::contexts and backend::command_queues.
+        Context(const std::vector<std::pair<backend::context, backend::command_queue>> &user_ctx) {
             c.reserve(user_ctx.size());
             q.reserve(user_ctx.size());
             for(auto u = user_ctx.begin(); u != user_ctx.end(); u++) {
@@ -375,28 +294,24 @@ class Context {
             StaticContext<>::set(*this);
         }
 
-        const std::vector<cl::Context>& context() const {
+        const std::vector<backend::context>& context() const {
             return c;
         }
 
-        const cl::Context& context(unsigned d) const {
+        const backend::context& context(unsigned d) const {
             return c[d];
         }
 
-        const std::vector<cl::CommandQueue>& queue() const {
+        const std::vector<backend::command_queue>& queue() const {
             return q;
         }
 
-        operator const std::vector<cl::CommandQueue>&() const {
+        operator const std::vector<backend::command_queue>&() const {
             return q;
         }
 
-        const cl::CommandQueue& queue(unsigned d) const {
+        const backend::command_queue& queue(unsigned d) const {
             return q[d];
-        }
-
-        cl::Device device(unsigned d) const {
-            return qdev(q[d]);
         }
 
         size_t size() const {
@@ -416,35 +331,22 @@ class Context {
                 queue->finish();
         }
     private:
-        std::vector<cl::Context>      c;
-        std::vector<cl::CommandQueue> q;
+        std::vector<backend::context>       c;
+        std::vector<backend::command_queue> q;
 };
 
 } // namespace vex
 
-/// Output device name to stream.
-inline std::ostream& operator<<(std::ostream &os, const cl::Device &device) {
-    return os << device.getInfo<CL_DEVICE_NAME>() << " ("
-              << cl::Platform(device.getInfo<CL_DEVICE_PLATFORM>()).getInfo<CL_PLATFORM_NAME>()
-              << ")";
-}
+namespace std {
 
 /// Output list of devices to stream.
-inline std::ostream& operator<<(std::ostream &os, const std::vector<cl::Device> &device) {
-    unsigned p = 1;
-
-    for(auto d = device.begin(); d != device.end(); d++)
-        os << p++ << ". " << *d << std::endl;
-
-    return os;
-}
-
-/// Output list of devices to stream.
-inline std::ostream& operator<<(std::ostream &os, const std::vector<cl::CommandQueue> &queue) {
-    unsigned p = 1;
+inline std::ostream& operator<<(std::ostream &os,
+        const std::vector<vex::backend::command_queue> &queue)
+{
+    unsigned p = 0;
 
     for(auto q = queue.begin(); q != queue.end(); q++)
-        os << p++ << ". " << vex::qdev(*q) << std::endl;
+        os << ++p << ". " << *q << std::endl;
 
     return os;
 }
@@ -452,6 +354,8 @@ inline std::ostream& operator<<(std::ostream &os, const std::vector<cl::CommandQ
 /// Output list of devices to stream.
 inline std::ostream& operator<<(std::ostream &os, const vex::Context &ctx) {
     return os << ctx.queue();
+}
+
 }
 
 #endif

@@ -50,13 +50,6 @@ THE SOFTWARE.
 
 namespace vex {
 
-// TODO: move to types.hpp
-namespace backend {
-
-typedef cl::Device device;
-
-} // namespace backend
-
 namespace Filter {
 
     /// Selects devices whose vendor name match given value.

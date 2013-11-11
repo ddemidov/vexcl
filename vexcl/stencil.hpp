@@ -107,17 +107,17 @@ class stencil_base {
     protected:
         template <class Iterator>
         stencil_base(
-                const std::vector<cl::CommandQueue> &queue,
+                const std::vector<backend::command_queue> &queue,
                 unsigned width, unsigned center, Iterator begin, Iterator end
                 );
 
         void exchange_halos(const vex::vector<T> &x) const;
 
-        const std::vector<cl::CommandQueue> &queue;
+        const std::vector<backend::command_queue> &queue;
 
         mutable std::vector<T>  hbuf;
-        std::vector<cl::Buffer> dbuf;
-        std::vector<cl::Buffer> s;
+        std::vector< backend::device_vector<T> > dbuf;
+        std::vector< backend::device_vector<T> > s;
 
         int lhalo;
         int rhalo;
@@ -125,7 +125,7 @@ class stencil_base {
 
 template <typename T> template <class Iterator>
 stencil_base<T>::stencil_base(
-        const std::vector<cl::CommandQueue> &queue,
+        const std::vector<backend::command_queue> &queue,
         unsigned width, unsigned center, Iterator begin, Iterator end
         )
     : queue(queue), hbuf(queue.size() * (width - 1)),
@@ -139,18 +139,11 @@ stencil_base<T>::stencil_base(
     assert(center < width);
 
     for(unsigned d = 0; d < queue.size(); d++) {
-        cl::Context context = qctx(queue[d]);
-        cl::Device  device  = qdev(queue[d]);
-
-        if (begin != end) {
-            s[d] = cl::Buffer(context, CL_MEM_READ_ONLY, (end - begin) * sizeof(T));
-
-            queue[d].enqueueWriteBuffer(s[d], CL_FALSE, 0,
-                    (end - begin) * sizeof(T), &begin[0]);
-        }
+        if (begin != end)
+            s[d] = backend::device_vector<T>(queue[d], end - begin, &begin[0], CL_MEM_READ_ONLY);
 
         // Allocate one element more than needed, to be sure size is nonzero.
-        dbuf[d] = cl::Buffer(context, CL_MEM_READ_WRITE, width * sizeof(T));
+        dbuf[d] = backend::device_vector<T>(queue[d], width, 0, CL_MEM_READ_WRITE);
     }
 
     for(unsigned d = 0; d < queue.size(); d++) queue[d].finish();
@@ -212,8 +205,7 @@ void stencil_base<T>::exchange_halos(const vex::vector<T> &x) const {
         }
 
         if ((d > 0 && lhalo > 0) || (d + 1 < queue.size() && rhalo > 0))
-            queue[d].enqueueWriteBuffer(dbuf[d], CL_FALSE, 0, width * sizeof(T),
-                    &hbuf[d * width]);
+            dbuf[d].write(queue[d], 0, width, &hbuf[d * width]);
     }
 
     // Wait for the end of transfer.
@@ -249,7 +241,7 @@ class stencil : private stencil_base<T> {
          * \param st     vector holding stencil values.
          * \param center center of the stencil.
          */
-        stencil(const std::vector<cl::CommandQueue> &queue,
+        stencil(const std::vector<backend::command_queue> &queue,
                 const std::vector<T> &st, unsigned center
                 )
             : stencil_base<T>(queue, static_cast<unsigned>(st.size()), center, st.begin(), st.end()),
@@ -267,7 +259,7 @@ class stencil : private stencil_base<T> {
          * \param center center of the stencil.
          */
         template <class Iterator>
-        stencil(const std::vector<cl::CommandQueue> &queue,
+        stencil(const std::vector<backend::command_queue> &queue,
                 Iterator begin, Iterator end, unsigned center
                 )
             : stencil_base<T>(queue, static_cast<unsigned>(end - begin), center, begin, end),
@@ -284,7 +276,7 @@ class stencil : private stencil_base<T> {
          * \param list   intializer list holding stencil values.
          * \param center center of the stencil.
          */
-        stencil(const std::vector<cl::CommandQueue> &queue,
+        stencil(const std::vector<backend::command_queue> &queue,
                 std::initializer_list<T> list, unsigned center
                 )
             : stencil_base<T>(queue, list.size(), center, list.begin(), list.end()),
@@ -315,13 +307,13 @@ class stencil : private stencil_base<T> {
         using Base::rhalo;
 
         mutable std::vector<backend::kernel> conv;
-        std::vector<cl::LocalSpaceArg>  loc_s;
-        std::vector<cl::LocalSpaceArg>  loc_x;
+        std::vector<backend::local_mem_arg>  loc_s;
+        std::vector<backend::local_mem_arg>  loc_x;
 
         void init(unsigned width);
 
-        static const detail::kernel_cache_entry& slow_conv(const cl::CommandQueue &queue);
-        static const detail::kernel_cache_entry& fast_conv(const cl::CommandQueue &queue);
+        static const detail::kernel_cache_entry& slow_conv(const backend::command_queue &queue);
+        static const detail::kernel_cache_entry& fast_conv(const backend::command_queue &queue);
 };
 
 namespace detail {
@@ -361,15 +353,13 @@ inline void define_read_x(backend::source_generator &source) {
 }
 
 template <typename T>
-const detail::kernel_cache_entry& stencil<T>::slow_conv(const cl::CommandQueue &queue) {
+const detail::kernel_cache_entry& stencil<T>::slow_conv(const backend::command_queue &queue) {
     using namespace detail;
 
     static kernel_cache cache;
 
-    cl::Context context = qctx(queue);
-    cl::Device  device  = qdev(queue);
-
-    auto kernel = cache.find(context());
+    auto key    = backend::cache_key(queue);
+    auto kernel = cache.find(key);
 
     if (kernel == cache.end()) {
         backend::source_generator source(queue);
@@ -407,22 +397,20 @@ const detail::kernel_cache_entry& stencil<T>::slow_conv(const cl::CommandQueue &
         source.close("}").close("}");
 
         backend::kernel krn(queue, source.str(), "slow_conv");
-        kernel = cache.insert(std::make_pair(context(), krn)).first;
+        kernel = cache.insert(std::make_pair(key, krn)).first;
     }
 
     return kernel->second;
 }
 
 template <typename T>
-const detail::kernel_cache_entry& stencil<T>::fast_conv(const cl::CommandQueue &queue) {
+const detail::kernel_cache_entry& stencil<T>::fast_conv(const backend::command_queue &queue) {
     using namespace detail;
 
     static kernel_cache cache;
 
-    cl::Context context = qctx(queue);
-    cl::Device  device  = qdev(queue);
-
-    auto kernel = cache.find(context());
+    auto key    = backend::cache_key(queue);
+    auto kernel = cache.find(key);
 
     if (kernel == cache.end()) {
         backend::source_generator source(queue);
@@ -472,7 +460,7 @@ const detail::kernel_cache_entry& stencil<T>::fast_conv(const cl::CommandQueue &
 
         backend::kernel krn(queue, source.str(), "fast_conv");
                 //[width](size_t wgs) { return (wgs + 2 * width - 1) * sizeof(T); });
-        kernel = cache.insert(std::make_pair(context(), krn)).first;
+        kernel = cache.insert(std::make_pair(key, krn)).first;
     }
 
     return kernel->second;
@@ -481,17 +469,15 @@ const detail::kernel_cache_entry& stencil<T>::fast_conv(const cl::CommandQueue &
 template <typename T>
 void stencil<T>::init(unsigned width) {
     for (unsigned d = 0; d < queue.size(); d++) {
-        cl::Device device = qdev(queue[d]);
-
         // TODO: better estimate.
-        if (is_cpu(device) || width > 64) {
+        if (backend::is_cpu(queue[d]) || width > 64) {
             conv[d]  = slow_conv(queue[d]);
-            loc_s[d] = vex::Local(1);
-            loc_x[d] = vex::Local(1);
+            loc_s[d] = backend::local_mem(1);
+            loc_x[d] = backend::local_mem(1);
         } else {
             conv[d] = fast_conv(queue[d]);
-            loc_s[d] = vex::Local(sizeof(T) * width);
-            loc_x[d] = vex::Local(sizeof(T) * (conv[d].workgroup_size() + lhalo + rhalo));
+            loc_s[d] = backend::local_mem(sizeof(T) * width);
+            loc_x[d] = backend::local_mem(sizeof(T) * (conv[d].workgroup_size() + lhalo + rhalo));
         }
     }
 }
@@ -505,9 +491,6 @@ void stencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y,
 
     for(unsigned d = 0; d < queue.size(); d++) {
         if (size_t psize = x.part_size(d)) {
-            cl::Context context = qctx(queue[d]);
-            cl::Device  device  = qdev(queue[d]);
-
             char has_left  = d > 0;
             char has_right = d + 1 < queue.size();
 
@@ -578,7 +561,7 @@ class StencilOperator : private stencil_base<T> {
     public:
         typedef T value_type;
 
-        StencilOperator(const std::vector<cl::CommandQueue> &queue);
+        StencilOperator(const std::vector<backend::command_queue> &queue);
 
         conv< StencilOperator, vector<T> >
         operator()(const vector<T> &x) const {
@@ -607,7 +590,7 @@ class StencilOperator : private stencil_base<T> {
 
 template <typename T, unsigned width, unsigned center, class Impl>
 StencilOperator<T, width, center, Impl>::StencilOperator(
-        const std::vector<cl::CommandQueue> &queue)
+        const std::vector<backend::command_queue> &queue)
     : Base(queue, width, center, static_cast<T*>(0), static_cast<T*>(0))
 { }
 
@@ -618,15 +601,13 @@ void StencilOperator<T, width, center, Impl>::convolve(
     using namespace detail;
 
     static kernel_cache cache;
-    static std::map<cl_context, cl::LocalSpaceArg> lmem;
+    static std::map<backend::kernel_cache_key, backend::local_mem_arg> lmem;
 
     Base::exchange_halos(x);
 
     for(unsigned d = 0; d < queue.size(); d++) {
-        cl::Context context = qctx(queue[d]);
-        cl::Device  device  = qdev(queue[d]);
-
-        auto kernel = cache.find(context());
+        auto key    = backend::cache_key(queue[d]);
+        auto kernel = cache.find(key);
 
         if (kernel == cache.end()) {
             backend::source_generator source(queue[d]);
@@ -677,9 +658,9 @@ void StencilOperator<T, width, center, Impl>::convolve(
             backend::kernel krn(queue[d], source.str(), "convolve",
                     [](size_t wgs) { return (width + wgs - 1) * sizeof(T); }
                     );
-            kernel = cache.insert(std::make_pair(context(), krn)).first;
+            kernel = cache.insert(std::make_pair(key, krn)).first;
 
-            lmem[context()] = vex::Local(sizeof(T) * (krn.workgroup_size() + width - 1));
+            lmem[key] = backend::local_mem(sizeof(T) * (krn.workgroup_size() + width - 1));
         }
 
         if (size_t psize = x.part_size(d)) {
@@ -696,7 +677,7 @@ void StencilOperator<T, width, center, Impl>::convolve(
             kernel->second.push_arg(y(d));
             kernel->second.push_arg(alpha);
             kernel->second.push_arg(beta);
-            kernel->second.push_arg(lmem[context()]);
+            kernel->second.push_arg(lmem[key]);
 
             kernel->second(queue[d]);
         }
@@ -717,7 +698,7 @@ void StencilOperator<T, width, center, Impl>::convolve(
  */
 #define VEX_STENCIL_OPERATOR_TYPE(name, type, width, center, body_str) \
     struct name : vex::StencilOperator<type, width, center, name> { \
-        name(const std::vector<cl::CommandQueue> &q) : vex::StencilOperator<type, width, center, name>(q) {} \
+        name(const std::vector<vex::backend::command_queue> &q) : vex::StencilOperator<type, width, center, name>(q) {} \
         static std::string body() { return body_str; } \
     }
 

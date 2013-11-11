@@ -42,6 +42,21 @@ THE SOFTWARE.
 #include <vexcl/types.hpp>
 
 namespace vex {
+
+/// Shortcut for q.getInfo<CL_QUEUE_DEVICE>()
+inline cl::Device qdev(const backend::command_queue& q) {
+    cl::Device dev;
+    q.getInfo(CL_QUEUE_DEVICE, &dev);
+    return dev;
+}
+
+/// Shortcut for q.getInfo<CL_QUEUE_CONTEXT>()
+inline cl::Context qctx(const backend::command_queue& q) {
+    cl::Context ctx;
+    q.getInfo(CL_QUEUE_CONTEXT, &ctx);
+    return ctx;
+}
+
 namespace backend {
 
 enum device_options_kind {
@@ -158,7 +173,7 @@ class source_generator {
         source_generator() : indent(0), first_prm(true), cpu(false) { }
 
         source_generator(const cl::CommandQueue &queue)
-            : indent(0), first_prm(true), cpu( is_cpu(qdev(queue)) )
+            : indent(0), first_prm(true), cpu( is_cpu(queue) )
         {
             src << standard_kernel_header(qdev(queue));
         }

@@ -107,7 +107,7 @@ namespace detail {
 
 template <class OP, class LHS, class RHS>
 void assign_multiexpression(LHS &lhs, const RHS &rhs,
-        const std::vector<cl::CommandQueue> &queue,
+        const std::vector<backend::command_queue> &queue,
         const std::vector<size_t> &part
         );
 }
@@ -225,11 +225,11 @@ class multivector : public multivector_terminal_expression {
          *              by N. Components of the created multivector will have
          *              size equal to host.size() / N. The data will be
          *              partitioned equally between all components.
-         * \param flags cl::Buffer creation flags.
+         * \param flags device memory creation flags.
          */
-        multivector(const std::vector<cl::CommandQueue> &queue,
+        multivector(const std::vector<backend::command_queue> &queue,
                 const std::vector<T> &host,
-                cl_mem_flags flags = CL_MEM_READ_WRITE)
+                backend::mem_flags flags = backend::MEM_READ_WRITE)
         {
             static_assert(N > 0, "What's the point?");
 
@@ -250,10 +250,10 @@ class multivector : public multivector_terminal_expression {
          *              the components. Size of the buffer should be equal to
          *              N * size. The data will be partitioned equally between
          *              all components.
-         * \param flags cl::Buffer creation flags.
+         * \param flags device memory creation flags.
          */
-        multivector(const std::vector<cl::CommandQueue> &queue, size_t size,
-                const T *host = 0, cl_mem_flags flags = CL_MEM_READ_WRITE)
+        multivector(const std::vector<backend::command_queue> &queue, size_t size,
+                const T *host = 0, backend::mem_flags flags = backend::MEM_READ_WRITE)
         {
             static_assert(N > 0, "What's the point?");
 
@@ -283,7 +283,7 @@ class multivector : public multivector_terminal_expression {
         }
 
         /// Resize multivector.
-        void resize(const std::vector<cl::CommandQueue> &queue, size_t size) {
+        void resize(const std::vector<backend::command_queue> &queue, size_t size) {
             for(unsigned i = 0; i < N; i++) vec[i].resize(queue, size);
         }
 
@@ -343,7 +343,7 @@ class multivector : public multivector_terminal_expression {
         }
 
         /// Return reference to multivector's queue list
-        const std::vector<cl::CommandQueue>& queue_list() const {
+        const std::vector<backend::command_queue>& queue_list() const {
             return vec[0].queue_list();
         }
 

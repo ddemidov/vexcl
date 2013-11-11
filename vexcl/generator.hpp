@@ -489,7 +489,7 @@ class Kernel {
     public:
         template <class ArgTuple>
         Kernel(
-                const std::vector<cl::CommandQueue> &queue,
+                const std::vector<backend::command_queue> &queue,
                 const std::string &name, const std::string &body,
                 const ArgTuple& args
               ) : queue(queue)
@@ -500,9 +500,6 @@ class Kernel {
                     );
 
             for(auto q = queue.begin(); q != queue.end(); q++) {
-                cl::Context context = qctx(*q);
-                cl::Device  device  = qdev(*q);
-
                 backend::source_generator source(*q);
 
                 source << get_preamble().str();
@@ -522,7 +519,10 @@ class Kernel {
 
                 source.close("}").close("}");
 
-                krn.insert(std::make_pair(context(), backend::kernel(*q, source.str(), name.c_str())));
+                cache.insert(std::make_pair(
+                            backend::cache_key(*q),
+                            backend::kernel(*q, source.str(), name.c_str())
+                            ));
             }
         }
 
@@ -559,14 +559,14 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, FUNCALL_OPERATOR, ~)
 
             for(unsigned d = 0; d < queue.size(); d++) {
                 if (size_t psize = boost::fusion::fold(param, 0, param_size(d))) {
-                    cl::Context context = qctx(queue[d]);
+                    auto key = backend::cache_key(queue[d]);
+                    auto krn = cache.find(key);
+                    krn->second.push_arg(psize);
 
-                    krn[context()].push_arg(psize);
-
-                    set_params setprm(krn[context()], d);
+                    set_params setprm(krn->second, d);
                     boost::fusion::for_each(param, setprm);
 
-                    krn[context()](queue[d]);
+                    krn->second(queue[d]);
                 }
             }
         }
@@ -621,9 +621,9 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, FUNCALL_OPERATOR, ~)
             }
         };
 
-        std::vector<cl::CommandQueue> queue;
+        std::vector<backend::command_queue> queue;
 
-        std::map<cl_context, backend::kernel> krn;
+        vex::detail::kernel_cache cache;
 
         struct param_size {
             unsigned device;
@@ -676,7 +676,7 @@ class Function {
 /// Builds kernel from recorded expression sequence and symbolic parameter list.
 template <class... Args>
 Kernel<sizeof...(Args)> build_kernel(
-        const std::vector<cl::CommandQueue> &queue,
+        const std::vector<backend::command_queue> &queue,
         const std::string &name, const std::string& body, const Args&... args
         )
 {
@@ -694,7 +694,7 @@ std::string make_function(std::string body, const Ret &ret, const Args&... args)
 
 #define BUILD_KERNEL(z, n, data)                                               \
   template<BOOST_PP_ENUM_PARAMS(n, class Arg)> Kernel<n> build_kernel(         \
-      const std::vector<cl::CommandQueue> & queue, const std::string & name,   \
+      const std::vector<backend::command_queue> & queue, const std::string & name,   \
       const std::string & body, BOOST_PP_ENUM(n, PRINT_ARG, ~)) {              \
     return Kernel<n>(queue, name, body,                                        \
                      boost::tie(BOOST_PP_ENUM_PARAMS(n, arg)));                \

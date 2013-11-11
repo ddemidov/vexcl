@@ -41,6 +41,7 @@ THE SOFTWARE.
 
 #include <boost/proto/proto.hpp>
 
+#include <vexcl/backend.hpp>
 #include <vexcl/util.hpp>
 #include <vexcl/operations.hpp>
 #include <vexcl/profiler.hpp>
@@ -64,13 +65,13 @@ namespace vex {
  * where a, b and c are device vectors. Each device gets portion of the vector
  * proportional to the performance of this operation.
  */
-inline double device_vector_perf(const cl::CommandQueue&);
+inline double device_vector_perf(const backend::command_queue&);
 
 /// Assigns equal weight to each device.
 /**
  * This results in equal partitioning.
  */
-inline double equal_weights(const cl::CommandQueue&) {
+inline double equal_weights(const backend::command_queue&) {
     return 1;
 }
 
@@ -80,7 +81,7 @@ template <bool dummy = true>
 struct partitioning_scheme {
     static_assert(dummy, "dummy parameter should be true");
 
-    typedef std::function< double(const cl::CommandQueue&) > weight_function;
+    typedef std::function< double(const backend::command_queue&) > weight_function;
 
     static void set(weight_function f) {
         if (!is_set) {
@@ -94,7 +95,7 @@ struct partitioning_scheme {
         }
     }
 
-    static std::vector<size_t> get(size_t n, const std::vector<cl::CommandQueue> &queue);
+    static std::vector<size_t> get(size_t n, const std::vector<backend::command_queue> &queue);
 
     private:
         static bool is_set;
@@ -110,7 +111,7 @@ std::map<cl_device_id, double> partitioning_scheme<dummy>::device_weight;
 
 template <bool dummy>
 std::vector<size_t> partitioning_scheme<dummy>::get(size_t n,
-        const std::vector<cl::CommandQueue> &queue)
+        const std::vector<backend::command_queue> &queue)
 {
     if (!is_set) {
         weight = device_vector_perf;
@@ -127,7 +128,7 @@ std::vector<size_t> partitioning_scheme<dummy>::get(size_t n,
         cumsum.push_back(0);
 
         for(auto q = queue.begin(); q != queue.end(); q++) {
-            cl::Device  device  = qdev(*q);
+            cl::Device  device = qdev(*q);
 
             auto dw = device_weight.find(device());
 
@@ -162,14 +163,14 @@ typename partitioning_scheme<dummy>::weight_function partitioning_scheme<dummy>:
  * selected.
  */
 inline void set_partitioning(
-        std::function< double(const cl::CommandQueue&) > f
+        std::function< double(const backend::command_queue&) > f
         )
 {
     partitioning_scheme<>::set(f);
 }
 
 inline std::vector<size_t> partition(size_t n,
-            const std::vector<cl::CommandQueue> &queue)
+            const std::vector<backend::command_queue> &queue)
 {
     return partitioning_scheme<>::get(n, queue);
 }
@@ -221,21 +222,14 @@ class vector : public vector_terminal_expression {
                 /// Read associated element of a vector.
                 operator T() const {
                     T val;
-                    queue->enqueueReadBuffer(
-                            *buf, CL_TRUE,
-                            index * sizeof(T), sizeof(T),
-                            &val
-                            );
+                    buf.read(queue, index, 1, &val);
+                    queue.finish();
                     return val;
                 }
 
                 /// Write associated element of a vector.
                 T operator=(T val) {
-                    queue->enqueueWriteBuffer(
-                            *buf, CL_TRUE,
-                            index * sizeof(T), sizeof(T),
-                            &val
-                            );
+                    buf.write(queue, index, 1, &val);
                     return val;
                 }
 
@@ -245,17 +239,21 @@ class vector : public vector_terminal_expression {
 
                 friend void swap(element &&a, element &&b) {
                     T tmp = static_cast<T>(a);
-                    a = static_cast<T>(b);
-                    b = tmp;
+                    a     = static_cast<T>(b);
+                    b     = tmp;
                 }
 
             private:
-                element(const cl::CommandQueue &q, const cl::Buffer &b, size_t i)
-                    : queue(&q), buf(&b), index(i) {}
+                element(const backend::command_queue &q,
+                        const backend::device_vector<T> &b,
+                        size_t i
+                        ) : queue(q), buf(b), index(i)
+                {}
 
-                const cl::CommandQueue  *queue;
-                const cl::Buffer        *buf;
-                size_t                   index;
+                const backend::command_queue    &queue;
+                const backend::device_vector<T> &buf;
+
+                size_t index;
 
                 friend class vector;
         };
@@ -354,65 +352,49 @@ class vector : public vector_terminal_expression {
         /// Empty constructor.
         vector() {}
 
-#ifndef VEXCL_NO_STATIC_CONTEXT_CONSTRUCTORS
-        /// Construct by size and use static context.
-        vector(size_t size) :
-            queue(current_context().queue()),
-            part(vex::partition(size, queue)),
-            buf(queue.size()), event(queue.size())
-        {
-            if (size) allocate_buffers(CL_MEM_READ_WRITE, 0);
-        }
-#endif
-
         /// Copy constructor.
-        vector(const vector &v)
-            : queue(v.queue), part(v.part),
-              buf(queue.size()), event(queue.size())
+        vector(const vector &v) : queue(v.queue), part(v.part)
         {
 #ifdef VEXCL_SHOW_COPIES
             std::cout << "Copying vex::vector<" << type_name<T>()
                       << "> of size " << size() << std::endl;
 #endif
-            if (size()) allocate_buffers(CL_MEM_READ_WRITE, 0);
+            if (size()) allocate_buffers(backend::MEM_READ_WRITE, 0);
             *this = v;
         }
 
         /// Wrap a native buffer
-        vector(const cl::CommandQueue &q, const cl::Buffer &buffer)
-            : queue(1, q), part(2), buf(1, buffer), event(1)
+        vector(const backend::command_queue &q, const backend::device_vector<T> &buffer)
+            : queue(1, q), part(2), buf(1, buffer)
         {
             part[0] = 0;
-            part[1] = buffer.getInfo<CL_MEM_SIZE>() / sizeof(T);
+            part[1] = buffer.size();
         }
 
         /// Copy host data to the new buffer.
-        vector(const std::vector<cl::CommandQueue> &queue,
+        vector(const std::vector<backend::command_queue> &queue,
                 size_t size, const T *host = 0,
-                cl_mem_flags flags = CL_MEM_READ_WRITE
-              ) : queue(queue), part(vex::partition(size, queue)),
-                  buf(queue.size()), event(queue.size())
+                backend::mem_flags flags = backend::MEM_READ_WRITE
+              ) : queue(queue), part(vex::partition(size, queue))
         {
             if (size) allocate_buffers(flags, host);
         }
 
 #ifndef VEXCL_NO_STATIC_CONTEXT_CONSTRUCTORS
         /// Copy host data to the new buffer, use static context.
-        vector(size_t size, const T *host,
-                cl_mem_flags flags = CL_MEM_READ_WRITE
-              ) : queue(current_context().queue()), part(vex::partition(size, queue)),
-                  buf(queue.size()), event(queue.size())
+        vector(size_t size, const T *host = 0,
+                backend::mem_flags flags = backend::MEM_READ_WRITE
+              ) : queue(current_context().queue()), part(vex::partition(size, queue))
         {
             if (size) allocate_buffers(flags, host);
         }
 #endif
 
         /// Copy host data to the new buffer.
-        vector(const std::vector<cl::CommandQueue> &queue,
+        vector(const std::vector<backend::command_queue> &queue,
                 const std::vector<T> &host,
-                cl_mem_flags flags = CL_MEM_READ_WRITE
-              ) : queue(queue), part(vex::partition(host.size(), queue)),
-                  buf(queue.size()), event(queue.size())
+                backend::mem_flags flags = backend::MEM_READ_WRITE
+              ) : queue(queue), part(vex::partition(host.size(), queue))
         {
             if (!host.empty()) allocate_buffers(flags, host.data());
         }
@@ -420,9 +402,8 @@ class vector : public vector_terminal_expression {
 #ifndef VEXCL_NO_STATIC_CONTEXT_CONSTRUCTORS
         /// Copy host data to the new buffer, use static context.
         vector(const std::vector<T> &host,
-                cl_mem_flags flags = CL_MEM_READ_WRITE
-              ) : queue(current_context().queue()), part(vex::partition(host.size(), queue)),
-                  buf(queue.size()), event(queue.size())
+                backend::mem_flags flags = backend::MEM_READ_WRITE
+              ) : queue(current_context().queue()), part(vex::partition(host.size(), queue))
         {
             if (!host.empty()) allocate_buffers(flags, host.data());
         }
@@ -470,10 +451,7 @@ class vector : public vector_terminal_expression {
             queue = prop.queue;
             part  = prop.part;
 
-            buf.resize(queue.size());
-            event.resize(queue.size());
-
-            allocate_buffers(CL_MEM_READ_WRITE, 0);
+            allocate_buffers(backend::MEM_READ_WRITE, 0);
 
             *this = expr;
         }
@@ -489,11 +467,10 @@ class vector : public vector_terminal_expression {
             std::swap(queue,   v.queue);
             std::swap(part,    v.part);
             std::swap(buf,     v.buf);
-            std::swap(event,   v.event);
         }
 
         /// Resize vector.
-        void resize(const vector &v, cl_mem_flags flags = CL_MEM_READ_WRITE)
+        void resize(const vector &v, backend::mem_flags flags = backend::MEM_READ_WRITE)
         {
             // Reallocate bufers
             *this = std::move(vector(v.queue, v.size(), 0, flags));
@@ -503,26 +480,27 @@ class vector : public vector_terminal_expression {
         }
 
         /// Resize vector.
-        void resize(const std::vector<cl::CommandQueue> &queue,
+        void resize(const std::vector<backend::command_queue> &queue,
                 size_t size, const T *host = 0,
-                cl_mem_flags flags = CL_MEM_READ_WRITE
+                backend::mem_flags flags = backend::MEM_READ_WRITE
                 )
         {
             *this = std::move(vector(queue, size, host, flags));
         }
 
         /// Resize vector.
-        void resize(const std::vector<cl::CommandQueue> &queue,
+        void resize(const std::vector<backend::command_queue> &queue,
                 const std::vector<T> &host,
-                cl_mem_flags flags = CL_MEM_READ_WRITE
+                backend::mem_flags flags = backend::MEM_READ_WRITE
               )
         {
             *this = std::move(vector(queue, host, flags));
         }
 
         /// Resize vector with static context.
-        void resize(size_t size) {
-            *this = std::move(vector(size));
+        void resize(size_t size, const T *host = 0, backend::mem_flags flags = backend::MEM_READ_WRITE)
+        {
+            vector(size, host, flags).swap(*this);
         }
 
         /// Fills vector with zeros.
@@ -530,8 +508,8 @@ class vector : public vector_terminal_expression {
             *this = static_cast<T>(0);
         }
 
-        /// Return cl::Buffer object located on a given device.
-        cl::Buffer operator()(unsigned d = 0) const {
+        /// Return memory buffer located on a given device.
+        backend::device_vector<T> operator()(unsigned d = 0) const {
             return buf[d];
         }
 
@@ -591,7 +569,7 @@ class vector : public vector_terminal_expression {
         }
 
         /// Return reference to vector's queue list
-        const std::vector<cl::CommandQueue>& queue_list() const {
+        const std::vector<backend::command_queue>& queue_list() const {
             return queue;
         }
 
@@ -601,45 +579,15 @@ class vector : public vector_terminal_expression {
         }
 
         const vector& operator=(const vector &x) {
-            if (&x != this) {
-                for(unsigned d = 0; d < queue.size(); d++)
-                    if (size_t psize = part[d + 1] - part[d]) {
-                        queue[d].enqueueCopyBuffer(x.buf[d], buf[d], 0, 0,
-                                psize * sizeof(T));
-                    }
-            }
-
+            if (&x != this)
+                detail::assign_expression<assign::SET>(*this, x, queue, part);
             return *this;
         }
 
-        struct buffer_unmapper {
-            const cl::CommandQueue &queue;
-            const cl::Buffer       &buffer;
-
-            buffer_unmapper(const cl::CommandQueue &q, const cl::Buffer &b)
-                : queue(q), buffer(b)
-            {}
-
-            void operator()(T* ptr) const {
-                queue.enqueueUnmapMemObject(buffer, ptr);
-            }
-        };
-
-        /// Host array mapped to device buffer.
-        /**
-         * Unmaps automatically when goes out of scope.
-         */
-        typedef std::unique_ptr<T[], buffer_unmapper> mapped_array;
-
         /// Maps device buffer to host array.
-        mapped_array
-        map(unsigned d = 0, cl_map_flags flags = CL_MAP_READ | CL_MAP_WRITE) {
-            return mapped_array(
-                    static_cast<T*>( queue[d].enqueueMapBuffer(
-                            buf[d], CL_TRUE, flags, 0, part_size(d) * sizeof(T))
-                        ),
-                    buffer_unmapper(queue[d], buf[d])
-                    );
+        typename backend::device_vector<T>::mapped_array
+        map(unsigned d = 0) {
+            return buf[d].map(queue[d]);
         }
 
 #ifdef DOXYGEN
@@ -786,12 +734,9 @@ class vector : public vector_terminal_expression {
 #endif
 
         /// Copy data from host buffer to device(s).
-        void write_data(size_t offset, size_t size, const T *hostptr, cl_bool blocking,
-                std::vector<cl::Event> *uevent = 0)
+        void write_data(size_t offset, size_t size, const T *hostptr, cl_bool blocking)
         {
             if (!size) return;
-
-            std::vector<cl::Event> &ev = uevent ? *uevent : event;
 
             for(unsigned d = 0; d < queue.size(); d++) {
                 size_t start = std::max(offset,        part[d]);
@@ -799,12 +744,7 @@ class vector : public vector_terminal_expression {
 
                 if (stop <= start) continue;
 
-                queue[d].enqueueWriteBuffer(buf[d], CL_FALSE,
-                        sizeof(T) * (start - part[d]),
-                        sizeof(T) * (stop - start),
-                        hostptr + start - offset,
-                        0, &ev[d]
-                        );
+                buf[d].write(queue[d], start - part[d], stop - start, hostptr + start - offset);
             }
 
             if (blocking)
@@ -812,17 +752,14 @@ class vector : public vector_terminal_expression {
                     size_t start = std::max(offset,        part[d]);
                     size_t stop  = std::min(offset + size, part[d + 1]);
 
-                    if (start < stop) ev[d].wait();
+                    if (start < stop) queue[d].finish();
                 }
         }
 
         /// Copy data from device(s) to host buffer .
-        void read_data(size_t offset, size_t size, T *hostptr, cl_bool blocking,
-                std::vector<cl::Event> *uevent = 0) const
+        void read_data(size_t offset, size_t size, T *hostptr, cl_bool blocking) const
         {
             if (!size) return;
-
-            std::vector<cl::Event> &ev = uevent ? *uevent : event;
 
             for(unsigned d = 0; d < queue.size(); d++) {
                 size_t start = std::max(offset,        part[d]);
@@ -830,12 +767,7 @@ class vector : public vector_terminal_expression {
 
                 if (stop <= start) continue;
 
-                queue[d].enqueueReadBuffer(buf[d], CL_FALSE,
-                        sizeof(T) * (start - part[d]),
-                        sizeof(T) * (stop - start),
-                        hostptr + start - offset,
-                        0, &ev[d]
-                        );
+                buf[d].read(queue[d], start - part[d], stop - start, hostptr + start - offset);
             }
 
             if (blocking)
@@ -843,25 +775,25 @@ class vector : public vector_terminal_expression {
                     size_t start = std::max(offset,        part[d]);
                     size_t stop  = std::min(offset + size, part[d + 1]);
 
-                    if (start < stop) ev[d].wait();
+                    if (start < stop) queue[d].finish();
                 }
         }
 
     private:
-        std::vector<cl::CommandQueue>   queue;
-        std::vector<size_t>             part;
-        std::vector<cl::Buffer>         buf;
-        mutable std::vector<cl::Event>  event;
+        std::vector<backend::command_queue>      queue;
+        std::vector<size_t>                      part;
+        std::vector< backend::device_vector<T> > buf;
 
-        void allocate_buffers(cl_mem_flags flags, const T *hostptr) {
-            for(unsigned d = 0; d < queue.size(); d++) {
-                if (size_t psize = part[d + 1] - part[d]) {
-                    cl::Context context = qctx(queue[d]);
+        void allocate_buffers(backend::mem_flags flags, const T *hostptr) {
+            buf.clear();
+            buf.reserve(queue.size());
 
-                    buf[d] = cl::Buffer(context, flags, psize * sizeof(T));
-                }
-            }
-            if (hostptr) write_data(0, size(), hostptr, CL_TRUE);
+            for(unsigned d = 0; d < queue.size(); d++)
+                buf.push_back(
+                        backend::device_vector<T>(
+                            queue[d], part[d + 1] - part[d],
+                            hostptr ? hostptr + part[d] : 0, flags)
+                        );
         }
 
         template <typename S, size_t N>
@@ -883,7 +815,7 @@ template <typename T>
 struct kernel_param_declaration< vector<T> > {
     static void get(backend::source_generator &src,
             const vector<T>&,
-            const cl::Device&, const std::string &prm_name,
+            const backend::command_queue&, const std::string &prm_name,
             detail::kernel_generator_state_ptr)
     {
         src.parameter< global_ptr<T> >(prm_name);
@@ -894,7 +826,7 @@ template <typename T>
 struct partial_vector_expr< vector<T> > {
     static void get(backend::source_generator &src,
             const vector<T>&,
-            const cl::Device&, const std::string &prm_name,
+            const backend::command_queue&, const std::string &prm_name,
             detail::kernel_generator_state_ptr)
     {
         src << prm_name << "[idx]";
@@ -914,7 +846,7 @@ struct kernel_arg_setter< vector<T> > {
 template <class T>
 struct expression_properties< vector<T> > {
     static void get(const vector<T> &term,
-            std::vector<cl::CommandQueue> &queue_list,
+            std::vector<backend::command_queue> &queue_list,
             std::vector<size_t> &partition,
             size_t &size
             )
@@ -1015,9 +947,9 @@ void swap(vector<T> &x, vector<T> &y) {
 }
 
 /// Returns device weight after simple bandwidth test
-inline double device_vector_perf(const cl::CommandQueue &q) {
+inline double device_vector_perf(const backend::command_queue &q) {
     static const size_t test_size = 1024U * 1024U;
-    std::vector<cl::CommandQueue> queue(1, q);
+    std::vector<backend::command_queue> queue(1, q);
 
     // Allocate test vectors on current device and measure execution
     // time of a simple kernel.

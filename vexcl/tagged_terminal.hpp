@@ -65,7 +65,7 @@ struct tagged_terminal : tagged_terminal_expression
           typename boost::proto::result_of::as_expr<Expr>::type,               \
           vector_expr_grammar>::value,                                         \
       const tagged_terminal &>::type operator cop(const Expr & expr) const {   \
-    std::vector<cl::CommandQueue> queue;                                       \
+    std::vector<backend::command_queue> queue;                                       \
     std::vector<size_t> part;                                                  \
     size_t size;                                                               \
     traits::get_expression_properties(*this, queue, part, size);               \
@@ -100,7 +100,7 @@ template <size_t Tag, class Term>
 struct terminal_preamble< tagged_terminal<Tag, Term> > {
     static void get(backend::source_generator &src,
             const tagged_terminal<Tag, Term> &term,
-            const cl::Device &device, const std::string&/*prm_name*/,
+            const backend::command_queue &queue, const std::string&/*prm_name*/,
             detail::kernel_generator_state_ptr state)
     {
         auto s = state->find("tag_pream");
@@ -121,7 +121,7 @@ struct terminal_preamble< tagged_terminal<Tag, Term> > {
             std::ostringstream prm_name;
             prm_name << "prm_tag_" << Tag;
 
-            detail::output_terminal_preamble termpream(src, device, prm_name.str(), state);
+            detail::output_terminal_preamble termpream(src, queue, prm_name.str(), state);
             boost::proto::eval(boost::proto::as_child(term.term), termpream);
         }
     }
@@ -131,7 +131,7 @@ template <size_t Tag, class Term>
 struct kernel_param_declaration< tagged_terminal<Tag, Term> > {
     static void get(backend::source_generator &src,
             const tagged_terminal<Tag, Term> &term,
-            const cl::Device &device, const std::string&/*prm_name*/,
+            const backend::command_queue &queue, const std::string&/*prm_name*/,
             detail::kernel_generator_state_ptr state)
     {
         auto s = state->find("tag_param");
@@ -152,7 +152,7 @@ struct kernel_param_declaration< tagged_terminal<Tag, Term> > {
             std::ostringstream prm_name;
             prm_name << "prm_tag_" << Tag;
 
-            detail::declare_expression_parameter declare(src, device, prm_name.str(), state);
+            detail::declare_expression_parameter declare(src, queue, prm_name.str(), state);
             detail::extract_terminals()(boost::proto::as_child(term.term),  declare);
         }
     }
@@ -162,7 +162,7 @@ template <size_t Tag, class Term>
 struct local_terminal_init< tagged_terminal<Tag, Term> > {
     static void get(backend::source_generator &src,
             const tagged_terminal<Tag, Term> &term,
-            const cl::Device &device,
+            const backend::command_queue &queue,
             const std::string&/*prm_name*/,
             detail::kernel_generator_state_ptr state)
     {
@@ -184,7 +184,7 @@ struct local_terminal_init< tagged_terminal<Tag, Term> > {
             std::ostringstream prm_name;
             prm_name << "prm_tag_" << Tag;
 
-            detail::output_local_preamble init_ctx(src, device, prm_name.str(), state);
+            detail::output_local_preamble init_ctx(src, queue, prm_name.str(), state);
             boost::proto::eval(boost::proto::as_child(term.term), init_ctx);
         }
     }
@@ -194,14 +194,14 @@ template <size_t Tag, class Term>
 struct partial_vector_expr< tagged_terminal<Tag, Term> > {
     static void get(backend::source_generator &src,
             const tagged_terminal<Tag, Term> &term,
-            const cl::Device &device,
+            const backend::command_queue &queue,
             const std::string&/*prm_name*/,
             detail::kernel_generator_state_ptr state)
     {
         std::ostringstream prm_name;
         prm_name << "prm_tag_" << Tag;
 
-        detail::vector_expr_context expr_ctx(src, device, prm_name.str(), state);
+        detail::vector_expr_context expr_ctx(src, queue, prm_name.str(), state);
         boost::proto::eval(boost::proto::as_child(term.term), expr_ctx);
     }
 };
@@ -209,7 +209,7 @@ struct partial_vector_expr< tagged_terminal<Tag, Term> > {
 template <size_t Tag, class Term>
 struct kernel_arg_setter< tagged_terminal<Tag, Term> > {
     static void set(const tagged_terminal<Tag, Term> &term,
-            backend::kernel &kernel, unsigned device, size_t index_offset,
+            backend::kernel &kernel, unsigned part, size_t index_offset,
             detail::kernel_generator_state_ptr state)
     {
         auto s = state->find("tag_args");
@@ -227,7 +227,7 @@ struct kernel_arg_setter< tagged_terminal<Tag, Term> > {
         if (p == pos.end()) {
             pos.insert(Tag);
 
-            detail::set_expression_argument setarg(kernel, device, index_offset, state);
+            detail::set_expression_argument setarg(kernel, part, index_offset, state);
             detail::extract_terminals()( boost::proto::as_child(term.term),  setarg);
         }
     }
@@ -236,7 +236,7 @@ struct kernel_arg_setter< tagged_terminal<Tag, Term> > {
 template <size_t Tag, class Term>
 struct expression_properties< tagged_terminal<Tag, Term> > {
     static void get(const tagged_terminal<Tag, Term> &term,
-            std::vector<cl::CommandQueue> &queue_list,
+            std::vector<backend::command_queue> &queue_list,
             std::vector<size_t> &partition,
             size_t &size
             )

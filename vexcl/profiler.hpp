@@ -72,10 +72,7 @@ THE SOFTWARE.
 #  pragma warning(pop)
 #endif
 
-#ifndef __CL_ENABLE_EXCEPTIONS
-#  define __CL_ENABLE_EXCEPTIONS
-#endif
-#include <CL/cl.hpp>
+#include <vexcl/backend.hpp>
 
 
 namespace vex {
@@ -248,7 +245,7 @@ class profiler {
 
         class cl_profile_unit : public profile_unit {
             public:
-                cl_profile_unit(const std::string &name, const std::vector<cl::CommandQueue> &queue)
+                cl_profile_unit(const std::string &name, const std::vector<backend::command_queue> &queue)
                     : profile_unit(name), queue(queue) {}
 
                 void tic() {
@@ -265,7 +262,7 @@ class profiler {
                     return profile_unit::toc();
                 }
             private:
-                const std::vector<cl::CommandQueue> &queue;
+                const std::vector<backend::command_queue> &queue;
         };
 
     public:
@@ -275,7 +272,7 @@ class profiler {
          * \param name  Optional name to be used when profiling info is printed.
          */
         profiler(
-                const std::vector<cl::CommandQueue> &queue = std::vector<cl::CommandQueue>(),
+                const std::vector<backend::command_queue> &queue = std::vector<backend::command_queue>(),
                 const std::string &name = "Profile"
                 ) : queue(queue)
         {
@@ -341,7 +338,7 @@ class profiler {
         }
 
     private:
-        const std::vector<cl::CommandQueue> &queue;
+        const std::vector<backend::command_queue> &queue;
         std::deque<std::shared_ptr<profile_unit>> stack;
 };
 

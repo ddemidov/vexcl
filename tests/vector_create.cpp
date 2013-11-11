@@ -148,17 +148,18 @@ BOOST_AUTO_TEST_CASE(vector_resize_to_vex_vector)
 
 BOOST_AUTO_TEST_CASE(stl_container_of_vex_vector)
 {
+    typedef typename vex::backend::device_vector<unsigned>::raw_type raw_mem;
     const size_t N = 1024;
     const size_t M = 16 + generator<size_t>::get() ;
 
     std::vector< vex::vector<unsigned> > x;
 
-    std::vector< cl_mem > bufs;
+    std::vector< raw_mem > bufs;
 
     for(size_t i = 0; i < M; ++i) {
         x.push_back( vex::vector<unsigned>(ctx, random_vector<unsigned>(N)) );
         x.back() = i;
-        bufs.push_back( x.back()(0)() );
+        bufs.push_back( x.back()(0).raw() );
     }
 
     for(size_t i = 0; i < M; ++i)
@@ -166,7 +167,7 @@ BOOST_AUTO_TEST_CASE(stl_container_of_vex_vector)
 
     for(size_t i = 0; i < M; ++i) {
         BOOST_CHECK_EQUAL(N, x[i].size());
-        BOOST_CHECK_EQUAL(bufs[i], x[i](0)());
+        BOOST_CHECK_EQUAL(bufs[i], x[i](0).raw());
     }
 }
 

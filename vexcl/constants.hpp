@@ -58,7 +58,7 @@ struct kernel_param_declaration< std::integral_constant<T, v> >
 {
     static void get(backend::source_generator&,
             const std::integral_constant<T, v>&,
-            const cl::Device&, const std::string &/*prm_name*/,
+            const backend::command_queue&, const std::string &/*prm_name*/,
             detail::kernel_generator_state_ptr)
     { }
 };
@@ -68,7 +68,7 @@ struct partial_vector_expr< std::integral_constant<T, v> >
 {
     static void get(backend::source_generator &src,
             const std::integral_constant<T, v>&,
-            const cl::Device&, const std::string &/*prm_name*/,
+            const backend::command_queue&, const std::string &/*prm_name*/,
             detail::kernel_generator_state_ptr)
     {
         src << v;
@@ -79,7 +79,7 @@ template <class T, T v>
 struct kernel_arg_setter< std::integral_constant<T, v> >
 {
     static void set(const std::integral_constant<T, v>&,
-            backend::kernel&, unsigned/*device*/, size_t/*index_offset*/,
+            backend::kernel&, unsigned/*part*/, size_t/*index_offset*/,
             detail::kernel_generator_state_ptr)
     {
     }
@@ -105,7 +105,7 @@ struct kernel_param_declaration< user_constant<Impl> >
 {
     static void get(backend::source_generator&,
             const user_constant<Impl>&,
-            const cl::Device&, const std::string &/*prm_name*/,
+            const backend::command_queue&, const std::string &/*prm_name*/,
             detail::kernel_generator_state_ptr)
     { }
 };
@@ -115,7 +115,7 @@ struct partial_vector_expr< user_constant<Impl> >
 {
     static void get(backend::source_generator &src,
             const user_constant<Impl>&,
-            const cl::Device&, const std::string &/*prm_name*/,
+            const backend::command_queue&, const std::string &/*prm_name*/,
             detail::kernel_generator_state_ptr)
     {
         src << Impl::get();
@@ -126,7 +126,7 @@ template <class Impl>
 struct kernel_arg_setter< user_constant<Impl> >
 {
     static void set(const user_constant<Impl>&,
-            backend::kernel&, unsigned/*device*/, size_t/*index_offset*/,
+            backend::kernel&, unsigned/*part*/, size_t/*index_offset*/,
             detail::kernel_generator_state_ptr)
     {
     }

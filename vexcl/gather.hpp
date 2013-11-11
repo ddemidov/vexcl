@@ -37,6 +37,7 @@ THE SOFTWARE.
 
 #include <vexcl/operations.hpp>
 #include <vexcl/vector.hpp>
+#include <vexcl/vector_view.hpp>
 
 namespace vex {
 
@@ -44,11 +45,11 @@ template <typename T>
 class gather {
     public:
         gather(
-                const std::vector<cl::CommandQueue> &queue,
+                const std::vector<backend::command_queue> &queue,
                 size_t src_size, std::vector<size_t> indices
               )
             : queue(queue), ptr(queue.size() + 1, 0),
-              idx(queue.size()), val(queue.size()), ev(queue.size())
+              idx(queue.size()), val(queue.size())
         {
             assert(std::is_sorted(indices.begin(), indices.end()));
 
@@ -64,19 +65,15 @@ class gather {
             std::partial_sum(ptr.begin(), ptr.end(), ptr.begin());
 
             for(unsigned d = 0; d < queue.size(); d++) {
-                cl::Context context = qctx(queue[d]);
-
                 if (size_t n = ptr[d + 1] - ptr[d]) {
-                    idx[d] = cl::Buffer(context, CL_MEM_READ_ONLY,  n * sizeof(size_t));
-                    val[d] = cl::Buffer(context, CL_MEM_WRITE_ONLY, n * sizeof(T));
-
-                    queue[d].enqueueWriteBuffer(idx[d], CL_FALSE,
-                            0, n * sizeof(size_t), &indices[ptr[d]], 0, &ev[d]);
+                    val[d] = backend::device_vector<T>(queue[d], n, 0);
+                    idx[d] = backend::device_vector<size_t>(
+                            queue[d], n, &indices[ptr[d]], CL_MEM_READ_ONLY);
                 }
             }
 
             for(unsigned d = 0; d < queue.size(); d++)
-                if (ptr[d + 1] - ptr[d]) ev[d].wait();
+                if (ptr[d + 1] - ptr[d]) queue[d].finish();
         }
 
         template <class HostVector>
@@ -86,55 +83,25 @@ class gather {
             static kernel_cache cache;
 
             for(unsigned d = 0; d < queue.size(); d++) {
-                cl::Context context = qctx(queue[d]);
-                cl::Device  device  = qdev(queue[d]);
-
-                auto kernel = cache.find(context());
-
-                if (kernel == cache.end()) {
-                    std::ostringstream source;
-
-                    source << backend::standard_kernel_header(device) <<
-                        "typedef " << type_name<T>() << " real;\n"
-                        "kernel void gather(\n"
-                        "    " << type_name<size_t>() << " n,\n"
-                        "    global const real *src,\n"
-                        "    global const " << type_name<size_t>() << " *col,\n"
-                        "    global real *dst\n"
-                        "    )\n"
-                        "{\n"
-                        "    for(size_t i = get_global_id(0); i < n; i += get_global_size(0))\n"
-                        "        dst[i] = src[col[i]];\n"
-                        "}\n";
-
-                    backend::kernel krn(queue[d], source.str(), "gather");
-
-                    kernel = cache.insert(std::make_pair(context(), krn)).first;
-                }
-
                 if (size_t n = ptr[d + 1] - ptr[d]) {
-                    kernel->second.push_arg(n);
-                    kernel->second.push_arg(src(d));
-                    kernel->second.push_arg(idx[d]);
-                    kernel->second.push_arg(val[d]);
+                    vector<T>      v(queue[d], val[d]);
+                    vector<T>      s(queue[d], src(d));
+                    vector<size_t> i(queue[d], idx[d]);
 
-                    kernel->second(queue[d]);
+                    v = permutation(i)(s);
 
-                    queue[d].enqueueReadBuffer(
-                            val[d], CL_FALSE, 0, n * sizeof(T), &dst[ptr[d]],
-                            0, &ev[d]);
+                    val[d].read(queue[d], 0, n, &dst[ptr[d]]);
                 }
             }
 
             for(unsigned d = 0; d < queue.size(); d++)
-                if (ptr[d + 1] - ptr[d]) ev[d].wait();
+                if (ptr[d + 1] - ptr[d]) queue[d].finish();
         }
     private:
-        std::vector<cl::CommandQueue> queue;
-        std::vector<size_t>     ptr;
-        std::vector<cl::Buffer> idx;
-        std::vector<cl::Buffer> val;
-        std::vector<cl::Event>  ev;
+        std::vector<backend::command_queue> queue;
+        std::vector<size_t>                           ptr;
+        std::vector< backend::device_vector<size_t> > idx;
+        std::vector< backend::device_vector<T> >      val;
 };
 
 } // namespace vex

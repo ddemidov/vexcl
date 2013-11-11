@@ -77,7 +77,7 @@ struct kernel_param_declaration< vector_pointer<T> >
 {
     static void get(backend::source_generator &src,
             const vector_pointer<T>&,
-            const cl::Device&, const std::string &prm_name,
+            const backend::command_queue&, const std::string &prm_name,
             detail::kernel_generator_state_ptr)
     {
         src.parameter< global_ptr<T> >(prm_name);
@@ -88,7 +88,7 @@ template <typename T>
 struct kernel_arg_setter< vector_pointer<T> >
 {
     static void set(const vector_pointer<T> &term,
-            backend::kernel &kernel, unsigned/*device*/, size_t/*index_offset*/,
+            backend::kernel &kernel, unsigned/*part*/, size_t/*index_offset*/,
             detail::kernel_generator_state_ptr)
     {
         kernel.push_arg(term.v(0));
@@ -99,7 +99,7 @@ template <typename T>
 struct expression_properties< vector_pointer<T> >
 {
     static void get(const vector_pointer<T> &term,
-            std::vector<cl::CommandQueue> &queue_list,
+            std::vector<backend::command_queue> &queue_list,
             std::vector<size_t> &partition,
             size_t &size
             )

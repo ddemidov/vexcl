@@ -72,15 +72,15 @@ endif (BOOST_COMPUTE)
 #----------------------------------------------------------------------------
 # Test Fast Fourier Transform
 #----------------------------------------------------------------------------
-find_package(FFTW QUIET)
-
-if (FFTW_FOUND)
-    include_directories(${FFTW_INCLUDES})
-    add_definitions(-DHAVE_FFTW)
-endif (FFTW_FOUND)
-
-add_vexcl_test(fft fft.cpp)
-
-if (FFTW_FOUND)
-    target_link_libraries(fft ${FFTW_LIBRARIES})
-endif (FFTW_FOUND)
+#find_package(FFTW QUIET)
+#
+#if (FFTW_FOUND)
+#    include_directories(${FFTW_INCLUDES})
+#    add_definitions(-DHAVE_FFTW)
+#endif (FFTW_FOUND)
+#
+#add_vexcl_test(fft fft.cpp)
+#
+#if (FFTW_FOUND)
+#    target_link_libraries(fft ${FFTW_LIBRARIES})
+#endif (FFTW_FOUND)

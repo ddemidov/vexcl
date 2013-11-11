@@ -127,7 +127,7 @@ template <typename real, class RDC>
 class Reductor {
     public:
         /// Constructor.
-        Reductor(const std::vector<cl::CommandQueue> &queue
+        Reductor(const std::vector<backend::command_queue> &queue
 #ifndef VEXCL_NO_STATIC_CONTEXT_CONSTRUCTORS
                 = current_context().queue()
 #endif
@@ -158,12 +158,11 @@ class Reductor {
 #endif
         operator()(const Expr &expr) const;
     private:
-        const std::vector<cl::CommandQueue> &queue;
+        const std::vector<backend::command_queue> &queue;
         std::vector<size_t> idx;
-        std::vector<cl::Buffer> dbuf;
+        std::vector< backend::device_vector<real> > dbuf;
 
         mutable std::vector<real> hbuf;
-        mutable std::vector<cl::Event> event;
 
         template <size_t I, size_t N, class Expr>
         typename std::enable_if<I == N, void>::type
@@ -182,19 +181,17 @@ class Reductor {
 
 #ifndef DOXYGEN
 template <typename real, class RDC>
-Reductor<real,RDC>::Reductor(const std::vector<cl::CommandQueue> &queue)
-    : queue(queue), event(queue.size())
+Reductor<real,RDC>::Reductor(const std::vector<backend::command_queue> &queue)
+    : queue(queue)
 {
     idx.reserve(queue.size() + 1);
     idx.push_back(0);
 
     for(auto q = queue.begin(); q != queue.end(); q++) {
-        cl::Context context = qctx(*q);
-
         size_t bufsize = backend::kernel::num_workgroups(*q);
         idx.push_back(idx.back() + bufsize);
 
-        dbuf.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, bufsize * sizeof(real)));
+        dbuf.push_back(backend::device_vector<real>(*q, bufsize));
     }
 
     hbuf.resize(idx.back());
@@ -218,10 +215,8 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
         prop.part = vex::partition(prop.size, queue);
 
     for(unsigned d = 0; d < queue.size(); ++d) {
-        cl::Context context = qctx(queue[d]);
-        cl::Device  device  = qdev(queue[d]);
-
-        auto kernel = cache.find( context() );
+        auto key    = backend::cache_key(queue[d]);
+        auto kernel = cache.find(key);
 
         if (kernel == cache.end()) {
             backend::source_generator source(queue[d]);
@@ -229,13 +224,13 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
             typedef typename RDC::template function<real> fun;
             fun::define(source, "reduce_operation");
 
-            output_terminal_preamble termpream(source, device, "prm", empty_state());
+            output_terminal_preamble termpream(source, queue[d], "prm", empty_state());
             boost::proto::eval(boost::proto::as_child(expr),  termpream);
 
             source.kernel("vexcl_reductor_kernel")
                 .open("(").parameter<size_t>("n");
 
-            extract_terminals()( expr, declare_expression_parameter(source, device, "prm", empty_state()) );
+            extract_terminals()( expr, declare_expression_parameter(source, queue[d], "prm", empty_state()) );
 
             source
                 .template parameter< global_ptr<real> >("g_odata")
@@ -244,15 +239,15 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
 
 #define INCREMENT_MY_SUM                                                       \
   {                                                                            \
-    output_local_preamble loc_init(source, device, "prm", empty_state());      \
+    output_local_preamble loc_init(source, queue[d], "prm", empty_state());      \
     boost::proto::eval(expr, loc_init);                                        \
-    vector_expr_context expr_ctx(source, device, "prm", empty_state());        \
+    vector_expr_context expr_ctx(source, queue[d], "prm", empty_state());        \
     source.new_line() << "mySum = reduce_operation(mySum, ";                   \
     boost::proto::eval(expr, expr_ctx);                                        \
     source << ");";                                                            \
   }
 
-            if ( is_cpu(device) ) {
+            if ( backend::is_cpu(queue[d]) ) {
                 source.open("{");
                 source.new_line() << "size_t grid_size  = get_global_size(0);";
                 source.new_line() << "size_t chunk_size = (n + grid_size - 1) / grid_size;";
@@ -268,7 +263,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
                 source.close("}");
 
                 backend::kernel krn(queue[d], source.str(), "vexcl_reductor_kernel", backend::fixed_workgroup_size(1));
-                kernel = cache.insert(std::make_pair(context(), krn)).first;
+                kernel = cache.insert(std::make_pair(key, krn)).first;
             } else {
                 source.open("{");
                 source.new_line() << "size_t tid        = get_local_id(0);";
@@ -298,7 +293,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
                 source.close("}");
 
                 backend::kernel krn(queue[d], source.str(), "vexcl_reductor_kernel", sizeof(real));
-                kernel = cache.insert(std::make_pair(context(), krn)).first;
+                kernel = cache.insert(std::make_pair(key, krn)).first;
             }
         }
 
@@ -323,12 +318,11 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
 
     for(unsigned d = 0; d < queue.size(); d++) {
         if (prop.part_size(d))
-            queue[d].enqueueReadBuffer(dbuf[d], CL_FALSE,
-                    0, sizeof(real) * (idx[d + 1] - idx[d]), &hbuf[idx[d]], 0, &event[d]);
+            dbuf[d].read(queue[d], 0, idx[d + 1] - idx[d], &hbuf[idx[d]]);
     }
 
     for(unsigned d = 0; d < queue.size(); d++)
-        if (prop.part_size(d)) event[d].wait();
+        if (prop.part_size(d)) queue[d].finish();
 
     return RDC::reduce(hbuf.begin(), hbuf.end());
 }
@@ -351,7 +345,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
 
 /// Returns a reference to a static instance of vex::Reductor<T,R>
 template <typename T, class R>
-const vex::Reductor<T, R>& get_reductor(const std::vector<cl::CommandQueue> &queue)
+const vex::Reductor<T, R>& get_reductor(const std::vector<backend::command_queue> &queue)
 {
     // We will hold one static reductor per set of queues (or, rather, contexts):
     static std::map< std::vector<cl_context>, vex::Reductor<T, R> > cache;
