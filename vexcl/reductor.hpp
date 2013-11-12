@@ -234,7 +234,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
 
             source
                 .template parameter< global_ptr<real> >("g_odata")
-                .template parameter< shared_ptr<real> >("sdata")
+                .template smem_parameter<real>()
                 .close(")");
 
 #define INCREMENT_MY_SUM                                                       \
@@ -247,8 +247,11 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
     source << ");";                                                            \
   }
 
+            source.open("{");
+            source.smem_declaration<real>();
+            source.new_line() << type_name< shared_ptr<real> >() << " sdata = smem;";
+
             if ( backend::is_cpu(queue[d]) ) {
-                source.open("{");
                 source.new_line() << "size_t grid_size  = get_global_size(0);";
                 source.new_line() << "size_t chunk_size = (n + grid_size - 1) / grid_size;";
                 source.new_line() << "size_t chunk_id   = get_global_id(0);";
@@ -265,7 +268,6 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
                 backend::kernel krn(queue[d], source.str(), "vexcl_reductor_kernel", backend::fixed_workgroup_size(1));
                 kernel = cache.insert(std::make_pair(key, krn)).first;
             } else {
-                source.open("{");
                 source.new_line() << "size_t tid        = get_local_id(0);";
                 source.new_line() << "size_t block_size = get_local_size(0);";
                 source.new_line() << type_name<real>() << " mySum = " << RDC::template initial<real>() << ";";

@@ -148,12 +148,20 @@ class source_generator {
 
         template <class Prm>
         source_generator& parameter(const std::string &name) {
-            if (first_prm)
-                first_prm = false;
-            else
-                src << ",";
+            prm_separator().new_line() <<
+                type_name<typename std::decay<Prm>::type>() << " " << name;
 
-            new_line() << type_name<typename std::decay<Prm>::type>() << " " << name;
+            return *this;
+        }
+
+        template <class Prm>
+        source_generator& smem_parameter(const std::string &name = "smem") {
+            return *this;
+        }
+
+        template <class Prm>
+        source_generator& smem_declaration(const std::string &name = "smem") {
+            new_line() << "extern __shared__ " << type_name<Prm>() << " * smem;";
             return *this;
         }
 
@@ -186,6 +194,15 @@ class source_generator {
         source_generator& operator<<(source_generator &src, T &&t) {
             src.src << t;
             return src;
+        }
+
+        source_generator& prm_separator() {
+            if (first_prm)
+                first_prm = false;
+            else
+                src << ",";
+
+            return *this;
         }
 };
 
