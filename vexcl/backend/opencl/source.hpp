@@ -197,6 +197,31 @@ class source_generator {
             return *this;
         }
 
+        source_generator& global_id(int d) {
+            src << "get_global_id(" << d << ")";
+            return *this;
+        }
+
+        source_generator& global_size(int d) {
+            src << "get_global_size(" << d << ")";
+            return *this;
+        }
+
+        source_generator& local_id(int d) {
+            src << "get_local_id(" << d << ")";
+            return *this;
+        }
+
+        source_generator& local_size(int d) {
+            src << "get_local_size(" << d << ")";
+            return *this;
+        }
+
+        source_generator& group_id(int d) {
+            src << "get_group_id(" << d << ")";
+            return *this;
+        }
+
         std::string str() const {
             return src.str();
         }

@@ -114,15 +114,15 @@ class kernel {
         }
 
         /// Adds local memory to the kernel.
-        void push_smem(size_t smem_per_thread) {
+        void set_smem(size_t smem_per_thread) {
             cl::LocalSpaceArg smem = { smem_per_thread * w_size };
             K.setArg(argpos++, smem);
         }
 
         /// Adds local memory to the kernel.
         template <class F>
-        void push_smem(F &&f) {
-            push_smem( f(w_size) );
+        void set_smem(F &&f) {
+            set_smem( f(w_size) );
         }
 
         void operator()(const cl::CommandQueue &q) {
