@@ -354,7 +354,7 @@ const vex::Reductor<T, R>& get_reductor(const std::vector<backend::command_queue
     std::vector<backend::kernel_cache_key> ctx;
     ctx.reserve(queue.size());
     for(auto q = queue.begin(); q != queue.end(); ++q)
-        ctx.push_back( vex::qctx(*q)() );
+        ctx.push_back( backend::cache_key(*q) );
 
     // See if there is suitable instance of reductor already:
     auto r = cache.find(ctx);

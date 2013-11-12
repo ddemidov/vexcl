@@ -229,6 +229,7 @@ class vector : public vector_terminal_expression {
                 /// Write associated element of a vector.
                 T operator=(T val) {
                     buf.write(queue, index, 1, &val);
+                    queue.finish();
                     return val;
                 }
 

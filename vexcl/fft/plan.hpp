@@ -217,8 +217,6 @@ struct plan {
                 );
 
         auto queue   = queues[0];
-        auto context = qctx(queue);
-        auto device  = qdev(queue);
 
         size_t total_n = std::accumulate(sizes.begin(), sizes.end(),
             static_cast<size_t>(1), std::multiplies<size_t>());
@@ -269,7 +267,6 @@ struct plan {
     void plan_bluestein(size_t width, size_t batch, bool inverse, size_t n, size_t p, size_t &current, size_t &other) {
         size_t conv_n = planner.best_size(2 * n);
         size_t threads = width / n;
-        auto context = qctx(queues[0]);
 
         size_t b_twiddle = bufs.size(); bufs.push_back(vex::vector<T2>(queues, n));
         size_t b_other   = bufs.size(); bufs.push_back(vex::vector<T2>(queues, conv_n));

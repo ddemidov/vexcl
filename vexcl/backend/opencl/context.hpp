@@ -57,6 +57,11 @@ inline kernel_cache_key cache_key(const command_queue &q) {
     return q.getInfo<CL_QUEUE_CONTEXT>()();
 }
 
+inline cl::CommandQueue duplicate_queue(const cl::CommandQueue &q) {
+    return cl::CommandQueue(
+            q.getInfo<CL_QUEUE_CONTEXT>(), q.getInfo<CL_QUEUE_DEVICE>());
+}
+
 /// Checks if the compute device is CPU.
 inline bool is_cpu(const command_queue &q) {
     cl::Device d = q.getInfo<CL_QUEUE_DEVICE>();

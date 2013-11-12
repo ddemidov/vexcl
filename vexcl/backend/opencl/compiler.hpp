@@ -41,6 +41,8 @@ THE SOFTWARE.
 #  include <boost/filesystem.hpp>
 #endif
 
+#include <vexcl/backend/common.hpp>
+
 #ifndef __CL_ENABLE_EXCEPTIONS
 #  define __CL_ENABLE_EXCEPTIONS
 #endif
@@ -156,7 +158,7 @@ inline std::string sha1(const std::string &src) {
  * in filesystem and reused in the following runs.
  */
 inline cl::Program build_sources(
-        const cl::Context &context, const std::string &source,
+        const cl::CommandQueue &queue, const std::string &source,
         const std::string &options = ""
         )
 {
@@ -164,8 +166,10 @@ inline cl::Program build_sources(
     std::cout << source << std::endl;
 #endif
 
-    auto device = context.getInfo<CL_CONTEXT_DEVICES>();
-    std::string compile_options = options + " " + backend::get_compile_options(device[0]);
+    auto context = queue.getInfo<CL_QUEUE_CONTEXT>();
+    auto device  = context.getInfo<CL_CONTEXT_DEVICES>();
+
+    std::string compile_options = options + " " + get_compile_options(queue);
 
 #ifdef VEXCL_CACHE_KERNELS
     // Get unique (hopefully) hash string for the kernel.
@@ -190,7 +194,7 @@ inline cl::Program build_sources(
                 ));
 
     try {
-        program.build(device, (options + " " + get_compile_options(device[0])).c_str());
+        program.build(device, (options + " " + get_compile_options(queue)).c_str());
     } catch(const cl::Error&) {
         std::cerr << source
                   << std::endl

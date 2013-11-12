@@ -116,7 +116,7 @@ BOOST_AUTO_TEST_CASE(test_dimensions)
     if (vex::Filter::Platform("Portable Computing Language")(ctx.device(0)))
         return;
 
-    const size_t max = vex::is_cpu(ctx.device(0)) ? 1 << 10 : 1 << 20;
+    const size_t max = vex::backend::is_cpu(ctx.queue(0)) ? 1 << 10 : 1 << 20;
 
     vex::fft::planner p;
 

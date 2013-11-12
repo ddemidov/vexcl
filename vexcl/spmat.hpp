@@ -81,7 +81,7 @@ class SpMat {
 
             // Create secondary queues.
             for(auto q = queue.begin(); q != queue.end(); q++)
-                squeue.push_back(backend::command_queue(qctx(*q), qdev(*q)));
+                squeue.push_back(backend::duplicate_queue(*q));
 
             std::vector<std::set<col_t>> ghost_cols = setup_exchange(col_part, row, col);
 

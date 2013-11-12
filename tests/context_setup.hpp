@@ -25,7 +25,7 @@ struct ContextReference {
     {
         amd_is_present = std::any_of(ctx.queue().begin(), ctx.queue().end(),
             [](const cl::CommandQueue &q) {
-                return vex::Filter::Platform("AMD")(vex::qdev(q));
+                return vex::Filter::Platform("AMD")(q.getInfo<CL_QUEUE_DEVICE>());
             });
     }
 

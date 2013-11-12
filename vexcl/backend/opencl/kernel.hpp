@@ -74,7 +74,7 @@ class kernel {
                const std::string &name,
                size_t smem_per_thread = 0
                )
-            : argpos(0), K(build_sources(queue.getInfo<CL_QUEUE_CONTEXT>(), src), name.c_str())
+            : argpos(0), K(build_sources(queue, src), name.c_str())
         {
             get_launch_cfg(queue,
                     [smem_per_thread](size_t wgs){ return wgs * smem_per_thread; });
@@ -85,7 +85,7 @@ class kernel {
                const std::string &src, const std::string &name,
                std::function<size_t(size_t)> smem
                )
-            : argpos(0), K(build_sources(queue.getInfo<CL_QUEUE_CONTEXT>(), src), name.c_str())
+            : argpos(0), K(build_sources(queue, src), name.c_str())
         {
             get_launch_cfg(queue, smem);
         }
@@ -96,7 +96,7 @@ class kernel {
                fixed_workgroup_size_impl wgs
                )
             : argpos(0),
-              K(build_sources(queue.getInfo<CL_QUEUE_CONTEXT>(), src), name.c_str()),
+              K(build_sources(queue, src), name.c_str()),
               w_size(wgs.size),
               g_size(w_size * num_workgroups(queue))
         { }
@@ -139,7 +139,8 @@ class kernel {
         static inline size_t num_workgroups(const cl::CommandQueue &q) {
             // This is a simple heuristic-based estimate. More advanced technique may
             // be employed later.
-            return 4 * qdev(q).getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>();
+            cl::Device d = q.getInfo<CL_QUEUE_DEVICE>();
+            return 4 * d.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>();
         }
 
         /*

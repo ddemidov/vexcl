@@ -55,8 +55,6 @@ THE SOFTWARE.
 #  endif
 #endif
 
-#include <vexcl/backend.hpp>
-
 namespace vex {
 
 /// Check run-time condition.

@@ -313,6 +313,10 @@ class Context {
             return q[d];
         }
 
+        const backend::device device(unsigned d) const {
+            return backend::device( backend::get_device_id(q[d]) );
+        }
+
         size_t size() const {
             return q.size();
         }

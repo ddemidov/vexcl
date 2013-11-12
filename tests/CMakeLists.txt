@@ -21,7 +21,7 @@ if(TEST_COVERAGE)
         COMMAND lcov --remove coverage.info '/usr*' '*/cl.hpp' -o coverage.info
         COMMAND genhtml coverage.info --output-directory coverage
         )
-endif(TEST_COVERAGE)
+endif()
 
 function(add_vexcl_test TEST_NAME TEST_SOURCE)
     add_executable(${TEST_NAME} ${TEST_SOURCE})
@@ -67,20 +67,22 @@ if (BOOST_COMPUTE)
 
     add_vexcl_test(boost_compute_sort boost_compute_sort.cpp)
     add_vexcl_test(boost_compute_scan boost_compute_scan.cpp)
-endif (BOOST_COMPUTE)
+endif ()
 
 #----------------------------------------------------------------------------
 # Test Fast Fourier Transform
 #----------------------------------------------------------------------------
-#find_package(FFTW QUIET)
-#
-#if (FFTW_FOUND)
-#    include_directories(${FFTW_INCLUDES})
-#    add_definitions(-DHAVE_FFTW)
-#endif (FFTW_FOUND)
-#
-#add_vexcl_test(fft fft.cpp)
-#
-#if (FFTW_FOUND)
-#    target_link_libraries(fft ${FFTW_LIBRARIES})
-#endif (FFTW_FOUND)
+if ("${VEXCL_BACKEND}" STREQUAL "OpenCL")
+    find_package(FFTW QUIET)
+
+    if (FFTW_FOUND)
+        include_directories(${FFTW_INCLUDES})
+        add_definitions(-DHAVE_FFTW)
+    endif ()
+
+    add_vexcl_test(fft fft.cpp)
+
+    if (FFTW_FOUND)
+        target_link_libraries(fft ${FFTW_LIBRARIES})
+    endif ()
+endif ()
