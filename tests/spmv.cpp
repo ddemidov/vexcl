@@ -468,6 +468,7 @@ BOOST_AUTO_TEST_CASE(ccsr_multivector_product)
             });
 }
 
+#ifdef VEXCL_BACKEND_OPENCL
 BOOST_AUTO_TEST_CASE(vector_valued_matrix)
 {
     const size_t n = 1024;
@@ -575,5 +576,6 @@ BOOST_AUTO_TEST_CASE(vector_valued_ccsr_matrix)
             BOOST_CHECK_CLOSE(a.s[1], sum.s[1], 1e-8);
             });
 }
+#endif
 
 BOOST_AUTO_TEST_SUITE_END()

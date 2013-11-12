@@ -74,7 +74,8 @@ class kernel {
                size_t smem_per_thread = 0
                )
             : offset(0), ctx(queue.context()),
-              module(build_sources(queue, src), detail::deleter())
+              module(build_sources(queue, src), detail::deleter()),
+              smem(0)
         {
             cuda_check( cuModuleGetFunction(&K, module.get(), name.c_str()) );
 
@@ -88,7 +89,8 @@ class kernel {
                std::function<size_t(size_t)> smem
                )
             : offset(0), ctx(queue.context()),
-              module(build_sources(queue, src), detail::deleter())
+              module(build_sources(queue, src), detail::deleter()),
+              smem(0)
         {
             cuda_check( cuModuleGetFunction(&K, module.get(), name.c_str()) );
             get_launch_cfg(queue, smem);
@@ -102,7 +104,8 @@ class kernel {
             : offset(0), ctx(queue.context()),
               module(build_sources(queue, src), detail::deleter()),
               w_size(wgs.size),
-              g_size(num_workgroups(queue))
+              g_size(num_workgroups(queue)),
+              smem(0)
         {
             cuda_check( cuModuleGetFunction(&K, module.get(), name.c_str()) );
         }
@@ -110,10 +113,9 @@ class kernel {
         /// Adds an argument to the kernel.
         template <class Arg>
         void push_arg(Arg &&arg) {
-	    int align = __alignof(arg);
-	    offset = (offset + align - 1) & ~(align - 1);
-            cuda_check(cuParamSetv(K, offset, (void*)&arg, sizeof(arg)));
-            offset += sizeof(arg);
+            char *c = (char*)&arg;
+            prm_pos.push_back(stack.size());
+            stack.insert(stack.end(), c, c + sizeof(arg));
         }
 
         /// Adds an argument to the kernel.
@@ -123,9 +125,8 @@ class kernel {
         }
 
         /// Adds local memory to the kernel.
-        void push_smem(size_t /*smem_per_thread*/) {
-            //auto smem = local_mem(smem_per_thread * w_size);
-            // TODO: K.setArg(offset++, smem);
+        void set_smem(size_t smem_per_thread) {
+            smem = smem_per_thread * w_size;
         }
 
         /// Adds local memory to the kernel.
@@ -137,11 +138,24 @@ class kernel {
         void operator()(const command_queue &q) {
             q.context().set_current();
 
-            // TODO: use stream;
-            cuda_check( cuParamSetSize(K, offset)  );
-            cuda_check( cuLaunchGrid(K, g_size, 1) );
+            prm_addr.clear();
+            for(auto p = prm_pos.begin(); p != prm_pos.end(); ++p)
+                prm_addr.push_back(stack.data() + *p);
 
-            offset = 0;
+            cuda_check(
+                    cuLaunchKernel(
+                        K,
+                        g_size, 1, 1,
+                        w_size, 1, 1,
+                        smem,
+                        q.raw(),
+                        prm_addr.data(),
+                        0
+                        )
+                    );
+
+            stack.clear();
+            prm_pos.clear();
         }
 
         /// Workgroup size.
@@ -159,13 +173,6 @@ class kernel {
             */
             return 64;
         }
-
-        /*
-        operator const cl::Kernel&() const {
-            return K;
-        }
-        */
-
     private:
         int offset;
 
@@ -175,6 +182,11 @@ class kernel {
 
         size_t   w_size;
         size_t   g_size;
+        size_t   smem;
+
+        std::vector<char>   stack;
+        std::vector<size_t> prm_pos;
+        std::vector<void*>  prm_addr;
 
         void get_launch_cfg(const command_queue &queue, std::function<size_t(size_t)> /*smem*/) {
             /* TODO
@@ -195,7 +207,7 @@ class kernel {
                     w_size /= 2;
             }
             */
-            w_size = 256;
+            w_size = 64;
             g_size = num_workgroups(queue);
         }
 };

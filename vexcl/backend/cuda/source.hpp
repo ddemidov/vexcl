@@ -67,7 +67,7 @@ template <class T>
 struct type_name_impl <shared_ptr<T> > {
     static std::string get() {
         std::ostringstream s;
-        s << "__shared__ " << type_name<T>() << " *";
+        s << type_name<T>() << " *";
         return s.str();
     }
 };
@@ -76,7 +76,7 @@ template <class T>
 struct type_name_impl <shared_ptr<const T> > {
     static std::string get() {
         std::ostringstream s;
-        s << "const __shared__" << type_name<T>() << " *";
+        s << "const " << type_name<T>() << " *";
         return s.str();
     }
 };
@@ -156,12 +156,13 @@ class source_generator {
 
         template <class Prm>
         source_generator& smem_parameter(const std::string &name = "smem") {
+            (void)name;
             return *this;
         }
 
         template <class Prm>
         source_generator& smem_declaration(const std::string &name = "smem") {
-            new_line() << "extern __shared__ " << type_name<Prm>() << " * smem;";
+            new_line() << "extern __shared__ " << type_name<Prm>() << " " << name << "[];";
             return *this;
         }
 
@@ -182,6 +183,37 @@ class source_generator {
 
         source_generator& barrier() {
             src << "__syncthreads();";
+            return *this;
+        }
+
+        source_generator& global_id(int d) {
+            const char dim[] = {'x', 'y', 'z'};
+            src << "(threadIdx." << dim[d] << " + blockIdx." << dim[d]
+                << " * blockDim." << dim[d] << ")";
+            return *this;
+        }
+
+        source_generator& global_size(int d) {
+            const char dim[] = {'x', 'y', 'z'};
+            src << "(blockDim." << dim[d] << " * gridDim." << dim[d] << ")";
+            return *this;
+        }
+
+        source_generator& local_id(int d) {
+            const char dim[] = {'x', 'y', 'z'};
+            src << "threadIdx." << dim[d];
+            return *this;
+        }
+
+        source_generator& local_size(int d) {
+            const char dim[] = {'x', 'y', 'z'};
+            src << "blockDim." << dim[d];
+            return *this;
+        }
+
+        source_generator& group_id(int d) {
+            const char dim[] = {'x', 'y', 'z'};
+            src << "blockIdx." << dim[d];
             return *this;
         }
 

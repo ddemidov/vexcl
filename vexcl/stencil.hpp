@@ -245,7 +245,7 @@ class stencil : private stencil_base<T> {
                 const std::vector<T> &st, unsigned center
                 )
             : stencil_base<T>(queue, static_cast<unsigned>(st.size()), center, st.begin(), st.end()),
-              conv(queue.size()), loc_s(queue.size()), loc_x(queue.size())
+              conv(queue.size()), smem(queue.size())
         {
             init(static_cast<unsigned>(st.size()));
         }
@@ -263,7 +263,7 @@ class stencil : private stencil_base<T> {
                 Iterator begin, Iterator end, unsigned center
                 )
             : stencil_base<T>(queue, static_cast<unsigned>(end - begin), center, begin, end),
-              conv(queue.size()), loc_s(queue.size()), loc_x(queue.size())
+              conv(queue.size()), smem(queue.size())
         {
             init(static_cast<unsigned>(end - begin));
         }
@@ -307,8 +307,7 @@ class stencil : private stencil_base<T> {
         using Base::rhalo;
 
         mutable std::vector<backend::kernel> conv;
-        std::vector<backend::local_mem_arg>  loc_s;
-        std::vector<backend::local_mem_arg>  loc_x;
+        std::vector<size_t>  smem;
 
         void init(unsigned width);
 
@@ -379,8 +378,6 @@ const detail::kernel_cache_entry& stencil<T>::slow_conv(const backend::command_q
                 .template parameter< global_ptr<T> >("y")
                 .template parameter<T>("alpha")
                 .template parameter<T>("beta")
-                .template parameter< shared_ptr<T> >("loc_s")
-                .template parameter< shared_ptr<T> >("loc_x")
             .close(")").open("{");
 
         source.grid_stride_loop().open("{");
@@ -430,14 +427,22 @@ const detail::kernel_cache_entry& stencil<T>::fast_conv(const backend::command_q
                 .template parameter< global_ptr<T> >("y")
                 .template parameter<T>("alpha")
                 .template parameter<T>("beta")
-                .template parameter< shared_ptr<T> >("S")
-                .template parameter< shared_ptr<T> >("X")
+                .template smem_parameter< T >()
             .close(")").open("{");
-        source.new_line() << "size_t grid_size = get_global_size(0);";
-        source.new_line() << "int l_id = get_local_id(0);";
-        source.new_line() << "int block_size = get_local_size(0);";
-        source.new_line() << "async_work_group_copy(S, s, lhalo + rhalo + 1, 0);";
-        source.new_line() << "for(long g_id = get_global_id(0), pos = 0; pos < n; g_id += grid_size, pos += grid_size)";
+
+        source.smem_declaration<T>();
+        source.new_line() << type_name< shared_ptr<T> >() << " S = smem;";
+        source.new_line() << type_name< shared_ptr<T> >() << " X = smem + lhalo + rhalo + 1;";
+
+        source.new_line() << "size_t grid_size = ";
+        source.global_size(0) << ";";
+        source.new_line() << "int l_id = ";
+        source.local_id(0) << ";";
+        source.new_line() << "int block_size = ";
+        source.local_size(0) << ";";
+        source.new_line() << "for(int i = l_id; i < rhalo + lhalo + 1; i += block_size) S[i] = s[i];";
+        source.new_line() << "for(long g_id = ";
+        source.global_id(0) << ", pos = 0; pos < n; g_id += grid_size, pos += grid_size)";
         source.open("{");
         source.new_line() << "for(int i = l_id, j = g_id - lhalo; i < block_size + lhalo + rhalo; i += block_size, j += block_size)";
         source.open("{");
@@ -472,12 +477,10 @@ void stencil<T>::init(unsigned width) {
         // TODO: better estimate.
         if (backend::is_cpu(queue[d]) || width > 64) {
             conv[d]  = slow_conv(queue[d]);
-            loc_s[d] = backend::local_mem(1);
-            loc_x[d] = backend::local_mem(1);
+            smem[d]  = 0;
         } else {
             conv[d] = fast_conv(queue[d]);
-            loc_s[d] = backend::local_mem(sizeof(T) * width);
-            loc_x[d] = backend::local_mem(sizeof(T) * (conv[d].workgroup_size() + lhalo + rhalo));
+            smem[d] = sizeof(T) * (2 * width + conv[d].workgroup_size() - 1);
         }
     }
 }
@@ -505,8 +508,7 @@ void stencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y,
             conv[d].push_arg(y(d));
             conv[d].push_arg(alpha);
             conv[d].push_arg(beta);
-            conv[d].push_arg(loc_s[d]);
-            conv[d].push_arg(loc_x[d]);
+            conv[d].set_smem(smem[d]);
 
             conv[d](queue[d]);
         }
@@ -601,7 +603,7 @@ void StencilOperator<T, width, center, Impl>::convolve(
     using namespace detail;
 
     static kernel_cache cache;
-    static std::map<backend::kernel_cache_key, backend::local_mem_arg> lmem;
+    static std::map<backend::kernel_cache_key, size_t> lmem;
 
     Base::exchange_halos(x);
 
@@ -633,13 +635,20 @@ void StencilOperator<T, width, center, Impl>::convolve(
                     .template parameter< global_ptr<T> >("y")
                     .template parameter<T>("alpha")
                     .template parameter<T>("beta")
-                    .template parameter< shared_ptr<T> >("X")
+                    .template smem_parameter<T>()
                 .close(")").open("{");
 
-            source.new_line() << "size_t grid_size = get_global_size(0);";
-            source.new_line() << "int l_id = get_local_id(0);";
-            source.new_line() << "int block_size = get_local_size(0);";
-            source.new_line() << "for(long g_id = get_global_id(0), pos = 0; pos < n; g_id += grid_size, pos += grid_size)";
+            source.smem_declaration<T>();
+            source.new_line() << type_name< shared_ptr<T> >() << " X = smem;";
+
+            source.new_line() << "size_t grid_size = ";
+            source.global_size(0) << ";";
+            source.new_line() << "int l_id = ";
+            source.local_id(0) << ";";
+            source.new_line() << "int block_size = ";
+            source.local_size(0) << ";";
+            source.new_line() << "for(long g_id = ";
+            source.global_id(0) << ", pos = 0; pos < n; g_id += grid_size, pos += grid_size)";
             source.open("{");
             source.new_line() << "for(int i = l_id, j = g_id - lhalo; i < block_size + lhalo + rhalo; i += block_size, j += block_size)";
             source.open("{");
@@ -660,7 +669,7 @@ void StencilOperator<T, width, center, Impl>::convolve(
                     );
             kernel = cache.insert(std::make_pair(key, krn)).first;
 
-            lmem[key] = backend::local_mem(sizeof(T) * (krn.workgroup_size() + width - 1));
+            lmem[key] = sizeof(T) * (krn.workgroup_size() + width - 1);
         }
 
         if (size_t psize = x.part_size(d)) {
@@ -677,7 +686,8 @@ void StencilOperator<T, width, center, Impl>::convolve(
             kernel->second.push_arg(y(d));
             kernel->second.push_arg(alpha);
             kernel->second.push_arg(beta);
-            kernel->second.push_arg(lmem[key]);
+
+            kernel->second.set_smem(lmem[key]);
 
             kernel->second(queue[d]);
         }

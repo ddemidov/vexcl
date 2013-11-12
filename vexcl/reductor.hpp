@@ -252,9 +252,11 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
             source.new_line() << type_name< shared_ptr<real> >() << " sdata = smem;";
 
             if ( backend::is_cpu(queue[d]) ) {
-                source.new_line() << "size_t grid_size  = get_global_size(0);";
+                source.new_line() << "size_t grid_size  = ";
+                source.global_size(0) << ";";
                 source.new_line() << "size_t chunk_size = (n + grid_size - 1) / grid_size;";
-                source.new_line() << "size_t chunk_id   = get_global_id(0);";
+                source.new_line() << "size_t chunk_id   = ";
+                source.global_id(0) << ";";
                 source.new_line() << "size_t start      = min(n, chunk_size * chunk_id);";
                 source.new_line() << "size_t stop       = min(n, chunk_size * (chunk_id + 1));";
                 source.new_line() << type_name<real>() << " mySum = " << RDC::template initial<real>() << ";";
@@ -262,14 +264,17 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
                 source.open("{");
                 INCREMENT_MY_SUM
                 source.close("}");
-                source.new_line() << "g_odata[get_group_id(0)] = mySum;";
+                source.new_line() << "g_odata[";
+                source.group_id(0) << "] = mySum;";
                 source.close("}");
 
                 backend::kernel krn(queue[d], source.str(), "vexcl_reductor_kernel", backend::fixed_workgroup_size(1));
                 kernel = cache.insert(std::make_pair(key, krn)).first;
             } else {
-                source.new_line() << "size_t tid        = get_local_id(0);";
-                source.new_line() << "size_t block_size = get_local_size(0);";
+                source.new_line() << "size_t tid = ";
+                source.local_id(0) << ";";
+                source.new_line() << "size_t block_size = ";
+                source.local_size(0) << ";";
                 source.new_line() << type_name<real>() << " mySum = " << RDC::template initial<real>() << ";";
 
                 source.grid_stride_loop().open("{");
@@ -291,7 +296,8 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
                         "{ smem[tid] = mySum = reduce_operation(mySum, smem[tid + " << bs << "]); }";
                 }
                 source.close("}");
-                source.new_line() << "if (tid == 0) g_odata[get_group_id(0)] = sdata[0];";
+                source.new_line() << "if (tid == 0) g_odata[";
+                source.group_id(0) << "] = sdata[0];";
                 source.close("}");
 
                 backend::kernel krn(queue[d], source.str(), "vexcl_reductor_kernel", sizeof(real));
@@ -310,7 +316,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
                     );
 
             kernel->second.push_arg(dbuf[d]);
-            kernel->second.push_smem(sizeof(real));
+            kernel->second.set_smem(sizeof(real));
 
             kernel->second(queue[d]);
         }

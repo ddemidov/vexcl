@@ -449,16 +449,13 @@ class symbolic
         std::string prmdecl() const {
             std::ostringstream s;
 
-            if (scope == VectorParameter)
-                s << "global ";
-
             if (constness == Const)
                 s << "const ";
 
-            s << type_name<T>();
-
             if (scope == VectorParameter)
-                s << "*";
+                s << type_name< global_ptr<T> >();
+            else
+                s << type_name< T >();
 
             s << " p_" << *this;
 

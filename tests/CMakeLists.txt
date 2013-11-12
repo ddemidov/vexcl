@@ -52,9 +52,12 @@ add_vexcl_test(multi_array              multi_array.cpp)
 add_vexcl_test(spmv                     spmv.cpp)
 add_vexcl_test(stencil                  stencil.cpp)
 add_vexcl_test(generator                generator.cpp)
-add_vexcl_test(random                   random.cpp)
 add_vexcl_test(mba                      mba.cpp)
 add_vexcl_test(multiple_objects         "dummy1.cpp;dummy2.cpp")
+
+if ("${VEXCL_BACKEND}" STREQUAL "OpenCL")
+    add_vexcl_test(random                   random.cpp)
+endif()
 
 #----------------------------------------------------------------------------
 # Test interoperation with Boost.compute
