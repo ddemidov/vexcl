@@ -122,7 +122,8 @@ class kernel {
         /// Adds local memory to the kernel.
         template <class F>
         void set_smem(F &&f) {
-            set_smem( f(w_size) );
+            cl::LocalSpaceArg smem = { f(w_size) };
+            K.setArg(argpos++, smem);
         }
 
         void operator()(const cl::CommandQueue &q) {

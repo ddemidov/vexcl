@@ -508,7 +508,7 @@ void stencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y,
             conv[d].push_arg(y(d));
             conv[d].push_arg(alpha);
             conv[d].push_arg(beta);
-            conv[d].set_smem(smem[d]);
+            conv[d].set_smem([&](size_t){ return smem[d]; });
 
             conv[d](queue[d]);
         }
@@ -687,7 +687,7 @@ void StencilOperator<T, width, center, Impl>::convolve(
             kernel->second.push_arg(alpha);
             kernel->second.push_arg(beta);
 
-            kernel->second.set_smem(lmem[key]);
+            kernel->second.set_smem([&](size_t){ return lmem[key]; });
 
             kernel->second(queue[d]);
         }

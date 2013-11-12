@@ -131,8 +131,8 @@ class kernel {
 
         /// Adds local memory to the kernel.
         template <class F>
-        void push_smem(F &&f) {
-            push_smem( f(w_size) );
+        void set_smem(F &&f) {
+            smem = f(w_size);
         }
 
         void operator()(const command_queue &q) {
