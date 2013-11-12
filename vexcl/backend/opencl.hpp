@@ -40,6 +40,7 @@ THE SOFTWARE.
 #endif
 #include <CL/cl.hpp>
 
+#include <vexcl/backend/opencl/types.hpp>
 #include <vexcl/backend/opencl/error.hpp>
 #include <vexcl/backend/opencl/context.hpp>
 #include <vexcl/backend/opencl/filter.hpp>
