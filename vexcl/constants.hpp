@@ -36,6 +36,8 @@ THE SOFTWARE.
 #include <string>
 #include <type_traits>
 
+#include <vexcl/backend.hpp>
+
 #include <vexcl/types.hpp>
 #include <vexcl/operations.hpp>
 

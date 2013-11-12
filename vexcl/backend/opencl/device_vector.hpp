@@ -52,7 +52,7 @@ class device_vector {
 
         device_vector() {}
 
-        device_vector(cl::CommandQueue q, size_t n,
+        device_vector(const cl::CommandQueue &q, size_t n,
                 const T *host = 0, mem_flags flags = MEM_READ_WRITE)
         {
             if (host)
@@ -65,7 +65,7 @@ class device_vector {
 
         device_vector(cl::Buffer buffer) : buffer( std::move(buffer) ) {}
 
-        void write(cl::CommandQueue q, size_t offset, size_t size, const T *host,
+        void write(const cl::CommandQueue &q, size_t offset, size_t size, const T *host,
                 bool blocking = false) const
         {
             if (size)
@@ -75,7 +75,7 @@ class device_vector {
                         );
         }
 
-        void read(cl::CommandQueue q, size_t offset, size_t size, T *host,
+        void read(const cl::CommandQueue &q, size_t offset, size_t size, T *host,
                 bool blocking = false) const
         {
             if (size)

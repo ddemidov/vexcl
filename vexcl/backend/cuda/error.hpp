@@ -46,7 +46,7 @@ THE SOFTWARE.
 namespace std {
 
 std::ostream& operator<<(std::ostream &os, CUresult rc) {
-#define CUDA_ERR2TXT(e) case e: return os << e << " - " << #e
+#define CUDA_ERR2TXT(e) case e: return os << static_cast<int>(e) << " - " << #e
     switch(rc) {
         CUDA_ERR2TXT(CUDA_SUCCESS);
         CUDA_ERR2TXT(CUDA_ERROR_INVALID_VALUE);
@@ -108,7 +108,7 @@ std::ostream& operator<<(std::ostream &os, CUresult rc) {
 namespace vex {
 namespace backend {
 
-class error : std::runtime_error {
+class error : public std::runtime_error {
     public:
         error(CUresult code) : std::runtime_error(get_msg(code)), code(code) { }
 

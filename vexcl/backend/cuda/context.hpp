@@ -58,8 +58,8 @@ struct deleter {
         cuda_check( cuStreamDestroy(stream) );
     }
 
-    void operator()(CUdeviceptr ptr) const {
-        cuda_check( cuMemFree(ptr) );
+    void operator()(char *ptr) const {
+        cuda_check( cuMemFree(static_cast<CUdeviceptr>(reinterpret_cast<size_t>(ptr))) );
     }
 };
 
@@ -83,6 +83,8 @@ class device {
 
 class context {
     public:
+        context() {}
+
         context(device dev, unsigned flags = 0)
             : c( create(dev, flags), detail::deleter() )
         { }
@@ -119,7 +121,7 @@ typedef unsigned command_queue_properties;
 
 class command_queue {
     public:
-        command_queue(const context &ctx, device dev, unsigned flags)
+        command_queue(const vex::backend::context &ctx, vex::backend::device dev, unsigned flags)
             : ctx(ctx), dev(dev), s( create(ctx, flags), detail::deleter() )
         { }
 
@@ -128,11 +130,11 @@ class command_queue {
             cuda_check( cuStreamSynchronize( s.get() ) );
         }
 
-        context context() const {
+        vex::backend::context context() const {
             return ctx;
         }
 
-        device device() const {
+        vex::backend::device device() const {
             return dev;
         }
 
@@ -141,12 +143,16 @@ class command_queue {
             cuda_check( cuStreamGetFlags(s.get(), &f) );
             return f;
         }
+
+        CUstream raw() const {
+            return s.get();
+        }
     private:
-        class context  ctx;
-        class device   dev;
+        vex::backend::context  ctx;
+        vex::backend::device   dev;
         std::shared_ptr<std::remove_pointer<CUstream>::type> s;
 
-        static CUstream create(const class context &ctx, unsigned flags = 0) {
+        static CUstream create(const vex::backend::context &ctx, unsigned flags = 0) {
             ctx.set_current();
 
             CUstream s;

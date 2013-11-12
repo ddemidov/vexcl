@@ -37,14 +37,13 @@ THE SOFTWARE.
 
 #include <cuda.h>
 
+#include <vexcl/backend/cuda/types.hpp>
 #include <vexcl/backend/cuda/error.hpp>
 #include <vexcl/backend/cuda/context.hpp>
 #include <vexcl/backend/cuda/filter.hpp>
-#if 0
 #include <vexcl/backend/cuda/device_vector.hpp>
 #include <vexcl/backend/cuda/source.hpp>
 #include <vexcl/backend/cuda/compiler.hpp>
 #include <vexcl/backend/cuda/kernel.hpp>
-#endif
 
 #endif

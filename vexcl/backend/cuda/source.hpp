@@ -1,5 +1,5 @@
-#ifndef VEXCL_BACKEND_OPENCL_SOURCE_HPP
-#define VEXCL_BACKEND_OPENCL_SOURCE_HPP
+#ifndef VEXCL_BACKEND_CUDA_SOURCE_HPP
+#define VEXCL_BACKEND_CUDA_SOURCE_HPP
 
 /*
 The MIT License
@@ -26,9 +26,9 @@ THE SOFTWARE.
 */
 
 /**
- * \file   vexcl/backend/opencl/source.hpp
+ * \file   vexcl/backend/cuda/source.hpp
  * \author Denis Demidov <ddemidov@ksu.ru>
- * \brief  Helper class for OpenCL source code generation.
+ * \brief  Helper class for CUDA source code generation.
  */
 
 #include <map>
@@ -46,7 +46,7 @@ template <class T>
 struct type_name_impl <global_ptr<T> > {
     static std::string get() {
         std::ostringstream s;
-        s << "global " << type_name<T>() << " *";
+        s << type_name<T>() << " *";
         return s.str();
     }
 };
@@ -55,7 +55,7 @@ template <class T>
 struct type_name_impl < global_ptr<const T> > {
     static std::string get() {
         std::ostringstream s;
-        s << "global const " << type_name<T>() << " *";
+        s << "const " << type_name<T>() << " *";
         return s.str();
     }
 };
@@ -64,7 +64,7 @@ template <class T>
 struct type_name_impl <shared_ptr<T> > {
     static std::string get() {
         std::ostringstream s;
-        s << "local " << type_name<T>() << " *";
+        s << "__shared__ " << type_name<T>() << " *";
         return s.str();
     }
 };
@@ -73,7 +73,7 @@ template <class T>
 struct type_name_impl <shared_ptr<const T> > {
     static std::string get() {
         std::ostringstream s;
-        s << "local const " << type_name<T>() << " *";
+        s << "const __shared__" << type_name<T>() << " *";
         return s.str();
     }
 };
@@ -88,19 +88,13 @@ struct type_name_impl<T*>
 
 namespace backend {
 
-/// Returns standard OpenCL program header.
+/// Returns standard CUDA program header.
 /**
  * Defines pragmas necessary to work with double precision and anything
  * provided by the user with help of push_program_header().
  */
-inline std::string standard_kernel_header(const cl::CommandQueue &q) {
-    return std::string(
-        "#if defined(cl_khr_fp64)\n"
-        "#  pragma OPENCL EXTENSION cl_khr_fp64: enable\n"
-        "#elif defined(cl_amd_fp64)\n"
-        "#  pragma OPENCL EXTENSION cl_amd_fp64: enable\n"
-        "#endif\n"
-        ) + get_program_header(q);
+inline std::string standard_kernel_header(const command_queue &q) {
+    return get_program_header(q);
 }
 
 class source_generator {
@@ -112,8 +106,8 @@ class source_generator {
     public:
         source_generator() : indent(0), first_prm(true), cpu(false) { }
 
-        source_generator(const cl::CommandQueue &queue)
-            : indent(0), first_prm(true), cpu( is_cpu(queue) )
+        source_generator(const command_queue &queue)
+            : indent(0), first_prm(true)
         {
             src << standard_kernel_header(queue);
         }
@@ -139,13 +133,13 @@ class source_generator {
         template <class Return>
         source_generator& function(const std::string &name) {
             first_prm = true;
-            new_line() << type_name<Return>() << " " << name;
+            new_line() << "__device__ " << type_name<Return>() << " " << name;
             return *this;
         }
 
         source_generator& kernel(const std::string &name) {
             first_prm = true;
-            new_line() << "kernel void " << name;
+            new_line() << "extern \"C\" __global__ void " << name;
             return *this;
         }
 
@@ -164,25 +158,19 @@ class source_generator {
                 const std::string &idx = "idx", const std::string &bnd = "n"
                 )
         {
-            if ( cpu ) {
-                new_line() << "size_t chunk_size  = (" << bnd
-                           << " + get_global_size(0) - 1) / get_global_size(0);";
-                new_line() << "size_t chunk_start = get_global_id(0) * chunk_size;";
-                new_line() << "size_t chunk_end   = min(" << bnd
-                           << ", chunk_start + chunk_size);";
-                new_line() << "for(size_t " << idx << " = chunk_start; "
-                           << idx << " < chunk_end; ++" << idx << ")";
-            } else {
-                new_line() <<
-                    "for(size_t " << idx << " = get_global_id(0);"
-                    " " << idx << " < " << bnd << ";"
-                    " " << idx << " += get_global_size(0))";
-            }
+            new_line() << "for";
+            open("(");
+            new_line() << "size_t " << idx << " = blockDim.x * blockIdx.x + threadIdx.x, "
+                "grid_size = blockDim.x * gridDim.x;";
+            new_line() << idx << " < " << bnd << ";";
+            new_line() << idx << " += grid_size";
+            close(")");
+
             return *this;
         }
 
         source_generator& barrier() {
-            src << "barrier(CLK_LOCAL_MEM_FENCE);";
+            src << "__syncthreads();";
             return *this;
         }
 

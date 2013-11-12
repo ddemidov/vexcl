@@ -37,11 +37,6 @@ THE SOFTWARE.
 #include <iostream>
 #include <sstream>
 
-#ifndef __CL_ENABLE_EXCEPTIONS
-#  define __CL_ENABLE_EXCEPTIONS
-#endif
-#include <CL/cl.hpp>
-
 typedef unsigned int  uint;
 typedef unsigned char uchar;
 
@@ -193,50 +188,6 @@ inline std::string type_name() {
 
 template <class T> struct global_ptr {};
 template <class T> struct shared_ptr {};
-
-template <class T>
-struct type_name_impl <global_ptr<T> > {
-    static std::string get() {
-        std::ostringstream s;
-        s << "global " << type_name<T>() << " *";
-        return s.str();
-    }
-};
-
-template <class T>
-struct type_name_impl < global_ptr<const T> > {
-    static std::string get() {
-        std::ostringstream s;
-        s << "global const " << type_name<T>() << " *";
-        return s.str();
-    }
-};
-
-template <class T>
-struct type_name_impl <shared_ptr<T> > {
-    static std::string get() {
-        std::ostringstream s;
-        s << "local " << type_name<T>() << " *";
-        return s.str();
-    }
-};
-
-template <class T>
-struct type_name_impl <shared_ptr<const T> > {
-    static std::string get() {
-        std::ostringstream s;
-        s << "local const " << type_name<T>() << " *";
-        return s.str();
-    }
-};
-
-template<typename T>
-struct type_name_impl<T*>
-{
-    static std::string get() {
-        return type_name_impl< global_ptr<T> >::get();
-    }
-};
 
 #define STRINGIFY(type)                                                        \
   template<> struct type_name_impl<cl_##type> {                                \
