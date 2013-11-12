@@ -65,7 +65,7 @@ inline fixed_workgroup_size_impl fixed_workgroup_size(size_t n) {
 /// An abstraction over CUDA compute kernel.
 class kernel {
     public:
-        kernel() : offset(0), w_size(0), g_size(0) {}
+        kernel() : w_size(0), g_size(0), smem(0) {}
 
         /// Constructor. Creates a cl::Kernel instance from source.
         kernel(const command_queue &queue,
@@ -73,7 +73,7 @@ class kernel {
                const std::string &name,
                size_t smem_per_thread = 0
                )
-            : offset(0), ctx(queue.context()),
+            : ctx(queue.context()),
               module(build_sources(queue, src), detail::deleter()),
               smem(0)
         {
@@ -88,7 +88,7 @@ class kernel {
                const std::string &src, const std::string &name,
                std::function<size_t(size_t)> smem
                )
-            : offset(0), ctx(queue.context()),
+            : ctx(queue.context()),
               module(build_sources(queue, src), detail::deleter()),
               smem(0)
         {
@@ -101,7 +101,7 @@ class kernel {
                const std::string &src, const std::string &name,
                fixed_workgroup_size_impl wgs
                )
-            : offset(0), ctx(queue.context()),
+            : ctx(queue.context()),
               module(build_sources(queue, src), detail::deleter()),
               w_size(wgs.size),
               g_size(num_workgroups(queue)),
@@ -174,8 +174,6 @@ class kernel {
             return 64;
         }
     private:
-        int offset;
-
         context ctx;
         std::shared_ptr< std::remove_pointer<CUmodule>::type > module;
         CUfunction K;

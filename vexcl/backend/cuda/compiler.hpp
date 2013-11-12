@@ -67,8 +67,10 @@ inline CUmodule build_sources(
         (void)queue;
         (void)options;
         cmdline << "nvcc -ptx -arch=sm_13 -o " << ptxfile << " " << cufile;
-        if (0 != system(cmdline.str().c_str()) )
+        if (0 != system(cmdline.str().c_str()) ) {
+            std::cerr << source << std::endl;
             throw std::runtime_error("nvcc invocation failed");
+        }
     }
 
     // Load the compiled ptx.

@@ -701,11 +701,13 @@ void run_tests(const vex::Context &ctx, vex::profiler<> &prof)
         prof.toc("SpMV (CCSR)");
     }
 
+#ifdef VEXCL_BACKEND_OPENCL
     if (options.bm_rng) {
         prof.tic_cpu("Random number generation");
         benchmark_rng<real>(ctx, prof);
         prof.toc("Random number generation");
     }
+#endif
 
     prof.toc( vex::type_name<real>() );
 

@@ -144,12 +144,6 @@ class kernel {
             return 4 * d.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>();
         }
 
-        /*
-        operator const cl::Kernel&() const {
-            return K;
-        }
-        */
-
     private:
         unsigned argpos;
 
