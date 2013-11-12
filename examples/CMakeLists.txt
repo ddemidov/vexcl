@@ -10,8 +10,11 @@ endfunction()
 # General examples
 #----------------------------------------------------------------------------
 add_vexcl_example(devlist)
-add_vexcl_example(exclusive)
 add_vexcl_example(benchmark)
+
+if ("${VEXCL_BACKEND}" STREQUAL "OpenCL")
+    add_vexcl_example(exclusive)
+endif()
 
 find_path(MBA_INCLUDE mba/mba.hpp)
 if (MBA_INCLUDE)

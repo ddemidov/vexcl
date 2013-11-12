@@ -522,7 +522,7 @@ std::pair<double,double> benchmark_spmv_ccsr(
     vex::SpMatCCSR<real,int> A(ctx.queue(0), n * n * n, 2,
             idx.data(), row.data(), col.data(), val.data());
 
-    std::vector<cl::CommandQueue> q1(1, ctx.queue(0));
+    std::vector<vex::backend::command_queue> q1(1, ctx.queue(0));
     vex::vector<real> x(q1, X);
     vex::vector<real> y(q1, Y);
 

@@ -43,6 +43,7 @@ THE SOFTWARE.
 #include <boost/filesystem.hpp>
 
 namespace vex {
+
 namespace backend {
 
 enum device_options_kind {

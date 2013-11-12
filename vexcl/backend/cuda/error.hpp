@@ -45,7 +45,7 @@ THE SOFTWARE.
 
 namespace std {
 
-std::ostream& operator<<(std::ostream &os, CUresult rc) {
+inline std::ostream& operator<<(std::ostream &os, CUresult rc) {
 #define CUDA_ERR2TXT(e) case e: return os << static_cast<int>(e) << " - " << #e
     switch(rc) {
         CUDA_ERR2TXT(CUDA_SUCCESS);
@@ -125,7 +125,7 @@ class error : public std::runtime_error {
         CUresult code;
 };
 
-void check(CUresult rc, const char *file, int line) {
+inline void check(CUresult rc, const char *file, int line) {
     if (rc != CUDA_SUCCESS) {
         std::cerr << "CUDA error at " << file << ":" << line << std::endl;
         throw error(rc);
@@ -135,5 +135,13 @@ void check(CUresult rc, const char *file, int line) {
 #define cuda_check(rc) vex::backend::check(rc, __FILE__, __LINE__)
 } // namespace backend
 } // namespace vex
+
+namespace std {
+
+inline std::ostream& operator<<(std::ostream &os, const vex::backend::error &e) {
+    return os << e.what();
+}
+
+} // namespace std
 
 #endif

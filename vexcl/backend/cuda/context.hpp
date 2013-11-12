@@ -40,6 +40,11 @@ THE SOFTWARE.
 namespace vex {
 namespace backend {
 
+inline CUresult do_init() {
+    static CUresult rc = cuInit(0);
+    return rc;
+}
+
 namespace detail {
 
 // Knows how to dispose of various CUDA handles.
@@ -87,7 +92,9 @@ class context {
 
         context(device dev, unsigned flags = 0)
             : c( create(dev, flags), detail::deleter() )
-        { }
+        {
+            cuda_check( do_init() );
+        }
 
         CUcontext raw() const {
             return c.get();
@@ -105,17 +112,7 @@ class context {
             cuda_check( cuCtxCreate(&h, flags, dev.raw()) );
             return h;
         }
-
-        struct cuda_initializer {
-            cuda_initializer() {
-                cuda_check( cuInit(0) );
-            }
-        };
-
-        static const cuda_initializer do_init;
 };
-
-const context::cuda_initializer context::do_init;
 
 typedef unsigned command_queue_properties;
 
@@ -197,6 +194,8 @@ inline bool is_cpu(const command_queue&) {
  */
 template<class DevFilter>
 std::vector<device> device_list(DevFilter&& filter) {
+    cuda_check( do_init() );
+
     std::vector<device> device;
 
     int ndev;
@@ -227,6 +226,8 @@ template<class DevFilter>
 std::pair< std::vector<context>, std::vector<command_queue> >
 queue_list(DevFilter &&filter, unsigned queue_flags = 0)
 {
+    cuda_check( do_init() );
+
     std::vector<context>       ctx;
     std::vector<command_queue> queue;
 

@@ -42,6 +42,9 @@ THE SOFTWARE.
 
 namespace vex {
 
+template <class T> struct global_ptr {};
+template <class T> struct shared_ptr {};
+
 template <class T>
 struct type_name_impl <global_ptr<T> > {
     static std::string get() {

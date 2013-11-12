@@ -313,7 +313,7 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, FUNCALL_OPERATOR, ~)
 
             for(auto q = queue.begin(); q != queue.end(); ++q)
                 phi.push_back( backend::device_vector<real>(
-                            *q, psi->phi.size(), psi->phi.data(), CL_MEM_READ_ONLY
+                            *q, psi->phi.size(), psi->phi.data(), backend::MEM_READ_ONLY
                             ) );
         }
 

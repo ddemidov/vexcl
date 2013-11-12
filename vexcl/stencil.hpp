@@ -140,10 +140,10 @@ stencil_base<T>::stencil_base(
 
     for(unsigned d = 0; d < queue.size(); d++) {
         if (begin != end)
-            s[d] = backend::device_vector<T>(queue[d], end - begin, &begin[0], CL_MEM_READ_ONLY);
+            s[d] = backend::device_vector<T>(queue[d], end - begin, &begin[0], backend::MEM_READ_ONLY);
 
         // Allocate one element more than needed, to be sure size is nonzero.
-        dbuf[d] = backend::device_vector<T>(queue[d], width, 0, CL_MEM_READ_WRITE);
+        dbuf[d] = backend::device_vector<T>(queue[d], width);
     }
 
     for(unsigned d = 0; d < queue.size(); d++) queue[d].finish();
@@ -164,7 +164,7 @@ void stencil_base<T>::exchange_halos(const vex::vector<T> &x) const {
             size_t end   = x.part_start(d);
             size_t begin = end >= static_cast<unsigned>(lhalo) ?  end - lhalo : 0;
             size_t size  = end - begin;
-            x.read_data(begin, size, &hbuf[d * width + lhalo - size], CL_FALSE);
+            x.read_data(begin, size, &hbuf[d * width + lhalo - size], false);
         }
 
         // Get halo from right neighbour.
@@ -172,7 +172,7 @@ void stencil_base<T>::exchange_halos(const vex::vector<T> &x) const {
             size_t begin = x.part_start(d + 1);
             size_t end   = std::min(begin + rhalo, x.size());
             size_t size  = end - begin;
-            x.read_data(begin, size, &hbuf[d * width + lhalo], CL_FALSE);
+            x.read_data(begin, size, &hbuf[d * width + lhalo], false);
         }
     }
 

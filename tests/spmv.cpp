@@ -231,7 +231,7 @@ BOOST_AUTO_TEST_CASE(ccsr_vector_product)
 
     std::vector<double> x = random_vector<double>(n * n * n);
 
-    std::vector<cl::CommandQueue> queue(1, ctx.queue(0));
+    std::vector<vex::backend::command_queue> queue(1, ctx.queue(0));
 
     vex::SpMatCCSR<double,int> A(queue[0], x.size(), row.size() - 1,
             idx.data(), row.data(), col.data(), val.data());
@@ -266,7 +266,7 @@ BOOST_AUTO_TEST_CASE(inline_spmv)
 {
     const size_t n = 1024;
 
-    std::vector<cl::CommandQueue> queue(1, ctx.queue(0));
+    std::vector<vex::backend::command_queue> queue(1, ctx.queue(0));
 
     std::vector<size_t> row;
     std::vector<size_t> col;
@@ -345,7 +345,7 @@ BOOST_AUTO_TEST_CASE(inline_multivector_product)
 
     typedef std::array<double, m> elem_t;
 
-    std::vector<cl::CommandQueue> queue(1, ctx.queue(0));
+    std::vector<vex::backend::command_queue> queue(1, ctx.queue(0));
 
     std::vector<size_t> row;
     std::vector<size_t> col;
@@ -431,7 +431,7 @@ BOOST_AUTO_TEST_CASE(ccsr_multivector_product)
 
     std::vector<double> x = random_vector<double>(N * 2);
 
-    std::vector<cl::CommandQueue> queue(1, ctx.queue(0));
+    std::vector<vex::backend::command_queue> queue(1, ctx.queue(0));
 
     vex::SpMatCCSR<double,int> A(queue[0], N, row.size() - 1,
             idx.data(), row.data(), col.data(), val.data());
@@ -555,7 +555,7 @@ BOOST_AUTO_TEST_CASE(vector_valued_ccsr_matrix)
 
     std::vector<cl_double2> x = random_vector<cl_double2>(n * n * n);
 
-    std::vector<cl::CommandQueue> queue(1, ctx.queue(0));
+    std::vector<vex::backend::command_queue> queue(1, ctx.queue(0));
 
     vex::SpMatCCSR<cl_double2,int> A(queue[0], x.size(), row.size() - 1,
             idx.data(), row.data(), col.data(), val.data());

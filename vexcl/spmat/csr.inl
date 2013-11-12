@@ -59,9 +59,9 @@ struct SpMatCSR : public sparse_matrix {
             rem.nnz = 0;
 
             if (loc.nnz) {
-                loc.row = backend::device_vector<idx_t>(queue, (n + 1), row + row_begin,      CL_MEM_READ_ONLY);
-                loc.col = backend::device_vector<col_t>(queue, loc.nnz, col + row[row_begin], CL_MEM_READ_ONLY);
-                loc.val = backend::device_vector<val_t>(queue, loc.nnz, val + row[row_begin], CL_MEM_READ_ONLY);
+                loc.row = backend::device_vector<idx_t>(queue, (n + 1), row + row_begin,      backend::MEM_READ_ONLY);
+                loc.col = backend::device_vector<col_t>(queue, loc.nnz, col + row[row_begin], backend::MEM_READ_ONLY);
+                loc.val = backend::device_vector<val_t>(queue, loc.nnz, val + row[row_begin], backend::MEM_READ_ONLY);
 
                 if (row_begin > 0) vector<idx_t>(queue, loc.row) -= row_begin;
             }
@@ -115,18 +115,18 @@ struct SpMatCSR : public sparse_matrix {
             if (lrow.back()) {
                 loc.nnz = lrow.back();
 
-                loc.row = backend::device_vector<idx_t>(queue, lrow.size(), lrow.data(), CL_MEM_READ_ONLY);
-                loc.col = backend::device_vector<col_t>(queue, lcol.size(), lcol.data(), CL_MEM_READ_ONLY);
-                loc.val = backend::device_vector<val_t>(queue, lval.size(), lval.data(), CL_MEM_READ_ONLY);
+                loc.row = backend::device_vector<idx_t>(queue, lrow.size(), lrow.data(), backend::MEM_READ_ONLY);
+                loc.col = backend::device_vector<col_t>(queue, lcol.size(), lcol.data(), backend::MEM_READ_ONLY);
+                loc.val = backend::device_vector<val_t>(queue, lval.size(), lval.data(), backend::MEM_READ_ONLY);
             }
 
             // Copy remote part to the device.
             if (!ghost_cols.empty()) {
                 rem.nnz = rrow.back();
 
-                rem.row = backend::device_vector<idx_t>(queue, rrow.size(), rrow.data(), CL_MEM_READ_ONLY);
-                rem.col = backend::device_vector<col_t>(queue, rcol.size(), rcol.data(), CL_MEM_READ_ONLY);
-                rem.val = backend::device_vector<val_t>(queue, rval.size(), rval.data(), CL_MEM_READ_ONLY);
+                rem.row = backend::device_vector<idx_t>(queue, rrow.size(), rrow.data(), backend::MEM_READ_ONLY);
+                rem.col = backend::device_vector<col_t>(queue, rcol.size(), rcol.data(), backend::MEM_READ_ONLY);
+                rem.val = backend::device_vector<val_t>(queue, rval.size(), rval.data(), backend::MEM_READ_ONLY);
             }
         }
     }

@@ -68,7 +68,7 @@ class gather {
                 if (size_t n = ptr[d + 1] - ptr[d]) {
                     val[d] = backend::device_vector<T>(queue[d], n, 0);
                     idx[d] = backend::device_vector<size_t>(
-                            queue[d], n, &indices[ptr[d]], CL_MEM_READ_ONLY);
+                            queue[d], n, &indices[ptr[d]], backend::MEM_READ_ONLY);
                 }
             }
 

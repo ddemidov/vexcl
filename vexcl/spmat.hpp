@@ -152,7 +152,7 @@ class SpMat {
                 for(unsigned d = 0; d < queue.size(); d++) {
                     if (cidx[d + 1] > cidx[d]) {
                         vex::vector<val_t> vals(squeue[d], exc[d].vals_to_send);
-                        vex::copy(vals.begin(), vals.end(), &rx[cidx[d]], /*blocking=*/CL_FALSE);
+                        vex::copy(vals.begin(), vals.end(), &rx[cidx[d]], /*blocking=*/false);
                     }
                 }
 
@@ -323,7 +323,7 @@ class SpMat {
                         exc[d].cols_to_recv.resize(rcols);
                         exc[d].vals_to_recv.resize(rcols);
 
-                        exc[d].rx = backend::device_vector<val_t>(queue[d], rcols, 0, CL_MEM_READ_ONLY);
+                        exc[d].rx = backend::device_vector<val_t>(queue[d], rcols, 0, backend::MEM_READ_ONLY);
 
                         for(size_t i = 0, j = 0; i < cols_to_send.size(); i++)
                             if (ghost_cols[d].count(cols_to_send[i]))
@@ -347,13 +347,13 @@ class SpMat {
                 for(unsigned d = 0; d < queue.size(); d++) {
                     if (size_t ncols = cidx[d + 1] - cidx[d]) {
                         exc[d].vals_to_send = backend::device_vector<val_t>(
-                                queue[d], ncols, 0, CL_MEM_READ_WRITE);
+                                queue[d], ncols);
 
                         for(size_t i = cidx[d]; i < cidx[d + 1]; i++)
                             cols_to_send[i] -= static_cast<col_t>(col_part[d]);
 
                         exc[d].cols_to_send = backend::device_vector<col_t>(
-                                queue[d], ncols, &cols_to_send[cidx[d]], CL_MEM_READ_ONLY);
+                                queue[d], ncols, &cols_to_send[cidx[d]], backend::MEM_READ_ONLY);
                     }
                 }
 

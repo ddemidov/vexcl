@@ -71,7 +71,7 @@ BOOST_AUTO_TEST_CASE(terminals)
     }
 
     {
-        std::vector<cl::CommandQueue> q1(1, ctx.queue(0));
+        std::vector<vex::backend::command_queue> q1(1, ctx.queue(0));
         vex::vector<int> x1(q1, n);
         vex::slicer<1> slice(vex::extents[n]);
         check<int>( slice[vex::range(0, 2, n)](x1) );
@@ -138,7 +138,7 @@ BOOST_AUTO_TEST_CASE(reduced_view)
 {
     const size_t n = 1024;
 
-    std::vector<cl::CommandQueue> q1(1, ctx.queue(0));
+    std::vector<vex::backend::command_queue> q1(1, ctx.queue(0));
     vex::vector<double> x(q1, n);
 
     vex::slicer<2> s(vex::extents[32][32]);

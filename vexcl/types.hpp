@@ -37,9 +37,6 @@ THE SOFTWARE.
 #include <iostream>
 #include <sstream>
 
-typedef unsigned int  uint;
-typedef unsigned char uchar;
-
 namespace vex {
 
     /// Get the corresponding scalar type for a CL vector (or scalar) type.
@@ -186,9 +183,6 @@ inline std::string type_name() {
     return type_name_impl<T>::get();
 }
 
-template <class T> struct global_ptr {};
-template <class T> struct shared_ptr {};
-
 #define STRINGIFY(type)                                                        \
   template<> struct type_name_impl<cl_##type> {                                \
     static std::string get() { return #type; }                                 \
@@ -217,6 +211,7 @@ CL_TYPES(long)  CL_TYPES(ulong)
 #undef CL_VEC_TYPE
 #undef STRINGIFY
 
+#ifdef VEXCL_BACKEND_OPENCL
 // char and cl_char are different types. Hence, special handling is required:
 template <> struct type_name_impl<char> {
     static std::string get() { return "char"; }
@@ -224,6 +219,7 @@ template <> struct type_name_impl<char> {
 template <> struct is_cl_native<char> : std::true_type {};
 template <> struct cl_vector_length<char> : std::integral_constant<unsigned, 1> {};
 template <> struct cl_scalar_of<char> { typedef char type; };
+#endif
 
 // One can not pass bool to the kernel, but the overload is needed for type
 // deduction:

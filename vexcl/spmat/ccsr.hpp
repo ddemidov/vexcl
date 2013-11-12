@@ -71,10 +71,10 @@ struct SpMatCCSR {
             const idx_t *idx, const idx_t *row, const col_t *col, const val_t *val
             )
         : queue(queue), n(n),
-          idx(queue, n,      idx, CL_MEM_READ_ONLY),
-          row(queue, (m+1),  row, CL_MEM_READ_ONLY),
-          col(queue, row[m], col, CL_MEM_READ_ONLY),
-          val(queue, row[m], val, CL_MEM_READ_ONLY)
+          idx(queue, n,      idx, backend::MEM_READ_ONLY),
+          row(queue, (m+1),  row, backend::MEM_READ_ONLY),
+          col(queue, row[m], col, backend::MEM_READ_ONLY),
+          val(queue, row[m], val, backend::MEM_READ_ONLY)
     { }
 
     backend::command_queue queue;
