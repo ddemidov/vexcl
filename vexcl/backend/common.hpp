@@ -31,6 +31,17 @@ THE SOFTWARE.
  * \brief  Common backend utilities.
  */
 
+#include <vector>
+#include <map>
+
+#include <fstream>
+#include <sstream>
+#include <iomanip>
+#include <cstdlib>
+#include <boost/uuid/sha1.hpp>
+#include <boost/optional.hpp>
+#include <boost/filesystem.hpp>
+
 namespace vex {
 namespace backend {
 
@@ -123,6 +134,54 @@ inline void push_program_header(const std::vector<backend::command_queue> &queue
 inline void pop_program_header(const std::vector<backend::command_queue> &queue) {
     for(auto q = queue.begin(); q != queue.end(); ++q)
         device_options<program_header>::pop(*q);
+}
+
+/// Path delimiter symbol.
+inline const std::string& path_delim() {
+    static const std::string delim = boost::filesystem::path("/").make_preferred().string();
+    return delim;
+}
+
+/// Path to appdata folder.
+inline const std::string& appdata_path() {
+#ifdef WIN32
+#  ifdef _MSC_VER
+#    pragma warning(push)
+#    pragma warning(disable: 4996)
+#  endif
+    static const std::string appdata = getenv("APPDATA") + path_delim() + "vexcl";
+#  ifdef _MSC_VER
+#    pragma warning(pop)
+#  endif
+#else
+    static const std::string appdata = getenv("HOME") + path_delim() + ".vexcl";
+#endif
+    return appdata;
+}
+
+/// Path to cached binaries.
+inline std::string program_binaries_path(const std::string &hash, bool create = false)
+{
+    std::string dir = appdata_path()    + path_delim()
+                    + hash.substr(0, 2) + path_delim()
+                    + hash.substr(2);
+    if (create) boost::filesystem::create_directories(dir);
+    return dir + path_delim();
+}
+
+/// Returns SHA1 hash of the string parameter.
+inline std::string sha1(const std::string &src) {
+    boost::uuids::detail::sha1 sha1;
+    sha1.process_bytes(src.c_str(), src.size());
+
+    unsigned int hash[5];
+    sha1.get_digest(hash);
+
+    std::ostringstream buf;
+    for(int i = 0; i < 5; ++i)
+        buf << std::hex << std::setfill('0') << std::setw(8) << hash[i];
+
+    return buf.str();
 }
 
 } // namespace backend

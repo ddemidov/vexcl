@@ -221,15 +221,13 @@ class vector : public vector_terminal_expression {
                 /// Read associated element of a vector.
                 operator T() const {
                     T val;
-                    buf.read(queue, index, 1, &val);
-                    queue.finish();
+                    buf.read(queue, index, 1, &val, true);
                     return val;
                 }
 
                 /// Write associated element of a vector.
                 T operator=(T val) {
-                    buf.write(queue, index, 1, &val);
-                    queue.finish();
+                    buf.write(queue, index, 1, &val, true);
                     return val;
                 }
 

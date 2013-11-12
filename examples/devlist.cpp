@@ -10,8 +10,10 @@
 int main() {
     using namespace std;
 
-    cout << "OpenCL devices:" << endl << endl;
     auto dev = vex::backend::device_list(vex::Filter::Any);
+
+#ifdef VEXCL_BACKEND_OPENCL
+    cout << "OpenCL devices:" << endl << endl;
     for (auto d = dev.begin(); d != dev.end(); d++) {
         cout << "  " << d->getInfo<CL_DEVICE_NAME>() << endl
              << "    " << left << setw(32) << "CL_PLATFORM_NAME" << " = "
@@ -56,6 +58,14 @@ int main() {
         }
         cout << endl << endl;
     }
+#elif VEXCL_BACKEND_CUDA
+    cout << "CUDA devices:" << endl << endl;
+    unsigned pos = 0;
+    for(auto d = dev.begin(); d != dev.end(); d++)
+        cout << ++pos << ". " << *d << endl;
+#else
+#error Unsupported backend
+#endif
 }
 
 // vim: et

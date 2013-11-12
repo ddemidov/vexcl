@@ -1,5 +1,5 @@
-#ifndef VEXCL_BACKEND_HPP
-#define VEXCL_BACKEND_HPP
+#ifndef VEXCL_BACKEND_CUDA_HPP
+#define VEXCL_BACKEND_CUDA_HPP
 
 /*
 The MIT License
@@ -26,17 +26,25 @@ THE SOFTWARE.
 */
 
 /**
- * \file   vexcl/backend.hpp
+ * \file   vexcl/backend/cuda.hpp
  * \author Denis Demidov <ddemidov@ksu.ru>
- * \brief  Compile-time selection of backend (OpenCL/CUDA).
+ * \brief  CUDA backend for compute kernel generation/compilation/launching.
  */
 
-#if defined(VEXCL_BACKEND_OPENCL)
-#  include <vexcl/backend/opencl.hpp>
-#elif defined(VEXCL_BACKEND_CUDA)
-#  include <vexcl/backend/cuda.hpp>
-#else
-#  include <vexcl/backend/opencl.hpp>
+#ifndef VEXCL_BACKEND_CUDA
+#  define VEXCL_BACKEND_CUDA
+#endif
+
+#include <cuda.h>
+
+#include <vexcl/backend/cuda/error.hpp>
+#include <vexcl/backend/cuda/context.hpp>
+#include <vexcl/backend/cuda/filter.hpp>
+#if 0
+#include <vexcl/backend/cuda/device_vector.hpp>
+#include <vexcl/backend/cuda/source.hpp>
+#include <vexcl/backend/cuda/compiler.hpp>
+#include <vexcl/backend/cuda/kernel.hpp>
 #endif
 
 #endif

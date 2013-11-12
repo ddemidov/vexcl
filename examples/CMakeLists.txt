@@ -1,6 +1,6 @@
 function(add_vexcl_example example)
     add_executable(${example} ${example}.cpp)
-    target_link_libraries(${example} ${OPENCL_LIBRARIES} ${Boost_LIBRARIES})
+    target_link_libraries(${example} ${BACKEND_LIBS} ${Boost_LIBRARIES})
 
     list(APPEND binaries "${CMAKE_CURRENT_BINARY_DIR}/${example}")
     list(APPEND sources  "${CMAKE_CURRENT_SOURCE_DIR}/${example}.cpp")

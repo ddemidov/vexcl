@@ -40,12 +40,12 @@ THE SOFTWARE.
 #endif
 #include <CL/cl.hpp>
 
+#include <vexcl/backend/opencl/error.hpp>
 #include <vexcl/backend/opencl/context.hpp>
 #include <vexcl/backend/opencl/filter.hpp>
 #include <vexcl/backend/opencl/device_vector.hpp>
 #include <vexcl/backend/opencl/source.hpp>
 #include <vexcl/backend/opencl/compiler.hpp>
 #include <vexcl/backend/opencl/kernel.hpp>
-#include <vexcl/backend/opencl/error.hpp>
 
 #endif

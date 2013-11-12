@@ -65,18 +65,22 @@ class device_vector {
 
         device_vector(cl::Buffer buffer) : buffer( std::move(buffer) ) {}
 
-        void write(cl::CommandQueue q, size_t offset, size_t size, const T *host) const {
+        void write(cl::CommandQueue q, size_t offset, size_t size, const T *host,
+                bool blocking = false) const
+        {
             if (size)
                 q.enqueueWriteBuffer(
-                        buffer, CL_FALSE /*non-blocking*/,
+                        buffer, blocking ? CL_TRUE : CL_FALSE,
                         sizeof(T) * offset, sizeof(T) * size, host
                         );
         }
 
-        void read(cl::CommandQueue q, size_t offset, size_t size, T *host) const {
+        void read(cl::CommandQueue q, size_t offset, size_t size, T *host,
+                bool blocking = false) const
+        {
             if (size)
                 q.enqueueReadBuffer(
-                        buffer, CL_FALSE /*non-blocking*/,
+                        buffer, blocking ? CL_TRUE : CL_FALSE,
                         sizeof(T) * offset, sizeof(T) * size, host
                         );
         }

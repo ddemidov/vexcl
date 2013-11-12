@@ -26,7 +26,7 @@ endif()
 function(add_vexcl_test TEST_NAME TEST_SOURCE)
     add_executable(${TEST_NAME} ${TEST_SOURCE})
     target_link_libraries(${TEST_NAME}
-        ${OPENCL_LIBRARIES}
+        ${BACKEND_LIBS}
         ${Boost_LIBRARIES}
         )
     add_test(${TEST_NAME} ${TEST_NAME})
