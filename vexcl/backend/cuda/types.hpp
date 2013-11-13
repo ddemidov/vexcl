@@ -1,9 +1,10 @@
 #ifndef VEXCL_BACKEND_CUDA_TYPES_HPP
 #define VEXCL_BACKEND_CUDA_TYPES_HPP
 
-typedef unsigned char  uchar;
-typedef unsigned int   uint;
-typedef unsigned short ushort;
+typedef unsigned char       uchar;
+typedef unsigned int        uint;
+typedef unsigned short      ushort;
+typedef unsigned long long  ulong;
 
 #define REGISTER_VECTOR_TYPE(name, base, len)                                  \
   struct cl_##name##len {                                                      \
@@ -25,7 +26,7 @@ REGISTER_CL_TYPES(short,  short)
 REGISTER_CL_TYPES(ushort, ushort)
 REGISTER_CL_TYPES(int,    int)
 REGISTER_CL_TYPES(uint,   uint)
-REGISTER_CL_TYPES(long,   long)
+REGISTER_CL_TYPES(long,   long long)
 REGISTER_CL_TYPES(ulong,  ulong)
 
 #undef REGISTER_CL_TYPES

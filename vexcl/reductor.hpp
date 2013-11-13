@@ -318,7 +318,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
                     );
 
             kernel->second.push_arg(dbuf[d]);
-            kernel->second.set_smem(sizeof(real));
+            kernel->second.set_smem([](size_t wgs){ return wgs * sizeof(real); });
 
             kernel->second(queue[d]);
         }

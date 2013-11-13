@@ -192,16 +192,19 @@ BOOST_AUTO_TEST_CASE(function_with_preamble)
     vex::vector<double> x(ctx, random_vector<double>(n));
     vex::vector<double> y(ctx, n);
 
-    VEX_FUNCTION_WITH_PREAMBLE(one, double(double),
 #ifdef VEXCL_BACKEND_OPENCL
+    VEX_FUNCTION_WITH_PREAMBLE(one, double(double),
             "double sin2(double x) { return pow(sin(x), 2.0); }\n"
             "double cos2(double x) { return pow(cos(x), 2.0); }\n",
-#else
-            "__device__ double sin2(double x) { return pow(sin(x), 2.0); }\n"
-            "__device__ double cos2(double x) { return pow(cos(x), 2.0); }\n",
-#endif
             "return sin2(prm1) + cos2(prm1);"
             );
+#else
+    VEX_FUNCTION_WITH_PREAMBLE(one, double(double),
+            "__device__ double sin2(double x) { return pow(sin(x), 2.0); }\n"
+            "__device__ double cos2(double x) { return pow(cos(x), 2.0); }\n",
+            "return sin2(prm1) + cos2(prm1);"
+            );
+#endif
 
     y = one(x);
 

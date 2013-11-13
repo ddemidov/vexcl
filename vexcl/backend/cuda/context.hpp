@@ -32,6 +32,7 @@ THE SOFTWARE.
  */
 
 #include <vector>
+#include <tuple>
 #include <iostream>
 #include <memory>
 
@@ -146,7 +147,7 @@ typedef unsigned command_queue_properties;
 class command_queue {
     public:
         command_queue(const vex::backend::context &ctx, vex::backend::device dev, unsigned flags)
-            : ctx(ctx), dev(dev), s( create(ctx, flags), detail::deleter() )
+            : ctx(ctx), dev(dev), s( create(ctx, flags), detail::deleter() ), f(flags)
         { }
 
         void finish() const {
@@ -162,8 +163,6 @@ class command_queue {
         }
 
         unsigned flags() const {
-            unsigned f;
-            cuda_check( cuStreamGetFlags(s.get(), &f) );
             return f;
         }
 
@@ -174,6 +173,7 @@ class command_queue {
         vex::backend::context  ctx;
         vex::backend::device   dev;
         std::shared_ptr<std::remove_pointer<CUstream>::type> s;
+        unsigned f;
 
         static CUstream create(const vex::backend::context &ctx, unsigned flags = 0) {
             ctx.set_current();

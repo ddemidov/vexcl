@@ -148,7 +148,7 @@ BOOST_AUTO_TEST_CASE(vector_resize_to_vex_vector)
 
 BOOST_AUTO_TEST_CASE(stl_container_of_vex_vector)
 {
-    typedef typename vex::device_vector<unsigned>::raw_type raw_mem;
+    typedef vex::device_vector<unsigned>::raw_type raw_mem;
     const size_t N = 1024;
     const size_t M = 16 + generator<size_t>::get() ;
 

@@ -144,10 +144,14 @@ namespace vex {
 #endif
 CL_TYPES(float)
 CL_TYPES(double)
-CL_TYPES(char)  CL_TYPES(uchar)
-CL_TYPES(short) CL_TYPES(ushort)
-CL_TYPES(int)   CL_TYPES(uint)
-CL_TYPES(long)  CL_TYPES(ulong)
+CL_TYPES(char)
+CL_TYPES(uchar)
+CL_TYPES(short)
+CL_TYPES(ushort)
+CL_TYPES(int)
+CL_TYPES(uint)
+CL_TYPES(long)
+CL_TYPES(ulong)
 #ifdef _MSC_VER
 #  pragma warning(pop)
 #endif
@@ -197,15 +201,22 @@ inline std::string type_name() {
   template <> struct is_cl_native<cl_##type##len> : std::true_type { };
 
 #define CL_TYPES(type)                                                         \
-  STRINGIFY(type) CL_VEC_TYPE(type, 2) CL_VEC_TYPE(type, 4)                    \
-      CL_VEC_TYPE(type, 8) CL_VEC_TYPE(type, 16)
+  STRINGIFY(type)                                                              \
+  CL_VEC_TYPE(type, 2)                                                         \
+  CL_VEC_TYPE(type, 4)                                                         \
+  CL_VEC_TYPE(type, 8)                                                         \
+  CL_VEC_TYPE(type, 16)                                                        \
 
 CL_TYPES(float)
 CL_TYPES(double)
-CL_TYPES(char)  CL_TYPES(uchar)
-CL_TYPES(short) CL_TYPES(ushort)
-CL_TYPES(int)   CL_TYPES(uint)
-CL_TYPES(long)  CL_TYPES(ulong)
+CL_TYPES(char)
+CL_TYPES(uchar)
+CL_TYPES(short)
+CL_TYPES(ushort)
+CL_TYPES(int)
+CL_TYPES(uint)
+CL_TYPES(long)
+CL_TYPES(ulong)
 
 #undef CL_TYPES
 #undef CL_VEC_TYPE

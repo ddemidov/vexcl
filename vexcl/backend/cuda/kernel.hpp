@@ -125,11 +125,6 @@ class kernel {
         }
 
         /// Adds local memory to the kernel.
-        void set_smem(size_t smem_per_thread) {
-            smem = smem_per_thread * w_size;
-        }
-
-        /// Adds local memory to the kernel.
         template <class F>
         void set_smem(F &&f) {
             smem = f(w_size);
@@ -143,9 +138,9 @@ class kernel {
             cuda_check(
                     cuLaunchKernel(
                         K,
-                        g_size, 1, 1,
-                        w_size, 1, 1,
-                        smem,
+                        static_cast<unsigned>(g_size), 1, 1,
+                        static_cast<unsigned>(w_size), 1, 1,
+                        static_cast<unsigned>(smem),
                         q.raw(),
                         prm_addr.data(),
                         0

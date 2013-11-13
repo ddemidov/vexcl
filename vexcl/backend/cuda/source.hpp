@@ -97,7 +97,13 @@ namespace backend {
  * provided by the user with help of push_program_header().
  */
 inline std::string standard_kernel_header(const command_queue &q) {
-    return get_program_header(q);
+    std::ostringstream s;
+    s << "typedef unsigned char       uchar;\n"
+         "typedef unsigned int        uint;\n"
+         "typedef unsigned short      ushort;\n"
+         "typedef unsigned long long  ulong;\n"
+      << get_program_header(q);
+    return s.str();
 }
 
 class source_generator {

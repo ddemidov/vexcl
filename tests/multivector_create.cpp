@@ -64,7 +64,7 @@ BOOST_AUTO_TEST_CASE(element_access)
 
 BOOST_AUTO_TEST_CASE(stl_container_of_multivector)
 {
-    typedef typename vex::device_vector<unsigned>::raw_type raw_mem;
+    typedef vex::device_vector<unsigned>::raw_type raw_mem;
 
     const size_t N = 1024;
     const size_t D = 2;
