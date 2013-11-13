@@ -1,5 +1,4 @@
 #include <iostream>
-#include <vexcl/backend.hpp>
 #include <vexcl/devlist.hpp>
 #include <vexcl/vector.hpp>
 #include <vexcl/fft.hpp>

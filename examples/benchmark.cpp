@@ -6,7 +6,6 @@
 #include <numeric>
 #include <random>
 #include <boost/program_options.hpp>
-#include <vexcl/backend.hpp>
 #include <vexcl/devlist.hpp>
 #include <vexcl/vector.hpp>
 #include <vexcl/reductor.hpp>
@@ -522,7 +521,7 @@ std::pair<double,double> benchmark_spmv_ccsr(
     vex::SpMatCCSR<real,int> A(ctx.queue(0), n * n * n, 2,
             idx.data(), row.data(), col.data(), val.data());
 
-    std::vector<vex::backend::command_queue> q1(1, ctx.queue(0));
+    std::vector<vex::command_queue> q1(1, ctx.queue(0));
     vex::vector<real> x(q1, X);
     vex::vector<real> y(q1, Y);
 
@@ -769,7 +768,7 @@ int main(int argc, char *argv[]) {
         }
 
         std::cout << prof << std::endl;
-    } catch (const vex::backend::error &e) {
+    } catch (const vex::error &e) {
         std::cerr << e << std::endl;
         return 1;
     }

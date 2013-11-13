@@ -3,7 +3,6 @@
 #include <string>
 #include <random>
 
-#include <vexcl/backend.hpp>
 #include <vexcl/devlist.hpp>
 #include <vexcl/vector.hpp>
 #include <vexcl/multivector.hpp>
