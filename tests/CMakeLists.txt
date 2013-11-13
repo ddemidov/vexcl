@@ -21,12 +21,12 @@ if(TEST_COVERAGE)
         COMMAND lcov --remove coverage.info '/usr*' '*/cl.hpp' -o coverage.info
         COMMAND genhtml coverage.info --output-directory coverage
         )
-endif(TEST_COVERAGE)
+endif()
 
 function(add_vexcl_test TEST_NAME TEST_SOURCE)
     add_executable(${TEST_NAME} ${TEST_SOURCE})
     target_link_libraries(${TEST_NAME}
-        ${OPENCL_LIBRARIES}
+        ${BACKEND_LIBS}
         ${Boost_LIBRARIES}
         )
     add_test(${TEST_NAME} ${TEST_NAME})
@@ -52,9 +52,12 @@ add_vexcl_test(multi_array              multi_array.cpp)
 add_vexcl_test(spmv                     spmv.cpp)
 add_vexcl_test(stencil                  stencil.cpp)
 add_vexcl_test(generator                generator.cpp)
-add_vexcl_test(random                   random.cpp)
 add_vexcl_test(mba                      mba.cpp)
 add_vexcl_test(multiple_objects         "dummy1.cpp;dummy2.cpp")
+
+if ("${VEXCL_BACKEND}" STREQUAL "OpenCL")
+    add_vexcl_test(random                   random.cpp)
+endif()
 
 #----------------------------------------------------------------------------
 # Test interoperation with Boost.compute
@@ -67,20 +70,22 @@ if (BOOST_COMPUTE)
 
     add_vexcl_test(boost_compute_sort boost_compute_sort.cpp)
     add_vexcl_test(boost_compute_scan boost_compute_scan.cpp)
-endif (BOOST_COMPUTE)
+endif ()
 
 #----------------------------------------------------------------------------
 # Test Fast Fourier Transform
 #----------------------------------------------------------------------------
-find_package(FFTW QUIET)
+if ("${VEXCL_BACKEND}" STREQUAL "OpenCL")
+    find_package(FFTW QUIET)
 
-if (FFTW_FOUND)
-    include_directories(${FFTW_INCLUDES})
-    add_definitions(-DHAVE_FFTW)
-endif (FFTW_FOUND)
+    if (FFTW_FOUND)
+        include_directories(${FFTW_INCLUDES})
+        add_definitions(-DHAVE_FFTW)
+    endif ()
 
-add_vexcl_test(fft fft.cpp)
+    add_vexcl_test(fft fft.cpp)
 
-if (FFTW_FOUND)
-    target_link_libraries(fft ${FFTW_LIBRARIES})
-endif (FFTW_FOUND)
+    if (FFTW_FOUND)
+        target_link_libraries(fft ${FFTW_LIBRARIES})
+    endif ()
+endif ()

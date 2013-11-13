@@ -19,10 +19,10 @@ endif (VEXCL_CACHE_KERNELS)
 option(VEXCL_SHOW_COPIES "Log vector copies to stdout for debugging purposes")
 if (VEXCL_SHOW_COPIES)
     add_definitions(-DVEXCL_SHOW_COPIES)
-endif (VEXCL_SHOW_COPIES)
+endif ()
 
-option(BOOST_TEST_DYN_LINK 
-    "Link tests against dynamic version of boost unittest library" 
+option(BOOST_TEST_DYN_LINK
+    "Link tests against dynamic version of boost unittest library"
     ON)
 
 #----------------------------------------------------------------------------
@@ -31,11 +31,11 @@ option(BOOST_TEST_DYN_LINK
 if (WIN32)
     set(Boost_USE_STATIC_LIBS ON)
     add_definitions(-D_VARIADIC_MAX=10)
-else (WIN32)
+else ()
   if (BOOST_TEST_DYN_LINK)
     add_definitions(-DBOOST_TEST_DYN_LINK)
-  endif (BOOST_TEST_DYN_LINK)
-endif (WIN32)
+  endif ()
+endif ()
 
 set(BOOST_COMPONENTS
     date_time
@@ -47,7 +47,7 @@ set(BOOST_COMPONENTS
 
 if (MSVC10)
     set(BOOST_COMPONENTS ${BOOST_COMPONENTS} chrono)
-endif (MSVC10)
+endif ()
 
 find_package(Boost COMPONENTS ${BOOST_COMPONENTS})
 
@@ -58,16 +58,26 @@ include_directories( ${Boost_INCLUDE_DIRS} )
 #----------------------------------------------------------------------------
 if (WIN32)
     add_definitions(-DNOMINMAX)
-endif (WIN32)
+endif ()
+
+set(VEXCL_BACKEND "OpenCL" CACHE STRING "Select VexCL backend (OpenCL/CUDA)")
+set_property(CACHE VEXCL_BACKEND PROPERTY STRINGS "OpenCL" "CUDA")
 
 #----------------------------------------------------------------------------
-# Find OpenCL
+# Find Backend
 #----------------------------------------------------------------------------
-set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
-
-find_package(OpenCL REQUIRED)
-
-include_directories( ${OPENCL_INCLUDE_DIRS} )
+if ("${VEXCL_BACKEND}" STREQUAL "OpenCL")
+    set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
+    find_package(OpenCL REQUIRED)
+    include_directories( ${OPENCL_INCLUDE_DIRS} )
+    set(BACKEND_LIBS ${OPENCL_LIBRARIES})
+    add_definitions(-DVEXCL_BACKEND_OPENCL)
+elseif ("${VEXCL_BACKEND}" STREQUAL "CUDA")
+    find_package(CUDA REQUIRED)
+    include_directories( ${CUDA_INCLUDE_DIRS} )
+    set(BACKEND_LIBS ${CUDA_CUDA_LIBRARY})
+    add_definitions(-DVEXCL_BACKEND_CUDA)
+endif()
 
 #----------------------------------------------------------------------------
 # Find OpenMP

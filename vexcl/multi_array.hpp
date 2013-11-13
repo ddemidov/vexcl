@@ -76,7 +76,7 @@ class multi_array
         typedef vector<T> base_type;
 
         multi_array(
-                const std::vector<cl::CommandQueue> &queue,
+                const std::vector<backend::command_queue> &queue,
                 const extent_gen<NR> &ext
                 )
             : data(queue, ext.size()), slice(ext)

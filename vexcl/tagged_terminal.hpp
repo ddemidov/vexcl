@@ -58,23 +58,20 @@ struct tagged_terminal : tagged_terminal_expression
     tagged_terminal(const Term &term) : term(term) {}
 
     // Expression assignments.
-#define ASSIGNMENT(cop, op) \
-    template <class Expr> \
-    typename std::enable_if< \
-        boost::proto::matches< \
-            typename boost::proto::result_of::as_expr<Expr>::type, \
-            vector_expr_grammar \
-        >::value, \
-        const tagged_terminal& \
-    >::type \
-    operator cop(const Expr &expr) const { \
-        std::vector<cl::CommandQueue> queue; \
-        std::vector<size_t> part; \
-        size_t size; \
-        traits::get_expression_properties(*this, queue, part, size); \
-        detail::assign_expression<op>(*this, expr, queue, part); \
-        return *this; \
-    }
+#define ASSIGNMENT(cop, op)                                                    \
+  template <class Expr>                                                        \
+  typename std::enable_if<                                                     \
+      boost::proto::matches<                                                   \
+          typename boost::proto::result_of::as_expr<Expr>::type,               \
+          vector_expr_grammar>::value,                                         \
+      const tagged_terminal &>::type operator cop(const Expr & expr) const {   \
+    std::vector<backend::command_queue> queue;                                 \
+    std::vector<size_t> part;                                                  \
+    size_t size;                                                               \
+    traits::get_expression_properties(*this, queue, part, size);               \
+    detail::assign_expression<op>(*this, expr, queue, part);                   \
+    return *this;                                                              \
+  }
 
     ASSIGNMENT(=,   assign::SET)
     ASSIGNMENT(+=,  assign::ADD)
@@ -101,9 +98,9 @@ struct proto_terminal_is_value< tagged_terminal_terminal > : std::true_type {};
 
 template <size_t Tag, class Term>
 struct terminal_preamble< tagged_terminal<Tag, Term> > {
-    static std::string get(const tagged_terminal<Tag, Term> &term,
-            const cl::Device &device,
-            const std::string&/*prm_name*/,
+    static void get(backend::source_generator &src,
+            const tagged_terminal<Tag, Term> &term,
+            const backend::command_queue &queue, const std::string&/*prm_name*/,
             detail::kernel_generator_state_ptr state)
     {
         auto s = state->find("tag_pream");
@@ -121,23 +118,20 @@ struct terminal_preamble< tagged_terminal<Tag, Term> > {
         if (p == pos.end()) {
             pos.insert(Tag);
 
-            std::ostringstream s, prm_name;
+            std::ostringstream prm_name;
             prm_name << "prm_tag_" << Tag;
 
-            detail::output_terminal_preamble termpream(s, device, prm_name.str(), state);
+            detail::output_terminal_preamble termpream(src, queue, prm_name.str(), state);
             boost::proto::eval(boost::proto::as_child(term.term), termpream);
-
-            return s.str();
-        } else {
-            return "";
         }
     }
 };
 
 template <size_t Tag, class Term>
 struct kernel_param_declaration< tagged_terminal<Tag, Term> > {
-    static std::string get(const tagged_terminal<Tag, Term> &term,
-            const cl::Device &device, const std::string&/*prm_name*/,
+    static void get(backend::source_generator &src,
+            const tagged_terminal<Tag, Term> &term,
+            const backend::command_queue &queue, const std::string&/*prm_name*/,
             detail::kernel_generator_state_ptr state)
     {
         auto s = state->find("tag_param");
@@ -155,23 +149,20 @@ struct kernel_param_declaration< tagged_terminal<Tag, Term> > {
         if (p == pos.end()) {
             pos.insert(Tag);
 
-            std::ostringstream s, prm_name;
+            std::ostringstream prm_name;
             prm_name << "prm_tag_" << Tag;
 
-            detail::declare_expression_parameter declare(s, device, prm_name.str(), state);
+            detail::declare_expression_parameter declare(src, queue, prm_name.str(), state);
             detail::extract_terminals()(boost::proto::as_child(term.term),  declare);
-
-            return s.str();
-        } else {
-            return "";
         }
     }
 };
 
 template <size_t Tag, class Term>
 struct local_terminal_init< tagged_terminal<Tag, Term> > {
-    static std::string get(const tagged_terminal<Tag, Term> &term,
-            const cl::Device &device,
+    static void get(backend::source_generator &src,
+            const tagged_terminal<Tag, Term> &term,
+            const backend::command_queue &queue,
             const std::string&/*prm_name*/,
             detail::kernel_generator_state_ptr state)
     {
@@ -190,57 +181,36 @@ struct local_terminal_init< tagged_terminal<Tag, Term> > {
         if (p == pos.end()) {
             pos.insert(Tag);
 
-            std::ostringstream s, prm_name;
+            std::ostringstream prm_name;
             prm_name << "prm_tag_" << Tag;
 
-            detail::output_local_preamble init_ctx(s, device, prm_name.str(), state);
+            detail::output_local_preamble init_ctx(src, queue, prm_name.str(), state);
             boost::proto::eval(boost::proto::as_child(term.term), init_ctx);
-
-            return s.str();
-        } else {
-            return "";
         }
     }
 };
 
 template <size_t Tag, class Term>
 struct partial_vector_expr< tagged_terminal<Tag, Term> > {
-    static std::string get(const tagged_terminal<Tag, Term> &term,
-            const cl::Device &device,
+    static void get(backend::source_generator &src,
+            const tagged_terminal<Tag, Term> &term,
+            const backend::command_queue &queue,
             const std::string&/*prm_name*/,
             detail::kernel_generator_state_ptr state)
     {
-        auto s = state->find("tag_expr");
+        std::ostringstream prm_name;
+        prm_name << "prm_tag_" << Tag;
 
-        if (s == state->end()) {
-            s = state->insert(std::make_pair(
-                        std::string("tag_expr"),
-                        boost::any(std::map<size_t, std::string>())
-                        )).first;
-        }
-
-        auto &pos = boost::any_cast< std::map<size_t, std::string>& >(s->second);
-        auto p = pos.find(Tag);
-
-        if (p == pos.end()) {
-            std::ostringstream s, prm_name;
-            prm_name << "prm_tag_" << Tag;
-
-            detail::vector_expr_context expr_ctx(s, device, prm_name.str(), state);
-            boost::proto::eval(boost::proto::as_child(term.term), expr_ctx);
-
-            return (pos[Tag] = s.str());
-        } else {
-            return p->second;
-        }
+        detail::vector_expr_context expr_ctx(src, queue, prm_name.str(), state);
+        boost::proto::eval(boost::proto::as_child(term.term), expr_ctx);
     }
 };
 
 template <size_t Tag, class Term>
 struct kernel_arg_setter< tagged_terminal<Tag, Term> > {
     static void set(const tagged_terminal<Tag, Term> &term,
-            cl::Kernel &kernel, unsigned device, size_t index_offset,
-            unsigned &position, detail::kernel_generator_state_ptr state)
+            backend::kernel &kernel, unsigned part, size_t index_offset,
+            detail::kernel_generator_state_ptr state)
     {
         auto s = state->find("tag_args");
 
@@ -257,7 +227,7 @@ struct kernel_arg_setter< tagged_terminal<Tag, Term> > {
         if (p == pos.end()) {
             pos.insert(Tag);
 
-            detail::set_expression_argument setarg(kernel, device, position, index_offset, state);
+            detail::set_expression_argument setarg(kernel, part, index_offset, state);
             detail::extract_terminals()( boost::proto::as_child(term.term),  setarg);
         }
     }
@@ -266,7 +236,7 @@ struct kernel_arg_setter< tagged_terminal<Tag, Term> > {
 template <size_t Tag, class Term>
 struct expression_properties< tagged_terminal<Tag, Term> > {
     static void get(const tagged_terminal<Tag, Term> &term,
-            std::vector<cl::CommandQueue> &queue_list,
+            std::vector<backend::command_queue> &queue_list,
             std::vector<size_t> &partition,
             size_t &size
             )

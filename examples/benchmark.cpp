@@ -6,7 +6,15 @@
 #include <numeric>
 #include <random>
 #include <boost/program_options.hpp>
-#include <vexcl/vexcl.hpp>
+#include <vexcl/backend.hpp>
+#include <vexcl/devlist.hpp>
+#include <vexcl/vector.hpp>
+#include <vexcl/reductor.hpp>
+#include <vexcl/random.hpp>
+#include <vexcl/tagged_terminal.hpp>
+#include <vexcl/element_index.hpp>
+#include <vexcl/spmat.hpp>
+#include <vexcl/stencil.hpp>
 
 #ifdef _MSC_VER
 #  pragma warning(disable : 4267)
@@ -514,7 +522,7 @@ std::pair<double,double> benchmark_spmv_ccsr(
     vex::SpMatCCSR<real,int> A(ctx.queue(0), n * n * n, 2,
             idx.data(), row.data(), col.data(), val.data());
 
-    std::vector<cl::CommandQueue> q1(1, ctx.queue(0));
+    std::vector<vex::backend::command_queue> q1(1, ctx.queue(0));
     vex::vector<real> x(q1, X);
     vex::vector<real> y(q1, Y);
 
@@ -693,11 +701,13 @@ void run_tests(const vex::Context &ctx, vex::profiler<> &prof)
         prof.toc("SpMV (CCSR)");
     }
 
+#ifdef VEXCL_BACKEND_OPENCL
     if (options.bm_rng) {
         prof.tic_cpu("Random number generation");
         benchmark_rng<real>(ctx, prof);
         prof.toc("Random number generation");
     }
+#endif
 
     prof.toc( vex::type_name<real>() );
 
@@ -759,7 +769,7 @@ int main(int argc, char *argv[]) {
         }
 
         std::cout << prof << std::endl;
-    } catch (const cl::Error &e) {
+    } catch (const vex::backend::error &e) {
         std::cerr << e << std::endl;
         return 1;
     }

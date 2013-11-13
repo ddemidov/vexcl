@@ -75,24 +75,12 @@ struct is_vector_expr_terminal< vector_pointer<T> > : std::true_type {};
 template <typename T>
 struct kernel_param_declaration< vector_pointer<T> >
 {
-    static std::string get(const vector_pointer<T>&,
-            const cl::Device&, const std::string &prm_name,
+    static void get(backend::source_generator &src,
+            const vector_pointer<T>&,
+            const backend::command_queue&, const std::string &prm_name,
             detail::kernel_generator_state_ptr)
     {
-        std::ostringstream s;
-        s << ",\n\tglobal " << type_name<T>() << " * " << prm_name;
-        return s.str();
-    }
-};
-
-template <typename T>
-struct partial_vector_expr< vector_pointer<T> >
-{
-    static std::string get(const vector_pointer<T>&,
-            const cl::Device&, const std::string &prm_name,
-            detail::kernel_generator_state_ptr)
-    {
-        return prm_name ;
+        src.parameter< global_ptr<T> >(prm_name);
     }
 };
 
@@ -100,10 +88,10 @@ template <typename T>
 struct kernel_arg_setter< vector_pointer<T> >
 {
     static void set(const vector_pointer<T> &term,
-            cl::Kernel &kernel, unsigned/*device*/, size_t/*index_offset*/,
-            unsigned &position, detail::kernel_generator_state_ptr)
+            backend::kernel &kernel, unsigned/*part*/, size_t/*index_offset*/,
+            detail::kernel_generator_state_ptr)
     {
-        kernel.setArg(position++, term.v(0));
+        kernel.push_arg(term.v(0));
     }
 };
 
@@ -111,7 +99,7 @@ template <typename T>
 struct expression_properties< vector_pointer<T> >
 {
     static void get(const vector_pointer<T> &term,
-            std::vector<cl::CommandQueue> &queue_list,
+            std::vector<backend::command_queue> &queue_list,
             std::vector<size_t> &partition,
             size_t &size
             )

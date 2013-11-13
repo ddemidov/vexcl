@@ -31,6 +31,8 @@ THE SOFTWARE.
  * \brief  Vector expression template library for OpenCL.
  */
 
+#include <vexcl/backend.hpp>
+
 #include <vexcl/devlist.hpp>
 #include <vexcl/constants.hpp>
 #include <vexcl/element_index.hpp>
@@ -46,10 +48,13 @@ THE SOFTWARE.
 #include <vexcl/stencil.hpp>
 #include <vexcl/gather.hpp>
 #include <vexcl/random.hpp>
-#include <vexcl/fft.hpp>
 #include <vexcl/mba.hpp>
 #include <vexcl/generator.hpp>
 #include <vexcl/mba.hpp>
 #include <vexcl/profiler.hpp>
+
+#ifdef VEXCL_BACKEND_OPENCL
+#  include <vexcl/fft.hpp>
+#endif
 
 #endif

@@ -36,6 +36,8 @@ THE SOFTWARE.
 #include <string>
 #include <type_traits>
 
+#include <vexcl/backend.hpp>
+
 #include <vexcl/types.hpp>
 #include <vexcl/operations.hpp>
 
@@ -56,24 +58,22 @@ namespace traits {
 template <class T, T v>
 struct kernel_param_declaration< std::integral_constant<T, v> >
 {
-    static std::string get(const std::integral_constant<T, v>&,
-            const cl::Device&, const std::string &/*prm_name*/,
+    static void get(backend::source_generator&,
+            const std::integral_constant<T, v>&,
+            const backend::command_queue&, const std::string &/*prm_name*/,
             detail::kernel_generator_state_ptr)
-    {
-        return "";
-    }
+    { }
 };
 
 template <class T, T v>
 struct partial_vector_expr< std::integral_constant<T, v> >
 {
-    static std::string get(const std::integral_constant<T, v>&,
-            const cl::Device&, const std::string &/*prm_name*/,
+    static void get(backend::source_generator &src,
+            const std::integral_constant<T, v>&,
+            const backend::command_queue&, const std::string &/*prm_name*/,
             detail::kernel_generator_state_ptr)
     {
-        std::ostringstream s;
-        s << v;
-        return s.str();
+        src << v;
     }
 };
 
@@ -81,8 +81,8 @@ template <class T, T v>
 struct kernel_arg_setter< std::integral_constant<T, v> >
 {
     static void set(const std::integral_constant<T, v>&,
-            cl::Kernel&, unsigned/*device*/, size_t/*index_offset*/,
-            unsigned &/*position*/, detail::kernel_generator_state_ptr)
+            backend::kernel&, unsigned/*part*/, size_t/*index_offset*/,
+            detail::kernel_generator_state_ptr)
     {
     }
 };
@@ -105,22 +105,22 @@ namespace traits {
 template <class Impl>
 struct kernel_param_declaration< user_constant<Impl> >
 {
-    static std::string get(const user_constant<Impl>&,
-            const cl::Device&, const std::string &/*prm_name*/,
+    static void get(backend::source_generator&,
+            const user_constant<Impl>&,
+            const backend::command_queue&, const std::string &/*prm_name*/,
             detail::kernel_generator_state_ptr)
-    {
-        return "";
-    }
+    { }
 };
 
 template <class Impl>
 struct partial_vector_expr< user_constant<Impl> >
 {
-    static std::string get(const user_constant<Impl>&,
-            const cl::Device&, const std::string &/*prm_name*/,
+    static void get(backend::source_generator &src,
+            const user_constant<Impl>&,
+            const backend::command_queue&, const std::string &/*prm_name*/,
             detail::kernel_generator_state_ptr)
     {
-        return Impl::get();
+        src << Impl::get();
     }
 };
 
@@ -128,8 +128,8 @@ template <class Impl>
 struct kernel_arg_setter< user_constant<Impl> >
 {
     static void set(const user_constant<Impl>&,
-            cl::Kernel&, unsigned/*device*/, size_t/*index_offset*/,
-            unsigned &/*position*/, detail::kernel_generator_state_ptr)
+            backend::kernel&, unsigned/*part*/, size_t/*index_offset*/,
+            detail::kernel_generator_state_ptr)
     {
     }
 };
@@ -147,9 +147,8 @@ struct kernel_arg_setter< user_constant<Impl> >
       s << "( " << std::scientific << std::setprecision(16) << value << " )";  \
       return s.str();                                                          \
     }                                                                          \
-    typename boost::proto::result_of::as_expr<                                 \
-        vex::user_constant<constant_##name>,                                   \
-        vex::vector_domain>::type                                              \
+    decltype(boost::proto::as_expr<vex::vector_domain>(                        \
+          vex::user_constant<constant_##name>()))                              \
     operator()() const {                                                       \
       return boost::proto::as_expr<vex::vector_domain>(                        \
           vex::user_constant<constant_##name>());                              \

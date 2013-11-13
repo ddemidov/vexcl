@@ -127,7 +127,7 @@ template <typename real, class RDC>
 class Reductor {
     public:
         /// Constructor.
-        Reductor(const std::vector<cl::CommandQueue> &queue
+        Reductor(const std::vector<backend::command_queue> &queue
 #ifndef VEXCL_NO_STATIC_CONTEXT_CONSTRUCTORS
                 = current_context().queue()
 #endif
@@ -158,12 +158,11 @@ class Reductor {
 #endif
         operator()(const Expr &expr) const;
     private:
-        const std::vector<cl::CommandQueue> &queue;
+        const std::vector<backend::command_queue> &queue;
         std::vector<size_t> idx;
-        std::vector<cl::Buffer> dbuf;
+        std::vector< backend::device_vector<real> > dbuf;
 
         mutable std::vector<real> hbuf;
-        mutable std::vector<cl::Event> event;
 
         template <size_t I, size_t N, class Expr>
         typename std::enable_if<I == N, void>::type
@@ -182,20 +181,17 @@ class Reductor {
 
 #ifndef DOXYGEN
 template <typename real, class RDC>
-Reductor<real,RDC>::Reductor(const std::vector<cl::CommandQueue> &queue)
-    : queue(queue), event(queue.size())
+Reductor<real,RDC>::Reductor(const std::vector<backend::command_queue> &queue)
+    : queue(queue)
 {
     idx.reserve(queue.size() + 1);
     idx.push_back(0);
 
     for(auto q = queue.begin(); q != queue.end(); q++) {
-        cl::Context context = qctx(*q);
-        cl::Device  device  = qdev(*q);
-
-        size_t bufsize = num_workgroups(device);
+        size_t bufsize = backend::kernel::num_workgroups(*q);
         idx.push_back(idx.back() + bufsize);
 
-        dbuf.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, bufsize * sizeof(real)));
+        dbuf.push_back(backend::device_vector<real>(*q, bufsize));
     }
 
     hbuf.resize(idx.back());
@@ -219,131 +215,112 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
         prop.part = vex::partition(prop.size, queue);
 
     for(unsigned d = 0; d < queue.size(); ++d) {
-        cl::Context context = qctx(queue[d]);
-        cl::Device  device  = qdev(queue[d]);
+        auto key    = backend::cache_key(queue[d]);
+        auto kernel = cache.find(key);
 
-        auto kernel = cache.find( context() );
+        backend::select_context(queue[d]);
 
         if (kernel == cache.end()) {
-            std::ostringstream increment_line;
-
-            output_local_preamble loc_init(increment_line, device, "prm", empty_state());
-            boost::proto::eval(expr, loc_init);
-
-            vector_expr_context expr_ctx(increment_line, device, "prm", empty_state());
-
-            increment_line << "\t\tmySum = reduce_operation(mySum, ";
-            boost::proto::eval(expr, expr_ctx);
-            increment_line << ");\n";
-
-            std::ostringstream source;
-            source << standard_kernel_header(device);
+            backend::source_generator source(queue[d]);
 
             typedef typename RDC::template function<real> fun;
             fun::define(source, "reduce_operation");
 
-            output_terminal_preamble termpream(source, device, "prm", empty_state());
+            output_terminal_preamble termpream(source, queue[d], "prm", empty_state());
             boost::proto::eval(boost::proto::as_child(expr),  termpream);
 
-            source << "kernel void vexcl_reductor_kernel(\n\t"
-                << type_name<size_t>() << " n";
+            source.kernel("vexcl_reductor_kernel")
+                .open("(").parameter<size_t>("n");
 
-            extract_terminals()( expr, declare_expression_parameter(source, device, "prm", empty_state()) );
+            extract_terminals()( expr, declare_expression_parameter(source, queue[d], "prm", empty_state()) );
 
-            source << ",\n\tglobal " << type_name<real>() << " *g_odata,\n"
-                "\tlocal  " << type_name<real>() << " *sdata\n"
-                "\t)\n"
-                "{\n";
-            if ( is_cpu(device) ) {
-                source <<
-                    "    size_t grid_size  = get_global_size(0);\n"
-                    "    size_t chunk_size = (n + grid_size - 1) / grid_size;\n"
-                    "    size_t chunk_id   = get_global_id(0);\n"
-                    "    size_t start      = min(n, chunk_size * chunk_id);\n"
-                    "    size_t stop       = min(n, chunk_size * (chunk_id + 1));\n"
-                    "    " << type_name<real>() << " mySum = " << RDC::template initial<real>() << ";\n"
-                    "    for (size_t idx = start; idx < stop; idx++) {\n"
-                    << increment_line.str() <<
-                    "    }\n"
-                    "\n"
-                    "    g_odata[get_group_id(0)] = mySum;\n"
-                    "}\n";
+            source
+                .template parameter< global_ptr<real> >("g_odata")
+                .template smem_parameter<real>()
+                .close(")");
+
+#define INCREMENT_MY_SUM                                                       \
+  {                                                                            \
+    output_local_preamble loc_init(source, queue[d], "prm", empty_state());      \
+    boost::proto::eval(expr, loc_init);                                        \
+    vector_expr_context expr_ctx(source, queue[d], "prm", empty_state());        \
+    source.new_line() << "mySum = reduce_operation(mySum, ";                   \
+    boost::proto::eval(expr, expr_ctx);                                        \
+    source << ");";                                                            \
+  }
+
+            source.open("{");
+            source.smem_declaration<real>();
+            source.new_line() << type_name< shared_ptr<real> >() << " sdata = smem;";
+
+            if ( backend::is_cpu(queue[d]) ) {
+                source.new_line() << "size_t grid_size  = ";
+                source.global_size(0) << ";";
+                source.new_line() << "size_t chunk_size = (n + grid_size - 1) / grid_size;";
+                source.new_line() << "size_t chunk_id   = ";
+                source.global_id(0) << ";";
+                source.new_line() << "size_t start      = min(n, chunk_size * chunk_id);";
+                source.new_line() << "size_t stop       = min(n, chunk_size * (chunk_id + 1));";
+                source.new_line() << type_name<real>() << " mySum = " << RDC::template initial<real>() << ";";
+                source.new_line() << "for (size_t idx = start; idx < stop; idx++)";
+                source.open("{");
+                INCREMENT_MY_SUM
+                source.close("}");
+                source.new_line() << "g_odata[";
+                source.group_id(0) << "] = mySum;";
+                source.close("}");
+
+                backend::kernel krn(queue[d], source.str(), "vexcl_reductor_kernel", backend::fixed_workgroup_size(1));
+                kernel = cache.insert(std::make_pair(key, krn)).first;
             } else {
-                source <<
-                    "    size_t tid        = get_local_id(0);\n"
-                    "    size_t block_size = get_local_size(0);\n"
-                    "    size_t p          = get_group_id(0) * block_size * 2 + tid;\n"
-                    "    size_t gridSize   = get_global_size(0) * 2;\n"
-                    "    size_t idx;\n"
-                    "    " << type_name<real>() << " mySum = " << RDC::template initial<real>() << ";\n"
-                    "    while (p < n) {\n"
-                    "        idx = p;\n"
-                    << increment_line.str() <<
-                    "        idx = p + block_size;\n"
-                    "        if (idx < n) {\n"
-                    << increment_line.str() <<
-                    "        }\n"
-                    "        p += gridSize;\n"
-                    "    }\n"
-                    "    sdata[tid] = mySum;\n"
-                    "\n"
-                    "    barrier(CLK_LOCAL_MEM_FENCE);\n"
-                    "    if (block_size >= 1024) { if (tid < 512) { sdata[tid] = mySum = reduce_operation(mySum, sdata[tid + 512]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
-                    "    if (block_size >=  512) { if (tid < 256) { sdata[tid] = mySum = reduce_operation(mySum, sdata[tid + 256]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
-                    "    if (block_size >=  256) { if (tid < 128) { sdata[tid] = mySum = reduce_operation(mySum, sdata[tid + 128]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
-                    "    if (block_size >=  128) { if (tid <  64) { sdata[tid] = mySum = reduce_operation(mySum, sdata[tid +  64]); } barrier(CLK_LOCAL_MEM_FENCE); }\n"
-                    "\n"
-                    "    if (tid < 32) {\n"
-                    "        local volatile " << type_name<real>() << "* smem = sdata;\n"
-                    "        if (block_size >=  64) { smem[tid] = mySum = reduce_operation(mySum, smem[tid + 32]); }\n"
-                    "        if (block_size >=  32) { smem[tid] = mySum = reduce_operation(mySum, smem[tid + 16]); }\n"
-                    "        if (block_size >=  16) { smem[tid] = mySum = reduce_operation(mySum, smem[tid +  8]); }\n"
-                    "        if (block_size >=   8) { smem[tid] = mySum = reduce_operation(mySum, smem[tid +  4]); }\n"
-                    "        if (block_size >=   4) { smem[tid] = mySum = reduce_operation(mySum, smem[tid +  2]); }\n"
-                    "        if (block_size >=   2) { smem[tid] = mySum = reduce_operation(mySum, smem[tid +  1]); }\n"
-                    "    }\n"
-                    "    if (tid == 0) g_odata[get_group_id(0)] = sdata[0];\n"
-                    "}\n";
+                source.new_line() << "size_t tid = ";
+                source.local_id(0) << ";";
+                source.new_line() << "size_t block_size = ";
+                source.local_size(0) << ";";
+                source.new_line() << type_name<real>() << " mySum = " << RDC::template initial<real>() << ";";
+
+                source.grid_stride_loop().open("{");
+                INCREMENT_MY_SUM
+                source.close("}");
+                source.new_line() << "sdata[tid] = mySum;";
+                source.new_line().barrier();
+                for(unsigned bs = 512; bs > 32; bs /= 2) {
+                    source.new_line() << "if (block_size >= " << bs * 2 << ")";
+                    source.open("{").new_line() << "if (tid < " << bs << ") "
+                        "{ sdata[tid] = mySum = reduce_operation(mySum, sdata[tid + " << bs << "]); }";
+                    source.new_line().barrier().close("}");
+                }
+                source.new_line() << "if (tid < 32)";
+                source.open("{");
+                source.new_line() << "volatile " << type_name< shared_ptr<real> >() << " smem = sdata;";
+                for(unsigned bs = 32; bs > 0; bs /= 2) {
+                    source.new_line() << "if (block_size >= " << 2 * bs << ") "
+                        "{ smem[tid] = mySum = reduce_operation(mySum, smem[tid + " << bs << "]); }";
+                }
+                source.close("}");
+                source.new_line() << "if (tid == 0) g_odata[";
+                source.group_id(0) << "] = sdata[0];";
+                source.close("}");
+
+                backend::kernel krn(queue[d], source.str(), "vexcl_reductor_kernel", sizeof(real));
+                kernel = cache.insert(std::make_pair(key, krn)).first;
             }
-
-            auto program = build_sources(context, source.str());
-
-            cl::Kernel krn(program, "vexcl_reductor_kernel");
-            size_t wgs;
-            if (is_cpu(device)) {
-                wgs = 1;
-            } else {
-                wgs = kernel_workgroup_size(krn, device);
-
-                size_t smem = static_cast<size_t>(device.getInfo<CL_DEVICE_LOCAL_MEM_SIZE>())
-                            - static_cast<size_t>(krn.getWorkGroupInfo<CL_KERNEL_LOCAL_MEM_SIZE>(device));
-                while(wgs * sizeof(real) > smem)
-                    wgs /= 2;
-            }
-
-            kernel = cache.insert(std::make_pair(
-                        context(), kernel_cache_entry(krn, wgs)
-                        )).first;
         }
 
-        if (size_t psize = prop.part_size(d)) {
-            size_t w_size = kernel->second.wgsize;
-            size_t g_size = (idx[d + 1] - idx[d]) * w_size;
-            auto   lmem   = vex::Local(w_size * sizeof(real));
+#undef INCREMENT_MY_SUM
 
-            unsigned pos = 0;
-            kernel->second.kernel.setArg(pos++, psize);
+        if (size_t psize = prop.part_size(d)) {
+            kernel->second.push_arg(psize);
 
             extract_terminals()(
                     expr,
-                    set_expression_argument(kernel->second.kernel, d, pos, prop.part_start(d), empty_state())
+                    set_expression_argument(kernel->second, d, prop.part_start(d), empty_state())
                     );
 
-            kernel->second.kernel.setArg(pos++, dbuf[d]);
-            kernel->second.kernel.setArg(pos++, lmem);
+            kernel->second.push_arg(dbuf[d]);
+            kernel->second.set_smem([](size_t wgs){ return wgs * sizeof(real); });
 
-            queue[d].enqueueNDRangeKernel(kernel->second.kernel,
-                    cl::NullRange, g_size, w_size);
+            kernel->second(queue[d]);
         }
     }
 
@@ -351,12 +328,11 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
 
     for(unsigned d = 0; d < queue.size(); d++) {
         if (prop.part_size(d))
-            queue[d].enqueueReadBuffer(dbuf[d], CL_FALSE,
-                    0, sizeof(real) * (idx[d + 1] - idx[d]), &hbuf[idx[d]], 0, &event[d]);
+            dbuf[d].read(queue[d], 0, idx[d + 1] - idx[d], &hbuf[idx[d]]);
     }
 
     for(unsigned d = 0; d < queue.size(); d++)
-        if (prop.part_size(d)) event[d].wait();
+        if (prop.part_size(d)) queue[d].finish();
 
     return RDC::reduce(hbuf.begin(), hbuf.end());
 }
@@ -379,16 +355,16 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
 
 /// Returns a reference to a static instance of vex::Reductor<T,R>
 template <typename T, class R>
-const vex::Reductor<T, R>& get_reductor(const std::vector<cl::CommandQueue> &queue)
+const vex::Reductor<T, R>& get_reductor(const std::vector<backend::command_queue> &queue)
 {
     // We will hold one static reductor per set of queues (or, rather, contexts):
-    static std::map< std::vector<cl_context>, vex::Reductor<T, R> > cache;
+    static std::map< std::vector<backend::kernel_cache_key>, vex::Reductor<T, R> > cache;
 
     // Extract OpenCL context handles from command queues:
-    std::vector<cl_context> ctx;
+    std::vector<backend::kernel_cache_key> ctx;
     ctx.reserve(queue.size());
     for(auto q = queue.begin(); q != queue.end(); ++q)
-        ctx.push_back( vex::qctx(*q)() );
+        ctx.push_back( backend::cache_key(*q) );
 
     // See if there is suitable instance of reductor already:
     auto r = cache.find(ctx);

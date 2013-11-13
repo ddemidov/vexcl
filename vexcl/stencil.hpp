@@ -107,17 +107,17 @@ class stencil_base {
     protected:
         template <class Iterator>
         stencil_base(
-                const std::vector<cl::CommandQueue> &queue,
+                const std::vector<backend::command_queue> &queue,
                 unsigned width, unsigned center, Iterator begin, Iterator end
                 );
 
         void exchange_halos(const vex::vector<T> &x) const;
 
-        const std::vector<cl::CommandQueue> &queue;
+        const std::vector<backend::command_queue> &queue;
 
         mutable std::vector<T>  hbuf;
-        std::vector<cl::Buffer> dbuf;
-        std::vector<cl::Buffer> s;
+        std::vector< backend::device_vector<T> > dbuf;
+        std::vector< backend::device_vector<T> > s;
 
         int lhalo;
         int rhalo;
@@ -125,7 +125,7 @@ class stencil_base {
 
 template <typename T> template <class Iterator>
 stencil_base<T>::stencil_base(
-        const std::vector<cl::CommandQueue> &queue,
+        const std::vector<backend::command_queue> &queue,
         unsigned width, unsigned center, Iterator begin, Iterator end
         )
     : queue(queue), hbuf(queue.size() * (width - 1)),
@@ -139,18 +139,11 @@ stencil_base<T>::stencil_base(
     assert(center < width);
 
     for(unsigned d = 0; d < queue.size(); d++) {
-        cl::Context context = qctx(queue[d]);
-        cl::Device  device  = qdev(queue[d]);
-
-        if (begin != end) {
-            s[d] = cl::Buffer(context, CL_MEM_READ_ONLY, (end - begin) * sizeof(T));
-
-            queue[d].enqueueWriteBuffer(s[d], CL_FALSE, 0,
-                    (end - begin) * sizeof(T), &begin[0]);
-        }
+        if (begin != end)
+            s[d] = backend::device_vector<T>(queue[d], end - begin, &begin[0], backend::MEM_READ_ONLY);
 
         // Allocate one element more than needed, to be sure size is nonzero.
-        dbuf[d] = cl::Buffer(context, CL_MEM_READ_WRITE, width * sizeof(T));
+        dbuf[d] = backend::device_vector<T>(queue[d], width);
     }
 
     for(unsigned d = 0; d < queue.size(); d++) queue[d].finish();
@@ -171,7 +164,7 @@ void stencil_base<T>::exchange_halos(const vex::vector<T> &x) const {
             size_t end   = x.part_start(d);
             size_t begin = end >= static_cast<unsigned>(lhalo) ?  end - lhalo : 0;
             size_t size  = end - begin;
-            x.read_data(begin, size, &hbuf[d * width + lhalo - size], CL_FALSE);
+            x.read_data(begin, size, &hbuf[d * width + lhalo - size], false);
         }
 
         // Get halo from right neighbour.
@@ -179,7 +172,7 @@ void stencil_base<T>::exchange_halos(const vex::vector<T> &x) const {
             size_t begin = x.part_start(d + 1);
             size_t end   = std::min(begin + rhalo, x.size());
             size_t size  = end - begin;
-            x.read_data(begin, size, &hbuf[d * width + lhalo], CL_FALSE);
+            x.read_data(begin, size, &hbuf[d * width + lhalo], false);
         }
     }
 
@@ -212,8 +205,7 @@ void stencil_base<T>::exchange_halos(const vex::vector<T> &x) const {
         }
 
         if ((d > 0 && lhalo > 0) || (d + 1 < queue.size() && rhalo > 0))
-            queue[d].enqueueWriteBuffer(dbuf[d], CL_FALSE, 0, width * sizeof(T),
-                    &hbuf[d * width]);
+            dbuf[d].write(queue[d], 0, width, &hbuf[d * width]);
     }
 
     // Wait for the end of transfer.
@@ -249,12 +241,11 @@ class stencil : private stencil_base<T> {
          * \param st     vector holding stencil values.
          * \param center center of the stencil.
          */
-        stencil(const std::vector<cl::CommandQueue> &queue,
+        stencil(const std::vector<backend::command_queue> &queue,
                 const std::vector<T> &st, unsigned center
                 )
             : stencil_base<T>(queue, static_cast<unsigned>(st.size()), center, st.begin(), st.end()),
-              conv(queue.size()), wgs(queue.size()),
-              loc_s(queue.size()), loc_x(queue.size())
+              conv(queue.size()), smem(queue.size())
         {
             init(static_cast<unsigned>(st.size()));
         }
@@ -268,12 +259,11 @@ class stencil : private stencil_base<T> {
          * \param center center of the stencil.
          */
         template <class Iterator>
-        stencil(const std::vector<cl::CommandQueue> &queue,
+        stencil(const std::vector<backend::command_queue> &queue,
                 Iterator begin, Iterator end, unsigned center
                 )
             : stencil_base<T>(queue, static_cast<unsigned>(end - begin), center, begin, end),
-              conv(queue.size()), wgs(queue.size()),
-              loc_s(queue.size()), loc_x(queue.size())
+              conv(queue.size()), smem(queue.size())
         {
             init(static_cast<unsigned>(end - begin));
         }
@@ -286,12 +276,11 @@ class stencil : private stencil_base<T> {
          * \param list   intializer list holding stencil values.
          * \param center center of the stencil.
          */
-        stencil(const std::vector<cl::CommandQueue> &queue,
+        stencil(const std::vector<backend::command_queue> &queue,
                 std::initializer_list<T> list, unsigned center
                 )
             : stencil_base<T>(queue, list.size(), center, list.begin(), list.end()),
-              conv(queue.size()), wgs(queue.size()),
-              loc_s(queue.size()), loc_x(queue.size())
+              conv(queue.size()), smem(queue.size())
         {
             init(list.size());
         }
@@ -317,184 +306,169 @@ class stencil : private stencil_base<T> {
         using Base::lhalo;
         using Base::rhalo;
 
-        mutable std::vector<cl::Kernel> conv;
-        std::vector<size_t>             wgs;
-        std::vector<cl::LocalSpaceArg>  loc_s;
-        std::vector<cl::LocalSpaceArg>  loc_x;
+        mutable std::vector<backend::kernel> conv;
+        std::vector<size_t>  smem;
 
         void init(unsigned width);
 
-        static const detail::kernel_cache_entry& slow_conv(const cl::CommandQueue &queue);
-        static const detail::kernel_cache_entry& fast_conv(const cl::CommandQueue &queue);
+        static const detail::kernel_cache_entry& slow_conv(const backend::command_queue &queue);
+        static const detail::kernel_cache_entry& fast_conv(const backend::command_queue &queue);
 };
 
+namespace detail {
+
 template <typename T>
-const detail::kernel_cache_entry& stencil<T>::slow_conv(const cl::CommandQueue &queue) {
+inline void define_read_x(backend::source_generator &source) {
+    source.function<T>("read_x")
+        .open("(")
+            .template parameter<ptrdiff_t>("g_id")
+            .template parameter<size_t>("n")
+            .template parameter<char>("has_left")
+            .template parameter<char>("has_right")
+            .template parameter<int>("lhalo")
+            .template parameter<int>("rhalo")
+            .template parameter< global_ptr<const T> >("xloc")
+            .template parameter< global_ptr<const T> >("xrem")
+        .close(")").open("{");
+
+    source.new_line() << "if (g_id >= 0 && g_id < n)";
+    source.open("{");
+    source.new_line() << "return xloc[g_id];";
+    source.close("}");
+    source.new_line() << "else if (g_id < 0)";
+    source.open("{");
+    source.new_line() << "if (has_left) "
+        "return (lhalo + g_id >= 0) ? xrem[lhalo + g_id] : 0;";
+    source.new_line() << "else return xloc[0];";
+    source.close("}");
+    source.new_line() << "else";
+    source.open("{");
+    source.new_line() << "if (has_right) "
+        "return (g_id < n + rhalo) ? xrem[lhalo + g_id - n] : 0;";
+    source.new_line() << "else return xloc[n - 1];";
+    source.close("}").close("}");
+}
+
+}
+
+template <typename T>
+const detail::kernel_cache_entry& stencil<T>::slow_conv(const backend::command_queue &queue) {
     using namespace detail;
 
     static kernel_cache cache;
 
-    cl::Context context = qctx(queue);
-    cl::Device  device  = qdev(queue);
+    auto key    = backend::cache_key(queue);
+    auto kernel = cache.find(key);
 
-    auto kernel = cache.find(context());
+    backend::select_context(queue);
 
     if (kernel == cache.end()) {
-        std::ostringstream source;
+        backend::source_generator source(queue);
 
-        source << standard_kernel_header(device) <<
-            "typedef " << type_name<T>() << " real;\n"
-            "real read_x(\n"
-            "    long g_id,\n"
-            "    " << type_name<size_t>() << " n,\n"
-            "    char has_left, char has_right,\n"
-            "    int lhalo, int rhalo,\n"
-            "    global const real *xloc,\n"
-            "    global const real *xrem\n"
-            "    )\n"
-            "{\n"
-            "    if (g_id >= 0 && g_id < n) {\n"
-            "        return xloc[g_id];\n"
-            "    } else if (g_id < 0) {\n"
-            "        if (has_left)\n"
-            "            return (lhalo + g_id >= 0) ? xrem[lhalo + g_id] : 0;\n"
-            "        else\n"
-            "            return xloc[0];\n"
-            "    } else {\n"
-            "        if (has_right)\n"
-            "            return (g_id < n + rhalo) ? xrem[lhalo + g_id - n] : 0;\n"
-            "        else\n"
-            "            return xloc[n - 1];\n"
-            "    }\n"
-            "}\n"
-            "kernel void slow_conv(\n"
-            "    " << type_name<size_t>() << " n,\n"
-            "    char has_left,\n"
-            "    char has_right,\n"
-            "    int lhalo, int rhalo,\n"
-            "    global const real *s,\n"
-            "    global const real *xloc,\n"
-            "    global const real *xrem,\n"
-            "    global real *y,\n"
-            "    real alpha, real beta,\n"
-            "    local real *loc_s,\n"
-            "    local real *loc_x\n"
-            "    )\n"
-            "{\n";
-        if ( is_cpu(device) )
-            source <<
-            "    long g_id = get_global_id(0);\n"
-            "    if (g_id < n) {\n";
-        else
-            source <<
-            "    size_t grid_size = get_global_size(0);\n"
-            "    for(long g_id = get_global_id(0); g_id < n; g_id += grid_size) {\n";
-        source <<
-            "        real sum = 0;\n"
-            "        for(int j = -lhalo; j <= rhalo; j++)\n"
-            "            sum += s[lhalo + j] * read_x(g_id + j, n, has_left, has_right, lhalo, rhalo, xloc, xrem);\n"
-            "        if (alpha)\n"
-            "            y[g_id] = alpha * y[g_id] + beta * sum;\n"
-            "        else\n"
-            "            y[g_id] = beta * sum;\n"
-            "    }\n"
-            "}\n";
+        define_read_x<T>(source);
 
-        auto program = build_sources(context, source.str());
+        source.kernel("slow_conv")
+            .open("(")
+                .template parameter<size_t>("n")
+                .template parameter<char>("has_left")
+                .template parameter<char>("has_right")
+                .template parameter<int>("lhalo")
+                .template parameter<int>("rhalo")
+                .template parameter< global_ptr<const T> >("s")
+                .template parameter< global_ptr<const T> >("xloc")
+                .template parameter< global_ptr<const T> >("xrem")
+                .template parameter< global_ptr<T> >("y")
+                .template parameter<T>("alpha")
+                .template parameter<T>("beta")
+            .close(")").open("{");
 
-        cl::Kernel krn(program, "slow_conv");
-        size_t     wgs = kernel_workgroup_size(krn, device);
+        source.grid_stride_loop().open("{");
 
-        kernel = cache.insert(std::make_pair(
-                    context(), kernel_cache_entry(krn, wgs)
-                    )).first;
+        source.new_line() << type_name<T>() << " sum = 0;";
+        source.new_line() << "for(int j = -lhalo; j <= rhalo; j++)";
+        source.open("{");
+        source.new_line() << "sum += s[lhalo + j] * read_x(("
+            << type_name<ptrdiff_t>()
+            << ")idx + j, n, has_left, has_right, lhalo, rhalo, xloc, xrem);";
+        source.close("}");
+        source.new_line() << "if (alpha) y[idx] = alpha * y[idx] + beta * sum;";
+        source.new_line() << "else y[idx] = beta * sum;";
+        source.close("}").close("}");
+
+        backend::kernel krn(queue, source.str(), "slow_conv");
+        kernel = cache.insert(std::make_pair(key, krn)).first;
     }
 
     return kernel->second;
 }
 
 template <typename T>
-const detail::kernel_cache_entry& stencil<T>::fast_conv(const cl::CommandQueue &queue) {
+const detail::kernel_cache_entry& stencil<T>::fast_conv(const backend::command_queue &queue) {
     using namespace detail;
 
     static kernel_cache cache;
 
-    cl::Context context = qctx(queue);
-    cl::Device  device  = qdev(queue);
+    auto key    = backend::cache_key(queue);
+    auto kernel = cache.find(key);
 
-    auto kernel = cache.find(context());
+    backend::select_context(queue);
 
     if (kernel == cache.end()) {
-        std::ostringstream source;
+        backend::source_generator source(queue);
 
-        source << standard_kernel_header(device) <<
-            "typedef " << type_name<T>() << " real;\n"
-            "real read_x(\n"
-            "    long g_id,\n"
-            "    " << type_name<size_t>() << " n,\n"
-            "    char has_left, char has_right,\n"
-            "    int lhalo, int rhalo,\n"
-            "    global const real *xloc,\n"
-            "    global const real *xrem\n"
-            "    )\n"
-            "{\n"
-            "    if (g_id >= 0 && g_id < n) {\n"
-            "        return xloc[g_id];\n"
-            "    } else if (g_id < 0) {\n"
-            "        if (has_left)\n"
-            "            return (lhalo + g_id >= 0) ? xrem[lhalo + g_id] : 0;\n"
-            "        else\n"
-            "            return xloc[0];\n"
-            "    } else {\n"
-            "        if (has_right)\n"
-            "            return (g_id < n + rhalo) ? xrem[lhalo + g_id - n] : 0;\n"
-            "        else\n"
-            "            return xloc[n - 1];\n"
-            "    }\n"
-            "}\n"
-            "kernel void fast_conv(\n"
-            "    " << type_name<size_t>() << " n,\n"
-            "    char has_left,\n"
-            "    char has_right,\n"
-            "    int lhalo, int rhalo,\n"
-            "    global const real *s,\n"
-            "    global const real *xloc,\n"
-            "    global const real *xrem,\n"
-            "    global real *y,\n"
-            "    real alpha, real beta,\n"
-            "    local real *S,\n"
-            "    local real *X\n"
-            "    )\n"
-            "{\n"
-            "    size_t grid_size = get_global_size(0);\n"
-            "    int l_id       = get_local_id(0);\n"
-            "    int block_size = get_local_size(0);\n"
-            "    async_work_group_copy(S, s, lhalo + rhalo + 1, 0);\n"
-            "    for(long g_id = get_global_id(0), pos = 0; pos < n; g_id += grid_size, pos += grid_size) {\n"
-            "        for(int i = l_id, j = g_id - lhalo; i < block_size + lhalo + rhalo; i += block_size, j += block_size)\n"
-            "            X[i] = read_x(j, n, has_left, has_right, lhalo, rhalo, xloc, xrem);\n"
-            "        barrier(CLK_LOCAL_MEM_FENCE);\n"
-            "        if (g_id < n) {\n"
-            "            real sum = 0;\n"
-            "            for(int j = -lhalo; j <= rhalo; j++)\n"
-            "                sum += S[lhalo + j] * X[lhalo + l_id + j];\n"
-            "            if (alpha)\n"
-            "                y[g_id] = alpha * y[g_id] + beta * sum;\n"
-            "            else\n"
-            "                y[g_id] = beta * sum;\n"
-            "        }\n"
-            "        barrier(CLK_LOCAL_MEM_FENCE);\n"
-            "    }\n"
-            "}\n";
+        define_read_x<T>(source);
 
-        auto program = build_sources(context, source.str());
+        source.kernel("fast_conv")
+            .open("(")
+                .template parameter<size_t>("n")
+                .template parameter<char>("has_left")
+                .template parameter<char>("has_right")
+                .template parameter<int>("lhalo")
+                .template parameter<int>("rhalo")
+                .template parameter< global_ptr<const T> >("s")
+                .template parameter< global_ptr<const T> >("xloc")
+                .template parameter< global_ptr<const T> >("xrem")
+                .template parameter< global_ptr<T> >("y")
+                .template parameter<T>("alpha")
+                .template parameter<T>("beta")
+                .template smem_parameter< T >()
+            .close(")").open("{");
 
-        cl::Kernel krn(program, "fast_conv");
-        size_t     wgs = kernel_workgroup_size(krn, device);
+        source.smem_declaration<T>();
+        source.new_line() << type_name< shared_ptr<T> >() << " S = smem;";
+        source.new_line() << type_name< shared_ptr<T> >() << " X = smem + lhalo + rhalo + 1;";
 
-        kernel = cache.insert(std::make_pair(
-                    context(), kernel_cache_entry(krn, wgs)
-                    )).first;
+        source.new_line() << "size_t grid_size = ";
+        source.global_size(0) << ";";
+        source.new_line() << "int l_id = ";
+        source.local_id(0) << ";";
+        source.new_line() << "int block_size = ";
+        source.local_size(0) << ";";
+        source.new_line() << "for(int i = l_id; i < rhalo + lhalo + 1; i += block_size) S[i] = s[i];";
+        source.new_line() << "for(long g_id = ";
+        source.global_id(0) << ", pos = 0; pos < n; g_id += grid_size, pos += grid_size)";
+        source.open("{");
+        source.new_line() << "for(int i = l_id, j = g_id - lhalo; i < block_size + lhalo + rhalo; i += block_size, j += block_size)";
+        source.open("{");
+        source.new_line() << "X[i] = read_x(j, n, has_left, has_right, lhalo, rhalo, xloc, xrem);";
+        source.close("}");
+        source.new_line().barrier();
+        source.new_line() << "if (g_id < n)";
+        source.open("{");
+        source.new_line() << type_name<T>() << " sum = 0;";
+        source.new_line() << "for(int j = -lhalo; j <= rhalo; j++)";
+        source.open("{");
+        source.new_line() << "sum += S[lhalo + j] * X[lhalo + l_id + j];";
+        source.close("}");
+        source.new_line() << "if (alpha) "
+            "y[g_id] = alpha * y[g_id] + beta * sum;";
+        source.new_line() << "else y[g_id] = beta * sum;";
+        source.close("}");
+        source.new_line().barrier();
+        source.close("}").close("}");
+
+        backend::kernel krn(queue, source.str(), "fast_conv");
+        kernel = cache.insert(std::make_pair(key, krn)).first;
     }
 
     return kernel->second;
@@ -503,29 +477,19 @@ const detail::kernel_cache_entry& stencil<T>::fast_conv(const cl::CommandQueue &
 template <typename T>
 void stencil<T>::init(unsigned width) {
     for (unsigned d = 0; d < queue.size(); d++) {
-        cl::Context context = qctx(queue[d]);
-        cl::Device  device  = qdev(queue[d]);
+        auto   fast_krn = fast_conv(queue[d]);
+        size_t max_smem = fast_krn.max_shared_memory_per_block(queue[d]);
 
-        auto slow_krn = slow_conv(queue[d]);
-        auto fast_krn = fast_conv(queue[d]);
+        auto smem_required = [width](size_t wgs) { return sizeof(T) * (2 * width + wgs - 1); };
 
-        size_t available_lmem = (
-            static_cast<size_t>(device.getInfo<CL_DEVICE_LOCAL_MEM_SIZE>()) -
-            static_cast<size_t>(fast_krn.kernel.template getWorkGroupInfo<CL_KERNEL_LOCAL_MEM_SIZE>(device))
-            ) / sizeof(T);
-
-        if (is_cpu(device) || available_lmem < width + 64 + lhalo + rhalo) {
-            conv[d]  = slow_krn.kernel;
-            wgs[d]   = slow_krn.wgsize;
-            loc_s[d] = vex::Local(1);
-            loc_x[d] = vex::Local(1);
+        if (backend::is_cpu(queue[d]) || max_smem < smem_required(64)) {
+            conv[d]  = slow_conv(queue[d]);
+            conv[d].config(queue[d], [](size_t){ return 0; });
+            smem[d] = 0;
         } else {
-            conv[d] = fast_krn.kernel;
-            wgs[d]  = fast_krn.wgsize;
-            while(available_lmem < width + wgs[d] + lhalo + rhalo)
-                wgs[d] /= 2;
-            loc_s[d] = vex::Local(sizeof(T) * width);
-            loc_x[d] = vex::Local(sizeof(T) * (wgs[d] + lhalo + rhalo));
+            conv[d] = fast_krn;
+            conv[d].config(queue[d], smem_required);
+            smem[d] = smem_required(conv[d].workgroup_size());
         }
     }
 }
@@ -539,32 +503,24 @@ void stencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y,
 
     for(unsigned d = 0; d < queue.size(); d++) {
         if (size_t psize = x.part_size(d)) {
-            cl::Context context = qctx(queue[d]);
-            cl::Device  device  = qdev(queue[d]);
-
             char has_left  = d > 0;
             char has_right = d + 1 < queue.size();
 
-            size_t g_size = is_cpu(device) ?
-                alignup(psize, wgs[d]) : num_workgroups(device) * wgs[d];
+            conv[d].push_arg(psize);
+            conv[d].push_arg(has_left);
+            conv[d].push_arg(has_right);
+            conv[d].push_arg(lhalo);
+            conv[d].push_arg(rhalo);
+            conv[d].push_arg(s[d]);
+            conv[d].push_arg(x(d));
+            conv[d].push_arg(dbuf[d]);
+            conv[d].push_arg(y(d));
+            conv[d].push_arg(alpha);
+            conv[d].push_arg(beta);
 
-            unsigned pos = 0;
+            if (smem[d]) conv[d].set_smem([&](size_t){ return smem[d]; });
 
-            conv[d].setArg(pos++, psize);
-            conv[d].setArg(pos++, has_left);
-            conv[d].setArg(pos++, has_right);
-            conv[d].setArg(pos++, lhalo);
-            conv[d].setArg(pos++, rhalo);
-            conv[d].setArg(pos++, s[d]);
-            conv[d].setArg(pos++, x(d));
-            conv[d].setArg(pos++, dbuf[d]);
-            conv[d].setArg(pos++, y(d));
-            conv[d].setArg(pos++, alpha);
-            conv[d].setArg(pos++, beta);
-            conv[d].setArg(pos++, loc_s[d]);
-            conv[d].setArg(pos++, loc_x[d]);
-
-            queue[d].enqueueNDRangeKernel(conv[d], cl::NullRange, g_size, wgs[d]);
+            conv[d](queue[d]);
         }
     }
 }
@@ -617,7 +573,7 @@ class StencilOperator : private stencil_base<T> {
     public:
         typedef T value_type;
 
-        StencilOperator(const std::vector<cl::CommandQueue> &queue);
+        StencilOperator(const std::vector<backend::command_queue> &queue);
 
         conv< StencilOperator, vector<T> >
         operator()(const vector<T> &x) const {
@@ -646,7 +602,7 @@ class StencilOperator : private stencil_base<T> {
 
 template <typename T, unsigned width, unsigned center, class Impl>
 StencilOperator<T, width, center, Impl>::StencilOperator(
-        const std::vector<cl::CommandQueue> &queue)
+        const std::vector<backend::command_queue> &queue)
     : Base(queue, width, center, static_cast<T*>(0), static_cast<T*>(0))
 { }
 
@@ -657,123 +613,96 @@ void StencilOperator<T, width, center, Impl>::convolve(
     using namespace detail;
 
     static kernel_cache cache;
-    static std::map<cl_context, cl::LocalSpaceArg> lmem;
+    static std::map<backend::kernel_cache_key, size_t> lmem;
 
     Base::exchange_halos(x);
 
     for(unsigned d = 0; d < queue.size(); d++) {
-        cl::Context context = qctx(queue[d]);
-        cl::Device  device  = qdev(queue[d]);
+        backend::select_context(queue[d]);
 
-        auto kernel = cache.find(context());
+        auto key    = backend::cache_key(queue[d]);
+        auto kernel = cache.find(key);
 
         if (kernel == cache.end()) {
-            std::ostringstream source;
+            backend::source_generator source(queue[d]);
 
-            source << standard_kernel_header(device) <<
-                "typedef " << type_name<T>() << " real;\n"
-                "real read_x(\n"
-                "    long g_id,\n"
-                "    " << type_name<size_t>() << " n,\n"
-                "    char has_left, char has_right,\n"
-                "    int lhalo, int rhalo,\n"
-                "    global const real *xloc,\n"
-                "    global const real *xrem\n"
-                "    )\n"
-                "{\n"
-                "    if (g_id >= 0 && g_id < n) {\n"
-                "        return xloc[g_id];\n"
-                "    } else if (g_id < 0) {\n"
-                "        if (has_left)\n"
-                "            return (lhalo + g_id >= 0) ? xrem[lhalo + g_id] : 0;\n"
-                "        else\n"
-                "            return xloc[0];\n"
-                "    } else {\n"
-                "        if (has_right)\n"
-                "            return (g_id < n + rhalo) ? xrem[lhalo + g_id - n] : 0;\n"
-                "        else\n"
-                "            return xloc[n - 1];\n"
-                "    }\n"
-                "}\n"
-                "real stencil_oper(local real *X) {\n"
-                << Impl::body() <<
-                "\n}\n"
-                "kernel void convolve(\n"
-                "    " << type_name<size_t>() << " n,\n"
-                "    char has_left,\n"
-                "    char has_right,\n"
-                "    int lhalo, int rhalo,\n"
-                "    global const real *xloc,\n"
-                "    global const real *xrem,\n"
-                "    global real *y,\n"
-                "    real alpha, real beta,\n"
-                "    local real *X\n"
-                "    )\n"
-                "{\n"
-                "    size_t grid_size = get_global_size(0);\n"
-                "    int l_id         = get_local_id(0);\n"
-                "    int block_size   = get_local_size(0);\n"
-                "    for(long g_id = get_global_id(0), pos = 0; pos < n; g_id += grid_size, pos += grid_size) {\n"
-                "        for(int i = l_id, j = g_id - lhalo; i < block_size + lhalo + rhalo; i += block_size, j += block_size)\n"
-                "            X[i] = read_x(j, n, has_left, has_right, lhalo, rhalo, xloc, xrem);\n"
-                "        barrier(CLK_LOCAL_MEM_FENCE);\n"
-                "        if (g_id < n) {\n"
-                "            real sum = stencil_oper(X + lhalo + l_id);\n"
-                "            if (alpha)\n"
-                "                y[g_id] = alpha * y[g_id] + beta * sum;\n"
-                "            else\n"
-                "                y[g_id] = beta * sum;\n"
-                "        }\n"
-                "        barrier(CLK_LOCAL_MEM_FENCE);\n"
-                "    }\n"
-                "}\n";
+            define_read_x<T>(source);
 
+            source.function<T>("stencil_oper")
+                .open("(")
+                    .template parameter< shared_ptr<const T> >("X")
+                .close(")").open("{").new_line();
+            source << Impl::body();
+            source.close("}");
 
-            auto program = build_sources(context, source.str());
+            source.kernel("convolve")
+                .open("(")
+                    .template parameter<size_t>("n")
+                    .template parameter<char>("has_left")
+                    .template parameter<char>("has_right")
+                    .template parameter<int>("lhalo")
+                    .template parameter<int>("rhalo")
+                    .template parameter< global_ptr<const T> >("xloc")
+                    .template parameter< global_ptr<const T> >("xrem")
+                    .template parameter< global_ptr<T> >("y")
+                    .template parameter<T>("alpha")
+                    .template parameter<T>("beta")
+                    .template smem_parameter<T>()
+                .close(")").open("{");
 
-            cl::Kernel krn(program, "convolve");
-            size_t wgs = kernel_workgroup_size(krn, device);
+            source.smem_declaration<T>();
+            source.new_line() << type_name< shared_ptr<T> >() << " X = smem;";
 
-            size_t available_lmem = (static_cast<size_t>(
-                    device.getInfo<CL_DEVICE_LOCAL_MEM_SIZE>() -
-                    krn.getWorkGroupInfo<CL_KERNEL_LOCAL_MEM_SIZE>(device)
-                    ) ) / sizeof(T);
+            source.new_line() << "size_t grid_size = ";
+            source.global_size(0) << ";";
+            source.new_line() << "int l_id = ";
+            source.local_id(0) << ";";
+            source.new_line() << "int block_size = ";
+            source.local_size(0) << ";";
+            source.new_line() << "for(long g_id = ";
+            source.global_id(0) << ", pos = 0; pos < n; g_id += grid_size, pos += grid_size)";
+            source.open("{");
+            source.new_line() << "for(int i = l_id, j = g_id - lhalo; i < block_size + lhalo + rhalo; i += block_size, j += block_size)";
+            source.open("{");
+            source.new_line() << "X[i] = read_x(j, n, has_left, has_right, lhalo, rhalo, xloc, xrem);";
+            source.close("}");
+            source.new_line().barrier();
+            source.new_line() << "if (g_id < n)";
+            source.open("{");
+            source.new_line() << type_name<T>() << " sum = stencil_oper(X + lhalo + l_id);";
+            source.new_line() << "if (alpha) y[g_id] = alpha * y[g_id] + beta * sum;";
+            source.new_line() << "else y[g_id] = beta * sum;";
+            source.close("}");
+            source.new_line().barrier();
+            source.close("}").close("}");
 
-            assert(available_lmem >= width + 64);
+            backend::kernel krn(queue[d], source.str(), "convolve",
+                    [](size_t wgs) { return (width + wgs - 1) * sizeof(T); }
+                    );
+            kernel = cache.insert(std::make_pair(key, krn)).first;
 
-            while(available_lmem < width + wgs) wgs /= 2;
-
-            kernel = cache.insert(std::make_pair(
-                        context(), kernel_cache_entry(krn, wgs)
-                        )).first;
-
-            lmem[context()] = vex::Local(sizeof(T) * (wgs + width - 1));
+            lmem[key] = sizeof(T) * (krn.workgroup_size() + width - 1);
         }
 
         if (size_t psize = x.part_size(d)) {
-            size_t wgsize = kernel->second.wgsize;
-            size_t g_size = is_cpu(device) ?
-                alignup(psize, wgsize) : num_workgroups(device) * wgsize;
-
             char has_left  = d > 0;
             char has_right = d + 1 < queue.size();
 
-            unsigned pos = 0;
+            kernel->second.push_arg(psize);
+            kernel->second.push_arg(has_left);
+            kernel->second.push_arg(has_right);
+            kernel->second.push_arg(lhalo);
+            kernel->second.push_arg(rhalo);
+            kernel->second.push_arg(x(d));
+            kernel->second.push_arg(dbuf[d]);
+            kernel->second.push_arg(y(d));
+            kernel->second.push_arg(alpha);
+            kernel->second.push_arg(beta);
 
-            kernel->second.kernel.setArg(pos++, psize);
-            kernel->second.kernel.setArg(pos++, has_left);
-            kernel->second.kernel.setArg(pos++, has_right);
-            kernel->second.kernel.setArg(pos++, lhalo);
-            kernel->second.kernel.setArg(pos++, rhalo);
-            kernel->second.kernel.setArg(pos++, x(d));
-            kernel->second.kernel.setArg(pos++, dbuf[d]);
-            kernel->second.kernel.setArg(pos++, y(d));
-            kernel->second.kernel.setArg(pos++, alpha);
-            kernel->second.kernel.setArg(pos++, beta);
-            kernel->second.kernel.setArg(pos++, lmem[context()]);
+            size_t smem_bytes = lmem[key];
+            kernel->second.set_smem([smem_bytes](size_t){ return smem_bytes; });
 
-            queue[d].enqueueNDRangeKernel(kernel->second.kernel,
-                    cl::NullRange, g_size, wgsize);
+            kernel->second(queue[d]);
         }
     }
 }
@@ -792,7 +721,7 @@ void StencilOperator<T, width, center, Impl>::convolve(
  */
 #define VEX_STENCIL_OPERATOR_TYPE(name, type, width, center, body_str) \
     struct name : vex::StencilOperator<type, width, center, name> { \
-        name(const std::vector<cl::CommandQueue> &q) : vex::StencilOperator<type, width, center, name>(q) {} \
+        name(const std::vector<vex::backend::command_queue> &q) : vex::StencilOperator<type, width, center, name>(q) {} \
         static std::string body() { return body_str; } \
     }
 

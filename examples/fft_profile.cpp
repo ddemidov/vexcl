@@ -1,5 +1,8 @@
 #include <iostream>
-#include <vexcl/vexcl.hpp>
+#include <vexcl/backend.hpp>
+#include <vexcl/devlist.hpp>
+#include <vexcl/vector.hpp>
+#include <vexcl/fft.hpp>
 
 using namespace vex;
 

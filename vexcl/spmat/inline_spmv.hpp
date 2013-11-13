@@ -142,43 +142,45 @@ struct component< I, mv_inline_spmv<val_t, col_t, idx_t, MV> > {
 
 template <typename val_t, typename col_t, typename idx_t>
 struct terminal_preamble< inline_spmv<val_t, col_t, idx_t> > {
-    static std::string get(const inline_spmv<val_t, col_t, idx_t>&,
-            const cl::Device &device, const std::string &prm_name,
+    static void get(backend::source_generator &src,
+            const inline_spmv<val_t, col_t, idx_t>&,
+            const backend::command_queue &queue, const std::string &prm_name,
             detail::kernel_generator_state_ptr state)
     {
-        return SpMat<val_t, col_t, idx_t>::inline_preamble(device, prm_name, state);
+        SpMat<val_t, col_t, idx_t>::inline_preamble(src, queue, prm_name, state);
     }
 };
 
 template <typename val_t, typename col_t, typename idx_t>
 struct kernel_param_declaration< inline_spmv<val_t, col_t, idx_t> > {
-    static std::string get(const inline_spmv<val_t, col_t, idx_t>&,
-            const cl::Device &device, const std::string &prm_name,
+    static void get(backend::source_generator &src,
+            const inline_spmv<val_t, col_t, idx_t>&,
+            const backend::command_queue &queue, const std::string &prm_name,
             detail::kernel_generator_state_ptr state)
     {
-        return SpMat<val_t, col_t, idx_t>::inline_parameters(device, prm_name, state);
+        SpMat<val_t, col_t, idx_t>::inline_parameters(src, queue, prm_name, state);
     }
 };
 
 template <typename val_t, typename col_t, typename idx_t>
 struct partial_vector_expr< inline_spmv<val_t, col_t, idx_t> > {
-    static std::string get(const inline_spmv<val_t, col_t, idx_t>&,
-            const cl::Device &device, const std::string &prm_name,
+    static void get(backend::source_generator &src,
+            const inline_spmv<val_t, col_t, idx_t>&,
+            const backend::command_queue &queue, const std::string &prm_name,
             detail::kernel_generator_state_ptr state)
     {
-        return SpMat<val_t, col_t, idx_t>::inline_expression(device, prm_name, state);
+        SpMat<val_t, col_t, idx_t>::inline_expression(src, queue, prm_name, state);
     }
 };
 
 template <typename val_t, typename col_t, typename idx_t>
 struct kernel_arg_setter< inline_spmv<val_t, col_t, idx_t> > {
     static void set(const inline_spmv<val_t, col_t, idx_t> &term,
-            cl::Kernel &kernel, unsigned device, size_t index_offset,
-            unsigned &position, detail::kernel_generator_state_ptr state)
+            backend::kernel &kernel, unsigned part, size_t index_offset,
+            detail::kernel_generator_state_ptr state)
     {
         SpMat<val_t, col_t, idx_t>::inline_arguments(
-                kernel, device, index_offset, position,
-                term.A, term.x, state
+                kernel, part, index_offset, term.A, term.x, state
                 );
     }
 };
@@ -186,7 +188,7 @@ struct kernel_arg_setter< inline_spmv<val_t, col_t, idx_t> > {
 template <typename val_t, typename col_t, typename idx_t>
 struct expression_properties< inline_spmv<val_t, col_t, idx_t> > {
     static void get(const inline_spmv<val_t, col_t, idx_t> &term,
-            std::vector<cl::CommandQueue> &queue_list,
+            std::vector<backend::command_queue> &queue_list,
             std::vector<size_t> &partition,
             size_t &size
             )

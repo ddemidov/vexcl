@@ -73,26 +73,24 @@ struct is_multivector_expr_terminal< elem_index > : std::true_type {};
 template <>
 struct kernel_param_declaration< elem_index >
 {
-    static std::string get(const elem_index&,
-            const cl::Device&, const std::string &prm_name,
+    static void get(backend::source_generator &src,
+            const elem_index&,
+            const backend::command_queue&, const std::string &prm_name,
             detail::kernel_generator_state_ptr)
     {
-        std::ostringstream s;
-        s << ",\n\t" << type_name<size_t>() << " " << prm_name;
-        return s.str();
+        src.parameter<size_t>(prm_name);
     }
 };
 
 template <>
 struct partial_vector_expr< elem_index >
 {
-    static std::string get(const elem_index&,
-            const cl::Device&, const std::string &prm_name,
+    static void get(backend::source_generator &src,
+            const elem_index&,
+            const backend::command_queue&, const std::string &prm_name,
             detail::kernel_generator_state_ptr)
     {
-        std::ostringstream s;
-        s << "(" << prm_name << " + idx)";
-        return s.str();
+        src << "(" << prm_name << " + idx)";
     }
 };
 
@@ -100,10 +98,10 @@ template <>
 struct kernel_arg_setter< elem_index >
 {
     static void set(const elem_index &term,
-            cl::Kernel &kernel, unsigned/*device*/, size_t index_offset,
-            unsigned &position, detail::kernel_generator_state_ptr)
+            backend::kernel &kernel, unsigned/*part*/, size_t index_offset,
+            detail::kernel_generator_state_ptr)
     {
-        kernel.setArg(position++, term.offset + index_offset);
+        kernel.push_arg(term.offset + index_offset);
     }
 };
 
@@ -111,7 +109,7 @@ template <>
 struct expression_properties< elem_index >
 {
     static void get(const elem_index &term,
-            std::vector<cl::CommandQueue> &/*queue_list*/,
+            std::vector<backend::command_queue> &/*queue_list*/,
             std::vector<size_t> &/*partition*/,
             size_t &size
             )

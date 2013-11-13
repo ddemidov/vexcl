@@ -37,14 +37,6 @@ THE SOFTWARE.
 #include <iostream>
 #include <sstream>
 
-#ifndef __CL_ENABLE_EXCEPTIONS
-#  define __CL_ENABLE_EXCEPTIONS
-#endif
-#include <CL/cl.hpp>
-
-typedef unsigned int  uint;
-typedef unsigned char uchar;
-
 namespace vex {
 
     /// Get the corresponding scalar type for a CL vector (or scalar) type.
@@ -64,67 +56,87 @@ namespace vex {
 
 } // namespace vex
 
-#define BIN_OP(base_type, len, op) \
-inline cl_##base_type##len &operator op##= (cl_##base_type##len &a, const cl_##base_type##len &b) { \
-    for(size_t i = 0 ; i < len ; i++) a.s[i] op##= b.s[i]; \
-    return a; \
-} \
-inline cl_##base_type##len operator op(const cl_##base_type##len &a, const cl_##base_type##len &b) { \
-    cl_##base_type##len res = a; return res op##= b; \
-}
+#define BIN_OP(base_type, len, op)                                             \
+  inline cl_##base_type##len &operator op## =(cl_##base_type##len & a,         \
+                                              const cl_##base_type##len & b) { \
+    for (size_t i = 0; i < len; i++)                                           \
+      a.s[i] op## = b.s[i];                                                    \
+    return a;                                                                  \
+  }                                                                            \
+  inline cl_##base_type##len operator op(const cl_##base_type##len & a,        \
+                                         const cl_##base_type##len & b) {      \
+    cl_##base_type##len res = a;                                               \
+    return res op## = b;                                                       \
+  }
 
 // `scalar OP vector` acts like `(vector_t)(scalar) OP vector` in OpenCl:
 // all components are set to the scalar value.
-#define BIN_SCALAR_OP(base_type, len, op) \
-inline cl_##base_type##len &operator op##= (cl_##base_type##len &a, const cl_##base_type &b) { \
-    for(size_t i = 0 ; i < len ; i++) a.s[i] op##= b; \
-    return a; \
-} \
-inline cl_##base_type##len operator op(const cl_##base_type##len &a, const cl_##base_type &b) { \
-    cl_##base_type##len res = a; return res op##= b; \
-} \
-inline cl_##base_type##len operator op(const cl_##base_type &a, const cl_##base_type##len &b) { \
-    cl_##base_type##len res = b; return res op##= a; \
-}
+#define BIN_SCALAR_OP(base_type, len, op)                                      \
+  inline cl_##base_type##len &operator op## =(cl_##base_type##len & a,         \
+                                              const cl_##base_type & b) {      \
+    for (size_t i = 0; i < len; i++)                                           \
+      a.s[i] op## = b;                                                         \
+    return a;                                                                  \
+  }                                                                            \
+  inline cl_##base_type##len operator op(const cl_##base_type##len & a,        \
+                                         const cl_##base_type & b) {           \
+    cl_##base_type##len res = a;                                               \
+    return res op## = b;                                                       \
+  }                                                                            \
+  inline cl_##base_type##len operator op(const cl_##base_type & a,             \
+                                         const cl_##base_type##len & b) {      \
+    cl_##base_type##len res = b;                                               \
+    return res op## = a;                                                       \
+  }
 
-#define CL_VEC_TYPE(base_type, len) \
-BIN_OP(base_type, len, +) \
-BIN_OP(base_type, len, -) \
-BIN_OP(base_type, len, *) \
-BIN_OP(base_type, len, /) \
-BIN_SCALAR_OP(base_type, len, +) \
-BIN_SCALAR_OP(base_type, len, -) \
-BIN_SCALAR_OP(base_type, len, *) \
-BIN_SCALAR_OP(base_type, len, /) \
-inline cl_##base_type##len operator -(const cl_##base_type##len &a) { \
-    cl_##base_type##len res; \
-    for(size_t i = 0 ; i < len ; i++) res.s[i] = -a.s[i]; \
-    return res; \
-} \
-inline std::ostream &operator<<(std::ostream &os, const cl_##base_type##len &value) { \
-    os << "(" #base_type #len ")("; \
-    for(std::size_t i = 0 ; i < len ; i++) { \
-        if(i != 0) os << ','; \
-        os << value.s[i]; \
-    } \
-    return os << ')'; \
-} \
-namespace vex { \
-    template <> struct cl_scalar_of<cl_##base_type##len> { typedef cl_##base_type type; }; \
-    template <> struct cl_vector_of<cl_##base_type, len> { typedef cl_##base_type##len type; }; \
-    template <> struct cl_vector_length<cl_##base_type##len> : std::integral_constant<unsigned, len>{ }; \
-}
+#define CL_VEC_TYPE(base_type, len)                                            \
+  BIN_OP(base_type, len, +) BIN_OP(base_type, len, -)                          \
+      BIN_OP(base_type, len, *)BIN_OP(base_type, len, / )                      \
+      BIN_SCALAR_OP(base_type, len, +) BIN_SCALAR_OP(base_type, len, -)        \
+      BIN_SCALAR_OP(base_type, len, *)BIN_SCALAR_OP(base_type, len, / )        \
+      inline cl_##base_type##len operator-(const cl_##base_type##len & a) {    \
+    cl_##base_type##len res;                                                   \
+    for (size_t i = 0; i < len; i++)                                           \
+      res.s[i] = -a.s[i];                                                      \
+    return res;                                                                \
+  }                                                                            \
+  inline std::ostream &operator<<(std::ostream & os,                           \
+                                  const cl_##base_type##len & value) {         \
+    os << "(" #base_type #len ")(";                                            \
+    for (std::size_t i = 0; i < len; i++) {                                    \
+      if (i != 0)                                                              \
+        os << ',';                                                             \
+      os << value.s[i];                                                        \
+    }                                                                          \
+    return os << ')';                                                          \
+  }                                                                            \
+  namespace vex {                                                              \
+    template <> struct cl_scalar_of<cl_##base_type##len> {                     \
+      typedef cl_##base_type type;                                             \
+    };                                                                         \
+    template <> struct cl_vector_of<cl_##base_type, len> {                     \
+      typedef cl_##base_type##len type;                                        \
+    };                                                                         \
+    template <>                                                                \
+    struct cl_vector_length<cl_##base_type##len> : std::integral_constant<     \
+        unsigned, len> {                                                       \
+    };                                                                         \
+  }
 
-#define CL_TYPES(base_type) \
-CL_VEC_TYPE(base_type, 2) \
-CL_VEC_TYPE(base_type, 4) \
-CL_VEC_TYPE(base_type, 8) \
-CL_VEC_TYPE(base_type, 16) \
-namespace vex { \
-    template <> struct cl_scalar_of<cl_##base_type> { typedef cl_##base_type type; }; \
-    template <> struct cl_vector_of<cl_##base_type, 1> { typedef cl_##base_type type; }; \
-    template <> struct cl_vector_length<cl_##base_type> : std::integral_constant<unsigned, 1> { }; \
-}
+#define CL_TYPES(base_type)                                                    \
+  CL_VEC_TYPE(base_type, 2) CL_VEC_TYPE(base_type, 4)                          \
+      CL_VEC_TYPE(base_type, 8) CL_VEC_TYPE(base_type, 16) namespace vex {     \
+    template <> struct cl_scalar_of<cl_##base_type> {                          \
+      typedef cl_##base_type type;                                             \
+    };                                                                         \
+    template <> struct cl_vector_of<cl_##base_type, 1> {                       \
+      typedef cl_##base_type type;                                             \
+    };                                                                         \
+    template <>                                                                \
+    struct cl_vector_length<cl_##base_type> : std::integral_constant<unsigned, \
+                                                                     1> {      \
+    };                                                                         \
+  }
 
 #ifdef _MSC_VER
 #  pragma warning(push)
@@ -132,10 +144,14 @@ namespace vex { \
 #endif
 CL_TYPES(float)
 CL_TYPES(double)
-CL_TYPES(char)  CL_TYPES(uchar)
-CL_TYPES(short) CL_TYPES(ushort)
-CL_TYPES(int)   CL_TYPES(uint)
-CL_TYPES(long)  CL_TYPES(ulong)
+CL_TYPES(char)
+CL_TYPES(uchar)
+CL_TYPES(short)
+CL_TYPES(ushort)
+CL_TYPES(int)
+CL_TYPES(uint)
+CL_TYPES(long)
+CL_TYPES(ulong)
 #ifdef _MSC_VER
 #  pragma warning(pop)
 #endif
@@ -163,70 +179,68 @@ inline To cl_convert(const From &val) {
 template <class T> struct is_cl_native : std::false_type {};
 
 /// Convert typename to string.
+template <class T, class Enable = void>
+struct type_name_impl;
+
 template <class T>
-inline
-typename std::enable_if<!std::is_pointer<T>::value, std::string>::type
-type_name() {
-    throw std::logic_error("Trying to use an undefined type in a kernel.");
+inline std::string type_name() {
+    return type_name_impl<T>::get();
 }
 
-template<typename T>
-inline
-typename std::enable_if<std::is_pointer<T>::value, std::string>::type
-type_name() {
-    std::ostringstream s;
-    s << "global "
-      << type_name<typename std::remove_pointer<T>::type>()
-      << " *";
-    return s.str();
-}
-
-#define STRINGIFY(type) \
-template <> inline std::string type_name<cl_##type>() { return #type; } \
-template <> struct is_cl_native<cl_##type> : std::true_type {};
+#define STRINGIFY(type)                                                        \
+  template<> struct type_name_impl<cl_##type> {                                \
+    static std::string get() { return #type; }                                 \
+  };                                                                           \
+  template<> struct is_cl_native<cl_##type> : std::true_type { };
 
 // enable use of OpenCL vector types as literals
-#define CL_VEC_TYPE(type, len) \
-template <> inline std::string type_name<cl_##type##len>() { return #type #len; } \
-template <> struct is_cl_native<cl_##type##len> : std::true_type {};
+#define CL_VEC_TYPE(type, len)                                                 \
+  template <> struct type_name_impl<cl_##type##len> {                          \
+    static std::string get() { return #type #len; }                            \
+  };                                                                           \
+  template <> struct is_cl_native<cl_##type##len> : std::true_type { };
 
-#define CL_TYPES(type) \
-STRINGIFY(type) \
-CL_VEC_TYPE(type, 2) \
-CL_VEC_TYPE(type, 4) \
-CL_VEC_TYPE(type, 8) \
-CL_VEC_TYPE(type, 16)
+#define CL_TYPES(type)                                                         \
+  STRINGIFY(type)                                                              \
+  CL_VEC_TYPE(type, 2)                                                         \
+  CL_VEC_TYPE(type, 4)                                                         \
+  CL_VEC_TYPE(type, 8)                                                         \
+  CL_VEC_TYPE(type, 16)                                                        \
 
 CL_TYPES(float)
 CL_TYPES(double)
-CL_TYPES(char)  CL_TYPES(uchar)
-CL_TYPES(short) CL_TYPES(ushort)
-CL_TYPES(int)   CL_TYPES(uint)
-CL_TYPES(long)  CL_TYPES(ulong)
+CL_TYPES(char)
+CL_TYPES(uchar)
+CL_TYPES(short)
+CL_TYPES(ushort)
+CL_TYPES(int)
+CL_TYPES(uint)
+CL_TYPES(long)
+CL_TYPES(ulong)
 
 #undef CL_TYPES
 #undef CL_VEC_TYPE
 #undef STRINGIFY
 
-// char and cl_char are different types. Hence, special handling is required:
-template <> inline std::string type_name<char>() { return "char"; }
-template <> struct is_cl_native<char> : std::true_type {};
-template <> struct cl_vector_length<char> : std::integral_constant<unsigned, 1> {};
-template <> struct cl_scalar_of<char> { typedef char type; };
-
 // One can not pass bool to the kernel, but the overload is needed for type
 // deduction:
-template <> inline std::string type_name<bool>() { return "bool"; }
+template <> struct type_name_impl<bool> {
+    static std::string get() { return "bool"; }
+};
 
 
 #if defined(__APPLE__)
-template <> inline std::string type_name<size_t>() {
-    return sizeof(std::size_t) == sizeof(uint) ? "uint" : "ulong";
-}
+template <> struct type_name_impl<size_t> {
+    static std::string get() {
+        return sizeof(std::size_t) == sizeof(uint) ? "uint" : "ulong";
+    }
+};
 
-template <> inline std::string type_name<ptrdiff_t>() {
-    return sizeof(std::size_t) == sizeof(uint) ? "int" : "long";
-}
+template <> struct type_name_impl<ptrdiff_t> {
+    static std::string get() {
+        return sizeof(std::size_t) == sizeof(uint) ? "int" : "long";
+    }
+};
 
 template <> struct is_cl_native<size_t>    : std::true_type {};
 template <> struct is_cl_native<ptrdiff_t> : std::true_type {};

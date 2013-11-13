@@ -70,7 +70,7 @@ class SpMat {
          * \param col column numbers of nonzero elements of the matrix.
          * \param val values of nonzero elements of the matrix.
          */
-        SpMat(const std::vector<cl::CommandQueue> &queue,
+        SpMat(const std::vector<backend::command_queue> &queue,
               size_t n, size_t m, const idx_t *row, const col_t *col, const val_t *val
               )
             : queue(queue), part(partition(n, queue)),
@@ -81,7 +81,7 @@ class SpMat {
 
             // Create secondary queues.
             for(auto q = queue.begin(); q != queue.end(); q++)
-                squeue.push_back(cl::CommandQueue(qctx(*q), qdev(*q)));
+                squeue.push_back(backend::duplicate_queue(*q));
 
             std::vector<std::set<col_t>> ghost_cols = setup_exchange(col_part, row, col);
 
@@ -91,9 +91,7 @@ class SpMat {
 #endif
             for(int d = 0; d < static_cast<int>(queue.size()); d++) {
                 if (part[d + 1] > part[d]) {
-                    cl::Device device = qdev(queue[d]);
-
-                    if ( is_cpu(device) )
+                    if ( backend::is_cpu(queue[d]) )
                         mtx[d].reset(
                                 new SpMatCSR(queue[d], row, col, val,
                                     part[d], part[d+1], col_part[d], col_part[d+1],
@@ -154,7 +152,7 @@ class SpMat {
                 for(unsigned d = 0; d < queue.size(); d++) {
                     if (cidx[d + 1] > cidx[d]) {
                         vex::vector<val_t> vals(squeue[d], exc[d].vals_to_send);
-                        vex::copy(vals.begin(), vals.end(), &rx[cidx[d]], /*blocking=*/CL_FALSE);
+                        vex::copy(vals.begin(), vals.end(), &rx[cidx[d]], /*blocking=*/false);
                     }
                 }
 
@@ -167,8 +165,7 @@ class SpMat {
                         for(size_t i = 0; i < exc[d].cols_to_recv.size(); i++)
                             exc[d].vals_to_recv[i] = rx[exc[d].cols_to_recv[i]];
 
-                        squeue[d].enqueueWriteBuffer(
-                                exc[d].rx, CL_FALSE, 0, bytes(exc[d].vals_to_recv),
+                        exc[d].rx.write(squeue[d], 0, exc[d].vals_to_recv.size(),
                                 exc[d].vals_to_recv.data()
                                 );
                     }
@@ -193,42 +190,41 @@ class SpMat {
         /// Number of non-zero entries.
         size_t nonzeros() const { return nnz;   }
 
-        static std::string inline_preamble(
-                const cl::Device &device, const std::string &prm_name,
+        static void inline_preamble(backend::source_generator &src,
+                const backend::command_queue &queue, const std::string &prm_name,
                 detail::kernel_generator_state_ptr)
         {
-            if (is_cpu(device))
-                return SpMatCSR::inline_preamble(prm_name);
+            if (backend::is_cpu(queue))
+                SpMatCSR::inline_preamble(src, prm_name);
             else
-                return SpMatHELL::inline_preamble(prm_name);
+                SpMatHELL::inline_preamble(src, prm_name);
         }
 
-        static std::string inline_expression(
-                const cl::Device &device, const std::string &prm_name,
+        static void inline_expression(backend::source_generator &src,
+                const backend::command_queue &queue, const std::string &prm_name,
                 detail::kernel_generator_state_ptr)
         {
-            if (is_cpu(device))
-                return SpMatCSR::inline_expression(prm_name);
+            if (backend::is_cpu(queue))
+                SpMatCSR::inline_expression(src, prm_name);
             else
-                return SpMatHELL::inline_expression(prm_name);
+                SpMatHELL::inline_expression(src, prm_name);
         }
 
-        static std::string inline_parameters(
-                const cl::Device &device, const std::string &prm_name,
+        static void inline_parameters(backend::source_generator &src,
+                const backend::command_queue &queue, const std::string &prm_name,
                 detail::kernel_generator_state_ptr)
         {
-            if (is_cpu(device))
-                return SpMatCSR::inline_parameters(prm_name);
+            if (backend::is_cpu(queue))
+                SpMatCSR::inline_parameters(src, prm_name);
             else
-                return SpMatHELL::inline_parameters(prm_name);
+                SpMatHELL::inline_parameters(src, prm_name);
         }
 
-        static void inline_arguments(cl::Kernel &kernel, unsigned device,
-                size_t /*index_offset*/, unsigned &position,
-                const SpMat &A, const vector<val_t> &x,
+        static void inline_arguments(backend::kernel &kernel, unsigned part,
+                size_t /*index_offset*/, const SpMat &A, const vector<val_t> &x,
                 detail::kernel_generator_state_ptr)
         {
-            A.mtx[device]->setArgs(kernel, device, position, x);
+            A.mtx[part]->setArgs(kernel, part, x);
         }
     private:
         template <typename T>
@@ -238,16 +234,18 @@ class SpMat {
 
         struct sparse_matrix {
             virtual void mul_local(
-                    const cl::Buffer &x, const cl::Buffer &y,
+                    const backend::device_vector<val_t> &x,
+                    const backend::device_vector<val_t> &y,
                     scalar_type alpha, bool append
                     ) const = 0;
 
             virtual void mul_remote(
-                    const cl::Buffer &x, const cl::Buffer &y,
+                    const backend::device_vector<val_t> &x,
+                    const backend::device_vector<val_t> &y,
                     scalar_type alpha
                     ) const = 0;
 
-            virtual void setArgs(cl::Kernel &kernel, unsigned device, unsigned &position, const vector<val_t> &x) const = 0;
+            virtual void setArgs(backend::kernel &kernel, unsigned part, const vector<val_t> &x) const = 0;
 
             virtual ~sparse_matrix() {}
         };
@@ -259,13 +257,13 @@ class SpMat {
             std::vector<col_t> cols_to_recv;
             mutable std::vector<val_t> vals_to_recv;
 
-            cl::Buffer cols_to_send;
-            cl::Buffer vals_to_send;
-            mutable cl::Buffer rx;
+            backend::device_vector<col_t> cols_to_send;
+            backend::device_vector<val_t> vals_to_send;
+            backend::device_vector<val_t> rx;
         };
 
-        const std::vector<cl::CommandQueue> queue;
-        std::vector<cl::CommandQueue>       squeue;
+        const std::vector<backend::command_queue> queue;
+        std::vector<backend::command_queue>       squeue;
         const std::vector<size_t>           part;
 
         std::vector< std::unique_ptr<sparse_matrix> > mtx;
@@ -283,8 +281,8 @@ class SpMat {
                 const idx_t *row, const col_t *col
                 )
         {
-            auto is_local = [col_part](size_t c, int device) {
-                return c >= col_part[device] && c < col_part[device + 1];
+            auto is_local = [col_part](size_t c, int part) {
+                return c >= col_part[part] && c < col_part[part + 1];
             };
 
             std::vector<std::set<col_t>> ghost_cols(queue.size());
@@ -325,7 +323,7 @@ class SpMat {
                         exc[d].cols_to_recv.resize(rcols);
                         exc[d].vals_to_recv.resize(rcols);
 
-                        exc[d].rx = cl::Buffer(qctx(queue[d]), CL_MEM_READ_ONLY, rcols * sizeof(val_t));
+                        exc[d].rx = backend::device_vector<val_t>(queue[d], rcols, 0, backend::MEM_READ_ONLY);
 
                         for(size_t i = 0, j = 0; i < cols_to_send.size(); i++)
                             if (ghost_cols[d].count(cols_to_send[i]))
@@ -348,22 +346,19 @@ class SpMat {
 
                 for(unsigned d = 0; d < queue.size(); d++) {
                     if (size_t ncols = cidx[d + 1] - cidx[d]) {
-                        cl::Context context = qctx(queue[d]);
-
-                        exc[d].cols_to_send = cl::Buffer(
-                                context, CL_MEM_READ_ONLY, ncols * sizeof(col_t));
-
-                        exc[d].vals_to_send = cl::Buffer(
-                                context, CL_MEM_READ_WRITE, ncols * sizeof(val_t));
+                        exc[d].vals_to_send = backend::device_vector<val_t>(
+                                queue[d], ncols);
 
                         for(size_t i = cidx[d]; i < cidx[d + 1]; i++)
                             cols_to_send[i] -= static_cast<col_t>(col_part[d]);
 
-                        queue[d].enqueueWriteBuffer(
-                                exc[d].cols_to_send, CL_TRUE, 0, ncols * sizeof(col_t),
-                                &cols_to_send[cidx[d]]);
+                        exc[d].cols_to_send = backend::device_vector<col_t>(
+                                queue[d], ncols, &cols_to_send[cidx[d]], backend::MEM_READ_ONLY);
                     }
                 }
+
+                for(unsigned d = 0; d < queue.size(); d++)
+                    if (cidx[d + 1] > cidx[d]) queue[d].finish();
             }
 
             return ghost_cols;
@@ -468,10 +463,10 @@ struct is_scalable< multispmv<val_t, col_t, idx_t, MV> > : std::true_type {};
  * domain. Each device gets portion of the vector proportional to the
  * performance of this operation.
  */
-inline double device_spmv_perf(const cl::CommandQueue &q) {
+inline double device_spmv_perf(const backend::command_queue &q) {
     static const size_t test_size = 64U;
 
-    std::vector<cl::CommandQueue> queue(1, q);
+    std::vector<backend::command_queue> queue(1, q);
 
     // Construct matrix for 3D Poisson problem in cubic domain.
     const size_t n   = test_size;

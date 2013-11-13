@@ -188,7 +188,7 @@ struct plan {
     VEX_FUNCTION(r2c, T2(Ts), "return (" + type_name<T2>() + ")(prm1, 0);");
     VEX_FUNCTION(c2r, Ts(T2), "return prm1.x;");
 
-    const std::vector<cl::CommandQueue> &queues;
+    const std::vector<backend::command_queue> &queues;
     Planner planner;
     Ts scale;
     const std::vector<size_t> sizes;
@@ -204,7 +204,7 @@ struct plan {
     //  1D case: {n}.
     //  2D case: {h, w} in row-major format: x + y * w. (like FFTw)
     //  etc.
-    plan(const std::vector<cl::CommandQueue> &_queues, const std::vector<size_t> sizes,
+    plan(const std::vector<backend::command_queue> &_queues, const std::vector<size_t> sizes,
         const std::vector<direction> dirs, const Planner &planner = Planner())
         : queues(_queues), planner(planner), sizes(sizes), profile(NULL)
     {
@@ -217,8 +217,6 @@ struct plan {
                 );
 
         auto queue   = queues[0];
-        auto context = qctx(queue);
-        auto device  = qdev(queue);
 
         size_t total_n = std::accumulate(sizes.begin(), sizes.end(),
             static_cast<size_t>(1), std::multiplies<size_t>());
@@ -269,7 +267,6 @@ struct plan {
     void plan_bluestein(size_t width, size_t batch, bool inverse, size_t n, size_t p, size_t &current, size_t &other) {
         size_t conv_n = planner.best_size(2 * n);
         size_t threads = width / n;
-        auto context = qctx(queues[0]);
 
         size_t b_twiddle = bufs.size(); bufs.push_back(vex::vector<T2>(queues, n));
         size_t b_other   = bufs.size(); bufs.push_back(vex::vector<T2>(queues, conv_n));

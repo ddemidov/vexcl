@@ -1,6 +1,7 @@
 #define BOOST_TEST_MODULE TypeSystem
 #include <boost/test/unit_test.hpp>
-#include <vexcl/vexcl.hpp>
+#include <vexcl/vector.hpp>
+#include <vexcl/element_index.hpp>
 
 #define CHECK_IS_NATIVE(T) \
     BOOST_CHECK(vex::is_cl_native<T>::value); \

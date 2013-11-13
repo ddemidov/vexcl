@@ -129,6 +129,7 @@ BOOST_AUTO_TEST_CASE(element_index)
     check_sample(x, [](size_t idx, double a) { BOOST_CHECK_CLOSE(a, sin(0.5 * idx), 1e-6); });
 }
 
+#ifdef VEXCL_BACKEND_OPENCL
 BOOST_AUTO_TEST_CASE(vector_values)
 {
     const size_t N = 1024;
@@ -145,6 +146,7 @@ BOOST_AUTO_TEST_CASE(vector_values)
                 BOOST_CHECK(v.s[j] == c.s[j] * (5 + static_cast<int>(idx)));
             });
 }
+#endif
 
 BOOST_AUTO_TEST_CASE(nested_functions)
 {
@@ -190,11 +192,19 @@ BOOST_AUTO_TEST_CASE(function_with_preamble)
     vex::vector<double> x(ctx, random_vector<double>(n));
     vex::vector<double> y(ctx, n);
 
+#ifdef VEXCL_BACKEND_OPENCL
     VEX_FUNCTION_WITH_PREAMBLE(one, double(double),
             "double sin2(double x) { return pow(sin(x), 2.0); }\n"
             "double cos2(double x) { return pow(cos(x), 2.0); }\n",
             "return sin2(prm1) + cos2(prm1);"
             );
+#else
+    VEX_FUNCTION_WITH_PREAMBLE(one, double(double),
+            "__device__ double sin2(double x) { return pow(sin(x), 2.0); }\n"
+            "__device__ double cos2(double x) { return pow(cos(x), 2.0); }\n",
+            "return sin2(prm1) + cos2(prm1);"
+            );
+#endif
 
     y = one(x);
 

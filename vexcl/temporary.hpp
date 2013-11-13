@@ -157,8 +157,9 @@ struct proto_terminal_is_value< temporary_terminal > : std::true_type {};
 
 template <typename T, size_t Tag, class Expr>
 struct terminal_preamble< temporary<T, Tag, Expr> > {
-    static std::string get(const temporary<T, Tag, Expr> &term,
-            const cl::Device &dev, const std::string &prm_name,
+    static void get(backend::source_generator &src,
+            const temporary<T, Tag, Expr> &term,
+            const backend::command_queue &queue, const std::string &prm_name,
             detail::kernel_generator_state_ptr state)
     {
         auto s = state->find("tmp_pream");
@@ -176,22 +177,17 @@ struct terminal_preamble< temporary<T, Tag, Expr> > {
         if (p == pos.end()) {
             pos.insert(Tag);
 
-            std::ostringstream s;
-
-            detail::output_terminal_preamble termpream(s, dev, prm_name, state);
+            detail::output_terminal_preamble termpream(src, queue, prm_name, state);
             boost::proto::eval(boost::proto::as_child(term.expr), termpream);
-
-            return s.str();
-        } else {
-            return "";
         }
     }
 };
 
 template <typename T, size_t Tag, class Expr>
 struct kernel_param_declaration< temporary<T, Tag, Expr> > {
-    static std::string get(const temporary<T, Tag, Expr> &term,
-            const cl::Device &dev, const std::string &prm_name,
+    static void get(backend::source_generator &src,
+            const temporary<T, Tag, Expr> &term,
+            const backend::command_queue &queue, const std::string &prm_name,
             detail::kernel_generator_state_ptr state)
     {
         auto s = state->find("tmp_param");
@@ -209,22 +205,17 @@ struct kernel_param_declaration< temporary<T, Tag, Expr> > {
         if (p == pos.end()) {
             pos.insert(Tag);
 
-            std::ostringstream s;
-
-            detail::declare_expression_parameter declare(s, dev, prm_name, state);
+            detail::declare_expression_parameter declare(src, queue, prm_name, state);
             detail::extract_terminals()(boost::proto::as_child(term.expr),  declare);
-
-            return s.str();
-        } else {
-            return "";
         }
     }
 };
 
 template <typename T, size_t Tag, class Expr>
 struct local_terminal_init< temporary<T, Tag, Expr> > {
-    static std::string get(const temporary<T, Tag, Expr> &term,
-            const cl::Device &dev, const std::string &prm_name,
+    static void get(backend::source_generator &src,
+            const temporary<T, Tag, Expr> &term,
+            const backend::command_queue &queue, const std::string &prm_name,
             detail::kernel_generator_state_ptr state)
     {
         auto s = state->find("tmp_locinit");
@@ -242,57 +233,35 @@ struct local_terminal_init< temporary<T, Tag, Expr> > {
         if (p == pos.end()) {
             pos.insert(Tag);
 
-            std::ostringstream s;
-
-            detail::output_local_preamble init_ctx(s, dev, prm_name, state);
+            detail::output_local_preamble init_ctx(src, queue, prm_name, state);
             boost::proto::eval(boost::proto::as_child(term.expr), init_ctx);
 
-            s << "\t\t" << type_name<T>() << " temp_" << Tag << " = ";
+            src.new_line() << type_name<T>() << " temp_" << Tag << " = ";
 
-            detail::vector_expr_context expr_ctx(s, dev, prm_name, state);
+            detail::vector_expr_context expr_ctx(src, queue, prm_name, state);
             boost::proto::eval(boost::proto::as_child(term.expr), expr_ctx);
-            s << ";\n";
 
-            return s.str();
-        } else {
-            return "";
+            src << ";";
         }
     }
 };
 
 template <typename T, size_t Tag, class Expr>
 struct partial_vector_expr< temporary<T, Tag, Expr> > {
-    static std::string get(const temporary<T, Tag, Expr>&,
-            const cl::Device&, const std::string &/*prm_name*/,
-            detail::kernel_generator_state_ptr state)
+    static void get(backend::source_generator &src,
+            const temporary<T, Tag, Expr>&,
+            const backend::command_queue&, const std::string &/*prm_name*/,
+            detail::kernel_generator_state_ptr)
     {
-        auto s = state->find("tmp_expr");
-
-        if (s == state->end()) {
-            s = state->insert(std::make_pair(
-                        std::string("tmp_expr"),
-                        boost::any(std::map<size_t, std::string>())
-                        )).first;
-        }
-
-        auto &pos = boost::any_cast< std::map<size_t, std::string>& >(s->second);
-        auto p = pos.find(Tag);
-
-        if (p == pos.end()) {
-            std::ostringstream s;
-            s << "temp_" << Tag;
-            return (pos[Tag] = s.str());
-        } else {
-            return p->second;
-        }
+        src << "temp_" << Tag;
     }
 };
 
 template <typename T, size_t Tag, class Expr>
 struct kernel_arg_setter< temporary<T, Tag, Expr> > {
     static void set(const temporary<T, Tag, Expr> &term,
-            cl::Kernel &kernel, unsigned device, size_t index_offset,
-            unsigned &position, detail::kernel_generator_state_ptr state)
+            backend::kernel &kernel, unsigned part, size_t index_offset,
+            detail::kernel_generator_state_ptr state)
     {
         auto s = state->find("tmp_args");
 
@@ -309,7 +278,7 @@ struct kernel_arg_setter< temporary<T, Tag, Expr> > {
         if (p == pos.end()) {
             pos.insert(Tag);
 
-            detail::set_expression_argument setarg(kernel, device, position, index_offset, state);
+            detail::set_expression_argument setarg(kernel, part, index_offset, state);
             detail::extract_terminals()( boost::proto::as_child(term.expr),  setarg);
         }
     }
@@ -318,7 +287,7 @@ struct kernel_arg_setter< temporary<T, Tag, Expr> > {
 template <typename T, size_t Tag, class Expr>
 struct expression_properties< temporary<T, Tag, Expr> > {
     static void get(const temporary<T, Tag, Expr> &term,
-            std::vector<cl::CommandQueue> &queue_list,
+            std::vector<backend::command_queue> &queue_list,
             std::vector<size_t> &partition,
             size_t &size
             )

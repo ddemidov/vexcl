@@ -186,8 +186,8 @@ class mba {
 
         static const size_t ndim = NDIM;
 
-        std::vector<cl::CommandQueue> queue;
-        std::vector<cl::Buffer> phi;
+        std::vector< backend::command_queue >       queue;
+        std::vector< backend::device_vector<real> > phi;
         point xmin, hinv;
         index n, stride;
 
@@ -202,7 +202,7 @@ class mba {
          * \param tol    stop if residual is less than this.
          */
         mba(
-                const std::vector<cl::CommandQueue> &queue,
+                const std::vector<backend::command_queue> &queue,
                 const point &cmin, const point &cmax,
                 const std::vector<point> &coo, std::vector<real> val,
                 std::array<size_t, NDIM> grid, size_t levels = 8, real tol = 1e-8
@@ -228,7 +228,7 @@ class mba {
          */
         template <class CooIter, class ValIter>
         mba(
-                const std::vector<cl::CommandQueue> &queue,
+                const std::vector<backend::command_queue> &queue,
                 const point &cmin, const point &cmax,
                 CooIter coo_begin, CooIter coo_end, ValIter val_begin,
                 std::array<size_t, NDIM> grid, size_t levels = 8, real tol = 1e-8
@@ -249,13 +249,14 @@ class mba {
 
 #define PRINT_PARAM(z, n, data) const Expr ## n &expr ## n
 #define PRINT_TEMPL(z, n, data) const Expr ## n &
-#define FUNCALL_OPERATOR(z, n, data) \
-        template < BOOST_PP_ENUM_PARAMS(n, class Expr) > \
-        mba_interp< mba, boost::tuple<BOOST_PP_ENUM(n, PRINT_TEMPL, ~)> > \
-        operator()( BOOST_PP_ENUM(n, PRINT_PARAM, ~) ) { \
-            return mba_interp< mba, boost::tuple<BOOST_PP_ENUM(n, PRINT_TEMPL, ~)> >( \
-                    *this, boost::tie( BOOST_PP_ENUM_PARAMS(n, expr) )); \
-        }
+
+#define FUNCALL_OPERATOR(z, n, data)                                           \
+  template <BOOST_PP_ENUM_PARAMS(n, class Expr)>                               \
+  mba_interp<mba, boost::tuple<BOOST_PP_ENUM(n, PRINT_TEMPL, ~)> > operator()( \
+      BOOST_PP_ENUM(n, PRINT_PARAM, ~)) {                                      \
+    return mba_interp<mba, boost::tuple<BOOST_PP_ENUM(n, PRINT_TEMPL, ~)> >(   \
+        *this, boost::tie(BOOST_PP_ENUM_PARAMS(n, expr)));                     \
+  }
 
 BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, FUNCALL_OPERATOR, ~)
 
@@ -311,9 +312,8 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, FUNCALL_OPERATOR, ~)
             phi.reserve(queue.size());
 
             for(auto q = queue.begin(); q != queue.end(); ++q)
-                phi.push_back( cl::Buffer(
-                            qctx(*q), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-                            sizeof(real) * psi->phi.size(), psi->phi.data()
+                phi.push_back( backend::device_vector<real>(
+                            *q, psi->phi.size(), psi->phi.data(), backend::MEM_READ_ONLY
                             ) );
         }
 
@@ -537,117 +537,132 @@ struct proto_terminal_is_value< mba_terminal > : std::true_type {};
 
 template <class MBA, class ExprTuple>
 struct terminal_preamble< mba_interp<MBA, ExprTuple> > {
-    static std::string get(const mba_interp<MBA, ExprTuple>&,
-            const cl::Device&, const std::string &prm_name,
+    static void get(backend::source_generator &src,
+            const mba_interp<MBA, ExprTuple>&,
+            const backend::command_queue&, const std::string &prm_name,
             detail::kernel_generator_state_ptr)
     {
-        std::ostringstream s;
+        typedef typename MBA::value_type real;
 
-        std::string B    = prm_name + "_B";
-        std::string real = type_name<typename MBA::value_type>();
+        std::string B = prm_name + "_B";
 
-        s << real << " " << B << "0(" << real << " t) { return (t * (t * (-t + 3) - 3) + 1) / 6; }\n"
-          << real << " " << B << "1(" << real << " t) { return (t * t * (3 * t - 6) + 4) / 6; }\n"
-          << real << " " << B << "2(" << real << " t) { return (t * (t * (-3 * t + 3) + 3) + 1) / 6; }\n"
-          << real << " " << B << "3(" << real << " t) { return t * t * t / 6; }\n\n"
-          << real << " " << prm_name << "_mba(\n";
+        src.function<real>(B + "0")
+            .open("(")
+                .template parameter<real>("t")
+            .close(")")
+            .open("{")
+                .new_line() << "return (t * (t * (-t + 3) - 3) + 1) / 6;";
+            src.close("}");
+
+        src.function<real>(B + "1")
+            .open("(")
+                .template parameter<real>("t")
+            .close(")")
+            .open("{")
+                .new_line() << "return (t * t * (3 * t - 6) + 4) / 6;";
+            src.close("}");
+
+        src.function<real>(B + "2")
+            .open("(")
+                .template parameter<real>("t")
+            .close(")")
+            .open("{")
+                .new_line() << "return (t * (t * (-3 * t + 3) + 3) + 1) / 6;";
+            src.close("}");
+
+        src.function<real>(B + "3")
+            .open("(")
+                .template parameter<real>("t")
+            .close(")")
+            .open("{")
+                .new_line() << "return t * t * t / 6;";
+            src.close("}");
+
+        src.function<real>(prm_name + "_mba").open("(");
 
         for(size_t k = 0; k < MBA::ndim; ++k)
-            s << "    " << real << " x" << k << ",\n";
+            src.template parameter<real>("x") << k;
 
-        for(size_t k = 0; k < MBA::ndim; ++k)
-            s <<
-            "    " << real << " c" << k << ",\n"
-            "    " << real << " h" << k << ",\n"
-            "    " << type_name<size_t>() << " n" << k << ",\n"
-            "    " << type_name<size_t>() << " m" << k << ",\n";
+        for(size_t k = 0; k < MBA::ndim; ++k) {
+            src.template parameter<real>("c") << k;
+            src.template parameter<real>("h") << k;
+            src.parameter<size_t>("n") << k;
+            src.parameter<size_t>("m") << k;
+        }
 
-        s <<
-            "    global const " << real << " *phi\n"
-            ")\n"
-            "{\n"
-            "    " << real << " u;\n"
-            "\n";
-        for(size_t k = 0; k < MBA::ndim; ++k)
-            s <<
-            "    u = (x" << k << " - c" << k << ") * h" << k << ";\n"
-            "    " << type_name<size_t>() << " i" << k << " = floor(u) - 1;\n"
-            "    " << real << " s" << k << " = u - floor(u);\n"
-            "\n";
-        s <<
-            "    " << real << " f = 0;\n"
-            "    " << type_name<size_t>() << " j, idx;\n"
-            "\n";
+        src.template parameter< global_ptr<const real> >("phi");
+        src.close(")").open("{");
+        src.new_line() << type_name<real>() << " u;";
+        for(size_t k = 0; k < MBA::ndim; ++k) {
+            src.new_line() << "u = (x" << k << " - c" << k << ") * h" << k << ";";
+            src.new_line() << type_name<size_t>() << " i" << k << " = floor(u) - 1;";
+            src.new_line() << type_name<real>() << " s" << k << " = u - floor(u);";
+        }
+        src.new_line() << type_name<real>() << " f = 0;";
+        src.new_line() << type_name<size_t>() << " j, idx;";
 
         for(detail::scounter<4,MBA::ndim> d; d.valid(); ++d) {
-            s << "    idx = 0;\n";
+            src.new_line() << "idx = 0;";
             for(size_t k = 0; k < MBA::ndim; ++k) {
-                s <<
-                    "    j = i" << k << " + " << d[k] << ";\n"
-                    "    if (j < n" << k << ") {\n"
-                    "    idx += j * m" << k << ";\n";
+                src.new_line() << "j = i" << k << " + " << d[k] << ";";
+                src.new_line() << "if (j < n" << k << ")";
+                src.open("{").new_line() << "idx += j * m" << k << ";";
             }
 
-            s << "    f += ";
+            src.new_line() << "f += ";
             for(size_t k = 0; k < MBA::ndim; ++k) {
-                if (k) s << " * ";
-                s << B << d[k] << "(s" << k << ")";
+                if (k) src << " * ";
+                src << B << d[k] << "(s" << k << ")";
             }
 
-            s << " * phi[idx];\n";
+            src << " * phi[idx];";
 
             for(size_t k = 0; k < MBA::ndim; ++k)
-                s << "    }\n";
+                src.close("}");
         }
-        s <<
-            "\n"
-            "    return f;\n"
-            "}\n";
-
-        return s.str();
+        src.new_line() << "return f;";
+        src.close("}");
     }
 };
 
 template <class MBA, class ExprTuple>
 struct kernel_param_declaration< mba_interp<MBA, ExprTuple> > {
-    static std::string get(const mba_interp<MBA, ExprTuple> &term,
-            const cl::Device &dev, const std::string &prm_name,
+    static void get(backend::source_generator &src,
+            const mba_interp<MBA, ExprTuple> &term,
+            const backend::command_queue &queue, const std::string &prm_name,
             detail::kernel_generator_state_ptr state)
     {
-        std::ostringstream s;
-
-        boost::fusion::for_each(term.coord, prmdecl(s, dev, prm_name, state));
+        typedef typename MBA::value_type real;
+        boost::fusion::for_each(term.coord, prmdecl(src, queue, prm_name, state));
 
         for(size_t k = 0; k < MBA::ndim; ++k) {
-            s << ",\n\t" << type_name<typename MBA::value_type>() << " " << prm_name << "_c" << k
-              << ",\n\t" << type_name<typename MBA::value_type>() << " " << prm_name << "_h" << k
-              << ",\n\t" << type_name<size_t>() << " " << prm_name << "_n" << k
-              << ",\n\t" << type_name<size_t>() << " " << prm_name << "_m" << k;
+            src.template parameter<real>(prm_name + "_c") << k;
+            src.template parameter<real>(prm_name + "_h") << k;
+            src.parameter<size_t>(prm_name + "_n") << k;
+            src.parameter<size_t>(prm_name + "_m") << k;
         }
 
-        s << ",\n\tglobal const " << type_name<typename MBA::value_type>() << " * " << prm_name << "_phi";
-
-        return s.str();
+        src.parameter< global_ptr<const real> >(prm_name + "_phi");
     }
 
     struct prmdecl {
-        std::ostream &s;
-        const cl::Device &dev;
+        backend::source_generator &s;
+        const backend::command_queue &queue;
         const std::string &prm_name;
         detail::kernel_generator_state_ptr state;
         mutable int pos;
 
-        prmdecl(std::ostream &s,
-                const cl::Device &dev, const std::string &prm_name,
+        prmdecl(backend::source_generator &s,
+                const backend::command_queue &queue, const std::string &prm_name,
                 detail::kernel_generator_state_ptr state
-            ) : s(s), dev(dev), prm_name(prm_name), state(state), pos(0)
+            ) : s(s), queue(queue), prm_name(prm_name), state(state), pos(0)
         {}
 
         template <class Expr>
         void operator()(const Expr &expr) const {
             std::ostringstream prefix;
             prefix << prm_name << "_x" << pos;
-            detail::declare_expression_parameter ctx(s, dev, prefix.str(), state);
+            detail::declare_expression_parameter ctx(s, queue, prefix.str(), state);
             detail::extract_terminals()(boost::proto::as_child(expr), ctx);
 
             pos++;
@@ -657,28 +672,25 @@ struct kernel_param_declaration< mba_interp<MBA, ExprTuple> > {
 
 template <class MBA, class ExprTuple>
 struct local_terminal_init< mba_interp<MBA, ExprTuple> > {
-    static std::string get(const mba_interp<MBA, ExprTuple> &term,
-            const cl::Device &dev, const std::string &prm_name,
+    static void get(backend::source_generator &src,
+            const mba_interp<MBA, ExprTuple> &term,
+            const backend::command_queue &queue, const std::string &prm_name,
             detail::kernel_generator_state_ptr state)
     {
-        std::ostringstream s;
-
-        boost::fusion::for_each(term.coord, local_init(s, dev, prm_name, state));
-
-        return s.str();
+        boost::fusion::for_each(term.coord, local_init(src, queue, prm_name, state));
     }
 
     struct local_init {
-        std::ostream &s;
-        const cl::Device &dev;
+        backend::source_generator &s;
+        const backend::command_queue &queue;
         const std::string &prm_name;
         detail::kernel_generator_state_ptr state;
         mutable int pos;
 
-        local_init(std::ostream &s,
-                const cl::Device &dev, const std::string &prm_name,
+        local_init(backend::source_generator &s,
+                const backend::command_queue &queue, const std::string &prm_name,
                 detail::kernel_generator_state_ptr state
-            ) : s(s), dev(dev), prm_name(prm_name), state(state), pos(0)
+            ) : s(s), queue(queue), prm_name(prm_name), state(state), pos(0)
         {}
 
         template <class Expr>
@@ -686,7 +698,7 @@ struct local_terminal_init< mba_interp<MBA, ExprTuple> > {
             std::ostringstream prefix;
             prefix << prm_name << "_x" << pos;
 
-            detail::output_local_preamble init_ctx(s, dev, prefix.str(), state);
+            detail::output_local_preamble init_ctx(s, queue, prefix.str(), state);
             boost::proto::eval(boost::proto::as_child(expr), init_ctx);
 
             pos++;
@@ -696,39 +708,36 @@ struct local_terminal_init< mba_interp<MBA, ExprTuple> > {
 
 template <class MBA, class ExprTuple>
 struct partial_vector_expr< mba_interp<MBA, ExprTuple> > {
-    static std::string get(const mba_interp<MBA, ExprTuple> &term,
-            const cl::Device &dev, const std::string &prm_name,
+    static void get(backend::source_generator &src,
+            const mba_interp<MBA, ExprTuple> &term,
+            const backend::command_queue &queue, const std::string &prm_name,
             detail::kernel_generator_state_ptr state)
     {
-        std::ostringstream s;
+        src << prm_name << "_mba(";
 
-        s << prm_name << "_mba(";
-
-        boost::fusion::for_each(term.coord, buildexpr(s, dev, prm_name, state));
+        boost::fusion::for_each(term.coord, buildexpr(src, queue, prm_name, state));
 
         for(size_t k = 0; k < MBA::ndim; ++k) {
-            s << ", " << prm_name << "_c" << k
-              << ", " << prm_name << "_h" << k
-              << ", " << prm_name << "_n" << k
-              << ", " << prm_name << "_m" << k;
+            src << ", " << prm_name << "_c" << k
+                << ", " << prm_name << "_h" << k
+                << ", " << prm_name << "_n" << k
+                << ", " << prm_name << "_m" << k;
         }
 
-        s << ", " << prm_name << "_phi)";
-
-        return s.str();
+        src << ", " << prm_name << "_phi)";
     }
 
     struct buildexpr {
-        std::ostream &s;
-        const cl::Device &dev;
+        backend::source_generator &s;
+        const backend::command_queue &queue;
         const std::string &prm_name;
         detail::kernel_generator_state_ptr state;
         mutable int pos;
 
-        buildexpr(std::ostream &s,
-                const cl::Device &dev, const std::string &prm_name,
+        buildexpr(backend::source_generator &s,
+                const backend::command_queue &queue, const std::string &prm_name,
                 detail::kernel_generator_state_ptr state
-            ) : s(s), dev(dev), prm_name(prm_name), state(state), pos(0)
+            ) : s(s), queue(queue), prm_name(prm_name), state(state), pos(0)
         {}
 
         template <class Expr>
@@ -738,7 +747,7 @@ struct partial_vector_expr< mba_interp<MBA, ExprTuple> > {
             std::ostringstream prefix;
             prefix << prm_name << "_x" << pos;
 
-            detail::vector_expr_context ctx(s, dev, prefix.str(), state);
+            detail::vector_expr_context ctx(s, queue, prefix.str(), state);
             boost::proto::eval(boost::proto::as_child(expr), ctx);
 
             pos++;
@@ -749,39 +758,38 @@ struct partial_vector_expr< mba_interp<MBA, ExprTuple> > {
 template <class MBA, class ExprTuple>
 struct kernel_arg_setter< mba_interp<MBA, ExprTuple> > {
     static void set(const mba_interp<MBA, ExprTuple> &term,
-            cl::Kernel &kernel, unsigned device, size_t index_offset,
-            unsigned &position, detail::kernel_generator_state_ptr state)
+            backend::kernel &kernel, unsigned part, size_t index_offset,
+            detail::kernel_generator_state_ptr state)
     {
 
         boost::fusion::for_each(term.coord,
-                setargs(kernel, device, index_offset, position, state));
+                setargs(kernel, part, index_offset, state));
 
         for(size_t k = 0; k < MBA::ndim; ++k) {
-            kernel.setArg(position++, term.cloud.xmin[k]);
-            kernel.setArg(position++, term.cloud.hinv[k]);
-            kernel.setArg(position++, term.cloud.n[k]);
-            kernel.setArg(position++, term.cloud.stride[k]);
+            kernel.push_arg(term.cloud.xmin[k]);
+            kernel.push_arg(term.cloud.hinv[k]);
+            kernel.push_arg(term.cloud.n[k]);
+            kernel.push_arg(term.cloud.stride[k]);
         }
-        kernel.setArg(position++, term.cloud.phi[device]);
+        kernel.push_arg(term.cloud.phi[part]);
     }
 
     struct setargs {
-        cl::Kernel &kernel;
-        unsigned device;
+        backend::kernel &kernel;
+        unsigned part;
         size_t index_offset;
-        unsigned &position;
         detail::kernel_generator_state_ptr state;
 
         setargs(
-                cl::Kernel &kernel, unsigned device, size_t index_offset, unsigned &position,
+                backend::kernel &kernel, unsigned part, size_t index_offset,
                 detail::kernel_generator_state_ptr state
                )
-            : kernel(kernel), device(device), index_offset(index_offset), position(position), state(state)
+            : kernel(kernel), part(part), index_offset(index_offset), state(state)
         {}
 
         template <class Expr>
         void operator()(const Expr &expr) const {
-            detail::set_expression_argument ctx(kernel, device, position, index_offset, state);
+            detail::set_expression_argument ctx(kernel, part, index_offset, state);
             detail::extract_terminals()( boost::proto::as_child(expr), ctx);
         }
     };
@@ -790,7 +798,7 @@ struct kernel_arg_setter< mba_interp<MBA, ExprTuple> > {
 template <class MBA, class ExprTuple>
 struct expression_properties< mba_interp<MBA, ExprTuple> > {
     static void get(const mba_interp<MBA, ExprTuple> &term,
-            std::vector<cl::CommandQueue> &queue_list,
+            std::vector<backend::command_queue> &queue_list,
             std::vector<size_t> &partition,
             size_t &size
             )
@@ -799,11 +807,11 @@ struct expression_properties< mba_interp<MBA, ExprTuple> > {
     }
 
     struct extrprop {
-        std::vector<cl::CommandQueue> &queue_list;
+        std::vector<backend::command_queue> &queue_list;
         std::vector<size_t> &partition;
         size_t &size;
 
-        extrprop(std::vector<cl::CommandQueue> &queue_list,
+        extrprop(std::vector<backend::command_queue> &queue_list,
             std::vector<size_t> &partition, size_t &size
             ) : queue_list(queue_list), partition(partition), size(size)
         {}

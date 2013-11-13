@@ -36,6 +36,12 @@ THE SOFTWARE.
 namespace vex {
 namespace fft {
 
+inline cl::Device qdev(const cl::CommandQueue& q) {
+    cl::Device dev;
+    q.getInfo(CL_QUEUE_DEVICE, &dev);
+    return dev;
+}
+
 // Store v=b^e as components.
 struct pow {
     size_t base, exponent, value;
@@ -112,9 +118,9 @@ inline void kernel_radix(std::ostringstream &o, pow radix, bool invert) {
 
 
 template <class T>
-inline void kernel_common(std::ostringstream &o, const cl::Device& device) {
+inline void kernel_common(std::ostringstream &o, const cl::CommandQueue& q) {
     if(std::is_same<T, cl_double>::value) {
-        o << standard_kernel_header(device)
+        o << backend::standard_kernel_header(q)
           << "typedef double real_t;\n"
           << "typedef double2 real2_t;\n";
     } else {
@@ -149,19 +155,25 @@ inline void twiddle_code(std::ostringstream &o) {
 }
 
 
-template <class T>
-inline kernel_call radix_kernel(bool once, const cl::CommandQueue &queue, size_t n, size_t batch, bool invert, pow radix, size_t p, const cl::Buffer &in, const cl::Buffer &out) {
+template <class T, class T2>
+inline kernel_call radix_kernel(
+        bool once, const backend::command_queue &queue, size_t n, size_t batch,
+        bool invert, pow radix, size_t p,
+        const backend::device_vector<T2> &in,
+        const backend::device_vector<T2> &out
+        )
+{
     std::ostringstream o;
     o << std::setprecision(25);
     const auto device = qdev(queue);
-    kernel_common<T>(o, device);
+    kernel_common<T>(o, queue);
     mul_code(o, invert);
     twiddle_code<T>(o);
 
     const size_t m = n / radix.value;
     kernel_radix<T>(o, radix, invert);
 
-    auto program = build_sources(qctx(queue), o.str(), "-cl-mad-enable -cl-fast-relaxed-math");
+    auto program = backend::build_sources(queue, o.str(), "-cl-mad-enable -cl-fast-relaxed-math");
     cl::Kernel kernel(program, "radix");
     kernel.setArg(0, in);
     kernel.setArg(1, out);
@@ -183,11 +195,16 @@ inline kernel_call radix_kernel(bool once, const cl::CommandQueue &queue, size_t
 }
 
 
-template <class T>
-inline kernel_call transpose_kernel(const cl::CommandQueue &queue, size_t width, size_t height, const cl::Buffer &in, const cl::Buffer &out) {
+template <class T, class T2>
+inline kernel_call transpose_kernel(
+        const backend::command_queue &queue, size_t width, size_t height,
+        const backend::device_vector<T2> &in,
+        const backend::device_vector<T2> &out
+        )
+{
     std::ostringstream o;
     const auto dev = qdev(queue);
-    kernel_common<T>(o, dev);
+    kernel_common<T>(o, queue);
 
     // determine max block size to fit into local memory/workgroup
     size_t block_size = 128;
@@ -221,7 +238,7 @@ inline kernel_call transpose_kernel(const cl::CommandQueue &queue, size_t width,
       << "    output[target_x + target_y * height] = block[local_x + local_y * block_size];\n"
       << "}\n";
 
-    auto program = build_sources(qctx(queue), o.str());
+    auto program = backend::build_sources(queue, o.str());
     cl::Kernel kernel(program, "transpose");
     kernel.setArg(0, in);
     kernel.setArg(1, out);
@@ -244,10 +261,14 @@ inline kernel_call transpose_kernel(const cl::CommandQueue &queue, size_t width,
 
 
 
-template <class T>
-inline kernel_call bluestein_twiddle(const cl::CommandQueue &queue, size_t n, bool inverse, const cl::Buffer &out) {
+template <class T, class T2>
+inline kernel_call bluestein_twiddle(
+        const backend::command_queue &queue, size_t n, bool inverse,
+        const backend::device_vector<T2> &out
+        )
+{
     std::ostringstream o;
-    kernel_common<T>(o, qdev(queue));
+    kernel_common<T>(o, queue);
     twiddle_code<T>(o);
 
     o << "__kernel void bluestein_twiddle(__global real2_t *output) {\n"
@@ -257,7 +278,7 @@ inline kernel_call bluestein_twiddle(const cl::CommandQueue &queue, size_t n, bo
       << "  output[x] = twiddle(sign * M_PI * xx / n);\n"
       << "}\n";
 
-    auto program = build_sources(qctx(queue), o.str());
+    auto program = backend::build_sources(queue, o.str());
     cl::Kernel kernel(program, "bluestein_twiddle");
     kernel.setArg(0, out);
 
@@ -266,10 +287,15 @@ inline kernel_call bluestein_twiddle(const cl::CommandQueue &queue, size_t n, bo
     return kernel_call(true, desc.str(), program, kernel, cl::NDRange(n), cl::NullRange);
 }
 
-template <class T>
-inline kernel_call bluestein_pad_kernel(const cl::CommandQueue &queue, size_t n, size_t m, const cl::Buffer &in, const cl::Buffer &out) {
+template <class T, class T2>
+inline kernel_call bluestein_pad_kernel(
+        const backend::command_queue &queue, size_t n, size_t m,
+        const backend::device_vector<T2> &in,
+        const backend::device_vector<T2> &out
+        )
+{
     std::ostringstream o;
-    kernel_common<T>(o, qdev(queue));
+    kernel_common<T>(o, queue);
 
     o << "real2_t conj(real2_t v) {\n"
       << "  return (real2_t)(v.x, -v.y);\n"
@@ -283,7 +309,7 @@ inline kernel_call bluestein_pad_kernel(const cl::CommandQueue &queue, size_t n,
       << "    output[x] = (real2_t)(0,0);\n"
       << "}\n";
 
-    auto program = build_sources(qctx(queue), o.str());
+    auto program = backend::build_sources(queue, o.str());
     cl::Kernel kernel(program, "bluestein_pad_kernel");
     kernel.setArg(0, in);
     kernel.setArg(1, out);
@@ -295,10 +321,17 @@ inline kernel_call bluestein_pad_kernel(const cl::CommandQueue &queue, size_t n,
     return kernel_call(true, desc.str(), program, kernel, cl::NDRange(m), cl::NullRange);
 }
 
-template <class T>
-inline kernel_call bluestein_mul_in(const cl::CommandQueue &queue, bool inverse, size_t batch, size_t radix, size_t p, size_t threads, size_t stride, const cl::Buffer &data, const cl::Buffer &exp, const cl::Buffer &out) {
+template <class T, class T2>
+inline kernel_call bluestein_mul_in(
+        const backend::command_queue &queue, bool inverse, size_t batch,
+        size_t radix, size_t p, size_t threads, size_t stride,
+        const backend::device_vector<T2> &data,
+        const backend::device_vector<T2> &exp,
+        const backend::device_vector<T2> &out
+        )
+{
     std::ostringstream o;
-    kernel_common<T>(o, qdev(queue));
+    kernel_common<T>(o, queue);
     mul_code(o, false);
     twiddle_code<T>(o);
 
@@ -328,7 +361,7 @@ inline kernel_call bluestein_mul_in(const cl::CommandQueue &queue, bool inverse,
       << "  }\n"
       << "}\n";
 
-    auto program = build_sources(qctx(queue), o.str());
+    auto program = backend::build_sources(queue, o.str());
     cl::Kernel kernel(program, "bluestein_mul_in");
     kernel.setArg(0, data);
     kernel.setArg(1, exp);
@@ -345,10 +378,17 @@ inline kernel_call bluestein_mul_in(const cl::CommandQueue &queue, bool inverse,
     return kernel_call(false, desc.str(), program, kernel, cl::NDRange(threads, batch, stride_pad), cl::NDRange(1, 1, wg));
 }
 
-template <class T>
-inline kernel_call bluestein_mul_out(const cl::CommandQueue &queue, size_t batch, size_t p, size_t radix, size_t threads, size_t stride, const cl::Buffer &data, const cl::Buffer &exp, const cl::Buffer &out) {
+template <class T, class T2>
+inline kernel_call bluestein_mul_out(
+        const backend::command_queue &queue, size_t batch, size_t p,
+        size_t radix, size_t threads, size_t stride,
+        const backend::device_vector<T2> &data,
+        const backend::device_vector<T2> &exp,
+        const backend::device_vector<T2> &out
+        )
+{
     std::ostringstream o;
-    kernel_common<T>(o, qdev(queue));
+    kernel_common<T>(o, queue);
     mul_code(o, false);
 
     o << "__kernel void bluestein_mul_out("
@@ -368,7 +408,7 @@ inline kernel_call bluestein_mul_out(const cl::CommandQueue &queue, size_t batch
       << "  }\n"
       << "}\n";
 
-    auto program = build_sources(qctx(queue), o.str());
+    auto program = backend::build_sources(queue, o.str());
     cl::Kernel kernel(program, "bluestein_mul_out");
     kernel.setArg(0, data);
     kernel.setArg(1, exp);
@@ -386,10 +426,16 @@ inline kernel_call bluestein_mul_out(const cl::CommandQueue &queue, size_t batch
     return kernel_call(false, desc.str(), program, kernel, cl::NDRange(threads, batch, radix_pad), cl::NDRange(1, 1, wg));
 }
 
-template <class T>
-inline kernel_call bluestein_mul(const cl::CommandQueue &queue, size_t n, size_t batch, const cl::Buffer &data, const cl::Buffer &exp, const cl::Buffer &out) {
+template <class T, class T2>
+inline kernel_call bluestein_mul(
+        const backend::command_queue &queue, size_t n, size_t batch,
+        const backend::device_vector<T2> &data,
+        const backend::device_vector<T2> &exp,
+        const backend::device_vector<T2> &out
+        )
+{
     std::ostringstream o;
-    kernel_common<T>(o, qdev(queue));
+    kernel_common<T>(o, queue);
     mul_code(o, false);
 
     o << "__kernel void bluestein_mul("
@@ -401,7 +447,7 @@ inline kernel_call bluestein_mul(const cl::CommandQueue &queue, size_t n, size_t
       << "  }\n"
       << "}\n";
 
-    auto program = build_sources(qctx(queue), o.str());
+    auto program = backend::build_sources(queue, o.str());
     cl::Kernel kernel(program, "bluestein_mul");
     kernel.setArg(0, data);
     kernel.setArg(1, exp);

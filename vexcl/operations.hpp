@@ -40,11 +40,7 @@ THE SOFTWARE.
 #include <boost/mpl/max.hpp>
 #include <boost/any.hpp>
 
-#ifndef __CL_ENABLE_EXCEPTIONS
-#  define __CL_ENABLE_EXCEPTIONS
-#endif
-#include <CL/cl.hpp>
-
+#include <vexcl/backend.hpp>
 #include <vexcl/types.hpp>
 #include <vexcl/util.hpp>
 
@@ -67,12 +63,10 @@ namespace vex {
 //---------------------------------------------------------------------------
 namespace assign {
 
-#define ASSIGN_OP(name, op) \
-    struct name { \
-        static std::string string() { \
-            return #op; \
-        } \
-    };
+#define ASSIGN_OP(name, op)                                                    \
+  struct name {                                                                \
+    static std::string string() { return #op; }                                \
+  };
 
     ASSIGN_OP(SET, =)
     ASSIGN_OP(ADD, +=)
@@ -142,119 +136,109 @@ struct value_type<T,
 // But most of them do not:
 template <class T>
 struct terminal_preamble {
-    static std::string get(const T&,
-            const cl::Device&, const std::string &/*prm_name*/,
+    static void get(backend::source_generator&, const T&,
+            const backend::command_queue&, const std::string &/*prm_name*/,
             detail::kernel_generator_state_ptr)
-    {
-        return "";
-    }
+    { }
 };
 
 template <class T>
-std::string get_terminal_preamble(
-        const T &term, const cl::Device &dev, const std::string &prm_name,
+void get_terminal_preamble(backend::source_generator &src,
+        const T &term, const backend::command_queue &queue, const std::string &prm_name,
         detail::kernel_generator_state_ptr state)
 {
-    return
-        terminal_preamble<
-            typename std::decay<T>::type
-        >::get(term, dev, prm_name, state);
+    terminal_preamble<
+        typename std::decay<T>::type
+    >::get(src, term, queue, prm_name, state);
 }
 
 // How to declare OpenCL kernel parameters for a terminal:
 template <class Term, class Enable = void>
 struct kernel_param_declaration {
-    static std::string get(const Term&,
-            const cl::Device&, const std::string &prm_name,
+    static void get(backend::source_generator &src, const Term&,
+            const backend::command_queue&, const std::string &prm_name,
             detail::kernel_generator_state_ptr)
     {
-        std::ostringstream s;
-        s << ",\n\t" << type_name<Term>() << " " << prm_name;
-        return s.str();
+        src.parameter<Term>(prm_name);
     }
 };
 
 template <class T>
-std::string get_kernel_param_declaration(
-        const T &term, const cl::Device &dev, const std::string &prm_name,
+void get_kernel_param_declaration(backend::source_generator &src,
+        const T &term, const backend::command_queue &queue, const std::string &prm_name,
         detail::kernel_generator_state_ptr state)
 {
-    return
-        kernel_param_declaration<
-            typename std::decay<T>::type
-        >::get(term, dev, prm_name, state);
+    kernel_param_declaration<
+        typename std::decay<T>::type
+    >::get(src, term, queue, prm_name, state);
 }
 
 // Local terminal initialization (e.g. temporary declaration)
 template <class Term, class Enable = void>
 struct local_terminal_init {
-    static std::string get(const Term&,
-            const cl::Device&, const std::string &/*prm_name*/,
+    static void get(backend::source_generator&, const Term&,
+            const backend::command_queue&, const std::string &/*prm_name*/,
             detail::kernel_generator_state_ptr)
-    {
-        return "";
-    }
+    { }
 };
 
 template <class T>
-std::string get_local_terminal_init(
-        const T &term, const cl::Device &dev, const std::string &prm_name,
+void get_local_terminal_init(backend::source_generator &src,
+        const T &term, const backend::command_queue &queue, const std::string &prm_name,
         detail::kernel_generator_state_ptr state)
 {
-    return
-        local_terminal_init<
-            typename std::decay<T>::type
-        >::get(term, dev, prm_name, state);
+    local_terminal_init<
+        typename std::decay<T>::type
+    >::get(src, term, queue, prm_name, state);
 }
 
 // Partial expression for a terminal:
 template <class Term, class Enable = void>
 struct partial_vector_expr {
-    static std::string get(const Term&,
-            const cl::Device&, const std::string &prm_name,
+    static void get(backend::source_generator &src, const Term&,
+            const backend::command_queue&, const std::string &prm_name,
             detail::kernel_generator_state_ptr)
     {
-        return prm_name;
+        src << prm_name;
     }
 };
 
 template <class T>
-std::string get_partial_vector_expr(
-        const T &term, const cl::Device &dev, const std::string &prm_name,
+void get_partial_vector_expr(backend::source_generator &src,
+        const T &term, const backend::command_queue &queue, const std::string &prm_name,
         detail::kernel_generator_state_ptr state)
 {
-    return
-        partial_vector_expr<
-            typename std::decay<T>::type
-        >::get(term, dev, prm_name, state);
+    partial_vector_expr<
+        typename std::decay<T>::type
+    >::get(src, term, queue, prm_name, state);
 }
 
 // How to set OpenCL kernel arguments for a terminal:
 template <class Term, class Enable = void>
 struct kernel_arg_setter {
     static void set(const Term &term,
-            cl::Kernel &kernel, unsigned/*device*/, size_t/*index_offset*/,
-            unsigned &position, detail::kernel_generator_state_ptr)
+            backend::kernel &kernel, unsigned/*device*/, size_t/*index_offset*/,
+            detail::kernel_generator_state_ptr)
     {
-        kernel.setArg(position++, term);
+        kernel.push_arg(term);
     }
 };
 
 template <class T>
 void set_kernel_args(
-        const T &term, cl::Kernel &kernel, unsigned device, size_t index_offset,
-        unsigned &position, detail::kernel_generator_state_ptr state)
+        const T &term, backend::kernel &kernel, unsigned device, size_t index_offset,
+        detail::kernel_generator_state_ptr state)
 {
     kernel_arg_setter<
         typename std::decay<T>::type
-    >::set(term, kernel, device, index_offset, position, state);
+    >::set(term, kernel, device, index_offset, state);
 }
 
 // How to deduce queue list, partitioning and size from a terminal:
 template <class T, class Enable = void>
 struct expression_properties {
     static void get(const T &/*term*/,
-            std::vector<cl::CommandQueue> &/*queue_list*/,
+            std::vector<backend::command_queue> &/*queue_list*/,
             std::vector<size_t> &/*partition*/,
             size_t &/*size*/
             )
@@ -264,7 +248,7 @@ struct expression_properties {
 template <class T>
 void get_expression_properties(
         const T &term,
-        std::vector<cl::CommandQueue> &queue_list,
+        std::vector<backend::command_queue> &queue_list,
         std::vector<size_t> &partition,
         size_t &size
         )
@@ -325,21 +309,22 @@ struct component< I, std::tuple<Args...> >
 
 #else
 
-#define TUPLE_IS_MS(z, n, unused)                                      \
-  template < BOOST_PP_ENUM_PARAMS(n, class Arg) >                      \
-  struct is_multiscalar< std::tuple < BOOST_PP_ENUM_PARAMS(n, Arg) > > \
-    : std::true_type                                                   \
-  {};
+#define TUPLE_IS_MS(z, n, unused)                                              \
+  template <BOOST_PP_ENUM_PARAMS(n, class Arg)>                                \
+  struct is_multiscalar<                                                       \
+      std::tuple<BOOST_PP_ENUM_PARAMS(n, Arg)> > : std::true_type {            \
+  };
 
 BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, TUPLE_IS_MS, ~)
 
 #undef TUPLE_IS_MS
 
-#define TUPLE_COMP(z, n, unused)                                          \
-  template < size_t I, BOOST_PP_ENUM_PARAMS(n, class Arg) >               \
-  struct component< I, std::tuple < BOOST_PP_ENUM_PARAMS(n, Arg) > >      \
-    : std::tuple_element< I, std::tuple< BOOST_PP_ENUM_PARAMS(n, Arg) > > \
-  {};
+#define TUPLE_COMP(z, n, unused)                                               \
+  template <size_t I, BOOST_PP_ENUM_PARAMS(n, class Arg)>                      \
+  struct component<                                                            \
+      I, std::tuple<BOOST_PP_ENUM_PARAMS(n, Arg)> > : std::tuple_element<      \
+      I, std::tuple<BOOST_PP_ENUM_PARAMS(n, Arg)> > {                          \
+  };
 
 BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, TUPLE_COMP, ~)
 
@@ -458,131 +443,102 @@ operator/(const T &expr, const typename T::value_type &factor) {
 struct builtin_function {};
 struct user_function {};
 
-#define BUILTIN_OPERATIONS(grammar) \
-    boost::proto::or_< \
-        boost::proto::unary_plus< grammar >, \
-        boost::proto::negate< grammar >, \
-        boost::proto::logical_not< grammar >, \
-        boost::proto::pre_inc< grammar >, \
-        boost::proto::pre_dec< grammar >, \
-        boost::proto::post_inc< grammar >, \
-        boost::proto::post_dec< grammar > \
-    >, \
-    boost::proto::or_< \
-        boost::proto::or_< \
-            boost::proto::plus          < grammar, grammar >, \
-            boost::proto::minus         < grammar, grammar >, \
-            boost::proto::multiplies    < grammar, grammar >, \
-            boost::proto::divides       < grammar, grammar >, \
-            boost::proto::modulus       < grammar, grammar >, \
-            boost::proto::shift_left    < grammar, grammar >, \
-            boost::proto::shift_right   < grammar, grammar > \
-        >, \
-        boost::proto::or_< \
-            boost::proto::less          < grammar, grammar >, \
-            boost::proto::greater       < grammar, grammar >, \
-            boost::proto::less_equal    < grammar, grammar >, \
-            boost::proto::greater_equal < grammar, grammar >, \
-            boost::proto::equal_to      < grammar, grammar >, \
-            boost::proto::not_equal_to  < grammar, grammar > \
-        >, \
-        boost::proto::or_< \
-            boost::proto::logical_and   < grammar, grammar >, \
-            boost::proto::logical_or    < grammar, grammar > \
-        >, \
-        boost::proto::or_< \
-            boost::proto::bitwise_and   < grammar, grammar >, \
-            boost::proto::bitwise_or    < grammar, grammar >, \
-            boost::proto::bitwise_xor   < grammar, grammar > \
-        >, \
-        boost::proto::or_< \
-            boost::proto::address_of < grammar >, \
-            boost::proto::dereference< grammar > \
-        >, \
-        boost::proto::or_< \
-            boost::proto::if_else_< grammar, grammar, grammar > \
-        > \
-    >, \
-    boost::proto::function< \
-        boost::proto::terminal< \
-            boost::proto::convertible_to<builtin_function> \
-        >, \
-        boost::proto::vararg<grammar> \
+#define BUILTIN_OPERATIONS(grammar)                                            \
+    boost::proto::or_<                                                         \
+        boost::proto::unary_plus< grammar >,                                   \
+        boost::proto::negate< grammar >,                                       \
+        boost::proto::logical_not< grammar >,                                  \
+        boost::proto::pre_inc< grammar >,                                      \
+        boost::proto::pre_dec< grammar >,                                      \
+        boost::proto::post_inc< grammar >,                                     \
+        boost::proto::post_dec< grammar >                                      \
+    >,                                                                         \
+    boost::proto::or_<                                                         \
+        boost::proto::or_<                                                     \
+            boost::proto::plus          < grammar, grammar >,                  \
+            boost::proto::minus         < grammar, grammar >,                  \
+            boost::proto::multiplies    < grammar, grammar >,                  \
+            boost::proto::divides       < grammar, grammar >,                  \
+            boost::proto::modulus       < grammar, grammar >,                  \
+            boost::proto::shift_left    < grammar, grammar >,                  \
+            boost::proto::shift_right   < grammar, grammar >                   \
+        >,                                                                     \
+        boost::proto::or_<                                                     \
+            boost::proto::less          < grammar, grammar >,                  \
+            boost::proto::greater       < grammar, grammar >,                  \
+            boost::proto::less_equal    < grammar, grammar >,                  \
+            boost::proto::greater_equal < grammar, grammar >,                  \
+            boost::proto::equal_to      < grammar, grammar >,                  \
+            boost::proto::not_equal_to  < grammar, grammar >                   \
+        >,                                                                     \
+        boost::proto::or_<                                                     \
+            boost::proto::logical_and   < grammar, grammar >,                  \
+            boost::proto::logical_or    < grammar, grammar >                   \
+        >,                                                                     \
+        boost::proto::or_<                                                     \
+            boost::proto::bitwise_and   < grammar, grammar >,                  \
+            boost::proto::bitwise_or    < grammar, grammar >,                  \
+            boost::proto::bitwise_xor   < grammar, grammar >                   \
+        >,                                                                     \
+        boost::proto::or_<                                                     \
+            boost::proto::address_of < grammar >,                              \
+            boost::proto::dereference< grammar >                               \
+        >,                                                                     \
+        boost::proto::or_<                                                     \
+            boost::proto::if_else_< grammar, grammar, grammar >                \
+        >                                                                      \
+    >,                                                                         \
+    boost::proto::function<                                                    \
+        boost::proto::terminal<                                                \
+            boost::proto::convertible_to<builtin_function>                     \
+        >,                                                                     \
+        boost::proto::vararg<grammar>                                          \
     >
 
-#define USER_FUNCTIONS(grammar) \
-    boost::proto::function< \
-        boost::proto::terminal< \
-            boost::proto::convertible_to<user_function> \
-        >, \
-        boost::proto::vararg<grammar> \
-    >
+#define USER_FUNCTIONS(grammar)                                                \
+  boost::proto::function<                                                      \
+      boost::proto::terminal<boost::proto::convertible_to<user_function> >,    \
+      boost::proto::vararg<grammar>                                            \
+  >
 
 //---------------------------------------------------------------------------
 // Builtin functions
 //---------------------------------------------------------------------------
-#define BUILTIN_FUNCTION_1(func) \
-struct func##_func : builtin_function { \
-    static const char* name() { \
-        return #func; \
-    } \
-}; \
-template <typename Arg> \
-typename boost::proto::result_of::make_expr< \
-    boost::proto::tag::function, \
-    func##_func, \
-    const Arg& \
->::type const \
-func(const Arg &arg) { \
-    return boost::proto::make_expr<boost::proto::tag::function>( \
-            func##_func(), \
-            boost::ref(arg) \
-            ); \
-}
+#define BUILTIN_FUNCTION_1(func)                                               \
+  struct func##_func : builtin_function {                                      \
+    static const char *name() { return #func; }                                \
+  };                                                                           \
+  template<typename Arg> typename boost::proto::result_of::make_expr<          \
+      boost::proto::tag::function, func##_func, const Arg &>::type const func( \
+      const Arg & arg) {                                                       \
+    return boost::proto::make_expr<boost::proto::tag::function>(               \
+        func##_func(), boost::ref(arg));                                       \
+  }
 
-#define BUILTIN_FUNCTION_2(func) \
-struct func##_func : builtin_function { \
-    static const char* name() { \
-        return #func; \
-    } \
-}; \
-template <typename Arg1, typename Arg2> \
-typename boost::proto::result_of::make_expr< \
-    boost::proto::tag::function, \
-    func##_func, \
-    const Arg1&, \
-    const Arg2& \
->::type const \
-func(const Arg1 &arg1, const Arg2 &arg2) { \
-    return boost::proto::make_expr<boost::proto::tag::function>( \
-            func##_func(), \
-            boost::ref(arg1), \
-            boost::ref(arg2) \
-            ); \
-}
+#define BUILTIN_FUNCTION_2(func)                                               \
+  struct func##_func : builtin_function {                                      \
+    static const char *name() { return #func; }                                \
+  };                                                                           \
+  template<typename Arg1, typename Arg2> typename                              \
+  boost::proto::result_of::make_expr<                                          \
+      boost::proto::tag::function, func##_func, const Arg1 &,                  \
+      const Arg2 &>::type const func(const Arg1 & arg1, const Arg2 & arg2) {   \
+    return boost::proto::make_expr<boost::proto::tag::function>(               \
+        func##_func(), boost::ref(arg1), boost::ref(arg2));                    \
+  }
 
-#define BUILTIN_FUNCTION_3(func) \
-struct func##_func : builtin_function { \
-    static const char* name() { \
-        return #func; \
-    } \
-}; \
-template <typename Arg1, typename Arg2, typename Arg3> \
-typename boost::proto::result_of::make_expr< \
-    boost::proto::tag::function, \
-    func##_func, \
-    const Arg1&, \
-    const Arg2&, \
-    const Arg3& \
->::type const \
-func(const Arg1 &arg1, const Arg2 &arg2, const Arg3 &arg3) { \
-    return boost::proto::make_expr<boost::proto::tag::function>( \
-            func##_func(), \
-            boost::ref(arg1), \
-            boost::ref(arg2), \
-            boost::ref(arg3) \
-            ); \
-}
+#define BUILTIN_FUNCTION_3(func)                                               \
+  struct func##_func : builtin_function {                                      \
+    static const char *name() { return #func; }                                \
+  };                                                                           \
+  template<typename Arg1, typename Arg2, typename Arg3> typename               \
+  boost::proto::result_of::make_expr<                                          \
+      boost::proto::tag::function, func##_func, const Arg1 &, const Arg2 &,    \
+      const Arg3 &>::type const func(const Arg1 & arg1, const Arg2 & arg2,     \
+                                     const Arg3 & arg3) {                      \
+    return boost::proto::make_expr<boost::proto::tag::function>(               \
+        func##_func(), boost::ref(arg1), boost::ref(arg2), boost::ref(arg3));  \
+  }
 
 BUILTIN_FUNCTION_2( abs_diff )
 BUILTIN_FUNCTION_1( acos )
@@ -759,56 +715,56 @@ abs(const Arg &arg) {
             );
 }
 
-#define VEXCL_VECTOR_EXPR_EXTRACTOR(name, VG, AG, FG) \
-struct name \
-    : boost::proto::or_< \
-          boost::proto::when<VG, boost::proto::_>, \
-          boost::proto::when< \
-             boost::proto::plus< FG, AG >, \
-             name(boost::proto::_left) \
-          >, \
-          boost::proto::when< \
-             boost::proto::plus< AG, FG >, \
-             name(boost::proto::_right) \
-          >, \
-          boost::proto::when< \
-             boost::proto::minus< FG, AG >, \
-             name(boost::proto::_left) \
-          >, \
-          boost::proto::when< \
-             boost::proto::minus< AG, FG >, \
-             boost::proto::_make_negate( name(boost::proto::_right) ) \
-          >, \
-          boost::proto::when< \
-             boost::proto::binary_expr<boost::proto::_, name, name > \
-          > \
-      > \
+#define VEXCL_VECTOR_EXPR_EXTRACTOR(name, VG, AG, FG)                          \
+struct name                                                                    \
+    : boost::proto::or_<                                                       \
+          boost::proto::when<VG, boost::proto::_>,                             \
+          boost::proto::when<                                                  \
+             boost::proto::plus< FG, AG >,                                     \
+             name(boost::proto::_left)                                         \
+          >,                                                                   \
+          boost::proto::when<                                                  \
+             boost::proto::plus< AG, FG >,                                     \
+             name(boost::proto::_right)                                        \
+          >,                                                                   \
+          boost::proto::when<                                                  \
+             boost::proto::minus< FG, AG >,                                    \
+             name(boost::proto::_left)                                         \
+          >,                                                                   \
+          boost::proto::when<                                                  \
+             boost::proto::minus< AG, FG >,                                    \
+             boost::proto::_make_negate( name(boost::proto::_right) )          \
+          >,                                                                   \
+          boost::proto::when<                                                  \
+             boost::proto::binary_expr<boost::proto::_, name, name >           \
+          >                                                                    \
+      >                                                                        \
 {}
 
-#define VEXCL_ADDITIVE_EXPR_EXTRACTOR(name, VG, AG, FG) \
-struct name \
-    : boost::proto::or_< \
-          boost::proto::when<AG, boost::proto::_> \
-        , boost::proto::when< \
-             boost::proto::plus<FG, VG >, \
-             name(boost::proto::_left) \
-          > \
-        , boost::proto::when< \
-             boost::proto::plus< VG, FG >, \
-             name(boost::proto::_right) \
-          > \
-        , boost::proto::when< \
-             boost::proto::minus<FG, VG >, \
-             name(boost::proto::_left) \
-          > \
-        , boost::proto::when< \
-             boost::proto::minus<VG, FG >, \
-             boost::proto::_make_negate( name(boost::proto::_right) ) \
-          > \
-        , boost::proto::when< \
-             boost::proto::binary_expr<boost::proto::_, name, name > \
-          > \
-      > \
+#define VEXCL_ADDITIVE_EXPR_EXTRACTOR(name, VG, AG, FG)                        \
+struct name                                                                    \
+    : boost::proto::or_<                                                       \
+          boost::proto::when<AG, boost::proto::_>                              \
+        , boost::proto::when<                                                  \
+             boost::proto::plus<FG, VG >,                                      \
+             name(boost::proto::_left)                                         \
+          >                                                                    \
+        , boost::proto::when<                                                  \
+             boost::proto::plus< VG, FG >,                                     \
+             name(boost::proto::_right)                                        \
+          >                                                                    \
+        , boost::proto::when<                                                  \
+             boost::proto::minus<FG, VG >,                                     \
+             name(boost::proto::_left)                                         \
+          >                                                                    \
+        , boost::proto::when<                                                  \
+             boost::proto::minus<VG, FG >,                                     \
+             boost::proto::_make_negate( name(boost::proto::_right) )          \
+          >                                                                    \
+        , boost::proto::when<                                                  \
+             boost::proto::binary_expr<boost::proto::_, name, name >           \
+          >                                                                    \
+      >                                                                        \
 {}
 
 //---------------------------------------------------------------------------
@@ -837,67 +793,59 @@ struct UserFunction<Impl, RetType(ArgType...)> : user_function
                 );
     }
 
-    static std::string preamble() {
-        return "";
-    }
+    static std::string preamble() { return ""; }
 
-    static void define(std::ostream &os, const std::string &name) {
-        os << Impl::preamble() << "\n"
-           << type_name<RetType>() << " " << name << "(";
-        show_arg<ArgType...>(os, 1);
-        os << "\n)\n{\n" << Impl::body() << "\n}\n\n";
+    static void define(backend::source_generator &src, const std::string &name)
+    {
+        src << Impl::preamble();
+        src.function<RetType>(name).open("(");
+        show_arg<ArgType...>(src, 1);
+        src.close(")").open("{").new_line() << Impl::body();
+        src.close("}");
     }
 
     template <class Head>
-    static void show_arg(std::ostream &os, unsigned pos) {
-        if (pos > 1) os << ",";
-        os << "\n\t" << type_name<Head>() << " prm" << pos;
+    static void show_arg(backend::source_generator &src, unsigned pos) {
+        src.parameter<Head>("prm") << pos;
     }
 
     template <class Head, class... Tail>
     static typename std::enable_if<(sizeof...(Tail) > 0), void>::type
-    show_arg(std::ostream &os, unsigned pos) {
-        if (pos > 1) os << ",";
-        show_arg<Tail...>(
-                os << "\n\t" << type_name<Head>() << " prm" << pos, pos + 1
-                );
+    show_arg(backend::source_generator &src, unsigned pos) {
+        show_arg<Tail...>(src.parameter<Head>("prm") << pos, pos + 1);
     }
 };
 
 #else
 
-#define PRINT_ARG_REF(z, n, data) const Arg ## n&
-#define PRINT_PARAM(z, n, data) const Arg ## n &arg ## n
-#define PRINT_BOOST_REF(z, n, data) boost::ref(arg ## n)
-#define PRINT_PRM_DEF(z, n, data) \
-    << "\n\t" << type_name<ArgType ## n>() \
-    << " prm" << n + 1 BOOST_PP_EXPR_IF(BOOST_PP_LESS(BOOST_PP_ADD(n, 1), data), << ",")
-#define USER_FUNCTION(z, n, data) \
-template< class Impl, class RetType, BOOST_PP_ENUM_PARAMS(n, class ArgType) > \
-struct UserFunction<Impl, RetType( BOOST_PP_ENUM_PARAMS(n, ArgType) )> : user_function \
-{ \
-    typedef RetType value_type; \
-    template < BOOST_PP_ENUM_PARAMS(n, class Arg) > \
-    typename boost::proto::result_of::make_expr< \
-        boost::proto::tag::function, \
-        Impl, \
-        BOOST_PP_ENUM(n, PRINT_ARG_REF, ~) \
-    >::type const \
-    operator()( BOOST_PP_ENUM(n, PRINT_PARAM, ~) ) { \
-        return boost::proto::make_expr<boost::proto::tag::function>( \
-                Impl(), BOOST_PP_ENUM(n, PRINT_BOOST_REF, ~) \
-                ); \
-    } \
-    static std::string preamble() { \
-        return ""; \
-    } \
-    static void define(std::ostream &os, const std::string &name) { \
-        os << Impl::preamble() << "\n" \
-           << type_name<RetType>() << " " << name << "(" \
-           BOOST_PP_REPEAT(n, PRINT_PRM_DEF, n) \
-           << "\n)\n{\n" << Impl::body() << "\n}\n\n"; \
-    } \
-};
+#define PRINT_ARG_REF(z, n, data) const Arg##n &
+#define PRINT_PARAM(z, n, data) const Arg##n &arg##n
+#define PRINT_BOOST_REF(z, n, data) boost::ref(arg##n)
+#define PRINT_PRM_DEF(z, n, data) src.parameter<ArgType##n>("prm") << n + 1;
+
+#define USER_FUNCTION(z, n, data)                                              \
+  template <class Impl, class RetType, BOOST_PP_ENUM_PARAMS(n, class ArgType)> \
+  struct UserFunction<                                                         \
+      Impl, RetType(BOOST_PP_ENUM_PARAMS(n, ArgType))> : user_function {       \
+    typedef RetType value_type;                                                \
+    template <BOOST_PP_ENUM_PARAMS(n, class Arg)>                              \
+    typename boost::proto::result_of::make_expr<                               \
+        boost::proto::tag::function, Impl,                                     \
+        BOOST_PP_ENUM(n, PRINT_ARG_REF, ~)>::type const operator()(            \
+        BOOST_PP_ENUM(n, PRINT_PARAM, ~)) {                                    \
+      return boost::proto::make_expr<boost::proto::tag::function>(             \
+          Impl(), BOOST_PP_ENUM(n, PRINT_BOOST_REF, ~));                       \
+    }                                                                          \
+    static std::string preamble() { return ""; }                               \
+    static void define(backend::source_generator &src,                         \
+                       const std::string &name) {                              \
+      src << Impl::preamble();                                                 \
+      src.function<RetType>(name).open("(");                                   \
+      BOOST_PP_REPEAT(n, PRINT_PRM_DEF, n);                                    \
+      src.close(")").open("{").new_line() << Impl::body();                     \
+      src.close("}");                                                          \
+    }                                                                          \
+  };
 
 BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, USER_FUNCTION, ~)
 
@@ -923,11 +871,11 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, USER_FUNCTION, ~)
  * save on OpenCL kernel recompilations). Otherwise VEX_FUNCTION should
  * be used locally.
  */
-#define VEX_FUNCTION_TYPE(name, signature, preamble_str, body_str) \
-    struct name : vex::UserFunction<name, signature> { \
-        static std::string preamble() { return preamble_str; } \
-        static std::string body()     { return body_str;     } \
-    }
+#define VEX_FUNCTION_TYPE(name, signature, preamble_str, body_str)             \
+  struct name : vex::UserFunction<name, signature> {                           \
+    static std::string preamble() { return preamble_str; }                     \
+    static std::string body() { return body_str; }                             \
+  }
 
 /// Macro to declare a user function.
 /**
@@ -936,8 +884,8 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, USER_FUNCTION, ~)
  * output = pow3(input);
  * \endcode
  */
-#define VEX_FUNCTION(name, signature, body) \
-    VEX_FUNCTION_TYPE(user_function_##name##_body, signature, "", body) name
+#define VEX_FUNCTION(name, signature, body)                                    \
+  VEX_FUNCTION_TYPE(user_function_##name##_body, signature, "", body) name
 
 
 /// Macro to declare a user function with preamble.
@@ -952,8 +900,8 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, USER_FUNCTION, ~)
  * y = one(x);
  * \endcode
  */
-#define VEX_FUNCTION_WITH_PREAMBLE(name, signature, preamble, body) \
-    VEX_FUNCTION_TYPE(user_function_##name##_body, signature, preamble, body) name
+#define VEX_FUNCTION_WITH_PREAMBLE(name, signature, preamble, body)            \
+  VEX_FUNCTION_TYPE(user_function_##name##_body, signature, preamble, body) name
 
 
 /// \cond INTERNAL
@@ -1217,19 +1165,18 @@ struct extract_terminals
 
 // Base class for stateful expression evaluation contexts .
 struct expression_context {
-    std::ostream &os;
-    const cl::Device &device;
+    backend::source_generator &src;
+    const backend::command_queue &queue;
     mutable int prm_idx;
     int fun_idx;
     std::string prefix;
     kernel_generator_state_ptr state;
 
     expression_context(
-            std::ostream &os, const cl::Device &device,
-            const std::string &prefix,
-            kernel_generator_state_ptr state
+            backend::source_generator &src, const backend::command_queue &queue,
+            const std::string &prefix, kernel_generator_state_ptr state
             )
-        : os(os), device(device), prm_idx(0), fun_idx(0),
+        : src(src), queue(queue), prm_idx(0), fun_idx(0),
           prefix(prefix), state(state)
     {}
 };
@@ -1238,11 +1185,10 @@ struct expression_context {
 struct output_terminal_preamble : public expression_context {
 
     output_terminal_preamble(
-            std::ostream &os, const cl::Device &device,
-            const std::string &prefix,
-            kernel_generator_state_ptr state
+            backend::source_generator &src, const backend::command_queue &queue,
+            const std::string &prefix, kernel_generator_state_ptr state
             )
-        : expression_context(os, device, prefix, state)
+        : expression_context(src, queue, prefix, state)
     {}
 
     // Any expression except user function or terminal is only interesting
@@ -1301,7 +1247,7 @@ struct output_terminal_preamble : public expression_context {
             // Output function definition and continue with parameters.
             boost::proto::result_of::value<
                 typename boost::proto::result_of::child_c<FunCall,0>::type
-            >::type::define(ctx.os, name.str());
+            >::type::define(ctx.src, name.str());
 
             boost::fusion::for_each(
                     boost::fusion::pop_front(expr),
@@ -1322,8 +1268,8 @@ struct output_terminal_preamble : public expression_context {
             std::ostringstream prm_name;
             prm_name << ctx.prefix << "_" << ++ctx.prm_idx;
 
-            ctx.os << traits::get_terminal_preamble(
-                    term, ctx.device, prm_name.str(), ctx.state);
+            traits::get_terminal_preamble(ctx.src, term, ctx.queue,
+                    prm_name.str(), ctx.state);
         }
 
         template <class Term>
@@ -1333,8 +1279,8 @@ struct output_terminal_preamble : public expression_context {
             std::ostringstream prm_name;
             prm_name << ctx.prefix << "_" << ++ctx.prm_idx;
 
-            ctx.os << traits::get_terminal_preamble(
-                    boost::proto::value(term), ctx.device, prm_name.str(), ctx.state);
+            traits::get_terminal_preamble(ctx.src, boost::proto::value(term),
+                    ctx.queue, prm_name.str(), ctx.state);
         }
     };
 };
@@ -1343,11 +1289,11 @@ struct output_terminal_preamble : public expression_context {
 struct output_local_preamble : public expression_context {
 
     output_local_preamble(
-            std::ostream &os, const cl::Device &device,
+            backend::source_generator &src, const backend::command_queue &queue,
             const std::string &prefix,
             kernel_generator_state_ptr state
             )
-        : expression_context(os, device, prefix, state)
+        : expression_context(src, queue, prefix, state)
     {}
 
     // Any expression except user function or terminal is only interesting
@@ -1391,8 +1337,8 @@ struct output_local_preamble : public expression_context {
             std::ostringstream prm_name;
             prm_name << ctx.prefix << "_" << ++ctx.prm_idx;
 
-            ctx.os << traits::get_local_terminal_init(
-                    term, ctx.device, prm_name.str(), ctx.state);
+            traits::get_local_terminal_init(ctx.src, term, ctx.queue,
+                    prm_name.str(), ctx.state);
         }
 
         template <class Term>
@@ -1402,8 +1348,8 @@ struct output_local_preamble : public expression_context {
             std::ostringstream prm_name;
             prm_name << ctx.prefix << "_" << ++ctx.prm_idx;
 
-            ctx.os << traits::get_local_terminal_init(
-                boost::proto::value(term), ctx.device, prm_name.str(), ctx.state);
+            traits::get_local_terminal_init(ctx.src, boost::proto::value(term),
+                    ctx.queue, prm_name.str(), ctx.state);
         }
     };
 };
@@ -1412,28 +1358,27 @@ struct output_local_preamble : public expression_context {
 struct vector_expr_context : public expression_context {
 
     vector_expr_context(
-            std::ostream &os, const cl::Device &device,
+            backend::source_generator &src, const backend::command_queue &queue,
             const std::string &prefix,
             kernel_generator_state_ptr state
             )
-        : expression_context(os, device, prefix, state)
+        : expression_context(src, queue, prefix, state)
     {}
 
     template <typename Expr, typename Tag = typename Expr::proto_tag>
     struct eval {};
 
-#define BINARY_OPERATION(the_tag, the_op) \
-    template <typename Expr> \
-    struct eval<Expr, boost::proto::tag::the_tag> { \
-        typedef void result_type; \
-        void operator()(const Expr &expr, vector_expr_context &ctx) const { \
-            ctx.os << "( "; \
-            boost::proto::eval(boost::proto::left(expr), ctx); \
-            ctx.os << " " #the_op " "; \
-            boost::proto::eval(boost::proto::right(expr), ctx); \
-            ctx.os << " )"; \
-        } \
-    }
+#define BINARY_OPERATION(the_tag, the_op)                                      \
+  template <typename Expr> struct eval<Expr, boost::proto::tag::the_tag> {     \
+    typedef void result_type;                                                  \
+    void operator()(const Expr &expr, vector_expr_context &ctx) const {        \
+      ctx.src << "( ";                                                         \
+      boost::proto::eval(boost::proto::left(expr), ctx);                       \
+      ctx.src << " " #the_op " ";                                              \
+      boost::proto::eval(boost::proto::right(expr), ctx);                      \
+      ctx.src << " )";                                                         \
+    }                                                                          \
+  }
 
     BINARY_OPERATION(plus,          +);
     BINARY_OPERATION(minus,         -);
@@ -1456,35 +1401,35 @@ struct vector_expr_context : public expression_context {
 
 #undef BINARY_OPERATION
 
-#define UNARY_PRE_OPERATION(the_tag, the_op) \
-    template <typename Expr> \
-    struct eval<Expr, boost::proto::tag::the_tag> { \
-        typedef void result_type; \
-        void operator()(const Expr &expr, vector_expr_context &ctx) const { \
-            ctx.os << "( " #the_op "( "; \
-            boost::proto::eval(boost::proto::child(expr), ctx); \
-            ctx.os << " ) )"; \
-        } \
-    }
+#define UNARY_PRE_OPERATION(the_tag, the_op)                                   \
+  template <typename Expr> struct eval<Expr, boost::proto::tag::the_tag> {     \
+    typedef void result_type;                                                  \
+    void operator()(const Expr &expr, vector_expr_context &ctx) const {        \
+      ctx.src << "( " #the_op "( ";                                            \
+      boost::proto::eval(boost::proto::child(expr), ctx);                      \
+      ctx.src << " ) )";                                                       \
+    }                                                                          \
+  }
 
     UNARY_PRE_OPERATION(unary_plus,   +);
     UNARY_PRE_OPERATION(negate,       -);
     UNARY_PRE_OPERATION(logical_not,  !);
     UNARY_PRE_OPERATION(pre_inc,     ++);
     UNARY_PRE_OPERATION(pre_dec,     --);
+    UNARY_PRE_OPERATION(address_of,   &);
+    UNARY_PRE_OPERATION(dereference,  *);
 
 #undef UNARY_PRE_OPERATION
 
-#define UNARY_POST_OPERATION(the_tag, the_op) \
-    template <typename Expr> \
-    struct eval<Expr, boost::proto::tag::the_tag> { \
-        typedef void result_type; \
-        void operator()(const Expr &expr, vector_expr_context &ctx) const { \
-            ctx.os << "( ( "; \
-            boost::proto::eval(boost::proto::child(expr), ctx); \
-            ctx.os << " )" #the_op " )"; \
-        } \
-    }
+#define UNARY_POST_OPERATION(the_tag, the_op)                                  \
+  template <typename Expr> struct eval<Expr, boost::proto::tag::the_tag> {     \
+    typedef void result_type;                                                  \
+    void operator()(const Expr &expr, vector_expr_context &ctx) const {        \
+      ctx.src << "( ( ";                                                       \
+      boost::proto::eval(boost::proto::child(expr), ctx);                      \
+      ctx.src << " )" #the_op " )";                                            \
+    }                                                                          \
+  }
 
     UNARY_POST_OPERATION(post_inc, ++);
     UNARY_POST_OPERATION(post_dec, --);
@@ -1492,36 +1437,16 @@ struct vector_expr_context : public expression_context {
 #undef UNARY_POST_OPERATION
 
     template <typename Expr>
-    struct eval<Expr, boost::proto::tag::address_of> {
-        typedef void result_type;
-        void operator()(const Expr &expr, vector_expr_context &ctx) const {
-            ctx.os << "( &( ";
-            boost::proto::eval(boost::proto::child(expr), ctx);
-            ctx.os << " ) )";
-        }
-    };
-
-    template <typename Expr>
-    struct eval<Expr, boost::proto::tag::dereference> {
-        typedef void result_type;
-        void operator()(const Expr &expr, vector_expr_context &ctx) const {
-            ctx.os << "( *( ";
-            boost::proto::eval(boost::proto::child(expr), ctx);
-            ctx.os << " ) )";
-        }
-    };
-
-    template <typename Expr>
     struct eval<Expr, boost::proto::tag::if_else_> {
         typedef void result_type;
         void operator()(const Expr &expr, vector_expr_context &ctx) const {
-            ctx.os << "( ";
+            ctx.src << "( ";
             boost::proto::eval(boost::proto::child_c<0>(expr), ctx);
-            ctx.os << " ? ";
+            ctx.src << " ? ";
             boost::proto::eval(boost::proto::child_c<1>(expr), ctx);
-            ctx.os << " : ";
+            ctx.src << " : ";
             boost::proto::eval(boost::proto::child_c<2>(expr), ctx);
-            ctx.os << " )";
+            ctx.src << " )";
         }
     };
 
@@ -1537,7 +1462,7 @@ struct vector_expr_context : public expression_context {
 
             template <typename Arg>
             void operator()(const Arg &arg) const {
-                if (pos++) ctx.os << ", ";
+                if (pos++) ctx.src << ", ";
                 boost::proto::eval(arg, ctx);
             }
         };
@@ -1553,11 +1478,11 @@ struct vector_expr_context : public expression_context {
         void
         >::type
         operator()(const FunCall &expr, vector_expr_context &ctx) const {
-            ctx.os << boost::proto::value(boost::proto::child_c<0>(expr)).name() << "( ";
+            ctx.src << boost::proto::value(boost::proto::child_c<0>(expr)).name() << "( ";
             boost::fusion::for_each(
                     boost::fusion::pop_front(expr), do_eval(ctx)
                     );
-            ctx.os << " )";
+            ctx.src << " )";
         }
 
         template <class FunCall>
@@ -1571,11 +1496,11 @@ struct vector_expr_context : public expression_context {
         void
         >::type
         operator()(const FunCall &expr, vector_expr_context &ctx) const {
-            ctx.os << ctx.prefix << "_func_" << ++ctx.fun_idx << "( ";
+            ctx.src << ctx.prefix << "_func_" << ++ctx.fun_idx << "( ";
             boost::fusion::for_each(
                     boost::fusion::pop_front(expr), do_eval(ctx)
                     );
-            ctx.os << " )";
+            ctx.src << " )";
         }
     };
 
@@ -1589,8 +1514,8 @@ struct vector_expr_context : public expression_context {
             std::ostringstream prm_name;
             prm_name << ctx.prefix << "_" << ++ctx.prm_idx;
 
-            ctx.os << traits::get_partial_vector_expr(
-                term, ctx.device, prm_name.str(), ctx.state);
+            traits::get_partial_vector_expr(ctx.src, term, ctx.queue,
+                    prm_name.str(), ctx.state);
         }
 
         template <typename Term>
@@ -1599,19 +1524,19 @@ struct vector_expr_context : public expression_context {
             std::ostringstream prm_name;
             prm_name << ctx.prefix << "_" << ++ctx.prm_idx;
 
-            ctx.os << traits::get_partial_vector_expr(
-                    boost::proto::value(term), ctx.device, prm_name.str(), ctx.state);
+            traits::get_partial_vector_expr(ctx.src, boost::proto::value(term),
+                    ctx.queue, prm_name.str(), ctx.state);
         }
     };
 };
 
 struct declare_expression_parameter : expression_context {
 
-    declare_expression_parameter(std::ostream &os, const cl::Device &device,
-            const std::string &prefix,
+    declare_expression_parameter(backend::source_generator &src,
+            const backend::command_queue &queue, const std::string &prefix,
             kernel_generator_state_ptr state
             )
-        : expression_context(os, device, prefix, state)
+        : expression_context(src, queue, prefix, state)
     {}
 
     template <typename Term>
@@ -1620,8 +1545,8 @@ struct declare_expression_parameter : expression_context {
         std::ostringstream prm_name;
         prm_name << prefix << "_" << ++prm_idx;
 
-        os << traits::get_kernel_param_declaration(
-                term, device, prm_name.str(), state);
+        traits::get_kernel_param_declaration(src, term, queue,
+                prm_name.str(), state);
     }
 
     template <typename Term>
@@ -1630,40 +1555,38 @@ struct declare_expression_parameter : expression_context {
         std::ostringstream prm_name;
         prm_name << prefix << "_" << ++prm_idx;
 
-        os << traits::get_kernel_param_declaration(
-                boost::proto::value(term), device, prm_name.str(), state);
+        traits::get_kernel_param_declaration(src, boost::proto::value(term),
+                queue, prm_name.str(), state);
     }
 };
 
 struct set_expression_argument {
-    cl::Kernel &krn;
-    unsigned dev, &pos;
+    backend::kernel &krn;
+    unsigned part;
     size_t part_start;
     kernel_generator_state_ptr state;
 
-    set_expression_argument(cl::Kernel &krn, unsigned dev, unsigned &pos, size_t part_start,
+    set_expression_argument(backend::kernel &krn, unsigned part, size_t part_start,
             kernel_generator_state_ptr state
             )
-        : krn(krn), dev(dev), pos(pos), part_start(part_start), state(state)
+        : krn(krn), part(part), part_start(part_start), state(state)
     {}
 
     template <typename Term>
     typename std::enable_if<traits::terminal_is_value<Term>::value, void>::type
     operator()(const Term &term) const {
-        traits::set_kernel_args(
-                term, krn, dev, part_start, pos, state);
+        traits::set_kernel_args(term, krn, part, part_start, state);
     }
 
     template <typename Term>
     typename std::enable_if<!traits::terminal_is_value<Term>::value, void>::type
     operator()(const Term &term) const {
-        traits::set_kernel_args(
-                boost::proto::value(term), krn, dev, part_start, pos, state);
+        traits::set_kernel_args(boost::proto::value(term), krn, part, part_start, state);
     }
 };
 
 struct get_expression_properties {
-    mutable std::vector<cl::CommandQueue> queue;
+    mutable std::vector<backend::command_queue> queue;
     mutable std::vector<size_t> part;
     mutable size_t size;
 
@@ -2047,15 +1970,7 @@ struct return_type {
 
 
 // Kernel cache (is a map from context handle to a kernel)
-struct kernel_cache_entry {
-    cl::Kernel kernel;
-    size_t     wgsize;
-
-    kernel_cache_entry(const cl::Kernel &kernel, size_t wgsize)
-        : kernel(kernel), wgsize(wgsize)
-    {}
-};
-
+typedef backend::kernel kernel_cache_entry;
 struct kernel_cache;
 
 template <bool dummy = true>
@@ -2069,14 +1984,14 @@ struct cache_register {
     }
 
     static void clear();
-    static void erase(cl_context key);
+    static void erase(backend::kernel_cache_key key);
 };
 
 template <bool dummy>
 std::deque<kernel_cache*> cache_register<dummy>::caches;
 
 struct kernel_cache {
-    typedef std::map<cl_context, kernel_cache_entry> store_type;
+    typedef std::map<backend::kernel_cache_key, kernel_cache_entry> store_type;
 
     store_type store;
 
@@ -2102,7 +2017,7 @@ struct kernel_cache {
         store.clear();
     }
 
-    void erase(cl_context key) {
+    void erase(backend::kernel_cache_key key) {
         store.erase(key);
     }
 };
@@ -2114,7 +2029,7 @@ void cache_register<dummy>::clear() {
 }
 
 template <bool dummy>
-void cache_register<dummy>::erase(cl_context key) {
+void cache_register<dummy>::erase(backend::kernel_cache_key key) {
     for(auto c = caches.begin(); c != caches.end(); ++c)
         (*c)->erase(key);
 }
@@ -2124,88 +2039,68 @@ void cache_register<dummy>::erase(cl_context key) {
 //---------------------------------------------------------------------------
 template <class OP, class LHS, class RHS>
 void assign_expression(LHS &lhs, const RHS &rhs,
-        const std::vector<cl::CommandQueue> &queue,
+        const std::vector<backend::command_queue> &queue,
         const std::vector<size_t> &part
         )
 {
     static kernel_cache cache;
 
     for(unsigned d = 0; d < queue.size(); d++) {
-        cl::Context context = qctx(queue[d]);
-        cl::Device  device  = qdev(queue[d]);
+        auto key    = backend::cache_key(queue[d]);
+        auto kernel = cache.find(key);
 
-        auto kernel = cache.find(context());
+        backend::select_context(queue[d]);
 
         if (kernel == cache.end()) {
-            std::ostringstream source;
+            backend::source_generator source(queue[d]);
 
-            source << standard_kernel_header(device);
-
-            output_terminal_preamble termpream(source, device, "prm", empty_state());
+            output_terminal_preamble termpream(source, queue[d], "prm", empty_state());
 
             boost::proto::eval(boost::proto::as_child(lhs), termpream);
             boost::proto::eval(boost::proto::as_child(rhs), termpream);
 
-            source << "kernel void vexcl_vector_kernel(\n"
-                   "\t" << type_name<size_t>() << " n";
+            source.kernel("vexcl_vector_kernel")
+                .open("(")
+                    .parameter<size_t>("n");
 
-            declare_expression_parameter declare(source, device, "prm", empty_state());
+            declare_expression_parameter declare(source, queue[d], "prm", empty_state());
 
             extract_terminals()(boost::proto::as_child(lhs), declare);
             extract_terminals()(boost::proto::as_child(rhs), declare);
 
-            source << "\n)\n{\n";
+            source.close(")")
+                .open("{")
+                    .grid_stride_loop()
+                    .open("{");
 
-            if ( is_cpu(device) ) {
-                source <<
-                    "\tsize_t chunk_size  = (n + get_global_size(0) - 1) / get_global_size(0);\n"
-                    "\tsize_t chunk_start = get_global_id(0) * chunk_size;\n"
-                    "\tsize_t chunk_end   = min(n, chunk_start + chunk_size);\n"
-                    "\tfor(size_t idx = chunk_start; idx < chunk_end; ++idx) {\n";
-            } else {
-                source <<
-                    "\tfor(size_t idx = get_global_id(0); idx < n; idx += get_global_size(0)) {\n";
-            }
-
-            output_local_preamble loc_init(source, device, "prm", empty_state());
+            output_local_preamble loc_init(source, queue[d], "prm", empty_state());
             boost::proto::eval(boost::proto::as_child(lhs), loc_init);
             boost::proto::eval(boost::proto::as_child(rhs), loc_init);
 
-            vector_expr_context expr_ctx(source, device, "prm", empty_state());
+            vector_expr_context expr_ctx(source, queue[d], "prm", empty_state());
 
-            source << "\t\t";
-
+            source.new_line();
             boost::proto::eval(boost::proto::as_child(lhs), expr_ctx);
             source << " " << OP::string() << " ";
             boost::proto::eval(boost::proto::as_child(rhs), expr_ctx);
 
-            source << ";\n\t}\n}\n";
+            source << ";";
+            source.close("}").close("}");
 
-            auto program = build_sources(context, source.str());
+            backend::kernel krn(queue[d], source.str(), "vexcl_vector_kernel");
 
-            cl::Kernel krn(program, "vexcl_vector_kernel");
-            size_t wgs = kernel_workgroup_size(krn, device);
-
-            kernel = cache.insert(std::make_pair(
-                        context(), kernel_cache_entry(krn, wgs)
-                        )).first;
+            kernel = cache.insert(std::make_pair(key, krn)).first;
         }
 
         if (size_t psize = part[d + 1] - part[d]) {
-            size_t w_size = kernel->second.wgsize;
-            size_t g_size = num_workgroups(device) * w_size;
+            kernel->second.push_arg(psize);
 
-            unsigned pos = 0;
-            kernel->second.kernel.setArg(pos++, psize);
-
-            set_expression_argument setarg(kernel->second.kernel, d, pos, part[d], empty_state());
+            set_expression_argument setarg(kernel->second, d, part[d], empty_state());
 
             extract_terminals()( boost::proto::as_child(lhs), setarg);
             extract_terminals()( boost::proto::as_child(rhs), setarg);
 
-            queue[d].enqueueNDRangeKernel(
-                    kernel->second.kernel, cl::NullRange, g_size, w_size
-                    );
+            kernel->second(queue[d]);
         }
     }
 }
@@ -2237,11 +2132,11 @@ template <class OP, class LHS, class RHS>
 struct subexpression_assigner {
     const LHS &lhs;
     const RHS &rhs;
-    const std::vector<cl::CommandQueue> &queue;
+    const std::vector<backend::command_queue> &queue;
     const std::vector<size_t> &part;
 
     subexpression_assigner(LHS &lhs, const RHS &rhs,
-            const std::vector<cl::CommandQueue> &queue,
+            const std::vector<backend::command_queue> &queue,
             const std::vector<size_t> &part
             )
         : lhs(lhs), rhs(rhs), queue(queue), part(part) {}
@@ -2265,11 +2160,11 @@ struct preamble_constructor {
     mutable detail::output_terminal_preamble rhs_ctx;
 
     preamble_constructor(const LHS &lhs, const RHS &rhs,
-            std::ostream &source, const cl::Device &device
+            backend::source_generator &source, const backend::command_queue &queue
             )
         : lhs(lhs), rhs(rhs), state(empty_state()),
-          lhs_ctx(source, device, "lhs", state),
-          rhs_ctx(source, device, "rhs", state)
+          lhs_ctx(source, queue, "lhs", state),
+          rhs_ctx(source, queue, "rhs", state)
     { }
 
     template <size_t I>
@@ -2289,10 +2184,10 @@ struct parameter_declarator {
     mutable detail::declare_expression_parameter rhs_ctx;
 
     parameter_declarator(const LHS &lhs, const RHS &rhs,
-            std::ostream &source, const cl::Device &device)
+            backend::source_generator &source, const backend::command_queue &queue)
         : lhs(lhs), rhs(rhs), state(empty_state()),
-          lhs_ctx(source, device, "lhs", state),
-          rhs_ctx(source, device, "rhs", state)
+          lhs_ctx(source, queue, "lhs", state),
+          rhs_ctx(source, queue, "rhs", state)
     { }
 
     template <size_t I>
@@ -2307,17 +2202,17 @@ struct expression_init {
     const LHS &lhs;
     const RHS &rhs;
 
-    std::ostream &source;
+    backend::source_generator &source;
 
     kernel_generator_state_ptr state;
     mutable detail::output_local_preamble rhs_pre;
     mutable detail::vector_expr_context   rhs_ctx;
 
     expression_init(const LHS &lhs, const RHS &rhs,
-            std::ostream &source, const cl::Device &device)
+            backend::source_generator &source, const backend::command_queue &queue)
         : lhs(lhs), rhs(rhs), source(source), state(empty_state()),
-          rhs_pre(source, device, "rhs", state),
-          rhs_ctx(source, device, "rhs", state)
+          rhs_pre(source, queue, "rhs", state),
+          rhs_ctx(source, queue, "rhs", state)
     { }
 
     template <size_t I>
@@ -2328,10 +2223,10 @@ struct expression_init {
             typename return_type<decltype(subexpression<I>::get(lhs))>::type
             RT;
 
-        source << "\t\t" << type_name<RT>() << " buf_" << I + 1 << " = ";
+        source.new_line() << type_name<RT>() << " buf_" << I + 1 << " = ";
 
         boost::proto::eval(subexpression<I>::get(rhs), rhs_ctx);
-        source << ";\n";
+        source << ";";
     }
 };
 
@@ -2339,25 +2234,25 @@ template <class OP, class LHS>
 struct expression_finalize {
     const LHS &lhs;
 
-    std::ostream &source;
+    backend::source_generator &source;
 
     kernel_generator_state_ptr state;
     mutable detail::output_local_preamble lhs_pre;
     mutable detail::vector_expr_context   lhs_ctx;
 
     expression_finalize(const LHS &lhs,
-            std::ostream &source, const cl::Device &device)
+            backend::source_generator &source, const backend::command_queue &queue)
         : lhs(lhs), source(source), state(empty_state()),
-          lhs_pre(source, device, "lhs", state),
-          lhs_ctx(source, device, "lhs", state)
+          lhs_pre(source, queue, "lhs", state),
+          lhs_ctx(source, queue, "lhs", state)
     { }
 
     template <size_t I>
     void apply() const {
         boost::proto::eval(subexpression<I>::get(lhs), lhs_pre);
-        source << "\t\t";
+        source.new_line();
         boost::proto::eval(subexpression<I>::get(lhs), lhs_ctx);
-        source << " " << OP::string() << " buf_" << I + 1 << ";\n";
+        source << " " << OP::string() << " buf_" << I + 1 << ";";
     }
 };
 
@@ -2369,8 +2264,8 @@ struct kernel_arg_setter {
     mutable detail::set_expression_argument ctx;
 
     kernel_arg_setter(const LHS &lhs, const RHS &rhs,
-            cl::Kernel &krn, unsigned dev, size_t offset, unsigned &pos)
-        : lhs(lhs), rhs(rhs), ctx(krn, dev, pos, offset, empty_state())
+            backend::kernel &krn, unsigned part, size_t offset)
+        : lhs(lhs), rhs(rhs), ctx(krn, part, offset, empty_state())
     { }
 
     template <size_t I>
@@ -2382,7 +2277,7 @@ struct kernel_arg_setter {
 
 template <class OP, class LHS, class RHS>
 void assign_multiexpression( LHS &lhs, const RHS &rhs,
-        const std::vector<cl::CommandQueue> &queue,
+        const std::vector<backend::command_queue> &queue,
         const std::vector<size_t> &part
         )
 {
@@ -2403,7 +2298,7 @@ void assign_multiexpression( LHS &lhs, const RHS &rhs,
 #endif
             (N::value == 1) ||
             std::any_of(queue.begin(), queue.end(),
-                [](const cl::CommandQueue &q) { return is_cpu(qdev(q)); })
+                [](const backend::command_queue &q) { return backend::is_cpu(q); })
        )
     {
         static_for<0, N::value>::loop(
@@ -2413,60 +2308,47 @@ void assign_multiexpression( LHS &lhs, const RHS &rhs,
     }
 
     for(unsigned d = 0; d < queue.size(); d++) {
-        cl::Context context = qctx(queue[d]);
-        cl::Device  device  = qdev(queue[d]);
+        auto key    = backend::cache_key(queue[d]);
+        auto kernel = cache.find(key);
 
-        auto kernel = cache.find( context() );
+        backend::select_context(queue[d]);
 
         if (kernel == cache.end()) {
-            std::ostringstream source;
-
-            source << standard_kernel_header(device);
+            backend::source_generator source(queue[d]);
 
             static_for<0, N::value>::loop(
-                    preamble_constructor<LHS, RHS>(lhs, rhs, source, device)
+                    preamble_constructor<LHS, RHS>(lhs, rhs, source, queue[d])
                     );
 
-            source << "kernel void vexcl_multivector_kernel(\n\t"
-                   << type_name<size_t>() << " n";
+            source.kernel("vexcl_multivector_kernel")
+                .open("(")
+                    .parameter<size_t>("n");
 
             static_for<0, N::value>::loop(
-                    parameter_declarator<LHS, RHS>(lhs, rhs, source, device)
+                    parameter_declarator<LHS, RHS>(lhs, rhs, source, queue[d])
                     );
 
-            source <<
-                "\n)\n{\n"
-                "\tfor(size_t idx = get_global_id(0); idx < n; idx += get_global_size(0)) {\n";
+            source.close(")").open("{")
+                .grid_stride_loop().open("{");
 
-            static_for<0, N::value>::loop(expression_init<LHS, RHS>(lhs, rhs, source, device));
-            static_for<0, N::value>::loop(expression_finalize<OP, LHS>(lhs, source, device));
+            static_for<0, N::value>::loop(expression_init<LHS, RHS>(lhs, rhs, source, queue[d]));
+            static_for<0, N::value>::loop(expression_finalize<OP, LHS>(lhs, source, queue[d]));
 
-            source << "\t}\n}\n";
+            source.close("}").close("}");
 
-            auto program = build_sources(context, source.str());
+            backend::kernel krn(queue[d], source.str(), "vexcl_multivector_kernel");
 
-            cl::Kernel krn(program, "vexcl_multivector_kernel");
-            size_t wgs = kernel_workgroup_size(krn, device);
-
-            kernel = cache.insert(std::make_pair(
-                        context(), kernel_cache_entry(krn, wgs)
-                        )).first;
+            kernel = cache.insert(std::make_pair(key, krn)).first;
         }
 
         if (size_t psize = part[d + 1] - part[d]) {
-            size_t w_size = kernel->second.wgsize;
-            size_t g_size = num_workgroups(device) * w_size;
-
-            unsigned pos = 0;
-            kernel->second.kernel.setArg(pos++, psize);
+            kernel->second.push_arg(psize);
 
             static_for<0, N::value>::loop(
-                    kernel_arg_setter<LHS, RHS>(lhs, rhs, kernel->second.kernel, d, part[d], pos)
+                    kernel_arg_setter<LHS, RHS>(lhs, rhs, kernel->second, d, part[d])
                     );
 
-            queue[d].enqueueNDRangeKernel(
-                    kernel->second.kernel, cl::NullRange, g_size, w_size
-                    );
+            kernel->second(queue[d]);
         }
     }
 }
@@ -2483,28 +2365,24 @@ struct expression_tuple {
     expression_tuple(const LHS &lhs) : lhs(lhs) {}
 
 #ifdef DOXYGEN
-#  define ASSIGNMENT(cop, op) \
-        /** \brief Multiexpression assignment.
-         \details All operations are delegated to components of the multivector.
-         */ \
-        template <class RHS> \
-        expression_tuple& operator cop(const RHS &rhs);
+#define ASSIGNMENT(cop, op)                                                    \
+  /** \brief Multiexpression assignment.                                       \
+   \details All operations are delegated to components of the multivector.     \
+   */                                                                          \
+  template <class RHS> expression_tuple &operator cop(const RHS & rhs);
 #else
-#  define ASSIGNMENT(cop, op) \
-    template <class RHS> \
-    typename std::enable_if< \
-        boost::proto::matches< \
-            typename boost::proto::result_of::as_expr<RHS>::type, \
-            multivector_expr_grammar \
-        >::value || is_tuple<RHS>::value, \
-        const expression_tuple& \
-    >::type \
-    operator cop(const RHS &rhs) const { \
-        detail::get_expression_properties prop; \
-        detail::extract_terminals()(detail::subexpression<0>::get(lhs), prop); \
-        detail::assign_multiexpression<op>(lhs, rhs, prop.queue, prop.part); \
-        return *this; \
-    }
+#define ASSIGNMENT(cop, op)                                                    \
+  template <class RHS>                                                         \
+          typename std::enable_if <                                            \
+          boost::proto::matches<                                               \
+              typename boost::proto::result_of::as_expr<RHS>::type,            \
+              multivector_expr_grammar>::value || is_tuple<RHS>::value,        \
+      const expression_tuple & > ::type operator cop(const RHS & rhs) const {  \
+    detail::get_expression_properties prop;                                    \
+    detail::extract_terminals()(detail::subexpression<0>::get(lhs), prop);     \
+    detail::assign_multiexpression<op>(lhs, rhs, prop.queue, prop.part);       \
+    return *this;                                                              \
+  }
 #endif
 
     ASSIGNMENT(=,   assign::SET)
@@ -2553,12 +2431,13 @@ tie(const Expr&... expr) {
 #define PRINT_TYPES(z, n, data) const Expr ## n &
 #define PRINT_PARAM(z, n, data) const Expr ## n &expr ## n
 
-#define TIE_VECTORS(z, n, data) \
-template<BOOST_PP_ENUM_PARAMS(n, class Expr)> \
-expression_tuple< std::tuple<BOOST_PP_ENUM(n, PRINT_TYPES, ~)> > \
-tie( BOOST_PP_ENUM(n, PRINT_PARAM, ~) ) { \
-    return expression_tuple< std::tuple<BOOST_PP_ENUM(n, PRINT_TYPES, ~)> >( std::tie(BOOST_PP_ENUM_PARAMS(n, expr)) ); \
-}
+#define TIE_VECTORS(z, n, data)                                                \
+  template<BOOST_PP_ENUM_PARAMS(n, class Expr)>                                \
+  expression_tuple<std::tuple<BOOST_PP_ENUM(n, PRINT_TYPES, ~)> > tie(         \
+      BOOST_PP_ENUM(n, PRINT_PARAM, ~)) {                                      \
+    return expression_tuple<std::tuple<BOOST_PP_ENUM(n, PRINT_TYPES, ~)> >(    \
+        std::tie(BOOST_PP_ENUM_PARAMS(n, expr)));                              \
+  }
 
 BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, TIE_VECTORS, ~)
 
@@ -2574,14 +2453,14 @@ inline void purge_kernel_caches() {
 }
 
 /// Clears cached OpenCL kernels, allowing to release OpenCL contexts.
-inline void purge_kernel_caches(const cl::Context &context) {
-    detail::cache_register<>::erase(context());
+inline void purge_kernel_caches(backend::kernel_cache_key key) {
+    detail::cache_register<>::erase(key);
 }
 
 /// Clears cached OpenCL kernels, allowing to release OpenCL contexts.
-inline void purge_kernel_caches(const std::vector<cl::CommandQueue> &queue) {
+inline void purge_kernel_caches(const std::vector<backend::command_queue> &queue) {
     for(auto q = queue.begin(); q != queue.end(); ++q)
-        detail::cache_register<>::erase( qctx(*q)() );
+        detail::cache_register<>::erase( backend::cache_key(*q) );
 }
 
 } // namespace vex;

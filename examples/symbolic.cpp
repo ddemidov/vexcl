@@ -3,8 +3,12 @@
 #include <array>
 #include <functional>
 
-//#define VEXCL_SHOW_KERNELS
-#include <vexcl/vexcl.hpp>
+#include <vexcl/backend.hpp>
+#include <vexcl/devlist.hpp>
+#include <vexcl/vector.hpp>
+#include <vexcl/multivector.hpp>
+#include <vexcl/generator.hpp>
+#include <vexcl/element_index.hpp>
 
 // http://headmyshoulder.github.com/odeint-v2
 #include <boost/numeric/odeint.hpp>
@@ -50,7 +54,7 @@ int main( int argc , char **argv )
 
     n = argc > 1 ? atoi( argv[1] ) : 1024;
 
-    vex::Context ctx( vex::Filter::Exclusive( vex::Filter::DoublePrecision && vex::Filter::Env ) );
+    vex::Context ctx( vex::Filter::DoublePrecision && vex::Filter::Env );
     cout << ctx << endl;
 
     // Custom kernel body will be recorded here:

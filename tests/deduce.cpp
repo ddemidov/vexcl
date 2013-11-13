@@ -3,7 +3,9 @@
 #include <vexcl/vector.hpp>
 #include <vexcl/element_index.hpp>
 #include <vexcl/mba.hpp>
+#ifdef RESOLVED_70
 #include <vexcl/spmat.hpp>
+#endif
 #include <vexcl/tagged_terminal.hpp>
 #include <vexcl/temporary.hpp>
 #include <vexcl/cast.hpp>
@@ -47,6 +49,7 @@ BOOST_AUTO_TEST_CASE(terminals)
         check<float>( (*surf)(x, y) );
     }
 
+#ifdef RESOLVED_70
     {
         vex::SpMatCCSR<double> *A = 0;
         check<double>( (*A) * x );
@@ -58,6 +61,7 @@ BOOST_AUTO_TEST_CASE(terminals)
         vex::SpMat<double> *A = 0;
         check<double>( vex::make_inline( (*A) * x1 ) );
     }
+#endif
 
     check<double>( vex::tag<1>(x) );
 
@@ -67,7 +71,7 @@ BOOST_AUTO_TEST_CASE(terminals)
     }
 
     {
-        std::vector<cl::CommandQueue> q1(1, ctx.queue(0));
+        std::vector<vex::command_queue> q1(1, ctx.queue(0));
         vex::vector<int> x1(q1, n);
         vex::slicer<1> slice(vex::extents[n]);
         check<int>( slice[vex::range(0, 2, n)](x1) );
@@ -134,7 +138,7 @@ BOOST_AUTO_TEST_CASE(reduced_view)
 {
     const size_t n = 1024;
 
-    std::vector<cl::CommandQueue> q1(1, ctx.queue(0));
+    std::vector<vex::command_queue> q1(1, ctx.queue(0));
     vex::vector<double> x(q1, n);
 
     vex::slicer<2> s(vex::extents[32][32]);

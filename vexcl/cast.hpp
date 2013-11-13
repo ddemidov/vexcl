@@ -87,79 +87,67 @@ struct proto_terminal_is_value< cast_terminal > : std::true_type {};
 
 template <typename T, class Expr>
 struct terminal_preamble< casted_expession<T, Expr> > {
-    static std::string get(const casted_expession<T, Expr> &term,
-            const cl::Device &dev, const std::string &prm_name,
+    static void get(backend::source_generator &src,
+            const casted_expession<T, Expr> &term,
+            const backend::command_queue &queue, const std::string &prm_name,
             detail::kernel_generator_state_ptr state)
     {
-        std::ostringstream s;
-
-        detail::output_terminal_preamble termpream(s, dev, prm_name, state);
+        detail::output_terminal_preamble termpream(src, queue, prm_name, state);
         boost::proto::eval(boost::proto::as_child(term.expr), termpream);
-
-        return s.str();
     }
 };
 
 template <typename T, class Expr>
 struct kernel_param_declaration< casted_expession<T, Expr> > {
-    static std::string get(const casted_expession<T, Expr> &term,
-            const cl::Device &dev, const std::string &prm_name,
+    static void get(backend::source_generator &src,
+            const casted_expession<T, Expr> &term,
+            const backend::command_queue &queue, const std::string &prm_name,
             detail::kernel_generator_state_ptr state)
     {
-        std::ostringstream s;
-
-        detail::declare_expression_parameter declare(s, dev, prm_name, state);
+        detail::declare_expression_parameter declare(src, queue, prm_name, state);
         detail::extract_terminals()(boost::proto::as_child(term.expr),  declare);
-
-        return s.str();
     }
 };
 
 template <typename T, class Expr>
 struct local_terminal_init< casted_expession<T, Expr> > {
-    static std::string get(const casted_expession<T, Expr> &term,
-            const cl::Device &dev, const std::string &prm_name,
+    static void get(backend::source_generator &src,
+            const casted_expession<T, Expr> &term,
+            const backend::command_queue &queue, const std::string &prm_name,
             detail::kernel_generator_state_ptr state)
     {
-        std::ostringstream s;
-
-        detail::output_local_preamble init_ctx(s, dev, prm_name, state);
+        detail::output_local_preamble init_ctx(src, queue, prm_name, state);
         boost::proto::eval(boost::proto::as_child(term.expr), init_ctx);
-
-        return s.str();
     }
 };
 
 template <typename T, class Expr>
 struct partial_vector_expr< casted_expession<T, Expr> > {
-    static std::string get(const casted_expession<T, Expr> &term,
-            const cl::Device &dev, const std::string &prm_name,
+    static void get(backend::source_generator &src,
+            const casted_expession<T, Expr> &term,
+            const backend::command_queue &queue, const std::string &prm_name,
             detail::kernel_generator_state_ptr state)
     {
-        std::ostringstream s;
-
-        detail::vector_expr_context expr_ctx(s, dev, prm_name, state);
+        detail::vector_expr_context expr_ctx(src, queue, prm_name, state);
         boost::proto::eval(boost::proto::as_child(term.expr), expr_ctx);
-
-        return s.str();
     }
 };
 
 template <typename T, class Expr>
 struct kernel_arg_setter< casted_expession<T, Expr> > {
     static void set(const casted_expession<T, Expr> &term,
-            cl::Kernel &kernel, unsigned device, size_t index_offset,
-            unsigned &position, detail::kernel_generator_state_ptr state)
+            backend::kernel &kernel, unsigned device, size_t index_offset,
+            detail::kernel_generator_state_ptr state)
     {
-        detail::set_expression_argument setarg(kernel, device, position, index_offset, state);
-        detail::extract_terminals()( boost::proto::as_child(term.expr),  setarg);
+        detail::set_expression_argument setarg(kernel, device, index_offset, state);
+        detail::extract_terminals()( boost::proto::as_child(term.expr), setarg);
     }
 };
 
 template <typename T, class Expr>
 struct expression_properties< casted_expession<T, Expr> > {
     static void get(const casted_expession<T, Expr> &term,
-            std::vector<cl::CommandQueue> &queue_list,
+            std::vector<backend::command_queue> &queue_list,
             std::vector<size_t> &partition,
             size_t &size
             )

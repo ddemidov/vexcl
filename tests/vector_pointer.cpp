@@ -12,7 +12,7 @@ BOOST_AUTO_TEST_CASE(nbody)
 {
     const size_t n = 1024;
 
-    std::vector<cl::CommandQueue> queue(1, ctx.queue(0));
+    std::vector<vex::command_queue> queue(1, ctx.queue(0));
 
     std::vector<double> X = random_vector<double>(n);
 
@@ -40,7 +40,7 @@ BOOST_AUTO_TEST_CASE(manual_stencil)
 {
     const size_t n = 1024;
 
-    std::vector<cl::CommandQueue> queue(1, ctx.queue(0));
+    std::vector<vex::command_queue> queue(1, ctx.queue(0));
 
     std::vector<double> X = random_vector<double>(n);
 
