@@ -49,6 +49,9 @@ typedef cl_command_queue_properties command_queue_properties;
 typedef cl_device_id                device_id;
 typedef cl_context                  kernel_cache_key;
 
+inline void select_context(const cl::CommandQueue&) {
+}
+
 inline cl_device_id get_device_id(const cl::CommandQueue &q) {
     return q.getInfo<CL_QUEUE_DEVICE>()();
 }

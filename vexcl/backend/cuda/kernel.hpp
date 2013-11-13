@@ -136,8 +136,6 @@ class kernel {
         }
 
         void operator()(const command_queue &q) {
-            q.context().set_current();
-
             prm_addr.clear();
             for(auto p = prm_pos.begin(); p != prm_pos.end(); ++p)
                 prm_addr.push_back(stack.data() + *p);
@@ -164,14 +162,8 @@ class kernel {
         }
 
         /// Standard number of workgroups to launch on a device.
-        static inline size_t num_workgroups(const command_queue &) {
-            // This is a simple heuristic-based estimate. More advanced technique may
-            // be employed later.
-            /* TODO:
-            cl::Device d = q.getInfo<CL_QUEUE_DEVICE>();
-            return 4 * d.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>();
-            */
-            return 64;
+        static inline size_t num_workgroups(const command_queue &q) {
+            return 4 * q.device().multiprocessor_count();
         }
     private:
         context ctx;
@@ -186,27 +178,31 @@ class kernel {
         std::vector<size_t> prm_pos;
         std::vector<void*>  prm_addr;
 
-        void get_launch_cfg(const command_queue &queue, std::function<size_t(size_t)> /*smem*/) {
-            /* TODO
-            cl::Device dev = queue.getInfo<CL_QUEUE_DEVICE>();
+        size_t max_threads_per_block() const {
+            int n;
+            cuda_check( cuFuncGetAttribute(&n, CU_FUNC_ATTRIBUTE_MAX_THREADS_PER_BLOCK, K) );
+            return n;
+        }
 
-            if ( is_cpu(queue) ) {
-                w_size = 1;
-            } else {
-                // Select workgroup size that would fit into the device.
-                w_size = dev.getInfo<CL_DEVICE_MAX_WORK_ITEM_SIZES>()[0];
+        size_t shared_size_bytes() const {
+            int n;
+            cuda_check( cuFuncGetAttribute(&n, CU_FUNC_ATTRIBUTE_SHARED_SIZE_BYTES, K) );
+            return n;
+        }
 
-                size_t max_ws   = K.getWorkGroupInfo<CL_KERNEL_WORK_GROUP_SIZE>(dev);
-                size_t max_smem = static_cast<size_t>(dev.getInfo<CL_DEVICE_LOCAL_MEM_SIZE>())
-                                - static_cast<size_t>(K.getWorkGroupInfo<CL_KERNEL_LOCAL_MEM_SIZE>(dev));
+        void get_launch_cfg(const command_queue &q, std::function<size_t(size_t)> smem) {
+            // Select workgroup size that would fit into the device.
+            w_size = q.device().max_threads_per_block();
 
-                // Reduce workgroup size until it satisfies resource requirements:
-                while( (w_size > max_ws) || (smem(w_size) > max_smem) )
-                    w_size /= 2;
-            }
-            */
-            w_size = 64;
-            g_size = num_workgroups(queue);
+            size_t max_ws   = max_threads_per_block();
+            size_t max_smem = q.device().max_shared_memory_per_block()
+                            - shared_size_bytes();
+
+            // Reduce workgroup size until it satisfies resource requirements:
+            while( (w_size > max_ws) || (smem(w_size) > max_smem) )
+                w_size /= 2;
+
+            g_size = num_workgroups(q);
         }
 };
 

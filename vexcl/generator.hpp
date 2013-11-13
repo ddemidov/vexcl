@@ -516,6 +516,7 @@ class Kernel {
 
                 source.close("}").close("}");
 
+                backend::select_context(*q);
                 cache.insert(std::make_pair(
                             backend::cache_key(*q),
                             backend::kernel(*q, source.str(), name.c_str())

@@ -145,6 +145,8 @@ struct SpMatCSR : public sparse_matrix {
         auto key    = backend::cache_key(queue);
         auto kernel = cache.find(key);
 
+        backend::select_context(queue);
+
         if (kernel == cache.end()) {
             backend::source_generator source(queue);
 

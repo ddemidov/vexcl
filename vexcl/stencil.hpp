@@ -280,7 +280,7 @@ class stencil : private stencil_base<T> {
                 std::initializer_list<T> list, unsigned center
                 )
             : stencil_base<T>(queue, list.size(), center, list.begin(), list.end()),
-              conv(queue.size()), loc_s(queue.size()), loc_x(queue.size())
+              conv(queue.size()), smem(queue.size())
         {
             init(list.size());
         }
@@ -360,6 +360,8 @@ const detail::kernel_cache_entry& stencil<T>::slow_conv(const backend::command_q
     auto key    = backend::cache_key(queue);
     auto kernel = cache.find(key);
 
+    backend::select_context(queue);
+
     if (kernel == cache.end()) {
         backend::source_generator source(queue);
 
@@ -408,6 +410,8 @@ const detail::kernel_cache_entry& stencil<T>::fast_conv(const backend::command_q
 
     auto key    = backend::cache_key(queue);
     auto kernel = cache.find(key);
+
+    backend::select_context(queue);
 
     if (kernel == cache.end()) {
         backend::source_generator source(queue);
@@ -608,6 +612,8 @@ void StencilOperator<T, width, center, Impl>::convolve(
     Base::exchange_halos(x);
 
     for(unsigned d = 0; d < queue.size(); d++) {
+        backend::select_context(queue[d]);
+
         auto key    = backend::cache_key(queue[d]);
         auto kernel = cache.find(key);
 

@@ -48,17 +48,25 @@ inline CUmodule build_sources(
     std::cout << source << std::endl;
 #endif
 
+    auto cc = queue.device().compute_capability();
+    std::ostringstream fullsrc;
+    fullsrc << "// Device:  " << queue.device().name() << "\n"
+            << "// CC:      " << std::get<0>(cc) << "." << std::get<1>(cc) << "\n"
+            << "// options: " << options << "\n"
+            << source;
+
     // Write source to a .cu file
-    std::string hash = sha1( source );
+    std::string hash = sha1( fullsrc.str() );
     std::string basename = program_binaries_path(hash, true) + "kernel";
     std::string ptxfile  = basename + ".ptx";
 
     if ( !boost::filesystem::exists(ptxfile) ) {
         std::string cufile = basename + ".cu";
 
+
         {
             std::ofstream f(basename + ".cu");
-            f << source;
+            f << fullsrc.str();
         }
 
         // Compile the source to ptx.
@@ -66,9 +74,14 @@ inline CUmodule build_sources(
         // TODO: arch, options
         (void)queue;
         (void)options;
-        cmdline << "nvcc -ptx -arch=sm_13 -o " << ptxfile << " " << cufile;
+        auto cc = queue.device().compute_capability();
+        cmdline
+            << "nvcc -ptx -O3"
+            << " -arch=sm_" << std::get<0>(cc) << std::get<1>(cc)
+            << " " << options
+            << " -o " << ptxfile << " " << cufile;
         if (0 != system(cmdline.str().c_str()) ) {
-            std::cerr << source << std::endl;
+            std::cerr << fullsrc.str() << std::endl;
             throw std::runtime_error("nvcc invocation failed");
         }
     }

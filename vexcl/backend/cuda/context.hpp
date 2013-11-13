@@ -82,6 +82,33 @@ class device {
             return name;
         }
 
+        std::tuple<int, int> compute_capability() const {
+            int major, minor;
+
+            cuda_check( cuDeviceGetAttribute(&major, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR, d) );
+            cuda_check( cuDeviceGetAttribute(&minor, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR, d) );
+
+            return std::make_tuple(major, minor);
+        }
+
+        size_t multiprocessor_count() const {
+            int n;
+            cuda_check( cuDeviceGetAttribute(&n, CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT, d) );
+            return n;
+        }
+
+        size_t max_threads_per_block() const {
+            int n;
+            cuda_check( cuDeviceGetAttribute(&n, CU_DEVICE_ATTRIBUTE_MAX_THREADS_PER_BLOCK, d) );
+            return n;
+        }
+
+        size_t max_shared_memory_per_block() const {
+            int n;
+            cuda_check( cuDeviceGetAttribute(&n, CU_DEVICE_ATTRIBUTE_MAX_SHARED_MEMORY_PER_BLOCK, d) );
+            return n;
+        }
+
     private:
         CUdevice d;
 };
@@ -123,7 +150,6 @@ class command_queue {
         { }
 
         void finish() const {
-            ctx.set_current();
             cuda_check( cuStreamSynchronize( s.get() ) );
         }
 
@@ -158,6 +184,10 @@ class command_queue {
             return s;
         }
 };
+
+inline void select_context(const command_queue &q) {
+    q.context().set_current();
+}
 
 typedef CUdevice  device_id;
 typedef CUcontext kernel_cache_key;

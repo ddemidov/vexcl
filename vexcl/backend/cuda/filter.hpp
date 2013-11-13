@@ -58,12 +58,7 @@ namespace Filter {
     /// Selects devices supporting double precision.
     struct DoublePrecisionFilter {
         bool operator()(const backend::device &d) const {
-            int major, minor;
-
-            cuda_check( cuDeviceGetAttribute(&major, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR, d.raw()) );
-            cuda_check( cuDeviceGetAttribute(&minor, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR, d.raw()) );
-
-            return std::make_tuple(major, minor) >= std::make_tuple(1, 3);
+            return d.compute_capability() >= std::make_tuple(1, 3);
         }
     };
 

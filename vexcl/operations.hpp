@@ -2049,6 +2049,8 @@ void assign_expression(LHS &lhs, const RHS &rhs,
         auto key    = backend::cache_key(queue[d]);
         auto kernel = cache.find(key);
 
+        backend::select_context(queue[d]);
+
         if (kernel == cache.end()) {
             backend::source_generator source(queue[d]);
 
@@ -2308,6 +2310,8 @@ void assign_multiexpression( LHS &lhs, const RHS &rhs,
     for(unsigned d = 0; d < queue.size(); d++) {
         auto key    = backend::cache_key(queue[d]);
         auto kernel = cache.find(key);
+
+        backend::select_context(queue[d]);
 
         if (kernel == cache.end()) {
             backend::source_generator source(queue[d]);

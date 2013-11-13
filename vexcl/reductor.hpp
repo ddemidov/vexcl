@@ -218,6 +218,8 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
         auto key    = backend::cache_key(queue[d]);
         auto kernel = cache.find(key);
 
+        backend::select_context(queue[d]);
+
         if (kernel == cache.end()) {
             backend::source_generator source(queue[d]);
 
