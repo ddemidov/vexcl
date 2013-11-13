@@ -37,7 +37,6 @@ THE SOFTWARE.
 
 #include <cuda.h>
 
-#include <vexcl/backend/cuda/types.hpp>
 #include <vexcl/backend/cuda/error.hpp>
 #include <vexcl/backend/cuda/context.hpp>
 #include <vexcl/backend/cuda/filter.hpp>

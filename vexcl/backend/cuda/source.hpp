@@ -98,10 +98,13 @@ namespace backend {
  */
 inline std::string standard_kernel_header(const command_queue &q) {
     std::ostringstream s;
-    s << "typedef unsigned char       uchar;\n"
+    s
+#ifdef _MSC_VER
+      << "typedef unsigned char       uchar;\n"
          "typedef unsigned int        uint;\n"
          "typedef unsigned short      ushort;\n"
          "typedef unsigned long long  ulong;\n"
+#endif
       << get_program_header(q);
     return s.str();
 }
