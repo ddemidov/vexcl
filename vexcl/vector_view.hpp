@@ -65,14 +65,7 @@ struct vector_view : public vector_view_terminal_expression
 
     vector_view(const Expr &expr, const Slice &slice)
         : expr(expr), slice(slice)
-    {
-        /* TODO:
-        precondition(
-                base.nparts() == 1,
-                "Base vector should reside on a single compute device"
-                );
-        */
-    }
+    { }
 
     // Expression assignments (copy assignment needs to be explicitly defined
     // to allow vector_view to vector_view assignment).

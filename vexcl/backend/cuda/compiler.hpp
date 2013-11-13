@@ -71,9 +71,6 @@ inline CUmodule build_sources(
 
         // Compile the source to ptx.
         std::ostringstream cmdline;
-        // TODO: arch, options
-        (void)queue;
-        (void)options;
         auto cc = queue.device().compute_capability();
         cmdline
             << "nvcc -ptx -O3"
