@@ -12,7 +12,7 @@ BOOST_AUTO_TEST_CASE(create)
     using vex::indices;
     using vex::range;
 
-    std::vector<vex::backend::command_queue> queue(1, ctx.queue(0));
+    std::vector<vex::command_queue> queue(1, ctx.queue(0));
 
     vex::multi_array<double, 2> x(queue, extents[1024][1024]);
 
@@ -28,7 +28,7 @@ BOOST_AUTO_TEST_CASE(arithmetics)
 {
     using vex::extents;
 
-    std::vector<vex::backend::command_queue> queue(1, ctx.queue(0));
+    std::vector<vex::command_queue> queue(1, ctx.queue(0));
 
     vex::multi_array<double, 3> x(queue, extents[32][32][32]);
     vex::multi_array<double, 3> y(queue, extents[32][32][32]);
@@ -47,7 +47,7 @@ BOOST_AUTO_TEST_CASE(slicing)
     using vex::indices;
     using vex::_;
 
-    std::vector<vex::backend::command_queue> queue(1, ctx.queue(0));
+    std::vector<vex::command_queue> queue(1, ctx.queue(0));
 
     vex::multi_array<double, 3> x(queue, extents[32][32][32]);
     vex::multi_array<double, 3> y(queue, extents[32][32][32]);
@@ -67,7 +67,7 @@ BOOST_AUTO_TEST_CASE(reducing)
 {
     using vex::extents;
 
-    std::vector<vex::backend::command_queue> queue(1, ctx.queue(0));
+    std::vector<vex::command_queue> queue(1, ctx.queue(0));
 
     vex::multi_array<int, 3> x(queue, extents[32][32][32]);
     vex::vector<int> y(queue, 32 * 32);

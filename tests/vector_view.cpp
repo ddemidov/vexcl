@@ -12,7 +12,7 @@ BOOST_AUTO_TEST_CASE(vector_view_1d)
 {
     const size_t N = 1024;
 
-    std::vector<vex::backend::command_queue> queue(1, ctx.queue(0));
+    std::vector<vex::command_queue> queue(1, ctx.queue(0));
 
     std::vector<double> x = random_vector<double>(2 * N);
     vex::vector<double> X(queue, x);
@@ -34,7 +34,7 @@ BOOST_AUTO_TEST_CASE(vector_view_2)
 {
     const size_t N = 32;
 
-    std::vector<vex::backend::command_queue> queue(1, ctx.queue(0));
+    std::vector<vex::command_queue> queue(1, ctx.queue(0));
 
     std::valarray<double> x(N * N);
     std::iota(&x[0], &x[N * N], 0);
@@ -65,7 +65,7 @@ BOOST_AUTO_TEST_CASE(vector_slicer_2d)
 
     const size_t N = 32;
 
-    std::vector<vex::backend::command_queue> queue(1, ctx.queue(0));
+    std::vector<vex::command_queue> queue(1, ctx.queue(0));
 
     std::valarray<double> x(N * N);
     std::iota(&x[0], &x[N * N], 0);
@@ -111,7 +111,7 @@ BOOST_AUTO_TEST_CASE(vector_permutation)
 {
     const size_t N = 1024;
 
-    std::vector<vex::backend::command_queue> queue(1, ctx.queue(0));
+    std::vector<vex::command_queue> queue(1, ctx.queue(0));
 
     std::vector<double> x = random_vector<double>(N);
     vex::vector<double> X(queue, x);
@@ -160,7 +160,7 @@ BOOST_AUTO_TEST_CASE(reduce_slice)
 {
     const size_t N = 1024;
 
-    std::vector<vex::backend::command_queue> queue(1, ctx.queue(0));
+    std::vector<vex::command_queue> queue(1, ctx.queue(0));
 
     vex::vector<int> X(queue, N);
     vex::Reductor<int, vex::SUM> sum(queue);
@@ -178,7 +178,7 @@ BOOST_AUTO_TEST_CASE(assign_to_view) {
     const size_t m = 32;
     const size_t n = m * m;
 
-    std::vector<vex::backend::command_queue> queue(1, ctx.queue(0));
+    std::vector<vex::command_queue> queue(1, ctx.queue(0));
 
     vex::vector<int> x(queue, n);
     vex::slicer<1> slicer1(vex::extents[n]);
@@ -220,7 +220,7 @@ BOOST_AUTO_TEST_CASE(assign_to_view) {
 
 BOOST_AUTO_TEST_CASE(slice_reductor_single_dim)
 {
-    std::vector<vex::backend::command_queue> queue(1, ctx.queue(0));
+    std::vector<vex::command_queue> queue(1, ctx.queue(0));
 
     using vex::extents;
     using vex::_;
@@ -262,7 +262,7 @@ BOOST_AUTO_TEST_CASE(slice_reductor_single_dim)
 
 BOOST_AUTO_TEST_CASE(slice_reductor_multi_dim)
 {
-    std::vector<vex::backend::command_queue> queue(1, ctx.queue(0));
+    std::vector<vex::command_queue> queue(1, ctx.queue(0));
 
     using vex::extents;
     using vex::_;
@@ -294,7 +294,7 @@ BOOST_AUTO_TEST_CASE(nested_reduce)
 
     const size_t n = 32;
 
-    std::vector<vex::backend::command_queue> queue(1, ctx.queue(0));
+    std::vector<vex::command_queue> queue(1, ctx.queue(0));
 
     std::vector<double> X = random_vector<double>(n * n * n);
 
@@ -324,7 +324,7 @@ BOOST_AUTO_TEST_CASE(reshape)
     auto dim_out = vex::make_array<size_t>(4, 2);
     auto dim_in  = vex::make_array<size_t>(1, 0);
 
-    std::vector<vex::backend::command_queue> queue(1, ctx.queue(0));
+    std::vector<vex::command_queue> queue(1, ctx.queue(0));
 
     vex::vector<int> x(queue, std::accumulate(
                 dim_out.begin(), dim_out.end(),

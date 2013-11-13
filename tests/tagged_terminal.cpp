@@ -48,7 +48,7 @@ BOOST_AUTO_TEST_CASE(tagged_slice)
 
     const size_t n = 1024;
 
-    std::vector<vex::backend::command_queue> queue(1, ctx.queue(0));
+    std::vector<vex::command_queue> queue(1, ctx.queue(0));
 
     std::vector<double> x = random_vector<double>(n);
 
@@ -68,7 +68,7 @@ BOOST_AUTO_TEST_CASE(temporary_inside_tag)
 
     const size_t n = 1024;
 
-    std::vector<vex::backend::command_queue> queue(1, ctx.queue(0));
+    std::vector<vex::command_queue> queue(1, ctx.queue(0));
 
     std::vector<double> x = random_vector<double>(n);
 

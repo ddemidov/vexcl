@@ -44,8 +44,6 @@ THE SOFTWARE.
 
 namespace vex {
 
-namespace backend {
-
 enum device_options_kind {
     compile_options,
     program_header
@@ -185,7 +183,6 @@ inline std::string sha1(const std::string &src) {
     return buf.str();
 }
 
-} // namespace backend
 } // namespace vex
 
 

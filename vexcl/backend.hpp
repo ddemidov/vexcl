@@ -39,4 +39,12 @@ THE SOFTWARE.
 #  include <vexcl/backend/opencl.hpp>
 #endif
 
+namespace vex {
+    using backend::command_queue;
+    using backend::command_queue_properties;
+    using backend::error;
+    using backend::device_vector;
+    using backend::is_cpu;
+}
+
 #endif
