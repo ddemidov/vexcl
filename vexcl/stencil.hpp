@@ -693,7 +693,8 @@ void StencilOperator<T, width, center, Impl>::convolve(
             kernel->second.push_arg(alpha);
             kernel->second.push_arg(beta);
 
-            kernel->second.set_smem([&](size_t){ return lmem[key]; });
+            size_t smem_bytes = lmem[key];
+            kernel->second.set_smem([smem_bytes](size_t){ return smem_bytes; });
 
             kernel->second(queue[d]);
         }
