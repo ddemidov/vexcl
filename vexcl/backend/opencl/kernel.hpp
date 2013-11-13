@@ -76,7 +76,7 @@ class kernel {
                )
             : argpos(0), K(build_sources(queue, src), name.c_str())
         {
-            get_launch_cfg(queue,
+            config(queue,
                     [smem_per_thread](size_t wgs){ return wgs * smem_per_thread; });
         }
 
@@ -87,7 +87,7 @@ class kernel {
                )
             : argpos(0), K(build_sources(queue, src), name.c_str())
         {
-            get_launch_cfg(queue, smem);
+            config(queue, smem);
         }
 
         /// Constructor. Creates a cl::Kernel instance from source.
@@ -144,15 +144,20 @@ class kernel {
             return 4 * d.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>();
         }
 
-    private:
-        unsigned argpos;
+        size_t max_threads_per_block(const cl::CommandQueue &q) const {
+            cl::Device d = q.getInfo<CL_QUEUE_DEVICE>();
+            return K.getWorkGroupInfo<CL_KERNEL_WORK_GROUP_SIZE>(d);
+        }
 
-        cl::Kernel K;
+        size_t max_shared_memory_per_block(const cl::CommandQueue &q) const {
+            cl::Device d = q.getInfo<CL_QUEUE_DEVICE>();
 
-        size_t   w_size;
-        size_t   g_size;
+            return static_cast<size_t>(d.getInfo<CL_DEVICE_LOCAL_MEM_SIZE>())
+                 - static_cast<size_t>(K.getWorkGroupInfo<CL_KERNEL_LOCAL_MEM_SIZE>(d));
+        }
 
-        void get_launch_cfg(const cl::CommandQueue &queue, std::function<size_t(size_t)> smem) {
+        /// Select best launch configuration for the given shared memory requirements.
+        void config(const cl::CommandQueue &queue, std::function<size_t(size_t)> smem) {
             cl::Device dev = queue.getInfo<CL_QUEUE_DEVICE>();
 
             if ( is_cpu(queue) ) {
@@ -161,9 +166,8 @@ class kernel {
                 // Select workgroup size that would fit into the device.
                 w_size = dev.getInfo<CL_DEVICE_MAX_WORK_ITEM_SIZES>()[0];
 
-                size_t max_ws   = K.getWorkGroupInfo<CL_KERNEL_WORK_GROUP_SIZE>(dev);
-                size_t max_smem = static_cast<size_t>(dev.getInfo<CL_DEVICE_LOCAL_MEM_SIZE>())
-                                - static_cast<size_t>(K.getWorkGroupInfo<CL_KERNEL_LOCAL_MEM_SIZE>(dev));
+                size_t max_ws   = max_threads_per_block(queue);
+                size_t max_smem = max_shared_memory_per_block(queue);
 
                 // Reduce workgroup size until it satisfies resource requirements:
                 while( (w_size > max_ws) || (smem(w_size) > max_smem) )
@@ -172,6 +176,13 @@ class kernel {
 
             g_size = w_size * num_workgroups(queue);
         }
+    private:
+        unsigned argpos;
+
+        cl::Kernel K;
+
+        size_t   w_size;
+        size_t   g_size;
 };
 
 } // namespace backend

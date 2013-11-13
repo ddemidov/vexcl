@@ -468,7 +468,6 @@ const detail::kernel_cache_entry& stencil<T>::fast_conv(const backend::command_q
         source.close("}").close("}");
 
         backend::kernel krn(queue, source.str(), "fast_conv");
-                //[width](size_t wgs) { return (wgs + 2 * width - 1) * sizeof(T); });
         kernel = cache.insert(std::make_pair(key, krn)).first;
     }
 
@@ -478,13 +477,19 @@ const detail::kernel_cache_entry& stencil<T>::fast_conv(const backend::command_q
 template <typename T>
 void stencil<T>::init(unsigned width) {
     for (unsigned d = 0; d < queue.size(); d++) {
-        // TODO: better estimate.
-        if (backend::is_cpu(queue[d]) || width > 64) {
+        auto   fast_krn = fast_conv(queue[d]);
+        size_t max_smem = fast_krn.max_shared_memory_per_block(queue[d]);
+
+        auto smem_required = [width](size_t wgs) { return sizeof(T) * (2 * width + wgs - 1); };
+
+        if (backend::is_cpu(queue[d]) || max_smem < smem_required(64)) {
             conv[d]  = slow_conv(queue[d]);
-            smem[d]  = 0;
+            conv[d].config(queue[d], [](size_t){ return 0; });
+            smem[d] = 0;
         } else {
-            conv[d] = fast_conv(queue[d]);
-            smem[d] = sizeof(T) * (2 * width + conv[d].workgroup_size() - 1);
+            conv[d] = fast_krn;
+            conv[d].config(queue[d], smem_required);
+            smem[d] = smem_required(conv[d].workgroup_size());
         }
     }
 }

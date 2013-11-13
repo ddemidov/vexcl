@@ -79,7 +79,7 @@ class kernel {
         {
             cuda_check( cuModuleGetFunction(&K, module.get(), name.c_str()) );
 
-            get_launch_cfg(queue,
+            config(queue,
                     [smem_per_thread](size_t wgs){ return wgs * smem_per_thread; });
         }
 
@@ -93,7 +93,7 @@ class kernel {
               smem(0)
         {
             cuda_check( cuModuleGetFunction(&K, module.get(), name.c_str()) );
-            get_launch_cfg(queue, smem);
+            config(queue, smem);
         }
 
         /// Constructor. Creates a cl::Kernel instance from source.
@@ -165,6 +165,31 @@ class kernel {
         static inline size_t num_workgroups(const command_queue &q) {
             return 4 * q.device().multiprocessor_count();
         }
+
+        size_t max_threads_per_block(const command_queue&) const {
+            int n;
+            cuda_check( cuFuncGetAttribute(&n, CU_FUNC_ATTRIBUTE_MAX_THREADS_PER_BLOCK, K) );
+            return n;
+        }
+
+        size_t max_shared_memory_per_block(const command_queue &q) const {
+            return q.device().max_shared_memory_per_block() -
+                shared_size_bytes();
+        }
+
+        void config(const command_queue &q, std::function<size_t(size_t)> smem) {
+            // Select workgroup size that would fit into the device.
+            w_size = q.device().max_threads_per_block();
+
+            size_t max_ws   = max_threads_per_block(q);
+            size_t max_smem = max_shared_memory_per_block(q);
+
+            // Reduce workgroup size until it satisfies resource requirements:
+            while( (w_size > max_ws) || (smem(w_size) > max_smem) )
+                w_size /= 2;
+
+            g_size = num_workgroups(q);
+        }
     private:
         context ctx;
         std::shared_ptr< std::remove_pointer<CUmodule>::type > module;
@@ -178,32 +203,12 @@ class kernel {
         std::vector<size_t> prm_pos;
         std::vector<void*>  prm_addr;
 
-        size_t max_threads_per_block() const {
-            int n;
-            cuda_check( cuFuncGetAttribute(&n, CU_FUNC_ATTRIBUTE_MAX_THREADS_PER_BLOCK, K) );
-            return n;
-        }
-
         size_t shared_size_bytes() const {
             int n;
             cuda_check( cuFuncGetAttribute(&n, CU_FUNC_ATTRIBUTE_SHARED_SIZE_BYTES, K) );
             return n;
         }
 
-        void get_launch_cfg(const command_queue &q, std::function<size_t(size_t)> smem) {
-            // Select workgroup size that would fit into the device.
-            w_size = q.device().max_threads_per_block();
-
-            size_t max_ws   = max_threads_per_block();
-            size_t max_smem = q.device().max_shared_memory_per_block()
-                            - shared_size_bytes();
-
-            // Reduce workgroup size until it satisfies resource requirements:
-            while( (w_size > max_ws) || (smem(w_size) > max_smem) )
-                w_size /= 2;
-
-            g_size = num_workgroups(q);
-        }
 };
 
 } // namespace backend
