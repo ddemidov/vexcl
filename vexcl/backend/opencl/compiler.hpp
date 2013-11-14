@@ -134,8 +134,12 @@ inline cl::Program build_sources(
     std::string hash = sha1( fullsrc.str() );
 
     // Try to get cached program binaries:
-    if (boost::optional<cl::Program> program = load_program_binaries(hash, context, device))
-        return *program;
+    try {
+        if (boost::optional<cl::Program> program = load_program_binaries(hash, context, device))
+            return *program;
+    } catch (...) {
+        // Shit happens.
+    }
 #endif
 
     // If cache is not available, just compile the sources.
