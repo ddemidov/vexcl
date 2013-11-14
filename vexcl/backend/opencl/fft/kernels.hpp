@@ -1,5 +1,5 @@
-#ifndef VEXCL_FFT_KERNELS_HPP
-#define VEXCL_FFT_KERNELS_HPP
+#ifndef VEXCL_BACKEND_OPENCL_FFT_KERNELS_HPP
+#define VEXCL_BACKEND_OPENCL_FFT_KERNELS_HPP
 
 /*
 The MIT License
@@ -26,7 +26,7 @@ THE SOFTWARE.
 */
 
 /**
- * \file   fft/kernels.hpp
+ * \file   vexcl/backend/opencl/fft/kernels.hpp
  * \author Pascal Germroth <pascal@ensieve.org>
  * \brief  Kernel generator for FFT.
  */

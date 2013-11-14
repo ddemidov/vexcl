@@ -166,7 +166,6 @@ std::pair<double,double> benchmark_vector(
             for(size_t j = 0; j < N; j++)
                 A[j] += B[j] + C[j] * D[j];
         time_elapsed = prof.toc("C++");
-
         {
             double gflops = (3.0 * N * M) / time_elapsed / 1e9;
             double bwidth = (5.0 * N * M * sizeof(real)) / time_elapsed / 1e9;
@@ -700,13 +699,11 @@ void run_tests(const vex::Context &ctx, vex::profiler<> &prof)
         prof.toc("SpMV (CCSR)");
     }
 
-#ifdef VEXCL_BACKEND_OPENCL
     if (options.bm_rng) {
         prof.tic_cpu("Random number generation");
         benchmark_rng<real>(ctx, prof);
         prof.toc("Random number generation");
     }
-#endif
 
     prof.toc( vex::type_name<real>() );
 

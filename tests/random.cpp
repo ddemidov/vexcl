@@ -20,8 +20,8 @@ BOOST_AUTO_TEST_CASE(random_numbers)
     vex::vector<cl_uint> x0(ctx, N);
     x0 = rand0(vex::element_index(), std::rand());
 
-    vex::Random<cl_float8> rand1;
-    vex::vector<cl_float8> x1(ctx, N);
+    vex::Random<cl_float4> rand1;
+    vex::vector<cl_float4> x1(ctx, N);
     x1 = rand1(vex::element_index(), std::rand());
 
     vex::Random<cl_double4> rand2;
@@ -54,10 +54,6 @@ BOOST_AUTO_TEST_CASE(random_numbers)
     x5 = rand5(vex::element_index(), std::rand());
 
     BOOST_CHECK(std::abs(sumd(x5)/N - 0.5) < 1e-2);
-
-    vex::Random<cl_double, vex::random::threefry> rand6;
-    vex::vector<cl_double4> x6(ctx, N);
-    x6 = rand6(vex::element_index(), std::rand());
 }
 
 BOOST_AUTO_TEST_CASE(monte_carlo_pi)

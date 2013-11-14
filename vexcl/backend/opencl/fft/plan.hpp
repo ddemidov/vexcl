@@ -1,5 +1,5 @@
-#ifndef VEXCL_FFT_PLAN_HPP
-#define VEXCL_FFT_PLAN_HPP
+#ifndef VEXCL_BACKEND_OPENCL_FFT_PLAN_HPP
+#define VEXCL_BACKEND_OPENCL_FFT_PLAN_HPP
 
 /*
 The MIT License
@@ -26,7 +26,7 @@ THE SOFTWARE.
 */
 
 /**
- * \file   fft/plan.hpp
+ * \file   vexcl/backend/opencl/fft/plan.hpp
  * \author Pascal Germroth <pascal@ensieve.org>
  * \brief  FFT plan, stores kernels and buffers for one configuration.
  */
@@ -37,8 +37,8 @@ THE SOFTWARE.
 
 #include <vexcl/profiler.hpp>
 #include <vexcl/vector.hpp>
-#include <vexcl/fft/unrolled_dft.hpp>
-#include <vexcl/fft/kernels.hpp>
+#include <vexcl/backend/opencl/fft/unrolled_dft.hpp>
+#include <vexcl/backend/opencl/fft/kernels.hpp>
 
 namespace vex {
 
