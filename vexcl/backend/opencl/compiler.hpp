@@ -113,15 +113,25 @@ inline cl::Program build_sources(
 
 #ifdef VEXCL_CACHE_KERNELS
     // Get unique (hopefully) hash string for the kernel.
-    std::ostringstream hashsrc;
+    std::ostringstream fullsrc;
 
-    hashsrc
-        << "\n" << cl::Platform(device[0].getInfo<CL_DEVICE_PLATFORM>()).getInfo<CL_PLATFORM_NAME>()
-        << "\n" << device[0].getInfo<CL_DEVICE_NAME>()
-        << "\noptions: " << compile_options
+    fullsrc
+        << "// Platform: " << cl::Platform(device[0].getInfo<CL_DEVICE_PLATFORM>()).getInfo<CL_PLATFORM_NAME>()
+        << "\n// Device:   " << device[0].getInfo<CL_DEVICE_NAME>()
+        << "\n// Compiler: "
+#if defined(_MSC_VER)
+        << "MSC " << _MSC_VER
+#elif defined(__clang__)
+        << "Clang " << __clang_major__ << "." << __clang_minor__
+#elif defined(__GNUC__)
+        << "g++ " << __GNUC__ << "." << __GNUC_MINOR__
+#else
+        << "unknown"
+#endif
+        << "\n// options:  " << compile_options
         << "\n" << source;
 
-    std::string hash = sha1( hashsrc.str() );
+    std::string hash = sha1( fullsrc.str() );
 
     // Try to get cached program binaries:
     if (boost::optional<cl::Program> program = load_program_binaries(hash, context, device))
@@ -145,7 +155,7 @@ inline cl::Program build_sources(
 
 #ifdef VEXCL_CACHE_KERNELS
     // Save program binaries for future reuse:
-    save_program_binaries(hash, program, hashsrc.str());
+    save_program_binaries(hash, program, fullsrc.str());
 #endif
 
     return program;
