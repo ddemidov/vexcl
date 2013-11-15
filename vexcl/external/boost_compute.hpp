@@ -35,8 +35,13 @@ THE SOFTWARE.
 #include <vexcl/vector.hpp>
 #include <boost/compute.hpp>
 
+#ifdef VEXCL_BACKEND_CUDA
+#  error Boost.Compute interoperation is not supported for the CUDA backend!
+#endif
+
 namespace vex {
 
+/// Inclusive scan.
 template <typename T>
 void inclusive_scan(const vex::vector<T> &src, vex::vector<T> &dst) {
     auto queue = src.queue_list();

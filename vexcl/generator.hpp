@@ -57,6 +57,7 @@ namespace vex {
 
 template <typename T> class symbolic;
 
+/// Sends name of the symbolic variable to output stream.
 template <typename T>
 std::ostream& operator<<(std::ostream &os, const symbolic<T> &sym);
 

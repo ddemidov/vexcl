@@ -49,14 +49,18 @@ namespace vex {
 
 /// Device filters.
 namespace Filter {
-    /// Selects any device.
+    /// \cond INTERNAL
     struct AnyFilter {
         bool operator()(const backend::device&) const {
             return true;
         }
     };
+    /// \endcond
 
+    /// Selects any device. \deprecated
     const AnyFilter All = {};
+
+    /// Selects any device.
     const AnyFilter Any = {};
 
     /// Selects no more than given number of devices.
@@ -182,22 +186,7 @@ namespace Filter {
             std::function<bool(const backend::device&)> filter;
     };
 
-    /// Environment filter
-    /**
-     * Selects devices with respect to environment variables. Recognized
-     * variables are:
-     *
-     * \li OCL_PLATFORM -- platform name;
-     * \li OCL_VENDOR   -- device vendor;
-     * \li OCL_DEVICE   -- device name;
-     * \li OCL_TYPE     -- device type (CPU, GPU, ACCELERATOR);
-     * \li OCL_MAX_DEVICES -- maximum number of devices to use.
-     * \li OCL_POSITION -- devices position in the device list.
-     *
-     * \note Since this filter possibly counts passed devices, it should be the
-     * last in filter expression. Same reasoning applies as in case of
-     * Filter::Count.
-     */
+    /// \cond INTERNAL
     struct EnvFilter {
         EnvFilter()
             : filter( backend_env_filters() )
@@ -229,7 +218,24 @@ namespace Filter {
         private:
             std::vector< std::function<bool(const backend::device&)> > filter;
     };
+    /// \endcode
 
+    /// Environment filter
+    /**
+     * Selects devices with respect to environment variables. Recognized
+     * variables are:
+     *
+     * \li OCL_PLATFORM -- platform name;
+     * \li OCL_VENDOR   -- device vendor;
+     * \li OCL_DEVICE   -- device name;
+     * \li OCL_TYPE     -- device type (CPU, GPU, ACCELERATOR);
+     * \li OCL_MAX_DEVICES -- maximum number of devices to use.
+     * \li OCL_POSITION -- devices position in the device list.
+     *
+     * \note Since this filter possibly counts passed devices, it should be the
+     * last in filter expression. Same reasoning applies as in case of
+     * Filter::Count.
+     */
     const EnvFilter Env;
 
 } // namespace Filter

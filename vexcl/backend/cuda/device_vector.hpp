@@ -38,6 +38,11 @@ THE SOFTWARE.
 namespace vex {
 namespace backend {
 
+/// Device memory creation flags.
+/**
+ * \note These are not used with the CUDA backend and are only defined for
+ * compatibility with the OpenCL backend.
+ */
 typedef unsigned mem_flags;
 
 static const mem_flags MEM_READ_ONLY  = 1;
@@ -63,8 +68,10 @@ class device_vector {
     public:
         typedef CUdeviceptr raw_type;
 
+        /// Empty constructor.
         device_vector() {}
 
+        /// Allocates memory buffer on the device associated with the given queue.
         device_vector(const command_queue &q, size_t n,
                 const T *host = 0, mem_flags flags = MEM_READ_WRITE)
             : n(n)
@@ -83,6 +90,7 @@ class device_vector {
             }
         }
 
+        /// Copies data from host memory to device.
         void write(const command_queue &q, size_t offset, size_t size, const T *host,
                 bool blocking = false) const
         {
@@ -94,6 +102,7 @@ class device_vector {
             }
         }
 
+        /// Copies data from device to host memory.
         void read(const command_queue &q, size_t offset, size_t size, T *host,
                 bool blocking = false) const
         {
@@ -105,10 +114,12 @@ class device_vector {
             }
         }
 
+        /// Returns size (in elements) of the memory buffer.
         size_t size() const {
             return n;
         }
 
+        /// \cond INTERNAL
         struct buffer_unmapper {
             const command_queue &queue;
             const device_vector &buffer;
@@ -118,19 +129,32 @@ class device_vector {
             {}
 
             void operator()(T* ptr) const {
-                buffer.write(queue, 0, buffer.size(), ptr, true);
-                delete[] ptr;
+                if (ptr) {
+                    buffer.write(queue, 0, buffer.size(), ptr, true);
+                    delete[] ptr;
+                }
             }
         };
+        /// \endcond
 
+        /// Pointer to a host memory region mapped to the device memory.
+        /**
+         * Gets unmapped automatically when goes out of scope.
+         */
         typedef std::unique_ptr<T[], buffer_unmapper> mapped_array;
 
+        /// Maps device buffer to a host memory region and returns pointer to the mapped host memory.
+        /**
+         * \note The host memory gets unmapped automatically when the returned
+         * pointer goes out of scope.
+         */
         mapped_array map(const command_queue &q) {
-            T *ptr = new T[n];
-            read(q, 0, n, ptr, true);
-            return mapped_array(ptr, buffer_unmapper(q, *this));
+            mapped_array ptr(new T[n], buffer_unmapper(q, *this));
+            read(q, 0, n, ptr.get(), true);
+            return ptr;
         }
 
+        /// Returns raw CUdeviceptr handle.
         CUdeviceptr raw() const {
             return static_cast<CUdeviceptr>(reinterpret_cast<size_t>(buffer.get()));
         }

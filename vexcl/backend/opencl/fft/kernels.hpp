@@ -36,6 +36,7 @@ THE SOFTWARE.
 namespace vex {
 namespace fft {
 
+/// \cond INTERNAL
 inline cl::Device qdev(const cl::CommandQueue& q) {
     cl::Device dev;
     q.getInfo(CL_QUEUE_DEVICE, &dev);
@@ -462,6 +463,7 @@ inline kernel_call bluestein_mul(
     return kernel_call(false, desc.str(), program, kernel, cl::NDRange(threads, batch), cl::NDRange(wg, 1));
 }
 
+/// \endcond
 
 } // namespace fft
 } // namespace vex

@@ -45,6 +45,7 @@ THE SOFTWARE.
 
 namespace std {
 
+/// Send human-readable representation of CUresult to the output stream.
 inline std::ostream& operator<<(std::ostream &os, CUresult rc) {
 #define CUDA_ERR2TXT(e) case e: return os << static_cast<int>(e) << " - " << #e
     switch(rc) {
@@ -108,6 +109,7 @@ inline std::ostream& operator<<(std::ostream &os, CUresult rc) {
 namespace vex {
 namespace backend {
 
+/// CUDA error class to be thrown as exception.
 class error : public std::runtime_error {
     public:
         error(CUresult code) : std::runtime_error(get_msg(code)), code(code) { }
@@ -125,19 +127,27 @@ class error : public std::runtime_error {
         CUresult code;
 };
 
+/// \cond INTERNAL
 inline void check(CUresult rc, const char *file, int line) {
     if (rc != CUDA_SUCCESS) {
         std::cerr << "CUDA error at " << file << ":" << line << std::endl;
         throw error(rc);
     }
 }
+/// \endcond
 
+/// Throws if rc is not CUDA_SUCCESS.
+/**
+ * Reports offending file and line number on standard error stream.
+ */
 #define cuda_check(rc) vex::backend::check(rc, __FILE__, __LINE__)
+
 } // namespace backend
 } // namespace vex
 
 namespace std {
 
+/// Sends description of a CUDA error to the output stream.
 inline std::ostream& operator<<(std::ostream &os, const vex::backend::error &e) {
     return os << e.what();
 }

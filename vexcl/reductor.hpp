@@ -270,7 +270,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
                 source.group_id(0) << "] = mySum;";
                 source.close("}");
 
-                backend::kernel krn(queue[d], source.str(), "vexcl_reductor_kernel", backend::fixed_workgroup_size(1));
+                backend::kernel krn(queue[d], source.str(), "vexcl_reductor_kernel");
                 kernel = cache.insert(std::make_pair(key, krn)).first;
             } else {
                 source.new_line() << "size_t tid = ";

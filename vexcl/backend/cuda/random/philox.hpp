@@ -26,7 +26,7 @@ THE SOFTWARE.
 */
 
 /**
- * \file   vexcl/random/backend/cuda/philox.hpp
+ * \file   vexcl/backend/cuda/random/philox.hpp
  * \author Pascal Germroth <pascal@ensieve.org>
  * \brief  Philox random generator.
 
@@ -84,6 +84,11 @@ namespace random {
  * \sa vex::RandomNormal
  */
 struct philox {
+    template <class T>
+    static size_t key_size() {
+        return cl_vector_length<T>::value / 2;
+    }
+
     /// generates a macro `philox(ctr, key)`
     /// modifies both inputs, uses the components of ctr for randomness.
     template <class T>

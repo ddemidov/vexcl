@@ -48,7 +48,7 @@ typedef cl::Error error;
 
 namespace std {
 
-/// Output description of an OpenCL error to a stream.
+/// Sends description of an OpenCL error to the output stream.
 inline std::ostream& operator<<(std::ostream &os, const cl::Error &e) {
     os << e.what() << "(";
 

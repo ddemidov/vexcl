@@ -315,6 +315,7 @@ class stencil : private stencil_base<T> {
         static const detail::kernel_cache_entry& fast_conv(const backend::command_queue &queue);
 };
 
+/// \cond INTERNAL
 namespace detail {
 
 template <typename T>
@@ -525,12 +526,16 @@ void stencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y,
     }
 }
 
+/// \endcond
+
+/// Convolve the stencil with the vector.
 template <typename T>
 conv< stencil<T>, vector<T> >
 operator*( const stencil<T> &s, const vector<T> &x ) {
     return conv< stencil<T>, vector<T> >(s, x);
 }
 
+/// Convolve the stencil with the vector.
 template <typename T>
 conv< stencil<T>, vector<T> >
 operator*(const vector<T> &x, const stencil<T> &s) {
@@ -539,12 +544,14 @@ operator*(const vector<T> &x, const stencil<T> &s) {
 
 #ifdef VEXCL_MULTIVECTOR_HPP
 
+/// Convolve the stencil with the multivector.
 template <typename T, size_t N>
 multiconv< stencil<T>, multivector<T, N> >
 operator*( const stencil<T> &s, const multivector<T, N> &x ) {
     return multiconv< stencil<T>, multivector<T, N> >(s, x);
 }
 
+/// Convolve the stencil with the multivector.
 template <typename T, size_t N>
 multiconv< stencil<T>, multivector<T, N> >
 operator*( const multivector<T, N> &x, const stencil<T> &s ) {

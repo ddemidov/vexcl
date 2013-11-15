@@ -45,7 +45,14 @@ namespace vex {
 /// Fast Fourier Transform
 namespace fft {
 
-/// Returns successive prime numbers on each call.
+/// FFT direction.
+enum direction {
+    forward, inverse, none
+};
+
+/// \cond INTERNAL
+
+// Returns successive prime numbers on each call.
 struct prime_generator {
     typedef std::pair<size_t, size_t> P;
 
@@ -69,7 +76,7 @@ struct prime_generator {
     }
 };
 
-/// Returns the prime factors of a number.
+// Returns the prime factors of a number.
 inline std::vector<pow> prime_factors(size_t n) {
     std::vector<pow> fs;
     if(n != 0) {
@@ -166,11 +173,6 @@ struct planner {
 #endif
         return fs;
     }
-};
-
-
-enum direction {
-    forward, inverse, none
 };
 
 
@@ -303,8 +305,8 @@ struct plan {
         std::swap(current, other);
     }
 
-    /// Execute the complete transformation.
-    /// Converts real-valued input and output, supports multiply-adding to output.
+    // Execute the complete transformation.
+    // Converts real-valued input and output, supports multiply-adding to output.
     template<class Expr>
     void transform(const Expr &in) {
         if(profile) {
@@ -403,6 +405,8 @@ inline std::ostream &operator<<(std::ostream &o, const plan<T,P> &p) {
     }
     return o << "}";
 }
+
+/// \endcond
 
 } // namespace fft
 } // namespace vex

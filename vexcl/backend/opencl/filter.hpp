@@ -114,7 +114,7 @@ namespace Filter {
             }
     };
 
-    /// Selects devices supporting double precision.
+    /// \cond INTERNAL
     struct DoublePrecisionFilter {
         bool operator()(const cl::Device &d) const {
             std::string ext = d.getInfo<CL_DEVICE_EXTENSIONS>();
@@ -124,7 +124,9 @@ namespace Filter {
                    );
         }
     };
+    /// \endcond
 
+    /// Selects devices supporting double precision.
     const DoublePrecisionFilter DoublePrecision = {};
 
     /// Selects devices providing given OpenCL extensions.
@@ -142,6 +144,7 @@ namespace Filter {
     /// Selects devices supporting OpenGL Sharing Extension
     const Extension GLSharing("cl_khr_gl_sharing");
 
+    /// List of device filters based on environment variables.
     inline std::vector< std::function<bool(const cl::Device&)> >
     backend_env_filters()
     {

@@ -66,6 +66,8 @@ struct Random : UserFunction<Random<T, Generator>, T(cl_ulong, cl_ulong)> {
         const size_t N = cl_vector_length<T>::value;
         static_assert(N <= 4, "Unsupported vector type dimension");
 
+        size_t key_size;
+
         std::ostringstream o;
         switch(sizeof(T)) {
             case 1: // 8bit = 2x32[0],lo,lo
@@ -73,19 +75,26 @@ struct Random : UserFunction<Random<T, Generator>, T(cl_ulong, cl_ulong)> {
             case 4: // 32bit = 2x32[0]
             case 8: // 64bit = 2x32
                 Generator::template macro<cl_uint2>(o, "rand");
+                key_size = Generator::template key_size<cl_uint2>();
                 break;
             case 16: // 2x64bit = 4x32
                 Generator::template macro<cl_uint4>(o, "rand");
+                key_size = Generator::template key_size<cl_uint4>();
                 break;
             case 32: // 4x64bit = 4x64
                 Generator::template macro<cl_ulong4>(o, "rand");
+                key_size = Generator::template key_size<cl_ulong4>();
                 break;
             default:
                 precondition(false, "Unsupported random output type.");
         }
         o << "ctr_t ctr; ctr[0] = prm1; ctr[1] = prm2;\n"
-            "key_t key; for(int i = 0; i < sizeof(key_t)/sizeof(key[0]); ++i) key[i] = 0x12345678;\n"
-            "rand(ctr, key);\n"
+            "key_t key;\n";
+
+        for(unsigned i = 0; i < key_size; ++i)
+            o << "key[" << i << "] = 0x12345678;\n";
+
+        o << "rand(ctr, key);\n"
             "#undef rand\n";
 
         if(std::is_same<Ts, cl_float>::value) {
@@ -94,7 +103,7 @@ struct Random : UserFunction<Random<T, Generator>, T(cl_ulong, cl_ulong)> {
             } else {
                 char dim[] = {'x', 'y', 'z', 'w'};
                 o << type_name<T>() << " res;\n";
-                for(int i = 0; i < N; ++i) {
+                for(size_t i = 0; i < N; ++i) {
                     o << "res." << dim[i] << " = (" << type_name<Ts>() << ")(((uint*)(void*)ctr)[" << i << "]) / " << std::numeric_limits<cl_uint>::max() << ".0f;\n";
                 }
                 o << "return res;";
@@ -105,7 +114,7 @@ struct Random : UserFunction<Random<T, Generator>, T(cl_ulong, cl_ulong)> {
             } else {
                 const char dim[] = {'x', 'y', 'z', 'w'};
                 o << type_name<T>() << " res;\n";
-                for(int i = 0; i < N; ++i) {
+                for(size_t i = 0; i < N; ++i) {
                     o << "res." << dim[i] << " = (" << type_name<Ts>() << ")(((ulong*)(void*)ctr)[" << i << "]) / " << std::numeric_limits<cl_ulong>::max() << ".0;\n";
                 }
                 o << "return res;";

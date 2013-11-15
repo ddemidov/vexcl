@@ -108,7 +108,7 @@ Vector `A` is copied from host vector `a`, and the other vectors are created
 uninitialized:
 ~~~{.cpp}
 const size_t n = 1024 * 1024;
-vex::Context ctx( vex::Filter::All );
+vex::Context ctx( vex::Filter::Any );
 
 std::vector<double> a(n, 1.0);
 

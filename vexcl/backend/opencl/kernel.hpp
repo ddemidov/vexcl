@@ -95,6 +95,7 @@ class kernel {
             K.setArg(argpos++, smem);
         }
 
+        /// Enqueue the kernel to the specified command queue.
         void operator()(const cl::CommandQueue &q) {
             q.enqueueNDRangeKernel(K, cl::NullRange, g_size, w_size);
             argpos = 0;
@@ -113,11 +114,13 @@ class kernel {
             return 4 * d.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>();
         }
 
+        /// The maximum number of threads per block, beyond which a launch of the kernel would fail.
         size_t max_threads_per_block(const cl::CommandQueue &q) const {
             cl::Device d = q.getInfo<CL_QUEUE_DEVICE>();
             return K.getWorkGroupInfo<CL_KERNEL_WORK_GROUP_SIZE>(d);
         }
 
+        /// The size in bytes of shared memory per block available for this kernel.
         size_t max_shared_memory_per_block(const cl::CommandQueue &q) const {
             cl::Device d = q.getInfo<CL_QUEUE_DEVICE>();
 

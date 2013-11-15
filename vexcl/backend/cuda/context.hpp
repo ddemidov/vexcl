@@ -41,6 +41,7 @@ THE SOFTWARE.
 namespace vex {
 namespace backend {
 
+/// \cond INTERNAL
 inline CUresult do_init() {
     static CUresult rc = cuInit(0);
     return rc;
@@ -83,19 +84,25 @@ struct deleter {
 };
 
 }
+/// \endcond
 
+/// Wrapper around CUdevice.
 class device {
     public:
+        /// Constructor.
         device(CUdevice d) : d(d) {}
 
+        /// Returns raw CUdevice handle.
         CUdevice raw() const { return d; }
 
+        /// Returns name of the device.
         std::string name() const {
             char name[256];
             cuda_check( cuDeviceGetName(name, 256, d) );
             return name;
         }
 
+        /// Returns device compute capability as a tuple of major and minor version numbers.
         std::tuple<int, int> compute_capability() const {
             int major, minor;
 
@@ -105,18 +112,21 @@ class device {
             return std::make_tuple(major, minor);
         }
 
+        /// Returns of multiprocessors on the device.
         size_t multiprocessor_count() const {
             int n;
             cuda_check( cuDeviceGetAttribute(&n, CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT, d) );
             return n;
         }
 
+        /// Returns maximum number of threads per block.
         size_t max_threads_per_block() const {
             int n;
             cuda_check( cuDeviceGetAttribute(&n, CU_DEVICE_ATTRIBUTE_MAX_THREADS_PER_BLOCK, d) );
             return n;
         }
 
+        /// Returns maximum amount of shared memory available to a thread block in bytes.
         size_t max_shared_memory_per_block() const {
             int n;
             cuda_check( cuDeviceGetAttribute(&n, CU_DEVICE_ATTRIBUTE_MAX_SHARED_MEMORY_PER_BLOCK, d) );
@@ -127,20 +137,25 @@ class device {
         CUdevice d;
 };
 
+/// Wrapper around CUcontext.
 class context {
     public:
+        /// Empty constructor.
         context() {}
 
+        /// Creates a CUDA context.
         context(device dev, unsigned flags = 0)
             : c( create(dev, flags), detail::deleter() )
         {
             cuda_check( do_init() );
         }
 
+        /// Returns raw CUcontext handle.
         CUcontext raw() const {
             return c.get();
         }
 
+        /// Binds the context to the calling CPU thread.
         void set_current() const {
             cuda_check( cuCtxSetCurrent( c.get() ) );
         }
@@ -155,30 +170,44 @@ class context {
         }
 };
 
+/// Command queue creation flags.
+/**
+ * typedef'ed to cl_command_queue_properties in the OpenCL backend and to
+ * unsigned in the CUDA backend. See OpenCL/CUDA documentation for the possible
+ * values.
+ */
 typedef unsigned command_queue_properties;
 
+/// Command queue.
+/** With the CUDA backend, this is a wrapper around CUstream. */
 class command_queue {
     public:
+        /// Create command queue for the given context and device.
         command_queue(const vex::backend::context &ctx, vex::backend::device dev, unsigned flags)
             : ctx(ctx), dev(dev), s( create(ctx, flags), detail::deleter() ), f(flags)
         { }
 
+        /// Blocks until all previously queued commands in command_queue are issued to the associated device and have completed.
         void finish() const {
             cuda_check( cuStreamSynchronize( s.get() ) );
         }
 
+        /// Returns the context associated with the command queue.
         vex::backend::context context() const {
             return ctx;
         }
 
+        /// Returns the device associated with the command queue.
         vex::backend::device device() const {
             return dev;
         }
 
+        /// Returns command_queue_properties specified at creation.
         unsigned flags() const {
             return f;
         }
 
+        /// Returns raw CUstream handle for the command queue.
         CUstream raw() const {
             return s.get();
         }
@@ -198,26 +227,36 @@ class command_queue {
         }
 };
 
+/// Binds the specified CUDA context to the calling CPU thread.
 inline void select_context(const command_queue &q) {
     q.context().set_current();
 }
 
+/// Raw device handle.
 typedef CUdevice  device_id;
+
+/// A unique context id that is used for online kernel caching.
 typedef CUcontext kernel_cache_key;
 
-inline CUdevice get_device_id(const command_queue &q) {
+/// Returns id of the device associated with the given queue.
+inline device_id get_device_id(const command_queue &q) {
     return q.device().raw();
 }
 
-inline CUcontext cache_key(const command_queue &q) {
+/// Returns kernel cache key for the given queue.
+inline kernel_cache_key cache_key(const command_queue &q) {
     return q.context().raw();
 }
 
+/// Create command queue on the same context and device as the given one.
 inline command_queue duplicate_queue(const command_queue &q) {
     return command_queue(q.context(), q.device(), q.flags());
 }
 
 /// Checks if the compute device is CPU.
+/**
+ * Always returns false with the CUDA backend.
+ */
 inline bool is_cpu(const command_queue&) {
     return false;
 }
@@ -227,13 +266,6 @@ inline bool is_cpu(const command_queue&) {
  * \param filter  Device filter functor. Functors may be combined with logical
  *                operators.
  * \returns list of devices satisfying the provided filter.
- *
- * This example selects any GPU which supports double precision arithmetic:
- * \code
- * auto devices = device_list(
- *          Filter::Type(CL_DEVICE_TYPE_GPU) && Filter::DoublePrecision
- *          );
- * \endcode
  */
 template<class DevFilter>
 std::vector<device> device_list(DevFilter&& filter) {

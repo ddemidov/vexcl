@@ -46,6 +46,7 @@ THE SOFTWARE.
 #  include <CL/cl_platform.h>
 #endif
 
+/// \cond INTERNAL
 typedef unsigned int  uint;
 typedef unsigned char uchar;
 
@@ -301,5 +302,6 @@ struct is_cl_vector :
 
 }
 
+/// \endcond
 
 #endif

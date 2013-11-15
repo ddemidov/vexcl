@@ -33,6 +33,7 @@ THE SOFTWARE.
 
 namespace viennacl {
     namespace linalg {
+        /// Inner product of two vex::vector instances.
         template< typename T1, typename T2 >
         decltype(T1() * T2())
         inner_prod(const vex::vector<T1> &v1, const vex::vector<T2> &v2) {
@@ -42,6 +43,7 @@ namespace viennacl {
             return sum(v1 * v2);
         }
 
+        /// Matrix-vector product.
         template <typename T, typename C, typename I>
         auto prod(const vex::SpMat<T, C, I> &A, const vex::vector<T> &x)
             -> decltype(A * x)
@@ -49,6 +51,7 @@ namespace viennacl {
             return A * x;
         }
 
+        /// L2-norm.
         template <typename T>
         T norm_2(const vex::vector<T> &x) {
             return sqrt(inner_prod(x, x));
@@ -56,6 +59,7 @@ namespace viennacl {
     }
 
     namespace traits {
+        /// Zeros-out the given vector.
         template <class T>
         void clear(vex::vector<T> &vec) {
             vec = 0;

@@ -49,19 +49,27 @@ typedef cl_command_queue_properties command_queue_properties;
 typedef cl_device_id                device_id;
 typedef cl_context                  kernel_cache_key;
 
-inline void select_context(const cl::CommandQueue&) {
+/// Binds the specified context to the calling CPU thread.
+/**
+ * With the OpenCL backend this is an empty stub provided for compatibility
+ * with the CUDA backend.
+ */
+inline void select_context(const command_queue&) {
 }
 
-inline cl_device_id get_device_id(const cl::CommandQueue &q) {
+/// Returns id of the device associated with the given queue.
+inline device_id get_device_id(const command_queue &q) {
     return q.getInfo<CL_QUEUE_DEVICE>()();
 }
 
+/// Returns kernel cache key for the given queue.
 inline kernel_cache_key cache_key(const command_queue &q) {
     return q.getInfo<CL_QUEUE_CONTEXT>()();
 }
 
-inline cl::CommandQueue duplicate_queue(const cl::CommandQueue &q) {
-    return cl::CommandQueue(
+/// Create command queue on the same context and device as the given one.
+inline command_queue duplicate_queue(const command_queue &q) {
+    return command_queue(
             q.getInfo<CL_QUEUE_CONTEXT>(), q.getInfo<CL_QUEUE_DEVICE>());
 }
 
@@ -124,10 +132,10 @@ std::vector<cl::Device> device_list(DevFilter&& filter) {
  * \see device_list
  */
 template<class DevFilter>
-std::pair<std::vector<cl::Context>, std::vector<cl::CommandQueue>>
+std::pair<std::vector<cl::Context>, std::vector<command_queue>>
 queue_list(DevFilter &&filter, cl_command_queue_properties properties = 0) {
     std::vector<cl::Context>      context;
-    std::vector<cl::CommandQueue> queue;
+    std::vector<command_queue> queue;
 
     std::vector<cl::Platform> platforms;
     cl::Platform::get(&platforms);
@@ -150,7 +158,7 @@ queue_list(DevFilter &&filter, cl_command_queue_properties properties = 0) {
         for(auto d = device.begin(); d != device.end(); d++)
             try {
                 context.push_back(cl::Context(std::vector<cl::Device>(1, *d)));
-                queue.push_back(cl::CommandQueue(context.back(), *d, properties));
+                queue.push_back(command_queue(context.back(), *d, properties));
             } catch(const cl::Error&) {
                 // Something bad happened. Better skip this device.
             }
@@ -165,7 +173,7 @@ queue_list(DevFilter &&filter, cl_command_queue_properties properties = 0) {
 namespace std {
 
 /// Output device name to stream.
-inline std::ostream& operator<<(std::ostream &os, const cl::CommandQueue &q)
+inline std::ostream& operator<<(std::ostream &os, const vex::backend::command_queue &q)
 {
     cl::Device   d(q.getInfo<CL_QUEUE_DEVICE>());
     cl::Platform p(d.getInfo<CL_DEVICE_PLATFORM>());

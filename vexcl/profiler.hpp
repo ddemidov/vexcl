@@ -117,16 +117,19 @@ class stopwatch {
             return delta;
         }
 
+        /// Average time across tics.
         inline double average() const {
             namespace ba = boost::accumulators;
 
             return ba::count(acc) >= 3 ? ba::median(acc) : ba::mean(acc);
         }
 
+        /// Total time spent in the timer.
         inline double total() const {
             return boost::accumulators::sum(acc);
         }
 
+        /// Number of tics.
         inline size_t tics() const {
             return boost::accumulators::count(acc);
         }
@@ -344,10 +347,15 @@ class profiler {
 
 } // namespace vex
 
+namespace std {
+
+/// Sends the profiler summary to the output stream.
 template <class Clock>
 inline std::ostream& operator<<(std::ostream &os, vex::profiler<Clock> &prof) {
     prof.print(os);
     return os;
+}
+
 }
 
 #endif

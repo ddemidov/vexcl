@@ -71,7 +71,8 @@ struct FFT {
         : plan(current_context().queue(), std::vector<size_t>(1, length), std::vector<fft::direction>(1, dir), planner) {}
 #endif
 
-    /// N-D constructors
+    /// \defgroup  N-dimensional constructors.
+    /** @{ */
     FFT(const std::vector<backend::command_queue> &queues,
         const std::vector<size_t> &lengths, fft::direction dir = fft::forward,
         const Planner &planner = Planner())
@@ -122,6 +123,7 @@ struct FFT {
         : plan(current_context().queue(), lengths, dirs, planner) {}
 #endif
 #endif
+    /** @} */
 
     // User call
     template <class Expr>

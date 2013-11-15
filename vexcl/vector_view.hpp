@@ -420,8 +420,10 @@ struct range {
     }
 };
 
+/// Placeholder for an unbounded range.
 const range _;
 
+/// \cond INTERNAL
 template <size_t NDIM>
 struct extent_gen {
     std::array<size_t, NDIM> dim;
@@ -440,9 +442,12 @@ struct extent_gen {
                 static_cast<size_t>(1), std::multiplies<size_t>());
     }
 };
+/// \endcond
 
+/// Helper object for specifying slicer dimensions.
 const extent_gen<0> extents;
 
+/// \cond INTERNAL
 template <size_t NR, class Dimensions = boost::fusion::vector<> >
 struct index_gen {
     std::array<range, NR> ranges;
@@ -474,7 +479,9 @@ struct index_gen {
             return idx;
         }
 };
+/// \endcond
 
+/// Helper object for specifying slicer shape.
 const index_gen<0> indices;
 
 /// Slicing operator.
@@ -583,7 +590,8 @@ struct slicer {
         }
 };
 
-/// Expression-based permutation operator.
+/// \cond INTERNAL
+// Expression-based permutation operator.
 template <class Expr>
 struct expr_permutation {
     const Expr expr;
@@ -647,6 +655,7 @@ struct expr_permutation {
                 >(boost::proto::as_child<vector_domain>(base), *this);
     }
 };
+/// \endcond
 
 /// Returns permutation functor which is based on an integral expression.
 /**
@@ -926,6 +935,7 @@ reduced_vector_view<
 // Matrix reshaper
 //---------------------------------------------------------------------------
 
+/// \cond INTERNAL
 namespace detail {
 
 template <size_t Nout, size_t Nin>
@@ -1015,7 +1025,26 @@ struct reshape_helper {
 
 } //namespace detail
 
+/// \endcond
+
 /// Reshapes given expression.
+/**
+ * Makes a multidimensional expression of dst_dims dimensions from input
+ * expression shaped as specified by src_dim.
+ * \param expr     Input expression
+ * \param dst_dims dimensions of the resulting expression.
+ * \param src_dims dimensions of the input expressions. Specified as posintions
+ *                 in dst_dims.
+ *
+ * Example:
+ * \code
+ * // Matrix transposition:
+ * auto B = reshape(A, make_array<size_t>(n, m), make_array(1, 0));
+ *
+ * // Expand 1D vector to a 2D matrix (by copying along redundant dimension):
+ * auto A = reshape(x, make_array(n, m), make_array(0));
+ * \endcode
+ */
 template <class Expr, size_t Nout, size_t Nin>
 auto reshape(
         const Expr &expr,

@@ -94,6 +94,7 @@ class kernel {
             smem = f(w_size);
         }
 
+        /// Enqueue the kernel to the specified command queue.
         void operator()(const command_queue &q) {
             prm_addr.clear();
             for(auto p = prm_pos.begin(); p != prm_pos.end(); ++p)
@@ -125,17 +126,20 @@ class kernel {
             return 4 * q.device().multiprocessor_count();
         }
 
+        /// The maximum number of threads per block, beyond which a launch of the kernel would fail.
         size_t max_threads_per_block(const command_queue&) const {
             int n;
             cuda_check( cuFuncGetAttribute(&n, CU_FUNC_ATTRIBUTE_MAX_THREADS_PER_BLOCK, K) );
             return n;
         }
 
+        /// The size in bytes of shared memory per block available for this kernel.
         size_t max_shared_memory_per_block(const command_queue &q) const {
             return q.device().max_shared_memory_per_block() -
                 shared_size_bytes();
         }
 
+        /// Select best launch configuration for the given shared memory requirements.
         void config(const command_queue &q, std::function<size_t(size_t)> smem) {
             // Select workgroup size that would fit into the device.
             w_size = q.device().max_threads_per_block();

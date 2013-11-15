@@ -186,10 +186,12 @@ class mba {
 
         static const size_t ndim = NDIM;
 
+        /// \cond INTERNAL
         std::vector< backend::command_queue >       queue;
         std::vector< backend::device_vector<real> > phi;
         point xmin, hinv;
         index n, stride;
+        /// \endcond
 
         /**
          * \param queue  command queue list.

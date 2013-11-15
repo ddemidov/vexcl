@@ -82,6 +82,11 @@ namespace random {
  * \sa vex::RandomNormal
  */
 struct threefry {
+    template <class T>
+    static size_t key_size() {
+        return cl_vector_length<T>::value;
+    }
+
     // print the rotation table for WxN
     template <size_t n>
     static void table(std::ostream &o, const int r[n]) {

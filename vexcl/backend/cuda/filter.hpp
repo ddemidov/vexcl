@@ -55,15 +55,18 @@ namespace Filter {
             std::string devname;
     };
 
-    /// Selects devices supporting double precision.
+    /// \cond INTERNAL
     struct DoublePrecisionFilter {
         bool operator()(const backend::device &d) const {
             return d.compute_capability() >= std::make_tuple(1, 3);
         }
     };
+    /// \endcond
 
+    /// Selects devices supporting double precision.
     const DoublePrecisionFilter DoublePrecision = {};
 
+    /// List of device filters based on environment variables.
     inline std::vector< std::function<bool(const backend::device&)> >
     backend_env_filters()
     {

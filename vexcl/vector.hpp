@@ -168,6 +168,7 @@ inline void set_partitioning(
     partitioning_scheme<>::set(f);
 }
 
+/// Returns partitioning for the specified vector size on a given set of queues.
 inline std::vector<size_t> partition(size_t n,
             const std::vector<backend::command_queue> &queue)
 {
