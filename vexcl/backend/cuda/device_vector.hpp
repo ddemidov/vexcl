@@ -44,6 +44,20 @@ static const mem_flags MEM_READ_ONLY  = 1;
 static const mem_flags MEM_WRITE_ONLY = 2;
 static const mem_flags MEM_READ_WRITE = 4;
 
+/// \cond INTERNAL
+namespace detail {
+
+template <>
+struct deleter_impl<char*> {
+    static void dispose(char *ptr) {
+        cuda_check( cuMemFree(static_cast<CUdeviceptr>(reinterpret_cast<size_t>(ptr))) );
+    }
+};
+
+} // namespace detail
+/// \endcond
+
+/// Wrapper around CUdeviceptr.
 template <typename T>
 class device_vector {
     public:

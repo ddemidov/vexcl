@@ -48,24 +48,37 @@ inline CUresult do_init() {
 
 namespace detail {
 
-// Knows how to dispose of various CUDA handles.
-struct deleter {
-    void operator()(CUcontext context) const {
+template <class Handle>
+struct deleter_impl;
+
+template <>
+struct deleter_impl<CUcontext> {
+    static void dispose(CUcontext context) {
         cuda_check( cuCtxSetCurrent(context) );
         cuda_check( cuCtxSynchronize()       );
         cuda_check( cuCtxDestroy(context)    );
     }
+};
 
-    void operator()(CUmodule module) const {
+template <>
+struct deleter_impl<CUmodule> {
+    static void dispose(CUmodule module) {
         cuda_check( cuModuleUnload(module) );
     }
+};
 
-    void operator()(CUstream stream) const {
+template <>
+struct deleter_impl<CUstream> {
+    static void dispose(CUstream stream) {
         cuda_check( cuStreamDestroy(stream) );
     }
+};
 
-    void operator()(char *ptr) const {
-        cuda_check( cuMemFree(static_cast<CUdeviceptr>(reinterpret_cast<size_t>(ptr))) );
+// Knows how to dispose of various CUDA handles.
+struct deleter {
+    template <class Handle>
+    void operator()(Handle handle) const {
+        deleter_impl<Handle>::dispose(handle);
     }
 };
 
