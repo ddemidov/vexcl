@@ -40,28 +40,6 @@ THE SOFTWARE.
 namespace vex {
 namespace backend {
 
-struct local_mem_arg {
-    size_t bytes;
-};
-
-/// Helper function for generating LocalSpaceArg objects.
-/**
- * This is a copy of cl::Local that is absent in some of cl.hpp versions.
- */
-inline local_mem_arg local_mem(size_t size) {
-    local_mem_arg ret = { size };
-    return ret;
-}
-
-struct fixed_workgroup_size_impl {
-    size_t size;
-};
-
-inline fixed_workgroup_size_impl fixed_workgroup_size(size_t n) {
-    fixed_workgroup_size_impl s = {n};
-    return s;
-}
-
 /// An abstraction over CUDA compute kernel.
 class kernel {
     public:
@@ -94,20 +72,6 @@ class kernel {
         {
             cuda_check( cuModuleGetFunction(&K, module.get(), name.c_str()) );
             config(queue, smem);
-        }
-
-        /// Constructor. Creates a cl::Kernel instance from source.
-        kernel(const command_queue &queue,
-               const std::string &src, const std::string &name,
-               fixed_workgroup_size_impl wgs
-               )
-            : ctx(queue.context()),
-              module(build_sources(queue, src), detail::deleter()),
-              w_size(wgs.size),
-              g_size(num_workgroups(queue)),
-              smem(0)
-        {
-            cuda_check( cuModuleGetFunction(&K, module.get(), name.c_str()) );
         }
 
         /// Adds an argument to the kernel.

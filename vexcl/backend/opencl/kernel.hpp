@@ -43,26 +43,6 @@ THE SOFTWARE.
 namespace vex {
 namespace backend {
 
-typedef cl::LocalSpaceArg local_mem_arg;
-
-/// Helper function for generating LocalSpaceArg objects.
-/**
- * This is a copy of cl::Local that is absent in some of cl.hpp versions.
- */
-inline local_mem_arg local_mem(size_t size) {
-    cl::LocalSpaceArg ret = { size };
-    return ret;
-}
-
-struct fixed_workgroup_size_impl {
-    size_t size;
-};
-
-inline fixed_workgroup_size_impl fixed_workgroup_size(size_t n) {
-    fixed_workgroup_size_impl s = {n};
-    return s;
-}
-
 /// An abstraction over OpenCL compute kernel.
 class kernel {
     public:
@@ -89,17 +69,6 @@ class kernel {
         {
             config(queue, smem);
         }
-
-        /// Constructor. Creates a cl::Kernel instance from source.
-        kernel(const cl::CommandQueue &queue,
-               const std::string &src, const std::string &name,
-               fixed_workgroup_size_impl wgs
-               )
-            : argpos(0),
-              K(build_sources(queue, src), name.c_str()),
-              w_size(wgs.size),
-              g_size(w_size * num_workgroups(queue))
-        { }
 
         /// Adds an argument to the kernel.
         template <class Arg>
