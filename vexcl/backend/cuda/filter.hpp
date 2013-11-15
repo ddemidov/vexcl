@@ -41,6 +41,7 @@ THE SOFTWARE.
 
 namespace vex {
 
+/// Device filters.
 namespace Filter {
 
     /// Selects devices whose names match given value.

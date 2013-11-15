@@ -50,6 +50,7 @@ THE SOFTWARE.
 
 namespace vex {
 
+/// Device filters.
 namespace Filter {
 
     /// Selects devices whose vendor name match given value.
