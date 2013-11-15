@@ -42,12 +42,14 @@ THE SOFTWARE.
 namespace vex {
 namespace backend {
 
+/// The OpenCL backend.
+namespace opencl {
+
 typedef cl::Context                 context;
 typedef cl::Device                  device;
 typedef cl::CommandQueue            command_queue;
 typedef cl_command_queue_properties command_queue_properties;
 typedef cl_device_id                device_id;
-typedef cl_context                  kernel_cache_key;
 
 /// Binds the specified context to the calling CPU thread.
 /**
@@ -62,10 +64,13 @@ inline device_id get_device_id(const command_queue &q) {
     return q.getInfo<CL_QUEUE_DEVICE>()();
 }
 
+/// \cond INTERNAL
+typedef cl_context                  kernel_cache_key;
 /// Returns kernel cache key for the given queue.
 inline kernel_cache_key cache_key(const command_queue &q) {
     return q.getInfo<CL_QUEUE_CONTEXT>()();
 }
+/// \endcond
 
 /// Create command queue on the same context and device as the given one.
 inline command_queue duplicate_queue(const command_queue &q) {
@@ -167,13 +172,14 @@ queue_list(DevFilter &&filter, cl_command_queue_properties properties = 0) {
     return std::make_pair(context, queue);
 }
 
+} // namespace opencl
 } // namespace backend
 } // namespace vex
 
 namespace std {
 
 /// Output device name to stream.
-inline std::ostream& operator<<(std::ostream &os, const vex::backend::command_queue &q)
+inline std::ostream& operator<<(std::ostream &os, const vex::backend::opencl::command_queue &q)
 {
     cl::Device   d(q.getInfo<CL_QUEUE_DEVICE>());
     cl::Platform p(d.getInfo<CL_DEVICE_PLATFORM>());

@@ -37,6 +37,7 @@ THE SOFTWARE.
 
 namespace vex {
 namespace backend {
+namespace cuda {
 
 /// Device memory creation flags.
 /**
@@ -163,6 +164,7 @@ class device_vector {
         size_t n;
 };
 
+} // namespace cuda
 } // namespace backend
 } // namespace vex
 

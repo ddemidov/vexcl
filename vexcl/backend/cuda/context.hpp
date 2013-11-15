@@ -41,6 +41,9 @@ THE SOFTWARE.
 namespace vex {
 namespace backend {
 
+/// The CUDA backend.
+namespace cuda {
+
 /// \cond INTERNAL
 inline CUresult do_init() {
     static CUresult rc = cuInit(0);
@@ -235,18 +238,20 @@ inline void select_context(const command_queue &q) {
 /// Raw device handle.
 typedef CUdevice  device_id;
 
-/// A unique context id that is used for online kernel caching.
-typedef CUcontext kernel_cache_key;
-
 /// Returns id of the device associated with the given queue.
 inline device_id get_device_id(const command_queue &q) {
     return q.device().raw();
 }
 
+/// \cond INTERNAL
+/// A unique context id that is used for online kernel caching.
+typedef CUcontext kernel_cache_key;
+
 /// Returns kernel cache key for the given queue.
 inline kernel_cache_key cache_key(const command_queue &q) {
     return q.context().raw();
 }
+/// \endcond
 
 /// Create command queue on the same context and device as the given one.
 inline command_queue duplicate_queue(const command_queue &q) {
@@ -326,19 +331,20 @@ queue_list(DevFilter &&filter, unsigned queue_flags = 0)
     return std::make_pair(ctx, queue);
 }
 
+} // namespace cuda
 } // namespace backend
 } // namespace vex
 
 namespace std {
 
 /// Output device name to stream.
-inline std::ostream& operator<<(std::ostream &os, const vex::backend::device &d)
+inline std::ostream& operator<<(std::ostream &os, const vex::backend::cuda::device &d)
 {
     return os << d.name();
 }
 
 /// Output device name to stream.
-inline std::ostream& operator<<(std::ostream &os, const vex::backend::command_queue &q)
+inline std::ostream& operator<<(std::ostream &os, const vex::backend::cuda::command_queue &q)
 {
     return os << q.device();
 }

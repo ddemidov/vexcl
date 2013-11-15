@@ -42,6 +42,8 @@ THE SOFTWARE.
 
 namespace vex {
 
+/// \cond INTERNAL
+
 template <class T> struct global_ptr {};
 template <class T> struct shared_ptr {};
 
@@ -90,6 +92,7 @@ struct type_name_impl<T*>
 };
 
 namespace backend {
+namespace opencl {
 
 /// Returns standard OpenCL program header.
 /**
@@ -106,6 +109,7 @@ inline std::string standard_kernel_header(const cl::CommandQueue &q) {
         ) + get_program_header(q);
 }
 
+/// Helper class for OpenCL source code generation.
 class source_generator {
     private:
         unsigned           indent;
@@ -245,7 +249,11 @@ class source_generator {
 
 };
 
+} // namespace opencl
 } // namespace backend
+
+/// \endcond
+
 } // namespace vex
 
 #endif

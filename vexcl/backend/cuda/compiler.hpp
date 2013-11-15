@@ -37,6 +37,7 @@ THE SOFTWARE.
 
 namespace vex {
 namespace backend {
+namespace cuda {
 
 /// Create and build a program from source string.
 inline CUmodule build_sources(
@@ -90,6 +91,7 @@ inline CUmodule build_sources(
     return program;
 }
 
+} // namespace cuda
 } // namespace backend
 } // namespace vex
 

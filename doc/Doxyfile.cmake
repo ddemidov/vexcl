@@ -655,6 +655,8 @@ WARN_LOGFILE           =
 # with spaces.
 
 INPUT                  = ${DOXYGEN_INPUT_DIR}/vexcl \
+                         ${DOXYGEN_INPUT_DIR}/vexcl/backend/opencl.hpp \
+                         ${DOXYGEN_INPUT_DIR}/vexcl/backend/cuda.hpp \
                          ${DOXYGEN_INPUT_DIR}/README.md
 
 # This tag can be used to specify the character encoding of the source files

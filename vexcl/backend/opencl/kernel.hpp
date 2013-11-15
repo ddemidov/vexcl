@@ -42,6 +42,9 @@ THE SOFTWARE.
 
 namespace vex {
 namespace backend {
+namespace opencl {
+
+/// \cond INTERNAL
 
 /// An abstraction over OpenCL compute kernel.
 class kernel {
@@ -157,6 +160,9 @@ class kernel {
         size_t   g_size;
 };
 
+/// \endcond
+
+} // namespace opencl
 } // namespace backend
 } // namespace vex
 

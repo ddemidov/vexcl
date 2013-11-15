@@ -42,6 +42,8 @@ THE SOFTWARE.
 
 namespace vex {
 
+/// \cond INTERNAL
+
 template <class T> struct global_ptr {};
 template <class T> struct shared_ptr {};
 
@@ -90,6 +92,7 @@ struct type_name_impl<T*>
 };
 
 namespace backend {
+namespace cuda {
 
 /// Returns standard CUDA program header.
 /**
@@ -247,7 +250,11 @@ class source_generator {
         }
 };
 
+} // namespace cuda
 } // namespace backend
+
+/// \endcond
+
 } // namespace vex
 
 #endif

@@ -38,6 +38,7 @@ THE SOFTWARE.
 
 namespace vex {
 namespace backend {
+namespace opencl {
 
 typedef cl_mem_flags mem_flags;
 
@@ -123,6 +124,7 @@ class device_vector {
         cl::Buffer buffer;
 };
 
+} // namespace opencl
 } // namespace backend
 } // namespace vex
 

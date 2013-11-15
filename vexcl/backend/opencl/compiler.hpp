@@ -40,6 +40,7 @@ THE SOFTWARE.
 
 namespace vex {
 namespace backend {
+namespace opencl {
 
 /// Saves program binaries for future reuse.
 inline void save_program_binaries(
@@ -165,6 +166,7 @@ inline cl::Program build_sources(
     return program;
 }
 
+} // namespace cuda
 } // namespace backend
 } // namespace vex
 

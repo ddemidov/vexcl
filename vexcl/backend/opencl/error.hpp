@@ -40,16 +40,18 @@ THE SOFTWARE.
 
 namespace vex {
 namespace backend {
+namespace opencl {
 
 typedef cl::Error error;
 
-}
-}
+} // namespace opencl
+} // namespace backend
+} // namespace vex
 
 namespace std {
 
 /// Sends description of an OpenCL error to the output stream.
-inline std::ostream& operator<<(std::ostream &os, const cl::Error &e) {
+inline std::ostream& operator<<(std::ostream &os, const vex::backend::opencl::error &e) {
     os << e.what() << "(";
 
 #define CL_ERR2TXT(num, msg) case (num): os << (msg); break

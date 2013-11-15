@@ -31,12 +31,42 @@ THE SOFTWARE.
  * \brief  Compile-time selection of backend (OpenCL/CUDA).
  */
 
-#if defined(VEXCL_BACKEND_OPENCL)
-#  include <vexcl/backend/opencl.hpp>
-#elif defined(VEXCL_BACKEND_CUDA)
-#  include <vexcl/backend/cuda.hpp>
-#else
-#  include <vexcl/backend/opencl.hpp>
+namespace vex {
+    /// Backend-specific functionality.
+    /**
+     * \note Definitions from either vex::backend::opencl or vex::backend::cuda
+     * are directly brought into vex::backend namespace. Define either
+     * VEXCL_BACKEND_OPENCL or VEXCL_BACKEND_CUDA macro in order to select
+     * backend. You will also need to link to libOpenCL or libcuda accordingly.
+     */
+    namespace backend {
+        namespace cuda {}
+        using namespace cuda;
+    }
+}
+
+#if defined(VEXCL_BACKEND_CUDA)
+
+namespace vex {
+    namespace backend {
+        namespace cuda {}
+        using namespace cuda;
+    }
+}
+
+#include <vexcl/backend/cuda.hpp>
+
+#else // defined(VEXCL_BACKEND_OPENCL)
+
+namespace vex {
+    namespace backend {
+        namespace opencl {}
+        using namespace opencl;
+    }
+}
+
+#include <vexcl/backend/opencl.hpp>
+
 #endif
 
 namespace vex {
@@ -45,6 +75,6 @@ namespace vex {
     using backend::error;
     using backend::device_vector;
     using backend::is_cpu;
-}
+} // namespace vex
 
 #endif

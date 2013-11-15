@@ -108,6 +108,7 @@ inline std::ostream& operator<<(std::ostream &os, CUresult rc) {
 
 namespace vex {
 namespace backend {
+namespace cuda {
 
 /// CUDA error class to be thrown as exception.
 class error : public std::runtime_error {
@@ -142,6 +143,7 @@ inline void check(CUresult rc, const char *file, int line) {
  */
 #define cuda_check(rc) vex::backend::check(rc, __FILE__, __LINE__)
 
+} // namespace cuda
 } // namespace backend
 } // namespace vex
 

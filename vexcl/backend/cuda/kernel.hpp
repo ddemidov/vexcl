@@ -39,6 +39,9 @@ THE SOFTWARE.
 
 namespace vex {
 namespace backend {
+namespace cuda {
+
+/// \cond INTERNAL
 
 /// An abstraction over CUDA compute kernel.
 class kernel {
@@ -174,6 +177,9 @@ class kernel {
 
 };
 
+/// \endcond
+
+} // namespace cuda
 } // namespace backend
 } // namespace vex
 
