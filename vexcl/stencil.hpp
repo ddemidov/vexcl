@@ -732,8 +732,10 @@ void StencilOperator<T, width, center, Impl>::convolve(
  * output = pow3_oper(input);
  * \endcode
  */
-#define VEX_STENCIL_OPERATOR(name, type, width, center, body, queue) \
-    VEX_STENCIL_OPERATOR_TYPE(stencil_operator_##name##_t, type, width, center, body) name(queue)
+#define VEX_STENCIL_OPERATOR(name, type, width, center, body, queue)           \
+  VEX_STENCIL_OPERATOR_TYPE(                                                   \
+          stencil_operator_##name##_t, type, width, center,  body)             \
+    const name(queue)
 
 } // namespace vex
 

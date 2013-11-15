@@ -779,6 +779,8 @@ struct UserFunction {};
 template<class Impl, class RetType, class... ArgType>
 struct UserFunction<Impl, RetType(ArgType...)> : user_function
 {
+    UserFunction() {}
+
     typedef RetType value_type;
 
     template <class... Arg>
@@ -787,7 +789,7 @@ struct UserFunction<Impl, RetType(ArgType...)> : user_function
         Impl,
         const Arg&...
     >::type const
-    operator()(const Arg&... arg) {
+    operator()(const Arg&... arg) const {
         return boost::proto::make_expr<boost::proto::tag::function>(
                 Impl(), boost::ref(arg)...
                 );
@@ -827,12 +829,13 @@ struct UserFunction<Impl, RetType(ArgType...)> : user_function
   template <class Impl, class RetType, BOOST_PP_ENUM_PARAMS(n, class ArgType)> \
   struct UserFunction<                                                         \
       Impl, RetType(BOOST_PP_ENUM_PARAMS(n, ArgType))> : user_function {       \
+    UserFunction() {}                                                          \
     typedef RetType value_type;                                                \
     template <BOOST_PP_ENUM_PARAMS(n, class Arg)>                              \
     typename boost::proto::result_of::make_expr<                               \
         boost::proto::tag::function, Impl,                                     \
         BOOST_PP_ENUM(n, PRINT_ARG_REF, ~)>::type const operator()(            \
-        BOOST_PP_ENUM(n, PRINT_PARAM, ~)) {                                    \
+        BOOST_PP_ENUM(n, PRINT_PARAM, ~)) const {                              \
       return boost::proto::make_expr<boost::proto::tag::function>(             \
           Impl(), BOOST_PP_ENUM(n, PRINT_BOOST_REF, ~));                       \
     }                                                                          \
@@ -873,6 +876,7 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, USER_FUNCTION, ~)
  */
 #define VEX_FUNCTION_TYPE(name, signature, preamble_str, body_str)             \
   struct name : vex::UserFunction<name, signature> {                           \
+    name() {}                                                                  \
     static std::string preamble() { return preamble_str; }                     \
     static std::string body() { return body_str; }                             \
   }
@@ -885,7 +889,8 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, USER_FUNCTION, ~)
  * \endcode
  */
 #define VEX_FUNCTION(name, signature, body)                                    \
-  VEX_FUNCTION_TYPE(user_function_##name##_body, signature, "", body) name
+  VEX_FUNCTION_TYPE(user_function_##name##_body, signature, "", body)          \
+    const name
 
 
 /// Macro to declare a user function with preamble.
@@ -901,7 +906,8 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, USER_FUNCTION, ~)
  * \endcode
  */
 #define VEX_FUNCTION_WITH_PREAMBLE(name, signature, preamble, body)            \
-  VEX_FUNCTION_TYPE(user_function_##name##_body, signature, preamble, body) name
+  VEX_FUNCTION_TYPE(user_function_##name##_body, signature, preamble, body)    \
+    const name
 
 
 /// \cond INTERNAL
