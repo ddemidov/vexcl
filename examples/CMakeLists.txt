@@ -53,6 +53,16 @@ if ("${VEXCL_BACKEND}" STREQUAL "OpenCL")
 endif()
 
 #----------------------------------------------------------------------------
+# Thrust interoperation examples
+#----------------------------------------------------------------------------
+if ("${VEXCL_BACKEND}" STREQUAL "CUDA")
+    set(CUDA_PROPAGATE_HOST_FLAGS OFF)
+    set(CUDA_NVCC_FLAGS "-arch=sm_13")
+    cuda_add_executable(thrust-sort thrust-sort.cpp thrust-sort.cu)
+    target_link_libraries(thrust-sort ${Boost_LIBRARIES} ${CUDA_CUDA_LIBRARY})
+endif()
+
+#----------------------------------------------------------------------------
 # Install compiled examples and sources
 #----------------------------------------------------------------------------
 install(PROGRAMS ${binaries} DESTINATION share/vexcl/examples)
