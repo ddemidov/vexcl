@@ -2,9 +2,9 @@
 
 [<img src="https://travis-ci.org/ddemidov/vexcl.png?branch=master">](https://travis-ci.org/ddemidov/vexcl)
 
-VexCL is a vector expression template library for OpenCL. It has been created
-for ease of OpenCL development with C++. VexCL strives to reduce amount of
-boilerplate code needed to develop OpenCL applications. The library provides
+VexCL is a vector expression template library for OpenCL/CUDA. It has been
+created for ease of GPGPU development with C++. VexCL strives to reduce amount
+of boilerplate code needed to develop GPGPU applications. The library provides
 convenient and intuitive notation for vector arithmetic, reduction, sparse
 matrix-vector products, etc. Multi-device and even multi-platform computations
 are supported. The source code of the library is distributed under very
@@ -29,6 +29,7 @@ performance of several GPGPU libraries, including VexCL.
 
 ### Table of contents
 
+* [Selecting backend](#selecting-backend)
 * [Context initialization](#context-initialization)
 * [Memory allocation](#memory-allocation)
 * [Copies between host and devices](#copies-between-host-and-devices)
@@ -49,12 +50,22 @@ performance of several GPGPU libraries, including VexCL.
 * [Stencil convolutions](#stencil-convolutions)
 * [Raw pointers](#raw-pointers)
 * [Multivectors](#multivectors)
-* [Converting generic C++ algorithms to OpenCL](#converting-generic-c-algorithms-to-opencl)
+* [Converting generic C++ algorithms to OpenCL/CUDA](#converting-generic-c-algorithms-to-opencl)
     * [Kernel generator](#kernel-generator)
     * [Function generator](#function-generator)
 * [Custom kernels](#custom-kernels)
 * [Interoperability with other libraries](#interoperability-with-other-libraries)
 * [Supported compilers](#supported-compilers)
+
+## <a name="selecting-backend"></a>Selecting backend
+
+VexCL provides two backends: OpenCL and CUDA. In order choose either of those,
+user has to define `VEXCL_BACKEND_OPENCL` or `VEXCL_BACKEND_CUDA` macros. In
+case neither of those are defined, OpenCL backend is chosen by default. One
+also has to link to either libOpenCL.so (OpenCL.dll) or libcuda.so (cuda.dll).
+
+For the CUDA backend to work, CUDA Toolkit has to be installed, NVIDIA CUDA
+compiler driver `nvcc` has to be in executable PATH and usable at runtime.
 
 ## <a name="context-initialization"></a>Context initialization
 
@@ -171,16 +182,16 @@ _compatible_:
 If these conditions are satisfied, then vectors may be combined with rich set of
 available expressions. Vector expressions are processed in parallel across all
 devices they were allocated on. One should keep in mind that in case several
-OpenCL command queues are used, then the queues of the vector that is being
+command queues are used, then the queues of the vector that is being
 assigned to will be employed. Each vector expression results in the launch of a
-single OpenCL kernel. The kernel is automatically generated and launched the
+single compute kernel. The kernel is automatically generated and launched the
 first time the expression is encountered in the program. If the
 `VEXCL_SHOW_KERNELS` macro is defined, then the sources of all generated
 kernels will be dumped to the standard output. For example, the expression:
 ~~~{.cpp}
 X = 2 * Y - sin(Z);
 ~~~
-will lead to the launch of the following OpenCL kernel:
+will lead to the launch of the following compute kernel:
 ~~~{.c}
 kernel void vexcl_vector_kernel(
     ulong n,
@@ -196,15 +207,17 @@ kernel void vexcl_vector_kernel(
 }
 ~~~
 Here and in the rest of examples `X`, `Y`, and `Z` are compatible instances
-of `vex::vector<double>`.
+of `vex::vector<double>`; it is also assumed that OpenCL backend is selected.
 
 VexCL is able to cache the compiled kernels offline. The compiled binaries are
 stored in `$HOME/.vexcl` on Linux and MacOSX, and in `%APPDATA%\vexcl` on
-Windows systems. In order to enable this functionality, the user has to define
-the `VEXCL_CACHE_KERNELS` macro. NVIDIA OpenCL implementation does the caching
-already, but on AMD or Intel platforms this may lead to dramatic decrease of
-program initialization time (e.g. VexCL tests take around 20 seconds to
-complete without kernel caches, and 2 seconds when caches are available).
+Windows systems. In order to enable this functionality for OpenCL backend, the
+user has to define the `VEXCL_CACHE_KERNELS` macro. NVIDIA OpenCL
+implementation does the caching already, but on AMD or Intel platforms this may
+lead to dramatic decrease of program initialization time (e.g. VexCL tests take
+around 20 seconds to complete without kernel caches, and 2 seconds when caches
+are available). In case of the CUDA backend the offline caching is always
+enabled.
 
 ### <a name="builtin-operations"></a>Builtin operations
 
@@ -220,7 +233,7 @@ Z = sqrt(2 * X) + pow(cos(Y), 2.0);
 ### <a name="constants"></a>Constants
 
 As you have seen above, `2` in the expression `2 * Y - sin(Z)` is passed to the
-generated OpenCL kernel as an `int` parameter (`prm_2`). Sometimes this is
+generated compute kernel as an `int` parameter (`prm_2`). Sometimes this is
 desired behaviour, because the same kernel will be reused for the expressions
 `42 * Z - sin(Y)` or `a * Y - sin(Y)` (where `a` is an integer variable). But
 this may lead to a slight overhead if an expression involves true constant that
@@ -269,9 +282,9 @@ Y = sin(vex::constants::two_pi() * vex::element_index() / Y.size());
 
 Users may define custom functions to use in vector expressions. One has to
 define the function signature and function body. The body may contain any
-number of lines of valid OpenCL code. Function parameters are named `prm1`,
-`prm2`, etc.  The most convenient way to define a function is via the
-`VEX_FUNCTION` macro:
+number of lines of valid OpenCL or CUDA code, depending on the selected
+backend. Function parameters are named `prm1`, `prm2`, etc.  The most
+convenient way to define a function is via the `VEX_FUNCTION` macro:
 
 ~~~{.cpp}
 VEX_FUNCTION(squared_radius, double(double, double), "return prm1 * prm1 + prm2 * prm2;");
@@ -324,11 +337,10 @@ auto x = vex::tag<1>(X);
 Y = log(x) * (log(x) + Z);
 ~~~
 
-and hope that the optimizing OpenCL compiler is smart enough to reuse result of
-`log(x)` (e.g. NVIDIA's compiler _is_ smart enough to do this). But it is also
-possible to explicitly ask VexCL to store result of a subexpression in a local
-variable and reuse it. The `vex::make_temp()` function template serves this
-purpose:
+and hope that the backend compiler is smart enough to reuse result of `log(x)`
+(e.g. NVIDIA's compiler _is_ smart enough to do this). But it is also possible
+to explicitly ask VexCL to store result of a subexpression in a local variable
+and reuse it. The `vex::make_temp()` function template serves this purpose:
 
 ~~~{.cpp}
 auto tmp1 = vex::make_temp<1>( sin(X) );
@@ -589,7 +601,7 @@ Y = X * S;
 Users may also define custom stencil operators. This may be of use if, for
 example, the operator is nonlinear. The definition of a stencil operator looks
 very similar to a definition of a custom function. The only difference is that
-the stencil operator constructor accepts a vector of OpenCL command queues. The
+the stencil operator constructor accepts a vector of command queues. The
 following example implements the nonlinear operator `y(i) = sin(x(i) - x(i -
 1)) + sin(x(i+1) - sin(x(i))`:
 ~~~{.cpp}
@@ -629,7 +641,7 @@ auto right = vex::make_temp<3>( if_else(i + one() < N, i + one(), i) );
 y = *(ptr + i) * two() - *(ptr + left) - *(ptr + right);
 ~~~
 
-This would result in the following OpenCL kernel:
+This would result in the following compute kernel:
 ~~~{.c}
 kernel void vexcl_vector_kernel(
     ulong n,
@@ -718,7 +730,7 @@ Y = std::tie( X(0) * cos(alpha) - X(1) * sin(alpha),
               X(0) * sin(alpha) + X(1) * cos(alpha) );
 ~~~
 
-## <a name="converting-generic-c-algorithms-to-opencl"></a>Converting generic C++ algorithms to OpenCL
+## <a name="converting-generic-c-algorithms-to-opencl"></a>Converting generic C++ algorithms to OpenCL/CUDA
 
 CUDA and OpenCL differ in their handling of compute kernels compilation. In
 NVIDIA's framework the compute kernels are compiled to PTX code together with
@@ -727,7 +739,8 @@ high-level C-like sources, adding an overhead which is particularly noticeable
 for smaller sized problems. This distinction leads to higher initialization
 cost of OpenCL programs, but at the same time it allows one to generate better
 optimized kernels for the problem at hand. VexCL exploits this possibility with
-help of its kernel generator mechanism.
+help of its kernel generator mechanism. Moreover, VexCL's CUDA backend uses the
+same technique to generate and compile CUDA kernels at runtime.
 
 An instance of `vex::symbolic<T>` dumps to an output stream any arithmetic
 operations it is being subjected to. For example, this code snippet:
@@ -810,10 +823,10 @@ embarrassingly parallel and is not allowed to contain any branching or
 data-dependent loops. Nevertheless, the kernel generation facility may save
 a substantial amount of both human and machine time when applicable.
 
-### <a name="functio-generator"></a>Function generator
+### <a name="function-generator"></a>Function generator
 
 VexCL also provides a user-defined function generator which takes a function
-signature and generic function object, and returns custom OpenCL function ready
+signature and generic function object, and returns custom VexCL function ready
 to be used in vector expressions. Let's rewrite the above example using an
 autogenerated function for a Runge-Kutta stepper. First, we need to implement
 generic functor:
@@ -838,7 +851,7 @@ Now we can generate and apply the custom function:
 double dt = 0.01;
 rk4_stepper stepper(dt);
 
-// Generate custom OpenCL function:
+// Generate custom VexCL function:
 auto rk4 = vex::generator::make_function<double(double)>(stepper);
 
 // Create initial state.
@@ -853,7 +866,7 @@ for(int i = 0; i < 100; i++) x = rk4(x);
 Note that both `runge_kutta_4()` and `rk4_stepper` may be reused for host-side
 computations.
 
-It is very easy to generate an OpenCL function from a Boost.Phoenix lambda
+It is very easy to generate a VexCL function from a Boost.Phoenix lambda
 expression (since Boost.Phoenix lambdas are themselves generic functors):
 
 ~~~{.cpp}
@@ -882,7 +895,7 @@ std::vector<cl::Kernel> kernel(ctx.size());
 
 // Compile and store the kernels for later use.
 for(uint d = 0; d < ctx.size(); d++) {
-    cl::Program program = vex::build_sources(ctx.context(d),
+    cl::Program program = vex::backend::build_sources(ctx.context(d),
         "kernel void dummy(ulong size, global float *x)\n"
         "{\n"
         "    size_t i = get_global_id(0);\n"
