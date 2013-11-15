@@ -70,6 +70,7 @@ namespace vex {
 #endif
 
 namespace vex {
+    using backend::device;
     using backend::command_queue;
     using backend::command_queue_properties;
     using backend::error;

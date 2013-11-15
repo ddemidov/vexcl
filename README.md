@@ -71,7 +71,7 @@ compiler driver `nvcc` has to be in executable PATH and usable at runtime.
 
 VexCL transparently works with multiple compute devices that are present in the
 system. A VexCL context is initialized with a device filter, which is just a
-functor that takes a reference to `cl::Device` and returns a `bool`. Several
+functor that takes a reference to `vex::device` and returns a `bool`.  Several
 [standard filters][filters] are provided, but one can easily add a custom
 functor. Filters may be combined with logical operators. All compute devices
 that satisfy the provided filter are added to the created context. In the
@@ -102,11 +102,12 @@ compute device without need to recompile the program.
 ## <a name="memory-allocation"></a>Memory allocation
 
 The `vex::vector<T>` class constructor accepts a const reference to
-`std::vector<cl::CommandQueue>`. A `vex::Context` instance may be conveniently
-converted to this type, but it is also possible to initialize the command
-queues elsewhere, thus completely eliminating the need to create a
-`vex::Context`.  Each command queue in the list should uniquely identify a
-single compute device.
+`std::vector<vex::command_queue>`. A `vex::Context` instance may be
+conveniently converted to this type, but it is also possible to initialize the
+command queues elsewhere (e.g. with the OpenCL backend `vex::command_queue` is
+typedefed to `cl::CommandQueue`), thus completely eliminating the need to
+create a `vex::Context`.  Each command queue in the list should uniquely
+identify a single compute device.
 
 The contents of the created vector will be partitioned across all devices that
 were present in the queue list.  The size of each partition will be
