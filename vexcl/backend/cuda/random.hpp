@@ -32,6 +32,7 @@ THE SOFTWARE.
  */
 
 #include <vexcl/operations.hpp>
+#include <boost/math/constants/constants.hpp>
 #include <vexcl/backend/cuda/random/philox.hpp>
 #include <vexcl/backend/cuda/random/threefry.hpp>
 
@@ -144,10 +145,6 @@ struct RandomNormal : UserFunction<RandomNormal<T,Generator>, T(cl_ulong, cl_ulo
             );
     typedef typename cl_vector_of<Ts,2>::type T2;
 
-    static std::string preamble() {
-        return "#include <math_constants.h>\n";
-    }
-
     static std::string body() {
         const size_t N = cl_vector_length<T>::value;
         const bool is_float = std::is_same<Ts, cl_float>::value;
@@ -180,7 +177,8 @@ struct RandomNormal : UserFunction<RandomNormal<T,Generator>, T(cl_ulong, cl_ulo
             else {
                 const char dim[] = {'x', 'y', 'z', 'w'};
                 o << type_name<Ts>() << " l = sqrt(-2 * log(u0)),\n"
-                    << "cs, sn;\nsincos(2 * CUDART_PI_F * u1, &sn, &cs);\n"
+                    << "cs, sn;\nsincos(" << boost::math::constants::two_pi<double>()
+                    << " * u1, &sn, &cs);\n"
                     << "z." << dim[i] << " = l * cs;\n"
                     << "z." << dim[i+1] << " = l * sn;\n";
             }

@@ -32,6 +32,7 @@ THE SOFTWARE.
  */
 
 #include <vexcl/operations.hpp>
+#include <boost/math/constants/constants.hpp>
 #include <vexcl/backend/opencl/random/philox.hpp>
 #include <vexcl/backend/opencl/random/threefry.hpp>
 
@@ -154,7 +155,8 @@ struct RandomNormal : UserFunction<RandomNormal<T,Generator>, T(cl_ulong, cl_ulo
                 o << "z = sqrt(-2 * log(u.s0)) * cospi(2 * u.s1);\n";
             else
                 o << type_name<Ts>() << " l = sqrt(-2 * log(u.s0)),\n"
-                    << "cs, sn = sincos(2 * M_PI_F * u.s1, &cs);\n"
+                    << "cs, sn = sincos(" << boost::math::constants::two_pi<double>()
+                    << " * u.s1, &cs);\n"
                     << "z.s" << i << " = l * cs;\n"
                     << "z.s" << (i + 1) << " = l * sn;\n";
 
