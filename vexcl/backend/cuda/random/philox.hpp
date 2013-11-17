@@ -85,6 +85,11 @@ namespace random {
  */
 struct philox {
     template <class T>
+    static size_t ctr_size() {
+        return cl_vector_length<T>::value;
+    }
+
+    template <class T>
     static size_t key_size() {
         return cl_vector_length<T>::value / 2;
     }

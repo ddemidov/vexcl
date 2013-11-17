@@ -83,7 +83,7 @@ struct Random : UserFunction<Random<T, Generator>, T(cl_ulong, cl_ulong)> {
             default:
                 precondition(false, "Unsupported random output type.");
         }
-        o << "ctr_t ctr; ctr.s0 = prm1; ctr.s1 = prm2;\n"
+        o << "ctr_t ctr; ctr.even = prm1; ctr.odd = prm2;\n"
             "key_t key = 0x12345678;\n"
             "rand(ctr, key);\n"
             "#undef rand\n";
@@ -137,7 +137,7 @@ struct RandomNormal : UserFunction<RandomNormal<T,Generator>, T(cl_ulong, cl_ulo
         else
             Generator::template macro<cl_uint4>(o, "rand");
 
-        o << "ctr_t ctr; ctr.s0 = prm1; ctr.s1 = prm2;\n"
+        o << "ctr_t ctr; ctr.even = prm1; ctr.odd = prm2;\n"
             "key_t key = 0x12345678;\n";
         o << type_name<T>() << " z;\n";
 
