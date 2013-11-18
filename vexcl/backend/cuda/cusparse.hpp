@@ -104,7 +104,7 @@ class spmat_hyb {
                 )
             : handle( cusparse_handle(queue) ),
               desc  ( create_description(), detail::deleter() ),
-              mat   ( create_hybmat(),      detail::deleter() )
+              mat   ( create_matrix(),      detail::deleter() )
         {
             cuda_check( cusparseSetMatType(desc.get(), CUSPARSE_MATRIX_TYPE_GENERAL) );
             cuda_check( cusparseSetMatIndexBase(desc.get(), CUSPARSE_INDEX_BASE_ZERO) );
@@ -132,7 +132,7 @@ class spmat_hyb {
             return desc;
         }
 
-        static cusparseHybMat_t create_hybmat() {
+        static cusparseHybMat_t create_matrix() {
             cusparseHybMat_t mat;
             cuda_check( cusparseCreateHybMat(&mat) );
             return mat;
@@ -147,7 +147,7 @@ class spmat_hyb {
 
             cuda_check(
                     cusparseScsr2hyb(handle, n, m, desc.get(),
-                        v.raw(), r.raw(), c.raw(), mat, 0,
+                        v.raw_ptr(), r.raw_ptr(), c.raw_ptr(), mat.get(), 0,
                         CUSPARSE_HYB_PARTITION_AUTO
                         )
                     );
@@ -199,6 +199,93 @@ template <typename T>
 spmv< spmat_hyb<T>, vector<T> >
 operator*(const spmat_hyb<T> &A, const vector<T> &x) {
     return spmv< spmat_hyb<T>, vector<T> >(A, x);
+}
+
+template <typename val_t>
+class spmat_crs {
+    static_assert(
+            std::is_same<val_t, float>::value ||
+            std::is_same<val_t, double>::value,
+            "Unsupported value type for spmat_cusparse"
+            );
+
+    public:
+        spmat_crs(
+                const command_queue &queue,
+                int n, int m,
+                const int   *row,
+                const int   *col,
+                const val_t *val
+                )
+            : n(n), m(m), nnz(row[n]),
+              handle( cusparse_handle(queue) ),
+              desc  ( create_description(), detail::deleter() ),
+              row(queue, n+1, row),
+              col(queue, nnz, col),
+              val(queue, nnz, val)
+        {
+            cuda_check( cusparseSetMatType(desc.get(), CUSPARSE_MATRIX_TYPE_GENERAL) );
+            cuda_check( cusparseSetMatIndexBase(desc.get(), CUSPARSE_INDEX_BASE_ZERO) );
+        }
+
+        void mul(const vex::vector<val_t> &x, vex::vector<val_t> &y,
+                 val_t alpha = 1, bool append = false) const
+        {
+            precondition(x.nparts() == 1 && y.nparts() == 1,
+                    "Incompatible vectors");
+
+            do_mul(x, y, alpha, append);
+        }
+    private:
+        unsigned n, m, nnz;
+
+        cusparseHandle_t handle;
+
+        std::shared_ptr<std::remove_pointer<cusparseMatDescr_t>::type> desc;
+
+        device_vector<int>   row;
+        device_vector<int>   col;
+        device_vector<val_t> val;
+
+        static cusparseMatDescr_t create_description() {
+            cusparseMatDescr_t desc;
+            cuda_check( cusparseCreateMatDescr(&desc) );
+            return desc;
+        }
+
+        void do_mul(const vex::vector<float> &x, vex::vector<float> &y,
+                 float alpha = 1, bool append = false) const
+        {
+            float beta = append ? 1 : 0;
+
+            cuda_check(
+                    cusparseScsrmv(handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
+                        n, m, nnz, &alpha, desc.get(),
+                        val.raw_ptr(), row.raw_ptr(), col.raw_ptr(),
+                        x(0).raw_ptr(), &beta, y(0).raw_ptr()
+                        )
+                 );
+        }
+
+        void do_mul(const vex::vector<double> &x, vex::vector<double> &y,
+                 double alpha = 1, bool append = false) const
+        {
+            double beta = append ? 1 : 0;
+
+            cuda_check(
+                    cusparseDcsrmv(handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
+                        n, m, nnz, &alpha, desc.get(),
+                        val.raw_ptr(), row.raw_ptr(), col.raw_ptr(),
+                        x(0).raw_ptr(), &beta, y(0).raw_ptr()
+                        )
+                 );
+        }
+};
+
+template <typename T>
+spmv< spmat_crs<T>, vector<T> >
+operator*(const spmat_crs<T> &A, const vector<T> &x) {
+    return spmv< spmat_crs<T>, vector<T> >(A, x);
 }
 
 } // namespace cuda
