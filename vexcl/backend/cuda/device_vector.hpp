@@ -159,6 +159,14 @@ class device_vector {
         CUdeviceptr raw() const {
             return static_cast<CUdeviceptr>(reinterpret_cast<size_t>(buffer.get()));
         }
+
+        const T* raw_ptr() const {
+            return reinterpret_cast<const T*>(reinterpret_cast<size_t>(buffer.get()));
+        }
+
+        T* raw_ptr() {
+            return reinterpret_cast<T*>(reinterpret_cast<size_t>(buffer.get()));
+        }
     private:
         std::shared_ptr<char> buffer;
         size_t n;

@@ -47,7 +47,8 @@ namespace std {
 
 /// Send human-readable representation of CUresult to the output stream.
 inline std::ostream& operator<<(std::ostream &os, CUresult rc) {
-#define CUDA_ERR2TXT(e) case e: return os << static_cast<int>(e) << " - " << #e
+    os << "CUDA Driver API Error (";
+#define CUDA_ERR2TXT(e) case e: os << static_cast<int>(e) << " - " << #e; break
     switch(rc) {
         CUDA_ERR2TXT(CUDA_SUCCESS);
         CUDA_ERR2TXT(CUDA_ERROR_INVALID_VALUE);
@@ -99,9 +100,11 @@ inline std::ostream& operator<<(std::ostream &os, CUresult rc) {
         CUDA_ERR2TXT(CUDA_ERROR_NOT_PERMITTED);
         CUDA_ERR2TXT(CUDA_ERROR_NOT_SUPPORTED);
         CUDA_ERR2TXT(CUDA_ERROR_UNKNOWN);
+        default:
+            os << "Unknown error";
     }
 #undef CUDA_ERR2TXT
-    return os << "Unknown error";
+    return os << ")";
 }
 
 } // namespace std
@@ -113,27 +116,22 @@ namespace cuda {
 /// CUDA error class to be thrown as exception.
 class error : public std::runtime_error {
     public:
-        error(CUresult code) : std::runtime_error(get_msg(code)), code(code) { }
-
-        CUresult err() const {
-            return code;
-        }
+        template <class ErrorCode>
+        error(ErrorCode code, const char *file, int line)
+            : std::runtime_error(get_msg(code, file, line))
+        { }
     private:
-        static std::string get_msg(CUresult code) {
+        template <class ErrorCode>
+        static std::string get_msg(ErrorCode code, const char *file, int line) {
             std::ostringstream s;
-            s << "CUDA error (" << code << ")";
+            s << file << ":" << line << "\n\t" << code;
             return s.str();
         }
-
-        CUresult code;
 };
 
 /// \cond INTERNAL
 inline void check(CUresult rc, const char *file, int line) {
-    if (rc != CUDA_SUCCESS) {
-        std::cerr << "CUDA error at " << file << ":" << line << std::endl;
-        throw error(rc);
-    }
+    if (rc != CUDA_SUCCESS) throw error(rc, file, line);
 }
 /// \endcond
 

@@ -86,3 +86,8 @@ if ("${VEXCL_BACKEND}" STREQUAL "OpenCL")
         target_link_libraries(fft ${FFTW_LIBRARIES})
     endif ()
 endif ()
+
+if ("${VEXCL_BACKEND}" STREQUAL "CUDA")
+    add_vexcl_test(cusparse cusparse.cpp)
+    target_link_libraries(cusparse ${CUDA_cusparse_LIBRARY})
+endif()
