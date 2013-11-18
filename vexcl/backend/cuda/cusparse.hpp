@@ -7,7 +7,6 @@
 #include <cusparse_v2.h>
 
 #include <vexcl/vector.hpp>
-#include <vexcl/spmat.hpp>
 #include <vexcl/backend/cuda/error.hpp>
 #include <vexcl/backend/cuda/context.hpp>
 
@@ -112,7 +111,7 @@ class spmat_hyb {
             fill_matrix(queue, n, m, row, col, val);
         }
 
-        void mul(const vex::vector<val_t> &x, vex::vector<val_t> &y,
+        void apply(const vex::vector<val_t> &x, vex::vector<val_t> &y,
                  val_t alpha = 1, bool append = false) const
         {
             precondition(x.nparts() == 1 && y.nparts() == 1,
@@ -196,9 +195,9 @@ class spmat_hyb {
 };
 
 template <typename T>
-spmv< spmat_hyb<T>, vector<T> >
+additive_operator< spmat_hyb<T>, vector<T> >
 operator*(const spmat_hyb<T> &A, const vector<T> &x) {
-    return spmv< spmat_hyb<T>, vector<T> >(A, x);
+    return additive_operator< spmat_hyb<T>, vector<T> >(A, x);
 }
 
 template <typename val_t>
@@ -228,7 +227,7 @@ class spmat_crs {
             cuda_check( cusparseSetMatIndexBase(desc.get(), CUSPARSE_INDEX_BASE_ZERO) );
         }
 
-        void mul(const vex::vector<val_t> &x, vex::vector<val_t> &y,
+        void apply(const vex::vector<val_t> &x, vex::vector<val_t> &y,
                  val_t alpha = 1, bool append = false) const
         {
             precondition(x.nparts() == 1 && y.nparts() == 1,
@@ -283,9 +282,9 @@ class spmat_crs {
 };
 
 template <typename T>
-spmv< spmat_crs<T>, vector<T> >
+additive_operator< spmat_crs<T>, vector<T> >
 operator*(const spmat_crs<T> &A, const vector<T> &x) {
-    return spmv< spmat_crs<T>, vector<T> >(A, x);
+    return additive_operator< spmat_crs<T>, vector<T> >(A, x);
 }
 
 } // namespace cuda

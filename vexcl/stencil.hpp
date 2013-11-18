@@ -39,69 +39,6 @@ THE SOFTWARE.
 
 namespace vex {
 
-/// \cond INTERNAL
-
-template <class S, class V>
-struct conv
-    : vector_expression< boost::proto::terminal< additive_vector_transform >::type >
-{
-    typedef typename S::value_type value_type;
-
-    const S &s;
-    const V &x;
-
-    value_type scale;
-
-    conv(const S &s, const V &x) : s(s), x(x), scale(1) {}
-
-    template<bool negate, bool append>
-    void apply(vector<value_type> &y) const
-    {
-        s.convolve(x, y, append ? 1 : 0, negate ? -scale : scale);
-    }
-};
-
-namespace traits {
-
-template <typename S, class V>
-struct is_scalable< conv<S, V> > : std::true_type {};
-
-} // namespace traits
-
-#ifdef VEXCL_MULTIVECTOR_HPP
-
-template <class S, class V>
-struct multiconv
-    : multivector_expression<
-        boost::proto::terminal< additive_multivector_transform >::type
-      >
-{
-    typedef typename S::value_type value_type;
-
-    const S &s;
-    const V &x;
-
-    value_type scale;
-
-    multiconv(const S &s, const V &x) : s(s), x(x), scale(1) {}
-
-    template <bool negate, bool append>
-    void apply(multivector<value_type, traits::number_of_components<V>::value> &y) const
-    {
-        for(size_t i = 0; i < traits::number_of_components<V>::value; i++)
-            s.convolve(x(i), y(i), append ? 1 : 0, negate ? -scale : scale);
-    }
-};
-
-namespace traits {
-
-template <typename S, class V>
-struct is_scalable< multiconv<S, V> > : std::true_type {};
-
-} // namespace traits
-
-#endif
-
 template <typename T>
 class stencil_base {
     protected:
@@ -288,14 +225,14 @@ class stencil : private stencil_base<T> {
 
         /// Convolve stencil with a vector.
         /**
-         * y = alpha * y + beta * conv(x);
+         * y = alpha * conv(x) + y;
          * \param x input vector.
          * \param y output vector.
          * \param alpha Scaling coefficient in front of y.
          * \param beta  Scaling coefficient in front of convolution.
          */
-        void convolve(const vex::vector<T> &x, vex::vector<T> &y,
-                T alpha = 0, T beta = 1) const;
+        void apply(const vex::vector<T> &x, vex::vector<T> &y,
+                T alpha = 1, bool append = false) const;
     private:
         typedef stencil_base<T> Base;
 
@@ -496,11 +433,12 @@ void stencil<T>::init(unsigned width) {
 }
 
 template <typename T>
-void stencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y,
-        T alpha, T beta
-        ) const
+void stencil<T>::apply(const vex::vector<T> &x, vex::vector<T> &y,
+        T alpha, bool append) const
 {
     Base::exchange_halos(x);
+
+    T beta = append ? 1 : 0;
 
     for(unsigned d = 0; d < queue.size(); d++) {
         if (size_t psize = x.part_size(d)) {
@@ -516,8 +454,8 @@ void stencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y,
             conv[d].push_arg(x(d));
             conv[d].push_arg(dbuf[d]);
             conv[d].push_arg(y(d));
-            conv[d].push_arg(alpha);
             conv[d].push_arg(beta);
+            conv[d].push_arg(alpha);
 
             if (smem[d]) conv[d].set_smem([&](size_t){ return smem[d]; });
 
@@ -530,32 +468,32 @@ void stencil<T>::convolve(const vex::vector<T> &x, vex::vector<T> &y,
 
 /// Convolve the stencil with the vector.
 template <typename T>
-conv< stencil<T>, vector<T> >
+additive_operator< stencil<T>, vector<T> >
 operator*( const stencil<T> &s, const vector<T> &x ) {
-    return conv< stencil<T>, vector<T> >(s, x);
+    return additive_operator< stencil<T>, vector<T> >(s, x);
 }
 
 /// Convolve the stencil with the vector.
 template <typename T>
-conv< stencil<T>, vector<T> >
+additive_operator< stencil<T>, vector<T> >
 operator*(const vector<T> &x, const stencil<T> &s) {
-    return conv< stencil<T>, vector<T> >(s, x);
+    return additive_operator< stencil<T>, vector<T> >(s, x);
 }
 
 #ifdef VEXCL_MULTIVECTOR_HPP
 
 /// Convolve the stencil with the multivector.
 template <typename T, size_t N>
-multiconv< stencil<T>, multivector<T, N> >
+multiadditive_operator< stencil<T>, multivector<T, N> >
 operator*( const stencil<T> &s, const multivector<T, N> &x ) {
-    return multiconv< stencil<T>, multivector<T, N> >(s, x);
+    return multiadditive_operator< stencil<T>, multivector<T, N> >(s, x);
 }
 
 /// Convolve the stencil with the multivector.
 template <typename T, size_t N>
-multiconv< stencil<T>, multivector<T, N> >
+multiadditive_operator< stencil<T>, multivector<T, N> >
 operator*( const multivector<T, N> &x, const stencil<T> &s ) {
-    return multiconv< stencil<T>, multivector<T, N> >(s, x);
+    return multiadditive_operator< stencil<T>, multivector<T, N> >(s, x);
 }
 
 #endif
@@ -582,21 +520,21 @@ class StencilOperator : private stencil_base<T> {
 
         StencilOperator(const std::vector<backend::command_queue> &queue);
 
-        conv< StencilOperator, vector<T> >
+        additive_operator< StencilOperator, vector<T> >
         operator()(const vector<T> &x) const {
-            return conv< StencilOperator, vector<T> >(*this, x);
+            return additive_operator< StencilOperator, vector<T> >(*this, x);
         }
 
 #ifdef VEXCL_MULTIVECTOR_HPP
         template <size_t N>
-        multiconv< StencilOperator, multivector<T, N> >
+        multiadditive_operator< StencilOperator, multivector<T, N> >
         operator()(const multivector<T, N> &x) const {
-            return multiconv< StencilOperator, multivector<T, N> >(*this, x);
+            return multiadditive_operator< StencilOperator, multivector<T, N> >(*this, x);
         }
 #endif
 
-        void convolve(const vex::vector<T> &x, vex::vector<T> &y,
-                T alpha = 0, T beta = 1) const;
+        void apply(const vex::vector<T> &x, vex::vector<T> &y,
+                T alpha = 1, bool append = true) const;
     private:
         typedef stencil_base<T> Base;
 
@@ -614,10 +552,12 @@ StencilOperator<T, width, center, Impl>::StencilOperator(
 { }
 
 template <typename T, unsigned width, unsigned center, class Impl>
-void StencilOperator<T, width, center, Impl>::convolve(
-        const vex::vector<T> &x, vex::vector<T> &y, T alpha, T beta) const
+void StencilOperator<T, width, center, Impl>::apply(
+        const vex::vector<T> &x, vex::vector<T> &y, T alpha, bool append) const
 {
     using namespace detail;
+
+    T beta = append ? 1 : 0;
 
     static kernel_cache cache;
     static std::map<backend::kernel_cache_key, size_t> lmem;
@@ -703,8 +643,8 @@ void StencilOperator<T, width, center, Impl>::convolve(
             kernel->second.push_arg(x(d));
             kernel->second.push_arg(dbuf[d]);
             kernel->second.push_arg(y(d));
-            kernel->second.push_arg(alpha);
             kernel->second.push_arg(beta);
+            kernel->second.push_arg(alpha);
 
             size_t smem_bytes = lmem[key];
             kernel->second.set_smem([smem_bytes](size_t){ return smem_bytes; });

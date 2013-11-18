@@ -119,7 +119,7 @@ class SpMat {
          * \param append if set, matrix-vector product is appended to y.
          *               Otherwise, y is replaced with matrix-vector product.
          */
-        void mul(const vex::vector<val_t> &x, vex::vector<val_t> &y,
+        void apply(const vex::vector<val_t> &x, vex::vector<val_t> &y,
                  scalar_type alpha = 1, bool append = false) const
         {
             using namespace detail;
@@ -367,85 +367,28 @@ class SpMat {
 
 /// \cond INTERNAL
 
-template <class M, class V>
-struct spmv
-    : vector_expression< boost::proto::terminal< additive_vector_transform >::type >
-{
-    typedef typename V::value_type value_type;
-
-    const M &A;
-    const V &x;
-
-    typename cl_scalar_of<value_type>::type scale;
-
-    spmv(const M &A, const V &x) : A(A), x(x), scale(1) {}
-
-    template<bool negate, bool append>
-    void apply(V &y) const {
-        A.mul(x, y, negate ? -scale : scale, append);
-    }
-};
-
-namespace traits {
-
-template <class M, class V>
-struct is_scalable< spmv<M, V> > : std::true_type {};
-
-} // namespace traits
-
 template <typename val_t, typename col_t, typename idx_t>
-spmv< SpMat<val_t, col_t, idx_t >, vector<val_t> >
+additive_operator< SpMat<val_t, col_t, idx_t >, vector<val_t> >
 operator*(const SpMat<val_t, col_t, idx_t> &A, const vector<val_t> &x)
 {
-    return spmv< SpMat<val_t, col_t, idx_t >, vector<val_t> >(A, x);
+    return additive_operator< SpMat<val_t, col_t, idx_t >, vector<val_t> >(A, x);
 }
 
 #ifdef VEXCL_MULTIVECTOR_HPP
-
-template <class M, class V>
-struct multispmv
-    : multivector_expression<
-        boost::proto::terminal< additive_multivector_transform >::type
-        >
-{
-    typedef typename V::sub_value_type value_type;
-
-    const M &A;
-    const V &x;
-
-    typename cl_scalar_of<value_type>::type scale;
-
-    multispmv(const M &A, const V &x) : A(A), x(x), scale(1) {}
-
-    template <bool negate, bool append>
-    void apply(V &y) const {
-        for(size_t i = 0; i < traits::number_of_components<V>::value; i++)
-            A.mul(x(i), y(i), negate ? -scale : scale, append);
-    }
-};
-
-namespace traits {
-
-template <class M, class V>
-struct is_scalable< multispmv<M, V> > : std::true_type {};
-
-} // namespace traits
-
 template <typename val_t, typename col_t, typename idx_t, class V>
 typename std::enable_if<
     std::is_base_of<multivector_terminal_expression, V>::value &&
     std::is_same<val_t, typename V::sub_value_type>::value,
-    multispmv< SpMat<val_t, col_t, idx_t>, V >
+    multiadditive_operator< SpMat<val_t, col_t, idx_t>, V >
 >::type
 operator*(const SpMat<val_t, col_t, idx_t> &A, const V &x) {
-    return multispmv< SpMat<val_t, col_t, idx_t>, V >(A, x);
+    return multiadditive_operator< SpMat<val_t, col_t, idx_t>, V >(A, x);
 }
-
 #endif
 
 /// \endcond
 
-/// Weights device wrt to spmv performance.
+/// Weights device wrt to additive_operator performance.
 /**
  * Launches the following kernel on each device:
  * \code
@@ -521,12 +464,12 @@ inline double device_spmv_perf(const backend::command_queue &q) {
 
     // Warming run.
     x = 1;
-    A.mul(x, y);
+    A.apply(x, y);
 
     // Measure performance.
     profiler<> prof(queue);
     prof.tic_cl("");
-    A.mul(x, y);
+    A.apply(x, y);
     double time = prof.toc("");
     return 1.0 / time;
 }

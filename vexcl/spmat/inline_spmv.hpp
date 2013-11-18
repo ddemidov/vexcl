@@ -66,7 +66,7 @@ struct inline_spmv : inline_spmv_terminal_expression {
  */
 template <typename val_t, typename col_t, typename idx_t>
 inline_spmv< SpMat<val_t, col_t, idx_t>, vector<val_t> >
-make_inline(const spmv< SpMat<val_t, col_t, idx_t>, vector<val_t> > &base) {
+make_inline(const additive_operator< SpMat<val_t, col_t, idx_t>, vector<val_t> > &base) {
     precondition(base.x.nparts() == 1, "Can not inline multi-device SpMV operation.");
 
     return inline_spmv< SpMat<val_t, col_t, idx_t>, vector<val_t> >(base.A, base.x);
@@ -102,12 +102,12 @@ struct mv_inline_spmv : mv_inline_spmv_terminal_expression {
  * eps = sum( fabs(f - vex::make_inline(A * x)) );
  * \endcode
  */
-template <class M, class V>
-mv_inline_spmv<M, V>
-make_inline(const multispmv<M, V> &base) {
+template <typename val_t, typename col_t, typename idx_t, class V>
+mv_inline_spmv<SpMat<val_t, col_t, idx_t>, V>
+make_inline(const multiadditive_operator<SpMat<val_t, col_t, idx_t>, V> &base) {
     precondition(base.x(0).nparts() == 1, "Can not inline multi-device SpMV operation.");
 
-    return mv_inline_spmv<M, V>(base.A, base.x);
+    return mv_inline_spmv<SpMat<val_t, col_t, idx_t>, V>(base.A, base.x);
 }
 #endif
 

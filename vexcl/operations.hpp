@@ -993,6 +993,32 @@ struct vector_expression
         : boost::proto::extends< Expr, vector_expression<Expr>, vector_domain>(expr) {}
 };
 
+template <class M, class V>
+struct additive_operator
+    : vector_expression< boost::proto::terminal< additive_vector_transform >::type >
+{
+    typedef typename V::value_type value_type;
+
+    const M &A;
+    const V &x;
+
+    typename cl_scalar_of<value_type>::type scale;
+
+    additive_operator(const M &A, const V &x) : A(A), x(x), scale(1) {}
+
+    template<bool negate, bool append>
+    void apply(V &y) const {
+        A.apply(x, y, negate ? -scale : scale, append);
+    }
+};
+
+namespace traits {
+
+template <class M, class V>
+struct is_scalable< additive_operator<M, V> > : std::true_type {};
+
+} // namespace traits
+
 //---------------------------------------------------------------------------
 // Multivector grammar
 //---------------------------------------------------------------------------
@@ -1067,6 +1093,35 @@ struct multivector_expression
     multivector_expression(const Expr &expr = Expr())
         : boost::proto::extends< Expr, multivector_expression<Expr>, multivector_domain>(expr) {}
 };
+
+template <class M, class V>
+struct multiadditive_operator
+    : multivector_expression<
+        boost::proto::terminal< additive_multivector_transform >::type
+        >
+{
+    typedef typename V::sub_value_type value_type;
+
+    const M &A;
+    const V &x;
+
+    typename cl_scalar_of<value_type>::type scale;
+
+    multiadditive_operator(const M &A, const V &x) : A(A), x(x), scale(1) {}
+
+    template <bool negate, bool append>
+    void apply(V &y) const {
+        for(size_t i = 0; i < traits::number_of_components<V>::value; i++)
+            A.apply(x(i), y(i), negate ? -scale : scale, append);
+    }
+};
+
+namespace traits {
+
+template <class M, class V>
+struct is_scalable< multiadditive_operator<M, V> > : std::true_type {};
+
+} // namespace traits
 
 namespace traits {
 
