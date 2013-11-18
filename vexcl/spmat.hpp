@@ -367,87 +367,79 @@ class SpMat {
 
 /// \cond INTERNAL
 
-template <typename val_t, typename col_t, typename idx_t>
+template <class M, class V>
 struct spmv
     : vector_expression< boost::proto::terminal< additive_vector_transform >::type >
 {
-    typedef val_t                      value_type;
-    typedef SpMat<val_t, col_t, idx_t> mat;
-    typedef vector<val_t>              vec;
+    typedef typename V::value_type value_type;
 
-    const mat &A;
-    const vec &x;
+    const M &A;
+    const V &x;
 
-    typename cl_scalar_of<val_t>::type scale;
+    typename cl_scalar_of<value_type>::type scale;
 
-    spmv(const mat &A, const vec &x) : A(A), x(x), scale(1) {}
+    spmv(const M &A, const V &x) : A(A), x(x), scale(1) {}
 
     template<bool negate, bool append>
-    void apply(vec &y) const {
+    void apply(V &y) const {
         A.mul(x, y, negate ? -scale : scale, append);
     }
 };
 
-template <typename val_t, typename col_t, typename idx_t>
-spmv< val_t, col_t, idx_t > operator*(const SpMat<val_t, col_t, idx_t> &A, const vector<val_t> &x)
-{
-    return spmv<val_t, col_t, idx_t>(A, x);
-}
-
 namespace traits {
 
-template <typename val_t, typename col_t, typename idx_t>
-struct is_scalable< spmv<val_t, col_t, idx_t> > : std::true_type {};
+template <class M, class V>
+struct is_scalable< spmv<M, V> > : std::true_type {};
 
 } // namespace traits
 
+template <typename val_t, typename col_t, typename idx_t>
+spmv< SpMat<val_t, col_t, idx_t >, vector<val_t> >
+operator*(const SpMat<val_t, col_t, idx_t> &A, const vector<val_t> &x)
+{
+    return spmv< SpMat<val_t, col_t, idx_t >, vector<val_t> >(A, x);
+}
+
 #ifdef VEXCL_MULTIVECTOR_HPP
 
-template <typename val_t, typename col_t, typename idx_t, class MV>
+template <class M, class V>
 struct multispmv
     : multivector_expression<
         boost::proto::terminal< additive_multivector_transform >::type
         >
 {
-    typedef val_t                      value_type;
-    typedef SpMat<val_t, col_t, idx_t> mat;
+    typedef typename V::sub_value_type value_type;
 
-    const mat &A;
-    const MV  &x;
+    const M &A;
+    const V &x;
 
-    typename cl_scalar_of<val_t>::type scale;
+    typename cl_scalar_of<value_type>::type scale;
 
-    multispmv(const mat &A, const MV &x) : A(A), x(x), scale(1) {}
+    multispmv(const M &A, const V &x) : A(A), x(x), scale(1) {}
 
-    template <bool negate, bool append, class W>
-    typename std::enable_if<
-        std::is_base_of<multivector_terminal_expression, W>::value
-        && std::is_same<val_t, typename W::sub_value_type>::value
-        && traits::number_of_components<MV>::value == traits::number_of_components<W>::value,
-        void
-    >::type
-    apply(W &y) const {
-        for(size_t i = 0; i < traits::number_of_components<MV>::value; i++)
+    template <bool negate, bool append>
+    void apply(V &y) const {
+        for(size_t i = 0; i < traits::number_of_components<V>::value; i++)
             A.mul(x(i), y(i), negate ? -scale : scale, append);
     }
 };
 
-template <typename val_t, typename col_t, typename idx_t, class MV>
-typename std::enable_if<
-    std::is_base_of<multivector_terminal_expression, MV>::value &&
-    std::is_same<val_t, typename MV::sub_value_type>::value,
-    multispmv< val_t, col_t, idx_t, MV >
->::type
-operator*(const SpMat<val_t, col_t, idx_t> &A, const MV &x) {
-    return multispmv< val_t, col_t, idx_t, MV >(A, x);
-}
-
 namespace traits {
 
-template <typename val_t, typename col_t, typename idx_t, class MV>
-struct is_scalable< multispmv<val_t, col_t, idx_t, MV> > : std::true_type {};
+template <class M, class V>
+struct is_scalable< multispmv<M, V> > : std::true_type {};
 
 } // namespace traits
+
+template <typename val_t, typename col_t, typename idx_t, class V>
+typename std::enable_if<
+    std::is_base_of<multivector_terminal_expression, V>::value &&
+    std::is_same<val_t, typename V::sub_value_type>::value,
+    multispmv< SpMat<val_t, col_t, idx_t>, V >
+>::type
+operator*(const SpMat<val_t, col_t, idx_t> &A, const V &x) {
+    return multispmv< SpMat<val_t, col_t, idx_t>, V >(A, x);
+}
 
 #endif
 

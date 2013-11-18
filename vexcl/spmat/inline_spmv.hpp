@@ -40,15 +40,14 @@ typedef vector_expression<
     typename boost::proto::terminal< inline_spmv_terminal >::type
     > inline_spmv_terminal_expression;
 
-template <typename val_t, typename col_t, typename idx_t>
+template <class M, class V>
 struct inline_spmv : inline_spmv_terminal_expression {
-    typedef spmv<val_t, col_t, idx_t> Base;
-    typedef val_t value_type;
+    typedef typename V::value_type value_type;
 
-    const typename Base::mat &A;
-    const typename Base::vec &x;
+    const M &A;
+    const V &x;
 
-    inline_spmv(const Base &base) : A(base.A), x(base.x) {}
+    inline_spmv(const M &A, const V &x) : A(A), x(x) {}
 };
 /// \endcond
 
@@ -66,11 +65,11 @@ struct inline_spmv : inline_spmv_terminal_expression {
  * \endcode
  */
 template <typename val_t, typename col_t, typename idx_t>
-inline_spmv<val_t, col_t, idx_t>
-make_inline(const spmv<val_t, col_t, idx_t> &base) {
+inline_spmv< SpMat<val_t, col_t, idx_t>, vector<val_t> >
+make_inline(const spmv< SpMat<val_t, col_t, idx_t>, vector<val_t> > &base) {
     precondition(base.x.nparts() == 1, "Can not inline multi-device SpMV operation.");
 
-    return inline_spmv<val_t, col_t, idx_t>(base);
+    return inline_spmv< SpMat<val_t, col_t, idx_t>, vector<val_t> >(base.A, base.x);
 }
 
 #ifdef VEXCL_MULTIVECTOR_HPP
@@ -81,13 +80,12 @@ typedef multivector_expression<
     typename boost::proto::terminal< mv_inline_spmv_terminal >::type
     > mv_inline_spmv_terminal_expression;
 
-template <typename val_t, typename col_t, typename idx_t, class MV>
+template <class M, class V>
 struct mv_inline_spmv : mv_inline_spmv_terminal_expression {
-    typedef multispmv<val_t, col_t, idx_t, MV> Base;
-    const typename Base::mat &A;
-    const MV                 &x;
+    const M &A;
+    const V &x;
 
-    mv_inline_spmv(const Base &base) : A(base.A), x(base.x) {}
+    mv_inline_spmv(const M &A, const V &x) : A(A), x(x) {}
 };
 /// \endcond
 
@@ -104,12 +102,12 @@ struct mv_inline_spmv : mv_inline_spmv_terminal_expression {
  * eps = sum( fabs(f - vex::make_inline(A * x)) );
  * \endcode
  */
-template <typename val_t, typename col_t, typename idx_t, class MV>
-mv_inline_spmv<val_t, col_t, idx_t, MV>
-make_inline(const multispmv<val_t, col_t, idx_t, MV> &base) {
+template <class M, class V>
+mv_inline_spmv<M, V>
+make_inline(const multispmv<M, V> &base) {
     precondition(base.x(0).nparts() == 1, "Can not inline multi-device SpMV operation.");
 
-    return mv_inline_spmv<val_t, col_t, idx_t, MV>(base);
+    return mv_inline_spmv<M, V>(base.A, base.x);
 }
 #endif
 
@@ -134,75 +132,75 @@ struct proto_terminal_is_value< mv_inline_spmv_terminal >
     : std::true_type
 { };
 
-template <size_t I, typename val_t, typename col_t, typename idx_t, typename MV>
-struct component< I, mv_inline_spmv<val_t, col_t, idx_t, MV> > {
-    typedef inline_spmv<val_t, col_t, idx_t> type;
+template <size_t I, class M, class V>
+struct component< I, mv_inline_spmv<M, V> > {
+    typedef inline_spmv< M, vector<typename V::sub_value_type> > type;
 };
 #endif
 
-template <typename val_t, typename col_t, typename idx_t>
-struct terminal_preamble< inline_spmv<val_t, col_t, idx_t> > {
+template <class M, class V>
+struct terminal_preamble< inline_spmv<M, V> > {
     static void get(backend::source_generator &src,
-            const inline_spmv<val_t, col_t, idx_t>&,
+            const inline_spmv<M, V>&,
             const backend::command_queue &queue, const std::string &prm_name,
             detail::kernel_generator_state_ptr state)
     {
-        SpMat<val_t, col_t, idx_t>::inline_preamble(src, queue, prm_name, state);
+        M::inline_preamble(src, queue, prm_name, state);
     }
 };
 
-template <typename val_t, typename col_t, typename idx_t>
-struct kernel_param_declaration< inline_spmv<val_t, col_t, idx_t> > {
+template <class M, class V>
+struct kernel_param_declaration< inline_spmv<M, V> > {
     static void get(backend::source_generator &src,
-            const inline_spmv<val_t, col_t, idx_t>&,
+            const inline_spmv<M, V>&,
             const backend::command_queue &queue, const std::string &prm_name,
             detail::kernel_generator_state_ptr state)
     {
-        SpMat<val_t, col_t, idx_t>::inline_parameters(src, queue, prm_name, state);
+        M::inline_parameters(src, queue, prm_name, state);
     }
 };
 
-template <typename val_t, typename col_t, typename idx_t>
-struct partial_vector_expr< inline_spmv<val_t, col_t, idx_t> > {
+template <class M, class V>
+struct partial_vector_expr< inline_spmv<M, V> > {
     static void get(backend::source_generator &src,
-            const inline_spmv<val_t, col_t, idx_t>&,
+            const inline_spmv<M, V>&,
             const backend::command_queue &queue, const std::string &prm_name,
             detail::kernel_generator_state_ptr state)
     {
-        SpMat<val_t, col_t, idx_t>::inline_expression(src, queue, prm_name, state);
+        M::inline_expression(src, queue, prm_name, state);
     }
 };
 
-template <typename val_t, typename col_t, typename idx_t>
-struct kernel_arg_setter< inline_spmv<val_t, col_t, idx_t> > {
-    static void set(const inline_spmv<val_t, col_t, idx_t> &term,
+template <class M, class V>
+struct kernel_arg_setter< inline_spmv<M, V> > {
+    static void set(const inline_spmv<M, V> &term,
             backend::kernel &kernel, unsigned part, size_t index_offset,
             detail::kernel_generator_state_ptr state)
     {
-        SpMat<val_t, col_t, idx_t>::inline_arguments(
+        M::inline_arguments(
                 kernel, part, index_offset, term.A, term.x, state
                 );
     }
 };
 
-template <typename val_t, typename col_t, typename idx_t>
-struct expression_properties< inline_spmv<val_t, col_t, idx_t> > {
-    static void get(const inline_spmv<val_t, col_t, idx_t> &term,
+template <class M, class V>
+struct expression_properties< inline_spmv<M, V> > {
+    static void get(const inline_spmv<M, V> &term,
             std::vector<backend::command_queue> &queue_list,
             std::vector<size_t> &partition,
             size_t &size
             )
     {
-        expression_properties< vector<val_t> >::get(term.x, queue_list, partition, size);
+        detail::get_expression_properties(term.x, queue_list, partition, size);
     }
 };
 
 } // namespace traits
 
 #ifdef VEXCL_MULTIVECTOR_HPP
-template <size_t I, typename val_t, typename col_t, typename idx_t, typename MV>
-inline_spmv<val_t, col_t, idx_t>
-get(const mv_inline_spmv<val_t, col_t, idx_t, MV> &t) {
+template <size_t I, class M, class V>
+inline_spmv<M, vector<typename V::sub_value_type> >
+get(const mv_inline_spmv<M, V> &t) {
     return make_inline(t.A * t.x(I));
 }
 #endif
