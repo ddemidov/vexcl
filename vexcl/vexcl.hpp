@@ -48,13 +48,10 @@ THE SOFTWARE.
 #include <vexcl/stencil.hpp>
 #include <vexcl/gather.hpp>
 #include <vexcl/random.hpp>
+#include <vexcl/fft.hpp>
 #include <vexcl/mba.hpp>
 #include <vexcl/generator.hpp>
 #include <vexcl/mba.hpp>
 #include <vexcl/profiler.hpp>
-
-#ifdef VEXCL_BACKEND_OPENCL
-#  include <vexcl/fft.hpp>
-#endif
 
 #endif

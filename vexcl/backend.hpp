@@ -69,6 +69,10 @@ namespace vex {
 
 #endif
 
+#if defined(VEXCL_BACKEND_OPENCL) && defined(VEXCL_BACKEND_CUDA)
+#  error Both OpenCL and CUDA backends are selected. Make your mind!
+#endif
+
 namespace vex {
     using backend::device;
     using backend::command_queue;

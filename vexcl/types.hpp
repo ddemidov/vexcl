@@ -37,13 +37,15 @@ THE SOFTWARE.
 #include <iostream>
 #include <sstream>
 
-#ifdef VEXCL_BACKEND_OPENCL
+#if defined(VEXCL_BACKEND_OPENCL)
 #  ifndef __CL_ENABLE_EXCEPTIONS
 #    define __CL_ENABLE_EXCEPTIONS
 #  endif
 #  include <CL/cl.hpp>
-#else
+#elif defined(VEXCL_BACKEND_CUDA)
 #  include <CL/cl_platform.h>
+#else
+#  error Neither OpenCL nor CUDA backend is selected
 #endif
 
 /// \cond INTERNAL

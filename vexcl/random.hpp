@@ -33,10 +33,12 @@ THE SOFTWARE.
 
 #include <vexcl/backend.hpp>
 
-#ifdef VEXCL_BACKEND_OPENCL
+#if defined(VEXCL_BACKEND_OPENCL)
 #  include <vexcl/backend/opencl/random.hpp>
-#else
+#elif defined(VEXCL_BACKEND_CUDA)
 #  include <vexcl/backend/cuda/random.hpp>
+#else
+#  error Neither OpenCL nor CUDA backend is selected
 #endif
 
 #endif
