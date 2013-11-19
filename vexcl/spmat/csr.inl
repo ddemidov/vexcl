@@ -44,26 +44,27 @@ struct SpMatCSR : public sparse_matrix {
 
     SpMatCSR(
             const backend::command_queue &queue,
-            const idx_t *row, const col_t *col, const val_t *val,
-            size_t row_begin, size_t row_end, size_t col_begin, size_t col_end,
+            const idx_t *row_begin, const idx_t *row_end,
+            const col_t *col, const val_t *val,
+            col_t col_begin, col_t col_end,
             std::set<col_t> ghost_cols
             )
         : queue(queue), n(row_end - row_begin)
     {
-        auto is_local = [col_begin, col_end](size_t c) {
+        auto is_local = [col_begin, col_end](col_t c) {
             return c >= col_begin && c < col_end;
         };
 
         if (ghost_cols.empty()) {
-            loc.nnz = row[row_end] - row[row_begin];
+            loc.nnz = *row_end - *row_begin;
             rem.nnz = 0;
 
             if (loc.nnz) {
-                loc.row = backend::device_vector<idx_t>(queue, (n + 1), row + row_begin,      backend::MEM_READ_ONLY);
-                loc.col = backend::device_vector<col_t>(queue, loc.nnz, col + row[row_begin], backend::MEM_READ_ONLY);
-                loc.val = backend::device_vector<val_t>(queue, loc.nnz, val + row[row_begin], backend::MEM_READ_ONLY);
+                loc.row = backend::device_vector<idx_t>(queue, (n + 1), row_begin,        backend::MEM_READ_ONLY);
+                loc.col = backend::device_vector<col_t>(queue, loc.nnz, col + *row_begin, backend::MEM_READ_ONLY);
+                loc.val = backend::device_vector<val_t>(queue, loc.nnz, val + *row_begin, backend::MEM_READ_ONLY);
 
-                if (row_begin > 0) vector<idx_t>(queue, loc.row) -= row_begin;
+                if (*row_begin > 0) vector<idx_t>(queue, loc.row) -= *row_begin;
             }
         } else {
             std::vector<idx_t> lrow;
@@ -77,15 +78,15 @@ struct SpMatCSR : public sparse_matrix {
             lrow.reserve(n + 1);
             lrow.push_back(0);
 
-            lcol.reserve(row[row_end] - row[row_begin]);
-            lval.reserve(row[row_end] - row[row_begin]);
+            lcol.reserve(*row_end - *row_begin);
+            lval.reserve(*row_end - *row_begin);
 
             if (!ghost_cols.empty()) {
                 rrow.reserve(n + 1);
                 rrow.push_back(0);
 
-                rcol.reserve(row[row_end] - row[row_begin]);
-                rval.reserve(row[row_end] - row[row_begin]);
+                rcol.reserve(*row_end - *row_begin);
+                rval.reserve(*row_end - *row_begin);
             }
 
             // Renumber columns.
@@ -94,8 +95,8 @@ struct SpMatCSR : public sparse_matrix {
             for(auto c = ghost_cols.begin(); c != ghost_cols.end(); ++c)
                 r2l[*c] = static_cast<col_t>(nghost++);
 
-            for(size_t i = row_begin; i < row_end; ++i) {
-                for(idx_t j = row[i]; j < row[i + 1]; j++) {
+            for(auto row = row_begin; row != row_end; ++row) {
+                for(idx_t j = row[0]; j < row[1]; j++) {
                     if (is_local(col[j])) {
                         lcol.push_back(static_cast<col_t>(col[j] - col_begin));
                         lval.push_back(val[j]);
@@ -134,7 +135,7 @@ struct SpMatCSR : public sparse_matrix {
     template <class OP>
     void mul(const matrix_part &part,
             const backend::device_vector<val_t> &in,
-            const backend::device_vector<val_t> &out,
+            backend::device_vector<val_t> &out,
             scalar_type scale
             ) const
     {
@@ -187,7 +188,7 @@ struct SpMatCSR : public sparse_matrix {
 
     void mul_local(
             const backend::device_vector<val_t> &in,
-            const backend::device_vector<val_t> &out,
+            backend::device_vector<val_t> &out,
             scalar_type scale, bool append) const
     {
         if (append) {
@@ -202,7 +203,7 @@ struct SpMatCSR : public sparse_matrix {
 
     void mul_remote(
             const backend::device_vector<val_t> &in,
-            const backend::device_vector<val_t> &out,
+            backend::device_vector<val_t> &out,
             scalar_type scale) const
     {
         if (rem.nnz) mul<assign::ADD>(rem, in, out, scale);

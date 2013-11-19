@@ -43,6 +43,10 @@ THE SOFTWARE.
 #include <vexcl/vector.hpp>
 #include <vexcl/vector_view.hpp>
 
+#if defined(VEXCL_BACKEND_CUDA)
+#  include <vexcl/backend/cuda/cusparse.hpp>
+#endif
+
 namespace vex {
 
 /// Sparse matrix in hybrid ELL-CSR format.
@@ -93,15 +97,15 @@ class SpMat {
                 if (part[d + 1] > part[d]) {
                     if ( backend::is_cpu(queue[d]) )
                         mtx[d].reset(
-                                new SpMatCSR(queue[d], row, col, val,
-                                    part[d], part[d+1], col_part[d], col_part[d+1],
-                                    ghost_cols[d])
+                                new SpMatCSR(queue[d],
+                                    row + part[d], row + part[d+1], col, val,
+                                    col_part[d], col_part[d+1], ghost_cols[d])
                                 );
                     else
                         mtx[d].reset(
-                                new SpMatHELL(queue[d], row, col, val,
-                                    part[d], part[d+1], col_part[d], col_part[d+1],
-                                    ghost_cols[d])
+                                new SpMatHELL(queue[d],
+                                    row + part[d], row + part[d + 1], col, val,
+                                    col_part[d], col_part[d+1], ghost_cols[d])
                                 );
                 }
             }
@@ -144,13 +148,17 @@ class SpMat {
 
             // Start computing contribution from local part of the matrix.
             for(unsigned d = 0; d < queue.size(); d++)
-                if (mtx[d]) mtx[d]->mul_local(x(d), y(d), alpha, append);
+                if (mtx[d]) {
+                    backend::select_context(queue[d]);
+                    mtx[d]->mul_local(x(d), y(d), alpha, append);
+                }
 
 
             if (rx.size()) {
                 // Meanwhile, get gathered values to host, ...
                 for(unsigned d = 0; d < queue.size(); d++) {
                     if (cidx[d + 1] > cidx[d]) {
+                        backend::select_context(squeue[d]);
                         vex::vector<val_t> vals(squeue[d], exc[d].vals_to_send);
                         vex::copy(vals.begin(), vals.end(), &rx[cidx[d]], /*blocking=*/false);
                     }
@@ -177,6 +185,7 @@ class SpMat {
                 // Compute contribution from remote part of the matrix.
                 for(unsigned d = 0; d < queue.size(); d++) {
                     if (exc[d].cols_to_recv.size()) {
+                        backend::select_context(queue[d]);
                         mtx[d]->mul_remote(exc[d].rx, y(d), alpha);
                     }
                 }
@@ -190,6 +199,7 @@ class SpMat {
         /// Number of non-zero entries.
         size_t nonzeros() const { return nnz;   }
 
+#if defined(VEXCL_BACKEND_OPENCL) || !defined(VEXCL_USE_CUSPARSE)
         static void inline_preamble(backend::source_generator &src,
                 const backend::command_queue &queue, const std::string &prm_name,
                 detail::kernel_generator_state_ptr)
@@ -226,6 +236,7 @@ class SpMat {
         {
             A.mtx[part]->setArgs(kernel, part, x);
         }
+#endif
     private:
         template <typename T>
         static inline size_t bytes(const std::vector<T> &v) {
@@ -235,23 +246,31 @@ class SpMat {
         struct sparse_matrix {
             virtual void mul_local(
                     const backend::device_vector<val_t> &x,
-                    const backend::device_vector<val_t> &y,
+                    backend::device_vector<val_t> &y,
                     scalar_type alpha, bool append
                     ) const = 0;
 
             virtual void mul_remote(
                     const backend::device_vector<val_t> &x,
-                    const backend::device_vector<val_t> &y,
+                    backend::device_vector<val_t> &y,
                     scalar_type alpha
                     ) const = 0;
 
+#if defined(VEXCL_BACKEND_OPENCL) || !defined(VEXCL_USE_CUSPARSE)
             virtual void setArgs(backend::kernel &kernel, unsigned part, const vector<val_t> &x) const = 0;
+#endif
 
             virtual ~sparse_matrix() {}
         };
 
-#include <vexcl/spmat/hybrid_ell.inl>
-#include <vexcl/spmat/csr.inl>
+
+#if defined(VEXCL_BACKEND_OPENCL) || !defined(VEXCL_USE_CUSPARSE)
+#  include <vexcl/spmat/hybrid_ell.inl>
+#  include <vexcl/spmat/csr.inl>
+#else
+#  include <vexcl/backend/cuda/hybrid_ell.inl>
+#  include <vexcl/backend/cuda/csr.inl>
+#endif
 
         struct exdata {
             std::vector<col_t> cols_to_recv;
@@ -323,7 +342,8 @@ class SpMat {
                         exc[d].cols_to_recv.resize(rcols);
                         exc[d].vals_to_recv.resize(rcols);
 
-                        exc[d].rx = backend::device_vector<val_t>(queue[d], rcols, 0, backend::MEM_READ_ONLY);
+                        exc[d].rx = backend::device_vector<val_t>(queue[d], rcols,
+                                static_cast<const val_t*>(0), backend::MEM_READ_ONLY);
 
                         for(size_t i = 0, j = 0; i < cols_to_send.size(); i++)
                             if (ghost_cols[d].count(cols_to_send[i]))

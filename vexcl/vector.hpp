@@ -508,7 +508,12 @@ class vector : public vector_terminal_expression {
         }
 
         /// Return memory buffer located on a given device.
-        backend::device_vector<T> operator()(unsigned d = 0) const {
+        const backend::device_vector<T>& operator()(unsigned d = 0) const {
+            return buf[d];
+        }
+
+        /// Return memory buffer located on a given device.
+        backend::device_vector<T>& operator()(unsigned d = 0) {
             return buf[d];
         }
 

@@ -1,14 +1,13 @@
 #define BOOST_TEST_MODULE CUSPARSE
+#define VEXCL_USE_CUSPARSE
 #include <boost/test/unit_test.hpp>
 #include <vexcl/vector.hpp>
-#include <vexcl/backend/cuda/cusparse.hpp>
+#include <vexcl/spmat.hpp>
 #include "random_matrix.hpp"
 #include "context_setup.hpp"
 
 BOOST_AUTO_TEST_CASE(hyb_matrix)
 {
-    std::vector<vex::command_queue> single(1, ctx.queue(0));
-
     const size_t n = 1024;
     const size_t m = 2048;
 
@@ -19,11 +18,10 @@ BOOST_AUTO_TEST_CASE(hyb_matrix)
 
     random_matrix(n, m, 16, row, col, val);
 
-    vex::backend::cuda::spmat_hyb<double>
-        A(ctx.queue(0), n, m, row.data(), col.data(), val.data());
+    vex::SpMat<double, int, int> A(ctx, n, m, row.data(), col.data(), val.data());
 
-    vex::vector<double> X(single, x);
-    vex::vector<double> Y(single, n);
+    vex::vector<double> X(ctx, x);
+    vex::vector<double> Y(ctx, n);
 
     Y = A * X;
 

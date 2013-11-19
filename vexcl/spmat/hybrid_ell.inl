@@ -52,8 +52,9 @@ struct SpMatHELL : public sparse_matrix {
 
     SpMatHELL(
             const backend::command_queue &queue,
-            const idx_t *row, const col_t *col, const val_t *val,
-            size_t row_begin, size_t row_end, size_t col_begin, size_t col_end,
+            const idx_t *row_begin, const idx_t *row_end,
+            const col_t *col, const val_t *val,
+            size_t col_begin, size_t col_end,
             std::set<col_t> ghost_cols
             )
         : queue(queue), n(row_end - row_begin), pitch( alignup(n, 16U) )
@@ -69,9 +70,9 @@ struct SpMatHELL : public sparse_matrix {
 
             // Find maximum widths for local and remote parts:
             loc.ell.width = rem.ell.width = 0;
-            for(size_t i = row_begin; i < row_end; ++i) {
+            for(auto row = row_begin; row != row_end; ++row) {
                 size_t wl = 0, wr = 0;
-                for(idx_t j = row[i]; j < row[i + 1]; ++j) {
+                for(idx_t j = row[0]; j < row[1]; ++j) {
                     if (is_local(col[j]))
                         ++wl;
                     else
@@ -86,9 +87,9 @@ struct SpMatHELL : public sparse_matrix {
             std::vector<size_t> loc_hist(loc.ell.width + 1, 0);
             std::vector<size_t> rem_hist(rem.ell.width + 1, 0);
 
-            for(size_t i = row_begin; i < row_end; ++i) {
+            for(auto row = row_begin; row != row_end; ++row) {
                 size_t wl = 0, wr = 0;
-                for(idx_t j = row[i]; j < row[i + 1]; ++j) {
+                for(idx_t j = row[0]; j < row[1]; ++j) {
                     if (is_local(col[j]))
                         ++wl;
                     else
@@ -115,9 +116,9 @@ struct SpMatHELL : public sparse_matrix {
         /* 2. Count nonzeros in CSR parts of the matrix. */
         loc.csr.nnz = 0, rem.csr.nnz = 0;
 
-        for(size_t i = row_begin; i < row_end; i++) {
+        for(auto row = row_begin; row != row_end; ++row) {
             size_t wl = 0, wr = 0;
-            for(idx_t j = row[i]; j < row[i + 1]; ++j) {
+            for(idx_t j = row[0]; j < row[1]; ++j) {
                 if (is_local(col[j]))
                     ++wl;
                 else
@@ -161,9 +162,10 @@ struct SpMatHELL : public sparse_matrix {
         lcsr_row.push_back(0);
         rcsr_row.push_back(0);
 
-        for(size_t i = row_begin, k = 0; i < row_end; ++i, ++k) {
+        size_t k = 0;
+        for(auto row = row_begin; row != row_end; ++row, ++k) {
             size_t lcnt = 0, rcnt = 0;
-            for(idx_t j = row[i]; j < row[i + 1]; ++j) {
+            for(idx_t j = row[0]; j < row[1]; ++j) {
                 if (is_local(col[j])) {
                     if (lcnt < loc.ell.width) {
                         lell_col[k + pitch * lcnt] = static_cast<col_t>(col[j] - col_begin);
@@ -218,7 +220,7 @@ struct SpMatHELL : public sparse_matrix {
     void mul(
             const matrix_part &part,
             const backend::device_vector<val_t> &in,
-            const backend::device_vector<val_t> &out,
+            backend::device_vector<val_t> &out,
             scalar_type scale
             ) const
     {
@@ -301,7 +303,7 @@ struct SpMatHELL : public sparse_matrix {
 
     void mul_local(
             const backend::device_vector<val_t> &in,
-            const backend::device_vector<val_t> &out,
+            backend::device_vector<val_t> &out,
             scalar_type scale, bool append) const
     {
         if (append)
@@ -312,7 +314,7 @@ struct SpMatHELL : public sparse_matrix {
 
     void mul_remote(
             const backend::device_vector<val_t> &in,
-            const backend::device_vector<val_t> &out,
+            backend::device_vector<val_t> &out,
             scalar_type scale) const
     {
         mul<assign::ADD>(rem, in, out, scale);

@@ -94,12 +94,13 @@ class spmat_hyb {
             );
 
     public:
+        template <typename row_t, typename col_t>
         spmat_hyb(
                 const command_queue &queue,
                 int n, int m,
-                const int   *row,
-                const int   *col,
-                const val_t *val
+                const row_t *row_begin,
+                const col_t *col_begin,
+                const val_t *val_begin
                 )
             : handle( cusparse_handle(queue) ),
               desc  ( create_description(), detail::deleter() ),
@@ -108,7 +109,7 @@ class spmat_hyb {
             cuda_check( cusparseSetMatType(desc.get(), CUSPARSE_MATRIX_TYPE_GENERAL) );
             cuda_check( cusparseSetMatIndexBase(desc.get(), CUSPARSE_INDEX_BASE_ZERO) );
 
-            fill_matrix(queue, n, m, row, col, val);
+            fill_matrix(queue, n, m, row_begin, col_begin, val_begin);
         }
 
         void apply(const vex::vector<val_t> &x, vex::vector<val_t> &y,
@@ -117,7 +118,33 @@ class spmat_hyb {
             precondition(x.nparts() == 1 && y.nparts() == 1,
                     "Incompatible vectors");
 
-            do_mul(x, y, alpha, append);
+            mul(x(0), y(0), alpha, append);
+        }
+
+        void mul(const device_vector<float> &x, device_vector<float> &y,
+                 float alpha = 1, bool append = false) const
+        {
+            float beta = append ? 1 : 0;
+
+            cuda_check(
+                    cusparseShybmv(handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
+                        &alpha, desc.get(), mat.get(),
+                        x.raw_ptr(), &beta, y.raw_ptr()
+                        )
+                    );
+        }
+
+        void mul(const device_vector<double> &x, device_vector<double> &y,
+                 double alpha = 1, bool append = false) const
+        {
+            double beta = append ? 1 : 0;
+
+            cuda_check(
+                    cusparseDhybmv(handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
+                        &alpha, desc.get(), mat.get(),
+                        x.raw_ptr(), &beta, y.raw_ptr()
+                        )
+                    );
         }
     private:
         cusparseHandle_t handle;
@@ -137,12 +164,15 @@ class spmat_hyb {
             return mat;
         }
 
+        template <typename row_t, typename col_t>
         void fill_matrix(const command_queue &q,
-                int n, int m, const int *row, const int *col, const float *val)
+                int n, int m, const row_t *row, const col_t *col, const float *val)
         {
             device_vector<int>   r(q, n + 1,  row);
-            device_vector<int>   c(q, row[n], col);
-            device_vector<float> v(q, row[n], val);
+            device_vector<int>   c(q, row[n], col + row[0]);
+            device_vector<float> v(q, row[n], val + row[0]);
+
+            if (row[0] != 0) vector<int>(q, r) -= row[0];
 
             cuda_check(
                     cusparseScsr2hyb(handle, n, m, desc.get(),
@@ -152,12 +182,15 @@ class spmat_hyb {
                     );
         }
 
+        template <typename row_t, typename col_t>
         void fill_matrix(const command_queue &q,
-                int n, int m, const int *row, const int *col, const double *val)
+                int n, int m, const row_t *row, const col_t *col, const double *val)
         {
             device_vector<int>    r(q, n + 1,  row);
-            device_vector<int>    c(q, row[n], col);
-            device_vector<double> v(q, row[n], val);
+            device_vector<int>    c(q, row[n], col + row[0]);
+            device_vector<double> v(q, row[n], val + row[0]);
+
+            if (row[0] != 0) vector<int>(q, r) -= row[0];
 
             cuda_check(
                     cusparseDcsr2hyb(handle, n, m, desc.get(),
@@ -167,31 +200,6 @@ class spmat_hyb {
                     );
         }
 
-        void do_mul(const vex::vector<float> &x, vex::vector<float> &y,
-                 float alpha = 1, bool append = false) const
-        {
-            float beta = append ? 1 : 0;
-
-            cuda_check(
-                    cusparseShybmv(handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
-                        &alpha, desc.get(), mat.get(),
-                        x(0).raw_ptr(), &beta, y(0).raw_ptr()
-                        )
-                    );
-        }
-
-        void do_mul(const vex::vector<double> &x, vex::vector<double> &y,
-                 double alpha = 1, bool append = false) const
-        {
-            double beta = append ? 1 : 0;
-
-            cuda_check(
-                    cusparseDhybmv(handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
-                        &alpha, desc.get(), mat.get(),
-                        x(0).raw_ptr(), &beta, y(0).raw_ptr()
-                        )
-                    );
-        }
 };
 
 template <typename T>
@@ -209,20 +217,24 @@ class spmat_crs {
             );
 
     public:
+        template <typename row_t, typename col_t>
         spmat_crs(
                 const command_queue &queue,
                 int n, int m,
-                const int   *row,
-                const int   *col,
-                const val_t *val
+                const row_t *row_begin,
+                const col_t *col_begin,
+                const val_t *val_begin
                 )
-            : n(n), m(m), nnz(row[n]),
+            : n(n), m(m), nnz(row_begin[n] - row_begin[0]),
               handle( cusparse_handle(queue) ),
               desc  ( create_description(), detail::deleter() ),
-              row(queue, n+1, row),
-              col(queue, nnz, col),
-              val(queue, nnz, val)
+              row(queue, n+1, row_begin),
+              col(queue, nnz, col_begin + row_begin[0]),
+              val(queue, nnz, val_begin + row_begin[0])
         {
+            if (row_begin[0] != 0)
+                vector<int>(queue, row) -= row_begin[0];
+
             cuda_check( cusparseSetMatType(desc.get(), CUSPARSE_MATRIX_TYPE_GENERAL) );
             cuda_check( cusparseSetMatIndexBase(desc.get(), CUSPARSE_INDEX_BASE_ZERO) );
         }
@@ -233,7 +245,35 @@ class spmat_crs {
             precondition(x.nparts() == 1 && y.nparts() == 1,
                     "Incompatible vectors");
 
-            do_mul(x, y, alpha, append);
+            mul(x(0), y(0), alpha, append);
+        }
+
+        void mul(const device_vector<float> &x, device_vector<float> &y,
+                 float alpha = 1, bool append = false) const
+        {
+            float beta = append ? 1 : 0;
+
+            cuda_check(
+                    cusparseScsrmv(handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
+                        n, m, nnz, &alpha, desc.get(),
+                        val.raw_ptr(), row.raw_ptr(), col.raw_ptr(),
+                        x.raw_ptr(), &beta, y.raw_ptr()
+                        )
+                 );
+        }
+
+        void mul(const device_vector<double> &x, device_vector<double> &y,
+                 double alpha = 1, bool append = false) const
+        {
+            double beta = append ? 1 : 0;
+
+            cuda_check(
+                    cusparseDcsrmv(handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
+                        n, m, nnz, &alpha, desc.get(),
+                        val.raw_ptr(), row.raw_ptr(), col.raw_ptr(),
+                        x.raw_ptr(), &beta, y.raw_ptr()
+                        )
+                 );
         }
     private:
         unsigned n, m, nnz;
@@ -250,34 +290,6 @@ class spmat_crs {
             cusparseMatDescr_t desc;
             cuda_check( cusparseCreateMatDescr(&desc) );
             return desc;
-        }
-
-        void do_mul(const vex::vector<float> &x, vex::vector<float> &y,
-                 float alpha = 1, bool append = false) const
-        {
-            float beta = append ? 1 : 0;
-
-            cuda_check(
-                    cusparseScsrmv(handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
-                        n, m, nnz, &alpha, desc.get(),
-                        val.raw_ptr(), row.raw_ptr(), col.raw_ptr(),
-                        x(0).raw_ptr(), &beta, y(0).raw_ptr()
-                        )
-                 );
-        }
-
-        void do_mul(const vex::vector<double> &x, vex::vector<double> &y,
-                 double alpha = 1, bool append = false) const
-        {
-            double beta = append ? 1 : 0;
-
-            cuda_check(
-                    cusparseDcsrmv(handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
-                        n, m, nnz, &alpha, desc.get(),
-                        val.raw_ptr(), row.raw_ptr(), col.raw_ptr(),
-                        x(0).raw_ptr(), &beta, y(0).raw_ptr()
-                        )
-                 );
         }
 };
 

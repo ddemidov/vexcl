@@ -73,8 +73,9 @@ class device_vector {
         device_vector() {}
 
         /// Allocates memory buffer on the device associated with the given queue.
+        template <typename H = T>
         device_vector(const command_queue &q, size_t n,
-                const T *host = 0, mem_flags flags = MEM_READ_WRITE)
+                const H *host = 0, mem_flags flags = MEM_READ_WRITE)
             : n(n)
         {
             (void)flags;
@@ -87,7 +88,12 @@ class device_vector {
 
                 buffer.reset(reinterpret_cast<char*>(static_cast<size_t>(ptr)), detail::deleter() );
 
-                if (host) write(q, 0, n, host, true);
+                if (host) {
+                    if (std::is_same<T, H>::value)
+                        write(q, 0, n, reinterpret_cast<const T*>(host), true);
+                    else
+                        write(q, 0, n, std::vector<T>(host, host + n).data(), true);
+                }
             }
         }
 
