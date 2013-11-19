@@ -537,7 +537,7 @@ class Kernel {
 
 #define VEXCL_FUNCALL_OPERATOR(z, n, data)                                     \
   template <BOOST_PP_ENUM_PARAMS(n, class Param)>                              \
-  void operator()(BOOST_PP_ENUM(n, PRINT_PARAM, ~)) {                          \
+  void operator()(BOOST_PP_ENUM(n, VEXCL_PRINT_PARAM, ~)) {                    \
     launch(boost::tie(BOOST_PP_ENUM_PARAMS(n, param)));                        \
   }
 

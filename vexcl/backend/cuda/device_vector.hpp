@@ -73,7 +73,19 @@ class device_vector {
         device_vector() {}
 
         /// Allocates memory buffer on the device associated with the given queue.
-        template <typename H = T>
+        device_vector(const command_queue &q, size_t n) : n(n) {
+            if (n) {
+                q.context().set_current();
+
+                CUdeviceptr ptr;
+                cuda_check( cuMemAlloc(&ptr, n * sizeof(T)) );
+
+                buffer.reset(reinterpret_cast<char*>(static_cast<size_t>(ptr)), detail::deleter() );
+            }
+        }
+
+        /// Allocates memory buffer on the device associated with the given queue.
+        template <typename H>
         device_vector(const command_queue &q, size_t n,
                 const H *host = 0, mem_flags flags = MEM_READ_WRITE)
             : n(n)
