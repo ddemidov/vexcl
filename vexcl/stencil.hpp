@@ -229,7 +229,8 @@ class stencil : private stencil_base<T> {
          * \param x input vector.
          * \param y output vector.
          * \param alpha Scaling coefficient in front of y.
-         * \param beta  Scaling coefficient in front of convolution.
+         * \param append whether to append the result to the output vector
+         *               (alternative is to replace the output vector).
          */
         void apply(const vex::vector<T> &x, vex::vector<T> &y,
                 T alpha = 1, bool append = false) const;
