@@ -59,10 +59,13 @@ endif()
 # Thrust interoperation examples
 #----------------------------------------------------------------------------
 if ("${VEXCL_BACKEND}" STREQUAL "CUDA")
-    set(CUDA_PROPAGATE_HOST_FLAGS OFF)
-    set(CUDA_NVCC_FLAGS "-arch=sm_13")
-    cuda_add_executable(thrust-sort thrust-sort.cpp thrust-sort.cu)
-    target_link_libraries(thrust-sort ${Boost_LIBRARIES} ${CUDA_CUDA_LIBRARY})
+    # TODO: there is a CRT library conflict in WIN32
+    if (NOT WIN32)
+	set(CUDA_PROPAGATE_HOST_FLAGS OFF)
+	set(CUDA_NVCC_FLAGS "-arch=sm_13")
+	cuda_add_executable(thrust-sort thrust-sort.cpp thrust-sort.cu)
+	target_link_libraries(thrust-sort ${Boost_LIBRARIES} ${CUDA_CUDA_LIBRARY})
+    endif()
 endif()
 
 #----------------------------------------------------------------------------
