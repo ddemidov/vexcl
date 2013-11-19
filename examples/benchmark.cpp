@@ -6,6 +6,7 @@
 #include <numeric>
 #include <random>
 #include <boost/program_options.hpp>
+#define VEXCL_USE_CUSPARSE
 #include <vexcl/devlist.hpp>
 #include <vexcl/vector.hpp>
 #include <vexcl/reductor.hpp>

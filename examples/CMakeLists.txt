@@ -11,6 +11,9 @@ endfunction()
 #----------------------------------------------------------------------------
 add_vexcl_example(devlist)
 add_vexcl_example(benchmark)
+if ("${VEXCL_BACKEND}" STREQUAL "CUDA")
+    target_link_libraries(benchmark ${CUDA_cusparse_LIBRARY})
+endif()
 
 if ("${VEXCL_BACKEND}" STREQUAL "OpenCL")
     add_vexcl_example(exclusive)
