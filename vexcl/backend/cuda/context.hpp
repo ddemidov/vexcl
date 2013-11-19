@@ -192,6 +192,7 @@ class command_queue {
 
         /// Blocks until all previously queued commands in command_queue are issued to the associated device and have completed.
         void finish() const {
+            ctx.set_current();
             cuda_check( cuStreamSynchronize( s.get() ) );
         }
 

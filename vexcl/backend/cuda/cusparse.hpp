@@ -78,6 +78,7 @@ inline cusparseHandle_t cusparse_handle(const command_queue &q) {
         select_context(q);
         cusparseHandle_t handle;
         cuda_check( cusparseCreate(&handle) );
+        cuda_check( cusparseSetStream(handle, q.raw()) );
 
         h = cache.insert(std::make_pair(key, smart_handle(handle, detail::deleter()))).first;
     }
