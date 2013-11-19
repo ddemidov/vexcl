@@ -239,11 +239,11 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
                 .template smem_parameter<real>()
                 .close(")");
 
-#define INCREMENT_MY_SUM                                                       \
+#define VEXCL_INCREMENT_MY_SUM                                                 \
   {                                                                            \
-    output_local_preamble loc_init(source, queue[d], "prm", empty_state());      \
+    output_local_preamble loc_init(source, queue[d], "prm", empty_state());    \
     boost::proto::eval(expr, loc_init);                                        \
-    vector_expr_context expr_ctx(source, queue[d], "prm", empty_state());        \
+    vector_expr_context expr_ctx(source, queue[d], "prm", empty_state());      \
     source.new_line() << "mySum = reduce_operation(mySum, ";                   \
     boost::proto::eval(expr, expr_ctx);                                        \
     source << ");";                                                            \
@@ -264,7 +264,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
                 source.new_line() << type_name<real>() << " mySum = " << RDC::template initial<real>() << ";";
                 source.new_line() << "for (size_t idx = start; idx < stop; idx++)";
                 source.open("{");
-                INCREMENT_MY_SUM
+                VEXCL_INCREMENT_MY_SUM
                 source.close("}");
                 source.new_line() << "g_odata[";
                 source.group_id(0) << "] = mySum;";
@@ -280,7 +280,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
                 source.new_line() << type_name<real>() << " mySum = " << RDC::template initial<real>() << ";";
 
                 source.grid_stride_loop().open("{");
-                INCREMENT_MY_SUM
+                VEXCL_INCREMENT_MY_SUM
                 source.close("}");
                 source.new_line() << "sdata[tid] = mySum;";
                 source.new_line().barrier();
@@ -307,7 +307,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
             }
         }
 
-#undef INCREMENT_MY_SUM
+#undef VEXCL_INCREMENT_MY_SUM
 
         if (size_t psize = prop.part_size(d)) {
             kernel->second.push_arg(psize);

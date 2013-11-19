@@ -141,8 +141,8 @@ struct symbolic_grammar
                   boost::proto::if_< is_cl_native< boost::proto::_value >() >
               >
           >,
-          BUILTIN_OPERATIONS(symbolic_grammar),
-          USER_FUNCTIONS(symbolic_grammar)
+          VEXCL_BUILTIN_OPERATIONS(symbolic_grammar),
+          VEXCL_USER_FUNCTIONS(symbolic_grammar)
       >
 {};
 
@@ -171,7 +171,7 @@ struct symbolic_context {
     template <typename Expr, typename Tag = typename Expr::proto_tag>
     struct eval {};
 
-#define BINARY_OPERATION(bin_tag, bin_op)                                      \
+#define VEXCL_BINARY_OPERATION(bin_tag, bin_op)                                \
   template <typename Expr> struct eval<Expr, boost::proto::tag::bin_tag> {     \
     typedef void result_type;                                                  \
     void operator()(const Expr &expr, symbolic_context &ctx) const {           \
@@ -183,28 +183,28 @@ struct symbolic_context {
     }                                                                          \
   }
 
-    BINARY_OPERATION(plus,          +);
-    BINARY_OPERATION(minus,         -);
-    BINARY_OPERATION(multiplies,    *);
-    BINARY_OPERATION(divides,       /);
-    BINARY_OPERATION(modulus,       %);
-    BINARY_OPERATION(shift_left,   <<);
-    BINARY_OPERATION(shift_right,  >>);
-    BINARY_OPERATION(less,          <);
-    BINARY_OPERATION(greater,       >);
-    BINARY_OPERATION(less_equal,   <=);
-    BINARY_OPERATION(greater_equal,>=);
-    BINARY_OPERATION(equal_to,     ==);
-    BINARY_OPERATION(not_equal_to, !=);
-    BINARY_OPERATION(logical_and,  &&);
-    BINARY_OPERATION(logical_or,   ||);
-    BINARY_OPERATION(bitwise_and,   &);
-    BINARY_OPERATION(bitwise_or,    |);
-    BINARY_OPERATION(bitwise_xor,   ^);
+    VEXCL_BINARY_OPERATION(plus,          +);
+    VEXCL_BINARY_OPERATION(minus,         -);
+    VEXCL_BINARY_OPERATION(multiplies,    *);
+    VEXCL_BINARY_OPERATION(divides,       /);
+    VEXCL_BINARY_OPERATION(modulus,       %);
+    VEXCL_BINARY_OPERATION(shift_left,   <<);
+    VEXCL_BINARY_OPERATION(shift_right,  >>);
+    VEXCL_BINARY_OPERATION(less,          <);
+    VEXCL_BINARY_OPERATION(greater,       >);
+    VEXCL_BINARY_OPERATION(less_equal,   <=);
+    VEXCL_BINARY_OPERATION(greater_equal,>=);
+    VEXCL_BINARY_OPERATION(equal_to,     ==);
+    VEXCL_BINARY_OPERATION(not_equal_to, !=);
+    VEXCL_BINARY_OPERATION(logical_and,  &&);
+    VEXCL_BINARY_OPERATION(logical_or,   ||);
+    VEXCL_BINARY_OPERATION(bitwise_and,   &);
+    VEXCL_BINARY_OPERATION(bitwise_or,    |);
+    VEXCL_BINARY_OPERATION(bitwise_xor,   ^);
 
-#undef BINARY_OPERATION
+#undef VEXCL_BINARY_OPERATION
 
-#define UNARY_PRE_OPERATION(the_tag, the_op)                                   \
+#define VEXCL_UNARY_PRE_OPERATION(the_tag, the_op)                             \
   template <typename Expr> struct eval<Expr, boost::proto::tag::the_tag> {     \
     typedef void result_type;                                                  \
     void operator()(const Expr &expr, symbolic_context &ctx) const {           \
@@ -214,15 +214,15 @@ struct symbolic_context {
     }                                                                          \
   }
 
-    UNARY_PRE_OPERATION(unary_plus,   +);
-    UNARY_PRE_OPERATION(negate,       -);
-    UNARY_PRE_OPERATION(logical_not,  !);
-    UNARY_PRE_OPERATION(pre_inc,     ++);
-    UNARY_PRE_OPERATION(pre_dec,     --);
+    VEXCL_UNARY_PRE_OPERATION(unary_plus,   +);
+    VEXCL_UNARY_PRE_OPERATION(negate,       -);
+    VEXCL_UNARY_PRE_OPERATION(logical_not,  !);
+    VEXCL_UNARY_PRE_OPERATION(pre_inc,     ++);
+    VEXCL_UNARY_PRE_OPERATION(pre_dec,     --);
 
-#undef UNARY_PRE_OPERATION
+#undef VEXCL_UNARY_PRE_OPERATION
 
-#define UNARY_POST_OPERATION(the_tag, the_op)                                  \
+#define VEXCL_UNARY_POST_OPERATION(the_tag, the_op)                            \
   template <typename Expr> struct eval<Expr, boost::proto::tag::the_tag> {     \
     typedef void result_type;                                                  \
     void operator()(const Expr &expr, symbolic_context &ctx) const {           \
@@ -232,10 +232,10 @@ struct symbolic_context {
     }                                                                          \
   }
 
-    UNARY_POST_OPERATION(post_inc, ++);
-    UNARY_POST_OPERATION(post_dec, --);
+    VEXCL_UNARY_POST_OPERATION(post_inc, ++);
+    VEXCL_UNARY_POST_OPERATION(post_dec, --);
 
-#undef UNARY_POST_OPERATION
+#undef VEXCL_UNARY_POST_OPERATION
 
     template <class Expr>
     struct eval<Expr, boost::proto::tag::function> {
@@ -392,23 +392,23 @@ class symbolic
             return *this;
         }
 
-#define COMPOUND_ASSIGNMENT(cop, op)                                           \
+#define VEXCL_COMPOUND_ASSIGNMENT(cop, op)                                     \
   template <class Expr> const symbolic &operator cop(const Expr & expr) {      \
     return *this = *this op expr;                                              \
   }
 
-        COMPOUND_ASSIGNMENT(+=, +)
-        COMPOUND_ASSIGNMENT(-=, -)
-        COMPOUND_ASSIGNMENT(*=, *)
-        COMPOUND_ASSIGNMENT(/=, /)
-        COMPOUND_ASSIGNMENT(%=, %)
-        COMPOUND_ASSIGNMENT(&=, &)
-        COMPOUND_ASSIGNMENT(|=, |)
-        COMPOUND_ASSIGNMENT(^=, ^)
-        COMPOUND_ASSIGNMENT(<<=, <<)
-        COMPOUND_ASSIGNMENT(>>=, >>)
+        VEXCL_COMPOUND_ASSIGNMENT(+=, +)
+        VEXCL_COMPOUND_ASSIGNMENT(-=, -)
+        VEXCL_COMPOUND_ASSIGNMENT(*=, *)
+        VEXCL_COMPOUND_ASSIGNMENT(/=, /)
+        VEXCL_COMPOUND_ASSIGNMENT(%=, %)
+        VEXCL_COMPOUND_ASSIGNMENT(&=, &)
+        VEXCL_COMPOUND_ASSIGNMENT(|=, |)
+        VEXCL_COMPOUND_ASSIGNMENT(^=, ^)
+        VEXCL_COMPOUND_ASSIGNMENT(<<=, <<)
+        VEXCL_COMPOUND_ASSIGNMENT(>>=, >>)
 
-#undef COMPOUND_ASSIGNMENT
+#undef VEXCL_COMPOUND_ASSIGNMENT
 
         size_t id() const {
             return num;
@@ -533,18 +533,18 @@ class Kernel {
         }
 #else
 
-#define PRINT_PARAM(z, n, data) const Param ## n &param ## n
+#define VEXCL_PRINT_PARAM(z, n, data) const Param ## n &param ## n
 
-#define FUNCALL_OPERATOR(z, n, data)                                           \
+#define VEXCL_FUNCALL_OPERATOR(z, n, data)                                     \
   template <BOOST_PP_ENUM_PARAMS(n, class Param)>                              \
   void operator()(BOOST_PP_ENUM(n, PRINT_PARAM, ~)) {                          \
     launch(boost::tie(BOOST_PP_ENUM_PARAMS(n, param)));                        \
   }
 
-BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, FUNCALL_OPERATOR, ~)
+BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_FUNCALL_OPERATOR, ~)
 
-#undef PRINT_PARAM
-#undef FUNCALL_OPERATOR
+#undef VEXCL_PRINT_PARAM
+#undef VEXCL_FUNCALL_OPERATOR
 
 #endif
     private:
@@ -689,33 +689,31 @@ std::string make_function(std::string body, const Ret &ret, const Args&... args)
 }
 #else
 
-#define PRINT_ARG(z, n, data) const Arg ## n &arg ## n
+#define VEXCL_PRINT_ARG(z, n, data) const Arg ## n &arg ## n
 
-#define BUILD_KERNEL(z, n, data)                                               \
-  template<BOOST_PP_ENUM_PARAMS(n, class Arg)> Kernel<n> build_kernel(         \
-      const std::vector<backend::command_queue> & queue, const std::string & name,   \
-      const std::string & body, BOOST_PP_ENUM(n, PRINT_ARG, ~)) {              \
+#define VEXCL_BUILD_KERNEL(z, n, data)                                         \
+  template <BOOST_PP_ENUM_PARAMS(n, class Arg)>                                \
+  Kernel<n> build_kernel(const std::vector<backend::command_queue> & queue,    \
+                         const std::string & name, const std::string & body,   \
+                         BOOST_PP_ENUM(n, VEXCL_PRINT_ARG, ~)) {               \
     return Kernel<n>(queue, name, body,                                        \
                      boost::tie(BOOST_PP_ENUM_PARAMS(n, arg)));                \
   }
 
-BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, BUILD_KERNEL, ~)
-
-#undef BUILD_KERNEL
-
-#define MAKE_FUNCTION(z, n, data)                                              \
+#define VEXCL_MAKE_FUNCTION(z, n, data)                                        \
   template<class Ret, BOOST_PP_ENUM_PARAMS(n, class Arg)> std::string          \
   make_function(std::string body, const Ret & ret,                             \
-                BOOST_PP_ENUM(n, PRINT_ARG, ~)) {                              \
+                BOOST_PP_ENUM(n, VEXCL_PRINT_ARG, ~)) {                        \
     return Function(body, ret, boost::tie(BOOST_PP_ENUM_PARAMS(n, arg)))       \
         .get();                                                                \
   }
 
-BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, MAKE_FUNCTION, ~)
+BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_BUILD_KERNEL, ~)
+BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_MAKE_FUNCTION, ~)
 
-#undef MAKE_FUNCTION
-
-#undef PRINT_ARG
+#undef VEXCL_BUILD_KERNEL
+#undef VEXCL_MAKE_FUNCTION
+#undef VEXCL_PRINT_ARG
 
 #endif
 
@@ -740,14 +738,14 @@ struct FunctorAdapter : UserFunction<FunctorAdapter<Signature, Functor>, Signatu
         return body_string;
     }
 
-#define PRINT_PRM(z, n, data)                                                  \
+#define VEXCL_PRINT_PRM(z, n, data)                                            \
   typedef symbolic<                                                            \
       typename boost::mpl::at<params, boost::mpl::int_<n> >::type> Prm##n;     \
   Prm##n prm##n(Prm##n::ScalarParameter);                                      \
   source << "\t\t" << type_name<typename Prm##n::value_type>() << " "          \
          << prm##n << " = prm" << n + 1 << ";\n";
 
-#define BODY_GETTER(z, n, data)                                                \
+#define VEXCL_BODY_GETTER(z, n, data)                                          \
   static std::string get_body(Functor && f, boost::mpl::size_t<n>) {           \
     typedef typename boost::function_types::result_type<Signature>::type       \
         result;                                                                \
@@ -755,16 +753,16 @@ struct FunctorAdapter : UserFunction<FunctorAdapter<Signature, Functor>, Signatu
         params;                                                                \
     std::ostringstream source;                                                 \
     set_recorder(source);                                                      \
-    BOOST_PP_REPEAT(n, PRINT_PRM, ~) symbolic<result> ret =                    \
+    BOOST_PP_REPEAT(n, VEXCL_PRINT_PRM, ~) symbolic<result> ret =              \
         f(BOOST_PP_ENUM_PARAMS(n, prm));                                       \
     source << "\t\treturn " << ret << ";\n";                                   \
     return source.str();                                                       \
   }
 
-    BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, BODY_GETTER, ~)
+    BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_BODY_GETTER, ~)
 
-#undef BODY_GETTER
-#undef PRINT_PRM
+#undef VEXCL_BODY_GETTER
+#undef VEXCL_PRINT_PRM
 };
 
 template <class Signature, class Functor>

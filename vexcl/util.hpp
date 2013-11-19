@@ -98,15 +98,15 @@ struct is_tuple < std::tuple<Elem...> > : std::true_type {};
 
 #else
 
-#define IS_TUPLE(z, n, unused)                                                 \
+#define VEXCL_IS_TUPLE(z, n, unused)                                           \
   template <BOOST_PP_ENUM_PARAMS(n, class Elem)>                               \
   struct is_tuple<                                                             \
       std::tuple<BOOST_PP_ENUM_PARAMS(n, Elem)> > : std::true_type {           \
   };
 
-BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, IS_TUPLE, ~)
+BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_IS_TUPLE, ~)
 
-#undef IS_TUPLE
+#undef VEXCL_IS_TUPLE
 
 #endif
 
@@ -120,20 +120,20 @@ make_array(T t, Tail... tail) {
 }
 #else
 
-#define PRINT_PARAM(z, n, data) T ## n t ## n
-#define INIT_ARRAY(z, n, data) static_cast<T0>(t ## n)
-#define MAKE_ARRAY(z, n, data)                                                 \
+#define VEXCL_PRINT_PARAM(z, n, data) T ## n t ## n
+#define VEXCL_INIT_ARRAY(z, n, data) static_cast<T0>(t ## n)
+#define VEXCL_MAKE_ARRAY(z, n, data)                                           \
   template <BOOST_PP_ENUM_PARAMS(n, class T)>                                  \
-  std::array<T0, n> make_array(BOOST_PP_ENUM(n, PRINT_PARAM, ~)) {             \
-    std::array<T0, n> a = { { BOOST_PP_ENUM(n, INIT_ARRAY, ~) } };             \
+  std::array<T0, n> make_array(BOOST_PP_ENUM(n, VEXCL_PRINT_PARAM, ~)) {       \
+    std::array<T0, n> a = { { BOOST_PP_ENUM(n, VEXCL_INIT_ARRAY, ~) } };       \
     return a;                                                                  \
   }
 
-BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, MAKE_ARRAY, ~)
+BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_MAKE_ARRAY, ~)
 
-#undef MAKE_ARRAY
-#undef INIT_ARRAY
-#undef PRINT_PARAM
+#undef VEXCL_MAKE_ARRAY
+#undef VEXCL_INIT_ARRAY
+#undef VEXCL_PRINT_PARAM
 
 #endif
 

@@ -63,24 +63,24 @@ namespace vex {
 //---------------------------------------------------------------------------
 namespace assign {
 
-#define ASSIGN_OP(name, op)                                                    \
+#define VEXCL_ASSIGN_OP(name, op)                                              \
   struct name {                                                                \
     static std::string string() { return #op; }                                \
   };
 
-    ASSIGN_OP(SET, =)
-    ASSIGN_OP(ADD, +=)
-    ASSIGN_OP(SUB, -=)
-    ASSIGN_OP(MUL, *=)
-    ASSIGN_OP(DIV, /=)
-    ASSIGN_OP(MOD, %=)
-    ASSIGN_OP(AND, &=)
-    ASSIGN_OP(OR,  |=)
-    ASSIGN_OP(XOR, ^=)
-    ASSIGN_OP(LSH, <<=)
-    ASSIGN_OP(RSH, >>=)
+    VEXCL_ASSIGN_OP(SET, =)
+    VEXCL_ASSIGN_OP(ADD, +=)
+    VEXCL_ASSIGN_OP(SUB, -=)
+    VEXCL_ASSIGN_OP(MUL, *=)
+    VEXCL_ASSIGN_OP(DIV, /=)
+    VEXCL_ASSIGN_OP(MOD, %=)
+    VEXCL_ASSIGN_OP(AND, &=)
+    VEXCL_ASSIGN_OP(OR,  |=)
+    VEXCL_ASSIGN_OP(XOR, ^=)
+    VEXCL_ASSIGN_OP(LSH, <<=)
+    VEXCL_ASSIGN_OP(RSH, >>=)
 
-#undef ASSIGN_OP
+#undef VEXCL_ASSIGN_OP
 
 }
 
@@ -309,26 +309,24 @@ struct component< I, std::tuple<Args...> >
 
 #else
 
-#define TUPLE_IS_MS(z, n, unused)                                              \
+#define VEXCL_TUPLE_IS_MS(z, n, unused)                                        \
   template <BOOST_PP_ENUM_PARAMS(n, class Arg)>                                \
   struct is_multiscalar<                                                       \
       std::tuple<BOOST_PP_ENUM_PARAMS(n, Arg)> > : std::true_type {            \
   };
 
-BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, TUPLE_IS_MS, ~)
-
-#undef TUPLE_IS_MS
-
-#define TUPLE_COMP(z, n, unused)                                               \
+#define VEXCL_TUPLE_COMP(z, n, unused)                                         \
   template <size_t I, BOOST_PP_ENUM_PARAMS(n, class Arg)>                      \
   struct component<                                                            \
       I, std::tuple<BOOST_PP_ENUM_PARAMS(n, Arg)> > : std::tuple_element<      \
       I, std::tuple<BOOST_PP_ENUM_PARAMS(n, Arg)> > {                          \
   };
 
-BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, TUPLE_COMP, ~)
+BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_TUPLE_IS_MS, ~)
+BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_TUPLE_COMP, ~)
 
-#undef TUPLE_COMP
+#undef VEXCL_TUPLE_IS_MS
+#undef VEXCL_TUPLE_COMP
 
 #endif
 
@@ -443,7 +441,7 @@ operator/(const T &expr, const typename T::value_type &factor) {
 struct builtin_function {};
 struct user_function {};
 
-#define BUILTIN_OPERATIONS(grammar)                                            \
+#define VEXCL_BUILTIN_OPERATIONS(grammar)                                      \
     boost::proto::or_<                                                         \
         boost::proto::unary_plus< grammar >,                                   \
         boost::proto::negate< grammar >,                                       \
@@ -495,7 +493,7 @@ struct user_function {};
         boost::proto::vararg<grammar>                                          \
     >
 
-#define USER_FUNCTIONS(grammar)                                                \
+#define VEXCL_USER_FUNCTIONS(grammar)                                          \
   boost::proto::function<                                                      \
       boost::proto::terminal<boost::proto::convertible_to<user_function> >,    \
       boost::proto::vararg<grammar>                                            \
@@ -504,7 +502,7 @@ struct user_function {};
 //---------------------------------------------------------------------------
 // Builtin functions
 //---------------------------------------------------------------------------
-#define BUILTIN_FUNCTION_1(func)                                               \
+#define VEXCL_BUILTIN_FUNCTION_1(func)                                         \
   struct func##_func : builtin_function {                                      \
     static const char *name() { return #func; }                                \
   };                                                                           \
@@ -515,7 +513,7 @@ struct user_function {};
         func##_func(), boost::ref(arg));                                       \
   }
 
-#define BUILTIN_FUNCTION_2(func)                                               \
+#define VEXCL_BUILTIN_FUNCTION_2(func)                                         \
   struct func##_func : builtin_function {                                      \
     static const char *name() { return #func; }                                \
   };                                                                           \
@@ -527,7 +525,7 @@ struct user_function {};
         func##_func(), boost::ref(arg1), boost::ref(arg2));                    \
   }
 
-#define BUILTIN_FUNCTION_3(func)                                               \
+#define VEXCL_BUILTIN_FUNCTION_3(func)                                         \
   struct func##_func : builtin_function {                                      \
     static const char *name() { return #func; }                                \
   };                                                                           \
@@ -540,127 +538,127 @@ struct user_function {};
         func##_func(), boost::ref(arg1), boost::ref(arg2), boost::ref(arg3));  \
   }
 
-BUILTIN_FUNCTION_2( abs_diff )
-BUILTIN_FUNCTION_1( acos )
-BUILTIN_FUNCTION_1( acosh )
-BUILTIN_FUNCTION_1( acospi )
-BUILTIN_FUNCTION_2( add_sat )
-BUILTIN_FUNCTION_1( all )
-BUILTIN_FUNCTION_1( any )
-BUILTIN_FUNCTION_1( asin )
-BUILTIN_FUNCTION_1( asinh )
-BUILTIN_FUNCTION_1( asinpi )
-BUILTIN_FUNCTION_1( atan )
-BUILTIN_FUNCTION_2( atan2 )
-BUILTIN_FUNCTION_2( atan2pi )
-BUILTIN_FUNCTION_1( atanh )
-BUILTIN_FUNCTION_1( atanpi )
-BUILTIN_FUNCTION_3( bitselect )
-BUILTIN_FUNCTION_1( cbrt )
-BUILTIN_FUNCTION_1( ceil )
-BUILTIN_FUNCTION_3( clamp )
-BUILTIN_FUNCTION_1( clz )
-BUILTIN_FUNCTION_2( copysign )
-BUILTIN_FUNCTION_1( cos )
-BUILTIN_FUNCTION_1( cosh )
-BUILTIN_FUNCTION_1( cospi )
-BUILTIN_FUNCTION_2( cross )
-BUILTIN_FUNCTION_1( degrees )
-BUILTIN_FUNCTION_2( distance )
-BUILTIN_FUNCTION_2( dot )
-BUILTIN_FUNCTION_1( erf )
-BUILTIN_FUNCTION_1( erfc )
-BUILTIN_FUNCTION_1( exp )
-BUILTIN_FUNCTION_1( exp10 )
-BUILTIN_FUNCTION_1( exp2 )
-BUILTIN_FUNCTION_1( expm1 )
-BUILTIN_FUNCTION_1( fabs )
-BUILTIN_FUNCTION_2( fast_distance )
-BUILTIN_FUNCTION_1( fast_length )
-BUILTIN_FUNCTION_1( fast_normalize )
-BUILTIN_FUNCTION_2( fdim )
-BUILTIN_FUNCTION_1( floor )
-BUILTIN_FUNCTION_3( fma )
-BUILTIN_FUNCTION_2( fmax )
-BUILTIN_FUNCTION_2( fmin )
-BUILTIN_FUNCTION_2( fmod )
-BUILTIN_FUNCTION_2( fract )
-BUILTIN_FUNCTION_2( frexp )
-BUILTIN_FUNCTION_2( hadd )
-BUILTIN_FUNCTION_2( hypot )
-BUILTIN_FUNCTION_1( ilogb )
-BUILTIN_FUNCTION_2( isequal )
-BUILTIN_FUNCTION_1( isfinite )
-BUILTIN_FUNCTION_2( isgreater )
-BUILTIN_FUNCTION_2( isgreaterequal )
-BUILTIN_FUNCTION_1( isinf )
-BUILTIN_FUNCTION_2( isless )
-BUILTIN_FUNCTION_2( islessequal )
-BUILTIN_FUNCTION_2( islessgreater )
-BUILTIN_FUNCTION_1( isnan )
-BUILTIN_FUNCTION_1( isnormal )
-BUILTIN_FUNCTION_2( isnotequal )
-BUILTIN_FUNCTION_2( isordered )
-BUILTIN_FUNCTION_2( isunordered )
-BUILTIN_FUNCTION_2( ldexp )
-BUILTIN_FUNCTION_1( length )
-BUILTIN_FUNCTION_1( lgamma )
-BUILTIN_FUNCTION_2( lgamma_r )
-BUILTIN_FUNCTION_1( log )
-BUILTIN_FUNCTION_1( log10 )
-BUILTIN_FUNCTION_1( log1p )
-BUILTIN_FUNCTION_1( log2 )
-BUILTIN_FUNCTION_1( logb )
-BUILTIN_FUNCTION_3( mad )
-BUILTIN_FUNCTION_3( mad24 )
-BUILTIN_FUNCTION_3( mad_hi )
-BUILTIN_FUNCTION_3( mad_sat )
-BUILTIN_FUNCTION_2( max )
-BUILTIN_FUNCTION_2( maxmag )
-BUILTIN_FUNCTION_2( min )
-BUILTIN_FUNCTION_2( minmag )
-BUILTIN_FUNCTION_3( mix )
-BUILTIN_FUNCTION_2( modf )
-BUILTIN_FUNCTION_2( mul_hi )
-BUILTIN_FUNCTION_1( nan )
-BUILTIN_FUNCTION_2( nextafter )
-BUILTIN_FUNCTION_1( normalize )
-BUILTIN_FUNCTION_1( popcount )
-BUILTIN_FUNCTION_2( pow )
-BUILTIN_FUNCTION_2( pown )
-BUILTIN_FUNCTION_2( powr )
-BUILTIN_FUNCTION_1( radians )
-BUILTIN_FUNCTION_2( remainder )
-BUILTIN_FUNCTION_3( remquo )
-BUILTIN_FUNCTION_2( rhadd )
-BUILTIN_FUNCTION_1( rint )
-BUILTIN_FUNCTION_2( rootn )
-BUILTIN_FUNCTION_2( rotate )
-BUILTIN_FUNCTION_1( round )
-BUILTIN_FUNCTION_1( rsqrt )
-BUILTIN_FUNCTION_3( select )
-BUILTIN_FUNCTION_2( shuffle )
-BUILTIN_FUNCTION_3( shuffle2 )
-BUILTIN_FUNCTION_1( sign )
-BUILTIN_FUNCTION_1( signbit )
-BUILTIN_FUNCTION_1( sin )
-BUILTIN_FUNCTION_2( sincos )
-BUILTIN_FUNCTION_1( sinh )
-BUILTIN_FUNCTION_1( sinpi )
-BUILTIN_FUNCTION_3( smoothstep )
-BUILTIN_FUNCTION_1( sqrt )
-BUILTIN_FUNCTION_2( step )
-BUILTIN_FUNCTION_2( sub_sat )
-BUILTIN_FUNCTION_1( tan )
-BUILTIN_FUNCTION_1( tanh )
-BUILTIN_FUNCTION_1( tanpi )
-BUILTIN_FUNCTION_1( tgamma )
-BUILTIN_FUNCTION_1( trunc )
-BUILTIN_FUNCTION_2( upsample )
+VEXCL_BUILTIN_FUNCTION_2( abs_diff )
+VEXCL_BUILTIN_FUNCTION_1( acos )
+VEXCL_BUILTIN_FUNCTION_1( acosh )
+VEXCL_BUILTIN_FUNCTION_1( acospi )
+VEXCL_BUILTIN_FUNCTION_2( add_sat )
+VEXCL_BUILTIN_FUNCTION_1( all )
+VEXCL_BUILTIN_FUNCTION_1( any )
+VEXCL_BUILTIN_FUNCTION_1( asin )
+VEXCL_BUILTIN_FUNCTION_1( asinh )
+VEXCL_BUILTIN_FUNCTION_1( asinpi )
+VEXCL_BUILTIN_FUNCTION_1( atan )
+VEXCL_BUILTIN_FUNCTION_2( atan2 )
+VEXCL_BUILTIN_FUNCTION_2( atan2pi )
+VEXCL_BUILTIN_FUNCTION_1( atanh )
+VEXCL_BUILTIN_FUNCTION_1( atanpi )
+VEXCL_BUILTIN_FUNCTION_3( bitselect )
+VEXCL_BUILTIN_FUNCTION_1( cbrt )
+VEXCL_BUILTIN_FUNCTION_1( ceil )
+VEXCL_BUILTIN_FUNCTION_3( clamp )
+VEXCL_BUILTIN_FUNCTION_1( clz )
+VEXCL_BUILTIN_FUNCTION_2( copysign )
+VEXCL_BUILTIN_FUNCTION_1( cos )
+VEXCL_BUILTIN_FUNCTION_1( cosh )
+VEXCL_BUILTIN_FUNCTION_1( cospi )
+VEXCL_BUILTIN_FUNCTION_2( cross )
+VEXCL_BUILTIN_FUNCTION_1( degrees )
+VEXCL_BUILTIN_FUNCTION_2( distance )
+VEXCL_BUILTIN_FUNCTION_2( dot )
+VEXCL_BUILTIN_FUNCTION_1( erf )
+VEXCL_BUILTIN_FUNCTION_1( erfc )
+VEXCL_BUILTIN_FUNCTION_1( exp )
+VEXCL_BUILTIN_FUNCTION_1( exp10 )
+VEXCL_BUILTIN_FUNCTION_1( exp2 )
+VEXCL_BUILTIN_FUNCTION_1( expm1 )
+VEXCL_BUILTIN_FUNCTION_1( fabs )
+VEXCL_BUILTIN_FUNCTION_2( fast_distance )
+VEXCL_BUILTIN_FUNCTION_1( fast_length )
+VEXCL_BUILTIN_FUNCTION_1( fast_normalize )
+VEXCL_BUILTIN_FUNCTION_2( fdim )
+VEXCL_BUILTIN_FUNCTION_1( floor )
+VEXCL_BUILTIN_FUNCTION_3( fma )
+VEXCL_BUILTIN_FUNCTION_2( fmax )
+VEXCL_BUILTIN_FUNCTION_2( fmin )
+VEXCL_BUILTIN_FUNCTION_2( fmod )
+VEXCL_BUILTIN_FUNCTION_2( fract )
+VEXCL_BUILTIN_FUNCTION_2( frexp )
+VEXCL_BUILTIN_FUNCTION_2( hadd )
+VEXCL_BUILTIN_FUNCTION_2( hypot )
+VEXCL_BUILTIN_FUNCTION_1( ilogb )
+VEXCL_BUILTIN_FUNCTION_2( isequal )
+VEXCL_BUILTIN_FUNCTION_1( isfinite )
+VEXCL_BUILTIN_FUNCTION_2( isgreater )
+VEXCL_BUILTIN_FUNCTION_2( isgreaterequal )
+VEXCL_BUILTIN_FUNCTION_1( isinf )
+VEXCL_BUILTIN_FUNCTION_2( isless )
+VEXCL_BUILTIN_FUNCTION_2( islessequal )
+VEXCL_BUILTIN_FUNCTION_2( islessgreater )
+VEXCL_BUILTIN_FUNCTION_1( isnan )
+VEXCL_BUILTIN_FUNCTION_1( isnormal )
+VEXCL_BUILTIN_FUNCTION_2( isnotequal )
+VEXCL_BUILTIN_FUNCTION_2( isordered )
+VEXCL_BUILTIN_FUNCTION_2( isunordered )
+VEXCL_BUILTIN_FUNCTION_2( ldexp )
+VEXCL_BUILTIN_FUNCTION_1( length )
+VEXCL_BUILTIN_FUNCTION_1( lgamma )
+VEXCL_BUILTIN_FUNCTION_2( lgamma_r )
+VEXCL_BUILTIN_FUNCTION_1( log )
+VEXCL_BUILTIN_FUNCTION_1( log10 )
+VEXCL_BUILTIN_FUNCTION_1( log1p )
+VEXCL_BUILTIN_FUNCTION_1( log2 )
+VEXCL_BUILTIN_FUNCTION_1( logb )
+VEXCL_BUILTIN_FUNCTION_3( mad )
+VEXCL_BUILTIN_FUNCTION_3( mad24 )
+VEXCL_BUILTIN_FUNCTION_3( mad_hi )
+VEXCL_BUILTIN_FUNCTION_3( mad_sat )
+VEXCL_BUILTIN_FUNCTION_2( max )
+VEXCL_BUILTIN_FUNCTION_2( maxmag )
+VEXCL_BUILTIN_FUNCTION_2( min )
+VEXCL_BUILTIN_FUNCTION_2( minmag )
+VEXCL_BUILTIN_FUNCTION_3( mix )
+VEXCL_BUILTIN_FUNCTION_2( modf )
+VEXCL_BUILTIN_FUNCTION_2( mul_hi )
+VEXCL_BUILTIN_FUNCTION_1( nan )
+VEXCL_BUILTIN_FUNCTION_2( nextafter )
+VEXCL_BUILTIN_FUNCTION_1( normalize )
+VEXCL_BUILTIN_FUNCTION_1( popcount )
+VEXCL_BUILTIN_FUNCTION_2( pow )
+VEXCL_BUILTIN_FUNCTION_2( pown )
+VEXCL_BUILTIN_FUNCTION_2( powr )
+VEXCL_BUILTIN_FUNCTION_1( radians )
+VEXCL_BUILTIN_FUNCTION_2( remainder )
+VEXCL_BUILTIN_FUNCTION_3( remquo )
+VEXCL_BUILTIN_FUNCTION_2( rhadd )
+VEXCL_BUILTIN_FUNCTION_1( rint )
+VEXCL_BUILTIN_FUNCTION_2( rootn )
+VEXCL_BUILTIN_FUNCTION_2( rotate )
+VEXCL_BUILTIN_FUNCTION_1( round )
+VEXCL_BUILTIN_FUNCTION_1( rsqrt )
+VEXCL_BUILTIN_FUNCTION_3( select )
+VEXCL_BUILTIN_FUNCTION_2( shuffle )
+VEXCL_BUILTIN_FUNCTION_3( shuffle2 )
+VEXCL_BUILTIN_FUNCTION_1( sign )
+VEXCL_BUILTIN_FUNCTION_1( signbit )
+VEXCL_BUILTIN_FUNCTION_1( sin )
+VEXCL_BUILTIN_FUNCTION_2( sincos )
+VEXCL_BUILTIN_FUNCTION_1( sinh )
+VEXCL_BUILTIN_FUNCTION_1( sinpi )
+VEXCL_BUILTIN_FUNCTION_3( smoothstep )
+VEXCL_BUILTIN_FUNCTION_1( sqrt )
+VEXCL_BUILTIN_FUNCTION_2( step )
+VEXCL_BUILTIN_FUNCTION_2( sub_sat )
+VEXCL_BUILTIN_FUNCTION_1( tan )
+VEXCL_BUILTIN_FUNCTION_1( tanh )
+VEXCL_BUILTIN_FUNCTION_1( tanpi )
+VEXCL_BUILTIN_FUNCTION_1( tgamma )
+VEXCL_BUILTIN_FUNCTION_1( trunc )
+VEXCL_BUILTIN_FUNCTION_2( upsample )
 
-#undef BUILTIN_FUNCTION_1
-#undef BUILTIN_FUNCTION_2
-#undef BUILTIN_FUNCTION_3
+#undef VEXCL_BUILTIN_FUNCTION_1
+#undef VEXCL_BUILTIN_FUNCTION_2
+#undef VEXCL_BUILTIN_FUNCTION_3
 
 // Special case: abs() overloaded with floating point arguments should call
 // fabs in the OpenCL code
@@ -820,12 +818,12 @@ struct UserFunction<Impl, RetType(ArgType...)> : user_function
 
 #else
 
-#define PRINT_ARG_REF(z, n, data) const Arg##n &
-#define PRINT_PARAM(z, n, data) const Arg##n &arg##n
-#define PRINT_BOOST_REF(z, n, data) boost::ref(arg##n)
-#define PRINT_PRM_DEF(z, n, data) src.parameter<ArgType##n>("prm") << n + 1;
+#define VEXCL_PRINT_ARG_REF(z, n, data) const Arg##n &
+#define VEXCL_PRINT_PARAM(z, n, data) const Arg##n &arg##n
+#define VEXCL_PRINT_BOOST_REF(z, n, data) boost::ref(arg##n)
+#define VEXCL_PRINT_PRM_DEF(z, n, data) src.parameter<ArgType##n>("prm") << n + 1;
 
-#define USER_FUNCTION(z, n, data)                                              \
+#define VEXCL_USER_FUNCTION(z, n, data)                                        \
   template <class Impl, class RetType, BOOST_PP_ENUM_PARAMS(n, class ArgType)> \
   struct UserFunction<                                                         \
       Impl, RetType(BOOST_PP_ENUM_PARAMS(n, ArgType))> : user_function {       \
@@ -834,29 +832,29 @@ struct UserFunction<Impl, RetType(ArgType...)> : user_function
     template <BOOST_PP_ENUM_PARAMS(n, class Arg)>                              \
     typename boost::proto::result_of::make_expr<                               \
         boost::proto::tag::function, Impl,                                     \
-        BOOST_PP_ENUM(n, PRINT_ARG_REF, ~)>::type const operator()(            \
-        BOOST_PP_ENUM(n, PRINT_PARAM, ~)) const {                              \
+        BOOST_PP_ENUM(n, VEXCL_PRINT_ARG_REF, ~)>::type const operator()(      \
+        BOOST_PP_ENUM(n, VEXCL_PRINT_PARAM, ~)) const {                        \
       return boost::proto::make_expr<boost::proto::tag::function>(             \
-          Impl(), BOOST_PP_ENUM(n, PRINT_BOOST_REF, ~));                       \
+          Impl(), BOOST_PP_ENUM(n, VEXCL_PRINT_BOOST_REF, ~));                 \
     }                                                                          \
     static std::string preamble() { return ""; }                               \
     static void define(backend::source_generator &src,                         \
                        const std::string &name) {                              \
       src << Impl::preamble();                                                 \
       src.function<RetType>(name).open("(");                                   \
-      BOOST_PP_REPEAT(n, PRINT_PRM_DEF, n);                                    \
+      BOOST_PP_REPEAT(n, VEXCL_PRINT_PRM_DEF, n);                              \
       src.close(")").open("{").new_line() << Impl::body();                     \
       src.close("}");                                                          \
     }                                                                          \
   };
 
-BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, USER_FUNCTION, ~)
+BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_USER_FUNCTION, ~)
 
-#undef PRINT_ARG_REF
-#undef PRINT_PARAM
-#undef PRINT_BOOST_REF
-#undef PRINT_PRM_DEF
-#undef USER_FUNCTION
+#undef VEXCL_PRINT_ARG_REF
+#undef VEXCL_PRINT_PARAM
+#undef VEXCL_PRINT_BOOST_REF
+#undef VEXCL_PRINT_PRM_DEF
+#undef VEXCL_USER_FUNCTION
 
 #endif
 
@@ -922,8 +920,8 @@ struct vector_expr_grammar
               boost::proto::terminal< boost::proto::_ >,
               boost::proto::if_< traits::is_vector_expr_terminal< boost::proto::_value >() >
           >,
-          BUILTIN_OPERATIONS(vector_expr_grammar),
-          USER_FUNCTIONS(vector_expr_grammar)
+          VEXCL_BUILTIN_OPERATIONS(vector_expr_grammar),
+          VEXCL_USER_FUNCTIONS(vector_expr_grammar)
       >
 {};
 
@@ -1028,8 +1026,8 @@ struct multivector_expr_grammar
               boost::proto::terminal< boost::proto::_ >,
               boost::proto::if_< traits::is_multivector_expr_terminal< boost::proto::_value >() >
           >,
-          BUILTIN_OPERATIONS(multivector_expr_grammar),
-          USER_FUNCTIONS(multivector_expr_grammar)
+          VEXCL_BUILTIN_OPERATIONS(multivector_expr_grammar),
+          VEXCL_USER_FUNCTIONS(multivector_expr_grammar)
       >
 {};
 
@@ -1429,7 +1427,7 @@ struct vector_expr_context : public expression_context {
     template <typename Expr, typename Tag = typename Expr::proto_tag>
     struct eval {};
 
-#define BINARY_OPERATION(the_tag, the_op)                                      \
+#define VEXCL_BINARY_OPERATION(the_tag, the_op)                                \
   template <typename Expr> struct eval<Expr, boost::proto::tag::the_tag> {     \
     typedef void result_type;                                                  \
     void operator()(const Expr &expr, vector_expr_context &ctx) const {        \
@@ -1441,28 +1439,28 @@ struct vector_expr_context : public expression_context {
     }                                                                          \
   }
 
-    BINARY_OPERATION(plus,          +);
-    BINARY_OPERATION(minus,         -);
-    BINARY_OPERATION(multiplies,    *);
-    BINARY_OPERATION(divides,       /);
-    BINARY_OPERATION(modulus,       %);
-    BINARY_OPERATION(shift_left,   <<);
-    BINARY_OPERATION(shift_right,  >>);
-    BINARY_OPERATION(less,          <);
-    BINARY_OPERATION(greater,       >);
-    BINARY_OPERATION(less_equal,   <=);
-    BINARY_OPERATION(greater_equal,>=);
-    BINARY_OPERATION(equal_to,     ==);
-    BINARY_OPERATION(not_equal_to, !=);
-    BINARY_OPERATION(logical_and,  &&);
-    BINARY_OPERATION(logical_or,   ||);
-    BINARY_OPERATION(bitwise_and,   &);
-    BINARY_OPERATION(bitwise_or,    |);
-    BINARY_OPERATION(bitwise_xor,   ^);
+    VEXCL_BINARY_OPERATION(plus,          +);
+    VEXCL_BINARY_OPERATION(minus,         -);
+    VEXCL_BINARY_OPERATION(multiplies,    *);
+    VEXCL_BINARY_OPERATION(divides,       /);
+    VEXCL_BINARY_OPERATION(modulus,       %);
+    VEXCL_BINARY_OPERATION(shift_left,   <<);
+    VEXCL_BINARY_OPERATION(shift_right,  >>);
+    VEXCL_BINARY_OPERATION(less,          <);
+    VEXCL_BINARY_OPERATION(greater,       >);
+    VEXCL_BINARY_OPERATION(less_equal,   <=);
+    VEXCL_BINARY_OPERATION(greater_equal,>=);
+    VEXCL_BINARY_OPERATION(equal_to,     ==);
+    VEXCL_BINARY_OPERATION(not_equal_to, !=);
+    VEXCL_BINARY_OPERATION(logical_and,  &&);
+    VEXCL_BINARY_OPERATION(logical_or,   ||);
+    VEXCL_BINARY_OPERATION(bitwise_and,   &);
+    VEXCL_BINARY_OPERATION(bitwise_or,    |);
+    VEXCL_BINARY_OPERATION(bitwise_xor,   ^);
 
-#undef BINARY_OPERATION
+#undef VEXCL_BINARY_OPERATION
 
-#define UNARY_PRE_OPERATION(the_tag, the_op)                                   \
+#define VEXCL_UNARY_PRE_OPERATION(the_tag, the_op)                             \
   template <typename Expr> struct eval<Expr, boost::proto::tag::the_tag> {     \
     typedef void result_type;                                                  \
     void operator()(const Expr &expr, vector_expr_context &ctx) const {        \
@@ -1472,17 +1470,17 @@ struct vector_expr_context : public expression_context {
     }                                                                          \
   }
 
-    UNARY_PRE_OPERATION(unary_plus,   +);
-    UNARY_PRE_OPERATION(negate,       -);
-    UNARY_PRE_OPERATION(logical_not,  !);
-    UNARY_PRE_OPERATION(pre_inc,     ++);
-    UNARY_PRE_OPERATION(pre_dec,     --);
-    UNARY_PRE_OPERATION(address_of,   &);
-    UNARY_PRE_OPERATION(dereference,  *);
+    VEXCL_UNARY_PRE_OPERATION(unary_plus,   +);
+    VEXCL_UNARY_PRE_OPERATION(negate,       -);
+    VEXCL_UNARY_PRE_OPERATION(logical_not,  !);
+    VEXCL_UNARY_PRE_OPERATION(pre_inc,     ++);
+    VEXCL_UNARY_PRE_OPERATION(pre_dec,     --);
+    VEXCL_UNARY_PRE_OPERATION(address_of,   &);
+    VEXCL_UNARY_PRE_OPERATION(dereference,  *);
 
-#undef UNARY_PRE_OPERATION
+#undef VEXCL_UNARY_PRE_OPERATION
 
-#define UNARY_POST_OPERATION(the_tag, the_op)                                  \
+#define VEXCL_UNARY_POST_OPERATION(the_tag, the_op)                            \
   template <typename Expr> struct eval<Expr, boost::proto::tag::the_tag> {     \
     typedef void result_type;                                                  \
     void operator()(const Expr &expr, vector_expr_context &ctx) const {        \
@@ -1492,10 +1490,10 @@ struct vector_expr_context : public expression_context {
     }                                                                          \
   }
 
-    UNARY_POST_OPERATION(post_inc, ++);
-    UNARY_POST_OPERATION(post_dec, --);
+    VEXCL_UNARY_POST_OPERATION(post_inc, ++);
+    VEXCL_UNARY_POST_OPERATION(post_dec, --);
 
-#undef UNARY_POST_OPERATION
+#undef VEXCL_UNARY_POST_OPERATION
 
     template <typename Expr>
     struct eval<Expr, boost::proto::tag::if_else_> {
@@ -2426,13 +2424,13 @@ struct expression_tuple {
     expression_tuple(const LHS &lhs) : lhs(lhs) {}
 
 #ifdef DOXYGEN
-#define ASSIGNMENT(cop, op)                                                    \
+#define VEXCL_ASSIGNMENT(cop, op)                                              \
   /** \brief Multiexpression assignment.                                       \
    \details All operations are delegated to components of the multivector.     \
    */                                                                          \
   template <class RHS> expression_tuple &operator cop(const RHS & rhs);
 #else
-#define ASSIGNMENT(cop, op)                                                    \
+#define VEXCL_ASSIGNMENT(cop, op)                                              \
   template <class RHS>                                                         \
           typename std::enable_if <                                            \
           boost::proto::matches<                                               \
@@ -2446,19 +2444,19 @@ struct expression_tuple {
   }
 #endif
 
-    ASSIGNMENT(=,   assign::SET)
-    ASSIGNMENT(+=,  assign::ADD)
-    ASSIGNMENT(-=,  assign::SUB)
-    ASSIGNMENT(*=,  assign::MUL)
-    ASSIGNMENT(/=,  assign::DIV)
-    ASSIGNMENT(%=,  assign::MOD)
-    ASSIGNMENT(&=,  assign::AND)
-    ASSIGNMENT(|=,  assign::OR)
-    ASSIGNMENT(^=,  assign::XOR)
-    ASSIGNMENT(<<=, assign::LSH)
-    ASSIGNMENT(>>=, assign::RSH)
+    VEXCL_ASSIGNMENT(=,   assign::SET)
+    VEXCL_ASSIGNMENT(+=,  assign::ADD)
+    VEXCL_ASSIGNMENT(-=,  assign::SUB)
+    VEXCL_ASSIGNMENT(*=,  assign::MUL)
+    VEXCL_ASSIGNMENT(/=,  assign::DIV)
+    VEXCL_ASSIGNMENT(%=,  assign::MOD)
+    VEXCL_ASSIGNMENT(&=,  assign::AND)
+    VEXCL_ASSIGNMENT(|=,  assign::OR)
+    VEXCL_ASSIGNMENT(^=,  assign::XOR)
+    VEXCL_ASSIGNMENT(<<=, assign::LSH)
+    VEXCL_ASSIGNMENT(>>=, assign::RSH)
 
-#undef ASSIGNMENT
+#undef VEXCL_ASSIGNMENT
 };
 
 /// \endcond
@@ -2489,22 +2487,23 @@ tie(const Expr&... expr) {
 }
 #else
 
-#define PRINT_TYPES(z, n, data) const Expr ## n &
-#define PRINT_PARAM(z, n, data) const Expr ## n &expr ## n
+#define VEXCL_PRINT_TYPES(z, n, data) const Expr ## n &
+#define VEXCL_PRINT_PARAM(z, n, data) const Expr ## n &expr ## n
 
-#define TIE_VECTORS(z, n, data)                                                \
-  template<BOOST_PP_ENUM_PARAMS(n, class Expr)>                                \
-  expression_tuple<std::tuple<BOOST_PP_ENUM(n, PRINT_TYPES, ~)> > tie(         \
-      BOOST_PP_ENUM(n, PRINT_PARAM, ~)) {                                      \
-    return expression_tuple<std::tuple<BOOST_PP_ENUM(n, PRINT_TYPES, ~)> >(    \
+#define VEXCL_TIE_VECTORS(z, n, data)                                          \
+  template <BOOST_PP_ENUM_PARAMS(n, class Expr)>                               \
+  expression_tuple<std::tuple<BOOST_PP_ENUM(n, VEXCL_PRINT_TYPES, ~)> > tie(   \
+      BOOST_PP_ENUM(n, VEXCL_PRINT_PARAM, ~)) {                                \
+    return expression_tuple<                                                   \
+        std::tuple<BOOST_PP_ENUM(n, VEXCL_PRINT_TYPES, ~)> >(                  \
         std::tie(BOOST_PP_ENUM_PARAMS(n, expr)));                              \
   }
 
-BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, TIE_VECTORS, ~)
+BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_TIE_VECTORS, ~)
 
-#undef TIE_VECTORS
-#undef PRINT_PARAM
-#undef PRINT_TYPES
+#undef VEXCL_TIE_VECTORS
+#undef VEXCL_PRINT_PARAM
+#undef VEXCL_PRINT_TYPES
 
 #endif
 

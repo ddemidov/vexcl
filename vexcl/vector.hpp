@@ -595,7 +595,7 @@ class vector : public vector_terminal_expression {
         }
 
 #ifdef DOXYGEN
-#define ASSIGNMENT(cop, op)                                                    \
+#define VEXCL_ASSIGNMENT(cop, op)                                              \
   /** \brief Vector expression assignment.
    * \details The appropriate kernel is compiled first time the assignment is
    * made. Vectors participating in expression should have same number of
@@ -604,7 +604,7 @@ class vector : public vector_terminal_expression {
    */                                                                          \
   template <class Expr> const vector &operator cop(const Expr & expr);
 #else
-#define ASSIGNMENT(cop, op)                                                    \
+#define VEXCL_ASSIGNMENT(cop, op)                                              \
   template <class Expr>                                                        \
   typename std::enable_if<                                                     \
       boost::proto::matches<                                                   \
@@ -616,19 +616,19 @@ class vector : public vector_terminal_expression {
   }
 #endif
 
-        ASSIGNMENT(=,   assign::SET)
-        ASSIGNMENT(+=,  assign::ADD)
-        ASSIGNMENT(-=,  assign::SUB)
-        ASSIGNMENT(*=,  assign::MUL)
-        ASSIGNMENT(/=,  assign::DIV)
-        ASSIGNMENT(%=,  assign::MOD)
-        ASSIGNMENT(&=,  assign::AND)
-        ASSIGNMENT(|=,  assign::OR)
-        ASSIGNMENT(^=,  assign::XOR)
-        ASSIGNMENT(<<=, assign::LSH)
-        ASSIGNMENT(>>=, assign::RSH)
+        VEXCL_ASSIGNMENT(=,   assign::SET)
+        VEXCL_ASSIGNMENT(+=,  assign::ADD)
+        VEXCL_ASSIGNMENT(-=,  assign::SUB)
+        VEXCL_ASSIGNMENT(*=,  assign::MUL)
+        VEXCL_ASSIGNMENT(/=,  assign::DIV)
+        VEXCL_ASSIGNMENT(%=,  assign::MOD)
+        VEXCL_ASSIGNMENT(&=,  assign::AND)
+        VEXCL_ASSIGNMENT(|=,  assign::OR)
+        VEXCL_ASSIGNMENT(^=,  assign::XOR)
+        VEXCL_ASSIGNMENT(<<=, assign::LSH)
+        VEXCL_ASSIGNMENT(>>=, assign::RSH)
 
-#undef ASSIGNMENT
+#undef VEXCL_ASSIGNMENT
 
 #ifndef DOXYGEN
         template <class Expr>

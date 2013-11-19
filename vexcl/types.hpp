@@ -71,7 +71,7 @@ namespace vex {
 
 } // namespace vex
 
-#define BIN_OP(name, len, op)                                                  \
+#define VEXCL_BIN_OP(name, len, op)                                            \
   inline cl_##name##len &operator op## =(cl_##name##len & a,                   \
                                          const cl_##name##len & b) {           \
     for (size_t i = 0; i < len; i++)                                           \
@@ -86,7 +86,7 @@ namespace vex {
 
 // `scalar OP vector` acts like `(vector_t)(scalar) OP vector` in OpenCl:
 // all components are set to the scalar value.
-#define BIN_SCALAR_OP(name, len, op)                                           \
+#define VEXCL_BIN_SCALAR_OP(name, len, op)                                     \
   inline cl_##name##len &operator op## =(cl_##name##len & a,                   \
                                          const cl_##name & b) {                \
     for (size_t i = 0; i < len; i++)                                           \
@@ -104,15 +104,15 @@ namespace vex {
     return res op## = a;                                                       \
   }
 
-#define CL_VEC_TYPE(name, len)                                                 \
-  BIN_OP(name, len, +)                                                         \
-  BIN_OP(name, len, -)                                                         \
-  BIN_OP(name, len, *)                                                         \
-  BIN_OP(name, len, /)                                                         \
-  BIN_SCALAR_OP(name, len, +)                                                  \
-  BIN_SCALAR_OP(name, len, -)                                                  \
-  BIN_SCALAR_OP(name, len, *)                                                  \
-  BIN_SCALAR_OP(name, len, /)                                                  \
+#define VEXCL_VEC_TYPE(name, len)                                              \
+  VEXCL_BIN_OP(name, len, +)                                                   \
+  VEXCL_BIN_OP(name, len, -)                                                   \
+  VEXCL_BIN_OP(name, len, *)                                                   \
+  VEXCL_BIN_OP(name, len, /)                                                   \
+  VEXCL_BIN_SCALAR_OP(name, len, +)                                            \
+  VEXCL_BIN_SCALAR_OP(name, len, -)                                            \
+  VEXCL_BIN_SCALAR_OP(name, len, *)                                            \
+  VEXCL_BIN_SCALAR_OP(name, len, /)                                            \
   inline cl_##name##len operator-(const cl_##name##len & a) {                  \
     cl_##name##len res;                                                        \
     for (size_t i = 0; i < len; i++)                                           \
@@ -141,11 +141,11 @@ namespace vex {
       : std::integral_constant<unsigned, len> { };                             \
   }
 
-#define CL_TYPES(name)                                                         \
-  CL_VEC_TYPE(name, 2)                                                         \
-  CL_VEC_TYPE(name, 4)                                                         \
-  CL_VEC_TYPE(name, 8)                                                         \
-  CL_VEC_TYPE(name, 16)                                                        \
+#define VEXCL_TYPES(name)                                                      \
+  VEXCL_VEC_TYPE(name, 2)                                                      \
+  VEXCL_VEC_TYPE(name, 4)                                                      \
+  VEXCL_VEC_TYPE(name, 8)                                                      \
+  VEXCL_VEC_TYPE(name, 16)                                                     \
   namespace vex {                                                              \
   template <> struct cl_scalar_of<cl_##name> {                                 \
     typedef cl_##name type;                                                    \
@@ -161,24 +161,25 @@ namespace vex {
 #  pragma warning(push)
 #  pragma warning(disable : 4146)
 #endif
-CL_TYPES(float)
-CL_TYPES(double)
-CL_TYPES(char)
-CL_TYPES(uchar)
-CL_TYPES(short)
-CL_TYPES(ushort)
-CL_TYPES(int)
-CL_TYPES(uint)
-CL_TYPES(long)
-CL_TYPES(ulong)
+VEXCL_TYPES(float)
+VEXCL_TYPES(double)
+VEXCL_TYPES(char)
+VEXCL_TYPES(uchar)
+VEXCL_TYPES(short)
+VEXCL_TYPES(ushort)
+VEXCL_TYPES(int)
+VEXCL_TYPES(uint)
+VEXCL_TYPES(long)
+VEXCL_TYPES(ulong)
 #ifdef _MSC_VER
 #  pragma warning(pop)
 #endif
 
 
-#undef BIN_OP
-#undef CL_VEC_TYPE
-#undef CL_TYPES
+#undef VEXCL_BIN_OP
+#undef VEXCL_BIN_SCALAR_OP
+#undef VEXCL_VEC_TYPE
+#undef VEXCL_TYPES
 
 
 namespace vex {
@@ -206,40 +207,40 @@ inline std::string type_name() {
     return type_name_impl<T>::get();
 }
 
-#define STRINGIFY(name)                                                        \
+#define VEXCL_STRINGIFY(name)                                                  \
   template<> struct type_name_impl<cl_##name> {                                \
     static std::string get() { return #name; }                                 \
   };                                                                           \
   template<> struct is_cl_native<cl_##name> : std::true_type { };
 
 // enable use of OpenCL vector types as literals
-#define CL_VEC_TYPE(name, len)                                                 \
+#define VEXCL_VEC_TYPE(name, len)                                              \
   template <> struct type_name_impl<cl_##name##len> {                          \
     static std::string get() { return #name #len; }                            \
   };                                                                           \
   template <> struct is_cl_native<cl_##name##len> : std::true_type { };
 
-#define CL_TYPES(name)                                                         \
-  STRINGIFY(name)                                                              \
-  CL_VEC_TYPE(name, 2)                                                         \
-  CL_VEC_TYPE(name, 4)                                                         \
-  CL_VEC_TYPE(name, 8)                                                         \
-  CL_VEC_TYPE(name, 16)                                                        \
+#define VEXCL_TYPES(name)                                                      \
+  VEXCL_STRINGIFY(name)                                                        \
+  VEXCL_VEC_TYPE(name, 2)                                                      \
+  VEXCL_VEC_TYPE(name, 4)                                                      \
+  VEXCL_VEC_TYPE(name, 8)                                                      \
+  VEXCL_VEC_TYPE(name, 16)
 
-CL_TYPES(float)
-CL_TYPES(double)
-CL_TYPES(char)
-CL_TYPES(uchar)
-CL_TYPES(short)
-CL_TYPES(ushort)
-CL_TYPES(int)
-CL_TYPES(uint)
-CL_TYPES(long)
-CL_TYPES(ulong)
+VEXCL_TYPES(float)
+VEXCL_TYPES(double)
+VEXCL_TYPES(char)
+VEXCL_TYPES(uchar)
+VEXCL_TYPES(short)
+VEXCL_TYPES(ushort)
+VEXCL_TYPES(int)
+VEXCL_TYPES(uint)
+VEXCL_TYPES(long)
+VEXCL_TYPES(ulong)
 
-#undef CL_TYPES
-#undef CL_VEC_TYPE
-#undef STRINGIFY
+#undef VEXCL_TYPES
+#undef VEXCL_VEC_TYPE
+#undef VEXCL_STRINGIFY
 
 // One can not pass bool to the kernel, but the overload is needed for type
 // deduction:

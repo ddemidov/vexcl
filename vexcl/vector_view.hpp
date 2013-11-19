@@ -69,7 +69,7 @@ struct vector_view : public vector_view_terminal_expression
 
     // Expression assignments (copy assignment needs to be explicitly defined
     // to allow vector_view to vector_view assignment).
-#define ASSIGNMENT(cop, op)                                                    \
+#define VEXCL_ASSIGNMENT(cop, op)                                              \
   template <class RHS>                                                         \
   typename std::enable_if<                                                     \
       boost::proto::matches<                                                   \
@@ -96,19 +96,19 @@ struct vector_view : public vector_view_terminal_expression
     return *this;                                                              \
   }
 
-    ASSIGNMENT(=,   assign::SET);
-    ASSIGNMENT(+=,  assign::ADD);
-    ASSIGNMENT(-=,  assign::SUB);
-    ASSIGNMENT(*=,  assign::MUL);
-    ASSIGNMENT(/=,  assign::DIV);
-    ASSIGNMENT(%=,  assign::MOD);
-    ASSIGNMENT(&=,  assign::AND);
-    ASSIGNMENT(|=,  assign::OR);
-    ASSIGNMENT(^=,  assign::XOR);
-    ASSIGNMENT(<<=, assign::LSH);
-    ASSIGNMENT(>>=, assign::RSH);
+    VEXCL_ASSIGNMENT(=,   assign::SET);
+    VEXCL_ASSIGNMENT(+=,  assign::ADD);
+    VEXCL_ASSIGNMENT(-=,  assign::SUB);
+    VEXCL_ASSIGNMENT(*=,  assign::MUL);
+    VEXCL_ASSIGNMENT(/=,  assign::DIV);
+    VEXCL_ASSIGNMENT(%=,  assign::MOD);
+    VEXCL_ASSIGNMENT(&=,  assign::AND);
+    VEXCL_ASSIGNMENT(|=,  assign::OR);
+    VEXCL_ASSIGNMENT(^=,  assign::XOR);
+    VEXCL_ASSIGNMENT(<<=, assign::LSH);
+    VEXCL_ASSIGNMENT(>>=, assign::RSH);
 
-#undef ASSIGNMENT
+#undef VEXCL_ASSIGNMENT
 };
 
 /// \endcond

@@ -58,7 +58,7 @@ struct tagged_terminal : tagged_terminal_expression
     tagged_terminal(const Term &term) : term(term) {}
 
     // Expression assignments.
-#define ASSIGNMENT(cop, op)                                                    \
+#define VEXCL_ASSIGNMENT(cop, op)                                              \
   template <class Expr>                                                        \
   typename std::enable_if<                                                     \
       boost::proto::matches<                                                   \
@@ -73,19 +73,19 @@ struct tagged_terminal : tagged_terminal_expression
     return *this;                                                              \
   }
 
-    ASSIGNMENT(=,   assign::SET)
-    ASSIGNMENT(+=,  assign::ADD)
-    ASSIGNMENT(-=,  assign::SUB)
-    ASSIGNMENT(*=,  assign::MUL)
-    ASSIGNMENT(/=,  assign::DIV)
-    ASSIGNMENT(%=,  assign::MOD)
-    ASSIGNMENT(&=,  assign::AND)
-    ASSIGNMENT(|=,  assign::OR)
-    ASSIGNMENT(^=,  assign::XOR)
-    ASSIGNMENT(<<=, assign::LSH)
-    ASSIGNMENT(>>=, assign::RSH)
+    VEXCL_ASSIGNMENT(=,   assign::SET)
+    VEXCL_ASSIGNMENT(+=,  assign::ADD)
+    VEXCL_ASSIGNMENT(-=,  assign::SUB)
+    VEXCL_ASSIGNMENT(*=,  assign::MUL)
+    VEXCL_ASSIGNMENT(/=,  assign::DIV)
+    VEXCL_ASSIGNMENT(%=,  assign::MOD)
+    VEXCL_ASSIGNMENT(&=,  assign::AND)
+    VEXCL_ASSIGNMENT(|=,  assign::OR)
+    VEXCL_ASSIGNMENT(^=,  assign::XOR)
+    VEXCL_ASSIGNMENT(<<=, assign::LSH)
+    VEXCL_ASSIGNMENT(>>=, assign::RSH)
 
-#undef ASSIGNMENT
+#undef VEXCL_ASSIGNMENT
 };
 
 namespace traits {
