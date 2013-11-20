@@ -363,11 +363,13 @@ class vector : public vector_terminal_expression {
         }
 
         /// Wrap a native buffer
-        vector(const backend::command_queue &q, const backend::device_vector<T> &buffer)
-            : queue(1, q), part(2), buf(1, buffer)
+        vector(const backend::command_queue &q,
+               const backend::device_vector<T> &buffer,
+               size_t size = 0
+               ) : queue(1, q), part(2), buf(1, buffer)
         {
             part[0] = 0;
-            part[1] = buffer.size();
+            part[1] = size ? size : buffer.size();
         }
 
         /// Copy host data to the new buffer.
