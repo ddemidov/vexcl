@@ -892,26 +892,26 @@ has to be addressed manually.
 The following example builds and launches a custom kernel for each device in
 the context:
 ~~~{.cpp}
-std::vector<cl::Kernel> kernel(ctx.size());
+std::vector<vex::backend::kernel> kernel;
 
 // Compile and store the kernels for later use.
 for(uint d = 0; d < ctx.size(); d++) {
-    cl::Program program = vex::backend::build_sources(ctx.context(d),
-        "kernel void dummy(ulong size, global float *x)\n"
+    kernel.emplace_back(ctx.context(d),
+        "kernel void dummy(ulong n, global float *x)\n"
         "{\n"
-        "    size_t i = get_global_id(0);\n"
-        "    if (i < size) x[i] = 4.2;\n"
-        "}\n"
+        "    for(size_t i = get_global_id(0); i < n; i += get_global_size(0))\n"
+        "        x[i] = 4.2;\n"
+        "}\n",
+        "dummy"
         );
-    kernel[d] = cl::Kernel(program, "dummy");
 }
 
 // Apply the kernels to the vector partitions on each device.
 for(uint d = 0; d < ctx.size(); d++) {
-    cl_ulong n = x.part_size();
-    kernel[d].setArg(0, n);
-    kernel[d].setArg(1, x(d));
-    ctx.queue(d).enqueueNDRangeKernel(kernel[d], cl::NullRange, n, cl::NullRange);
+    kernel[d].push_arg<cl_ulong>(x.part_size());
+    kernel[d].push_arg(x(d));
+
+    kernel[d](ctx.queue(d));
 }
 ~~~
 
