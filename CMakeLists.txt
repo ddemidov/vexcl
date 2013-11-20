@@ -21,10 +21,8 @@ if (VEXCL_SHOW_COPIES)
     add_definitions(-DVEXCL_SHOW_COPIES)
 endif ()
 
-option(VEXCL_CHECK_SIZES "Check that expressions have correct sizes" ON)
-if (VEXCL_CHECK_SIZES)
-    add_definitions(-DVEXCL_CHECK_SIZES)
-endif ()
+set(VEXCL_CHECK_SIZES 2 CACHE STRING "Check that expressions have correct sizes")
+add_definitions(-DVEXCL_CHECK_SIZES=${VEXCL_CHECK_SIZES})
 
 option(BOOST_TEST_DYN_LINK
     "Link tests against dynamic version of boost unittest library"

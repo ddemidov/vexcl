@@ -40,6 +40,9 @@ THE SOFTWARE.
 
 #include <vexcl/vector.hpp>
 #include <vexcl/element_index.hpp>
+#if (VEXCL_CHECK_SIZES > 1)
+#  include <vexcl/reductor.hpp>
+#endif
 
 #include <boost/fusion/container/vector.hpp>
 #include <boost/fusion/container/vector/convert.hpp>
@@ -228,6 +231,7 @@ struct expression_properties< vector_view<T, Slice> > {
     {
         detail::get_expression_properties prop;
         detail::extract_terminals()(boost::proto::as_child(term.expr), prop);
+
         queue_list = prop.queue;
         partition  = prop.part;
         size       = term.slice.size();
@@ -374,6 +378,19 @@ struct gslice {
         gslice
         >
     operator()(const Expr &expr) const {
+#if (VEXCL_CHECK_SIZES > 0)
+        {
+            size_t max_idx = start;
+            for(size_t i = 0; i < NDIM; ++i)
+                max_idx += (length[i] - 1) * stride[i];
+
+            detail::get_expression_properties expr_prop;
+            detail::extract_terminals()(boost::proto::as_child(expr), expr_prop);
+
+            precondition(max_idx < expr_prop.size,
+                    "Slice will result in array overrun");
+        }
+#endif
         return vector_view<
                     typename boost::proto::result_of::as_child<const Expr, vector_domain>::type,
                     gslice
@@ -637,6 +654,20 @@ struct expr_permutation {
         expr_permutation
         >
     operator()(const Base &base) const {
+#if (VEXCL_CHECK_SIZES > 1)
+        {
+            detail::get_expression_properties base_prop;
+            detail::extract_terminals()(boost::proto::as_child(base), base_prop);
+
+            precondition(!base_prop.queue.empty(),
+                    "Can not permute stateless expression");
+
+            vex::Reductor<size_t, vex::MAX> max(base_prop.queue);
+
+            precondition(max(expr) < base_prop.size,
+                    "Permutation will result in array overrun");
+        }
+#endif
         return vector_view<
                     typename boost::proto::result_of::as_child<const Base, vector_domain>::type,
                     expr_permutation

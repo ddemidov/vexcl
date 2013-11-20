@@ -274,7 +274,7 @@ BOOST_AUTO_TEST_CASE(constants)
     check_sample(x, [](size_t, double v) { BOOST_CHECK_CLOSE(v, boost::math::constants::pi<double>(), 1e-8); });
 }
 
-#ifdef VEXCL_CHECK_SIZES
+#if (VEXCL_CHECK_SIZES > 0)
 BOOST_AUTO_TEST_CASE(expression_size_check)
 {
     vex::vector<int> x(ctx, 16);

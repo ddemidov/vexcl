@@ -345,4 +345,42 @@ BOOST_AUTO_TEST_CASE(reshape)
             });
 }
 
+#if (VEXCL_CHECK_SIZES > 0)
+BOOST_AUTO_TEST_CASE(check_slice_correctness)
+{
+    const size_t n = 32;
+
+    std::vector<vex::command_queue> queue(1, ctx.queue(0));
+
+    vex::vector<int> x(ctx, n);
+    vex::vector<int> y(ctx, n);
+
+    vex::slicer<2> slicer(vex::make_array<size_t>(n, n));
+
+    BOOST_CHECK_NO_THROW(y = slicer[0](x));
+    BOOST_CHECK_THROW(y = slicer[1](x), std::runtime_error);
+}
+#endif
+
+#if (VEXCL_CHECK_SIZES > 1)
+BOOST_AUTO_TEST_CASE(check_perm_correctness)
+{
+    const size_t n = 32;
+
+    std::vector<vex::command_queue> queue(1, ctx.queue(0));
+
+    vex::vector<int> x(ctx, n);
+    vex::vector<int> y(ctx, n);
+
+    BOOST_CHECK_NO_THROW(
+            y = vex::permutation(vex::element_index(0, n))(x)
+            );
+
+    BOOST_CHECK_THROW(
+            y = vex::permutation(vex::element_index(0, n + 1))(x),
+            std::runtime_error
+            );
+}
+#endif
+
 BOOST_AUTO_TEST_SUITE_END()

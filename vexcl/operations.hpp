@@ -1675,7 +1675,7 @@ struct get_expression_properties {
     void get(const Term &term) const {
         if (queue.empty())
             traits::extract_expression_properties(term, queue, part, size);
-#ifdef VEXCL_CHECK_SIZES
+#if (VEXCL_CHECK_SIZES > 0)
         else {
             std::vector<backend::command_queue> q;
             std::vector<size_t> p;
@@ -2122,7 +2122,7 @@ void assign_expression(LHS &lhs, const RHS &rhs,
         const std::vector<size_t> &part
         )
 {
-#ifdef VEXCL_CHECK_SIZES
+#if (VEXCL_CHECK_SIZES > 0)
     {
         get_expression_properties prop;
         extract_terminals()(boost::proto::as_child(lhs), prop);
@@ -2390,7 +2390,7 @@ void assign_multiexpression( LHS &lhs, const RHS &rhs,
         )
 {
 
-#ifdef VEXCL_CHECK_SIZES
+#if (VEXCL_CHECK_SIZES > 0)
     {
         get_expression_properties prop;
         extract_terminals()(subexpression<0>::get(lhs), prop);
