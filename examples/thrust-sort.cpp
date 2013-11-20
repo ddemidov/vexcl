@@ -12,7 +12,7 @@ int main() {
     std::cout << "Before: " << x << std::endl;
 
     // Get raw pointers to the device memory.
-    float *x_begin = reinterpret_cast<float*>(x(0).raw());
+    float *x_begin = x(0).raw_ptr();
     float *x_end   = x_begin + x.size();
 
     // Apply thrust algorithm.

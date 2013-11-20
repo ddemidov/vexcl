@@ -17,5 +17,10 @@ void thrust_sort(T *begin, T *end) {
 // Due to the code separation we also need to explicitly instantiate the
 // necessary templates.
 //---------------------------------------------------------------------------
-template void thrust_sort<float>(float *begin, float *end);
-template void thrust_sort<double>(double *begin, double *end);
+#define VEXCL_INSTANTIATE_THRUST_SORT(T)                                       \
+  template void thrust_sort<T>(T * begin, T * end)
+
+VEXCL_INSTANTIATE_THRUST_SORT(float);
+VEXCL_INSTANTIATE_THRUST_SORT(double);
+
+#undef VEXCL_INSTANTIATE_THRUST_SORT
