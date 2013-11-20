@@ -350,7 +350,8 @@ class multivector : public multivector_terminal_expression {
         /// Assignment to a multivector.
         const multivector& operator=(const multivector &mv) {
             if (this != &mv)
-                for(size_t i = 0; i < N; ++i) vec[i] = mv(i);
+                detail::assign_multiexpression<assign::SET>(
+                        *this, mv, vec[0].queue_list(), vec[0].partition());
             return *this;
         }
 
