@@ -191,7 +191,7 @@ struct expression_properties< inline_spmv<M, V> > {
             size_t &size
             )
     {
-        detail::get_expression_properties(term.x, queue_list, partition, size);
+        extract_expression_properties(term.x, queue_list, partition, size);
     }
 };
 

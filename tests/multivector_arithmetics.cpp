@@ -229,4 +229,14 @@ BOOST_AUTO_TEST_CASE(integral_constants)
             });
 }
 
+#ifdef VEXCL_CHECK_SIZES
+BOOST_AUTO_TEST_CASE(expression_size_check)
+{
+    vex::multivector<int, 2> x(ctx, 16);
+    vex::multivector<int, 2> y(ctx, 32);
+
+    BOOST_CHECK_THROW(x = y, std::runtime_error);
+}
+#endif
+
 BOOST_AUTO_TEST_SUITE_END()

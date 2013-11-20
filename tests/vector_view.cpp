@@ -135,7 +135,7 @@ BOOST_AUTO_TEST_CASE(vector_permutation)
     Y = 0;
 
     {
-        auto reverse = vex::permutation(N - 1 - vex::element_index());
+        auto reverse = vex::permutation(N - 1 - vex::element_index(0, N));
 
         Y = reverse(X);
         check_sample(Y, [&](size_t idx, double v) { BOOST_CHECK_EQUAL(v, x[N - 1 - idx]); });

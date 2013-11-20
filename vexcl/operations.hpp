@@ -246,7 +246,7 @@ struct expression_properties {
 };
 
 template <class T>
-void get_expression_properties(
+void extract_expression_properties(
         const T &term,
         std::vector<backend::command_queue> &queue_list,
         std::vector<size_t> &partition,
@@ -1662,16 +1662,36 @@ struct get_expression_properties {
     template <typename Term>
     typename std::enable_if<traits::terminal_is_value<Term>::value, void>::type
     operator()(const Term &term) const {
-        if (queue.empty())
-            traits::get_expression_properties(term, queue, part, size);
+        get(term);
     }
 
     template <typename Term>
     typename std::enable_if<!traits::terminal_is_value<Term>::value, void>::type
     operator()(const Term &term) const {
+        get(boost::proto::value(term));
+    }
+
+    template <typename Term>
+    void get(const Term &term) const {
         if (queue.empty())
-            traits::get_expression_properties(
-                    boost::proto::value(term), queue, part, size);
+            traits::extract_expression_properties(term, queue, part, size);
+#ifdef VEXCL_CHECK_SIZES
+        else {
+            std::vector<backend::command_queue> q;
+            std::vector<size_t> p;
+            size_t s = 0;
+
+            traits::extract_expression_properties(term, q, p, s);
+
+            precondition(
+                    q.empty() || queue.empty() || q.size() == queue.size(),
+                    "Incompatible queue lists");
+
+            precondition(
+                    s == 0 || size == 0 || s == size,
+                    "Incompatible expression sizes");
+        }
+#endif
     }
 };
 
@@ -2102,6 +2122,23 @@ void assign_expression(LHS &lhs, const RHS &rhs,
         const std::vector<size_t> &part
         )
 {
+#ifdef VEXCL_CHECK_SIZES
+    {
+        get_expression_properties prop;
+        extract_terminals()(boost::proto::as_child(lhs), prop);
+        extract_terminals()(boost::proto::as_child(rhs), prop);
+
+        precondition(
+                prop.queue.empty() || prop.queue.size() == queue.size(),
+                "Incompatible queue lists"
+                );
+
+        precondition(
+                prop.size == 0 || prop.size == part.back(),
+                "Incompatible expression sizes"
+                );
+    }
+#endif
     static kernel_cache cache;
 
     for(unsigned d = 0; d < queue.size(); d++) {
@@ -2352,6 +2389,24 @@ void assign_multiexpression( LHS &lhs, const RHS &rhs,
         const std::vector<size_t> &part
         )
 {
+
+#ifdef VEXCL_CHECK_SIZES
+    {
+        get_expression_properties prop;
+        extract_terminals()(subexpression<0>::get(lhs), prop);
+        extract_terminals()(subexpression<0>::get(rhs), prop);
+
+        precondition(
+                prop.queue.empty() || prop.queue.size() == queue.size(),
+                "Incompatible queue lists"
+                );
+
+        precondition(
+                prop.size == 0 || prop.size == part.back(),
+                "Incompatible expression sizes"
+                );
+    }
+#endif
 
     typedef traits::get_dimension<LHS> N;
 

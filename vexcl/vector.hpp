@@ -442,10 +442,9 @@ class vector : public vector_terminal_expression {
             detail::get_expression_properties prop;
             detail::extract_terminals()(expr, prop);
 
-            precondition(!prop.queue.empty(),
-                        "Can not determine vector size and "
-                        "queue list from expression"
-                        );
+            precondition(!prop.queue.empty() && !prop.part.empty(),
+                    "Can not determine expression size and queue list"
+                    );
 
             queue = prop.queue;
             part  = prop.part;

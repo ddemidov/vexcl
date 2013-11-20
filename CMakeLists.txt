@@ -9,16 +9,21 @@ include_directories( ${CMAKE_SOURCE_DIR} )
 option(VEXCL_SHOW_KERNELS "Show generated kernels in tests and examples")
 if (VEXCL_SHOW_KERNELS)
     add_definitions(-DVEXCL_SHOW_KERNELS)
-endif (VEXCL_SHOW_KERNELS)
+endif ()
 
 option(VEXCL_CACHE_KERNELS "Cache compiled kernels offline" ON)
 if (VEXCL_CACHE_KERNELS)
     add_definitions(-DVEXCL_CACHE_KERNELS)
-endif (VEXCL_CACHE_KERNELS)
+endif ()
 
 option(VEXCL_SHOW_COPIES "Log vector copies to stdout for debugging purposes")
 if (VEXCL_SHOW_COPIES)
     add_definitions(-DVEXCL_SHOW_COPIES)
+endif ()
+
+option(VEXCL_CHECK_SIZES "Check that expressions have correct sizes" ON)
+if (VEXCL_CHECK_SIZES)
+    add_definitions(-DVEXCL_CHECK_SIZES)
 endif ()
 
 option(BOOST_TEST_DYN_LINK
@@ -86,14 +91,14 @@ find_package(OpenMP)
 
 if (OpenMP_CXX_FLAGS)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-endif (OpenMP_CXX_FLAGS)
+endif ()
 
 #----------------------------------------------------------------------------
 # Enable C++11 support, set compilation flags
 #----------------------------------------------------------------------------
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -Wall -Wclobbered -Wempty-body -Wignored-qualifiers -Wmissing-field-initializers -Wsign-compare -Wtype-limits -Wuninitialized -Wunused-parameter -Wunused-but-set-parameter -Wno-comment")
-endif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+endif ()
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -Wall -Wempty-body -Wignored-qualifiers -Wmissing-field-initializers -Wsign-compare -Wtype-limits -Wuninitialized -Wunused-parameter -Wno-comment")
@@ -101,8 +106,8 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     option(USE_LIBCPP "Use libc++ with Clang" OFF)
     if (USE_LIBCPP)
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
-    endif (USE_LIBCPP)
-endif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+    endif ()
+endif ()
 
 #----------------------------------------------------------------------------
 enable_testing()
