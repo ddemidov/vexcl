@@ -65,11 +65,7 @@ struct tagged_terminal : tagged_terminal_expression
           typename boost::proto::result_of::as_expr<Expr>::type,               \
           vector_expr_grammar>::value,                                         \
       const tagged_terminal &>::type operator cop(const Expr & expr) const {   \
-    std::vector<backend::command_queue> queue;                                 \
-    std::vector<size_t> part;                                                  \
-    size_t size;                                                               \
-    traits::get_expression_properties(*this, queue, part, size);               \
-    detail::assign_expression<op>(*this, expr, queue, part);                   \
+    detail::assign_expression<op>(*this, expr);                                \
     return *this;                                                              \
   }
 

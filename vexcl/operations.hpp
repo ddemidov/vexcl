@@ -2164,6 +2164,18 @@ void assign_expression(LHS &lhs, const RHS &rhs,
     }
 }
 
+template <class OP, class LHS, class RHS>
+void assign_expression(LHS &lhs, const RHS &rhs) {
+    get_expression_properties prop;
+    extract_terminals()(boost::proto::as_child(lhs), prop);
+
+    precondition(!prop.queue.empty() && !prop.part.empty(),
+            "Can not determine expression size and queue list"
+            );
+
+    assign_expression<OP>(lhs, rhs, prop.queue, prop.part);
+}
+
 // Static for loop
 template <size_t Begin, size_t End>
 class static_for {
@@ -2412,6 +2424,18 @@ void assign_multiexpression( LHS &lhs, const RHS &rhs,
     }
 }
 
+template <class OP, class LHS, class RHS>
+void assign_multiexpression( LHS &lhs, const RHS &rhs) {
+    get_expression_properties prop;
+    extract_terminals()(subexpression<0>::get(lhs), prop);
+
+    precondition(!prop.queue.empty() && !prop.part.empty(),
+            "Can not determine expression size and queue list"
+            );
+
+    assign_multiexpression<OP>(lhs, rhs, prop.queue, prop.part);
+}
+
 } // namespace detail
 
 /// Assignable tuple of expressions
@@ -2437,9 +2461,7 @@ struct expression_tuple {
               typename boost::proto::result_of::as_expr<RHS>::type,            \
               multivector_expr_grammar>::value || is_tuple<RHS>::value,        \
       const expression_tuple & > ::type operator cop(const RHS & rhs) const {  \
-    detail::get_expression_properties prop;                                    \
-    detail::extract_terminals()(detail::subexpression<0>::get(lhs), prop);     \
-    detail::assign_multiexpression<op>(lhs, rhs, prop.queue, prop.part);       \
+    detail::assign_multiexpression<op>(lhs, rhs);                              \
     return *this;                                                              \
   }
 #endif
