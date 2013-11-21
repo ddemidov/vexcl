@@ -352,8 +352,8 @@ BOOST_AUTO_TEST_CASE(check_slice_correctness)
 
     std::vector<vex::command_queue> queue(1, ctx.queue(0));
 
-    vex::vector<int> x(ctx, n);
-    vex::vector<int> y(ctx, n);
+    vex::vector<int> x(queue, n);
+    vex::vector<int> y(queue, n);
 
     vex::slicer<2> slicer(vex::make_array<size_t>(n, n));
 
@@ -369,8 +369,8 @@ BOOST_AUTO_TEST_CASE(check_perm_correctness)
 
     std::vector<vex::command_queue> queue(1, ctx.queue(0));
 
-    vex::vector<int> x(ctx, n);
-    vex::vector<int> y(ctx, n);
+    vex::vector<int> x(queue, n);
+    vex::vector<int> y(queue, n);
 
     BOOST_CHECK_NO_THROW(
             y = vex::permutation(vex::element_index(0, n))(x)
@@ -379,6 +379,21 @@ BOOST_AUTO_TEST_CASE(check_perm_correctness)
     BOOST_CHECK_THROW(
             y = vex::permutation(vex::element_index(0, n + 1))(x),
             std::runtime_error
+            );
+}
+
+BOOST_AUTO_TEST_CASE(check_zero_size_perm)
+{
+    std::vector<vex::command_queue> queue(1, ctx.queue(0));
+
+    vex::vector<int> x(queue, 0);
+    vex::vector<int> y(queue, 0);
+
+    BOOST_CHECK_NO_THROW(
+            y = vex::reshape(x,
+                vex::make_array<size_t>(100, 4, 4, 0),
+                vex::make_array<size_t>(0, 1, 2, 3)
+                )
             );
 }
 #endif

@@ -662,9 +662,13 @@ struct expr_permutation {
             precondition(!base_prop.queue.empty(),
                     "Can not permute stateless expression");
 
+            detail::get_expression_properties expr_prop;
+            detail::extract_terminals()(boost::proto::as_child(expr), expr_prop);
+
             vex::Reductor<size_t, vex::MAX> max(base_prop.queue);
 
-            precondition(max(expr) < base_prop.size,
+            precondition(
+                    (expr_prop.size == 0 && base_prop.size == 0) || max(expr) < base_prop.size,
                     "Permutation will result in array overrun");
         }
 #endif
