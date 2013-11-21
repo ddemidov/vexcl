@@ -1056,7 +1056,7 @@ struct reshape_helper {
  * expression shaped as specified by src_dim.
  * \param expr     Input expression
  * \param dst_dims dimensions of the resulting expression.
- * \param src_dims dimensions of the input expressions. Specified as posintions
+ * \param src_dims dimensions of the input expressions. Specified as positions
  *                 in dst_dims.
  *
  * Example:
@@ -1085,7 +1085,7 @@ auto reshape(
  * expression shaped as specified by src_dim.
  * \param expr     Input expression
  * \param dst_dims dimensions of the resulting expression.
- * \param src_dims dimensions of the input expressions. Specified as posintions
+ * \param src_dims dimensions of the input expressions. Specified as positions
  *                 in dst_dims.
  *
  * Example:
