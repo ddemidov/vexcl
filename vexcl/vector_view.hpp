@@ -1079,6 +1079,35 @@ auto reshape(
     return vex::permutation(detail::reshape_helper<Nout, Nin>(dst_dims, src_dims)())(expr);
 }
 
+/// Reshapes given expression.
+/**
+ * Makes a multidimensional expression of dst_dims dimensions from input
+ * expression shaped as specified by src_dim.
+ * \param expr     Input expression
+ * \param dst_dims dimensions of the resulting expression.
+ * \param src_dims dimensions of the input expressions. Specified as posintions
+ *                 in dst_dims.
+ *
+ * Example:
+ * \code
+ * // Matrix transposition:
+ * auto B = reshape(A, extents[n][m], extents[1][0]);
+ *
+ * // Expand 1D vector to a 2D matrix (by copying along redundant dimension):
+ * auto A = reshape(x, extents[n][m], extents[0]);
+ * \endcode
+ */
+template <class Expr, size_t Nout, size_t Nin>
+auto reshape(
+        const Expr &expr,
+        const extent_gen<Nout> &dst_dims,
+        const extent_gen<Nin>  &src_dims
+        ) ->
+    decltype(vex::permutation(detail::reshape_helper<Nout, Nin>(dst_dims.dim, src_dims.dim)())(expr))
+{
+    return vex::permutation(detail::reshape_helper<Nout, Nin>(dst_dims.dim, src_dims.dim)())(expr);
+}
+
 } // namespace vex
 
 #endif
