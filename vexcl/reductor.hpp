@@ -80,7 +80,7 @@ struct SUM {
 struct MAX {
     template <typename T>
     static T initial() {
-        if (std::is_integral<T>::value && !std::is_signed<T>::value)
+        if (std::is_unsigned<T>::value)
             return static_cast<T>(0);
         else
             return -std::numeric_limits<T>::max();
@@ -88,7 +88,7 @@ struct MAX {
 
     template <typename T>
     struct function : UserFunction<function<T>, T(T, T)> {
-        static std::string body() { return "return max(prm1, prm2);"; }
+        static std::string body() { return "return prm1 > prm2 ? prm1 : prm2;"; }
     };
 
     template <class Iterator>
@@ -107,7 +107,7 @@ struct MIN {
 
     template <typename T>
     struct function : UserFunction<function<T>, T(T, T)> {
-        static std::string body() { return "return min(prm1, prm2);"; }
+        static std::string body() { return "return prm1 < prm2 ? prm1 : prm2;"; }
     };
 
     template <class Iterator>
