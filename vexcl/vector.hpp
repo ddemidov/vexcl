@@ -34,12 +34,14 @@ THE SOFTWARE.
 #include <vector>
 #include <map>
 #include <iostream>
+#include <iomanip>
 #include <sstream>
 #include <string>
 #include <type_traits>
 #include <functional>
 
 #include <boost/proto/proto.hpp>
+#include <boost/io/ios_state.hpp>
 
 #include <vexcl/backend.hpp>
 #include <vexcl/util.hpp>
@@ -976,14 +978,20 @@ inline double device_vector_perf(const backend::command_queue &q) {
 /// Download and print the vector elements.
 template<class T>
 std::ostream &operator<<(std::ostream &o, const vex::vector<T> &t) {
-   std::vector<T> data(t.size());
-   copy(t, data);
-   o << '{';
-   for(size_t i = 0 ; i < data.size() ; i++) {
-      if(i != 0) o << ',';
-      o << data[i];
-   }
-   return o << '}';
+    boost::io::ios_all_saver stream_state(o);
+    const size_t chunk = 5;
+
+    std::vector<T> data(t.size());
+    copy(t, data);
+
+    o << "{" << std::setprecision(6);
+    for(size_t i = 0 ; i < data.size() ; i++) {
+        if (i % chunk == 0) {
+             o << "\n" << std::setw(6) << i << ":";
+        }
+        o << std::scientific << " " << data[i];
+    }
+    return o << "\n}\n";
 }
 
 } // namespace vex
