@@ -80,10 +80,10 @@ struct SUM {
 struct MAX {
     template <typename T>
     static T initial() {
-        // Strictly speaking, this should fail for unsigned types.
-        // But negating maximum possible unsigned value gives 0 on
-        // 2s complement systems, so...
-        return -std::numeric_limits<T>::max();
+        if (std::is_integral<T>::value && !std::is_signed<T>::value)
+            return static_cast<T>(0);
+        else
+            return -std::numeric_limits<T>::max();
     }
 
     template <typename T>
@@ -209,6 +209,9 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
 
     get_expression_properties prop;
     extract_terminals()(expr, prop);
+
+    // If expression is of zero size, then there is nothing to do. Hurray!
+    if (prop.size == 0) return RDC::template initial<real>();
 
     // Sometimes the expression only knows its size:
     if (prop.size && prop.part.empty())
