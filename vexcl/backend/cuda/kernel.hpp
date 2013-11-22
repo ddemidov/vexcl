@@ -119,6 +119,16 @@ class kernel {
             prm_pos.clear();
         }
 
+#ifndef BOOST_NO_VARIADIC_TEMPLATES
+        /// Enqueue the kernel to the specified command queue with the given arguments
+        template <class Arg1, class... OtherArgs>
+        void operator()(const command_queue &q, Arg1 &&arg1, OtherArgs&&... other_args) {
+            push_arg(std::forward<Arg1>(arg1));
+
+            (*this)(q, std::forward<OtherArgs>(other_args)...);
+        }
+#endif
+
         /// Workgroup size.
         size_t workgroup_size() const {
             return w_size;
