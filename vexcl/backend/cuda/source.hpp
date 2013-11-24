@@ -46,6 +46,13 @@ namespace vex {
 
 template <class T> struct global_ptr {};
 template <class T> struct shared_ptr {};
+template <class T> struct regstr_ptr {};
+
+template <class T> struct remove_ptr;
+
+template <class T> struct remove_ptr< global_ptr<T> > { typedef T type; };
+template <class T> struct remove_ptr< shared_ptr<T> > { typedef T type; };
+template <class T> struct remove_ptr< regstr_ptr<T> > { typedef T type; };
 
 template <class T>
 struct type_name_impl <global_ptr<T> > {
@@ -66,22 +73,16 @@ struct type_name_impl < global_ptr<const T> > {
 };
 
 template <class T>
-struct type_name_impl <shared_ptr<T> > {
-    static std::string get() {
-        std::ostringstream s;
-        s << type_name<T>() << " *";
-        return s.str();
-    }
-};
+struct type_name_impl <shared_ptr<T> > : type_name_impl< global_ptr<T> > { };
 
 template <class T>
-struct type_name_impl <shared_ptr<const T> > {
-    static std::string get() {
-        std::ostringstream s;
-        s << "const " << type_name<T>() << " *";
-        return s.str();
-    }
-};
+struct type_name_impl <shared_ptr<const T> > : type_name_impl< global_ptr<const T> > { };
+
+template <class T>
+struct type_name_impl <regstr_ptr<T> > : type_name_impl< global_ptr<T> > { };
+
+template <class T>
+struct type_name_impl <regstr_ptr<const T> > : type_name_impl< global_ptr<const T> > { };
 
 template<typename T>
 struct type_name_impl<T*>
@@ -178,6 +179,11 @@ class source_generator {
             return *this;
         }
 
+        source_generator& smem_static_var(const std::string &type, const std::string &name) {
+            new_line() << "__shared__ " << type <<  " " << name << ";";
+            return *this;
+        }
+
         source_generator& grid_stride_loop(
                 const std::string &idx = "idx", const std::string &bnd = "n"
                 )
@@ -198,35 +204,40 @@ class source_generator {
             return *this;
         }
 
-        source_generator& global_id(int d) {
+        std::string global_id(int d) const {
             const char dim[] = {'x', 'y', 'z'};
-            src << "(threadIdx." << dim[d] << " + blockIdx." << dim[d]
-                << " * blockDim." << dim[d] << ")";
-            return *this;
+            std::ostringstream s;
+            s << "(threadIdx." << dim[d] << " + blockIdx." << dim[d]
+              << " * blockDim." << dim[d] << ")";
+            return s.str();
         }
 
-        source_generator& global_size(int d) {
+        std::string global_size(int d) const {
             const char dim[] = {'x', 'y', 'z'};
-            src << "(blockDim." << dim[d] << " * gridDim." << dim[d] << ")";
-            return *this;
+            std::ostringstream s;
+            s << "(blockDim." << dim[d] << " * gridDim." << dim[d] << ")";
+            return s.str();
         }
 
-        source_generator& local_id(int d) {
+        std::string local_id(int d) const {
             const char dim[] = {'x', 'y', 'z'};
-            src << "threadIdx." << dim[d];
-            return *this;
+            std::ostringstream s;
+            s << "threadIdx." << dim[d];
+            return s.str();
         }
 
-        source_generator& local_size(int d) {
+        std::string local_size(int d) const {
             const char dim[] = {'x', 'y', 'z'};
-            src << "blockDim." << dim[d];
-            return *this;
+            std::ostringstream s;
+            s << "blockDim." << dim[d];
+            return s.str();
         }
 
-        source_generator& group_id(int d) {
+        std::string group_id(int d) const {
             const char dim[] = {'x', 'y', 'z'};
-            src << "blockIdx." << dim[d];
-            return *this;
+            std::ostringstream s;
+            s << "blockIdx." << dim[d];
+            return s.str();
         }
 
         std::string str() const {

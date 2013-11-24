@@ -166,6 +166,12 @@ class kernel {
 
             g_size = num_workgroups(q);
         }
+
+        /// Set launch configuration.
+        void config(size_t blocks, size_t threads) {
+            g_size = blocks;
+            w_size = threads;
+        }
     private:
         context ctx;
         std::shared_ptr< std::remove_pointer<CUmodule>::type > module;

@@ -979,7 +979,7 @@ inline double device_vector_perf(const backend::command_queue &q) {
 template<class T>
 std::ostream &operator<<(std::ostream &o, const vex::vector<T> &t) {
     boost::io::ios_all_saver stream_state(o);
-    const size_t chunk = 5;
+    const size_t chunk = std::is_integral<T>::value ? 10 : 5;
 
     std::vector<T> data(t.size());
     copy(t, data);
@@ -989,7 +989,10 @@ std::ostream &operator<<(std::ostream &o, const vex::vector<T> &t) {
         if (i % chunk == 0) {
              o << "\n" << std::setw(6) << i << ":";
         }
-        o << std::scientific << " " << data[i];
+        if (std::is_integral<T>::value)
+            o << " " << std::setw(6) << data[i];
+        else
+            o << std::scientific << " " << data[i];
     }
     return o << "\n}\n";
 }

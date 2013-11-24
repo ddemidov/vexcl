@@ -207,10 +207,20 @@ inline std::string type_name() {
     return type_name_impl<T>::get();
 }
 
+template<typename T>
+struct type_name_impl<T&>
+{
+    static std::string get() {
+        return type_name_impl<T>::get() + " &";
+    }
+};
+
 #define VEXCL_STRINGIFY(name)                                                  \
   template<> struct type_name_impl<cl_##name> {                                \
     static std::string get() { return #name; }                                 \
-  };                                                                           \
+  };
+
+#define VEXCL_NATIVE(name)                                                     \
   template<> struct is_cl_native<cl_##name> : std::true_type { };
 
 // enable use of OpenCL vector types as literals
@@ -222,6 +232,7 @@ inline std::string type_name() {
 
 #define VEXCL_TYPES(name)                                                      \
   VEXCL_STRINGIFY(name)                                                        \
+  VEXCL_NATIVE(name)                                                           \
   VEXCL_VEC_TYPE(name, 2)                                                      \
   VEXCL_VEC_TYPE(name, 4)                                                      \
   VEXCL_VEC_TYPE(name, 8)                                                      \
@@ -242,10 +253,12 @@ VEXCL_TYPES(ulong)
 #undef VEXCL_VEC_TYPE
 #undef VEXCL_STRINGIFY
 
-// One can not pass bool to the kernel, but the overload is needed for type
-// deduction:
+// One can not pass these to the kernel, but the overloads are useful
 template <> struct type_name_impl<bool> {
     static std::string get() { return "bool"; }
+};
+template <> struct type_name_impl<void> {
+    static std::string get() { return "void"; }
 };
 
 // char and cl_char are different types. Hence, special handling is required:

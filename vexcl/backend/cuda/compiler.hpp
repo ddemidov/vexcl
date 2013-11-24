@@ -79,7 +79,9 @@ inline CUmodule build_sources(
             << " " << options
             << " -o " << ptxfile << " " << cufile;
         if (0 != system(cmdline.str().c_str()) ) {
+#ifndef VEXCL_SHOW_KERNELS
             std::cerr << fullsrc.str() << std::endl;
+#endif
             throw std::runtime_error("nvcc invocation failed");
         }
     }

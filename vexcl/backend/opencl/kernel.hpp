@@ -161,6 +161,12 @@ class kernel {
 
             g_size = w_size * num_workgroups(queue);
         }
+
+        /// Set launch configuration.
+        void config(size_t blocks, size_t threads) {
+            g_size = blocks * threads;
+            w_size = threads;
+        }
     private:
         unsigned argpos;
 

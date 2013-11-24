@@ -377,15 +377,11 @@ const detail::kernel_cache_entry& stencil<T>::fast_conv(const backend::command_q
         source.new_line() << type_name< shared_ptr<T> >() << " S = smem;";
         source.new_line() << type_name< shared_ptr<T> >() << " X = smem + lhalo + rhalo + 1;";
 
-        source.new_line() << "size_t grid_size = ";
-        source.global_size(0) << ";";
-        source.new_line() << "int l_id = ";
-        source.local_id(0) << ";";
-        source.new_line() << "int block_size = ";
-        source.local_size(0) << ";";
+        source.new_line() << "size_t grid_size = " << source.global_size(0) << ";";
+        source.new_line() << "int l_id = " << source.local_id(0) << ";";
+        source.new_line() << "int block_size = " << source.local_size(0) << ";";
         source.new_line() << "for(int i = l_id; i < rhalo + lhalo + 1; i += block_size) S[i] = s[i];";
-        source.new_line() << "for(long g_id = ";
-        source.global_id(0) << ", pos = 0; pos < n; g_id += grid_size, pos += grid_size)";
+        source.new_line() << "for(long g_id = " << source.global_id(0) << ", pos = 0; pos < n; g_id += grid_size, pos += grid_size)";
         source.open("{");
         source.new_line() << "for(int i = l_id, j = g_id - lhalo; i < block_size + lhalo + rhalo; i += block_size, j += block_size)";
         source.open("{");
@@ -601,14 +597,11 @@ void StencilOperator<T, width, center, Impl>::apply(
             source.smem_declaration<T>();
             source.new_line() << type_name< shared_ptr<T> >() << " X = smem;";
 
-            source.new_line() << "size_t grid_size = ";
-            source.global_size(0) << ";";
-            source.new_line() << "int l_id = ";
-            source.local_id(0) << ";";
-            source.new_line() << "int block_size = ";
-            source.local_size(0) << ";";
-            source.new_line() << "for(long g_id = ";
-            source.global_id(0) << ", pos = 0; pos < n; g_id += grid_size, pos += grid_size)";
+            source.new_line() << "size_t grid_size = " << source.global_size(0) << ";";
+            source.new_line() << "int l_id = " << source.local_id(0) << ";";
+            source.new_line() << "int block_size = " << source.local_size(0) << ";";
+            source.new_line() << "for(long g_id = " << source.global_id(0)
+                << ", pos = 0; pos < n; g_id += grid_size, pos += grid_size)";
             source.open("{");
             source.new_line() << "for(int i = l_id, j = g_id - lhalo; i < block_size + lhalo + rhalo; i += block_size, j += block_size)";
             source.open("{");
