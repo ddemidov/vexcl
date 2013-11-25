@@ -357,30 +357,33 @@ void swap_function(backend::source_generator &src) {
 }
 
 //---------------------------------------------------------------------------
-template<int VT, typename K, typename V>
+template<int VT, typename K, typename V, bool HasValues>
 std::string odd_even_transpose_sort() {
     std::ostringstream s;
-    s << "odd_even_transpose_sort_" << VT << "_" << type_name<K>() << "_" << type_name<V>();
+    s << "odd_even_transpose_sort_" << VT << "_" << type_name<K>();
+    if (HasValues) s << "_" << type_name<V>();
     return s.str();
 }
 
-template<int VT, typename K, typename V>
+template<int VT, typename K, typename V, bool HasValues>
 void odd_even_transpose_sort(backend::source_generator &src) {
     swap_function<K>(src);
-    if (!std::is_same<K, V>::value) swap_function<V>(src);
+    if (HasValues && !std::is_same<K, V>::value) swap_function<V>(src);
 
-    src.function<void>(odd_even_transpose_sort<VT,K,V>())
-        .open("(")
-            .template parameter< regstr_ptr<K> >("keys")
-            .template parameter< regstr_ptr<V> >("vals")
-        .close(")").open("{");
+    src.function<void>(odd_even_transpose_sort<VT,K,V,HasValues>());
+    src.open("(");
+    src.template parameter< regstr_ptr<K> >("keys");
+    if (HasValues)
+        src.template parameter< regstr_ptr<V> >("vals");
+    src.close(")").open("{");
 
     for(int I = 0; I < VT; ++I) {
         for(int i = 1 & I; i < VT - 1; i += 2) {
             src.new_line() << "if (comp(keys[" << i + 1 << "], keys[" << i << "]))";
             src.open("{");
             src.new_line() << swap_function<K>() << "(keys + " << i << ", keys + " << i + 1 << ");";
-            src.new_line() << swap_function<V>() << "(vals + " << i << ", vals + " << i + 1 << ");";
+            if (HasValues)
+                src.new_line() << swap_function<V>() << "(vals + " << i << ", vals + " << i + 1 << ");";
             src.close("}");
         }
     }
@@ -530,27 +533,29 @@ void gather(backend::source_generator &src) {
 }
 
 //---------------------------------------------------------------------------
-template<int NT, int VT, typename K, typename V>
+template<int NT, int VT, typename K, typename V, bool HasValues>
 std::string block_sort_loop() {
     std::ostringstream s;
-    s << "block_sort_loop_"
-        << NT << "_" << VT << "_" << type_name<K>() << "_" << type_name<V>();
+    s << "block_sort_loop_" << NT << "_" << VT << "_" << type_name<K>();
+    if (HasValues) s << "_" << type_name<V>();
     return s.str();
 }
 
-template<int NT, int VT, typename K, typename V>
+template<int NT, int VT, typename K, typename V, bool HasValues>
 void block_sort_loop(backend::source_generator &src) {
     block_sort_pass<NT, VT, K>(src);
-    gather<NT, VT, V>(src);
+    if (HasValues) gather<NT, VT, V>(src);
 
-    src.function<void>(block_sort_loop<NT, VT, K, V>())
-        .open("(")
-            .template parameter< regstr_ptr<V> >("thread_vals")
-            .template parameter< shared_ptr<K> >("keys_shared")
-            .template parameter< shared_ptr<V> >("vals_shared")
-            .template parameter< int           >("tid")
-            .template parameter< int           >("count")
-        .close(")").open("{");
+    src.function<void>(block_sort_loop<NT, VT, K, V, HasValues>());
+    src.open("(");
+    src.template parameter< shared_ptr<K> >("keys_shared");
+    if (HasValues) {
+        src.template parameter< regstr_ptr<V> >("thread_vals");
+        src.template parameter< shared_ptr<V> >("vals_shared");
+    }
+    src.template parameter< int           >("tid");
+    src.template parameter< int           >("count");
+    src.close(")").open("{");
 
     src.new_line() << "int indices[" << VT << "];";
     src.new_line() << type_name<K>() << " keys[" << VT << "];";
@@ -559,11 +564,13 @@ void block_sort_loop(backend::source_generator &src) {
         src.new_line() << block_sort_pass<NT, VT, K>()
             << "(keys_shared, tid, count, " << coop << ", keys, indices);";
 
-        // Exchange the values through shared memory.
-        src.new_line() << thread_to_shared<VT, V>()
-            << "(thread_vals, tid, vals_shared);";
-        src.new_line() << gather<NT, VT, V>()
-            << "(vals_shared, indices, tid, thread_vals);";
+        if (HasValues) {
+            // Exchange the values through shared memory.
+            src.new_line() << thread_to_shared<VT, V>()
+                << "(thread_vals, tid, vals_shared);";
+            src.new_line() << gather<NT, VT, V>()
+                << "(vals_shared, indices, tid, thread_vals);";
+        }
 
         // Store results in shared memory in sorted order.
         src.new_line() << thread_to_shared<VT, K>()
@@ -574,46 +581,52 @@ void block_sort_loop(backend::source_generator &src) {
 }
 
 //---------------------------------------------------------------------------
-template<int NT, int VT, typename K, typename V>
+template<int NT, int VT, typename K, typename V, bool HasValues>
 std::string mergesort() {
     std::ostringstream s;
-    s << "mergesort_" << NT << "_" << VT
-        << "_" << type_name<K>() << "_" << type_name<V>();
+    s << "mergesort_" << NT << "_" << VT << "_" << type_name<K>();
+    if (HasValues) s << "_" << type_name<V>();
     return s.str();
 }
 
-template<int NT, int VT, typename K, typename V>
+template<int NT, int VT, typename K, typename V, bool HasValues>
 void mergesort(backend::source_generator &src) {
-    odd_even_transpose_sort<VT, K, V>(src);
-    block_sort_loop<NT, VT, K, V>(src);
+    odd_even_transpose_sort<VT, K, V, HasValues>(src);
+    block_sort_loop<NT, VT, K, V, HasValues>(src);
 
-    src.function<void>(mergesort<NT, VT, K, V>())
-        .open("(")
-            .template parameter< regstr_ptr<K> >("thread_keys")
-            .template parameter< regstr_ptr<V> >("thread_vals")
-            .template parameter< shared_ptr<K> >("keys_shared")
-            .template parameter< shared_ptr<V> >("vals_shared")
-            .template parameter< int           >("count")
-            .template parameter< int           >("tid")
-        .close(")").open("{");
+    src.function<void>(mergesort<NT, VT, K, V, HasValues>());
+    src.open("(");
+    src.template parameter< regstr_ptr<K> >("thread_keys");
+    src.template parameter< shared_ptr<K> >("keys_shared");
+    if (HasValues) {
+        src.template parameter< regstr_ptr<V> >("thread_vals");
+        src.template parameter< shared_ptr<V> >("vals_shared");
+    }
+    src.template parameter< int           >("count");
+    src.template parameter< int           >("tid");
+    src.close(")").open("{");
 
     // Stable sort the keys in the thread.
     src.new_line() << "if(" << VT << " * tid < count) "
-        << odd_even_transpose_sort<VT, K, V>() << "(thread_keys, thread_vals);";
+        << odd_even_transpose_sort<VT, K, V, HasValues>()
+        << "(thread_keys"
+        << (HasValues ? ", thread_vals);" : ");");
 
     // Store the locally sorted keys into shared memory.
     src.new_line() << thread_to_shared<VT, K>()
         << "(thread_keys, tid, keys_shared);";
 
     // Recursively merge lists until the entire CTA is sorted.
-    src.new_line() << block_sort_loop<NT, VT, K, V>()
-        << "(thread_vals, keys_shared, vals_shared, tid, count);";
+    src.new_line() << block_sort_loop<NT, VT, K, V, HasValues>()
+        << "(keys_shared, "
+        << (HasValues ? "thread_vals, vals_shared, " : "")
+        << "tid, count);";
 
     src.close("}");
 }
 
 //---------------------------------------------------------------------------
-template <int NT, int VT, typename K, typename V, typename Comp>
+template <int NT, int VT, typename K, typename V, typename Comp, bool HasValues>
 backend::kernel& block_sort_kernel(const backend::command_queue &queue) {
     static detail::kernel_cache cache;
 
@@ -630,28 +643,30 @@ backend::kernel& block_sort_kernel(const backend::command_queue &queue) {
         if (!std::is_same<K, int>::value)
             transfer_functions<NT, VT, K>(src);
 
-        if (!std::is_same<V, K>::value && !std::is_same<V, int>::value)
+        if (HasValues && !std::is_same<V, K>::value && !std::is_same<V, int>::value)
             transfer_functions<NT, VT, V>(src);
 
         serial_merge<VT, K>(src);
-        mergesort<NT, VT, K, V>(src);
+        mergesort<NT, VT, K, V, HasValues>(src);
 
-        src.kernel("block_sort")
-            .open("(")
-                .template parameter< int                 >("count")
-                .template parameter< global_ptr<const K> >("keys_src")
-                .template parameter< global_ptr<const V> >("vals_src")
-                .template parameter< global_ptr<      K> >("keys_dst")
-                .template parameter< global_ptr<      V> >("vals_dst")
-            .close(")")
-            .open("{");
+        src.kernel("block_sort");
+        src.open("(");
+        src.template parameter< int                 >("count");
+        src.template parameter< global_ptr<const K> >("keys_src");
+        src.template parameter< global_ptr<      K> >("keys_dst");
+        if (HasValues) {
+            src.template parameter< global_ptr<const V> >("vals_src");
+            src.template parameter< global_ptr<      V> >("vals_dst");
+        }
+        src.close(")").open("{");
 
         const int NV = NT * VT;
 
         src.new_line() << "union Shared";
         src.open("{");
         src.new_line() << type_name<K>() << " keys[" << NT * (VT + 1) << "];";
-        src.new_line() << type_name<V>() << " vals[" << NV << "];";
+        if (HasValues)
+            src.new_line() << type_name<V>() << " vals[" << NV << "];";
         src.close("};");
 
         src.smem_static_var("union Shared", "shared");
@@ -662,11 +677,13 @@ backend::kernel& block_sort_kernel(const backend::command_queue &queue) {
         src.new_line() << "int count2 = min(" << NV << ", count - gid);";
 
         // Load the values into thread order.
-        src.new_line() << type_name<V>() << " thread_vals[" << VT << "];";
-        src.new_line() << global_to_shared<NT, VT, V>()
-            << "(count2, vals_src + gid, tid, shared.vals);";
-        src.new_line() << shared_to_thread<VT, V>()
-            << "(shared.vals, tid, thread_vals);";
+        if (HasValues) {
+            src.new_line() << type_name<V>() << " thread_vals[" << VT << "];";
+            src.new_line() << global_to_shared<NT, VT, V>()
+                << "(count2, vals_src + gid, tid, shared.vals);";
+            src.new_line() << shared_to_thread<VT, V>()
+                << "(shared.vals, tid, thread_vals);";
+        }
 
         // Load keys into shared memory and transpose into register in thread order.
         src.new_line() << type_name<K>() << " thread_keys[" << VT << "];";
@@ -697,17 +714,21 @@ backend::kernel& block_sort_kernel(const backend::command_queue &queue) {
 
         src.close("}");
 
-        src.new_line() << mergesort<NT, VT, K, V>()
-            << "(thread_keys, thread_vals, shared.keys, shared.vals, count2, tid);";
+        src.new_line() << mergesort<NT, VT, K, V, HasValues>()
+            << "(thread_keys, shared.keys, "
+            << (HasValues ? "thread_vals, shared.vals, " : "")
+            << "count2, tid);";
 
         // Store the sorted keys to global.
         src.new_line() << shared_to_global<NT, VT, K>()
             << "(count2, shared.keys, tid, keys_dst + gid);";
 
-        src.new_line() << thread_to_shared<VT, V>()
-            << "(thread_vals, tid, shared.vals);";
-        src.new_line() << shared_to_global<NT, VT, V>()
-            << "(count2, shared.vals, tid, vals_dst + gid);";
+        if (HasValues) {
+            src.new_line() << thread_to_shared<VT, V>()
+                << "(thread_vals, tid, shared.vals);";
+            src.new_line() << shared_to_global<NT, VT, V>()
+                << "(count2, shared.vals, tid, vals_dst + gid);";
+        }
 
         src.close("}");
 
@@ -1148,42 +1169,44 @@ void transfer_merge_values_shared(backend::source_generator &src) {
 }
 
 //---------------------------------------------------------------------------
-template<int NT, int VT, typename K, typename V>
+template<int NT, int VT, typename K, typename V, bool HasValues>
 std::string device_merge() {
     std::ostringstream s;
-    s << "device_merge_" << NT << "_" << VT
-        << "_" << type_name<K>() << "_" << type_name<V>();
+    s << "device_merge_" << NT << "_" << VT << "_" << type_name<K>();
+    if (HasValues) s << "_" << type_name<V>();
     return s.str();
 }
 
-template<int NT, int VT, typename K, typename V>
+template<int NT, int VT, typename K, typename V, bool HasValues>
 void device_merge(backend::source_generator &src) {
     merge_keys_indices<NT, VT, K>(src);
     transfer_merge_values_shared<NT, VT, V>(src);
 
-    src.function<void>(device_merge<NT, VT, K, V>())
-        .open("(")
-            .template parameter< global_ptr<const K>   >("a_keys_global")
-            .template parameter< global_ptr<const V>   >("a_vals_global")
-            .template parameter< int                   >("a_count")
-            .template parameter< global_ptr<const K>   >("b_keys_global")
-            .template parameter< global_ptr<const V>   >("b_vals_global")
-            .template parameter< int                   >("b_count")
-            .template parameter< int                   >("tid")
-            .template parameter< int                   >("block")
-            .template parameter< cl_int4               >("range")
-            .template parameter< shared_ptr<K>         >("keys_shared")
-            .template parameter< shared_ptr<int>       >("indices_shared")
-            .template parameter< global_ptr<K>         >("keys_global")
-            .template parameter< global_ptr<V>         >("vals_global")
-        .close(")").open("{");
+    src.function<void>(device_merge<NT, VT, K, V, HasValues>());
+    src.open("(");
+    src.template parameter< int                   >("a_count");
+    src.template parameter< int                   >("b_count");
+    src.template parameter< global_ptr<const K>   >("a_keys_global");
+    src.template parameter< global_ptr<const K>   >("b_keys_global");
+    src.template parameter< global_ptr<K>         >("keys_global");
+    src.template parameter< shared_ptr<K>         >("keys_shared");
+    if (HasValues) {
+        src.template parameter< global_ptr<const V>   >("a_vals_global");
+        src.template parameter< global_ptr<const V>   >("b_vals_global");
+        src.template parameter< global_ptr<V>         >("vals_global");
+    }
+    src.template parameter< int                   >("tid");
+    src.template parameter< int                   >("block");
+    src.template parameter< cl_int4               >("range");
+    src.template parameter< shared_ptr<int>       >("indices_shared");
+    src.close(")").open("{");
 
     src.new_line() << type_name<K>() << " results[" << VT << "];";
     src.new_line() << "int indices[" << VT << "];";
 
     src.new_line() << merge_keys_indices<NT, VT, K>()
         << "(a_keys_global, a_count, b_keys_global, b_count, range, tid, "
-           "keys_shared, results, indices);";
+        << "keys_shared, results, indices);";
 
     // Store merge results back to shared memory.
     src.new_line() << thread_to_shared<VT, K>()
@@ -1198,18 +1221,20 @@ void device_merge(backend::source_generator &src) {
         << NT * VT << " * block);";
 
     // Copy the values.
-    src.new_line() << thread_to_shared<VT, int>()
-        << "(indices, tid, indices_shared);";
-    src.new_line() << transfer_merge_values_shared<NT, VT, V>()
-        << "(a_count + b_count, a_vals_global + range.x, "
-           "b_vals_global + range.z, a_count, indices_shared, tid, "
-           "vals_global + " << NT * VT << " * block);";
+    if (HasValues) {
+        src.new_line() << thread_to_shared<VT, int>()
+            << "(indices, tid, indices_shared);";
+        src.new_line() << transfer_merge_values_shared<NT, VT, V>()
+            << "(a_count + b_count, a_vals_global + range.x, "
+            "b_vals_global + range.z, a_count, indices_shared, tid, "
+            "vals_global + " << NT * VT << " * block);";
+    }
 
     src.close("}");
 }
 
 //---------------------------------------------------------------------------
-template <int NT, int VT, typename K, typename V, typename Comp>
+template <int NT, int VT, typename K, typename V, typename Comp, bool HasValues>
 backend::kernel merge_kernel(const backend::command_queue &queue) {
     static detail::kernel_cache cache;
 
@@ -1227,24 +1252,26 @@ backend::kernel merge_kernel(const backend::command_queue &queue) {
         if (!std::is_same<K, int>::value)
             transfer_functions<NT, VT, K>(src);
 
-        if (!std::is_same<V, K>::value && !std::is_same<V, int>::value)
+        if (HasValues && !std::is_same<V, K>::value && !std::is_same<V, int>::value)
             transfer_functions<NT, VT, V>(src);
 
-        device_merge<NT, VT, K, V>(src);
+        device_merge<NT, VT, K, V, HasValues>(src);
 
-        src.kernel("merge")
-            .open("(")
-                .template parameter< global_ptr<const K>   >("a_keys_global")
-                .template parameter< global_ptr<const V>   >("a_vals_global")
-                .template parameter< int                   >("a_count")
-                .template parameter< global_ptr<const K>   >("b_keys_global")
-                .template parameter< global_ptr<const V>   >("b_vals_global")
-                .template parameter< int                   >("b_count")
-                .template parameter< global_ptr<const int> >("mp_global")
-                .template parameter< int                   >("coop")
-                .template parameter< global_ptr<K>         >("keys_global")
-                .template parameter< global_ptr<V>         >("vals_global")
-            .close(")").open("{");
+        src.kernel("merge");
+        src.open("(");
+        src.template parameter< int                   >("a_count");
+        src.template parameter< int                   >("b_count");
+        src.template parameter< global_ptr<const K>   >("a_keys_global");
+        src.template parameter< global_ptr<const K>   >("b_keys_global");
+        src.template parameter< global_ptr<K>         >("keys_global");
+        if (HasValues) {
+            src.template parameter< global_ptr<const V>   >("a_vals_global");
+            src.template parameter< global_ptr<const V>   >("b_vals_global");
+            src.template parameter< global_ptr<V>         >("vals_global");
+        }
+        src.template parameter< global_ptr<const int> >("mp_global");
+        src.template parameter< int                   >("coop");
+        src.close(")").open("{");
 
         const int NV = NT * VT;
 
@@ -1262,10 +1289,10 @@ backend::kernel merge_kernel(const backend::command_queue &queue) {
         src.new_line() << "int4 range = compute_merge_range("
             "a_count, b_count, block, coop, " << NV << ", mp_global);";
 
-        src.new_line() << device_merge<NT, VT, K, V>()
-            << "(a_keys_global, a_vals_global, a_count, b_keys_global, "
-               "b_vals_global, b_count, tid, block, range, shared.keys, "
-               "shared.indices, keys_global, vals_global);";
+        src.new_line() << device_merge<NT, VT, K, V, HasValues>()
+            << "(a_count, b_count, a_keys_global, b_keys_global, keys_global, shared.keys, "
+            << (HasValues ? "a_vals_global, b_vals_global, vals_global, " : "")
+            << "tid, block, range, shared.indices);";
 
         src.close("}");
 
@@ -1296,6 +1323,81 @@ inline int find_log2(int x, bool round_up = false) {
 }
 
 } // namespace detail
+
+/// Sorts the vector into ascending order.
+/**
+ * \param comp comparison function.
+ */
+template <class K, class Comp>
+void sort(vector<K> &keys, Comp) {
+    precondition(
+            keys.queue_list().size() == 1,
+            "Sorting is only supported for single device contexts"
+            );
+
+    auto &queue = keys.queue_list()[0];
+    backend::select_context(queue);
+
+    const int NT_cpu = 1;
+    const int NT_gpu = 256;
+    const int NT = is_cpu(queue) ? NT_cpu : NT_gpu;
+    const int VT = (sizeof(K) > 4) ? 7 : 11;
+    const int NV = NT * VT;
+
+    const int count = keys.size();
+    const int num_blocks = (count + NV - 1) / NV;
+    const int num_passes = detail::find_log2(num_blocks, true);
+
+    auto keys_src = keys(0);
+
+    device_vector<K> keys_dst(queue, count);
+
+    auto block_sort = is_cpu(queue) ?
+        detail::block_sort_kernel<NT_cpu, VT, K, int, Comp, false>(queue) :
+        detail::block_sort_kernel<NT_gpu, VT, K, int, Comp, false>(queue);
+
+    block_sort.push_arg(count);
+    block_sort.push_arg(keys_src);
+    block_sort.push_arg(1 & num_passes ? keys_dst : keys_src);
+
+    block_sort.config(num_blocks, NT);
+
+    block_sort(queue);
+
+    if (1 & num_passes) {
+        std::swap(keys_src, keys_dst);
+    }
+
+    auto merge = is_cpu(queue) ?
+        detail::merge_kernel<NT_cpu, VT, K, int, Comp, false>(queue) :
+        detail::merge_kernel<NT_gpu, VT, K, int, Comp, false>(queue);
+
+    for(int pass = 0; pass < num_passes; ++pass) {
+        int coop = 2 << pass;
+
+        auto partitions = detail::merge_path_partitions<Comp>(queue, keys_src, count, NV, coop);
+
+        merge.push_arg(count);
+        merge.push_arg(0);
+        merge.push_arg(keys_src);
+        merge.push_arg(keys_src);
+        merge.push_arg(keys_dst);
+        merge.push_arg(partitions);
+        merge.push_arg(coop);
+
+        merge.config(num_blocks, NT);
+        merge(queue);
+
+        std::swap(keys_src, keys_dst);
+    }
+}
+
+/// Sorts the elements in keys and values into ascending key order.
+template <class K>
+void sort(vector<K> &keys) {
+    VEX_FUNCTION(default_comp, bool(K, K), "return prm1 < prm2;");
+    sort(keys, default_comp);
+}
 
 /// Sorts the elements in keys and values into ascending key order.
 /**
@@ -1333,13 +1435,13 @@ void sort_by_key(vector<K> &keys, vector<V> &vals, Comp) {
     device_vector<V> vals_dst(queue, count);
 
     auto block_sort = is_cpu(queue) ?
-        detail::block_sort_kernel<NT_cpu, VT, K, V, Comp>(queue) :
-        detail::block_sort_kernel<NT_gpu, VT, K, V, Comp>(queue);
+        detail::block_sort_kernel<NT_cpu, VT, K, V, Comp, true>(queue) :
+        detail::block_sort_kernel<NT_gpu, VT, K, V, Comp, true>(queue);
 
     block_sort.push_arg(count);
     block_sort.push_arg(keys_src);
-    block_sort.push_arg(vals_src);
     block_sort.push_arg(1 & num_passes ? keys_dst : keys_src);
+    block_sort.push_arg(vals_src);
     block_sort.push_arg(1 & num_passes ? vals_dst : vals_src);
 
     block_sort.config(num_blocks, NT);
@@ -1352,24 +1454,24 @@ void sort_by_key(vector<K> &keys, vector<V> &vals, Comp) {
     }
 
     auto merge = is_cpu(queue) ?
-        detail::merge_kernel<NT_cpu, VT, K, V, Comp>(queue) :
-        detail::merge_kernel<NT_gpu, VT, K, V, Comp>(queue);
+        detail::merge_kernel<NT_cpu, VT, K, V, Comp, true>(queue) :
+        detail::merge_kernel<NT_gpu, VT, K, V, Comp, true>(queue);
 
     for(int pass = 0; pass < num_passes; ++pass) {
         int coop = 2 << pass;
 
         auto partitions = detail::merge_path_partitions<Comp>(queue, keys_src, count, NV, coop);
 
-        merge.push_arg(keys_src);
-        merge.push_arg(vals_src);
         merge.push_arg(count);
-        merge.push_arg(keys_src);
-        merge.push_arg(vals_src);
         merge.push_arg(0);
+        merge.push_arg(keys_src);
+        merge.push_arg(keys_src);
+        merge.push_arg(keys_dst);
+        merge.push_arg(vals_src);
+        merge.push_arg(vals_src);
+        merge.push_arg(vals_dst);
         merge.push_arg(partitions);
         merge.push_arg(coop);
-        merge.push_arg(keys_dst);
-        merge.push_arg(vals_dst);
 
         merge.config(num_blocks, NT);
         merge(queue);
