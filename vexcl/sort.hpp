@@ -787,7 +787,7 @@ backend::kernel merge_partition_kernel(const backend::command_queue &queue) {
                 .template parameter< int                 >("b_count")
                 .template parameter< int                 >("nv")
                 .template parameter< int                 >("coop")
-                .template parameter< global_ptr<T>       >("mp_global")
+                .template parameter< global_ptr<int>     >("mp_global")
                 .template parameter< int                 >("num_searches")
             .close(")").open("{");
 
