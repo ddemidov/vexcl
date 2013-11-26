@@ -20,7 +20,6 @@ void thrust_sort(T *begin, T *end) {
 #define VEXCL_INSTANTIATE_THRUST_SORT(T)                                       \
   template void thrust_sort<T>(T * begin, T * end)
 
-VEXCL_INSTANTIATE_THRUST_SORT(float);
-VEXCL_INSTANTIATE_THRUST_SORT(double);
+VEXCL_INSTANTIATE_THRUST_SORT(int);
 
 #undef VEXCL_INSTANTIATE_THRUST_SORT
