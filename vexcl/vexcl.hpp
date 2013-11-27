@@ -53,6 +53,7 @@ THE SOFTWARE.
 #include <vexcl/generator.hpp>
 #include <vexcl/mba.hpp>
 #include <vexcl/sort.hpp>
+#include <vexcl/scan.hpp>
 #include <vexcl/profiler.hpp>
 
 #endif
