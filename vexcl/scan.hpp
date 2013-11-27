@@ -496,7 +496,7 @@ void exclusive_scan(
     std::partial_sum(tail.begin(), tail.end(), tail.begin());
 
     for(size_t d = 1; d < queue.size(); ++d)
-        if (size_t head = output.part_start(d))
+        if (output.part_start(d))
             vector<T>(queue[d], output(d)) += tail[d - 1];
 }
 
