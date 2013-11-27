@@ -200,6 +200,7 @@ class source_generator {
         }
 
         source_generator& barrier(bool global = false) {
+            (void)global;
             src << "__syncthreads();";
             return *this;
         }
