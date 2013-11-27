@@ -2,7 +2,6 @@
 #include <algorithm>
 #include <boost/test/unit_test.hpp>
 #include <vexcl/vector.hpp>
-#include <vexcl/element_index.hpp>
 #include <vexcl/sort.hpp>
 #include "context_setup.hpp"
 
