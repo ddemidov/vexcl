@@ -34,16 +34,6 @@ BOOST_AUTO_TEST_CASE(exclusive)
     std::rotate(x.rbegin(), x.rbegin() + 1, x.rend());
     x[0] = 0;
 
-    size_t bnd = X.part_start(1);
-
-    for(size_t i = bnd - 3; i <= bnd + 3; ++i)
-        std::cout << std::scientific << x[i] << " ";
-    std::cout << std::endl;
-
-    for(size_t i = bnd - 3; i <= bnd + 3; ++i)
-        std::cout << std::scientific << X[i] << " ";
-    std::cout << std::endl;
-
     check_sample(X, [&](size_t idx, double v) {
             BOOST_CHECK_CLOSE(v, x[idx], 1e-8f);
             });
