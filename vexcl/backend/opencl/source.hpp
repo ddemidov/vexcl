@@ -226,8 +226,11 @@ class source_generator {
             return *this;
         }
 
-        source_generator& barrier() {
-            src << "barrier(CLK_LOCAL_MEM_FENCE);";
+        source_generator& barrier(bool global = false) {
+            if (global)
+                src << "barrier(CLK_GLOBAL_MEM_FENCE);";
+            else
+                src << "barrier(CLK_LOCAL_MEM_FENCE);";
             return *this;
         }
 

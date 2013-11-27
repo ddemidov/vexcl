@@ -199,7 +199,7 @@ class source_generator {
             return *this;
         }
 
-        source_generator& barrier() {
+        source_generator& barrier(bool global = false) {
             src << "__syncthreads();";
             return *this;
         }

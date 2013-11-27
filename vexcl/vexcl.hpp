@@ -54,6 +54,7 @@ THE SOFTWARE.
 #include <vexcl/mba.hpp>
 #include <vexcl/sort.hpp>
 #include <vexcl/scan.hpp>
+#include <vexcl/reduce_by_key.hpp>
 #include <vexcl/profiler.hpp>
 
 #endif
