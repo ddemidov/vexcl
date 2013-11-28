@@ -37,6 +37,8 @@ THE SOFTWARE.
 #include <iostream>
 #include <sstream>
 
+#include <boost/io/ios_state.hpp>
+
 #if defined(VEXCL_BACKEND_OPENCL)
 #  ifndef __CL_ENABLE_EXCEPTIONS
 #    define __CL_ENABLE_EXCEPTIONS
@@ -121,11 +123,11 @@ namespace vex {
   }                                                                            \
   inline std::ostream &operator<<(std::ostream & os,                           \
                                   const cl_##name##len & value) {              \
-    os << "(" #name #len ")(";                                                 \
+    boost::io::ios_all_saver stream_state(os);                                 \
+    os << "(";                                                                 \
     for (std::size_t i = 0; i < len; i++) {                                    \
-      if (i != 0)                                                              \
-        os << ',';                                                             \
-      os << value.s[i];                                                        \
+      if (i != 0) os << ',';                                                   \
+      os << std::setw(13) << std::scientific << value.s[i];                    \
     }                                                                          \
     return os << ')';                                                          \
   }                                                                            \
