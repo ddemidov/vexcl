@@ -103,7 +103,7 @@ namespace cuda {
 inline std::string standard_kernel_header(const command_queue &q) {
     std::ostringstream s;
     s
-#ifdef _MSC_VER
+#if defined(_MSC_VER) || defined(__APPLE__)
       << "typedef unsigned char       uchar;\n"
          "typedef unsigned int        uint;\n"
          "typedef unsigned short      ushort;\n"
