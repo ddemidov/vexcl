@@ -1323,7 +1323,7 @@ inline int find_log2(int x, bool round_up = false) {
     return a;
 }
 
-//---------------------------------------------------------------------------
+/// Sorts single partition of a vector.
 template <class K, class Comp>
 void sort(const backend::command_queue &queue,
         backend::device_vector<K> &keys, Comp)
@@ -1383,7 +1383,7 @@ void sort(const backend::command_queue &queue,
     }
 }
 
-//---------------------------------------------------------------------------
+/// Sorts single partition of a vector.
 template <class K, class V, class Comp>
 void sort_by_key(const backend::command_queue &queue,
         backend::device_vector<K> &keys,
@@ -1457,6 +1457,95 @@ void sort_by_key(const backend::command_queue &queue,
     }
 }
 
+/// Merges partially sorted vector partitions into host vector
+template <typename K, class Comp>
+std::vector<K> merge(const vector<K> &keys, Comp comp) {
+    const auto &queue = keys.queue_list();
+
+    std::vector<K> dst(keys.size());
+    vex::copy(keys, dst);
+
+    if (queue.size() > 1) {
+        std::vector<K> src(keys.size());
+        std::swap(src, dst);
+
+        typedef typename std::vector<K>::const_iterator iterator;
+        std::vector<iterator> begin(queue.size());
+        std::vector<iterator> end(queue.size());
+
+        for(unsigned d = 0; d < queue.size(); ++d) {
+            begin[d] = src.begin() + keys.part_start(d);
+            end  [d] = src.begin() + keys.part_start(d + 1);
+        }
+
+        for(auto pos = dst.begin(); pos != dst.end(); ++pos) {
+            int winner = -1;
+            for(unsigned d = 0; d < queue.size(); ++d) {
+                if (begin[d] == end[d]) continue;
+
+                if (winner < 0 || comp(*begin[d], *begin[winner]))
+                    winner = d;
+            }
+
+            *pos = *begin[winner]++;
+        }
+    }
+
+    return dst;
+}
+
+/// Merges partially sorted vector partitions into host vector
+template <typename K, typename V, class Comp>
+void merge(const vector<K> &keys, const vector<V> &vals, Comp comp,
+        std::vector<K> &dst_keys, std::vector<V> &dst_vals)
+{
+    const auto &queue = keys.queue_list();
+
+    dst_keys.resize(keys.size());
+    dst_vals.resize(keys.size());
+
+    vex::copy(keys, dst_keys);
+    vex::copy(vals, dst_vals);
+
+    if (queue.size() > 1) {
+        std::vector<K> src_keys(keys.size());
+        std::vector<V> src_vals(keys.size());
+
+        std::swap(src_keys, dst_keys);
+        std::swap(src_vals, dst_vals);
+
+        typedef typename std::vector<K>::const_iterator key_iterator;
+        typedef typename std::vector<V>::const_iterator val_iterator;
+
+        std::vector<key_iterator> key_begin(queue.size()), key_end(queue.size());
+        std::vector<val_iterator> val_begin(queue.size()), val_end(queue.size());
+
+        for(unsigned d = 0; d < queue.size(); ++d) {
+            key_begin[d] = src_keys.begin() + keys.part_start(d);
+            key_end  [d] = src_keys.begin() + keys.part_start(d + 1);
+
+            val_begin[d] = src_vals.begin() + keys.part_start(d);
+            val_end  [d] = src_vals.begin() + keys.part_start(d + 1);
+        }
+
+        auto key_pos = dst_keys.begin();
+        auto val_pos = dst_vals.begin();
+
+        while(key_pos != dst_keys.end()) {
+            int winner = -1;
+            for(unsigned d = 0; d < queue.size(); ++d) {
+                if (key_begin[d] == key_end[d]) continue;
+
+                if (winner < 0 || comp(*key_begin[d], *key_begin[winner]))
+                    winner = d;
+            }
+
+            *key_pos++ = *key_begin[winner]++;
+            *val_pos++ = *val_begin[winner]++;
+        }
+    }
+}
+
 } // namespace detail
 
 /// Function object class for less-than inequality comparison.
@@ -1519,32 +1608,7 @@ void sort(vector<K> &keys, Comp comp) {
     // Vector partitions have been sorted on compute devices.
     // Now we need to merge them on a CPU. This is a linear time operation,
     // so total performance should be good enough.
-    std::vector<K> src(keys.size()), dst(keys.size());
-
-    vex::copy(keys, src);
-
-    typedef typename std::vector<K>::const_iterator iterator;
-    std::vector<iterator> begin(queue.size());
-    std::vector<iterator> end(queue.size());
-
-    for(unsigned d = 0; d < queue.size(); ++d) {
-        begin[d] = src.begin() + keys.part_start(d);
-        end  [d] = src.begin() + keys.part_start(d + 1);
-    }
-
-    for(auto pos = dst.begin(); pos != dst.end(); ++pos) {
-        int winner = -1;
-        for(unsigned d = 0; d < queue.size(); ++d) {
-            if (begin[d] == end[d]) continue;
-
-            if (winner < 0 || comp(*begin[d], *begin[winner]))
-                winner = d;
-        }
-
-        *pos = *begin[winner]++;
-    }
-
-    vex::copy(dst, keys);
+    vex::copy(detail::merge(keys, comp), keys);
 }
 
 /// Sorts the elements in keys and values into ascending key order.
@@ -1575,44 +1639,13 @@ void sort_by_key(vector<K> &keys, vector<V> &vals, Comp comp) {
     // Vector partitions have been sorted on compute devices.
     // Now we need to merge them on a CPU. This is a linear time operation,
     // so total performance should be good enough.
-    std::vector<K> src_keys(keys.size()), dst_keys(keys.size());
-    std::vector<V> src_vals(keys.size()), dst_vals(keys.size());
+    std::vector<K> k;
+    std::vector<V> v;
 
-    vex::copy(keys, src_keys);
-    vex::copy(vals, src_vals);
+    detail::merge(keys, vals, comp, k, v);
 
-    typedef typename std::vector<K>::const_iterator key_iterator;
-    typedef typename std::vector<V>::const_iterator val_iterator;
-
-    std::vector<key_iterator> key_begin(queue.size()), key_end(queue.size());
-    std::vector<val_iterator> val_begin(queue.size()), val_end(queue.size());
-
-    for(unsigned d = 0; d < queue.size(); ++d) {
-        key_begin[d] = src_keys.begin() + keys.part_start(d);
-        key_end  [d] = src_keys.begin() + keys.part_start(d + 1);
-
-        val_begin[d] = src_vals.begin() + keys.part_start(d);
-        val_end  [d] = src_vals.begin() + keys.part_start(d + 1);
-    }
-
-    auto key_pos = dst_keys.begin();
-    auto val_pos = dst_vals.begin();
-
-    while(key_pos != dst_keys.end()) {
-        int winner = -1;
-        for(unsigned d = 0; d < queue.size(); ++d) {
-            if (key_begin[d] == key_end[d]) continue;
-
-            if (winner < 0 || comp(*key_begin[d], *key_begin[winner]))
-                winner = d;
-        }
-
-        *key_pos++ = *key_begin[winner]++;
-        *val_pos++ = *val_begin[winner]++;
-    }
-
-    vex::copy(dst_keys, keys);
-    vex::copy(dst_vals, vals);
+    vex::copy(k, keys);
+    vex::copy(v, vals);
 }
 
 /// Sorts the elements in keys and values into ascending key order.
