@@ -274,7 +274,7 @@ template <> struct cl_scalar_of<char> { typedef char type; };
 #if defined(__APPLE__)
 template <> struct type_name_impl<size_t>
     : public type_name_impl<
-        boost::if_c<
+        boost::mpl::if_c<
             sizeof(std::size_t) == sizeof(uint),
             cl_uint, cl_ulong
         >::type
@@ -283,7 +283,7 @@ template <> struct type_name_impl<size_t>
 
 template <> struct type_name_impl<ptrdiff_t>
     : public type_name_impl<
-        boost::if_c<
+        boost::mpl::if_c<
             sizeof(std::size_t) == sizeof(uint),
             cl_int, cl_long
         >::type
