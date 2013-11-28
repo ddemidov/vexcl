@@ -62,6 +62,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include <string>
+#include <functional>
 
 #include <vexcl/backend.hpp>
 #include <vexcl/util.hpp>
@@ -1322,20 +1323,11 @@ inline int find_log2(int x, bool round_up = false) {
     return a;
 }
 
-} // namespace detail
-
-/// Sorts the vector into ascending order.
-/**
- * \param comp comparison function.
- */
+//---------------------------------------------------------------------------
 template <class K, class Comp>
-void sort(vector<K> &keys, Comp) {
-    precondition(
-            keys.queue_list().size() == 1,
-            "Sorting is only supported for single device contexts"
-            );
-
-    auto &queue = keys.queue_list()[0];
+void sort(const backend::command_queue &queue,
+        backend::device_vector<K> &keys, Comp)
+{
     backend::select_context(queue);
 
     const int NT_cpu = 1;
@@ -1348,7 +1340,6 @@ void sort(vector<K> &keys, Comp) {
     const int num_blocks = (count + NV - 1) / NV;
     const int num_passes = detail::find_log2(num_blocks, true);
 
-    auto keys_src = keys(0);
 
     device_vector<K> keys_dst(queue, count);
 
@@ -1357,15 +1348,15 @@ void sort(vector<K> &keys, Comp) {
         detail::block_sort_kernel<NT_gpu, VT, K, int, Comp, false>(queue);
 
     block_sort.push_arg(count);
-    block_sort.push_arg(keys_src);
-    block_sort.push_arg(1 & num_passes ? keys_dst : keys_src);
+    block_sort.push_arg(keys);
+    block_sort.push_arg(1 & num_passes ? keys_dst : keys);
 
     block_sort.config(num_blocks, NT);
 
     block_sort(queue);
 
     if (1 & num_passes) {
-        std::swap(keys_src, keys_dst);
+        std::swap(keys, keys_dst);
     }
 
     auto merge = is_cpu(queue) ?
@@ -1375,12 +1366,12 @@ void sort(vector<K> &keys, Comp) {
     for(int pass = 0; pass < num_passes; ++pass) {
         int coop = 2 << pass;
 
-        auto partitions = detail::merge_path_partitions<Comp>(queue, keys_src, count, NV, coop);
+        auto partitions = detail::merge_path_partitions<Comp>(queue, keys, count, NV, coop);
 
         merge.push_arg(count);
         merge.push_arg(0);
-        merge.push_arg(keys_src);
-        merge.push_arg(keys_src);
+        merge.push_arg(keys);
+        merge.push_arg(keys);
         merge.push_arg(keys_dst);
         merge.push_arg(partitions);
         merge.push_arg(coop);
@@ -1388,34 +1379,22 @@ void sort(vector<K> &keys, Comp) {
         merge.config(num_blocks, NT);
         merge(queue);
 
-        std::swap(keys_src, keys_dst);
+        std::swap(keys, keys_dst);
     }
 }
 
-/// Sorts the elements in keys and values into ascending key order.
-template <class K>
-void sort(vector<K> &keys) {
-    VEX_FUNCTION(default_comp, bool(K, K), "return prm1 < prm2;");
-    sort(keys, default_comp);
-}
-
-/// Sorts the elements in keys and values into ascending key order.
-/**
- * \param comp comparison function.
- */
+//---------------------------------------------------------------------------
 template <class K, class V, class Comp>
-void sort_by_key(vector<K> &keys, vector<V> &vals, Comp) {
-    precondition(
-            keys.queue_list().size() == 1 &&
-            vals.queue_list().size() == 1,
-            "Sorting is only supported for single device contexts"
-            );
-
+void sort_by_key(const backend::command_queue &queue,
+        backend::device_vector<K> &keys,
+        backend::device_vector<V> &vals,
+        Comp
+        )
+{
     precondition(keys.size() == vals.size(),
             "keys and values should have same size"
             );
 
-    auto &queue = keys.queue_list()[0];
     backend::select_context(queue);
 
     const int NT_cpu = 1;
@@ -1428,9 +1407,6 @@ void sort_by_key(vector<K> &keys, vector<V> &vals, Comp) {
     const int num_blocks = (count + NV - 1) / NV;
     const int num_passes = detail::find_log2(num_blocks, true);
 
-    auto keys_src = keys(0);
-    auto vals_src = vals(0);
-
     device_vector<K> keys_dst(queue, count);
     device_vector<V> vals_dst(queue, count);
 
@@ -1439,18 +1415,18 @@ void sort_by_key(vector<K> &keys, vector<V> &vals, Comp) {
         detail::block_sort_kernel<NT_gpu, VT, K, V, Comp, true>(queue);
 
     block_sort.push_arg(count);
-    block_sort.push_arg(keys_src);
-    block_sort.push_arg(1 & num_passes ? keys_dst : keys_src);
-    block_sort.push_arg(vals_src);
-    block_sort.push_arg(1 & num_passes ? vals_dst : vals_src);
+    block_sort.push_arg(keys);
+    block_sort.push_arg(1 & num_passes ? keys_dst : keys);
+    block_sort.push_arg(vals);
+    block_sort.push_arg(1 & num_passes ? vals_dst : vals);
 
     block_sort.config(num_blocks, NT);
 
     block_sort(queue);
 
     if (1 & num_passes) {
-        std::swap(keys_src, keys_dst);
-        std::swap(vals_src, vals_dst);
+        std::swap(keys, keys_dst);
+        std::swap(vals, vals_dst);
     }
 
     auto merge = is_cpu(queue) ?
@@ -1460,15 +1436,15 @@ void sort_by_key(vector<K> &keys, vector<V> &vals, Comp) {
     for(int pass = 0; pass < num_passes; ++pass) {
         int coop = 2 << pass;
 
-        auto partitions = detail::merge_path_partitions<Comp>(queue, keys_src, count, NV, coop);
+        auto partitions = detail::merge_path_partitions<Comp>(queue, keys, count, NV, coop);
 
         merge.push_arg(count);
         merge.push_arg(0);
-        merge.push_arg(keys_src);
-        merge.push_arg(keys_src);
+        merge.push_arg(keys);
+        merge.push_arg(keys);
         merge.push_arg(keys_dst);
-        merge.push_arg(vals_src);
-        merge.push_arg(vals_src);
+        merge.push_arg(vals);
+        merge.push_arg(vals);
         merge.push_arg(vals_dst);
         merge.push_arg(partitions);
         merge.push_arg(coop);
@@ -1476,16 +1452,173 @@ void sort_by_key(vector<K> &keys, vector<V> &vals, Comp) {
         merge.config(num_blocks, NT);
         merge(queue);
 
-        std::swap(keys_src, keys_dst);
-        std::swap(vals_src, vals_dst);
+        std::swap(keys, keys_dst);
+        std::swap(vals, vals_dst);
     }
+}
+
+} // namespace detail
+
+/// Function object class for less-than inequality comparison.
+/**
+ * The need for host-side and device-side parts comes from the fact that
+ * vectors are partially sorted on device and then final merge step is done on
+ * host.
+ */
+template <typename T>
+struct less : std::less<T> {
+    VEX_FUNCTION(device, bool(T, T), "return prm1 < prm2;");
+};
+
+/// Function object class for less-than-or-equal inequality comparison.
+/**
+ * The need for host-side and device-side parts comes from the fact that
+ * vectors are partially sorted on device and then final merge step is done on
+ * host.
+ */
+template <typename T>
+struct less_equal : std::less_equal<T> {
+    VEX_FUNCTION(device, bool(T, T), "return prm1 <= prm2;");
+};
+
+/// Function object class for greater-than inequality comparison.
+/**
+ * The need for host-side and device-side parts comes from the fact that
+ * vectors are partially sorted on device and then final merge step is done on
+ * host.
+ */
+template <typename T>
+struct greater : std::greater<T> {
+    VEX_FUNCTION(device, bool(T, T), "return prm1 > prm2;");
+};
+
+/// Function object class for greater-than-or-equal inequality comparison.
+/**
+ * The need for host-side and device-side parts comes from the fact that
+ * vectors are partially sorted on device and then final merge step is done on
+ * host.
+ */
+template <typename T>
+struct greater_equal : std::greater_equal<T> {
+    VEX_FUNCTION(device, bool(T, T), "return prm1 >= prm2;");
+};
+
+/// Sorts the vector into ascending order.
+/**
+ * \param comp comparison function.
+ */
+template <class K, class Comp>
+void sort(vector<K> &keys, Comp comp) {
+    const auto &queue = keys.queue_list();
+
+    for(unsigned d = 0; d < queue.size(); ++d)
+        if (keys.part_size(d)) detail::sort(queue[d], keys(d), comp.device);
+
+    if (queue.size() <= 1) return;
+
+    // Vector partitions have been sorted on compute devices.
+    // Now we need to merge them on a CPU. This is a linear time operation,
+    // so total performance should be good enough.
+    std::vector<K> src(keys.size()), dst(keys.size());
+
+    vex::copy(keys, src);
+
+    typedef typename std::vector<K>::const_iterator iterator;
+    std::vector<iterator> begin(queue.size());
+    std::vector<iterator> end(queue.size());
+
+    for(unsigned d = 0; d < queue.size(); ++d) {
+        begin[d] = src.begin() + keys.part_start(d);
+        end  [d] = src.begin() + keys.part_start(d + 1);
+    }
+
+    for(auto pos = dst.begin(); pos != dst.end(); ++pos) {
+        int winner = -1;
+        for(unsigned d = 0; d < queue.size(); ++d) {
+            if (begin[d] == end[d]) continue;
+
+            if (winner < 0 || comp(*begin[d], *begin[winner]))
+                winner = d;
+        }
+
+        *pos = *begin[winner]++;
+    }
+
+    vex::copy(dst, keys);
+}
+
+/// Sorts the elements in keys and values into ascending key order.
+template <class K>
+void sort(vector<K> &keys) {
+    sort(keys, less<K>());
+}
+
+/// Sorts the elements in keys and values into ascending key order.
+/**
+ * \param comp comparison function.
+ */
+template <class K, class V, class Comp>
+void sort_by_key(vector<K> &keys, vector<V> &vals, Comp comp) {
+    precondition(
+            keys.queue_list().size() == vals.queue_list().size(),
+            "Keys and values span different devices"
+            );
+
+    auto &queue = keys.queue_list();
+
+    for(unsigned d = 0; d < queue.size(); ++d)
+        if (keys.part_size(d))
+            detail::sort_by_key(queue[d], keys(d), vals(d), comp.device);
+
+    if (queue.size() <= 1) return;
+
+    // Vector partitions have been sorted on compute devices.
+    // Now we need to merge them on a CPU. This is a linear time operation,
+    // so total performance should be good enough.
+    std::vector<K> src_keys(keys.size()), dst_keys(keys.size());
+    std::vector<V> src_vals(keys.size()), dst_vals(keys.size());
+
+    vex::copy(keys, src_keys);
+    vex::copy(vals, src_vals);
+
+    typedef typename std::vector<K>::const_iterator key_iterator;
+    typedef typename std::vector<V>::const_iterator val_iterator;
+
+    std::vector<key_iterator> key_begin(queue.size()), key_end(queue.size());
+    std::vector<val_iterator> val_begin(queue.size()), val_end(queue.size());
+
+    for(unsigned d = 0; d < queue.size(); ++d) {
+        key_begin[d] = src_keys.begin() + keys.part_start(d);
+        key_end  [d] = src_keys.begin() + keys.part_start(d + 1);
+
+        val_begin[d] = src_vals.begin() + keys.part_start(d);
+        val_end  [d] = src_vals.begin() + keys.part_start(d + 1);
+    }
+
+    auto key_pos = dst_keys.begin();
+    auto val_pos = dst_vals.begin();
+
+    while(key_pos != dst_keys.end()) {
+        int winner = -1;
+        for(unsigned d = 0; d < queue.size(); ++d) {
+            if (key_begin[d] == key_end[d]) continue;
+
+            if (winner < 0 || comp(*key_begin[d], *key_begin[winner]))
+                winner = d;
+        }
+
+        *key_pos++ = *key_begin[winner]++;
+        *val_pos++ = *val_begin[winner]++;
+    }
+
+    vex::copy(dst_keys, keys);
+    vex::copy(dst_vals, vals);
 }
 
 /// Sorts the elements in keys and values into ascending key order.
 template <class K, class V>
 void sort_by_key(vector<K> &keys, vector<V> &vals) {
-    VEX_FUNCTION(default_comp, bool(K, K), "return prm1 < prm2;");
-    sort_by_key(keys, vals, default_comp);
+    sort_by_key(keys, vals, less<K>());
 }
 
 } // namespace vex
