@@ -49,6 +49,7 @@ performance of several GPGPU libraries, including VexCL.
 * [Sparse matrix-vector products](#sparse-matrix-vector-products)
 * [Stencil convolutions](#stencil-convolutions)
 * [Raw pointers](#raw-pointers)
+* [Sort, scan, reduce-by-key algorithms](#parallel-primitives)
 * [Multivectors](#multivectors)
 * [Converting generic C++ algorithms to OpenCL/CUDA](#converting-generic-c-algorithms-to-opencl)
     * [Kernel generator](#kernel-generator)
@@ -678,6 +679,45 @@ y = global_interaction(x.size(), vex::element_index(), vex::raw_pointer(x));
 
 Note that the use of `raw_pointer()` is limited to single-device contexts for
 obvious reasons.
+
+## <a name="parallel-primitives"></a>Sort, scan, reduce-by-key algorithms
+
+VexCL provides several standalone parallel primitives that may not be used as
+part of a vector expression. These are `inclusive_scan`, 'exclusive_scan',
+`sort`, `sort_by_key`, `reduce_by_key`. All of these functions take VexCL
+vectors as both input and output parameters.
+
+Sorting and scan functions take an optional function object used for comparison
+and summing of elements. The functor should provide the same interface as, e.g.
+`std::less` for sorting or `std::plus` for summing; additionally, it should
+provide a VexCL function for device-side operations.
+
+Here is an example of such an object comparing integer elements in such a way
+that even elements precede odd ones:
+~~~{.cpp}
+template <typename T>
+struct even_first {
+    VEX_FUNCTION(device, bool(int, int),
+            "char bit1 = 1 & prm1;\n"
+            "char bit2 = 1 & prm2;\n"
+            "if (bit1 == bit2) return prm1 < prm2;\n"
+            "return bit1 < bit2;\n"
+            );
+    bool operator()(int a, int b) const {
+        char bit1 = 1 & a;
+        char bit2 = 1 & b;
+        if (bit1 == bit2) return a < b;
+        return bit1 < bit2;
+    }
+};
+~~~
+
+Note that VexCL already provides `vex::less<T>`, `vex::less_equal<T>`,
+`vex::greater<T>`, `vex::greater_equal<T>`, and `vex::plus<T>`.
+
+The need to provide both host-side and device-side parts of the functor comes
+from the fact that multidevice vectors are first sorted partially on each of
+the compute devices they are allocated on and then merged on the host.
 
 ## <a name="multivectors"></a>Multivectors
 
