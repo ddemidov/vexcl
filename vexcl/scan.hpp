@@ -51,6 +51,7 @@ limitations under the License.
 */
 
 #include <string>
+#include <functional>
 
 #include <vexcl/backend.hpp>
 #include <vexcl/util.hpp>
@@ -419,6 +420,12 @@ void scan(
 
 } // namespace detail
 
+/// Binary function object class whose call returns the result of adding its two arguments.
+template <typename T>
+struct plus : std::plus<T> {
+    VEX_FUNCTION(device, T(T, T), "return prm1 + prm2;");
+};
+
 /// Inclusive scan.
 template <typename T, class Oper>
 void inclusive_scan(
@@ -436,7 +443,7 @@ void inclusive_scan(
     auto &queue = input.queue_list();
 
     for(size_t d = 0; d < queue.size(); ++d)
-        detail::scan(queue[d], input(d), output(d), init, false, oper);
+        detail::scan(queue[d], input(d), output(d), init, false, oper.device);
 
     std::vector<T> tail(queue.size() - 1);
 
@@ -444,11 +451,13 @@ void inclusive_scan(
         if (size_t head = output.part_start(d))
             tail[d - 1] = output[head - 1];
 
-    std::partial_sum(tail.begin(), tail.end(), tail.begin());
+    std::partial_sum(tail.begin(), tail.end(), tail.begin(), oper);
 
     for(size_t d = 1; d < queue.size(); ++d)
-        if (output.part_start(d))
-            vector<T>(queue[d], output(d)) += tail[d - 1];
+        if (output.part_start(d)) {
+            vector<T> part(queue[d], output(d));
+            part = oper.device(part, tail[d - 1]);
+        }
 }
 
 /// Inclusive scan.
@@ -459,9 +468,7 @@ void inclusive_scan(
         T init = T()
         )
 {
-    VEX_FUNCTION(plus, T(T, T), "return prm1 + prm2;");
-
-    inclusive_scan(input, output, init, plus);
+    inclusive_scan(input, output, init, plus<T>());
 }
 
 /// Exclusive scan.
@@ -487,17 +494,19 @@ void exclusive_scan(
             tail[d - 1] = input[head - 1];
 
     for(size_t d = 0; d < queue.size(); ++d)
-        detail::scan(queue[d], input(d), output(d), init, true, oper);
+        detail::scan(queue[d], input(d), output(d), init, true, oper.device);
 
     for(size_t d = 1; d < queue.size(); ++d)
         if (size_t head = output.part_start(d))
-            tail[d - 1] += output[head - 1];
+            tail[d - 1] = oper(tail[d - 1], output[head - 1]);
 
-    std::partial_sum(tail.begin(), tail.end(), tail.begin());
+    std::partial_sum(tail.begin(), tail.end(), tail.begin(), oper);
 
     for(size_t d = 1; d < queue.size(); ++d)
-        if (output.part_start(d))
-            vector<T>(queue[d], output(d)) += tail[d - 1];
+        if (output.part_start(d)) {
+            vector<T> part(queue[d], output(d));
+            part = oper.device(part, tail[d - 1]);
+        }
 }
 
 /// Exclusive scan.
@@ -508,9 +517,7 @@ void exclusive_scan(
         T init = T()
         )
 {
-    VEX_FUNCTION(plus, T(T, T), "return prm1 + prm2;");
-
-    exclusive_scan(input, output, init, plus);
+    exclusive_scan(input, output, init, plus<T>());
 }
 
 } // namespace vex
