@@ -218,7 +218,7 @@ namespace Filter {
         private:
             std::vector< std::function<bool(const backend::device&)> > filter;
     };
-    /// \endcode
+    /// \endcond
 
     /// Environment filter
     /**
