@@ -683,7 +683,7 @@ obvious reasons.
 ## <a name="parallel-primitives"></a>Sort, scan, reduce-by-key algorithms
 
 VexCL provides several standalone parallel primitives that may not be used as
-part of a vector expression. These are `inclusive_scan`, 'exclusive_scan',
+part of a vector expression. These are `inclusive_scan`, `exclusive_scan`,
 `sort`, `sort_by_key`, `reduce_by_key`. All of these functions take VexCL
 vectors as both input and output parameters.
 
