@@ -165,6 +165,55 @@ struct expression_properties< casted_expession<T, Expr> > {
 
 /// \endcond
 
+#ifdef VEXCL_BACKEND_OPENCL
+
+#define VEXCL_CONVERT_FUNCTIONS(to)                                            \
+  struct convert_##to##_func : builtin_function {                              \
+    static const char *name() { return "convert_" #to; }                       \
+  };                                                                           \
+  template <typename Arg>                                                      \
+  casted_expession<                                                            \
+      cl_##to, typename boost::proto::result_of::make_expr<                    \
+                   boost::proto::tag::function, convert_##to##_func,           \
+                   const Arg &>::type> const convert_##to(const Arg & arg) {   \
+    return cast<cl_##to>(boost::proto::make_expr<boost::proto::tag::function>( \
+        convert_##to##_func(), boost::ref(arg)));                              \
+  }                                                                            \
+  struct as_##to##_func : builtin_function {                                   \
+    static const char *name() { return "as_" #to; }                            \
+  };                                                                           \
+  template <typename Arg>                                                      \
+  casted_expession<cl_##to, typename boost::proto::result_of::make_expr<       \
+                                boost::proto::tag::function, as_##to##_func,   \
+                                const Arg &>::type> const as_##to(const Arg &  \
+                                                                  arg) {       \
+    return cast<cl_##to>(boost::proto::make_expr<boost::proto::tag::function>( \
+        as_##to##_func(), boost::ref(arg)));                                   \
+  }
+
+#define VEXCL_TYPES(name)                                                      \
+  VEXCL_CONVERT_FUNCTIONS(name)                                                \
+  VEXCL_CONVERT_FUNCTIONS(name##2)                                             \
+  VEXCL_CONVERT_FUNCTIONS(name##4)                                             \
+  VEXCL_CONVERT_FUNCTIONS(name##8)                                             \
+  VEXCL_CONVERT_FUNCTIONS(name##16)
+
+VEXCL_TYPES(float)
+VEXCL_TYPES(double)
+VEXCL_TYPES(char)
+VEXCL_TYPES(uchar)
+VEXCL_TYPES(short)
+VEXCL_TYPES(ushort)
+VEXCL_TYPES(int)
+VEXCL_TYPES(uint)
+VEXCL_TYPES(long)
+VEXCL_TYPES(ulong)
+
+#undef VEXCL_TYPES
+#undef VEXCL_CONVERT_FUNCTION
+
+#endif
+
 } // namespace vex
 
 #endif
