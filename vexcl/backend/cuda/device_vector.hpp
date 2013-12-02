@@ -67,6 +67,7 @@ struct deleter_impl<char*> {
 template <typename T>
 class device_vector {
     public:
+        typedef T value_type;
         typedef CUdeviceptr raw_type;
 
         /// Empty constructor.

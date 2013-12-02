@@ -64,12 +64,84 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string>
 #include <functional>
 
+#include <boost/mpl/vector.hpp>
+#include <boost/mpl/joint_view.hpp>
+#include <boost/mpl/set.hpp>
+#include <boost/mpl/push_front.hpp>
+#include <boost/mpl/for_each.hpp>
+#include <boost/mpl/accumulate.hpp>
+#include <boost/mpl/inserter.hpp>
+#include <boost/mpl/plus.hpp>
+#include <boost/mpl/sizeof.hpp>
+
+#include <boost/fusion/include/mpl.hpp>
+#include <boost/fusion/include/vector.hpp>
+#include <boost/fusion/include/as_vector.hpp>
+#include <boost/fusion/include/make_vector.hpp>
+#include <boost/fusion/include/for_each.hpp>
+#include <boost/fusion/include/join.hpp>
+#include <boost/fusion/include/invoke.hpp>
+#include <boost/fusion/include/swap.hpp>
+#include <boost/fusion/include/at_c.hpp>
+#include <boost/fusion/include/zip_view.hpp>
+#include <boost/fusion/adapted/std_tuple.hpp>
+
 #include <vexcl/backend.hpp>
 #include <vexcl/util.hpp>
 #include <vexcl/vector.hpp>
 
 namespace vex {
 namespace detail {
+
+// Transform tuple of vex::vectors into mpl::vector of value_types
+template <class Tuple>
+struct extract_value_types {
+    typedef typename std::decay<Tuple>::type T;
+
+    template <size_t I, size_t N, class Enable = void>
+    struct loop;
+
+    template <size_t I, size_t N>
+    struct loop<I, N, typename std::enable_if<I + 1 < N>::type> {
+        typedef typename boost::mpl::push_front<
+            typename loop<I + 1, N>::type,
+                typename std::decay<
+                    typename boost::fusion::result_of::at_c<T, I>::type
+                >::type::value_type
+            >::type type;
+    };
+
+    template <size_t I, size_t N>
+    struct loop<I, N, typename std::enable_if<I + 1 == N>::type> {
+        typedef boost::mpl::vector<
+            typename std::decay<
+                typename boost::fusion::result_of::at_c<T, I>::type
+            >::type::value_type
+        > type;
+    };
+
+    typedef typename loop<0, boost::fusion::result_of::size<T>::value>::type type;
+};
+
+struct type_iterator {
+    int pos;
+    std::function<void(int, std::string)> f;
+
+    template <class Function>
+    type_iterator(Function f) : pos(0), f(f) {}
+
+    template <class T>
+    void operator()(T) {
+        f(pos++, type_name<T>());
+    }
+};
+
+template <class T>
+void print_types(std::ostringstream &s) {
+    boost::mpl::for_each<T>(
+            type_iterator([&](int, std::string t) { s << "_" << t; })
+            );
+}
 
 //---------------------------------------------------------------------------
 // Memory transfer functions
@@ -338,53 +410,94 @@ void transfer_functions(backend::source_generator &src) {
 template <typename T>
 std::string swap_function() {
     std::ostringstream s;
-    s << "swap_" << type_name<T>();
+    s << "swap";
+    print_types<T>(s);
     return s.str();
 }
 
+template <template<class> class Address, bool Const = false>
+struct pointer_param {
+    backend::source_generator &src;
+    const char *name;
+    int pos;
+
+    pointer_param(backend::source_generator &src, const char *name)
+        : src(src), name(name), pos(0) {}
+
+    template <typename T>
+        void operator()(T) {
+            if (Const)
+                src.template parameter< Address<const T> >(name) << pos++;
+            else
+                src.template parameter< Address<T> >(name) << pos++;
+        }
+};
+
 template <typename T>
 void swap_function(backend::source_generator &src) {
-    src.function<void>(swap_function<T>())
-        .open("(")
-            .template parameter< regstr_ptr<T> >("a")
-            .template parameter< regstr_ptr<T> >("b")
-        .close(")").open("{");
+    src.function<void>(swap_function<T>()).open("(");
 
-    src.new_line() << type_name<T>() << " c = *a;";
-    src.new_line() << "*a = *b;";
-    src.new_line() << "*b = c;";
+    boost::mpl::for_each<T>( pointer_param<regstr_ptr>(src, "a") );
+    boost::mpl::for_each<T>( pointer_param<regstr_ptr>(src, "b") );
+
+    src.close(")").open("{");
+
+    boost::mpl::for_each<T>( type_iterator([&](size_t pos, std::string tname) {
+                src.open("{");
+                src.new_line() << tname << " c = *a" << pos << ";";
+                src.new_line() << "*a" << pos << " = *b" << pos << ";";
+                src.new_line() << "*b" << pos << " = c;";
+                src.close("}");
+                }) );
 
     src.close("}");
 }
 
 //---------------------------------------------------------------------------
-template<int VT, typename K, typename V, bool HasValues>
+template<int VT, typename K, typename V>
 std::string odd_even_transpose_sort() {
     std::ostringstream s;
-    s << "odd_even_transpose_sort_" << VT << "_" << type_name<K>();
-    if (HasValues) s << "_" << type_name<V>();
+    s << "odd_even_transpose_sort_" << VT;
+    print_types<K>(s);
+    print_types<V>(s);
     return s.str();
 }
 
-template<int VT, typename K, typename V, bool HasValues>
+template<int VT, typename K, typename V>
 void odd_even_transpose_sort(backend::source_generator &src) {
     swap_function<K>(src);
-    if (HasValues && !std::is_same<K, V>::value) swap_function<V>(src);
+    if (boost::mpl::size<V>::value && !std::is_same<K, V>::value)
+        swap_function<V>(src);
 
-    src.function<void>(odd_even_transpose_sort<VT,K,V,HasValues>());
+    src.function<void>(odd_even_transpose_sort<VT,K,V>());
     src.open("(");
-    src.template parameter< regstr_ptr<K> >("keys");
-    if (HasValues)
-        src.template parameter< regstr_ptr<V> >("vals");
+    boost::mpl::for_each<K>( pointer_param<regstr_ptr>(src, "keys") );
+    boost::mpl::for_each<V>( pointer_param<regstr_ptr>(src, "vals") );
     src.close(")").open("{");
 
     for(int I = 0; I < VT; ++I) {
         for(int i = 1 & I; i < VT - 1; i += 2) {
-            src.new_line() << "if (comp(keys[" << i + 1 << "], keys[" << i << "]))";
+            src.new_line() << "if (comp(";
+            for(int p = 0; p < boost::mpl::size<K>::value; ++p)
+                src << (p ? ", " : "") << "keys" << p << "[" << i + 1 << "]";
+            for(int p = 0; p < boost::mpl::size<K>::value; ++p)
+                src << ", keys" << p << "[" << i << "]";
+            src << "))";
             src.open("{");
-            src.new_line() << swap_function<K>() << "(keys + " << i << ", keys + " << i + 1 << ");";
-            if (HasValues)
-                src.new_line() << swap_function<V>() << "(vals + " << i << ", vals + " << i + 1 << ");";
+            src.new_line() << swap_function<K>() << "(";
+            for(int p = 0; p < boost::mpl::size<K>::value; ++p)
+                src << (p ? ", " : "") << "keys" << p << " + " << i;
+            for(int p = 0; p < boost::mpl::size<K>::value; ++p)
+                src << ", keys" << p << " + " << i + 1;
+            src << ");";
+            if (boost::mpl::size<V>::value) {
+                src.new_line() << swap_function<V>() << "(";
+                for(int p = 0; p < boost::mpl::size<V>::value; ++p)
+                    src << (p ? ", " : "") << "vals" << p << " + " << i;
+                for(int p = 0; p < boost::mpl::size<V>::value; ++p)
+                    src << ", vals" << p << " + " << i + 1;
+                src << ");";
+            }
             src.close("}");
         }
     }
@@ -393,27 +506,26 @@ void odd_even_transpose_sort(backend::source_generator &src) {
 }
 
 //---------------------------------------------------------------------------
-template<typename T>
+template<template<class> class Address, typename T>
 std::string merge_path() {
-    typedef typename std::decay<typename vex::remove_ptr<T>::type>::type K;
-
     std::ostringstream s;
-    s << "merge_path_" << type_name<K>();
+    s << "merge_path";
+    print_types<T>(s);
     return s.str();
 }
 
-template<typename T>
+template<template<class> class Address, typename T>
 void merge_path(backend::source_generator &src) {
-    src.function<int>(merge_path<T>())
+    src.function<int>(merge_path<Address, T>())
         .open("(")
-            .template parameter< T   >("a")
             .template parameter< int >("a_count")
-            .template parameter< T   >("b")
             .template parameter< int >("b_count")
-            .template parameter< int >("diag")
-        .close(")").open("{");
+            .template parameter< int >("diag");
 
-    typedef typename std::decay<typename vex::remove_ptr<T>::type>::type K;
+    boost::mpl::for_each<T>( pointer_param<Address, true>(src, "a") );
+    boost::mpl::for_each<T>( pointer_param<Address, true>(src, "b") );
+
+    src.close(")").open("{");
 
     src.new_line() << "int begin = max(0, diag - b_count);";
     src.new_line() << "int end   = min(diag, a_count);";
@@ -421,9 +533,12 @@ void merge_path(backend::source_generator &src) {
     src.new_line() << "while (begin < end)";
     src.open("{");
     src.new_line() << "int mid = (begin + end) >> 1;";
-    src.new_line() << type_name<K>() << " a_key = a[mid];";
-    src.new_line() << type_name<K>() << " b_key = b[diag - 1 - mid];";
-    src.new_line() << "if ( !comp(b_key, a_key) ) begin = mid + 1;";
+    src.new_line() << "if ( !comp(";
+    for(int p = 0; p < boost::mpl::size<T>::value; ++p)
+        src << (p ? ", " : "") << "b" << p << "[diag - 1 - mid]";
+    for(int p = 0; p < boost::mpl::size<T>::value; ++p)
+        src << ", a" << p << "[mid]";
+    src << ") ) begin = mid + 1;";
     src.new_line() << "else end = mid;";
     src.close("}");
 
@@ -436,7 +551,8 @@ void merge_path(backend::source_generator &src) {
 template<int VT, typename T>
 std::string serial_merge() {
     std::ostringstream s;
-    s << "serial_merge_" << VT << "_" << type_name<T>();
+    s << "serial_merge_" << VT;
+    print_types<T>(s);
     return s.str();
 }
 
@@ -444,27 +560,51 @@ template<int VT, typename T>
 void serial_merge(backend::source_generator &src) {
     src.function<void>(serial_merge<VT, T>())
         .open("(")
-            .template parameter< shared_ptr<const T> >("keys_shared")
             .template parameter< int                 >("a_begin")
             .template parameter< int                 >("a_end")
             .template parameter< int                 >("b_begin")
             .template parameter< int                 >("b_end")
-            .template parameter< regstr_ptr<T>       >("results")
-            .template parameter< regstr_ptr<int>     >("indices")
-        .close(")").open("{");
+            .template parameter< regstr_ptr<int>     >("indices");
 
-    src.new_line() << type_name<T>() << " a_key = keys_shared[a_begin];";
-    src.new_line() << type_name<T>() << " b_key = keys_shared[b_begin];";
+    boost::mpl::for_each<T>( pointer_param<shared_ptr, true>(src, "keys_shared") );
+    boost::mpl::for_each<T>( pointer_param<regstr_ptr>(src, "results") );
+
+    src.close(")").open("{");
+
+    boost::mpl::for_each<T>( type_iterator([&](size_t pos, std::string tname) {
+                src.new_line() << tname << " a_key" << pos << " = keys_shared" << pos << "[a_begin];";
+                src.new_line() << tname << " b_key" << pos << " = keys_shared" << pos << "[b_begin];";
+                }) );
+
     src.new_line() << "bool p;";
 
     for(int i = 0; i < VT; ++i) {
-        src.new_line() << "p = (b_begin >= b_end) || ((a_begin < a_end) && !comp(b_key, a_key));";
+        src.new_line() << "p = (b_begin >= b_end) || ((a_begin < a_end) && !comp(";
+        for(int p = 0; p < boost::mpl::size<T>::value; ++p)
+            src << (p ? ", " : "") << "b_key" << p;
+        for(int p = 0; p < boost::mpl::size<T>::value; ++p)
+            src << ", a_key" << p;
+        src << "));";
 
-        src.new_line() << "results[" << i << "] = p ? a_key : b_key;";
+        for(int p = 0; p < boost::mpl::size<T>::value; ++p)
+            src.new_line()
+                << "results" << p << "[" << i << "] = "
+                << "p ? a_key" << p << " : b_key" << p << ";";
+
         src.new_line() << "indices[" << i << "] = p ? a_begin : b_begin;";
 
-        src.new_line() << "if(p) a_key = keys_shared[++a_begin];";
-        src.new_line() << "else  b_key = keys_shared[++b_begin];";
+        src.new_line() << "if(p)";
+        src.open("{");
+        src.new_line() << "++a_begin;";
+        for(int p = 0; p < boost::mpl::size<T>::value; ++p)
+            src.new_line() << "a_key" << p << " = keys_shared" << p << "[a_begin];";
+        src.close("}");
+        src.new_line() << "else";
+        src.open("{");
+        src.new_line() << "++b_begin;";
+        for(int p = 0; p < boost::mpl::size<T>::value; ++p)
+            src.new_line() << "b_key" << p << " = keys_shared" << p << "[b_begin];";
+        src.close("}");
     }
 
     src.new_line().barrier();
@@ -476,23 +616,26 @@ void serial_merge(backend::source_generator &src) {
 template<int NT, int VT, typename T>
 std::string block_sort_pass() {
     std::ostringstream s;
-    s << "block_sort_pass_" << NT << "_" << VT << "_" << type_name<T>();
+    s << "block_sort_pass_" << NT << "_" << VT;
+    print_types<T>(s);
     return s.str();
 }
 
 template<int NT, int VT, typename T>
 void block_sort_pass(backend::source_generator &src) {
-    merge_path< shared_ptr<const T> >(src);
+    merge_path< shared_ptr, T >(src);
 
     src.function<void>(block_sort_pass<NT, VT, T>())
         .open("(")
-            .template parameter< shared_ptr<const T> >("keys_shared")
             .template parameter< int                 >("tid")
             .template parameter< int                 >("count")
             .template parameter< int                 >("coop")
-            .template parameter< regstr_ptr<T>       >("keys")
-            .template parameter< regstr_ptr<int>     >("indices")
-        .close(")").open("{");
+            .template parameter< regstr_ptr<int>     >("indices");
+
+    boost::mpl::for_each<T>( pointer_param<shared_ptr, true>(src, "keys_shared") );
+    boost::mpl::for_each<T>( pointer_param<regstr_ptr>(src, "keys") );
+
+    src.close(")").open("{");
 
     src.new_line() << "int list = ~(coop - 1) & tid;";
     src.new_line() << "int diag = min(count, " << VT << " * ((coop - 1) & tid));";
@@ -501,8 +644,20 @@ void block_sort_pass(backend::source_generator &src) {
     src.new_line() << "int b0 = min(count, start + " << VT << " * (coop / 2));";
     src.new_line() << "int b1 = min(count, start + " << VT << " * coop);";
 
-    src.new_line() << "int p = " << merge_path< shared_ptr<const T> >() << "(keys_shared + a0, b0 - a0, keys_shared + b0, b1 - b0, diag);";
-    src.new_line() << serial_merge<VT, T>() << "(keys_shared, a0 + p, b0, b0 + diag - p, b1, keys, indices);";
+    src.new_line() << "int p = "
+        << merge_path< shared_ptr, T >()
+        << "(b0 - a0, b1 - b0, diag";
+    for(int p = 0; p < boost::mpl::size<T>::value; ++p)
+        src << ", keys_shared" << p << " + a0";
+    for(int p = 0; p < boost::mpl::size<T>::value; ++p)
+        src << ", keys_shared" << p << " + b0";
+    src << ");";
+    src.new_line() << serial_merge<VT, T >() << "(a0 + p, b0, b0 + diag - p, b1, indices";
+    for(int p = 0; p < boost::mpl::size<T>::value; ++p)
+        src << ", keys_shared" << p;
+    for(int p = 0; p < boost::mpl::size<T>::value; ++p)
+        src << ", keys" << p;
+    src << ");";
 
     src.close("}");
 }
@@ -511,7 +666,8 @@ void block_sort_pass(backend::source_generator &src) {
 template<int NT, int VT, typename T>
 std::string gather() {
     std::ostringstream s;
-    s << "gather_" << NT << "_" << VT << "_" << type_name<T>();
+    s << "gather_" << NT << "_" << VT;
+    print_types<T>(s);
     return s.str();
 }
 
@@ -519,14 +675,16 @@ template<int NT, int VT, typename T>
 void gather(backend::source_generator &src) {
     src.function<void>(gather<NT, VT, T>())
         .open("(")
-            .template parameter< shared_ptr<const T>   >("data")
             .template parameter< regstr_ptr<const int> >("indices")
-            .template parameter< int                   >("tid")
-            .template parameter< regstr_ptr<T>         >("reg")
-        .close(")").open("{");
+            .template parameter< int                   >("tid");
+
+    boost::mpl::for_each<T>( pointer_param<shared_ptr, true>(src, "data") );
+    boost::mpl::for_each<T>( pointer_param<regstr_ptr>(src, "reg") );
+    src.close(")").open("{");;
 
     for(int i = 0; i < VT; ++i)
-        src.new_line() << "reg[" << i << "] = data[indices[" << i << "]];";
+        for(int p = 0; p < boost::mpl::size<T>::value; ++p)
+            src.new_line() << "reg" << p << "[" << i << "] = data" << p << "[indices[" << i << "]];";
 
     src.new_line().barrier();
 
@@ -534,100 +692,213 @@ void gather(backend::source_generator &src) {
 }
 
 //---------------------------------------------------------------------------
-template<int NT, int VT, typename K, typename V, bool HasValues>
+template<int NT, int VT, typename K, typename V>
 std::string block_sort_loop() {
     std::ostringstream s;
-    s << "block_sort_loop_" << NT << "_" << VT << "_" << type_name<K>();
-    if (HasValues) s << "_" << type_name<V>();
+    s << "block_sort_loop_" << NT << "_" << VT;
+    print_types<K>(s);
+    print_types<V>(s);
     return s.str();
 }
 
-template<int NT, int VT, typename K, typename V, bool HasValues>
-void block_sort_loop(backend::source_generator &src) {
-    block_sort_pass<NT, VT, K>(src);
-    if (HasValues) gather<NT, VT, V>(src);
+template<int VT>
+struct call_thread_to_shared {
+    backend::source_generator &src;
+    const char *tname;
+    const char *sname;
+    int pos;
 
-    src.function<void>(block_sort_loop<NT, VT, K, V, HasValues>());
-    src.open("(");
-    src.template parameter< shared_ptr<K> >("keys_shared");
-    if (HasValues) {
-        src.template parameter< regstr_ptr<V> >("thread_vals");
-        src.template parameter< shared_ptr<V> >("vals_shared");
+    call_thread_to_shared(backend::source_generator &src,
+            const char *tname, const char *sname
+            ) : src(src), tname(tname), sname(sname), pos(0) {}
+
+    template <typename T>
+    void operator()(T) {
+        src.new_line() << thread_to_shared<VT, T>()
+            << "(" << tname << pos << ", tid, " << sname << pos << ");";
+        ++pos;
     }
-    src.template parameter< int           >("tid");
-    src.template parameter< int           >("count");
+};
+
+template<int NT, int VT, typename K, typename V>
+void block_sort_loop(backend::source_generator &src) {
+    block_sort_pass<NT, VT, K >(src);
+    if (boost::mpl::size<V>::value) gather<NT, VT, V>(src);
+
+    src.function<void>(block_sort_loop<NT, VT, K, V>()).open("(");
+
+    src.template parameter< int >("tid");
+    src.template parameter< int >("count");
+
+    boost::mpl::for_each<K>( pointer_param<shared_ptr>(src, "keys_shared") );
+    boost::mpl::for_each<V>( pointer_param<regstr_ptr>(src, "thread_vals") );
+    boost::mpl::for_each<V>( pointer_param<shared_ptr>(src, "vals_shared") );
+
     src.close(")").open("{");
 
     src.new_line() << "int indices[" << VT << "];";
-    src.new_line() << type_name<K>() << " keys[" << VT << "];";
+
+    boost::mpl::for_each<K>( type_iterator([&](size_t pos, std::string tname) {
+                src.new_line() << tname << " keys" << pos++ << "[" << VT << "];";
+                }) );
 
     for(int coop = 2; coop <= NT; coop *= 2) {
-        src.new_line() << block_sort_pass<NT, VT, K>()
-            << "(keys_shared, tid, count, " << coop << ", keys, indices);";
+        src.new_line() << block_sort_pass<NT, VT, K >()
+            << "(tid, count, " << coop << ", indices";
+        for(int p = 0; p < boost::mpl::size<K>::value; ++p)
+            src << ", keys_shared" << p;
+        for(int p = 0; p < boost::mpl::size<K>::value; ++p)
+            src << ", keys" << p;
+        src << ");";
 
-        if (HasValues) {
+        if (boost::mpl::size<V>::value) {
             // Exchange the values through shared memory.
-            src.new_line() << thread_to_shared<VT, V>()
-                << "(thread_vals, tid, vals_shared);";
+            boost::mpl::for_each<V>( call_thread_to_shared<VT>(src, "thread_vals", "vals_shared") );
+
             src.new_line() << gather<NT, VT, V>()
-                << "(vals_shared, indices, tid, thread_vals);";
+                << "(indices, tid";
+            for(int p = 0; p < boost::mpl::size<V>::value; ++p)
+                src << ", vals_shared" << p;
+            for(int p = 0; p < boost::mpl::size<V>::value; ++p)
+                src << ", thread_vals" << p;
+            src << ");";
         }
 
         // Store results in shared memory in sorted order.
-        src.new_line() << thread_to_shared<VT, K>()
-            << "(keys, tid, keys_shared);";
+        boost::mpl::for_each<K>( call_thread_to_shared<VT>(src, "keys", "keys_shared") );
     }
 
     src.close("}");
 }
 
 //---------------------------------------------------------------------------
-template<int NT, int VT, typename K, typename V, bool HasValues>
+template<int NT, int VT, typename K, typename V>
 std::string mergesort() {
     std::ostringstream s;
-    s << "mergesort_" << NT << "_" << VT << "_" << type_name<K>();
-    if (HasValues) s << "_" << type_name<V>();
+    s << "mergesort_" << NT << "_" << VT;
+    print_types<K>(s);
+    print_types<V>(s);
     return s.str();
 }
 
-template<int NT, int VT, typename K, typename V, bool HasValues>
+template<int NT, int VT, typename K, typename V>
 void mergesort(backend::source_generator &src) {
-    odd_even_transpose_sort<VT, K, V, HasValues>(src);
-    block_sort_loop<NT, VT, K, V, HasValues>(src);
+    odd_even_transpose_sort<VT, K, V>(src);
+    block_sort_loop<NT, VT, K, V>(src);
 
-    src.function<void>(mergesort<NT, VT, K, V, HasValues>());
-    src.open("(");
-    src.template parameter< regstr_ptr<K> >("thread_keys");
-    src.template parameter< shared_ptr<K> >("keys_shared");
-    if (HasValues) {
-        src.template parameter< regstr_ptr<V> >("thread_vals");
-        src.template parameter< shared_ptr<V> >("vals_shared");
-    }
-    src.template parameter< int           >("count");
-    src.template parameter< int           >("tid");
+    src.function<void>(mergesort<NT, VT, K, V>()).open("(");
+
+    src.template parameter< int >("count");
+    src.template parameter< int >("tid");
+
+    boost::mpl::for_each<K>( pointer_param<regstr_ptr>(src, "thread_keys") );
+    boost::mpl::for_each<K>( pointer_param<shared_ptr>(src, "keys_shared") );
+    boost::mpl::for_each<V>( pointer_param<regstr_ptr>(src, "thread_vals") );
+    boost::mpl::for_each<V>( pointer_param<shared_ptr>(src, "vals_shared") );
+
     src.close(")").open("{");
 
     // Stable sort the keys in the thread.
     src.new_line() << "if(" << VT << " * tid < count) "
-        << odd_even_transpose_sort<VT, K, V, HasValues>()
-        << "(thread_keys"
-        << (HasValues ? ", thread_vals);" : ");");
+        << odd_even_transpose_sort<VT, K, V>()
+        << "(";
+    for(int p = 0; p < boost::mpl::size<K>::value; ++p)
+        src << (p ? ", " : "") << "thread_keys" << p;
+    for(int p = 0; p < boost::mpl::size<V>::value; ++p)
+        src << ", thread_vals" << p;
+    src << ");";
 
     // Store the locally sorted keys into shared memory.
-    src.new_line() << thread_to_shared<VT, K>()
-        << "(thread_keys, tid, keys_shared);";
+    boost::mpl::for_each<K>( call_thread_to_shared<VT>(src, "thread_keys", "keys_shared") );
 
     // Recursively merge lists until the entire CTA is sorted.
-    src.new_line() << block_sort_loop<NT, VT, K, V, HasValues>()
-        << "(keys_shared, "
-        << (HasValues ? "thread_vals, vals_shared, " : "")
-        << "tid, count);";
+    src.new_line() << block_sort_loop<NT, VT, K, V>()
+        << "(tid, count";
+    for(int p = 0; p < boost::mpl::size<K>::value; ++p)
+        src << ", keys_shared" << p;
+    for(int p = 0; p < boost::mpl::size<V>::value; ++p)
+        src << ", thread_vals" << p;
+    for(int p = 0; p < boost::mpl::size<V>::value; ++p)
+        src << ", vals_shared" << p;
+    src << ");";
 
     src.close("}");
 }
 
+template <int NT, int VT>
+struct define_transfer_functions {
+    backend::source_generator &src;
+
+    define_transfer_functions(backend::source_generator &src) : src(src) {}
+
+    template <typename T>
+    void operator()(T) const {
+        transfer_functions<NT, VT, T>(src);
+    }
+};
+
+template<int NT, int VT>
+struct call_global_to_shared {
+    backend::source_generator &src;
+    const char *gname;
+    const char *sname;
+    int pos;
+
+    call_global_to_shared(backend::source_generator &src,
+            const char *gname, const char *sname
+            ) : src(src), gname(gname), sname(sname), pos(0) {}
+
+    template <typename T>
+    void operator()(T) {
+        src.new_line() << global_to_shared<NT, VT, T>() << "(count2, "
+            << gname << pos << " + gid, tid, "
+            << sname << pos << ");";
+        ++pos;
+    }
+};
+
+template<int NT, int VT>
+struct call_shared_to_global {
+    backend::source_generator &src;
+    const char *count;
+    const char *sname;
+    const char *gname;
+    const char *gid;
+    int pos;
+
+    call_shared_to_global(backend::source_generator &src,
+            const char *count, const char *sname, const char *gname, const char *gid
+            ) : src(src), count(count), sname(sname), gname(gname), gid(gid), pos(0) {}
+
+    template <typename T>
+    void operator()(T) {
+        src.new_line() << shared_to_global<NT, VT, T>()
+            << "(" << count << ", " << sname << pos << ", tid, " << gname << pos << " + " << gid << ");";
+        ++pos;
+    }
+};
+
+template<int VT>
+struct call_shared_to_thread {
+    backend::source_generator &src;
+    const char *sname;
+    const char *tname;
+    int pos;
+
+    call_shared_to_thread(backend::source_generator &src,
+            const char *sname, const char *tname
+            ) : src(src), sname(sname), tname(tname), pos(0) {}
+
+    template <typename T>
+    void operator()(T) {
+        src.new_line() << shared_to_thread<VT, T>()
+            << "(" << sname << pos << ", tid, " << tname << pos << ");";
+        ++pos;
+    }
+};
+
 //---------------------------------------------------------------------------
-template <int NT, int VT, typename K, typename V, typename Comp, bool HasValues>
+template <int NT, int VT, typename K, typename V, typename Comp>
 backend::kernel& block_sort_kernel(const backend::command_queue &queue) {
     static detail::kernel_cache cache;
 
@@ -639,35 +910,54 @@ backend::kernel& block_sort_kernel(const backend::command_queue &queue) {
 
         Comp::define(src, "comp");
 
-        transfer_functions<NT, VT, int>(src);
+        boost::mpl::for_each<
+            typename boost::mpl::copy<
+                typename boost::mpl::copy<
+                    V,
+                    boost::mpl::back_inserter<K>
+                    >::type,
+                boost::mpl::inserter<
+                    boost::mpl::set<int>,
+                    boost::mpl::insert<boost::mpl::_1, boost::mpl::_2>
+                    >
+                >::type
+            >( define_transfer_functions<NT, VT>(src) );
 
-        if (!std::is_same<K, int>::value)
-            transfer_functions<NT, VT, K>(src);
-
-        if (HasValues && !std::is_same<V, K>::value && !std::is_same<V, int>::value)
-            transfer_functions<NT, VT, V>(src);
-
-        serial_merge<VT, K>(src);
-        mergesort<NT, VT, K, V, HasValues>(src);
+        serial_merge<VT, K >(src);
+        mergesort<NT, VT, K, V>(src);
 
         src.kernel("block_sort");
         src.open("(");
-        src.template parameter< int                 >("count");
-        src.template parameter< global_ptr<const K> >("keys_src");
-        src.template parameter< global_ptr<      K> >("keys_dst");
-        if (HasValues) {
-            src.template parameter< global_ptr<const V> >("vals_src");
-            src.template parameter< global_ptr<      V> >("vals_dst");
-        }
+        src.template parameter< int >("count");
+
+        boost::mpl::for_each<K>( pointer_param<global_ptr, true>(src, "keys_src") );
+        boost::mpl::for_each<K>( pointer_param<global_ptr      >(src, "keys_dst") );
+        boost::mpl::for_each<V>( pointer_param<global_ptr, true>(src, "vals_src") );
+        boost::mpl::for_each<V>( pointer_param<global_ptr      >(src, "vals_dst") );
+
         src.close(")").open("{");
 
         const int NV = NT * VT;
 
         src.new_line() << "union Shared";
         src.open("{");
-        src.new_line() << type_name<K>() << " keys[" << NT * (VT + 1) << "];";
-        if (HasValues)
-            src.new_line() << type_name<V>() << " vals[" << NV << "];";
+
+        src.new_line() << "struct";
+        src.open("{");
+        boost::mpl::for_each<K>( type_iterator([&](size_t pos, std::string tname) {
+                    src.new_line() << tname << " keys" << pos << "[" << NT * (VT + 1) << "];";
+                    }) );
+        src.close("};");
+
+        if (boost::mpl::size<V>::value) {
+            src.new_line() << "struct";
+            src.open("{");
+            boost::mpl::for_each<V>( type_iterator([&](size_t pos, std::string tname) {
+                        src.new_line() << tname << " vals" << pos << "[" << NT * VT << "];";
+                        }) );
+            src.close("};");
+        }
+
         src.close("};");
 
         src.smem_static_var("union Shared", "shared");
@@ -678,20 +968,20 @@ backend::kernel& block_sort_kernel(const backend::command_queue &queue) {
         src.new_line() << "int count2 = min(" << NV << ", count - gid);";
 
         // Load the values into thread order.
-        if (HasValues) {
-            src.new_line() << type_name<V>() << " thread_vals[" << VT << "];";
-            src.new_line() << global_to_shared<NT, VT, V>()
-                << "(count2, vals_src + gid, tid, shared.vals);";
-            src.new_line() << shared_to_thread<VT, V>()
-                << "(shared.vals, tid, thread_vals);";
-        }
+        boost::mpl::for_each<V>( type_iterator([&](size_t pos, std::string tname) {
+                    src.new_line() << tname << " thread_vals" << pos << "[" << VT << "];";
+                    }) );
+
+        boost::mpl::for_each<V>( call_global_to_shared<NT, VT>(src, "vals_src", "shared.vals") );
+        boost::mpl::for_each<V>( call_shared_to_thread<VT>(src, "shared.vals", "thread_vals") );
 
         // Load keys into shared memory and transpose into register in thread order.
-        src.new_line() << type_name<K>() << " thread_keys[" << VT << "];";
-        src.new_line() << global_to_shared<NT, VT, K>()
-            << "(count2, keys_src + gid, tid, shared.keys);";
-        src.new_line() << shared_to_thread<VT, K>()
-            << "(shared.keys, tid, thread_keys);";
+        boost::mpl::for_each<K>( type_iterator([&](size_t pos, std::string tname) {
+                    src.new_line() << tname << " thread_keys" << pos << "[" << VT << "];";
+                    }) );
+
+        boost::mpl::for_each<K>( call_global_to_shared<NT, VT>(src, "keys_src", "shared.keys") );
+        boost::mpl::for_each<K>( call_shared_to_thread<VT>(src, "shared.keys", "thread_keys") );
 
         // If we're in the last tile, set the uninitialized keys for the thread with
         // a partial number of keys.
@@ -699,37 +989,53 @@ backend::kernel& block_sort_kernel(const backend::command_queue &queue) {
         src.new_line() << "if(first + " << VT << " > count2 && first < count2)";
         src.open("{");
 
-        src.new_line() << type_name<K>() << " max_key = thread_keys[0];";
+        boost::mpl::for_each<K>( type_iterator([&](size_t pos, std::string tname) {
+                    src.new_line() << tname << " max_key" << pos << " = thread_keys" << pos << "[0];";
+                    }) );
 
-        for(int i = 1; i < VT; ++i)
+        for(int i = 1; i < VT; ++i) {
             src.new_line()
-                << "if(first + " << i << " < count2)"
-                << " max_key = comp(max_key, thread_keys[" << i << "])"
-                << " ? thread_keys[" << i << "] : max_key;";
+                << "if(first + " << i << " < count2 && comp(";
+            for(int p = 0; p < boost::mpl::size<K>::value; ++p)
+                src << (p ? ", " : "") << "max_key" << p;
+            for(int p = 0; p < boost::mpl::size<K>::value; ++p)
+                src << ", thread_keys" << p << "[" << i << "]";
+            src << ") )";
+            src.open("{");
+            for(int p = 0; p < boost::mpl::size<K>::value; ++p)
+            src.new_line() << "max_key" << p << " = thread_keys" << p << "[" << i << "];";
+            src.close("}");
+        }
 
         // Fill in the uninitialized elements with max key.
-        for(int i = 0; i < VT; ++i)
+        for(int i = 0; i < VT; ++i) {
             src.new_line()
-                << "if(first + " << i << " >= count2)"
-                << " thread_keys[" << i << "] = max_key;";
+                << "if(first + " << i << " >= count2)";
+            src.open("{");
+            for(int p = 0; p < boost::mpl::size<K>::value; ++p)
+                src.new_line() << "thread_keys" << p << "[" << i << "] = max_key" << p << ";";
+            src.close("}");
+        }
 
         src.close("}");
 
-        src.new_line() << mergesort<NT, VT, K, V, HasValues>()
-            << "(thread_keys, shared.keys, "
-            << (HasValues ? "thread_vals, shared.vals, " : "")
-            << "count2, tid);";
+        src.new_line() << mergesort<NT, VT, K, V>()
+            << "(count2, tid";
+        for(int p = 0; p < boost::mpl::size<K>::value; ++p)
+            src << ", thread_keys" << p;
+        for(int p = 0; p < boost::mpl::size<K>::value; ++p)
+            src << ", shared.keys" << p;
+        for(int p = 0; p < boost::mpl::size<V>::value; ++p)
+            src << ", thread_vals" << p;
+        for(int p = 0; p < boost::mpl::size<V>::value; ++p)
+            src << ", shared.vals" << p;
+        src << ");";
 
         // Store the sorted keys to global.
-        src.new_line() << shared_to_global<NT, VT, K>()
-            << "(count2, shared.keys, tid, keys_dst + gid);";
+        boost::mpl::for_each<K>( call_shared_to_global<NT, VT>(src, "count2", "shared.keys", "keys_dst", "gid") );
 
-        if (HasValues) {
-            src.new_line() << thread_to_shared<VT, V>()
-                << "(thread_vals, tid, shared.vals);";
-            src.new_line() << shared_to_global<NT, VT, V>()
-                << "(count2, shared.vals, tid, vals_dst + gid);";
-        }
+        boost::mpl::for_each<V>( call_thread_to_shared<VT>(src, "thread_vals", "shared.vals") );
+        boost::mpl::for_each<V>( call_shared_to_global<NT, VT>(src, "count2", "shared.vals", "vals_dst", "gid") );
 
         src.close("}");
 
@@ -777,20 +1083,22 @@ backend::kernel merge_partition_kernel(const backend::command_queue &queue) {
         backend::source_generator src(queue);
 
         Comp::define(src, "comp");
-        merge_path< global_ptr<const T> >(src);
+        merge_path< global_ptr, T >(src);
         find_mergesort_frame(src);
 
         src.kernel("merge_partition")
             .open("(")
-                .template parameter< global_ptr<const T> >("a_global")
                 .template parameter< int                 >("a_count")
-                .template parameter< global_ptr<const T> >("b_global")
                 .template parameter< int                 >("b_count")
                 .template parameter< int                 >("nv")
                 .template parameter< int                 >("coop")
                 .template parameter< global_ptr<int>     >("mp_global")
-                .template parameter< int                 >("num_searches")
-            .close(")").open("{");
+                .template parameter< int                 >("num_searches");
+
+        boost::mpl::for_each<T>( pointer_param<global_ptr, true>(src, "a_global") );
+        boost::mpl::for_each<T>( pointer_param<global_ptr, true>(src, "b_global") );
+
+        src.close(")").open("{");
 
         src.new_line() << "int partition = " << src.global_id(0) << ";";
         src.new_line() << "if (partition < num_searches)";
@@ -810,8 +1118,13 @@ backend::kernel merge_partition_kernel(const backend::command_queue &queue) {
         src.new_line() << "gid -= a0;";
         src.close("}");
 
-        src.new_line() << "int mp = " << merge_path< global_ptr<const T> >()
-            << "(a_global + a0, a_count, b_global + b0, b_count, min(gid, a_count + b_count));";
+        src.new_line() << "int mp = " << merge_path< global_ptr, T >()
+            << "(a_count, b_count, min(gid, a_count + b_count)";
+        for(int p = 0; p < boost::mpl::size<T>::value; ++p)
+            src << ", a_global" << p << " + a0";
+        for(int p = 0; p < boost::mpl::size<T>::value; ++p)
+            src << ", b_global" << p << " + b0";
+        src << ");";
         src.new_line() << "mp_global[partition] = mp;";
 
         src.close("}");
@@ -825,14 +1138,97 @@ backend::kernel merge_partition_kernel(const backend::command_queue &queue) {
     return kernel->second;
 }
 
+template <class K, size_t I = 0, class Enable = void>
+struct temp_storage {
+    device_vector< typename boost::mpl::at_c<K, I>::type > head;
+    temp_storage<K, I + 1> tail;
+
+    temp_storage(const backend::command_queue &queue, size_t n)
+        : head(queue, n), tail(queue, n) {}
+
+    template <size_t J>
+    typename std::enable_if<
+        (J > I),
+        device_vector< typename boost::mpl::at_c<K, J>::type >
+    >::type&
+    get() {
+        return tail.template get<J>();
+    }
+
+    template <size_t J>
+    typename std::enable_if<
+        (J == I),
+        device_vector< typename boost::mpl::at_c<K, J>::type >
+    >::type&
+    get() {
+        return head;
+    }
+
+    template <class Tuple>
+    typename std::enable_if<
+        boost::fusion::result_of::size<Tuple>::value == boost::mpl::size<K>::value &&
+        I + 1 < static_cast<size_t>(boost::mpl::size<K>::value),
+        void
+    >::type
+    swap(Tuple &t) {
+        std::swap(head, boost::fusion::at_c<I>(t));
+        tail.swap(t);
+    }
+
+    template <class Tuple>
+    typename std::enable_if<
+        boost::fusion::result_of::size<Tuple>::value == boost::mpl::size<K>::value &&
+        I + 1 == boost::mpl::size<K>::value,
+        void
+    >::type
+    swap(Tuple &t) {
+        std::swap(head, boost::fusion::at_c<I>(t));
+    }
+};
+
+
+template <class K, size_t I>
+struct temp_storage<K, I,
+    typename std::enable_if<I == boost::mpl::size<K>::value>::type >
+{
+    temp_storage(const backend::command_queue&, size_t) {}
+};
+
+template <size_t I, size_t N, class Enable = void>
+struct arg_pusher {
+    template <class T>
+    static void push(backend::kernel &krn, T &&t) {
+        krn.push_arg(boost::fusion::at_c<I>(t));
+        arg_pusher<I + 1, N>::push(krn, std::forward<T>(t));
+    }
+
+    template <class T>
+    static void push(backend::kernel &krn, temp_storage<T> &t) {
+        krn.push_arg(t.template get<I>());
+        arg_pusher<I + 1, N>::push(krn, t);
+    }
+};
+
+template <size_t I, size_t N>
+struct arg_pusher<I, N, typename std::enable_if<I == N>::type> {
+    template <class T> static void push(backend::kernel&, T&&) { }
+};
+
+template <size_t N, class T>
+void push_args(backend::kernel &krn, T &&t) {
+    arg_pusher<0, N>::push(krn, t);
+}
+
 //---------------------------------------------------------------------------
-template <typename Comp, typename T>
+template <typename Comp, class KT>
 backend::device_vector<int> merge_path_partitions(
         const backend::command_queue &queue,
-        const device_vector<T> &keys,
+        const KT &keys,
         int count, int nv, int coop
         )
 {
+    typedef typename extract_value_types<KT>::type K;
+
     const int NT = 64;
 
     int num_partitions       = (count + nv - 1) / nv;
@@ -840,19 +1236,20 @@ backend::device_vector<int> merge_path_partitions(
 
     backend::device_vector<int> partitions(queue, num_partitions + 1);
 
-    auto merge_partition = merge_partition_kernel<NT, T, Comp>(queue);
+    auto merge_partition = merge_partition_kernel<NT, K, Comp>(queue);
 
-    int a_count = keys.size();
+    int a_count = boost::fusion::at_c<0>(keys).size();
     int b_count = 0;
 
-    merge_partition.push_arg(keys);
     merge_partition.push_arg(a_count);
-    merge_partition.push_arg(keys);
     merge_partition.push_arg(b_count);
     merge_partition.push_arg(nv);
     merge_partition.push_arg(coop);
     merge_partition.push_arg(partitions);
     merge_partition.push_arg(num_partitions + 1);
+
+    push_args<boost::mpl::size<K>::value>(merge_partition, keys);
+    push_args<boost::mpl::size<K>::value>(merge_partition, keys);
 
     merge_partition.config(num_partition_blocks, NT);
 
@@ -1028,28 +1425,70 @@ void load2_to_shared(backend::source_generator &src) {
 template <int NT, int VT, typename T>
 std::string merge_keys_indices() {
     std::ostringstream s;
-    s << "merge_keys_indices_" << NT << "_" << VT << "_" << type_name<T>();
+    s << "merge_keys_indices_" << NT << "_" << VT;
+    print_types<T>(s);
     return s.str();
 }
 
+
+template <int NT, int VT>
+struct define_load2_to_shared {
+    backend::source_generator &src;
+
+    define_load2_to_shared(backend::source_generator &src) : src(src) {}
+
+    template <typename T>
+    void operator()(T) const {
+        load2_to_shared<NT, VT, VT, T>(src);
+    }
+};
+
+template <int NT, int VT>
+struct call_load2_to_shared {
+    backend::source_generator &src;
+    int pos;
+
+    call_load2_to_shared(backend::source_generator &src) : src(src), pos(0) {}
+
+    template <typename T>
+    void operator()(T) {
+        src.new_line() << load2_to_shared<NT, VT, VT, T>()
+            << "(a_global" << pos << " + a0, a_count, b_global" << pos
+            << " + b0, b_count, tid, keys_shared" << pos << ");";
+
+        ++pos;
+    }
+};
+
 template <int NT, int VT, typename T>
 void merge_keys_indices(backend::source_generator &src) {
-    serial_merge<VT, T>(src);
-    merge_path< shared_ptr<const T> >(src);
-    load2_to_shared<NT, VT, VT, T>(src);
+    serial_merge<VT, T >(src);
+    merge_path< shared_ptr, T >(src);
+
+    boost::mpl::for_each<
+        typename boost::mpl::copy<
+            T,
+            boost::mpl::inserter<
+                boost::mpl::set0<>,
+                boost::mpl::insert<boost::mpl::_1, boost::mpl::_2>
+                >
+            >::type
+        >( define_load2_to_shared<NT, VT>(src) );
 
     src.function<void>(merge_keys_indices<NT, VT, T>())
         .open("(")
-            .template parameter< global_ptr<const T> >("a_global")
             .template parameter< int                 >("a_count")
-            .template parameter< global_ptr<const T> >("b_global")
             .template parameter< int                 >("b_count")
             .template parameter< cl_int4             >("range")
             .template parameter< int                 >("tid")
-            .template parameter< shared_ptr<T>       >("keys_shared")
-            .template parameter< regstr_ptr<T>       >("results")
-            .template parameter< regstr_ptr<int>     >("indices")
-        .close(")").open("{");
+            .template parameter< regstr_ptr<int>     >("indices");
+
+    boost::mpl::for_each<T>( pointer_param<global_ptr, true>(src, "a_global") );
+    boost::mpl::for_each<T>( pointer_param<global_ptr, true>(src, "b_global") );
+    boost::mpl::for_each<T>( pointer_param<shared_ptr      >(src, "keys_shared") );
+    boost::mpl::for_each<T>( pointer_param<regstr_ptr      >(src, "results") );
+
+    src.close(")").open("{");;
 
     src.new_line() << "int a0 = range.x;";
     src.new_line() << "int a1 = range.y;";
@@ -1062,14 +1501,18 @@ void merge_keys_indices(backend::source_generator &src) {
     src.new_line() << "b_count = b1 - b0;";
 
     // Load the data into shared memory.
-    src.new_line() << load2_to_shared<NT, VT, VT, T>()
-        << "(a_global + a0, a_count, b_global + b0, b_count, tid, keys_shared);";
+    boost::mpl::for_each<T>( call_load2_to_shared<NT, VT>(src) );
 
     // Run a merge path to find the start of the serial merge for each
     // thread.
     src.new_line() << "int diag = " << VT << " * tid;";
-    src.new_line() << "int mp = " << merge_path< shared_ptr<const T> >()
-        << "(keys_shared, a_count, keys_shared + a_count, b_count, diag);";
+    src.new_line() << "int mp = " << merge_path< shared_ptr, T >()
+        << "(a_count, b_count, diag";
+    for(int p = 0; p < boost::mpl::size<T>::value; ++p)
+        src << ", keys_shared" << p;
+    for(int p = 0; p < boost::mpl::size<T>::value; ++p)
+        src << ", keys_shared" << p << " + a_count";
+    src << ");";
 
     // Compute the ranges of the sources in shared memory.
     src.new_line() << "int a0tid = mp;";
@@ -1078,8 +1521,13 @@ void merge_keys_indices(backend::source_generator &src) {
     src.new_line() << "int b1tid = a_count + b_count;";
 
     // Serial merge into register.
-    src.new_line() << serial_merge<VT, T>()
-        << "(keys_shared, a0tid, a1tid, b0tid, b1tid, results, indices);";
+    src.new_line() << serial_merge<VT, T >()
+        << "(a0tid, a1tid, b0tid, b1tid, indices";
+    for(int p = 0; p < boost::mpl::size<T>::value; ++p)
+        src << ", keys_shared" << p;
+    for(int p = 0; p < boost::mpl::size<T>::value; ++p)
+        src << ", results" << p;
+    src << ");";
 
     src.close("}");
 }
@@ -1088,7 +1536,8 @@ void merge_keys_indices(backend::source_generator &src) {
 template <int NT, int VT, typename T>
 std::string transfer_merge_values_regstr() {
     std::ostringstream s;
-    s << "transfer_merge_values_regstr_" << NT << "_" << VT << "_" << type_name<T>();
+    s << "transfer_merge_values_regstr_" << NT << "_" << VT;
+    print_types<T>(s);
     return s.str();
 }
 
@@ -1097,21 +1546,33 @@ void transfer_merge_values_regstr(backend::source_generator &src) {
     src.function<void>(transfer_merge_values_regstr<NT, VT, T>())
         .open("(")
             .template parameter< int                   >("count")
-            .template parameter< global_ptr<const T>   >("a_global")
-            .template parameter< global_ptr<const T>   >("b_global")
             .template parameter< int                   >("b_start")
             .template parameter< regstr_ptr<const int> >("indices")
-            .template parameter< int                   >("tid")
-            .template parameter< regstr_ptr<T>         >("reg")
-        .close(")").open("{");
+            .template parameter< int                   >("tid");
 
-    src.new_line() << "b_global -= b_start;";
+    boost::mpl::for_each<T>( pointer_param<global_ptr, true>(src, "a_global") );
+    boost::mpl::for_each<T>( pointer_param<global_ptr, true>(src, "b_global") );
+    boost::mpl::for_each<T>( pointer_param<regstr_ptr      >(src, "reg") );
+
+    src.close(")").open("{");
+
+    for(int p = 0; p < boost::mpl::size<T>::value; ++p)
+        src.new_line() << "b_global" << p << " -= b_start;";
     src.new_line() << "if(count >= " << NT * VT << ")";
     src.open("{");
 
-    for(int i = 0; i < VT; ++i)
-        src.new_line() << "reg[" << i << "] = (indices[" << i << "] < b_start) "
-            "? a_global[indices[" << i << "]] : b_global[indices[" << i << "]];";
+    for(int i = 0; i < VT; ++i) {
+        src.new_line() << "if (indices[" << i << "] < b_start)";
+        src.open("{");
+        for(int p = 0; p < boost::mpl::size<T>::value; ++p)
+            src.new_line() << "reg" << p << "[" << i << "] = a_global" << p << "[indices[" << i << "]];";
+        src.close("}");
+        src.new_line() << "else";
+        src.open("{");
+        for(int p = 0; p < boost::mpl::size<T>::value; ++p)
+            src.new_line() << "reg" << p << "[" << i << "] = b_global" << p << "[indices[" << i << "]];";
+        src.close("}");
+    }
 
     src.close("}");
     src.new_line() << "else";
@@ -1121,10 +1582,19 @@ void transfer_merge_values_regstr(backend::source_generator &src) {
 
     for(int i = 0; i < VT; ++i) {
         src.new_line() << "index = " << NT * i << " + tid;";
-        src.new_line() <<
-            "if(index < count) "
-            "reg[" << i << "] = (indices[" << i << "] < b_start) ? "
-            "a_global[indices[" << i << "]] : b_global[indices[" << i << "]];";
+        src.new_line() << "if(index < count)";
+        src.open("{");
+        src.new_line() << "if (indices[" << i << "] < b_start)";
+        src.open("{");
+        for(int p = 0; p < boost::mpl::size<T>::value; ++p)
+            src.new_line() << "reg" << p << "[" << i << "] = a_global" << p << "[indices[" << i << "]];";
+        src.close("}");
+        src.new_line() << "else";
+        src.open("{");
+        for(int p = 0; p < boost::mpl::size<T>::value; ++p)
+            src.new_line() << "reg" << p << "[" << i << "] = b_global" << p << "[indices[" << i << "]];";
+        src.close("}");
+        src.close("}");
     }
     src.close("}");
 
@@ -1137,105 +1607,157 @@ void transfer_merge_values_regstr(backend::source_generator &src) {
 template <int NT, int VT, typename T>
 std::string transfer_merge_values_shared() {
     std::ostringstream s;
-    s << "transfer_merge_values_shared_" << NT << "_" << VT << "_" << type_name<T>();
+    s << "transfer_merge_values_shared_" << NT << "_" << VT;
+    print_types<T>(s);
     return s.str();
 }
 
+template <int NT, int VT>
+struct call_regstr_to_global {
+    backend::source_generator &src;
+    int pos;
+
+    call_regstr_to_global(backend::source_generator &src) : src(src), pos(0) {}
+
+    template <typename T>
+    void operator()(T) {
+        src.new_line() << regstr_to_global<NT, VT, T>()
+            << "(count, reg" << pos << ", tid, dest_global" << pos << ");";
+        ++pos;
+    }
+};
+
 template <int NT, int VT, typename T>
 void transfer_merge_values_shared(backend::source_generator &src) {
-    transfer_merge_values_regstr<NT, VT, T>(src);
+    transfer_merge_values_regstr<NT, VT, T >(src);
 
     src.function<void>(transfer_merge_values_shared<NT, VT, T>())
         .open("(")
             .template parameter< int                   >("count")
-            .template parameter< global_ptr<const T>   >("a_global")
-            .template parameter< global_ptr<const T>   >("b_global")
             .template parameter< int                   >("b_start")
             .template parameter< shared_ptr<const int> >("indices_shared")
-            .template parameter< int                   >("tid")
-            .template parameter< global_ptr<T>         >("dest_global")
-        .close(")").open("{");
+            .template parameter< int                   >("tid");
+
+    boost::mpl::for_each<T>( pointer_param<global_ptr, true>(src, "a_global") );
+    boost::mpl::for_each<T>( pointer_param<global_ptr, true>(src, "b_global") );
+    boost::mpl::for_each<T>( pointer_param<global_ptr      >(src, "dest_global") );
+
+    src.close(")").open("{");
 
     src.new_line() << "int indices[" << VT << "];";
     src.new_line() << shared_to_regstr<NT, VT, int>()
         << "(indices_shared, tid, indices);";
 
-    src.new_line() << type_name<T>() << " reg[" << VT << "];";
-    src.new_line() << transfer_merge_values_regstr<NT, VT, T>()
-        << "(count, a_global, b_global, b_start, indices, tid, reg);";
-    src.new_line() << regstr_to_global<NT, VT, T>()
-        << "(count, reg, tid, dest_global);";
+    boost::mpl::for_each<T>( type_iterator([&](size_t pos, std::string tname) {
+                src.new_line() << tname << " reg" << pos++ << "[" << VT << "];";
+                }) );
+
+    src.new_line() << transfer_merge_values_regstr<NT, VT, T >()
+        << "(count, b_start, indices, tid";
+    for(int p = 0; p < boost::mpl::size<T>::value; ++p)
+        src << ", a_global" << p;
+    for(int p = 0; p < boost::mpl::size<T>::value; ++p)
+        src << ", b_global" << p;
+    for(int p = 0; p < boost::mpl::size<T>::value; ++p)
+        src << ", reg" << p;
+    src << ");";
+
+    boost::mpl::for_each<T>( call_regstr_to_global<NT, VT>(src) );
 
     src.close("}");
 }
 
 //---------------------------------------------------------------------------
-template<int NT, int VT, typename K, typename V, bool HasValues>
+template<int NT, int VT, typename K, typename V>
 std::string device_merge() {
     std::ostringstream s;
-    s << "device_merge_" << NT << "_" << VT << "_" << type_name<K>();
-    if (HasValues) s << "_" << type_name<V>();
+    s << "device_merge_" << NT << "_" << VT;
+    print_types<K>(s);
+    print_types<V>(s);
     return s.str();
 }
 
-template<int NT, int VT, typename K, typename V, bool HasValues>
+template<int NT, int VT, typename K, typename V>
 void device_merge(backend::source_generator &src) {
-    merge_keys_indices<NT, VT, K>(src);
-    transfer_merge_values_shared<NT, VT, V>(src);
+    merge_keys_indices<NT, VT, K >(src);
+    if (boost::mpl::size<V>::value)
+        transfer_merge_values_shared<NT, VT, V >(src);
 
-    src.function<void>(device_merge<NT, VT, K, V, HasValues>());
+    src.function<void>(device_merge<NT, VT, K, V>());
     src.open("(");
     src.template parameter< int                   >("a_count");
     src.template parameter< int                   >("b_count");
-    src.template parameter< global_ptr<const K>   >("a_keys_global");
-    src.template parameter< global_ptr<const K>   >("b_keys_global");
-    src.template parameter< global_ptr<K>         >("keys_global");
-    src.template parameter< shared_ptr<K>         >("keys_shared");
-    if (HasValues) {
-        src.template parameter< global_ptr<const V>   >("a_vals_global");
-        src.template parameter< global_ptr<const V>   >("b_vals_global");
-        src.template parameter< global_ptr<V>         >("vals_global");
-    }
+
+    boost::mpl::for_each<K>( pointer_param<global_ptr, true>(src, "a_keys_global"));
+    boost::mpl::for_each<K>( pointer_param<global_ptr, true>(src, "b_keys_global"));
+    boost::mpl::for_each<K>( pointer_param<global_ptr      >(src, "keys_global"));
+    boost::mpl::for_each<K>( pointer_param<shared_ptr      >(src, "keys_shared"));
+
+    boost::mpl::for_each<V>( pointer_param<global_ptr, true>(src, "a_vals_global"));
+    boost::mpl::for_each<V>( pointer_param<global_ptr, true>(src, "b_vals_global"));
+    boost::mpl::for_each<V>( pointer_param<global_ptr      >(src, "vals_global"));
+
     src.template parameter< int                   >("tid");
     src.template parameter< int                   >("block");
     src.template parameter< cl_int4               >("range");
     src.template parameter< shared_ptr<int>       >("indices_shared");
     src.close(")").open("{");
 
-    src.new_line() << type_name<K>() << " results[" << VT << "];";
+    boost::mpl::for_each<K>( type_iterator([&](size_t pos, std::string tname) {
+                src.new_line() << tname << " results" << pos++ << "[" << VT << "];";
+                }) );
+
     src.new_line() << "int indices[" << VT << "];";
 
-    src.new_line() << merge_keys_indices<NT, VT, K>()
-        << "(a_keys_global, a_count, b_keys_global, b_count, range, tid, "
-        << "keys_shared, results, indices);";
+    src.new_line() << merge_keys_indices<NT, VT, K >()
+        << "(a_count, b_count, range, tid, indices";
+
+    for(int p = 0; p < boost::mpl::size<K>::value; ++p)
+        src << ", a_keys_global" << p;
+    for(int p = 0; p < boost::mpl::size<K>::value; ++p)
+        src << ", b_keys_global" << p;
+    for(int p = 0; p < boost::mpl::size<K>::value; ++p)
+        src << ", keys_shared" << p;
+    for(int p = 0; p < boost::mpl::size<K>::value; ++p)
+        src << ", results" << p;
+
+    src << ");";
 
     // Store merge results back to shared memory.
-    src.new_line() << thread_to_shared<VT, K>()
-        << "(results, tid, keys_shared);";
-
+    boost::mpl::for_each<K>( call_thread_to_shared<VT>(src, "results", "keys_shared") );
 
     // Store merged keys to global memory.
     src.new_line() << "a_count = range.y - range.x;";
     src.new_line() << "b_count = range.w - range.z;";
-    src.new_line() << shared_to_global<NT, VT, K>()
-        << "(a_count + b_count, keys_shared, tid, keys_global + "
-        << NT * VT << " * block);";
+
+    {
+        std::ostringstream s;
+        s << NT * VT << " * block";
+        boost::mpl::for_each<K>( call_shared_to_global<NT, VT>(src, "a_count + b_count", "keys_shared", "keys_global", s.str().c_str() ) );
+    }
 
     // Copy the values.
-    if (HasValues) {
+    if (boost::mpl::size<V>::value) {
         src.new_line() << thread_to_shared<VT, int>()
             << "(indices, tid, indices_shared);";
-        src.new_line() << transfer_merge_values_shared<NT, VT, V>()
-            << "(a_count + b_count, a_vals_global + range.x, "
-            "b_vals_global + range.z, a_count, indices_shared, tid, "
-            "vals_global + " << NT * VT << " * block);";
+
+        src.new_line() << transfer_merge_values_shared<NT, VT, V >()
+            << "(a_count + b_count, a_count, indices_shared, tid";
+
+        for(int p = 0; p < boost::mpl::size<V>::value; ++p)
+            src << ", a_vals_global" << p << " + range.x";
+        for(int p = 0; p < boost::mpl::size<V>::value; ++p)
+            src << ", b_vals_global" << p << " + range.z";
+        for(int p = 0; p < boost::mpl::size<V>::value; ++p)
+            src << ", vals_global" << p << " + " << NT * VT << " * block";
+        src << ");";
     }
 
     src.close("}");
 }
 
 //---------------------------------------------------------------------------
-template <int NT, int VT, typename K, typename V, typename Comp, bool HasValues>
+template <int NT, int VT, typename K, typename V, typename Comp>
 backend::kernel merge_kernel(const backend::command_queue &queue) {
     static detail::kernel_cache cache;
 
@@ -1248,28 +1770,34 @@ backend::kernel merge_kernel(const backend::command_queue &queue) {
         Comp::define(src, "comp");
         compute_merge_range(src);
 
-        transfer_functions<NT, VT, int>(src);
+        boost::mpl::for_each<
+            typename boost::mpl::copy<
+                typename boost::mpl::copy<
+                    V,
+                    boost::mpl::back_inserter<K>
+                    >::type,
+                boost::mpl::inserter<
+                    boost::mpl::set<int>,
+                    boost::mpl::insert<boost::mpl::_1, boost::mpl::_2>
+                    >
+                >::type
+            >( define_transfer_functions<NT, VT>(src) );
 
-        if (!std::is_same<K, int>::value)
-            transfer_functions<NT, VT, K>(src);
-
-        if (HasValues && !std::is_same<V, K>::value && !std::is_same<V, int>::value)
-            transfer_functions<NT, VT, V>(src);
-
-        device_merge<NT, VT, K, V, HasValues>(src);
+        device_merge<NT, VT, K, V >(src);
 
         src.kernel("merge");
         src.open("(");
-        src.template parameter< int                   >("a_count");
-        src.template parameter< int                   >("b_count");
-        src.template parameter< global_ptr<const K>   >("a_keys_global");
-        src.template parameter< global_ptr<const K>   >("b_keys_global");
-        src.template parameter< global_ptr<K>         >("keys_global");
-        if (HasValues) {
-            src.template parameter< global_ptr<const V>   >("a_vals_global");
-            src.template parameter< global_ptr<const V>   >("b_vals_global");
-            src.template parameter< global_ptr<V>         >("vals_global");
-        }
+        src.template parameter< int >("a_count");
+        src.template parameter< int >("b_count");
+
+        boost::mpl::for_each<K>( pointer_param<global_ptr, true>(src, "a_keys_global"));
+        boost::mpl::for_each<K>( pointer_param<global_ptr, true>(src, "b_keys_global"));
+        boost::mpl::for_each<K>( pointer_param<global_ptr      >(src, "keys_global"));
+
+        boost::mpl::for_each<V>( pointer_param<global_ptr, true>(src, "a_vals_global"));
+        boost::mpl::for_each<V>( pointer_param<global_ptr, true>(src, "b_vals_global"));
+        boost::mpl::for_each<V>( pointer_param<global_ptr      >(src, "vals_global"));
+
         src.template parameter< global_ptr<const int> >("mp_global");
         src.template parameter< int                   >("coop");
         src.close(")").open("{");
@@ -1278,7 +1806,14 @@ backend::kernel merge_kernel(const backend::command_queue &queue) {
 
         src.new_line() << "union Shared";
         src.open("{");
-        src.new_line() << type_name<K>() << " keys[" << NT * (VT + 1) << "];";
+
+        src.new_line() << "struct";
+        src.open("{");
+        boost::mpl::for_each<K>( type_iterator([&](size_t pos, std::string tname) {
+                    src.new_line() << tname << " keys" << pos++ << "[" << NT * (VT + 1) << "];";
+                    }) );
+        src.close("};");
+
         src.new_line() << "int indices[" << NV << "];";
         src.close("};");
 
@@ -1290,10 +1825,26 @@ backend::kernel merge_kernel(const backend::command_queue &queue) {
         src.new_line() << "int4 range = compute_merge_range("
             "a_count, b_count, block, coop, " << NV << ", mp_global);";
 
-        src.new_line() << device_merge<NT, VT, K, V, HasValues>()
-            << "(a_count, b_count, a_keys_global, b_keys_global, keys_global, shared.keys, "
-            << (HasValues ? "a_vals_global, b_vals_global, vals_global, " : "")
-            << "tid, block, range, shared.indices);";
+        src.new_line() << device_merge<NT, VT, K, V >()
+            << "(a_count, b_count";
+
+        for(int p = 0; p < boost::mpl::size<K>::value; ++p)
+            src << ", a_keys_global" << p;
+        for(int p = 0; p < boost::mpl::size<K>::value; ++p)
+            src << ", b_keys_global" << p;
+        for(int p = 0; p < boost::mpl::size<K>::value; ++p)
+            src << ", keys_global" << p;
+        for(int p = 0; p < boost::mpl::size<K>::value; ++p)
+            src << ", shared.keys" << p;
+
+        for(int p = 0; p < boost::mpl::size<V>::value; ++p)
+            src << ", a_vals_global" << p;
+        for(int p = 0; p < boost::mpl::size<V>::value; ++p)
+            src << ", b_vals_global" << p;
+        for(int p = 0; p < boost::mpl::size<V>::value; ++p)
+            src << ", vals_global" << p;
+
+        src << ", tid, block, range, shared.indices);";
 
         src.close("}");
 
@@ -1323,45 +1874,61 @@ inline int find_log2(int x, bool round_up = false) {
     return a;
 }
 
+template <size_t I, class K>
+device_vector< typename boost::mpl::at_c<K, I>::type >&
+at_c(temp_storage<K, 0> &s) {
+    return s.template get<I>();
+}
+
 /// Sorts single partition of a vector.
-template <class K, class Comp>
-void sort(const backend::command_queue &queue,
-        backend::device_vector<K> &keys, Comp)
-{
+template <class KT, class Comp>
+void sort(const backend::command_queue &queue, KT &keys, Comp) {
+    typedef typename extract_value_types<KT>::type K;
+    using boost::fusion::at_c;
+
+    typedef
+        typename boost::mpl::accumulate<
+            K,
+            boost::mpl::int_<0>,
+            boost::mpl::plus<boost::mpl::_1, boost::mpl::sizeof_<boost::mpl::_2> >
+            >::type
+        sizeof_keys;
+
     backend::select_context(queue);
 
     const int NT_cpu = 1;
     const int NT_gpu = 256;
     const int NT = is_cpu(queue) ? NT_cpu : NT_gpu;
-    const int VT = (sizeof(K) > 4) ? 7 : 11;
+    const int VT = (sizeof_keys::value > 4) ? 7 : 11;
     const int NV = NT * VT;
 
-    const int count = keys.size();
+    const int count = at_c<0>(keys).size();
     const int num_blocks = (count + NV - 1) / NV;
     const int num_passes = detail::find_log2(num_blocks, true);
 
-
-    device_vector<K> keys_dst(queue, count);
+    temp_storage<K> tmp(queue, count);
 
     auto block_sort = is_cpu(queue) ?
-        detail::block_sort_kernel<NT_cpu, VT, K, int, Comp, false>(queue) :
-        detail::block_sort_kernel<NT_gpu, VT, K, int, Comp, false>(queue);
+        detail::block_sort_kernel<NT_cpu, VT, K, boost::mpl::vector<>, Comp>(queue) :
+        detail::block_sort_kernel<NT_gpu, VT, K, boost::mpl::vector<>, Comp>(queue);
 
     block_sort.push_arg(count);
-    block_sort.push_arg(keys);
-    block_sort.push_arg(1 & num_passes ? keys_dst : keys);
+
+    push_args<boost::mpl::size<K>::value>(block_sort, keys);
+    if (1 & num_passes)
+        push_args<boost::mpl::size<K>::value>(block_sort, tmp);
+    else
+        push_args<boost::mpl::size<K>::value>(block_sort, keys);
 
     block_sort.config(num_blocks, NT);
 
     block_sort(queue);
 
-    if (1 & num_passes) {
-        std::swap(keys, keys_dst);
-    }
+    if (1 & num_passes) tmp.swap(keys);
 
     auto merge = is_cpu(queue) ?
-        detail::merge_kernel<NT_cpu, VT, K, int, Comp, false>(queue) :
-        detail::merge_kernel<NT_gpu, VT, K, int, Comp, false>(queue);
+        detail::merge_kernel<NT_cpu, VT, K, boost::mpl::vector<>, Comp>(queue) :
+        detail::merge_kernel<NT_gpu, VT, K, boost::mpl::vector<>, Comp>(queue);
 
     for(int pass = 0; pass < num_passes; ++pass) {
         int coop = 2 << pass;
@@ -1370,28 +1937,29 @@ void sort(const backend::command_queue &queue,
 
         merge.push_arg(count);
         merge.push_arg(0);
-        merge.push_arg(keys);
-        merge.push_arg(keys);
-        merge.push_arg(keys_dst);
+
+        push_args<boost::mpl::size<K>::value>(merge, keys);
+        push_args<boost::mpl::size<K>::value>(merge, keys);
+        push_args<boost::mpl::size<K>::value>(merge, tmp);
         merge.push_arg(partitions);
         merge.push_arg(coop);
 
         merge.config(num_blocks, NT);
         merge(queue);
 
-        std::swap(keys, keys_dst);
+        tmp.swap(keys);
     }
 }
 
 /// Sorts single partition of a vector.
-template <class K, class V, class Comp>
-void sort_by_key(const backend::command_queue &queue,
-        backend::device_vector<K> &keys,
-        backend::device_vector<V> &vals,
-        Comp
-        )
-{
-    precondition(keys.size() == vals.size(),
+template <class KTup, class VTup, class Comp>
+void sort_by_key(const backend::command_queue &queue, KTup &&keys, VTup &&vals, Comp) {
+    typedef typename extract_value_types<KTup>::type K;
+    typedef typename extract_value_types<VTup>::type V;
+
+    using boost::fusion::at_c;
+
+    precondition(at_c<0>(keys).size() == at_c<0>(vals).size(),
             "keys and values should have same size"
             );
 
@@ -1403,35 +1971,43 @@ void sort_by_key(const backend::command_queue &queue,
     const int VT = (sizeof(K) > 4) ? 7 : 11;
     const int NV = NT * VT;
 
-    const int count = keys.size();
+    const int count = at_c<0>(keys).size();
     const int num_blocks = (count + NV - 1) / NV;
     const int num_passes = detail::find_log2(num_blocks, true);
 
-    device_vector<K> keys_dst(queue, count);
-    device_vector<V> vals_dst(queue, count);
+    temp_storage<K> keys_tmp(queue, count);
+    temp_storage<V> vals_tmp(queue, count);
 
     auto block_sort = is_cpu(queue) ?
-        detail::block_sort_kernel<NT_cpu, VT, K, V, Comp, true>(queue) :
-        detail::block_sort_kernel<NT_gpu, VT, K, V, Comp, true>(queue);
+        detail::block_sort_kernel<NT_cpu, VT, K, V, Comp>(queue) :
+        detail::block_sort_kernel<NT_gpu, VT, K, V, Comp>(queue);
 
     block_sort.push_arg(count);
-    block_sort.push_arg(keys);
-    block_sort.push_arg(1 & num_passes ? keys_dst : keys);
-    block_sort.push_arg(vals);
-    block_sort.push_arg(1 & num_passes ? vals_dst : vals);
+
+    push_args<boost::mpl::size<K>::value>(block_sort, keys);
+    if (1 & num_passes)
+        push_args<boost::mpl::size<K>::value>(block_sort, keys_tmp);
+    else
+        push_args<boost::mpl::size<K>::value>(block_sort, keys);
+
+    push_args<boost::mpl::size<V>::value>(block_sort, vals);
+    if (1 & num_passes)
+        push_args<boost::mpl::size<V>::value>(block_sort, vals_tmp);
+    else
+        push_args<boost::mpl::size<V>::value>(block_sort, vals);
 
     block_sort.config(num_blocks, NT);
 
     block_sort(queue);
 
     if (1 & num_passes) {
-        std::swap(keys, keys_dst);
-        std::swap(vals, vals_dst);
+        keys_tmp.swap(keys);
+        vals_tmp.swap(vals);
     }
 
     auto merge = is_cpu(queue) ?
-        detail::merge_kernel<NT_cpu, VT, K, V, Comp, true>(queue) :
-        detail::merge_kernel<NT_gpu, VT, K, V, Comp, true>(queue);
+        detail::merge_kernel<NT_cpu, VT, K, V, Comp>(queue) :
+        detail::merge_kernel<NT_gpu, VT, K, V, Comp>(queue);
 
     for(int pass = 0; pass < num_passes; ++pass) {
         int coop = 2 << pass;
@@ -1440,54 +2016,130 @@ void sort_by_key(const backend::command_queue &queue,
 
         merge.push_arg(count);
         merge.push_arg(0);
-        merge.push_arg(keys);
-        merge.push_arg(keys);
-        merge.push_arg(keys_dst);
-        merge.push_arg(vals);
-        merge.push_arg(vals);
-        merge.push_arg(vals_dst);
+
+        push_args<boost::mpl::size<K>::value>(merge, keys);
+        push_args<boost::mpl::size<K>::value>(merge, keys);
+        push_args<boost::mpl::size<K>::value>(merge, keys_tmp);
+
+        push_args<boost::mpl::size<V>::value>(merge, vals);
+        push_args<boost::mpl::size<V>::value>(merge, vals);
+        push_args<boost::mpl::size<V>::value>(merge, vals_tmp);
+
         merge.push_arg(partitions);
         merge.push_arg(coop);
 
         merge.config(num_blocks, NT);
         merge(queue);
 
-        std::swap(keys, keys_dst);
-        std::swap(vals, vals_dst);
+        keys_tmp.swap(keys);
+        vals_tmp.swap(vals);
     }
 }
 
-/// Merges partially sorted vector partitions into host vector
-template <typename K, class Comp>
-std::vector<K> merge(const vector<K> &keys, Comp comp) {
-    const auto &queue = keys.queue_list();
+template <class S1, class S2>
+boost::fusion::zip_view< boost::fusion::vector<S1&, S2&> >
+make_zip_view(S1 &s1, S2 &s2) {
+    typedef boost::fusion::vector<S1&, S2&> Z;
+    return boost::fusion::zip_view<Z>( Z(s1, s2));
+}
 
-    std::vector<K> dst(keys.size());
-    vex::copy(keys, dst);
+struct do_resize {
+    size_t n;
+    do_resize(size_t n) : n(n) {}
+    template <class V>
+    void operator()(V &v) const {
+        v.resize(n);
+    }
+};
+
+struct do_copy {
+    template <class T>
+    void operator()(T t) const {
+        using boost::fusion::at_c;
+        vex::copy(at_c<0>(t), at_c<1>(t));
+    }
+};
+
+struct copy_element {
+    size_t dst, src;
+    copy_element(size_t dst, size_t src) : dst(dst), src(src) {}
+
+    template <class T>
+    void operator()(T t) const {
+        using boost::fusion::at_c;
+        at_c<0>(t)[dst] = at_c<1>(t)[src];
+    }
+};
+
+struct do_index {
+    size_t pos;
+    do_index(size_t pos) : pos(pos) {}
+
+    template <class T> struct result;
+
+    template <class This, class T>
+    struct result< This(T) > {
+        typedef typename std::decay<T>::type::value_type type;
+    };
+
+    template <class T>
+    typename result<do_index(T)>::type operator()(const T &t) const {
+        return t[pos];
+    }
+};
+
+/// Merges partially sorted vector partitions into host vector
+template <typename KTuple, class Comp>
+typename boost::fusion::result_of::as_vector<
+    typename boost::mpl::transform<
+        typename extract_value_types<KTuple>::type,
+        std::vector<boost::mpl::_1>
+    >::type
+>::type
+merge(const KTuple &keys, Comp comp) {
+    namespace fusion = boost::fusion;
+
+    typedef typename extract_value_types<KTuple>::type K;
+
+    const auto  &queue = fusion::at_c<0>(keys).queue_list();
+    const size_t count = fusion::at_c<0>(keys).size();
+
+    typedef typename fusion::result_of::as_vector<
+        typename boost::mpl::transform< K, std::vector<boost::mpl::_1> >::type
+    >::type host_vectors;
+
+    host_vectors dst;
+
+    fusion::for_each(dst, do_resize(count) );
+    fusion::for_each( make_zip_view(keys, dst), do_copy() );
 
     if (queue.size() > 1) {
-        std::vector<K> src(keys.size());
-        std::swap(src, dst);
+        host_vectors src;
+        fusion::for_each(src, do_resize(count) );
 
-        typedef typename std::vector<K>::const_iterator iterator;
-        std::vector<iterator> begin(queue.size());
-        std::vector<iterator> end(queue.size());
+        fusion::swap(src, dst);
+
+        std::vector<size_t> begin(queue.size());
+        std::vector<size_t> end  (queue.size());
 
         for(unsigned d = 0; d < queue.size(); ++d) {
-            begin[d] = src.begin() + keys.part_start(d);
-            end  [d] = src.begin() + keys.part_start(d + 1);
+            begin[d] = fusion::at_c<0>(keys).part_start(d);
+            end  [d] = fusion::at_c<0>(keys).part_start(d + 1);
         }
 
-        for(auto pos = dst.begin(); pos != dst.end(); ++pos) {
+        for(size_t pos = 0; pos < count; ++pos) {
             int winner = -1;
             for(unsigned d = 0; d < queue.size(); ++d) {
                 if (begin[d] == end[d]) continue;
 
-                if (winner < 0 || comp(*begin[d], *begin[winner]))
+                auto curr = fusion::transform(src, do_index(begin[d]));
+                auto best = fusion::transform(src, do_index(begin[winner]));
+
+                if (winner < 0 || fusion::invoke(comp, fusion::join(curr, best)))
                     winner = d;
             }
 
-            *pos = *begin[winner]++;
+            fusion::for_each(make_zip_view(dst, src), copy_element(pos, begin[winner]++));
         }
     }
 
@@ -1495,55 +2147,165 @@ std::vector<K> merge(const vector<K> &keys, Comp comp) {
 }
 
 /// Merges partially sorted vector partitions into host vector
-template <typename K, typename V, class Comp>
-void merge(const vector<K> &keys, const vector<V> &vals, Comp comp,
-        std::vector<K> &dst_keys, std::vector<V> &dst_vals)
-{
-    const auto &queue = keys.queue_list();
+template <typename KTuple, typename VTuple, class Comp>
+typename boost::fusion::result_of::as_vector<
+    typename boost::mpl::transform<
+        typename extract_value_types<
+            typename boost::fusion::result_of::as_vector<
+                typename boost::fusion::result_of::join<KTuple, VTuple>::type
+            >::type
+        >::type,
+        std::vector<boost::mpl::_1>
+    >::type
+>::type
+merge(const KTuple &keys, const VTuple &vals, Comp comp) {
+    namespace fusion = boost::fusion;
 
-    dst_keys.resize(keys.size());
-    dst_vals.resize(keys.size());
+    typedef typename extract_value_types<KTuple>::type K;
+    typedef typename extract_value_types<VTuple>::type V;
 
-    vex::copy(keys, dst_keys);
-    vex::copy(vals, dst_vals);
+    const auto  &queue = fusion::at_c<0>(keys).queue_list();
+    const size_t count = fusion::at_c<0>(keys).size();
+
+    typedef typename fusion::result_of::as_vector<
+        typename boost::mpl::transform< K, std::vector<boost::mpl::_1> >::type
+    >::type host_keys;
+
+    typedef typename fusion::result_of::as_vector<
+        typename boost::mpl::transform< V, std::vector<boost::mpl::_1> >::type
+    >::type host_vals;
+
+    host_keys dst_keys;
+    host_vals dst_vals;
+
+    fusion::for_each(dst_keys, do_resize(count) );
+    fusion::for_each(dst_vals, do_resize(count) );
+
+    fusion::for_each( make_zip_view(keys, dst_keys), do_copy() );
+    fusion::for_each( make_zip_view(vals, dst_vals), do_copy() );
 
     if (queue.size() > 1) {
-        std::vector<K> src_keys(keys.size());
-        std::vector<V> src_vals(keys.size());
+        host_keys src_keys;
+        host_vals src_vals;
 
-        std::swap(src_keys, dst_keys);
-        std::swap(src_vals, dst_vals);
+        fusion::for_each(src_keys, do_resize(count) );
+        fusion::for_each(src_vals, do_resize(count) );
 
-        typedef typename std::vector<K>::const_iterator key_iterator;
-        typedef typename std::vector<V>::const_iterator val_iterator;
+        fusion::swap(src_keys, dst_keys);
+        fusion::swap(src_vals, dst_vals);
 
-        std::vector<key_iterator> key_begin(queue.size()), key_end(queue.size());
-        std::vector<val_iterator> val_begin(queue.size()), val_end(queue.size());
+        std::vector<size_t> begin(queue.size()), end(queue.size());
 
         for(unsigned d = 0; d < queue.size(); ++d) {
-            key_begin[d] = src_keys.begin() + keys.part_start(d);
-            key_end  [d] = src_keys.begin() + keys.part_start(d + 1);
-
-            val_begin[d] = src_vals.begin() + keys.part_start(d);
-            val_end  [d] = src_vals.begin() + keys.part_start(d + 1);
+            begin[d] = fusion::at_c<0>(keys).part_start(d);
+            end  [d] = fusion::at_c<0>(keys).part_start(d + 1);
         }
 
-        auto key_pos = dst_keys.begin();
-        auto val_pos = dst_vals.begin();
-
-        while(key_pos != dst_keys.end()) {
+        for(size_t pos = 0; pos < count; ++pos) {
             int winner = -1;
             for(unsigned d = 0; d < queue.size(); ++d) {
-                if (key_begin[d] == key_end[d]) continue;
+                if (begin[d] == end[d]) continue;
 
-                if (winner < 0 || comp(*key_begin[d], *key_begin[winner]))
+                auto curr = fusion::transform(src_keys, do_index(begin[d]));
+                auto best = fusion::transform(src_keys, do_index(begin[winner]));
+
+                if (winner < 0 || fusion::invoke(comp, fusion::join(curr, best)))
                     winner = d;
             }
 
-            *key_pos++ = *key_begin[winner]++;
-            *val_pos++ = *val_begin[winner]++;
+            fusion::for_each(make_zip_view(dst_keys, src_keys), copy_element(pos, begin[winner]));
+            fusion::for_each(make_zip_view(dst_keys, src_keys), copy_element(pos, begin[winner]));
+
+            ++begin[winner];
         }
     }
+
+    return fusion::as_vector(fusion::join(dst_keys, dst_vals));
+}
+
+template <class T>
+typename std::enable_if<
+    boost::fusion::traits::is_sequence<T>::value,
+    T&
+>::type
+forward_as_sequence(T &t) {
+    return t;
+}
+
+template <class T>
+typename std::enable_if<
+    !boost::fusion::traits::is_sequence<T>::value,
+    boost::fusion::vector<T&>
+>::type
+forward_as_sequence(T &t) {
+    return boost::fusion::vector<T&>(t);
+}
+
+struct extract_device_vector {
+    uint d;
+
+    extract_device_vector(uint d) : d(d) {}
+
+    template <class T> struct result;
+
+    template <class This, class T>
+    struct result< This(T) > {
+        typedef device_vector<typename std::decay<T>::type::value_type>& type;
+    };
+
+    template <class T>
+    typename result<extract_device_vector(T)>::type operator()(T &t) const {
+        return t(d);
+    }
+};
+
+template <class K, class Comp>
+void sort_sink(K &&keys, Comp comp) {
+    namespace fusion = boost::fusion;
+
+    const auto &queue = boost::fusion::at_c<0>(keys).queue_list();
+
+    for(unsigned d = 0; d < queue.size(); ++d)
+        if (fusion::at_c<0>(keys).part_size(d)) {
+            auto part = fusion::transform(keys, extract_device_vector(d));
+            sort(queue[d], part, comp.device);
+        }
+
+    if (queue.size() <= 1) return;
+
+    // Vector partitions have been sorted on compute devices.
+    // Now we need to merge them on a CPU. This is a linear time operation,
+    // so total performance should be good enough.
+    auto host_vectors = merge(keys, comp);
+    fusion::for_each( make_zip_view(host_vectors, keys), do_copy() );
+}
+
+template <class K, class V, class Comp>
+void sort_by_key_sink(K &&keys, V &&vals, Comp comp) {
+    namespace fusion = boost::fusion;
+
+    precondition(
+            fusion::at_c<0>(keys).nparts() == fusion::at_c<0>(vals).nparts(),
+            "Keys and values span different devices"
+            );
+
+    const auto &queue = fusion::at_c<0>(keys).queue_list();
+
+    for(unsigned d = 0; d < queue.size(); ++d)
+        if (fusion::at_c<0>(keys).part_size(d)) {
+            auto kpart = fusion::transform(keys, extract_device_vector(d));
+            auto vpart = fusion::transform(vals, extract_device_vector(d));
+            sort_by_key(queue[d], kpart, vpart, comp.device);
+        }
+
+    if (queue.size() <= 1) return;
+
+    // Vector partitions have been sorted on compute devices.
+    // Now we need to merge them on a CPU. This is a linear time operation,
+    // so total performance should be good enough.
+    auto host_vectors = merge(keys, vals, comp);
+    auto dev_vectors  = fusion::join(keys, vals);
+    fusion::for_each( make_zip_view(host_vectors, dev_vectors), do_copy() );
 }
 
 } // namespace detail
@@ -1597,18 +2359,8 @@ struct greater_equal : std::greater_equal<T> {
  * \param comp comparison function.
  */
 template <class K, class Comp>
-void sort(vector<K> &keys, Comp comp) {
-    const auto &queue = keys.queue_list();
-
-    for(unsigned d = 0; d < queue.size(); ++d)
-        if (keys.part_size(d)) detail::sort(queue[d], keys(d), comp.device);
-
-    if (queue.size() <= 1) return;
-
-    // Vector partitions have been sorted on compute devices.
-    // Now we need to merge them on a CPU. This is a linear time operation,
-    // so total performance should be good enough.
-    vex::copy(detail::merge(keys, comp), keys);
+void sort(K &&keys, Comp comp) {
+    detail::sort_sink(detail::forward_as_sequence(keys), comp);
 }
 
 /// Sorts the elements in keys and values into ascending key order.
@@ -1622,30 +2374,11 @@ void sort(vector<K> &keys) {
  * \param comp comparison function.
  */
 template <class K, class V, class Comp>
-void sort_by_key(vector<K> &keys, vector<V> &vals, Comp comp) {
-    precondition(
-            keys.queue_list().size() == vals.queue_list().size(),
-            "Keys and values span different devices"
-            );
-
-    auto &queue = keys.queue_list();
-
-    for(unsigned d = 0; d < queue.size(); ++d)
-        if (keys.part_size(d))
-            detail::sort_by_key(queue[d], keys(d), vals(d), comp.device);
-
-    if (queue.size() <= 1) return;
-
-    // Vector partitions have been sorted on compute devices.
-    // Now we need to merge them on a CPU. This is a linear time operation,
-    // so total performance should be good enough.
-    std::vector<K> k;
-    std::vector<V> v;
-
-    detail::merge(keys, vals, comp, k, v);
-
-    vex::copy(k, keys);
-    vex::copy(v, vals);
+void sort_by_key(K &&keys, V &&vals, Comp comp) {
+    detail::sort_by_key_sink(
+            detail::forward_as_sequence(keys),
+            detail::forward_as_sequence(vals),
+            comp);
 }
 
 /// Sorts the elements in keys and values into ascending key order.

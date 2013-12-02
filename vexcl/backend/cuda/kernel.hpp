@@ -79,7 +79,7 @@ class kernel {
 
         /// Adds an argument to the kernel.
         template <class Arg>
-        void push_arg(Arg &&arg) {
+        void push_arg(const Arg &arg) {
             char *c = (char*)&arg;
             prm_pos.push_back(stack.size());
             stack.insert(stack.end(), c, c + sizeof(arg));
@@ -87,7 +87,7 @@ class kernel {
 
         /// Adds an argument to the kernel.
         template <typename T>
-        void push_arg(device_vector<T> &&arg) {
+        void push_arg(const device_vector<T> &arg) {
             push_arg(arg.raw());
         }
 

@@ -49,6 +49,7 @@ static const mem_flags MEM_READ_WRITE = CL_MEM_READ_WRITE;
 template <typename T>
 class device_vector {
     public:
+        typedef T value_type;
         typedef cl_mem raw_type;
 
         device_vector() {}
