@@ -56,7 +56,7 @@ struct elem_index {
 #ifdef DOXYGEN
 elem_index
 #else
-inline boost::proto::result_of::as_expr<elem_index, vector_domain>::type
+inline boost::proto::result_of::as_expr<elem_index, vector_domain>::type const
 #endif
 element_index(size_t offset = 0, size_t length = 0) {
     return boost::proto::as_expr<vector_domain>(elem_index(offset, length));
