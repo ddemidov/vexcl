@@ -719,6 +719,31 @@ The need to provide both host-side and device-side parts of the functor comes
 from the fact that multidevice vectors are first sorted partially on each of
 the compute devices they are allocated on and then merged on the host.
 
+Sorting algorithms may also take tuples of keys/values (in fact, any
+Boost.Fusion sequence will do).  One will have to explicitly specify the
+comparison functor in this case. Both host and device variants of the
+comparison functor should take `2n` arguments, where `n` is the number of keys.
+The first `n` arguments correspond to the left set of keys, and the second `n`
+arguments correspond to the right set of keys. Here is an example that sorts
+values by a tuple of two keys:
+
+~~~{.cpp}
+vex::vector<int>    keys1(ctx, n);
+vex::vector<float>  keys2(ctx, n);
+vex::vector<double> vals (ctx, n);
+
+struct {
+    VEX_FUNCTION(device, bool(int, float, int, float),
+            "return (prm1 == prm3) ? (prm2 < prm4) : (prm1 < prm3);"
+            );
+    bool operator()(int a1, float a2, int b1, float b2) const {
+        return std::make_tuple(a1, a2) < std::tuple(b1, b2);
+    }
+} comp;
+
+vex::sort_by_key(std::tie(keys1, keys2), vals, comp);
+~~~
+
 ## <a name="multivectors"></a>Multivectors
 
 The class template `vex::multivector<T,N>` allows one to store several equally
