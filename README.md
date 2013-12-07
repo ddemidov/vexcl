@@ -60,7 +60,7 @@ performance of several GPGPU libraries, including VexCL.
 
 ## <a name="selecting-backend"></a>Selecting backend
 
-VexCL provides two backends: OpenCL and CUDA. In order choose either of those,
+VexCL provides two backends: OpenCL and CUDA. In order to choose either of those,
 user has to define `VEXCL_BACKEND_OPENCL` or `VEXCL_BACKEND_CUDA` macros. In
 case neither of those are defined, OpenCL backend is chosen by default. One
 also has to link to either libOpenCL.so (OpenCL.dll) or libcuda.so (cuda.dll).
