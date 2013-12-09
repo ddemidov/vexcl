@@ -54,6 +54,7 @@ limitations under the License.
 
 #include <vexcl/vector.hpp>
 #include <vexcl/scan.hpp>
+#include <vexcl/detail/fusion.hpp>
 
 namespace vex {
 namespace detail {
@@ -73,15 +74,22 @@ backend::kernel offset_calculation(const backend::command_queue &queue) {
 
         src.kernel("offset_calculation")
             .open("(")
-                .template parameter< size_t              >("n")
-                .template parameter< global_ptr<const T> >("keys")
-                .template parameter< global_ptr<int>     >("offsets")
-            .close(")").open("{");
+            .template parameter< size_t >("n");
+
+        boost::mpl::for_each<T>(pointer_param<global_ptr, true>(src, "keys"));
+
+        src.template parameter< global_ptr<int> >("offsets");
+        src.close(")").open("{");
 
         src.new_line().grid_stride_loop().open("{");
         src.new_line()
             << "if (idx > 0)"
-            << " offsets[idx] = !comp(keys[idx - 1], keys[idx]);";
+            << " offsets[idx] = !comp(";
+        for(int p = 0; p < boost::mpl::size<T>::value; ++p)
+            src << (p ? ", " : "") << "keys" << p << "[idx - 1]";
+        for(int p = 0; p < boost::mpl::size<T>::value; ++p)
+            src << ", keys" << p << "[idx]";
+        src << ");";
         src.new_line() << "else offsets[idx] = 0;";
         src.close("}");
         src.close("}");
@@ -364,13 +372,15 @@ backend::kernel key_value_mapping(const backend::command_queue &queue) {
 
         src.kernel("key_value_mapping")
             .open("(")
-                .template parameter< size_t              >("n")
-                .template parameter< global_ptr<const K> >("ikeys")
-                .template parameter< global_ptr<K>       >("okeys")
-                .template parameter< global_ptr<V>       >("ovals")
-                .template parameter< global_ptr<int>     >("offset")
-                .template parameter< global_ptr<const V> >("ivals")
-            .close(")").open("{");
+                .template parameter< size_t >("n");
+
+        boost::mpl::for_each<K>(pointer_param<global_ptr, true>(src, "ikeys"));
+        boost::mpl::for_each<K>(pointer_param<global_ptr      >(src, "okeys"));
+
+        src.template parameter< global_ptr<V>       >("ovals");
+        src.template parameter< global_ptr<int>     >("offset");
+        src.template parameter< global_ptr<const V> >("ivals");
+        src.close(")").open("{");
 
         src.new_line().grid_stride_loop().open("{");
 
@@ -379,13 +389,15 @@ backend::kernel key_value_mapping(const backend::command_queue &queue) {
         src.new_line() << "int off = offset[idx];";
         src.new_line() << "if (idx < (n - 1) && off != offset[idx + 1])";
         src.open("{");
-        src.new_line() << "okeys[off] = ikeys[ idx ];";
-        src.new_line() << "ovals[off] = ivals[ idx ];";
+        for(int p = 0; p < boost::mpl::size<K>::value; ++p)
+            src.new_line() << "okeys" << p << "[off] = ikeys" << p << "[idx];";
+        src.new_line() << "ovals[off] = ivals[idx];";
         src.close("}");
 
         src.new_line() << "if (idx == (n - 1))";
         src.open("{");
-        src.new_line() << "okeys[num_sections - 1] = ikeys[idx];";
+        for(int p = 0; p < boost::mpl::size<K>::value; ++p)
+            src.new_line() << "okeys" << p << "[num_sections - 1] = ikeys" << p << "[idx];";
         src.new_line() << "ovals[num_sections - 1] = ivals[idx];";
         src.close("}");
 
@@ -400,62 +412,86 @@ backend::kernel key_value_mapping(const backend::command_queue &queue) {
     return kernel->second;
 }
 
+struct do_vex_resize {
+    const std::vector<backend::command_queue> &q;
+    size_t n;
 
-}
+    do_vex_resize(const std::vector<backend::command_queue> &q, size_t n)
+        : q(q), n(n) {}
 
-/// Reduce by key algorithm.
-template <typename K, typename V, class Comp, class Oper>
-int reduce_by_key(
-        vector<K> const &ikeys,
-        vector<V> const &ivals,
-        vector<K>       &okeys,
-        vector<V>       &ovals,
+    template <class V>
+    void operator()(V &v) const {
+        v.resize(q, n);
+    }
+};
+
+struct do_push_arg {
+    backend::kernel &k;
+
+    do_push_arg(backend::kernel &k) : k(k) {}
+
+    template <class T>
+    void operator()(const T &t) const {
+        k.push_arg( t(0) );
+    }
+};
+
+template <typename IKTuple, typename OKTuple, typename V, class Comp, class Oper>
+int reduce_by_key_sink(
+        IKTuple &&ikeys, vector<V> const &ivals,
+        OKTuple &&okeys, vector<V>       &ovals,
         Comp, Oper
         )
 {
+    namespace fusion = boost::fusion;
+    typedef typename extract_value_types<IKTuple>::type K;
+
+    static_assert(
+            std::is_same<K, typename extract_value_types<OKTuple>::type>::value,
+            "Incompatible input and output key types");
+
     precondition(
-            ikeys.queue_list().size() == 1 &&
-            ivals.queue_list().size() == 1,
+            fusion::at_c<0>(ikeys).nparts() == 1 && ivals.nparts() == 1,
             "Sorting is only supported for single device contexts"
             );
 
-    precondition(ikeys.size() == ivals.size(),
+    precondition(fusion::at_c<0>(ikeys).size() == ivals.size(),
             "keys and values should have same size"
             );
 
-    auto &queue = ikeys.queue_list()[0];
-    backend::select_context(queue);
+    const auto &queue = fusion::at_c<0>(ikeys).queue_list();
+    backend::select_context(queue[0]);
 
     const int NT_cpu = 1;
     const int NT_gpu = 256;
-    const int NT = is_cpu(queue) ? NT_cpu : NT_gpu;
+    const int NT = is_cpu(queue[0]) ? NT_cpu : NT_gpu;
 
-    size_t count         = ikeys.size();
+    size_t count         = fusion::at_c<0>(ikeys).size();
     size_t num_blocks    = (count + NT - 1) / NT;
     size_t scan_buf_size = alignup(num_blocks, NT);
 
-    backend::device_vector<int> key_sum   (queue, scan_buf_size);
-    backend::device_vector<V>   pre_sum   (queue, scan_buf_size);
-    backend::device_vector<V>   post_sum  (queue, scan_buf_size);
-    backend::device_vector<V>   offset_val(queue, count);
-    backend::device_vector<int> offset    (queue, count);
+    backend::device_vector<int> key_sum   (queue[0], scan_buf_size);
+    backend::device_vector<V>   pre_sum   (queue[0], scan_buf_size);
+    backend::device_vector<V>   post_sum  (queue[0], scan_buf_size);
+    backend::device_vector<V>   offset_val(queue[0], count);
+    backend::device_vector<int> offset    (queue[0], count);
 
     /***** Kernel 0 *****/
-    auto krn0 = detail::offset_calculation<K, Comp>(queue);
+    auto krn0 = detail::offset_calculation<K, Comp>(queue[0]);
 
     krn0.push_arg(count);
-    krn0.push_arg(ikeys(0));
+    boost::fusion::for_each(ikeys, do_push_arg(krn0));
     krn0.push_arg(offset);
 
-    krn0(queue);
+    krn0(queue[0]);
 
     VEX_FUNCTION(plus, int(int, int), "return prm1 + prm2;");
-    detail::scan(queue, offset, offset, 0, false, plus);
+    detail::scan(queue[0], offset, offset, 0, false, plus);
 
     /***** Kernel 1 *****/
-    auto krn1 = is_cpu(queue) ?
-        detail::block_scan_by_key<NT_cpu, V, Oper>(queue) :
-        detail::block_scan_by_key<NT_gpu, V, Oper>(queue);
+    auto krn1 = is_cpu(queue[0]) ?
+        detail::block_scan_by_key<NT_cpu, V, Oper>(queue[0]) :
+        detail::block_scan_by_key<NT_gpu, V, Oper>(queue[0]);
 
     krn1.push_arg(count);
     krn1.push_arg(offset);
@@ -465,14 +501,14 @@ int reduce_by_key(
     krn1.push_arg(pre_sum);
 
     krn1.config(num_blocks, NT);
-    krn1(queue);
+    krn1(queue[0]);
 
     /***** Kernel 2 *****/
     uint work_per_thread = std::max<uint>(1U, scan_buf_size / NT);
 
-    auto krn2 = is_cpu(queue) ?
-        detail::block_inclusive_scan_by_key<NT_cpu, V, Oper>(queue) :
-        detail::block_inclusive_scan_by_key<NT_gpu, V, Oper>(queue);
+    auto krn2 = is_cpu(queue[0]) ?
+        detail::block_inclusive_scan_by_key<NT_cpu, V, Oper>(queue[0]) :
+        detail::block_inclusive_scan_by_key<NT_gpu, V, Oper>(queue[0]);
 
     krn2.push_arg(num_blocks);
     krn2.push_arg(key_sum);
@@ -481,10 +517,10 @@ int reduce_by_key(
     krn2.push_arg(work_per_thread);
 
     krn2.config(1, NT);
-    krn2(queue);
+    krn2(queue[0]);
 
     /***** Kernel 3 *****/
-    auto krn3 = detail::block_sum_by_key<V, Oper>(queue);
+    auto krn3 = detail::block_sum_by_key<V, Oper>(queue[0]);
 
     krn3.push_arg(count);
     krn3.push_arg(key_sum);
@@ -493,29 +529,45 @@ int reduce_by_key(
     krn3.push_arg(offset_val);
 
     krn3.config(num_blocks, NT);
-    krn3(queue);
+    krn3(queue[0]);
 
     /***** resize okeys and ovals *****/
     int out_elements;
-    offset.read(queue, count - 1, 1, &out_elements, true);
+    offset.read(queue[0], count - 1, 1, &out_elements, true);
     ++out_elements;
 
-    okeys.resize(ikeys.queue_list(), out_elements);
+    boost::fusion::for_each(okeys, do_vex_resize(queue, out_elements));
     ovals.resize(ivals.queue_list(), out_elements);
 
     /***** Kernel 4 *****/
-    auto krn4 = detail::key_value_mapping<K, V>(queue);
+    auto krn4 = detail::key_value_mapping<K, V>(queue[0]);
 
     krn4.push_arg(count);
-    krn4.push_arg(ikeys(0));
-    krn4.push_arg(okeys(0));
+    boost::fusion::for_each(ikeys, do_push_arg(krn4));
+    boost::fusion::for_each(okeys, do_push_arg(krn4));
     krn4.push_arg(ovals(0));
     krn4.push_arg(offset);
     krn4.push_arg(offset_val);
 
-    krn4(queue);
+    krn4(queue[0]);
 
     return out_elements;
+}
+
+}
+
+/// Reduce by key algorithm.
+template <typename IKeys, typename OKeys, typename V, class Comp, class Oper>
+int reduce_by_key(
+        IKeys &&ikeys, vector<V> const &ivals,
+        OKeys &&okeys, vector<V>       &ovals,
+        Comp comp, Oper oper
+        )
+{
+    return detail::reduce_by_key_sink(
+            detail::forward_as_sequence(ikeys), ivals,
+            detail::forward_as_sequence(okeys), ovals,
+            comp, oper);
 }
 
 /// Reduce by key algorithm.
@@ -529,7 +581,6 @@ int reduce_by_key(
 {
     VEX_FUNCTION(equal, bool(K, K), "return prm1 == prm2;");
     VEX_FUNCTION(plus,  V(V, V), "return prm1 + prm2;");
-
     return reduce_by_key(ikeys, ivals, okeys, ovals, equal, plus);
 }
 
