@@ -986,13 +986,12 @@ std::ostream &operator<<(std::ostream &o, const vex::vector<T> &t) {
 
     o << "{" << std::setprecision(6);
     for(size_t i = 0 ; i < data.size() ; i++) {
-        if (i % chunk == 0) {
-             o << "\n" << std::setw(6) << i << ":";
-        }
+        if (i % chunk == 0) o << "\n" << std::setw(6) << i << ":";
+
         if (std::is_integral<T>::value)
             o << " " << std::setw(6) << data[i];
         else
-            o << std::scientific << " " << data[i];
+            o << std::scientific << std::setw(14) << data[i];
     }
     return o << "\n}\n";
 }

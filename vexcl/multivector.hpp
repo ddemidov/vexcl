@@ -521,6 +521,32 @@ void copy(const std::vector<T> &hv, multivector<T,N> &mv) {
                 mv(i).begin());
 }
 
+/// Download and print the vector elements.
+template<class T, size_t N>
+std::ostream &operator<<(std::ostream &o, const vex::multivector<T, N> &t) {
+    boost::io::ios_all_saver stream_state(o);
+    const size_t n = t.size();
+    const size_t chunk = std::max<int>(1, (std::is_integral<T>::value ? 12 : 6) / N);
+
+    std::vector<T> data(n * N);
+    copy(t, data);
+
+    o << "{" << std::setprecision(6);
+    for(size_t i = 0 ; i < n; i++) {
+        if (i % chunk == 0) o << "\n" << std::setw(6) << i << ":";
+
+        std::cout << " (";
+        for(size_t j = 0; j < N; ++j) {
+            if (std::is_integral<T>::value)
+                o << " " << std::setw(6) << data[j * n + i];
+            else
+                o << std::scientific << std::setw(14) << data[j * n + i];
+        }
+        std::cout << ")";
+    }
+    return o << "\n}\n";
+}
+
 } // namespace vex
 
 namespace boost { namespace fusion { namespace traits {
