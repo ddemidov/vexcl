@@ -124,7 +124,7 @@ class kernel {
             // This is a simple heuristic-based estimate. More advanced technique may
             // be employed later.
             cl::Device d = q.getInfo<CL_QUEUE_DEVICE>();
-            return 4 * d.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>();
+            return 8 * d.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>();
         }
 
         /// The maximum number of threads per block, beyond which a launch of the kernel would fail.
@@ -149,7 +149,7 @@ class kernel {
                 w_size = 1;
             } else {
                 // Select workgroup size that would fit into the device.
-                w_size = dev.getInfo<CL_DEVICE_MAX_WORK_ITEM_SIZES>()[0];
+                w_size = dev.getInfo<CL_DEVICE_MAX_WORK_ITEM_SIZES>()[0] / 2;
 
                 size_t max_ws   = max_threads_per_block(queue);
                 size_t max_smem = max_shared_memory_per_block(queue);

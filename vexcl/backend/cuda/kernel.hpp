@@ -136,7 +136,7 @@ class kernel {
 
         /// Standard number of workgroups to launch on a device.
         static inline size_t num_workgroups(const command_queue &q) {
-            return 4 * q.device().multiprocessor_count();
+            return 8 * q.device().multiprocessor_count();
         }
 
         /// The maximum number of threads per block, beyond which a launch of the kernel would fail.
@@ -155,7 +155,7 @@ class kernel {
         /// Select best launch configuration for the given shared memory requirements.
         void config(const command_queue &q, std::function<size_t(size_t)> smem) {
             // Select workgroup size that would fit into the device.
-            w_size = q.device().max_threads_per_block();
+            w_size = q.device().max_threads_per_block() / 2;
 
             size_t max_ws   = max_threads_per_block(q);
             size_t max_smem = max_shared_memory_per_block(q);
