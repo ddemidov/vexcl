@@ -539,8 +539,10 @@ std::ostream &operator<<(std::ostream &o, const vex::multivector<T, N> &t) {
         for(size_t j = 0; j < N; ++j) {
             if (std::is_integral<T>::value)
                 o << " " << std::setw(6) << data[j * n + i];
-            else
+            else if (std::is_arithmetic<T>::value)
                 o << std::scientific << std::setw(14) << data[j * n + i];
+            else
+                o << " " << data[j * n + i];
         }
         std::cout << ")";
     }

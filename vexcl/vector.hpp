@@ -990,8 +990,10 @@ std::ostream &operator<<(std::ostream &o, const vex::vector<T> &t) {
 
         if (std::is_integral<T>::value)
             o << " " << std::setw(6) << data[i];
-        else
+        else if (std::is_arithmetic<T>::value)
             o << std::scientific << std::setw(14) << data[i];
+        else
+            o << " " << data[i];
     }
     return o << "\n}\n";
 }
