@@ -262,7 +262,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
                 source.new_line() << "size_t chunk_id   = " << source.global_id(0) << ";";
                 source.new_line() << "size_t start      = min(n, chunk_size * chunk_id);";
                 source.new_line() << "size_t stop       = min(n, chunk_size * (chunk_id + 1));";
-                source.new_line() << type_name<real>() << " mySum = " << RDC::template initial<real>() << ";";
+                source.new_line() << type_name<real>() << " mySum = (" << type_name<real>() << ")" << RDC::template initial<real>() << ";";
                 source.new_line() << "for (size_t idx = start; idx < stop; idx++)";
                 source.open("{");
                 VEXCL_INCREMENT_MY_SUM

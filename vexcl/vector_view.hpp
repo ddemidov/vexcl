@@ -776,8 +776,8 @@ struct local_terminal_init< reduced_vector_view<Expr, NDIM, NR, RDC> > {
         std::ostringstream rdc_name;
         rdc_name << prm_name << "_reduce";
 
-        src.new_line() << type_name<T>() << " " << prm_name << "_sum = "
-          << RDC::template initial<T>() << ";";
+        src.new_line() << type_name<T>() << " " << prm_name << "_sum = (" <<
+            type_name<T>() << ")" << RDC::template initial<T>() << ";";
         src.open("{");
 
         src.new_line()
