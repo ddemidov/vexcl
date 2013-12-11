@@ -31,6 +31,7 @@ THE SOFTWARE.
  * \brief  OpenCL source code compilation wrapper.
  */
 
+#include <cstdlib>
 #include <vexcl/backend/common.hpp>
 
 #ifndef __CL_ENABLE_EXCEPTIONS
@@ -105,6 +106,16 @@ inline cl::Program build_sources(
 {
 #ifdef VEXCL_SHOW_KERNELS
     std::cout << source << std::endl;
+#else
+#  ifdef _MSC_VER
+#    pragma warning(push)
+#    pragma warning(disable: 4996)
+#  endif
+    if (getenv("VEXCL_SHOW_KERNELS"))
+        std::cout << source << std::endl;
+#  ifdef _MSC_VER
+#    pragma warning(pop)
+#  endif
 #endif
 
     auto context = queue.getInfo<CL_QUEUE_CONTEXT>();
