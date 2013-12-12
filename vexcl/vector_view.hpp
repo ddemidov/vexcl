@@ -954,6 +954,34 @@ reduced_vector_view<
         NDIM, 1, RDC>(boost::proto::as_child(expr), slice, dim);
 }
 
+/// Reduce sliced expression along specified dimensions.
+template <class RDC, typename Expr, size_t NDIM, size_t NR>
+reduced_vector_view<
+    typename boost::proto::result_of::as_child<const Expr, vector_domain>::type,
+    NDIM, NR, RDC
+> reduce(
+        const extent_gen<NDIM> &ext,
+        const Expr &expr,
+        const std::array<size_t, NR> &reduce_dims
+        )
+{
+    return reduce<RDC>(slicer<NDIM>(ext)[_], expr, reduce_dims);
+}
+
+/// Reduce sliced expression along specified dimension.
+template <class RDC, typename Expr, size_t NDIM>
+reduced_vector_view<
+    typename boost::proto::result_of::as_child<const Expr, vector_domain>::type,
+    NDIM, 1, RDC
+> reduce(
+        const extent_gen<NDIM> &ext,
+        const Expr &expr,
+        size_t reduce_dim
+        )
+{
+    return reduce<RDC>(slicer<NDIM>(ext)[_], expr, reduce_dim);
+}
+
 //---------------------------------------------------------------------------
 // Matrix reshaper
 //---------------------------------------------------------------------------
