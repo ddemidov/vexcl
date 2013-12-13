@@ -31,7 +31,7 @@ THE SOFTWARE.
  * \brief  CUDA source code compilation wrapper.
  */
 
-#include <ctsdlib>
+#include <cstdlib>
 #include <cuda.h>
 
 #include <vexcl/backend/common.hpp>
