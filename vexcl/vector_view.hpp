@@ -40,6 +40,7 @@ THE SOFTWARE.
 
 #include <vexcl/vector.hpp>
 #include <vexcl/element_index.hpp>
+#include <vexcl/tagged_terminal.hpp>
 #if (VEXCL_CHECK_SIZES > 1)
 #  include <vexcl/reductor.hpp>
 #endif
@@ -183,6 +184,17 @@ struct local_terminal_init< vector_view<const vector<T>&, Slice> > {
     }
 };
 
+template <typename T, size_t Tag, class Slice>
+struct local_terminal_init< vector_view<tagged_terminal<Tag, const vector<T>&>, Slice> > {
+    static void get(backend::source_generator &src,
+            const vector_view<tagged_terminal<Tag, const vector<T>&>, Slice> &term,
+            const backend::command_queue &queue, const std::string &prm_name,
+            detail::kernel_generator_state_ptr state)
+    {
+        term.slice.local_preamble(src, prm_name + "_slice", queue, state);
+    }
+};
+
 template <typename Expr, class Slice>
 struct partial_vector_expr< vector_view<Expr, Slice> > {
     static void get(backend::source_generator &src,
@@ -202,6 +214,19 @@ struct partial_vector_expr< vector_view<const vector<T>&, Slice> > {
             detail::kernel_generator_state_ptr state)
     {
         src << prm_name << "_expr_1[";
+        term.slice.index(src, prm_name + "_slice", queue, state);
+        src << "]";
+    }
+};
+
+template <typename T, size_t Tag, class Slice>
+struct partial_vector_expr< vector_view<tagged_terminal<Tag, const vector<T>&>, Slice> > {
+    static void get(backend::source_generator &src,
+            const vector_view<tagged_terminal<Tag, const vector<T>&>, Slice> &term,
+            const backend::command_queue &queue, const std::string &prm_name,
+            detail::kernel_generator_state_ptr state)
+    {
+        src << "prm_tag_" << Tag << "_1[";
         term.slice.index(src, prm_name + "_slice", queue, state);
         src << "]";
     }
