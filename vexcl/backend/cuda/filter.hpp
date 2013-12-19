@@ -56,16 +56,20 @@ namespace Filter {
             std::string devname;
     };
 
-    /// \cond INTERNAL
-    struct DoublePrecisionFilter {
+    /// Compute capability filter.
+    struct CC {
+        CC(int major, int minor) : cc(std::make_tuple(major, minor)) {}
+
         bool operator()(const backend::device &d) const {
-            return d.compute_capability() >= std::make_tuple(1, 3);
+            return d.compute_capability() >= cc;
         }
+
+        private:
+            std::tuple<int, int> cc;
     };
-    /// \endcond
 
     /// Selects devices supporting double precision.
-    const DoublePrecisionFilter DoublePrecision = {};
+    const CC DoublePrecision(1,3);
 
     /// List of device filters based on environment variables.
     inline std::vector< std::function<bool(const backend::device&)> >
