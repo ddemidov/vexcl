@@ -961,7 +961,7 @@ std::vector<vex::backend::kernel> kernel;
 
 // Compile and store the kernels for later use.
 for(uint d = 0; d < ctx.size(); d++) {
-    kernel.emplace_back(ctx.context(d),
+    kernel.emplace_back(ctx.queue(d),
         "kernel void dummy(ulong n, global float *x)\n"
         "{\n"
         "    for(size_t i = get_global_id(0); i < n; i += get_global_size(0))\n"
