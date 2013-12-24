@@ -1149,7 +1149,7 @@ backend::device_vector<int> merge_path_partitions(
 
     auto merge_partition = merge_partition_kernel<NT, K, Comp>(queue);
 
-    int a_count = boost::fusion::at_c<0>(keys).size();
+    int a_count = static_cast<int>(boost::fusion::at_c<0>(keys).size());
     int b_count = 0;
 
     merge_partition.push_arg(a_count);
@@ -1813,7 +1813,7 @@ void sort(const backend::command_queue &queue, KT &keys, Comp) {
     const int VT = (sizeof_keys::value > 4) ? 7 : 11;
     const int NV = NT * VT;
 
-    const int count = at_c<0>(keys).size();
+    const int count = static_cast<int>(at_c<0>(keys).size());
     const int num_blocks = (count + NV - 1) / NV;
     const int num_passes = detail::find_log2(num_blocks, true);
 
@@ -1882,7 +1882,7 @@ void sort_by_key(const backend::command_queue &queue, KTup &&keys, VTup &&vals, 
     const int VT = (sizeof(K) > 4) ? 7 : 11;
     const int NV = NT * VT;
 
-    const int count = at_c<0>(keys).size();
+    const int count = static_cast<int>(at_c<0>(keys).size());
     const int num_blocks = (count + NV - 1) / NV;
     const int num_passes = detail::find_log2(num_blocks, true);
 

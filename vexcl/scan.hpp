@@ -389,7 +389,7 @@ void scan(
         intra_block_inclusive_scan<NT_cpu, T, Oper>(queue) :
         intra_block_inclusive_scan<NT_gpu, T, Oper>(queue);
 
-    uint work_per_thread = std::max<uint>(1U, scan_buf_size / NT);
+    uint work_per_thread = std::max<uint>(1U, static_cast<uint>(scan_buf_size / NT));
     krn1.push_arg(num_blocks);
     krn1.push_arg(post_sum);
     krn1.push_arg(pre_sum1);

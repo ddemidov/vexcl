@@ -504,7 +504,7 @@ int reduce_by_key_sink(
     krn1(queue[0]);
 
     /***** Kernel 2 *****/
-    uint work_per_thread = std::max<uint>(1U, scan_buf_size / NT);
+    uint work_per_thread = std::max<uint>(1U, static_cast<uint>(scan_buf_size / NT));
 
     auto krn2 = is_cpu(queue[0]) ?
         detail::block_inclusive_scan_by_key<NT_cpu, V, Oper>(queue[0]) :

@@ -42,10 +42,10 @@ BOOST_AUTO_TEST_CASE(rbk)
 }
 
 struct comp {
-    const int  *k1;
-    const long *k2;
+    const cl_int  *k1;
+    const cl_long *k2;
 
-    comp(const int * k1, const long *k2) : k1(k1), k2(k2) {}
+    comp(const cl_int * k1, const cl_long *k2) : k1(k1), k2(k2) {}
 
     template <class Tuple>
     bool operator()(size_t i, Tuple t) const {
@@ -58,17 +58,16 @@ struct comp {
     }
 };
 
-#ifndef _MSC_VER // Damn you Visual Studio!
 BOOST_AUTO_TEST_CASE(rbk_tuple)
 {
     const int n = 1000 * 1000;
 
-    std::vector<int>  k1(n);
-    std::vector<long> k2(n);
+    std::vector<cl_int>  k1(n);
+    std::vector<cl_long> k2(n);
 
     {
-        std::vector<int>  k1s = random_vector<int> (n);
-        std::vector<long> k2s = random_vector<long>(n);
+        std::vector<cl_int>  k1s = random_vector<cl_int> (n);
+        std::vector<cl_long> k2s = random_vector<cl_long>(n);
 
         std::vector<size_t> idx(n);
         std::iota(idx.begin(), idx.end(), 0);
@@ -87,15 +86,15 @@ BOOST_AUTO_TEST_CASE(rbk_tuple)
 
     std::vector<vex::backend::command_queue> queue(1, ctx.queue(0));
 
-    vex::vector<int>    ikey1(queue, k1);
-    vex::vector<long>   ikey2(queue, k2);
-    vex::vector<double> ivals(queue, y);
+    vex::vector<cl_int>  ikey1(queue, k1);
+    vex::vector<cl_long> ikey2(queue, k2);
+    vex::vector<double>  ivals(queue, y);
 
-    vex::vector<int>    okey1;
-    vex::vector<long>   okey2;
-    vex::vector<double> ovals;
+    vex::vector<cl_int>  okey1;
+    vex::vector<cl_long> okey2;
+    vex::vector<double>  ovals;
 
-    VEX_FUNCTION(equal, bool(int, long, int, long),
+    VEX_FUNCTION(equal, bool(cl_int, cl_long, cl_int, cl_long),
             "return (prm1 == prm3) && (prm2 == prm4);"
             );
 
@@ -124,7 +123,7 @@ BOOST_AUTO_TEST_CASE(rbk_tuple)
     std::vector<size_t> idx(n);
     std::iota(idx.begin(), idx.end(), 0);
 
-    check_sample(okey1, okey2, ovals, [&](size_t, int key1, long key2, double dev_sum) {
+    check_sample(okey1, okey2, ovals, [&](size_t, cl_int key1, cl_long key2, double dev_sum) {
         auto r = std::equal_range(idx.begin(), idx.end(),
             std::make_tuple(key1, key2), comp(k1.data(), k2.data()));
 
@@ -136,6 +135,5 @@ BOOST_AUTO_TEST_CASE(rbk_tuple)
         BOOST_CHECK_CLOSE(dev_sum, host_sum, 1e-8);
         });
 }
-#endif
 
 BOOST_AUTO_TEST_SUITE_END()

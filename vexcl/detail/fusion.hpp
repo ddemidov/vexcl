@@ -35,6 +35,11 @@ template <class Tuple>
 struct extract_value_types {
     typedef typename std::decay<Tuple>::type T;
 
+#ifdef _MSC_VER
+#  pragma warning(push)
+#  pragma warning(disable : 4348)
+#endif
+
     template <size_t I, size_t N, class Enable = void>
     struct loop;
 
@@ -58,6 +63,11 @@ struct extract_value_types {
     };
 
     typedef typename loop<0, boost::fusion::result_of::size<T>::value>::type type;
+
+#ifdef _MSC_VER
+#  pragma warning(pop)
+#endif
+
 };
 
 struct type_iterator {

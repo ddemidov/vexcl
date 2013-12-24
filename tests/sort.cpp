@@ -58,7 +58,6 @@ BOOST_AUTO_TEST_CASE(sort_keys_vals)
     BOOST_CHECK(std::is_sorted(k.begin(), k.end(), even_first));
 }
 
-#ifndef _MSC_VER
 BOOST_AUTO_TEST_CASE(sort_keys_tuple)
 {
     const size_t n = 1000 * 1000;
@@ -99,15 +98,15 @@ BOOST_AUTO_TEST_CASE(sort_keys_vals_tuple)
 {
     const size_t n = 1000 * 1000;
 
-    std::vector<int>   k1 = random_vector<int>  (n);
-    std::vector<float> k2 = random_vector<float>(n);
-    std::vector<long>  v1 = random_vector<long> (n);
-    std::vector<short> v2 = random_vector<short>(n);
+    std::vector<int>     k1 = random_vector<int>    (n);
+    std::vector<float>   k2 = random_vector<float>  (n);
+    std::vector<cl_long> v1 = random_vector<cl_long>(n);
+    std::vector<short>   v2 = random_vector<short>  (n);
 
-    vex::vector<int>   keys1(ctx, k1);
-    vex::vector<float> keys2(ctx, k2);
-    vex::vector<long>  vals1(ctx, v1);
-    vex::vector<short> vals2(ctx, v2);
+    vex::vector<int>     keys1(ctx, k1);
+    vex::vector<float>   keys2(ctx, k2);
+    vex::vector<cl_long> vals1(ctx, v1);
+    vex::vector<short>   vals2(ctx, v2);
 
     struct less_t {
         typedef bool result_type;
@@ -135,6 +134,5 @@ BOOST_AUTO_TEST_CASE(sort_keys_vals_tuple)
                     return std::make_tuple(k1[i], k2[i]) < std::make_tuple(k1[j], k2[j]);
                 } ) );
 }
-#endif
 
 BOOST_AUTO_TEST_SUITE_END()
