@@ -1,5 +1,6 @@
 #define BOOST_TEST_MODULE ReduceByKey
 #include <algorithm>
+#include <numeric>
 #include <boost/test/unit_test.hpp>
 #include <vexcl/vector.hpp>
 #include <vexcl/reduce_by_key.hpp>
@@ -57,6 +58,7 @@ struct comp {
     }
 };
 
+#ifndef _MSC_VER // Damn you Visual Studio!
 BOOST_AUTO_TEST_CASE(rbk_tuple)
 {
     const int n = 1000 * 1000;
@@ -102,8 +104,8 @@ BOOST_AUTO_TEST_CASE(rbk_tuple)
             );
 
     int num_keys = vex::reduce_by_key(
-            std::tie(ikey1, ikey2), ivals,
-            std::tie(okey1, okey2), ovals,
+            boost::fusion::vector_tie(ikey1, ikey2), ivals,
+            boost::fusion::vector_tie(okey1, okey2), ovals,
             equal, plus
             );
 
@@ -134,5 +136,6 @@ BOOST_AUTO_TEST_CASE(rbk_tuple)
         BOOST_CHECK_CLOSE(dev_sum, host_sum, 1e-8);
         });
 }
+#endif
 
 BOOST_AUTO_TEST_SUITE_END()

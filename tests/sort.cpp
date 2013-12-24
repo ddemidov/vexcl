@@ -32,7 +32,7 @@ BOOST_AUTO_TEST_CASE(sort_keys_vals)
 
     BOOST_CHECK( std::is_sorted(k.begin(), k.end()) );
 
-    struct {
+    struct even_first_t {
         typedef bool result_type;
 
         VEX_FUNCTION(device, bool(int, int),
@@ -48,6 +48,8 @@ BOOST_AUTO_TEST_CASE(sort_keys_vals)
             if (bit1 == bit2) return a < b;
             return bit1 < bit2;
         }
+
+        even_first_t() {}
     } even_first;
 
     vex::sort_by_key(keys, vals, even_first);
@@ -56,6 +58,7 @@ BOOST_AUTO_TEST_CASE(sort_keys_vals)
     BOOST_CHECK(std::is_sorted(k.begin(), k.end(), even_first));
 }
 
+#ifndef _MSC_VER
 BOOST_AUTO_TEST_CASE(sort_keys_tuple)
 {
     const size_t n = 1000 * 1000;
@@ -66,7 +69,7 @@ BOOST_AUTO_TEST_CASE(sort_keys_tuple)
     vex::vector<int>   keys1(ctx, k1);
     vex::vector<float> keys2(ctx, k2);
 
-    struct {
+    struct less_t {
         typedef bool result_type;
 
         VEX_FUNCTION(device, bool(int, float, int, float),
@@ -76,9 +79,11 @@ BOOST_AUTO_TEST_CASE(sort_keys_tuple)
         result_type operator()(int a1, float a2, int b1, float b2) const {
             return (a1 == b1) ? (a2 < b2) : (a1 < b1);
         }
+
+        less_t() {}
     } less;
 
-    vex::sort(std::tie(keys1, keys2), less );
+    vex::sort(boost::fusion::vector_tie(keys1, keys2), less );
     vex::copy(keys1, k1);
     vex::copy(keys2, k2);
 
@@ -104,7 +109,7 @@ BOOST_AUTO_TEST_CASE(sort_keys_vals_tuple)
     vex::vector<long>  vals1(ctx, v1);
     vex::vector<short> vals2(ctx, v2);
 
-    struct {
+    struct less_t {
         typedef bool result_type;
 
         VEX_FUNCTION(device, bool(int, float, int, float),
@@ -114,9 +119,11 @@ BOOST_AUTO_TEST_CASE(sort_keys_vals_tuple)
         result_type operator()(int a1, float a2, int b1, float b2) const {
             return (a1 == b1) ? (a2 < b2) : (a1 < b1);
         }
+
+        less_t() {}
     } less;
 
-    vex::sort_by_key(std::tie(keys1, keys2), std::tie(vals1, vals2), less );
+    vex::sort_by_key(boost::fusion::vector_tie(keys1, keys2), boost::fusion::vector_tie(vals1, vals2), less );
 
     vex::copy(keys1, k1);
     vex::copy(keys2, k2);
@@ -128,6 +135,6 @@ BOOST_AUTO_TEST_CASE(sort_keys_vals_tuple)
                     return std::make_tuple(k1[i], k2[i]) < std::make_tuple(k1[j], k2[j]);
                 } ) );
 }
-
+#endif
 
 BOOST_AUTO_TEST_SUITE_END()

@@ -2212,6 +2212,8 @@ void sort_by_key_sink(K &&keys, V &&vals, Comp comp) {
 template <typename T>
 struct less : std::less<T> {
     VEX_FUNCTION(device, bool(T, T), "return prm1 < prm2;");
+
+    less() {}
 };
 
 /// Function object class for less-than-or-equal inequality comparison.
@@ -2223,6 +2225,8 @@ struct less : std::less<T> {
 template <typename T>
 struct less_equal : std::less_equal<T> {
     VEX_FUNCTION(device, bool(T, T), "return prm1 <= prm2;");
+
+    less_equal() {}
 };
 
 /// Function object class for greater-than inequality comparison.
@@ -2234,6 +2238,8 @@ struct less_equal : std::less_equal<T> {
 template <typename T>
 struct greater : std::greater<T> {
     VEX_FUNCTION(device, bool(T, T), "return prm1 > prm2;");
+
+    greater() {}
 };
 
 /// Function object class for greater-than-or-equal inequality comparison.
@@ -2245,6 +2251,8 @@ struct greater : std::greater<T> {
 template <typename T>
 struct greater_equal : std::greater_equal<T> {
     VEX_FUNCTION(device, bool(T, T), "return prm1 >= prm2;");
+
+    greater_equal() {}
 };
 
 /// Sorts the vector into ascending order.

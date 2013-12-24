@@ -1,5 +1,6 @@
 #define BOOST_TEST_MODULE Scan
 #include <algorithm>
+#include <numeric>
 #include <boost/test/unit_test.hpp>
 #include <vexcl/vector.hpp>
 #include <vexcl/scan.hpp>

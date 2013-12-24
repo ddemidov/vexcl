@@ -22,7 +22,7 @@ BOOST_AUTO_TEST_CASE(convert_functions)
 
     vex::vector<cl_int2> x(ctx, N);
 
-    cl_float2 y = {{4.2, 8.4}};
+    cl_float2 y = {{4.2f, 8.4f}};
 
     x = vex::convert_int2(y);
 

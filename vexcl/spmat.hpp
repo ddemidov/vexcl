@@ -99,7 +99,7 @@ class SpMat {
                         mtx[d].reset(
                                 new SpMatCSR(queue[d],
                                     row + part[d], row + part[d+1], col, val,
-                                    col_part[d], col_part[d+1], ghost_cols[d])
+                                    static_cast<col_t>(col_part[d]), static_cast<col_t>(col_part[d+1]), ghost_cols[d])
                                 );
                     else
                         mtx[d].reset(

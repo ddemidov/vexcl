@@ -424,6 +424,8 @@ void scan(
 template <typename T>
 struct plus : std::plus<T> {
     VEX_FUNCTION(device, T(T, T), "return prm1 + prm2;");
+
+    plus() {}
 };
 
 /// Inclusive scan.

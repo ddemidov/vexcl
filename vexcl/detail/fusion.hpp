@@ -21,7 +21,10 @@
 #include <boost/fusion/include/swap.hpp>
 #include <boost/fusion/include/at_c.hpp>
 #include <boost/fusion/include/zip_view.hpp>
-#include <boost/fusion/adapted/std_tuple.hpp>
+#include <boost/fusion/include/vector_tie.hpp>
+#ifndef BOOST_NO_VARIADIC_TEMPLATES
+#  include <boost/fusion/adapted/std_tuple.hpp>
+#endif
 
 
 namespace vex {

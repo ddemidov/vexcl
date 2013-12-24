@@ -80,10 +80,17 @@ struct SUM {
 struct MAX {
     template <typename T>
     static T initial() {
+#ifdef _MSC_VER
+#  pragma warning(push)
+#  pragma warning(disable: 4146)
+#endif
         if (std::is_unsigned<T>::value)
             return static_cast<T>(0);
         else
             return -std::numeric_limits<T>::max();
+#ifdef _MSC_VER
+#  pragma warning(pop)
+#endif
     }
 
     template <typename T>

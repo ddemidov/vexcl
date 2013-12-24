@@ -435,7 +435,7 @@ void stencil<T>::apply(const vex::vector<T> &x, vex::vector<T> &y,
 {
     Base::exchange_halos(x);
 
-    T beta = append ? 1 : 0;
+    T beta = static_cast<T>(append ? 1 : 0);
 
     for(unsigned d = 0; d < queue.size(); d++) {
         if (size_t psize = x.part_size(d)) {
