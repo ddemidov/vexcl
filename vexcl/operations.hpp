@@ -1010,6 +1010,13 @@ struct additive_operator
     }
 };
 
+
+/// Meta-filter for VexCL vector expressions
+template <class T>
+struct is_vector_expression
+    : std::is_same< typename boost::proto::domain_of<T>::type, vector_domain >
+{};
+
 namespace traits {
 
 template <class M, class V>
@@ -1091,6 +1098,12 @@ struct multivector_expression
     multivector_expression(const Expr &expr = Expr())
         : boost::proto::extends< Expr, multivector_expression<Expr>, multivector_domain>(expr) {}
 };
+
+/// Meta-filter for VexCL multivector expressions
+template <class T>
+struct is_multivector_expression
+    : std::is_same< typename boost::proto::domain_of<T>::type, multivector_domain >
+{};
 
 template <class M, class V>
 struct multiadditive_operator
