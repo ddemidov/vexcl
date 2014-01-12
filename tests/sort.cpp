@@ -36,11 +36,13 @@ BOOST_AUTO_TEST_CASE(sort_keys_vals)
         typedef bool result_type;
 
         VEX_FUNCTION(device, bool(int, int),
-                "char bit1 = 1 & prm1;\n"
-                "char bit2 = 1 & prm2;\n"
-                "if (bit1 == bit2) return prm1 < prm2;\n"
-                "return bit1 < bit2;\n"
-                );
+            VEX_STRINGIZE_SOURCE(
+                char bit1 = 1 & prm1;
+                char bit2 = 1 & prm2;
+                if (bit1 == bit2) return prm1 < prm2;
+                return bit1 < bit2;
+                )
+            );
 
         result_type operator()(int a, int b) const {
             char bit1 = 1 & a;

@@ -308,6 +308,18 @@ Z = sqrt(X * X + Y * Y);
 ~~~
 The drawback of the latter variant is that `X` and `Y` will be read _twice_.
 
+The convenience macro `VEX_STRINGIZE_SOURCE` may be used to easily enquote the
+source code for a user-defined function. It's advantage is that users will have
+benefits of syntax highlighting and general readability of their code:
+~~~{.cpp}
+VEX_FUNCTION(diff_cube, double(double, double),
+    VEX_STRINGIZE_SOURCE(
+        double d = prm1 - prm2;
+        return d * d * d;
+        )
+    );
+~~~
+
 ### <a name="tagged-terminals"></a>Tagged terminals
 
 The code snippet from the last paragraph is ineffective because the compiler
@@ -667,11 +679,13 @@ user-defined function:
 ~~~{.cpp}
 // Takes vector size, current element position, and pointer to a vector to sum:
 VEX_FUNCTION(global_interaction, double(size_t, size_t, double*),
-    "double sum = 0;\n"
-    "double myval = prm3[prm2];\n"
-    "for(size_t i = 0; i < prm1; ++i)\n"
-    "    if (i != prm2) sum += fabs(prm3[i] - myval);\n"
-    "return sum;\n"
+    VEX_STRINGIZE_SOURCE(
+        double sum = 0;
+        double myval = prm3[prm2];
+        for(size_t i = 0; i < prm1; ++i)
+            if (i != prm2) sum += fabs(prm3[i] - myval);
+        return sum;
+        )
     );
 
 y = global_interaction(x.size(), vex::element_index(), vex::raw_pointer(x));
@@ -698,11 +712,13 @@ that even elements precede odd ones:
 template <typename T>
 struct even_first {
     VEX_FUNCTION(device, bool(int, int),
-            "char bit1 = 1 & prm1;\n"
-            "char bit2 = 1 & prm2;\n"
-            "if (bit1 == bit2) return prm1 < prm2;\n"
-            "return bit1 < bit2;\n"
-            );
+        VEX_STRINGIZE_SOURCE(
+            char bit1 = 1 & prm1;
+            char bit2 = 1 & prm2;
+            if (bit1 == bit2) return prm1 < prm2;
+            return bit1 < bit2;
+            )
+        );
     bool operator()(int a, int b) const {
         char bit1 = 1 & a;
         char bit2 = 1 & b;
@@ -962,11 +978,12 @@ std::vector<vex::backend::kernel> kernel;
 // Compile and store the kernels for later use.
 for(uint d = 0; d < ctx.size(); d++) {
     kernel.emplace_back(ctx.queue(d),
-        "kernel void dummy(ulong n, global float *x)\n"
-        "{\n"
-        "    for(size_t i = get_global_id(0); i < n; i += get_global_size(0))\n"
-        "        x[i] = 4.2;\n"
-        "}\n",
+        VEX_STRINGIZE_SOURCE(
+            kernel void dummy(ulong n, global float *x) {
+                for(size_t i = get_global_id(0); i < n; i += get_global_size(0))
+                    x[i] = 4.2;
+            }
+            ),
         "dummy"
         );
 }

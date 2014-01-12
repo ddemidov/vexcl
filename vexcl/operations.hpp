@@ -907,6 +907,20 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_USER_FUNCTION, ~)
   VEX_FUNCTION_TYPE(user_function_##name##_body, signature, preamble, body)    \
     const name
 
+/// Stringizes compute kernel source code.
+/**
+ * Example:
+\code
+VEX_FUNCTION(diff_cube, double(double, double),
+    VEX_STRINGIZE_SOURCE(
+        double d = prm1 - prm2;
+        return d * d * d;
+        )
+    );
+\endcode
+*/
+#define VEX_STRINGIZE_SOURCE(...) #__VA_ARGS__
+
 
 /// \cond INTERNAL
 
