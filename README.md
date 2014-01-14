@@ -1050,7 +1050,7 @@ also provided with the library.
 ----------------------------
 _This work is a joint effort of [Supercomputer Center of Russian Academy of
 Sciences][jscc] (Kazan branch) and [Kazan Federal University][kpfu]. It is
-partially supported by RFBR grants No 12-07-0007 and 12-01-00033._
+partially supported by RFBR grants No 12-07-0007 and 12-01-00333a._
 
 [jscc]: http://www.jscc.ru/eng/index.shtml
 [kpfu]: http://www.kpfu.ru
