@@ -1054,3 +1054,7 @@ partially supported by RFBR grants No 12-07-0007 and 12-01-00333a._
 
 [jscc]: http://www.jscc.ru/eng/index.shtml
 [kpfu]: http://www.kpfu.ru
+
+
+[![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/ddemidov/vexcl/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
+
