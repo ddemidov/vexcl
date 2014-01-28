@@ -42,6 +42,7 @@ THE SOFTWARE.
 
 #include <boost/proto/proto.hpp>
 #include <boost/io/ios_state.hpp>
+#include <boost/iterator/iterator_facade.hpp>
 
 #include <vexcl/backend.hpp>
 #include <vexcl/util.hpp>
@@ -267,73 +268,33 @@ class vector : public vector_terminal_expression {
          */
         template <class vector_type, class element_type>
         class iterator_type
-            : public std::iterator<std::random_access_iterator_tag, T>
+            : public boost::iterator_facade<
+                        iterator_type<vector_type, element_type>,
+                        T,
+                        std::random_access_iterator_tag,
+                        element_type
+                     >
         {
             public:
+                typedef boost::iterator_facade<
+                            iterator_type<vector_type, element_type>,
+                            T,
+                            std::random_access_iterator_tag,
+                            element_type
+                         > super_type;
+                typedef typename super_type::reference       reference;
+                typedef typename super_type::difference_type difference_type;
+
                 static const bool device_iterator = true;
-
-                element_type operator*() const {
-                    return element_type(
-                            vec->queue[part], vec->buf[part],
-                            pos - vec->part[part]
-                            );
-                }
-
-                iterator_type& operator++() {
-                    ++pos;
-                    while (part < vec->nparts() && pos >= vec->part[part + 1])
-                        ++part;
-                    return *this;
-                }
-
-                iterator_type& operator--() {
-                    --pos;
-                    while (part > 0 && pos < vec->part[part])
-                        --part;
-                    return *this;
-                }
-
-                iterator_type operator++(int) {
-                    iterator_type copy = *this;
-                    ++(*this);
-                    return copy;
-                }
-
-                iterator_type operator--(int) {
-                    iterator_type copy = *this;
-                    --(*this);
-                    return copy;
-                }
-
-                iterator_type operator+(ptrdiff_t d) const {
-                    return iterator_type(*vec, pos + d);
-                }
-
-                iterator_type operator-(ptrdiff_t d) const {
-                    return iterator_type(*vec, pos - d);
-                }
-
-                ptrdiff_t operator-(iterator_type it) const {
-                    return pos - it.pos;
-                }
-
-                bool operator==(const iterator_type &it) const {
-                    return pos == it.pos;
-                }
-
-                bool operator!=(const iterator_type &it) const {
-                    return pos != it.pos;
-                }
-
-                bool operator<(const iterator_type &it) const {
-                    return pos < it.pos;
-                }
 
                 vector_type *vec;
                 size_t  pos;
                 size_t  part;
 
             private:
+                friend class ::boost::iterator_core_access;
+                friend class vector;
+
                 iterator_type(vector_type &vec, size_t pos)
                     : vec(&vec), pos(pos), part(0)
                 {
@@ -344,7 +305,43 @@ class vector : public vector_terminal_expression {
                     }
                 }
 
-                friend class vector;
+                reference dereference() const {
+                    return element_type(
+                            vec->queue[part], vec->buf[part],
+                            pos - vec->part[part]
+                            );
+                }
+
+                bool equal(const iterator_type &it) const {
+                    return pos == it.pos;
+                }
+
+                void increment() {
+                    ++pos;
+                    while (part < vec->nparts() && pos >= vec->part[part + 1])
+                        ++part;
+                }
+
+                void decrement() {
+                    --pos;
+                    while (part > 0 && pos < vec->part[part])
+                        --part;
+                }
+
+                void advance(difference_type n) {
+                    pos += n;
+                    if (n > 0) {
+                        while (part < vec->nparts() && pos >= vec->part[part + 1])
+                            ++part;
+                    } else if (n < 0) {
+                        while (part > 0 && pos < vec->part[part])
+                            --part;
+                    }
+                }
+
+                difference_type distance_to(const iterator_type &it) const {
+                    return static_cast<difference_type>(it.pos - pos);
+                }
         };
 
         typedef iterator_type<vector, element> iterator;

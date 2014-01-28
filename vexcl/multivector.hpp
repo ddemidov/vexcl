@@ -39,6 +39,7 @@ THE SOFTWARE.
 #include <string>
 #include <type_traits>
 #include <boost/proto/proto.hpp>
+#include <boost/iterator/iterator_facade.hpp>
 
 #include <vexcl/util.hpp>
 #include <vexcl/operations.hpp>
@@ -175,31 +176,46 @@ class multivector : public multivector_terminal_expression {
         };
 
         template <class V, class E>
-        class iterator_type {
+        class iterator_type
+            : public boost::iterator_facade<
+                        iterator_type<V, E>,
+                        sub_value_type,
+                        std::random_access_iterator_tag,
+                        E
+                     >
+        {
             public:
-                E operator*() const {
+                typedef boost::iterator_facade<
+                            iterator_type<V, E>,
+                            sub_value_type,
+                            std::random_access_iterator_tag,
+                            E
+                         > super_type;
+                typedef typename super_type::reference       reference;
+                typedef typename super_type::difference_type difference_type;
+
+                reference dereference() const {
                     return E(vec, pos);
                 }
 
-                iterator_type& operator++() {
-                    pos++;
-                    return *this;
-                }
-
-                iterator_type operator+(ptrdiff_t d) const {
-                    return iterator_type(vec, pos + d);
-                }
-
-                ptrdiff_t operator-(const iterator_type &it) const {
-                    return pos - it.pos;
-                }
-
-                bool operator==(const iterator_type &it) const {
+                bool equal(const iterator_type &it) const {
                     return pos == it.pos;
                 }
 
-                bool operator!=(const iterator_type &it) const {
-                    return pos != it.pos;
+                void increment() {
+                    ++pos;
+                }
+
+                void decrement() {
+                    --pos;
+                }
+
+                void advance(difference_type n) {
+                    pos += n;
+                }
+
+                difference_type distance_to(const iterator_type &it) const {
+                    return static_cast<difference_type>(it.pos - pos);
                 }
             private:
                 iterator_type(V &vec, size_t pos) : vec(vec), pos(pos) {}
