@@ -190,7 +190,7 @@ class source_generator {
         {
             new_line() << "for";
             open("(");
-            new_line() << "size_t " << idx << " = blockDim.x * blockIdx.x + threadIdx.x, "
+            new_line() << type_name<size_t>() << " " << idx << " = blockDim.x * blockIdx.x + threadIdx.x, "
                 "grid_size = blockDim.x * gridDim.x;";
             new_line() << idx << " < " << bnd << ";";
             new_line() << idx << " += grid_size";
