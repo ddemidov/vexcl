@@ -213,8 +213,8 @@ class source_generator {
                 new_line() << type_name<size_t>() << " chunk_size  = (" << bnd
                            << " + get_global_size(0) - 1) / get_global_size(0);";
                 new_line() << type_name<size_t>() << " chunk_start = get_global_id(0) * chunk_size;";
-                new_line() << type_name<size_t>() << " chunk_end   = min(" << bnd
-                           << ", chunk_start + chunk_size);";
+                new_line() << type_name<size_t>() << " chunk_end   = chunk_start + chunk_size;";
+                new_line() << "if (" << bnd << " < chunk_end) chunk_end = " << bnd << ";";
                 new_line() << "for(" << type_name<size_t>() << " "<< idx << " = chunk_start; "
                            << idx << " < chunk_end; ++" << idx << ")";
             } else {
