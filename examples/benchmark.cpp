@@ -15,6 +15,7 @@
 #include <vexcl/element_index.hpp>
 #include <vexcl/spmat.hpp>
 #include <vexcl/stencil.hpp>
+#include <vexcl/sort.hpp>
 
 #ifdef _MSC_VER
 #  pragma warning(disable : 4267)
@@ -28,6 +29,7 @@ struct Options {
     bool bm_stencil;
     bool bm_spmv;
     bool bm_rng;
+    bool bm_sort;
     bool bm_cpu;
 
     Options() :
@@ -37,6 +39,7 @@ struct Options {
         bm_stencil(true),
         bm_spmv(true),
         bm_rng(true),
+        bm_sort(true),
         bm_cpu(true)
     {}
 } options;
@@ -634,6 +637,55 @@ void benchmark_rng(
         std::cout
             << "    C++    (mt19937):  " << N / time_elapsed << std::endl;
     }
+
+    std::cout << std::endl;
+}
+
+//---------------------------------------------------------------------------
+template <typename real>
+void benchmark_sort(
+        const vex::Context &ctx, vex::profiler<> &prof
+        )
+{
+    const size_t N = 16 * 1024 * 1024;
+    const size_t M = 16;
+
+    std::vector<real> x0 = random_vector<real>(N);
+    std::vector<real> x1(N);
+
+    vex::vector<real> X0(ctx, x0);
+    vex::vector<real> X1(ctx, N);
+
+    X1 = X0;
+    vex::sort(X1);
+
+    double time_cl = 0, time_cpu = 0;
+
+    for(size_t i = 0; i < M; i++) {
+        X1 = X0;
+        ctx.finish();
+        prof.tic_cpu("OpenCL");
+        vex::sort(X1);
+        ctx.finish();
+        time_cl += prof.toc("OpenCL");
+    }
+
+    std::cout
+        << "Sort (" << vex::type_name<real>() << ")\n"
+        << "    OpenCL: " << N * M / time_cl << " keys/sec\n";
+
+    if (options.bm_cpu) {
+        for(size_t i = 0; i < M; i++) {
+            std::copy(x0.begin(), x0.end(), x1.begin());
+            prof.tic_cpu("CPU");
+            std::sort(x1.begin(), x1.end());
+            time_cpu += prof.toc("CPU");
+        }
+
+        std::cout << "    CPU:    " << N * M / time_cpu << " keys/sec\n";
+    }
+
+    std::cout << std::endl;
 }
 
 //---------------------------------------------------------------------------
@@ -706,6 +758,12 @@ void run_tests(const vex::Context &ctx, vex::profiler<> &prof)
         prof.toc("Random number generation");
     }
 
+    if (options.bm_sort) {
+        prof.tic_cpu("Sorting");
+        benchmark_sort<real>(ctx, prof);
+        prof.toc("Sorting");
+    }
+
     prof.toc( vex::type_name<real>() );
 
     std::cout << std::endl << std::endl;
@@ -718,6 +776,10 @@ int main(int argc, char *argv[]) {
 
     desc.add_options()
         ("help,h", "show help")
+        ("bm_saxpy",
+            po::value<bool>(&options.bm_saxpy)->default_value(true),
+            "benchmark SAXPY (on/off)"
+            )
         ("bm_vec",
             po::value<bool>(&options.bm_vector)->default_value(true),
             "benchmark vector arithmetics (on/off)"
@@ -737,6 +799,10 @@ int main(int argc, char *argv[]) {
         ("bm_rng",
             po::value<bool>(&options.bm_rng)->default_value(true),
             "benchmark random number generation (on/off)"
+            )
+        ("bm_sort",
+            po::value<bool>(&options.bm_sort)->default_value(true),
+            "benchmark sorting (on/off)"
             )
         ("bm_cpu",
             po::value<bool>(&options.bm_cpu)->default_value(true),
