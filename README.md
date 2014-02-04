@@ -634,7 +634,7 @@ allowed in additive expressions.
 
 ## <a name="raw-pointers"></a>Raw pointers
 
-Unforunately, describing two dimensional stencils (e.g. discretization of the
+Unfortunately, describing two dimensional stencils (e.g. discretization of the
 Laplace operator) would not be effective, because the stencil width would be too
 large. One can solve this problem by using a combination of
 `raw_pointer(const vector<T>&)` with a derefence operator (essentially doing
