@@ -31,8 +31,13 @@ THE SOFTWARE.
  * \brief  OpenCL general utilities.
  */
 
-#if defined(_MSC_VER) && ( defined(min) || defined(max) )
-#  error Please define NOMINMAX macro globally in your project
+#if defined(_MSC_VER)
+#  if defined(min) || defined(max)
+#    error Please define NOMINMAX macro globally in your project
+#  endif
+#  if defined(_VARIADIC_MAX) && (_VARIADIC_MAX < 10)
+#    error Please define _VARIADIC_MAX=10 or greater in your project
+#  endif
 #endif
 
 #include <iostream>
