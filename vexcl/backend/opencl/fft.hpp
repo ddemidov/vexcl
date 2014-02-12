@@ -71,19 +71,20 @@ struct FFT {
         : plan(current_context().queue(), std::vector<size_t>(1, length), std::vector<fft::direction>(1, dir), planner) {}
 #endif
 
-    /// \defgroup  N-dimensional constructors.
-    /** @{ */
+    /// N-dimensional constructor
     FFT(const std::vector<backend::command_queue> &queues,
         const std::vector<size_t> &lengths, fft::direction dir = fft::forward,
         const Planner &planner = Planner())
         : plan(queues, lengths, std::vector<fft::direction>(lengths.size(), dir), planner) {}
 
 #ifndef VEXCL_NO_STATIC_CONTEXT_CONSTRUCTORS
+    /// N-dimensional constructor
     FFT(const std::vector<size_t> &lengths, fft::direction dir = fft::forward,
         const Planner &planner = Planner())
         : plan(current_context().queue(), lengths, std::vector<fft::direction>(lengths.size(), dir), planner) {}
 #endif
 
+    /// N-dimensional constructor
     FFT(const std::vector<backend::command_queue> &queues,
         const std::vector<size_t> &lengths,
         const std::vector<fft::direction> &dirs,
@@ -91,6 +92,7 @@ struct FFT {
         : plan(queues, lengths, dirs, planner) {}
 
 #ifndef VEXCL_NO_STATIC_CONTEXT_CONSTRUCTORS
+    /// N-dimensional constructor
     FFT(const std::vector<size_t> &lengths,
         const std::vector<fft::direction> &dirs,
         const Planner &planner = Planner())
@@ -99,17 +101,20 @@ struct FFT {
 
 
 #ifndef BOOST_NO_INITIALIZER_LISTS
+    /// N-dimensional constructor
     FFT(const std::vector<backend::command_queue> &queues,
         const std::initializer_list<size_t> &lengths, fft::direction dir = fft::forward,
         const Planner &planner = Planner())
         : plan(queues, lengths, std::vector<fft::direction>(lengths.size(), dir), planner) {}
 
 #ifndef VEXCL_NO_STATIC_CONTEXT_CONSTRUCTORS
+    /// N-dimensional constructor
     FFT(const std::initializer_list<size_t> &lengths, fft::direction dir = fft::forward,
         const Planner &planner = Planner())
         : plan(current_context().queue(), lengths, std::vector<fft::direction>(lengths.size(), dir), planner) {}
 #endif
 
+    /// N-dimensional constructor
     FFT(const std::vector<backend::command_queue> &queues,
         const std::initializer_list<size_t> &lengths,
         const std::initializer_list<fft::direction> &dirs,
@@ -117,13 +122,13 @@ struct FFT {
         : plan(queues, lengths, dirs, planner) {}
 
 #ifndef VEXCL_NO_STATIC_CONTEXT_CONSTRUCTORS
+    /// N-dimensional constructor
     FFT(const std::initializer_list<size_t> &lengths,
         const std::initializer_list<fft::direction> &dirs,
         const Planner &planner = Planner())
         : plan(current_context().queue(), lengths, dirs, planner) {}
 #endif
 #endif
-    /** @} */
 
     // User call
     template <class Expr>
