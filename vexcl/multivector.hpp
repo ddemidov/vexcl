@@ -122,6 +122,7 @@ typedef multivector_expression<
 
 /// Container for several vex::vectors.
 /**
+ * \ingroup containers
  * This class allows to synchronously operate on several vex::vectors of the
  * same type and size.
  */

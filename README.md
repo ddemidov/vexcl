@@ -487,11 +487,11 @@ _Expression reduction is only supported in single-device contexts._
 `vex::reshape(expr, dst_dims, src_dims)` function is a powerful primitive that
 allows one to conveniently manipulate multidimensional data. It takes three
 arguments -- an arbitrary vector expression `expr` to reshape, the dimensions
-`dst_dims` of the final result (with slowest changing dimension in the front),
-and the dimensions `src_dims` of the expression, which are specified as indices
-into `dst_dims`. The function returns a vector expression that could be assigned
-to a vector or participate in a larger expression. The dimensions may be
-conveniently specified with help of `vex::extents` object.
+`dst_dims` of the final result (with the slowest changing dimension in the
+front), and the dimensions `src_dims` of the expression, which are specified as
+indices into `dst_dims`. The function returns a vector expression that could be
+assigned to a vector or participate in a larger expression. The dimensions may
+be conveniently specified with help of `vex::extents` object.
 
 Here is an example of transposing a two-dimensional matrix of size NxM:
 ~~~{.cpp}

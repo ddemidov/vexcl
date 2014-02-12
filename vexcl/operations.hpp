@@ -499,9 +499,33 @@ struct user_function {};
       boost::proto::vararg<grammar>                                            \
   >
 
-//---------------------------------------------------------------------------
-// Builtin functions
-//---------------------------------------------------------------------------
+/// \endcond
+
+#ifdef DOXYGEN
+
+#define VEXCL_BUILTIN_FUNCTION_1(func)                                         \
+  /** \brief Builtin function */                                               \
+  expression func(const Arg & arg) {                                           \
+    return boost::proto::make_expr<boost::proto::tag::function>(               \
+        func##_func(), boost::ref(arg));                                       \
+  }
+
+#define VEXCL_BUILTIN_FUNCTION_2(func)                                         \
+  /** \brief Builtin function */                                               \
+  expression func(const Arg1 & arg1, const Arg2 & arg2) {                      \
+    return boost::proto::make_expr<boost::proto::tag::function>(               \
+        func##_func(), boost::ref(arg1), boost::ref(arg2));                    \
+  }
+
+#define VEXCL_BUILTIN_FUNCTION_3(func)                                         \
+  /** \brief Builtin function */                                               \
+  expression func(const Arg1 & arg1, const Arg2 & arg2, const Arg3 & arg3) {   \
+    return boost::proto::make_expr<boost::proto::tag::function>(               \
+        func##_func(), boost::ref(arg1), boost::ref(arg2), boost::ref(arg3));  \
+  }
+
+#else
+
 #define VEXCL_BUILTIN_FUNCTION_1(func)                                         \
   struct func##_func : builtin_function {                                      \
     static const char *name() { return #func; }                                \
@@ -538,6 +562,11 @@ struct user_function {};
         func##_func(), boost::ref(arg1), boost::ref(arg2), boost::ref(arg3));  \
   }
 
+#endif
+
+
+/// \defgroup builtins Builtin device functions
+/** @{ */
 VEXCL_BUILTIN_FUNCTION_2( abs_diff )
 VEXCL_BUILTIN_FUNCTION_1( acos )
 VEXCL_BUILTIN_FUNCTION_1( acosh )
@@ -673,6 +702,9 @@ namespace detail {
     template <class Expr> struct return_type;
 }
 
+#ifdef DOXYGEN
+expression
+#else
 template <typename Arg>
 typename std::enable_if<
     std::is_integral<
@@ -686,6 +718,7 @@ typename std::enable_if<
         const Arg&
     >::type const
 >::type
+#endif
 abs(const Arg &arg) {
     return boost::proto::make_expr<boost::proto::tag::function>(
             abs_func(),
@@ -693,6 +726,9 @@ abs(const Arg &arg) {
             );
 }
 
+#ifdef DOXYGEN
+expression
+#else
 template <typename Arg>
 typename std::enable_if<
     !std::is_integral<
@@ -706,6 +742,7 @@ typename std::enable_if<
         const Arg&
     >::type const
 >::type
+#endif
 abs(const Arg &arg) {
     return boost::proto::make_expr<boost::proto::tag::function>(
             fabs_func(),
@@ -713,6 +750,9 @@ abs(const Arg &arg) {
             );
 }
 
+/** @} */
+
+/// \cond INTERNAL
 #define VEXCL_VECTOR_EXPR_EXTRACTOR(name, VG, AG, FG)                          \
 struct name                                                                    \
     : boost::proto::or_<                                                       \

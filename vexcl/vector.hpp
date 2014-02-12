@@ -206,7 +206,12 @@ struct hold_terminal_by_reference< T,
 
 /// \endcond
 
+/// \defgroup containers Container classes
+
 /// Device vector.
+/**
+ * \ingroup containers
+ */
 template <typename T>
 class vector : public vector_terminal_expression {
     public:
