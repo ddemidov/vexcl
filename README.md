@@ -96,11 +96,10 @@ int main() {
 ~~~
 
 [filters]:    http://ddemidov.github.io/vexcl/namespacevex_1_1Filter.html
-[env-filter]: http://ddemidov.github.io/vexcl/structvex_1_1Filter_1_1EnvFilter.html
 
-One of the most convenient filters is [vex::Filter::Env][env-filter] which
-selects compute devices based on environment variables. It allows to switch
-compute device without need to recompile the program.
+One of the most convenient filters is `vex::Filter::Env` which selects compute
+devices based on environment variables. It allows to switch compute device
+without need to recompile the program.
 
 ## <a name="memory-allocation"></a>Memory allocation
 
