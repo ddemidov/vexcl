@@ -43,6 +43,7 @@ performance of several GPGPU libraries, including VexCL.
     * [Random number generation](#random-number-generation)
     * [Permutations](#permutations)
     * [Slicing](#slicing)
+    * [Reducing multidimensional expressions](#reducing)
     * [Reshaping](#reshaping)
     * [Scattered data interpolation with multilevel B-Splines](#mba)
     * [Fast Fourier Transform](#fast-fourier-transform)
@@ -459,6 +460,27 @@ assert(Z.size() == 100);
 ~~~
 
 _Slicing is only supported in single-device contexts._
+
+### <a name="reducing"></a>Reducing multidimensional expressions
+
+`vex::reduce()` function allows one to reduce a multidimensional expression
+along one or more dimensions. The result is again a vector expression. The
+supported reduction operations are `SUM`, `MIN`, and `MAX`. The function takes
+three arguments: the shape of the expression to reduce (with the slowest
+changing dimension in the front), the expression to reduce, and the
+dimension(s) to reduce along. The latter are specified as indices into the
+shape array.
+
+In the following example we find maximum absolute value of each row in a
+two-dimensional matrix and assign the result to a vector:
+~~~{.cpp}
+vex::vector<double> A(ctx, N * M);
+vex::vector<double> x(ctx, N);
+
+x = vex::reduce<vex::MAX>(vex::extents[N][M], fabs(A), vex::extents[1]);
+~~~
+
+_Expression reduction is only supported in single-device contexts._
 
 ### <a name="reshaping"></a>Reshaping
 
