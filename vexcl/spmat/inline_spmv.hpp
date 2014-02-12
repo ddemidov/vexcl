@@ -59,10 +59,10 @@ struct inline_spmv : inline_spmv_terminal_expression {
  * guarantee that.
  *
  * Example:
- * \code
+ \code
  // Get maximum residual value:
  eps = sum( fabs(f - vex::make_inline(A * x)) );
- * \endcode
+ \endcode
  */
 template <typename val_t, typename col_t, typename idx_t>
 inline_spmv< SpMat<val_t, col_t, idx_t>, vector<val_t> >
@@ -97,10 +97,10 @@ struct mv_inline_spmv : mv_inline_spmv_terminal_expression {
  * user has to guarantee that.
  *
  * Example:
- * \code
+ \code
  // Get maximum residual value:
  eps = sum( fabs(f - vex::make_inline(A * x)) );
- * \endcode
+ \endcode
  */
 template <typename val_t, typename col_t, typename idx_t, class V>
 mv_inline_spmv<SpMat<val_t, col_t, idx_t>, V>

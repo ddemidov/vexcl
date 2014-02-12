@@ -862,11 +862,11 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_USER_FUNCTION, ~)
 
 /// Macro to declare a user function type.
 /**
- * \code
+ \code
  VEX_FUNCTION_TYPE(pow3_t, double(double), "", "return pow(prm1, 3.0);");
  pow3_t pow3;
  output = pow3(input);
- * \endcode
+ \endcode
  *
  * \note Should be used in case same function is used in several places (to
  * save on OpenCL kernel recompilations). Otherwise VEX_FUNCTION should
@@ -881,10 +881,10 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_USER_FUNCTION, ~)
 
 /// Macro to declare a user function.
 /**
- * \code
+ \code
  VEX_FUNCTION(pow3, double(double), "return pow(prm1, 3.0);");
  output = pow3(input);
- * \endcode
+ \endcode
  */
 #define VEX_FUNCTION(name, signature, body)                                    \
   VEX_FUNCTION_TYPE(user_function_##name##_body, signature, "", body)          \
@@ -894,14 +894,14 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_USER_FUNCTION, ~)
 /// Macro to declare a user function with preamble.
 /**
  * The preamble may be used to define helper functions or macros.
- * \code
+ \code
  VEX_FUNCTION_WITH_PREAMBLE(one, double(double),
          "double sin2(double x) { return pow(sin(x), 2.0); }\n"
          "double cos2(double x) { return pow(cos(x), 2.0); }\n",
          "return sin2(prm1) + cos2(prm1);"
          );
  y = one(x);
- * \endcode
+ \endcode
  */
 #define VEX_FUNCTION_WITH_PREAMBLE(name, signature, preamble, body)            \
   VEX_FUNCTION_TYPE(user_function_##name##_body, signature, preamble, body)    \
@@ -2557,19 +2557,19 @@ struct expression_tuple {
 /// Ties several vector expressions into writeable tuple.
 /**
  * The following example results in a single kernel:
- * \code
+ \code
  vex::vector<double> x(ctx, 1024);
  vex::vector<double> y(ctx, 1024);
 
  vex::tie(x,y) = std::tie( x + y, y - x );
- * \endcode
+ \endcode
  * This is functionally equivalent to
- * \code
+ \code
  tmp_x = x + y;
  tmp_y = y - x;
  x = tmp_x;
  y = tmp_y;
- * \endcode
+ \endcode
  * but does not use temporaries and is more efficient.
  */
 template<class... Expr>

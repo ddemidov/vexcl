@@ -411,9 +411,9 @@ operator*(const SpMat<val_t, col_t, idx_t> &A, const V &x) {
 /// Weights device wrt to additive_operator performance.
 /**
  * Launches the following kernel on each device:
- * \code
+ \code
  y = A * x;
- * \endcode
+ \endcode
  * where x and y are vectors, and A is matrix for 3D Poisson problem in square
  * domain. Each device gets portion of the vector proportional to the
  * performance of this operation.

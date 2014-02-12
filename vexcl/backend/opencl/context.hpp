@@ -98,11 +98,11 @@ inline bool is_cpu(const command_queue &q) {
  * \returns list of devices satisfying the provided filter.
  *
  * This example selects any GPU which supports double precision arithmetic:
- * \code
+ \code
  auto devices = device_list(
           Filter::Type(CL_DEVICE_TYPE_GPU) && Filter::DoublePrecision
           );
- * \endcode
+ \endcode
  */
 template<class DevFilter>
 std::vector<cl::Device> device_list(DevFilter&& filter) {

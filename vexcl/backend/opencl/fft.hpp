@@ -40,18 +40,18 @@ namespace vex {
 /// Fast Fourier Transform.
 /**
  * Usage:
- * \code
+ \code
  FFT<cl_double2> fft(ctx, length);
  output = fft(input); // out-of-place transform
  data = fft(data);    // in-place transform
  FFT<cl_double2> ifft({width, height}, fft::inverse); // implicit context
  input = ifft(output); // backward transform
- * \endcode
+ \endcode
  * To batch multiple transformations, use `fft::none` as the first kind:
- * \code
+ \code
  FFT<cl_double2> fft({batch, n}, {fft::none, fft::forward});
  output = fft(input);
- * \endcode
+ \endcode
  */
 template <typename Tin, typename Tout = Tin, class Planner = fft::planner>
 struct FFT {

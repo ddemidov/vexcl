@@ -258,9 +258,9 @@ struct expression_properties< tagged_terminal<Tag, Term> > {
  * I/O operations.
  *
  * Example:
- * \code
+ \code
  s = sum(tag<1>(x) * tag<1>(x) + tag<2>(y) * tag<2>(y));
- * \endcode
+ \endcode
  */
 template <size_t Tag, class Expr>
 auto tag(const Expr& expr)

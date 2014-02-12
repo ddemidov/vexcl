@@ -518,7 +518,7 @@ const index_gen<0> indices;
 /**
  * Slices multi-dimensional array stored in vex::vector in row-major order.
  * Usage:
- * \code
+ \code
  using vex::range;
 
  vex::vector<double> x(ctx, n * n)
@@ -530,7 +530,7 @@ const index_gen<0> indices;
  y = slice[42](x);                // Put 42-th row of x into y.
  y = slice[range()][42](x);       // Put 42-th column of x into y.
  z = slice[range(0, 2, n)][5](x); // Put even elements of 5-th column of x into z.
- * \endcode
+ \endcode
  */
 template <size_t NR>
 struct slicer {
@@ -708,10 +708,10 @@ struct expr_permutation {
 /// Returns permutation functor which is based on an integral expression.
 /**
  * Example:
- * \code
+ \code
  auto reverse = vex::permutation(N - 1 - vex::element_index());
  Y = reverse(X);
- * \endcode
+ \endcode
  */
 template <class Expr>
 #ifdef DOXYGEN
@@ -1127,13 +1127,13 @@ struct reshape_helper {
  *                 in dst_dims.
  *
  * Example:
- * \code
+ \code
  // Matrix transposition:
  auto B = reshape(A, make_array<size_t>(n, m), make_array(1, 0));
 
  // Expand 1D vector to a 2D matrix (by copying along redundant dimension):
  auto A = reshape(x, make_array(n, m), make_array(0));
- * \endcode
+ \endcode
  */
 template <class Expr, size_t Nout, size_t Nin>
 auto reshape(
@@ -1156,13 +1156,13 @@ auto reshape(
  *                 in dst_dims.
  *
  * Example:
- * \code
+ \code
  // Matrix transposition:
  auto B = reshape(A, extents[n][m], extents[1][0]);
 
  // Expand 1D vector to a 2D matrix (by copying along redundant dimension):
  auto A = reshape(x, extents[n][m], extents[0]);
- * \endcode
+ \endcode
  */
 template <class Expr, size_t Nout, size_t Nin>
 auto reshape(

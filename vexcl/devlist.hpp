@@ -169,10 +169,10 @@ namespace Filter {
     /// Runtime filter holder.
     /**
      * The filter can be changed at runtime as in:
-     * \code
+     \code
      vex::Filter::General f = vex::Filter::Env;
      if (need_double) f = f && vex::Filter::DoublePrecision;
-     * \endcode
+     \endcode
      */
     struct General {
         template<class Filter>
