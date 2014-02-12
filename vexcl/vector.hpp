@@ -63,7 +63,7 @@ namespace vex {
 /**
  * Launches the following kernel on each device:
  * \code
- * a = b + c;
+ a = b + c;
  * \endcode
  * where a, b and c are device vectors. Each device gets portion of the vector
  * proportional to the performance of this operation.

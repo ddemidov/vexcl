@@ -412,7 +412,7 @@ operator*(const SpMat<val_t, col_t, idx_t> &A, const V &x) {
 /**
  * Launches the following kernel on each device:
  * \code
- * y = A * x;
+ y = A * x;
  * \endcode
  * where x and y are vectors, and A is matrix for 3D Poisson problem in square
  * domain. Each device gets portion of the vector proportional to the

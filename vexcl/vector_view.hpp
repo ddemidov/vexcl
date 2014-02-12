@@ -519,17 +519,17 @@ const index_gen<0> indices;
  * Slices multi-dimensional array stored in vex::vector in row-major order.
  * Usage:
  * \code
- * using vex::range;
- *
- * vex::vector<double> x(ctx, n * n)
- * vex::vector<double> y(ctx, n)
- * vex::vector<double> z(ctx, n / 2);
- *
- * vex::slicer<2> slice({n, n});
- *
- * y = slice[42](x);                // Put 42-th row of x into y.
- * y = slice[range()][42](x);       // Put 42-th column of x into y.
- * z = slice[range(0, 2, n)][5](x); // Put even elements of 5-th column of x into z.
+ using vex::range;
+
+ vex::vector<double> x(ctx, n * n)
+ vex::vector<double> y(ctx, n)
+ vex::vector<double> z(ctx, n / 2);
+
+ vex::slicer<2> slice({n, n});
+
+ y = slice[42](x);                // Put 42-th row of x into y.
+ y = slice[range()][42](x);       // Put 42-th column of x into y.
+ z = slice[range(0, 2, n)][5](x); // Put even elements of 5-th column of x into z.
  * \endcode
  */
 template <size_t NR>
@@ -709,8 +709,8 @@ struct expr_permutation {
 /**
  * Example:
  * \code
- * auto reverse = vex::permutation(N - 1 - vex::element_index());
- * Y = reverse(X);
+ auto reverse = vex::permutation(N - 1 - vex::element_index());
+ Y = reverse(X);
  * \endcode
  */
 template <class Expr>
@@ -1128,11 +1128,11 @@ struct reshape_helper {
  *
  * Example:
  * \code
- * // Matrix transposition:
- * auto B = reshape(A, make_array<size_t>(n, m), make_array(1, 0));
- *
- * // Expand 1D vector to a 2D matrix (by copying along redundant dimension):
- * auto A = reshape(x, make_array(n, m), make_array(0));
+ // Matrix transposition:
+ auto B = reshape(A, make_array<size_t>(n, m), make_array(1, 0));
+
+ // Expand 1D vector to a 2D matrix (by copying along redundant dimension):
+ auto A = reshape(x, make_array(n, m), make_array(0));
  * \endcode
  */
 template <class Expr, size_t Nout, size_t Nin>
@@ -1157,11 +1157,11 @@ auto reshape(
  *
  * Example:
  * \code
- * // Matrix transposition:
- * auto B = reshape(A, extents[n][m], extents[1][0]);
- *
- * // Expand 1D vector to a 2D matrix (by copying along redundant dimension):
- * auto A = reshape(x, extents[n][m], extents[0]);
+ // Matrix transposition:
+ auto B = reshape(A, extents[n][m], extents[1][0]);
+
+ // Expand 1D vector to a 2D matrix (by copying along redundant dimension):
+ auto A = reshape(x, extents[n][m], extents[0]);
  * \endcode
  */
 template <class Expr, size_t Nout, size_t Nin>

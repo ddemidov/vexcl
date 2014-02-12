@@ -49,12 +49,12 @@ namespace vex {
  * which means `cl_double8` (512bit) is not supported, but `cl_uchar2` is.
  *
  * \code
- * Random<cl_int> rand();
- * // Generate numbers from the same sequence
- * output1 = rand(element_index(), seed1);
- * output2 = rand(element_index(output1.size()), seed1);
- * // Generate a new sequence
- * output3 = rand(element_index(), seed2);
+ Random<cl_int> rand();
+ // Generate numbers from the same sequence
+ output1 = rand(element_index(), seed1);
+ output2 = rand(element_index(output1.size()), seed1);
+ // Generate a new sequence
+ output3 = rand(element_index(), seed2);
  * \endcode
  */
 template <class T, class Generator = random::philox>
@@ -138,8 +138,8 @@ struct Random : UserFunction<Random<T, Generator>, T(cl_ulong, cl_ulong)> {
 /// Returns normal distributed random numbers.
 /**
  * \code
- * RandomNormal<cl_double2> rand();
- * output = mean + std_deviation * rand(element_index(), seed);
+ RandomNormal<cl_double2> rand();
+ output = mean + std_deviation * rand(element_index(), seed);
  * \endcode
  */
 template <class T, class Generator = random::philox>

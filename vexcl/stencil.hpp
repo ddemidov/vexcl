@@ -155,13 +155,13 @@ void stencil_base<T>::exchange_halos(const vex::vector<T> &x) const {
 /**
  * Should be used for stencil convolutions with vex::vectors as in
  * \code
- * void convolve(
- *          const vex::stencil<double> &s,
- *          const vex::vector<double>  &x,
- *          vex::vector<double> &y)
- * {
- *     y = x * s;
- * }
+ void convolve(
+          const vex::stencil<double> &s,
+          const vex::vector<double>  &x,
+          vex::vector<double> &y)
+ {
+     y = x * s;
+ }
  * \endcode
  * Stencil should be small enough to fit into local memory of all compute
  * devices it resides on.
@@ -500,14 +500,14 @@ operator*( const multivector<T, N> &x, const stencil<T> &s ) {
  * Is used to define custom stencil operator. For example, to implement the
  * following nonlinear operator:
  * \code
- * y[i] = x[i] + pow3(x[i-1] + x[i+1]);
+ y[i] = x[i] + pow3(x[i-1] + x[i+1]);
  * \endcode
  * one has to write:
  * \code
- * extern const char pow3_oper_body[] = "return X[0] + pow(X[-1] + X[1], 3);";
- * StencilOperator<double, 3, 1, pow3_oper_body> pow3_oper(ctx);
- *
- * y = pow3_oper(x);
+ extern const char pow3_oper_body[] = "return X[0] + pow(X[-1] + X[1], 3);";
+ StencilOperator<double, 3, 1, pow3_oper_body> pow3_oper(ctx);
+
+ y = pow3_oper(x);
  * \endcode
  */
 template <typename T, unsigned width, unsigned center, class Impl>
@@ -651,9 +651,9 @@ void StencilOperator<T, width, center, Impl>::apply(
 /// Macro to declare a user-defined stencil operator type.
 /**
  * \code
- * VEX_STENCIL_OPERATOR_TYPE(pow3_oper_t, double, 3, 1, "return X[0] + pow(X[-1] + X[1], 3.0);");
- * pow3_oper_t pow3_oper(ctx);
- * output = pow3_oper(input);
+ VEX_STENCIL_OPERATOR_TYPE(pow3_oper_t, double, 3, 1, "return X[0] + pow(X[-1] + X[1], 3.0);");
+ pow3_oper_t pow3_oper(ctx);
+ output = pow3_oper(input);
  * \endcode
  *
  * \note Should be used in case same operator is used in several places (to
@@ -669,8 +669,8 @@ void StencilOperator<T, width, center, Impl>::apply(
 /// Macro to declare a user-defined stencil operator.
 /**
  * \code
- * VEX_STENCIL_OPERATOR(pow3_oper, double, 3, 1, "return X[0] + pow(X[-1] + X[1], 3.0);", queue);
- * output = pow3_oper(input);
+ VEX_STENCIL_OPERATOR(pow3_oper, double, 3, 1, "return X[0] + pow(X[-1] + X[1], 3.0);", queue);
+ output = pow3_oper(input);
  * \endcode
  */
 #define VEX_STENCIL_OPERATOR(name, type, width, center, body, queue)           \

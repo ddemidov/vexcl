@@ -170,8 +170,8 @@ namespace Filter {
     /**
      * The filter can be changed at runtime as in:
      * \code
-     * vex::Filter::General f = vex::Filter::Env;
-     * if (need_double) f = f && vex::Filter::DoublePrecision;
+     vex::Filter::General f = vex::Filter::Env;
+     if (need_double) f = f && vex::Filter::DoublePrecision;
      * \endcode
      */
     struct General {

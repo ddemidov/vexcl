@@ -863,9 +863,9 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_USER_FUNCTION, ~)
 /// Macro to declare a user function type.
 /**
  * \code
- * VEX_FUNCTION_TYPE(pow3_t, double(double), "", "return pow(prm1, 3.0);");
- * pow3_t pow3;
- * output = pow3(input);
+ VEX_FUNCTION_TYPE(pow3_t, double(double), "", "return pow(prm1, 3.0);");
+ pow3_t pow3;
+ output = pow3(input);
  * \endcode
  *
  * \note Should be used in case same function is used in several places (to
@@ -882,8 +882,8 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_USER_FUNCTION, ~)
 /// Macro to declare a user function.
 /**
  * \code
- * VEX_FUNCTION(pow3, double(double), "return pow(prm1, 3.0);");
- * output = pow3(input);
+ VEX_FUNCTION(pow3, double(double), "return pow(prm1, 3.0);");
+ output = pow3(input);
  * \endcode
  */
 #define VEX_FUNCTION(name, signature, body)                                    \
@@ -895,12 +895,12 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_USER_FUNCTION, ~)
 /**
  * The preamble may be used to define helper functions or macros.
  * \code
- * VEX_FUNCTION_WITH_PREAMBLE(one, double(double),
- *         "double sin2(double x) { return pow(sin(x), 2.0); }\n"
- *         "double cos2(double x) { return pow(cos(x), 2.0); }\n",
- *         "return sin2(prm1) + cos2(prm1);"
- *         );
- * y = one(x);
+ VEX_FUNCTION_WITH_PREAMBLE(one, double(double),
+         "double sin2(double x) { return pow(sin(x), 2.0); }\n"
+         "double cos2(double x) { return pow(cos(x), 2.0); }\n",
+         "return sin2(prm1) + cos2(prm1);"
+         );
+ y = one(x);
  * \endcode
  */
 #define VEX_FUNCTION_WITH_PREAMBLE(name, signature, preamble, body)            \
@@ -2558,17 +2558,17 @@ struct expression_tuple {
 /**
  * The following example results in a single kernel:
  * \code
- * vex::vector<double> x(ctx, 1024);
- * vex::vector<double> y(ctx, 1024);
- *
- * vex::tie(x,y) = std::tie( x + y, y - x );
+ vex::vector<double> x(ctx, 1024);
+ vex::vector<double> y(ctx, 1024);
+
+ vex::tie(x,y) = std::tie( x + y, y - x );
  * \endcode
  * This is functionally equivalent to
  * \code
- * tmp_x = x + y;
- * tmp_y = y - x;
- * x = tmp_x;
- * y = tmp_y;
+ tmp_x = x + y;
+ tmp_y = y - x;
+ x = tmp_x;
+ y = tmp_y;
  * \endcode
  * but does not use temporaries and is more efficient.
  */

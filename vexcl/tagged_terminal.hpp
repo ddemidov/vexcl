@@ -259,7 +259,7 @@ struct expression_properties< tagged_terminal<Tag, Term> > {
  *
  * Example:
  * \code
- * s = sum(tag<1>(x) * tag<1>(x) + tag<2>(y) * tag<2>(y));
+ s = sum(tag<1>(x) * tag<1>(x) + tag<2>(y) * tag<2>(y));
  * \endcode
  */
 template <size_t Tag, class Expr>

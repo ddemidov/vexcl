@@ -40,12 +40,12 @@ namespace vex {
  * contains index into row vector, corresponding to each row of the matrix. So
  * that matrix-vector multiplication may be performed as follows:
  * \code
- * for(unsigned i = 0; i < n; i++) {
- *     val_t sum = 0;
- *     for(unsigned j = row[idx[i]]; j < row[idx[i] + 1]; j++)
- *         sum += val[j] * x[i + col[j]];
- *     y[i] = sum;
- * }
+ for(unsigned i = 0; i < n; i++) {
+     val_t sum = 0;
+     for(unsigned j = row[idx[i]]; j < row[idx[i] + 1]; j++)
+         sum += val[j] * x[i + col[j]];
+     y[i] = sum;
+ }
  * \endcode
  * This format does not support multi-device computation, so it accepts single
  * queue at initialization. Vectors x and y should also be single-queued and

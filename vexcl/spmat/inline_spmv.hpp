@@ -60,8 +60,8 @@ struct inline_spmv : inline_spmv_terminal_expression {
  *
  * Example:
  * \code
- * // Get maximum residual value:
- * eps = sum( fabs(f - vex::make_inline(A * x)) );
+ // Get maximum residual value:
+ eps = sum( fabs(f - vex::make_inline(A * x)) );
  * \endcode
  */
 template <typename val_t, typename col_t, typename idx_t>
@@ -98,8 +98,8 @@ struct mv_inline_spmv : mv_inline_spmv_terminal_expression {
  *
  * Example:
  * \code
- * // Get maximum residual value:
- * eps = sum( fabs(f - vex::make_inline(A * x)) );
+ // Get maximum residual value:
+ eps = sum( fabs(f - vex::make_inline(A * x)) );
  * \endcode
  */
 template <typename val_t, typename col_t, typename idx_t, class V>

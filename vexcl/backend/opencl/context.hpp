@@ -99,9 +99,9 @@ inline bool is_cpu(const command_queue &q) {
  *
  * This example selects any GPU which supports double precision arithmetic:
  * \code
- * auto devices = device_list(
- *          Filter::Type(CL_DEVICE_TYPE_GPU) && Filter::DoublePrecision
- *          );
+ auto devices = device_list(
+          Filter::Type(CL_DEVICE_TYPE_GPU) && Filter::DoublePrecision
+          );
  * \endcode
  */
 template<class DevFilter>
