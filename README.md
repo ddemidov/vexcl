@@ -43,6 +43,7 @@ performance of several GPGPU libraries, including VexCL.
     * [Random number generation](#random-number-generation)
     * [Permutations](#permutations)
     * [Slicing](#slicing)
+    * [Reshaping](#reshaping)
     * [Scattered data interpolation with multilevel B-Splines](#mba)
     * [Fast Fourier Transform](#fast-fourier-transform)
 * [Reductions](#reductions)
@@ -436,7 +437,7 @@ vex::slicer<1> slice({n});
 Y = slice[vex::range(100, 2, 200)](X);
 ~~~
 
-And the example below shows how to work with two-dimensional matrix:
+And the example below shows how to work with a two-dimensional matrix:
 
 ~~~{.cpp}
 using vex::range;
@@ -459,6 +460,68 @@ assert(Z.size() == 100);
 
 _Slicing is only supported in single-device contexts._
 
+### <a name="reshaping"></a>Reshaping
+
+`vex::reshape(expr, dst_dims, src_dims)` function is a powerful primitive that
+allows one to conveniently manipulate multidimensional data. It takes three
+arguments -- an arbitrary vector expression `expr` to reshape, the dimensions
+`dst_dims` of the final result (with slowest changing dimension in the front),
+and the dimensions `src_dims` of the expression, which are specified as indices
+into `dst_dims`. The function returns a vector expression that could be assigned
+to a vector or participate in a larger expression. The dimensions may be
+conveniently specified with help of `vex::extents` object.
+
+Here is an example of transposing a two-dimensional matrix of size NxM:
+~~~{.cpp}
+vex::vector<double> A(ctx, N * M);
+vex::vector<double> B = vex::reshape(A,
+                            vex::extents[M][N], // new shape
+                            vex::extents[1][0]  // A is shaped as [N][M]
+                            );
+~~~
+
+If the source expression lacks some of the destination dimensions, then those
+will be introduced by replicating the available data. For example, to make a
+two-dimensional matrix from a one-dimensional vector by copying the vector to
+each row of the matrix, one could do the following:
+~~~{.cpp}
+vex::vector<double> x(ctx, N);
+vex::vector<double> y(ctx, M);
+vex::vector<double> A(ctx, M * N);
+
+// Copy x into rows of A:
+A = vex::reshape(x, vex::extents[M][N], vex::extents[1]);
+// Now, copy y into columns of A:
+A = vex::reshape(x, vex::extents[M][N], vex::extents[0]);
+~~~
+
+Here is a more realistic example of a dense matrix-matrix multiplication.
+Elements of a matrix product `C = A * B` are defined as `C[i][j] =
+sum_k(A[i][k] * B[k][j])`. Let's assume that matrix `A` has shape `[N][L]`, and
+matrix `B` is shaped as `[L][M]`. Then matrix `C` has dimensions `[N][M]`. In
+order to implement the multiplication we extend matrices `A` and `B` to the
+shape of `[N][L][M]`, multiply the resulting expressions, and reduce the
+product along the middle dimension `L`:
+~~~{.cpp}
+vex::vector<double> A(ctx, N * L);
+vex::vector<double> B(ctx, L * M);
+vex::vector<double> C(ctx, N * M);
+
+C = vex::reduce<vex::SUM>(
+        vex::extents[N][L][M],
+        vex::reshape(A, vex::extents[N][L][M], vex::extents[0][1]) *
+        vex::reshape(B, vex::extents[N][L][M], vex::extents[1][2]),
+        1
+        );
+~~~
+
+This of course would not be as efficient as a carefully crafted custom
+implementation or a call to a vendor BLAS function. Still, the fact that the
+result is a vector expression (and hence may be a part of a still larger
+expression) could be more important sometimes.
+
+_Reshaping is only supported in single-device contexts._
+
 ### <a name="mba"></a>Scattered data interpolation with multilevel B-Splines
 
 VexCL provides an implementation of the MBA algorithm based on paper by Lee,
@@ -474,7 +537,7 @@ realized by using B-spline refinement to reduce the sum of these functions into
 one equivalent B-spline function.  High-fidelity reconstruction is possible
 from a selected set of sparse and irregular samples.
 
-[bsplines]: http://ieeexplore.ieee.org/xpls/abs_all.jsp?arnumber=620490&tag=1
+
 
 The algorithm is first prepared on a CPU. After that, it may be used in vector
 expressions. Here is an example in 2D:
