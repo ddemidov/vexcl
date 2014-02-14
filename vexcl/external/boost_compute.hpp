@@ -97,7 +97,7 @@ void sort(vex::vector<T> &x) {
     for(unsigned d = 0; d < queue.size(); ++d) {
         if (x.part_size(d)) {
             boost::compute::command_queue q( queue[d]() );
-            boost::compute::buffer buf( x(d)() );
+            boost::compute::buffer buf( x(d).raw() );
 
             boost::compute::sort(
                     boost::compute::make_buffer_iterator<T>(buf, 0),
