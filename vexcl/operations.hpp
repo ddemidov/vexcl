@@ -504,25 +504,13 @@ struct user_function {};
 #ifdef DOXYGEN
 
 #define VEXCL_BUILTIN_FUNCTION_1(func)                                         \
-  /** \brief Builtin function */                                               \
-  expression func(const Arg & arg) {                                           \
-    return boost::proto::make_expr<boost::proto::tag::function>(               \
-        func##_func(), boost::ref(arg));                                       \
-  }
+  expression func(const Arg & arg);
 
 #define VEXCL_BUILTIN_FUNCTION_2(func)                                         \
-  /** \brief Builtin function */                                               \
-  expression func(const Arg1 & arg1, const Arg2 & arg2) {                      \
-    return boost::proto::make_expr<boost::proto::tag::function>(               \
-        func##_func(), boost::ref(arg1), boost::ref(arg2));                    \
-  }
+  expression func(const Arg1 & arg1, const Arg2 & arg2);
 
 #define VEXCL_BUILTIN_FUNCTION_3(func)                                         \
-  /** \brief Builtin function */                                               \
-  expression func(const Arg1 & arg1, const Arg2 & arg2, const Arg3 & arg3) {   \
-    return boost::proto::make_expr<boost::proto::tag::function>(               \
-        func##_func(), boost::ref(arg1), boost::ref(arg2), boost::ref(arg3));  \
-  }
+  expression func(const Arg1 & arg1, const Arg2 & arg2, const Arg3 & arg3);
 
 #else
 

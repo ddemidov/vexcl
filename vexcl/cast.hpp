@@ -56,7 +56,7 @@ struct casted_expession : public cast_terminal_expression
 /// Cast an expression to a given type.
 template <typename T, class Expr>
 #ifdef DOXYGEN
-casted_expession<T, Expr>
+expession
 #else
 typename std::enable_if<
     boost::proto::matches<
@@ -167,6 +167,13 @@ struct expression_properties< casted_expession<T, Expr> > {
 
 #ifdef VEXCL_BACKEND_OPENCL
 
+#ifdef DOXYGEN
+#define VEXCL_CONVERT_FUNCTIONS(to)                                            \
+  template <typename Arg>                                                      \
+  expression convert_##to(const Arg & arg);                                    \
+  template <typename Arg>                                                      \
+  expression as_##to(const Arg & arg);
+#else
 #define VEXCL_CONVERT_FUNCTIONS(to)                                            \
   struct convert_##to##_func : builtin_function {                              \
     static const char *name() { return "convert_" #to; }                       \
@@ -190,6 +197,7 @@ struct expression_properties< casted_expession<T, Expr> > {
     return cast<cl_##to>(boost::proto::make_expr<boost::proto::tag::function>( \
         as_##to##_func(), boost::ref(arg)));                                   \
   }
+#endif
 
 #define VEXCL_TYPES(name)                                                      \
   VEXCL_CONVERT_FUNCTIONS(name)                                                \
