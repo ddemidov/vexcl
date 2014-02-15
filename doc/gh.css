@@ -865,7 +865,7 @@ div.contents
 /** Containins only the project name, on top. */
 #projectname
 {
-  font: 300% monospace, "Lucida Console", Monaco;
+  font: 200% Helvetica, "Lucida Console", Monaco;
   margin: 0px;
   padding: 2px 0px;
 }
@@ -873,7 +873,7 @@ div.contents
 /** Div containing only the project brief, on top. */
 #projectbrief
 {
-    font: 120% Arial, Helvetica, sans-serif;
+  font: 120% Helvetica, Arial, sans-serif;
   margin: 0px;
   padding: 0px;
 }
