@@ -1136,7 +1136,7 @@ ECLIPSE_DOC_ID         = org.doxygen.Project
 # navigation tree you can set this option to NO if you already set
 # GENERATE_TREEVIEW to YES.
 
-DISABLE_INDEX          = YES
+DISABLE_INDEX          = NO
 
 # The GENERATE_TREEVIEW tag is used to specify whether a tree-like index
 # structure should be generated to display hierarchical information.
@@ -1148,7 +1148,7 @@ DISABLE_INDEX          = YES
 # Since the tree basically has the same information as the tab index you
 # could consider to set DISABLE_INDEX to NO when enabling this option.
 
-GENERATE_TREEVIEW      = YES
+GENERATE_TREEVIEW      = NO
 
 # The ENUM_VALUES_PER_LINE tag can be used to set the number of enum values
 # (range [0,1..20]) that doxygen will group on one line in the generated HTML
