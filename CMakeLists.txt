@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8)
 project(VexCL)
 
-include_directories( ${CMAKE_SOURCE_DIR} )
+include_directories( "${CMAKE_SOURCE_DIR}" )
 
 #----------------------------------------------------------------------------
 # Show generated kernels in tests and examples
