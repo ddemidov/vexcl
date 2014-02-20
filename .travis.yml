@@ -8,3 +8,10 @@ before_install:
 script:
     - mkdir -p build && (cd build && cmake .. && make)
     - (cd build && ./examples/devlist && ctest --output-on-failure && ctest --output-on-failure)
+notifications:
+  webhooks:
+    urls:
+      - https://webhooks.gitter.im/e/4ece39cbc61f924da61c
+    on_success: change
+    on_failure: always
+    on_start: false
