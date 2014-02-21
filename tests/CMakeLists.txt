@@ -6,7 +6,8 @@ if(TEST_COVERAGE)
     # Resets coverage statistics
     add_custom_target(coverage_reset
         COMMAND lcov --zerocounters --directory .
-        COMMAND lcov --capture --initial --directory . --base-directory "\"${CMAKE_SOURCE_DIR}/vexcl\"" --no-external --output-file coverage.info
+        COMMAND lcov --capture --initial --directory . --base-directory "${CMAKE_SOURCE_DIR}/vexcl" --no-external --output-file coverage.info
+        VERBATIM
         )
 
     # Converts accumulated coverage statistics into coverage/index.html
@@ -17,9 +18,10 @@ if(TEST_COVERAGE)
     # and before
     #   make coverage
     add_custom_target(coverage
-        COMMAND lcov --directory . --base-directory "\"${CMAKE_SOURCE_DIR}/vexcl\"" --no-external --capture --output-file coverage.info
+        COMMAND lcov --directory . --base-directory "${CMAKE_SOURCE_DIR}/vexcl" --no-external --capture --output-file coverage.info
         COMMAND lcov --remove coverage.info '/usr*' '*/cl.hpp' -o coverage.info
         COMMAND genhtml coverage.info --output-directory coverage
+        VERBATIM
         )
 endif()
 
