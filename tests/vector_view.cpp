@@ -111,7 +111,7 @@ BOOST_AUTO_TEST_CASE(negative_stride)
 {
     std::vector<vex::command_queue> queue(1, ctx.queue(0));
 
-    std::vector<float> v = {
+    float v[] = {
         0, 5,
         1, 4,
         2, 3,
@@ -123,7 +123,7 @@ BOOST_AUTO_TEST_CASE(negative_stride)
     const size_t rows = 6;
     const size_t cols = 2;
 
-    vex::vector<float> x(queue, v);
+    vex::vector<float> x(queue, rows * cols, v);
     vex::vector<float> z(queue, rows / 2 * cols);
 
     vex::slicer<2> slice(vex::extents[rows][cols]);
@@ -131,7 +131,7 @@ BOOST_AUTO_TEST_CASE(negative_stride)
 
     for(size_t i = 0; i < rows/2; ++i)
         for(size_t j = 0; j < cols; ++j)
-            BOOST_CHECK_EQUAL(static_cast<float>(z[i * cols + j]), x[(rows - i * 2 - 1) * cols + j]);
+            BOOST_CHECK_EQUAL(static_cast<float>(z[i * cols + j]), v[(rows - i * 2 - 1) * cols + j]);
 }
 
 BOOST_AUTO_TEST_CASE(vector_permutation)
