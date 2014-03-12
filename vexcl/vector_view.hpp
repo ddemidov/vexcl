@@ -426,9 +426,9 @@ struct gslice {
 
 /// An index range for use with slicer class.
 struct range {
-    size_t start;
-    size_t stride;
-    size_t stop;
+    size_t    start;
+    ptrdiff_t stride;
+    size_t    stop;
 
     /// All elements in this dimension.
     range () : start(0), stride(0), stop(0) {}
@@ -438,7 +438,7 @@ struct range {
         : start(i), stride(1), stop(i + 1) {}
 
     /// Elements from open interval with given stride.
-    range(size_t start, size_t stride, size_t stop)
+    range(size_t start, ptrdiff_t stride, size_t stop)
         : start(start), stride(stride), stop(stop) {}
 
     /// Every element from open interval.
@@ -578,7 +578,9 @@ struct slicer {
         {
             static_assert(C == 0, "Wrong slice constructor!");
 
-            this->length[0] = (r.stop - r.start + r.stride - 1) / r.stride;
+            this->length[0] = r.stride > 0 ?
+                (r.stop - r.start + r.stride - 1) / r.stride :
+                (r.start - r.stop - r.stride - 1) / (-r.stride);
             this->stride[0] *= r.stride;
         }
 
