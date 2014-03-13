@@ -4,14 +4,17 @@ compiler:
     - clang
 before_install:
     - sudo apt-get update -qq
-    - sudo apt-get install -qq fglrx=2:8.960-0ubuntu1 opencl-headers libboost-chrono1.48-dev libboost-date-time1.48-dev libboost-filesystem1.48-dev libboost-system1.48-dev libboost-thread1.48-dev libboost-program-options1.48-dev libboost-test1.48-dev
+    - sudo apt-get install -qq fglrx=2:8.960-0ubuntu1 opencl-headers libboost-chrono1.48-dev libboost-date-time1.48-dev libboost-filesystem1.48-dev libboost-system1.48-dev libboost-thread1.48-dev libboost-program-options1.48-dev libboost-test1.48-dev python-yaml
+    - sudo pip install cpp-coveralls --use-mirrors
 script:
-    - mkdir -p build && (cd build && cmake .. && make)
+    - mkdir -p build && (cd build && cmake -DTEST_COVERAGE=ON .. && make)
     - (cd build && ./examples/devlist && ctest --output-on-failure && ctest --output-on-failure)
+after_success:
+    - coveralls -b build --exclude CL/cl.hpp
 notifications:
-  webhooks:
-    urls:
-      - https://webhooks.gitter.im/e/4ece39cbc61f924da61c
-    on_success: change
-    on_failure: always
-    on_start: false
+    webhooks:
+        urls:
+            - https://webhooks.gitter.im/e/4ece39cbc61f924da61c
+        on_success: change
+        on_failure: always
+        on_start: false

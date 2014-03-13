@@ -1,6 +1,7 @@
 option(TEST_COVERAGE "Analyze test coverage with gcov/lcov" OFF)
 
-if(TEST_COVERAGE)
+# clang --coverage is broken on travis-ci.org
+if(${TEST_COVERAGE} AND "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --coverage")
 
     # Resets coverage statistics

@@ -1,6 +1,8 @@
 # VexCL
 
-[<img src="https://travis-ci.org/ddemidov/vexcl.png?branch=master">](https://travis-ci.org/ddemidov/vexcl)
+[<img src="https://travis-ci.org/ddemidov/vexcl.png?branch=master" alt="Build Status" />](https://travis-ci.org/ddemidov/vexcl)
+[<img src="https://coveralls.io/repos/ddemidov/vexcl/badge.png?branch=master" alt="Coverage Status" />](https://coveralls.io/r/ddemidov/vexcl)
+
 
 VexCL is a vector expression template library for OpenCL/CUDA. It has been
 created for ease of GPGPU development with C++. VexCL strives to reduce amount
