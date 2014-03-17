@@ -492,9 +492,8 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_FUNCALL_OPERATOR, ~)
                         case 2:
                             return (t * (t * (-3 * t + 3) + 3) + 1) / 6;
                         case 3:
-                            return t * t * t / 6;
                         default:
-                            return 0;
+                            return t * t * t / 6;
                     }
                 }
 
