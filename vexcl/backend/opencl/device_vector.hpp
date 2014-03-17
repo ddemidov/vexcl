@@ -121,6 +121,10 @@ class device_vector {
         cl_mem raw() const {
             return buffer();
         }
+
+        cl::Buffer raw_buffer() const {
+            return buffer;
+        }
     private:
         cl::Buffer buffer;
 };
