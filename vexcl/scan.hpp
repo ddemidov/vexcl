@@ -26,7 +26,7 @@ THE SOFTWARE.
 */
 
 /**
- * \file   vexcl/sort.hpp
+ * \file   vexcl/scan.hpp
  * \author Denis Demidov <dennis.demidov@gmail.com>
  * \brief  Inclusive/Exclusive scan algortihms.
 
