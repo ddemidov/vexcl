@@ -76,6 +76,20 @@ if (BOOST_COMPUTE)
 endif ()
 
 #----------------------------------------------------------------------------
+# Test interoperation with clogs
+#----------------------------------------------------------------------------
+option(CLOGS "Use clogs algorithms" OFF)
+
+if (CLOGS)
+    find_path(CLOGS_INCLUDE clogs/clogs.h)
+    find_library(CLOGS_LIB clogs)
+    include_directories(${CLOGS_INCLUDE})
+
+    add_vexcl_test(clogs_scan clogs_scan.cpp)
+    target_link_libraries(clogs_scan ${CLOGS_LIB})
+endif ()
+
+#----------------------------------------------------------------------------
 # Test Fast Fourier Transform
 #----------------------------------------------------------------------------
 if ("${VEXCL_BACKEND}" STREQUAL "OpenCL")
