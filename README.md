@@ -1,6 +1,6 @@
 # VexCL
 
-[<img src="https://travis-ci.org/ddemidov/vexcl.png?branch=master" alt="Build Status" />](https://travis-ci.org/ddemidov/vexcl)
+[<img src="https://travis-ci.org/ddemidov/vexcl.svg?branch=master" alt="Build Status" />](https://travis-ci.org/ddemidov/vexcl)
 [<img src="https://coveralls.io/repos/ddemidov/vexcl/badge.png?branch=master" alt="Coverage Status" />](https://coveralls.io/r/ddemidov/vexcl)
 
 
