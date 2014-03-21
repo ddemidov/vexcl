@@ -142,6 +142,18 @@ BOOST_AUTO_TEST_CASE(test_dimensions)
         // run
         if(total <= max) test(ctx, n, batch);
     }
+
+    // Final run to cover all special factors.
+    test(ctx, std::vector<size_t>(1,  3), 100);
+    test(ctx, std::vector<size_t>(1,  4), 100);
+    test(ctx, std::vector<size_t>(1,  5), 100);
+    test(ctx, std::vector<size_t>(1,  7), 100);
+    test(ctx, std::vector<size_t>(1,  8), 100);
+    test(ctx, std::vector<size_t>(1,  9), 100);
+    test(ctx, std::vector<size_t>(1, 11), 100);
+    test(ctx, std::vector<size_t>(1, 13), 100);
+    test(ctx, std::vector<size_t>(1, 16), 100);
+    test(ctx, std::vector<size_t>(1, 25), 100);
 }
 
 #endif
