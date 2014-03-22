@@ -13,7 +13,7 @@ BOOST_AUTO_TEST_CASE(boost_compute_scan)
     vex::vector<double> X(ctx, x);
     vex::vector<double> Y(ctx, n);
 
-    vex::inclusive_scan(X, Y);
+    vex::compute::inclusive_scan(X, Y);
 
     std::partial_sum(x.begin(), x.end(), x.begin());
 

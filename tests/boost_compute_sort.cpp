@@ -15,7 +15,7 @@ BOOST_AUTO_TEST_CASE(boost_compute_sort)
     vex::Random<float, vex::random::philox> rnd;
     X = rnd(vex::element_index(), std::rand());
 
-    vex::sort(X);
+    vex::compute::sort(X);
 
     std::vector<float> x(n);
     copy(X, x);

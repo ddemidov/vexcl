@@ -41,6 +41,9 @@ THE SOFTWARE.
 
 namespace vex {
 
+// Wrapping code for some of Boost.Compute algorithms.
+namespace compute {
+
 /// Inclusive scan.
 template <typename T>
 void inclusive_scan(const vex::vector<T> &src, vex::vector<T> &dst) {
@@ -139,6 +142,7 @@ void sort(vex::vector<T> &x) {
     }
 }
 
-}
+} // namespace compute
+} // namespace vex
 
 #endif
