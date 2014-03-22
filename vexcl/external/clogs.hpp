@@ -43,88 +43,89 @@ THE SOFTWARE.
 
 namespace vex {
 
+namespace clogs {
+
 template<typename T, typename Enable = void>
 struct clogs_type {};
 
 template<>
 struct clogs_type<cl_char, void>
 {
-    static inline clogs::Type type() { return clogs::TYPE_CHAR; }
+    static inline ::clogs::Type type() { return ::clogs::TYPE_CHAR; }
 };
 
 template<>
 struct clogs_type<cl_short, void>
 {
-    static inline clogs::Type type() { return clogs::TYPE_SHORT; }
+    static inline ::clogs::Type type() { return ::clogs::TYPE_SHORT; }
 };
 
 template<>
 struct clogs_type<cl_int, void>
 {
-    static inline clogs::Type type() { return clogs::TYPE_INT; }
+    static inline ::clogs::Type type() { return ::clogs::TYPE_INT; }
 };
 
 template<>
 struct clogs_type<cl_long, void>
 {
-    static inline clogs::Type type() { return clogs::TYPE_LONG; }
+    static inline ::clogs::Type type() { return ::clogs::TYPE_LONG; }
 };
 
 
 template<>
 struct clogs_type<cl_uchar, void>
 {
-    static inline clogs::Type type() { return clogs::TYPE_UCHAR; }
+    static inline ::clogs::Type type() { return ::clogs::TYPE_UCHAR; }
 };
 
 template<>
 struct clogs_type<cl_ushort, void>
 {
-    static inline clogs::Type type() { return clogs::TYPE_USHORT; }
+    static inline ::clogs::Type type() { return ::clogs::TYPE_USHORT; }
 };
 
 template<>
 struct clogs_type<cl_uint, void>
 {
-    static inline clogs::Type type() { return clogs::TYPE_UINT; }
+    static inline ::clogs::Type type() { return ::clogs::TYPE_UINT; }
 };
 
 template<>
 struct clogs_type<cl_ulong, void>
 {
-    static inline clogs::Type type() { return clogs::TYPE_ULONG; }
+    static inline ::clogs::Type type() { return ::clogs::TYPE_ULONG; }
 };
 
 
 template<>
 struct clogs_type<cl_float, void>
 {
-    static inline clogs::Type type() { return clogs::TYPE_FLOAT; }
+    static inline ::clogs::Type type() { return ::clogs::TYPE_FLOAT; }
 };
 
 template<>
 struct clogs_type<cl_double, void>
 {
-    static inline clogs::Type type() { return clogs::TYPE_DOUBLE; }
+    static inline ::clogs::Type type() { return ::clogs::TYPE_DOUBLE; }
 };
 
 
 template<typename T>
-struct clogs_type<T, typename std::enable_if<
-        vex::is_cl_native<T>::value && (vex::cl_vector_length<T>::value > 1)>::type>
+struct clogs_type<T, typename std::enable_if<vex::is_cl_vector<T>::value>::type>
 {
-    static inline clogs::Type type() {
-        return clogs::Type(
+    static inline ::clogs::Type type() {
+        return ::clogs::Type(
             clogs_type<typename vex::cl_scalar_of<T>::type>::type().getBaseType(),
             vex::cl_vector_length<T>::value);
     }
 };
 
 template<typename T, typename Enable = void>
-struct clogs_is_scannable : public std::false_type {};
+struct is_scannable : public std::false_type {};
 
 template<typename T>
-struct clogs_is_scannable<T, typename std::enable_if<
+struct is_scannable<T, typename std::enable_if<
         sizeof(clogs_type<T>::type())
         && std::is_integral<typename vex::cl_scalar_of<T>::type>::value>::type>
     : public std::true_type {};
@@ -132,7 +133,7 @@ struct clogs_is_scannable<T, typename std::enable_if<
 template<typename T>
 void exclusive_scan(
         const vex::vector<T> &src,
-        typename std::enable_if<clogs_is_scannable<T>::value, vex::vector<T> >::type &dst) {
+        typename std::enable_if<is_scannable<T>::value, vex::vector<T> >::type &dst) {
     const std::vector<backend::command_queue> &queue = src.queue_list();
 
     std::vector<T> tail;
@@ -153,7 +154,7 @@ void exclusive_scan(
 
     for (unsigned d = 0; d < queue.size(); ++d) {
         if (src.part_size(d)) {
-            clogs::Scan scanner(
+            ::clogs::Scan scanner(
                     queue[d].getInfo<CL_QUEUE_CONTEXT>(),
                     queue[d].getInfo<CL_QUEUE_DEVICE>(),
                     clogs_type<T>::type());
@@ -182,6 +183,7 @@ void exclusive_scan(
     }
 }
 
+} // namespace clogs
 } // namespace vex
 
 #endif
