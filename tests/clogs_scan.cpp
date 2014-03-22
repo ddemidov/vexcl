@@ -4,6 +4,13 @@
 #include <vexcl/external/clogs.hpp>
 #include "context_setup.hpp"
 
+// Test that SFINAE is working correctly for the type introspection
+static_assert(vex::clogs_is_scannable<int>::value, "clogs_is_scannable not working");
+static_assert(vex::clogs_is_scannable<cl_int4>::value, "clogs_is_scannable not working");
+static_assert(!vex::clogs_is_scannable<bool>::value, "clogs_is_scannable not working");
+static_assert(!vex::clogs_is_scannable<float>::value, "clogs_is_scannable not working");
+static_assert(!vex::clogs_is_scannable<int(int)>::value, "clogs_is_scannable not working");
+
 BOOST_AUTO_TEST_CASE(clogs_scan_scalar)
 {
     const size_t n = 1024;
