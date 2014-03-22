@@ -302,20 +302,22 @@ template <> struct cl_scalar_of<ptrdiff_t>    { typedef ptrdiff_t type; };
 template <> struct cl_vector_of<ptrdiff_t, 1> { typedef ptrdiff_t type; };
 #endif
 
-template <class T>
-struct is_cl_scalar :
-    std::integral_constant<
-        bool,
-        is_cl_native<T>::value && (cl_vector_length<T>::value == 1)
-        >
-{};
+template <class T, class Enable = void>
+struct is_cl_scalar : std::false_type {};
 
 template <class T>
-struct is_cl_vector :
-    std::integral_constant<
-        bool,
-        is_cl_native<T>::value && (cl_vector_length<T>::value > 1)
-        >
+struct is_cl_scalar<T,
+    typename std::enable_if<is_cl_native<T>::value && (cl_vector_length<T>::value == 1)>::type
+    > : std::true_type
+{};
+
+template <class T, class Enable = void>
+struct is_cl_vector : std::false_type {};
+
+template <class T>
+struct is_cl_vector<T,
+    typename std::enable_if<is_cl_native<T>::value && (cl_vector_length<T>::value > 1)>::type
+    > : std::true_type
 {};
 
 }
