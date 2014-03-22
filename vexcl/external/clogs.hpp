@@ -34,6 +34,7 @@ THE SOFTWARE.
 #include <type_traits>
 #include <vector>
 #include <vexcl/vector.hpp>
+#include <vexcl/types.hpp>
 #include <clogs/scan.h>
 
 #ifdef VEXCL_BACKEND_CUDA
@@ -51,10 +52,73 @@ struct clogs_type_traits
 };
 
 template<>
+struct clogs_type_traits<cl_char>
+{
+    typedef std::true_type scannable;
+    static constexpr clogs::BaseType type() { return clogs::TYPE_CHAR; }
+};
+
+template<>
+struct clogs_type_traits<cl_short>
+{
+    typedef std::true_type scannable;
+    static constexpr clogs::BaseType type() { return clogs::TYPE_SHORT; }
+};
+
+template<>
 struct clogs_type_traits<cl_int>
 {
     typedef std::true_type scannable;
-    static clogs::Type type() { return clogs::TYPE_INT; }
+    static constexpr clogs::BaseType type() { return clogs::TYPE_INT; }
+};
+
+template<>
+struct clogs_type_traits<cl_long>
+{
+    typedef std::true_type scannable;
+    static constexpr clogs::BaseType type() { return clogs::TYPE_LONG; }
+};
+
+template<>
+struct clogs_type_traits<cl_uchar>
+{
+    typedef std::true_type scannable;
+    static constexpr clogs::BaseType type() { return clogs::TYPE_UCHAR; }
+};
+
+template<>
+struct clogs_type_traits<cl_ushort>
+{
+    typedef std::true_type scannable;
+    static constexpr clogs::BaseType type() { return clogs::TYPE_USHORT; }
+};
+
+template<>
+struct clogs_type_traits<cl_uint>
+{
+    typedef std::true_type scannable;
+    static constexpr clogs::BaseType type() { return clogs::TYPE_UINT; }
+};
+
+template<>
+struct clogs_type_traits<cl_ulong>
+{
+    typedef std::true_type scannable;
+    static constexpr clogs::BaseType type() { return clogs::TYPE_ULONG; }
+};
+
+template<>
+struct clogs_type_traits<cl_float>
+{
+    typedef std::false_type scannable;
+    static constexpr clogs::BaseType type() { return clogs::TYPE_FLOAT; }
+};
+
+template<>
+struct clogs_type_traits<cl_double>
+{
+    typedef std::false_type scannable;
+    static constexpr clogs::BaseType type() { return clogs::TYPE_DOUBLE; }
 };
 
 } // namespace detail
@@ -62,8 +126,8 @@ struct clogs_type_traits<cl_int>
 template<typename T>
 void exclusive_scan(
         const vex::vector<T> &src,
-        typename std::enable_if<detail::clogs_type_traits<T>::scannable::value, vex::vector<T> >::type &dst) {
-    auto queue = src.queue_list();
+        typename std::enable_if<detail::clogs_type_traits<typename vex::cl_scalar_of<T>::type>::scannable::value, vex::vector<T> >::type &dst) {
+    const std::vector<backend::command_queue> &queue = src.queue_list();
 
     std::vector<T> tail;
     /* If there is more than one partition, we need to take a copy the last
@@ -81,12 +145,15 @@ void exclusive_scan(
         }
     }
 
+    clogs::Type type(
+        detail::clogs_type_traits<typename vex::cl_scalar_of<T>::type>::type(),
+        vex::cl_vector_length<T>::value);
     for (unsigned d = 0; d < queue.size(); ++d) {
         if (src.part_size(d)) {
             clogs::Scan scanner(
-                    queue[d].template getInfo<CL_QUEUE_CONTEXT>(),
-                    queue[d].template getInfo<CL_QUEUE_DEVICE>(),
-                    detail::clogs_type_traits<T>::type());
+                    queue[d].getInfo<CL_QUEUE_CONTEXT>(),
+                    queue[d].getInfo<CL_QUEUE_DEVICE>(),
+                    type);
             scanner.enqueue(
                     queue[d],
                     src(d).raw_buffer(), dst(d).raw_buffer(), src.part_size(d));

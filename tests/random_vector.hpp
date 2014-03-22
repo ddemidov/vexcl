@@ -3,6 +3,7 @@
 
 #include <random>
 #include <vector>
+#include <vexcl/types.hpp>
 
 template <typename T, class Enable = void>
 struct generator {};
@@ -27,11 +28,13 @@ struct generator<T, typename std::enable_if<std::is_integral<T>::value>::type>
     }
 };
 
-template<>
-struct generator<cl_double2>
+template<typename T>
+struct generator<T, typename std::enable_if<vex::is_cl_vector<T>::value>::type>
 {
-    static cl_double2 get() {
-        cl_double2 r = {{::generator<double>::get(), ::generator<double>::get()}};
+    static T get() {
+        T r;
+        for (int i = 0; i < vex::cl_vector_length<T>::value; i++)
+            r.s[i] = ::generator<typename vex::cl_scalar_of<T>::type>::get();
         return r;
     }
 };
