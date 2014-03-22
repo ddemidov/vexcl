@@ -51,8 +51,8 @@ void inclusive_scan(const vex::vector<T> &src, vex::vector<T> &dst) {
         if (src.part_size(d)) {
             boost::compute::command_queue q( queue[d]() );
 
-            boost::compute::buffer sbuf( src(d)() );
-            boost::compute::buffer dbuf( dst(d)() );
+            boost::compute::buffer sbuf( src(d).raw() );
+            boost::compute::buffer dbuf( dst(d).raw() );
 
             boost::compute::detail::scan(
                     boost::compute::make_buffer_iterator<T>(sbuf, 0),
