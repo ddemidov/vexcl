@@ -233,7 +233,7 @@ sort(vex::vector<K> &keys) {
 
 template<typename K, typename V>
 typename std::enable_if<is_sort_key<K>::value && is_clogs_type<V>::value>::type
-sort_by_key(vex::vector<K> &keys, vex::vector<V> &values) {
+stable_sort_by_key(vex::vector<K> &keys, vex::vector<V> &values) {
     const std::vector<backend::command_queue> &queue = keys.queue_list();
 
     for (unsigned d = 0; d < queue.size(); ++d) {
