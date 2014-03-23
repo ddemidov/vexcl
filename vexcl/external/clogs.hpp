@@ -215,7 +215,7 @@ sort(vex::vector<K> &keys) {
             ::clogs::Radixsort sorter(
                 queue[d].getInfo<CL_QUEUE_CONTEXT>(),
                 queue[d].getInfo<CL_QUEUE_DEVICE>(),
-                clogs_type<K>::type(), ::clogs::TYPE_VOID);
+                clogs_type<K>::type(), ::clogs::Type());
             sorter.enqueue(queue[d], keys(d).raw_buffer(), cl::Buffer(),
                            keys.part_size(d));
         }
