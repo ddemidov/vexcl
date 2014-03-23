@@ -1,6 +1,5 @@
 #define BOOST_TEST_MODULE ClogsSort
 #include <algorithm>
-#include <boost/iterator/counting_iterator.hpp>
 #include <boost/test/unit_test.hpp>
 #include <vexcl/vector.hpp>
 #include <vexcl/external/clogs.hpp>
