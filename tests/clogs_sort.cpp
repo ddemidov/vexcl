@@ -13,7 +13,7 @@ BOOST_AUTO_TEST_CASE(sort_keys)
     std::vector<cl_uint> k = random_vector<cl_uint>(n);
     vex::vector<cl_uint> keys(ctx, k);
 
-    vex::sort(keys);
+    vex::clogs::sort(keys);
     std::sort(k.begin(), k.end());
 
     check_sample(keys, [&](size_t idx, cl_uint a) {
@@ -44,7 +44,7 @@ BOOST_AUTO_TEST_CASE(sort_keys_vals)
         kv[i] = kv_pair{k[i], v[i]};
     std::stable_sort(kv.begin(), kv.end());
 
-    vex::sort_by_key(keys, vals);
+    vex::clogs::stable_sort_by_key(keys, vals);
 
     check_sample(keys, [&](size_t idx, cl_ulong a) {
         BOOST_CHECK_EQUAL(a, kv[idx].key);
