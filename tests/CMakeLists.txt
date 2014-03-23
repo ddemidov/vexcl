@@ -87,6 +87,8 @@ if (CLOGS)
 
     add_vexcl_test(clogs_scan clogs_scan.cpp)
     target_link_libraries(clogs_scan ${CLOGS_LIB})
+    add_vexcl_test(clogs_sort clogs_sort.cpp)
+    target_link_libraries(clogs_sort ${CLOGS_LIB})
 endif ()
 
 #----------------------------------------------------------------------------

@@ -35,7 +35,9 @@ THE SOFTWARE.
 #include <vector>
 #include <vexcl/vector.hpp>
 #include <vexcl/types.hpp>
+#include <vexcl/sort.hpp> // for merging
 #include <clogs/scan.h>
+#include <clogs/radixsort.h>
 
 #ifdef VEXCL_BACKEND_CUDA
 #  error "clogs interoperation is not supported for the CUDA backend!"
@@ -121,14 +123,34 @@ struct clogs_type<T, typename std::enable_if<vex::is_cl_vector<T>::value>::type>
     }
 };
 
+
+template<typename T, typename Enable = void>
+struct is_clogs_type : public std::false_type {};
+
+template<typename T>
+struct is_clogs_type<T, typename std::enable_if<sizeof(clogs_type<T>::type())>::type>
+    : public std::true_type {};
+
+
 template<typename T, typename Enable = void>
 struct is_scannable : public std::false_type {};
 
 template<typename T>
 struct is_scannable<T, typename std::enable_if<
-        sizeof(clogs_type<T>::type())
+        is_clogs_type<T>::value
         && std::is_integral<typename vex::cl_scalar_of<T>::type>::value>::type>
     : public std::true_type {};
+
+template<typename T, typename Enable = void>
+struct is_sort_key : public std::false_type {};
+
+template<typename T>
+struct is_sort_key<T, typename std::enable_if<
+        is_clogs_type<T>::value
+        && std::is_integral<typename vex::cl_scalar_of<T>::type>::value
+        && std::is_unsigned<typename vex::cl_scalar_of<T>::type>::value>::type>
+    : public std::true_type {};
+
 
 template<typename T>
 void exclusive_scan(
@@ -180,6 +202,54 @@ void exclusive_scan(
                 part = sum + part;
             }
         }
+    }
+}
+
+template<typename K>
+typename std::enable_if<is_sort_key<K>::value>::type
+sort(vex::vector<K> &keys) {
+    const std::vector<backend::command_queue> &queue = keys.queue_list();
+
+    for (unsigned d = 0; d < queue.size(); ++d) {
+        if (keys.part_size(d)) {
+            ::clogs::Radixsort sorter(
+                queue[d].getInfo<CL_QUEUE_CONTEXT>(),
+                queue[d].getInfo<CL_QUEUE_DEVICE>(),
+                clogs_type<K>::type(), ::clogs::TYPE_VOID);
+            sorter.enqueue(queue[d], keys(d).raw_buffer(), cl::Buffer(),
+                           keys.part_size(d));
+        }
+    }
+
+    // If there are multiple queues, merge the results on the CPU
+    if (queue.size() > 1) {
+        auto host_vectors = detail::merge(keys, vex::less<K>());
+        boost::fusion::for_each( detail::make_zip_view(host_vectors, keys), detail::do_copy() );
+    }
+}
+
+template<typename K, typename V>
+typename std::enable_if<is_sort_key<K>::value && is_clogs_type<V>::value>::type
+sort_by_key(vex::vector<K> &keys, vex::vector<V> &values) {
+    const std::vector<backend::command_queue> &queue = keys.queue_list();
+
+    for (unsigned d = 0; d < queue.size(); ++d) {
+        if (keys.part_size(d)) {
+            ::clogs::Radixsort sorter(
+                queue[d].getInfo<CL_QUEUE_CONTEXT>(),
+                queue[d].getInfo<CL_QUEUE_DEVICE>(),
+                clogs_type<K>::type(),
+                clogs_type<V>::type());
+            sorter.enqueue(queue[d], keys(d).raw_buffer(), values(d).raw_buffer(),
+                           keys.part_size(d));
+        }
+    }
+
+    // If there are multiple queues, merge the results on the CPU
+    if (queue.size() > 1) {
+        auto host_vectors = detail::merge(keys, values, vex::less<K>());
+        auto dev_vectors = boost::fusion::join(keys, values);
+        boost::fusion::for_each( detail::make_zip_view(host_vectors, dev_vectors), detail::do_copy() );
     }
 }
 
