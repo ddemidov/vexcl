@@ -2125,7 +2125,7 @@ merge(const KTuple &keys, const VTuple &vals, Comp comp) {
             }
 
             fusion::for_each(make_zip_view(dst_keys, src_keys), copy_element(pos, begin[winner]));
-            fusion::for_each(make_zip_view(dst_keys, src_keys), copy_element(pos, begin[winner]));
+            fusion::for_each(make_zip_view(dst_vals, src_vals), copy_element(pos, begin[winner]));
 
             ++begin[winner];
         }
