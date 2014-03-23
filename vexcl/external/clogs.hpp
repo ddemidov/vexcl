@@ -223,8 +223,11 @@ sort(vex::vector<K> &keys) {
 
     // If there are multiple queues, merge the results on the CPU
     if (queue.size() > 1) {
-        auto host_vectors = detail::merge(keys, vex::less<K>());
-        boost::fusion::for_each( detail::make_zip_view(host_vectors, keys), detail::do_copy() );
+        namespace fusion = boost::fusion;
+
+        auto key_vectors = fusion::vector_tie(keys);
+        auto host_vectors = detail::merge(key_vectors, vex::less<K>());
+        fusion::for_each( detail::make_zip_view(host_vectors, key_vectors), detail::do_copy() );
     }
 }
 
@@ -247,8 +250,12 @@ sort_by_key(vex::vector<K> &keys, vex::vector<V> &values) {
 
     // If there are multiple queues, merge the results on the CPU
     if (queue.size() > 1) {
-        auto host_vectors = detail::merge(keys, values, vex::less<K>());
-        auto dev_vectors = boost::fusion::join(keys, values);
+        namespace fusion = boost::fusion;
+
+        auto key_vectors = fusion::vector_tie(keys);
+        auto value_vectors = fusion::vector_tie(values);
+        auto host_vectors = detail::merge(key_vectors, value_vectors, vex::less<K>());
+        auto dev_vectors = fusion::join(key_vectors, value_vectors);
         boost::fusion::for_each( detail::make_zip_view(host_vectors, dev_vectors), detail::do_copy() );
     }
 }
