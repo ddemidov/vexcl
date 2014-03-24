@@ -50,68 +50,23 @@ namespace clogs {
 template<typename T, typename Enable = void>
 struct clogs_type {};
 
-template<>
-struct clogs_type<cl_char, void>
-{
-    static inline ::clogs::Type type() { return ::clogs::TYPE_CHAR; }
-};
+#define VEXCL_REGISTER_CLOGS_TYPE(cltype, token) \
+    template<> struct clogs_type<cltype, void> { \
+        static inline ::clogs::Type type() { return ::clogs::token; } \
+    }
 
-template<>
-struct clogs_type<cl_short, void>
-{
-    static inline ::clogs::Type type() { return ::clogs::TYPE_SHORT; }
-};
+VEXCL_REGISTER_CLOGS_TYPE(cl_char, TYPE_CHAR);
+VEXCL_REGISTER_CLOGS_TYPE(cl_short, TYPE_SHORT);
+VEXCL_REGISTER_CLOGS_TYPE(cl_int, TYPE_INT);
+VEXCL_REGISTER_CLOGS_TYPE(cl_long, TYPE_LONG);
 
-template<>
-struct clogs_type<cl_int, void>
-{
-    static inline ::clogs::Type type() { return ::clogs::TYPE_INT; }
-};
+VEXCL_REGISTER_CLOGS_TYPE(cl_uchar, TYPE_UCHAR);
+VEXCL_REGISTER_CLOGS_TYPE(cl_ushort, TYPE_USHORT);
+VEXCL_REGISTER_CLOGS_TYPE(cl_uint, TYPE_UINT);
+VEXCL_REGISTER_CLOGS_TYPE(cl_ulong, TYPE_ULONG);
 
-template<>
-struct clogs_type<cl_long, void>
-{
-    static inline ::clogs::Type type() { return ::clogs::TYPE_LONG; }
-};
-
-
-template<>
-struct clogs_type<cl_uchar, void>
-{
-    static inline ::clogs::Type type() { return ::clogs::TYPE_UCHAR; }
-};
-
-template<>
-struct clogs_type<cl_ushort, void>
-{
-    static inline ::clogs::Type type() { return ::clogs::TYPE_USHORT; }
-};
-
-template<>
-struct clogs_type<cl_uint, void>
-{
-    static inline ::clogs::Type type() { return ::clogs::TYPE_UINT; }
-};
-
-template<>
-struct clogs_type<cl_ulong, void>
-{
-    static inline ::clogs::Type type() { return ::clogs::TYPE_ULONG; }
-};
-
-
-template<>
-struct clogs_type<cl_float, void>
-{
-    static inline ::clogs::Type type() { return ::clogs::TYPE_FLOAT; }
-};
-
-template<>
-struct clogs_type<cl_double, void>
-{
-    static inline ::clogs::Type type() { return ::clogs::TYPE_DOUBLE; }
-};
-
+VEXCL_REGISTER_CLOGS_TYPE(cl_float, TYPE_FLOAT);
+VEXCL_REGISTER_CLOGS_TYPE(cl_double, TYPE_DOUBLE);
 
 template<typename T>
 struct clogs_type<T, typename std::enable_if<vex::is_cl_vector<T>::value>::type>
@@ -123,6 +78,7 @@ struct clogs_type<T, typename std::enable_if<vex::is_cl_vector<T>::value>::type>
     }
 };
 
+#undef VEXCL_REGISTER_CLOGS_TYPE
 
 template<typename T, typename Enable = void>
 struct is_clogs_type : public std::false_type {};
