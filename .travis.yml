@@ -16,4 +16,4 @@ script:
 after_success:
     - lcov --directory tests --base-directory ../vexcl --capture --output-file coverage.info
     - lcov --remove coverage.info '/usr*' '*/cl.hpp' -o coverage.info
-    - coveralls-lcov coverage.info
+    - cd .. && coveralls-lcov build/coverage.info
