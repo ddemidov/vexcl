@@ -9,10 +9,7 @@ before_install:
 script:
     - mkdir -p build && cd build
     - cmake -DTEST_COVERAGE=ON ..
-    - make
-    - ./examples/devlist
-    - ctest --output-on-failure
-    - ctest --output-on-failure
+    - make && ./examples/devlist && ctest --output-on-failure
 after_success:
     - lcov --directory tests --base-directory ../vexcl --capture --output-file coverage.info
     - lcov --remove coverage.info '/usr*' '*/cl.hpp' -o coverage.info
