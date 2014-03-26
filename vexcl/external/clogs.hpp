@@ -103,8 +103,8 @@ struct is_sort_key : public std::false_type {};
 template<typename T>
 struct is_sort_key<T, typename std::enable_if<
         is_clogs_type<T>::value
-        && std::is_integral<typename vex::cl_scalar_of<T>::type>::value
-        && std::is_unsigned<typename vex::cl_scalar_of<T>::type>::value>::type>
+        && std::is_integral<T>::value
+        && std::is_unsigned<T>::value>::type>
     : public std::true_type {};
 
 
