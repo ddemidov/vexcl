@@ -314,6 +314,13 @@ class Context {
             StaticContext<>::set(*this);
         }
 
+        /// Initializes context from user-supplied list of backend::contexts and backend::command_queues.
+        Context(std::vector<backend::context> c, std::vector<backend::command_queue> q)
+            : c(std::move(c)), q(std::move(q))
+        {
+            StaticContext<>::set(*this);
+        }
+
         const std::vector<backend::context>& context() const {
             return c;
         }
