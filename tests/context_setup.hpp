@@ -5,13 +5,25 @@
 #include "random_vector.hpp"
 
 struct ContextSetup {
-    ContextSetup() :
-        context( vex::Filter::DoublePrecision && vex::Filter::Env )
+    ContextSetup() : context(vex::Filter::DoublePrecision && vex::Filter::Env)
     {
         unsigned seed = static_cast<uint>(time(0));
         std::cout << "seed: " << seed << std::endl;
 
         srand(seed);
+
+        // If there is only one device in context, duplicate the command queues
+        // in order to properly test multi-device capabilities.
+        if (context.queue().size() == 1) {
+            std::vector<vex::backend::context>       c = context.context();
+            std::vector<vex::backend::command_queue> q = context.queue();
+
+            c.push_back(c[0]);
+            q.push_back(vex::backend::duplicate_queue(q[0]));
+
+            context = vex::Context(c, q);
+            vex::StaticContext<>::set(context);
+        }
 
         std::cout << context << std::endl;
     }
