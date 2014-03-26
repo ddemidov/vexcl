@@ -45,8 +45,10 @@ THE SOFTWARE.
 
 namespace vex {
 
+/// Wrappers for the clogs library
 namespace clogs {
 
+/// Maps a compile-time C type to a clogs type structure
 template<typename T, typename Enable = void>
 struct clogs_type {};
 
@@ -68,6 +70,7 @@ VEXCL_REGISTER_CLOGS_TYPE(cl_ulong, TYPE_ULONG);
 VEXCL_REGISTER_CLOGS_TYPE(cl_float, TYPE_FLOAT);
 VEXCL_REGISTER_CLOGS_TYPE(cl_double, TYPE_DOUBLE);
 
+// Generates clogs_type for vector types, using vex::cl_scalar_of
 template<typename T>
 struct clogs_type<T, typename std::enable_if<vex::is_cl_vector<T>::value>::type>
 {
@@ -80,6 +83,7 @@ struct clogs_type<T, typename std::enable_if<vex::is_cl_vector<T>::value>::type>
 
 #undef VEXCL_REGISTER_CLOGS_TYPE
 
+/// Whether T can be mapped to a clogs type
 template<typename T, typename Enable = void>
 struct is_clogs_type : public std::false_type {};
 
@@ -88,6 +92,7 @@ struct is_clogs_type<T, typename std::enable_if<sizeof(clogs_type<T>::type())>::
     : public std::true_type {};
 
 
+/// Whether T can be used for @ref exclusive_scan
 template<typename T, typename Enable = void>
 struct is_scannable : public std::false_type {};
 
@@ -97,6 +102,7 @@ struct is_scannable<T, typename std::enable_if<
         && std::is_integral<typename vex::cl_scalar_of<T>::type>::value>::type>
     : public std::true_type {};
 
+/// Whether T can be used as a key type for @ref sort or @ref stable_sort_by_key
 template<typename T, typename Enable = void>
 struct is_sort_key : public std::false_type {};
 
@@ -108,6 +114,11 @@ struct is_sort_key<T, typename std::enable_if<
     : public std::true_type {};
 
 
+/// Perform exclusive scan using clogs
+/**
+ * It is legal for @a src and @a dst to be the same vector, in which case an
+ * in-place scan is performed.
+ */
 template<typename T>
 void exclusive_scan(
         const vex::vector<T> &src,
@@ -162,6 +173,11 @@ void exclusive_scan(
     }
 }
 
+/// Perform sort using clogs
+/**
+ * If there are more than one device in vector's queue list, then all
+ * partitions are sorted individually on devices and then merged on the host.
+ */
 template<typename K>
 typename std::enable_if<is_sort_key<K>::value>::type
 sort(vex::vector<K> &keys) {
@@ -188,6 +204,11 @@ sort(vex::vector<K> &keys) {
     }
 }
 
+/// Perform stable sort of keys and values using clogs
+/**
+ * If there are more than one device in vector's queue list, then all
+ * partitions are sorted individually on devices and then merged on the host.
+ */
 template<typename K, typename V>
 typename std::enable_if<is_sort_key<K>::value && is_clogs_type<V>::value>::type
 stable_sort_by_key(vex::vector<K> &keys, vex::vector<V> &values) {
