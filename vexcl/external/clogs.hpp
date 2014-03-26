@@ -111,7 +111,8 @@ struct is_sort_key<T, typename std::enable_if<
 template<typename T>
 void exclusive_scan(
         const vex::vector<T> &src,
-        typename std::enable_if<is_scannable<T>::value, vex::vector<T> >::type &dst) {
+        typename std::enable_if<is_scannable<T>::value, vex::vector<T> >::type &dst,
+        const T &init = T()) {
     const std::vector<backend::command_queue> &queue = src.queue_list();
 
     std::vector<T> tail;
@@ -138,7 +139,7 @@ void exclusive_scan(
                     clogs_type<T>::type());
             scanner.enqueue(
                     queue[d],
-                    src(d).raw_buffer(), dst(d).raw_buffer(), src.part_size(d));
+                    src(d).raw_buffer(), dst(d).raw_buffer(), src.part_size(d), &init);
         }
     }
 

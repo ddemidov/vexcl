@@ -20,11 +20,14 @@ BOOST_AUTO_TEST_CASE(clogs_scan_scalar)
     vex::vector<cl_int> X(ctx, x);
     vex::vector<cl_int> Y(ctx, n);
 
-    vex::clogs::exclusive_scan(X, Y);
+    vex::clogs::exclusive_scan(X, Y, 1000000000);
 
-    std::partial_sum(x.begin(), x.end(), x.begin());
-    std::rotate(x.begin(), x.end() - 1, x.end());
-    x[0] = 0;
+    cl_int sum = 1000000000;
+    for (size_t i = 0; i < n; i++) {
+        cl_int next = sum + x[i];
+        x[i] = sum;
+        sum = next;
+    }
 
     check_sample(Y, [&](size_t idx, cl_int a) {
         BOOST_CHECK_EQUAL(a, x[idx]);
@@ -35,17 +38,21 @@ BOOST_AUTO_TEST_CASE(clogs_scan_scalar)
 BOOST_AUTO_TEST_CASE(clogs_scan_vector)
 {
     const size_t n = 1234;
+    cl_uint4 init = {{1, 2, 3, 4}};
 
     std::vector<cl_uint4> x = random_vector<cl_uint4>(n);
 
     vex::vector<cl_uint4> X(ctx, x);
     vex::vector<cl_uint4> Y(ctx, n);
 
-    vex::clogs::exclusive_scan(X, Y);
+    vex::clogs::exclusive_scan(X, Y, init);
 
-    std::partial_sum(x.begin(), x.end(), x.begin());
-    std::rotate(x.begin(), x.end() - 1, x.end());
-    x[0] = cl_uint4{};
+    cl_uint4 sum = init;
+    for (size_t i = 0; i < n; i++) {
+        cl_uint4 next = sum + x[i];
+        x[i] = sum;
+        sum = next;
+    }
 
     check_sample(Y, [&](size_t idx, cl_uint4 a) {
         for (int i = 0; i < 4; i++)
