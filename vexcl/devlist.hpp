@@ -267,6 +267,20 @@ inline const Context& current_context() {
     return StaticContext<>::get();
 }
 
+/// Check if type is a device filter.
+template <class T, class Enable = void>
+struct is_device_filter : std::false_type {};
+
+template <class T>
+struct is_device_filter<T,
+    typename std::enable_if<
+            std::is_same<
+                bool, typename std::result_of<T(const backend::device&)>::type
+            >::value
+        >::type
+    > : std::true_type
+{};
+
 /// VexCL context holder.
 /**
  * Holds vectors of backend::contexts and backend::command_queues returned by queue_list.
