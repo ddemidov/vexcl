@@ -9,7 +9,6 @@ for compiler in $*; do
     pushd build-cl-${compiler}
     CXX=${compiler} cmake        \
         -DVEXCL_CACHE_KERNELS=ON \
-        -DVEXCL_SHOW_KERNELS=ON  \
         -DVEXCL_BACKEND=OpenCL   \
         ..
     popd
@@ -18,7 +17,6 @@ for compiler in $*; do
     mkdir build-cu-${compiler}
     pushd build-cu-${compiler}
     CXX=${compiler} cmake        \
-        -DVEXCL_SHOW_KERNELS=ON  \
         -DVEXCL_BACKEND=CUDA     \
         ..
     popd
