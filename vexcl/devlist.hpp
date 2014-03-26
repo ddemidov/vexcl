@@ -288,11 +288,12 @@ struct is_device_filter<T,
 class Context {
     public:
         /// Initialize context from a device filter.
-        template <class DevFilter>
-        explicit Context(DevFilter&& filter,
-                backend::command_queue_properties properties = 0)
+        template <class F>
+        explicit Context(F&& filter,
+                backend::command_queue_properties properties = 0,
+                typename std::enable_if<is_device_filter<F>::value>::type* = 0)
         {
-            std::tie(c, q) = backend::queue_list(std::forward<DevFilter>(filter), properties);
+            std::tie(c, q) = backend::queue_list(std::forward<F>(filter), properties);
 
 #ifdef VEXCL_THROW_ON_EMPTY_CONTEXT
             precondition(!q.empty(), "No compute devices found");
