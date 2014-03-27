@@ -41,7 +41,7 @@ THE SOFTWARE.
 
 namespace vex {
 
-// Wrapping code for some of Boost.Compute algorithms.
+/// Wrapping code for some of Boost.Compute algorithms.
 namespace compute {
 
 /// Inclusive scan.
