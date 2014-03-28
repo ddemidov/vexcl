@@ -740,26 +740,7 @@ auto right = vex::make_temp<3>( if_else(i + one() < N, i + one(), i) );
 y = ptr[i] * two() - ptr[left] - ptr[right];
 ~~~
 
-This would result in the following compute kernel:
-~~~{.c}
-kernel void vexcl_vector_kernel(
-    ulong n,
-    global double * prm_1,
-    global double * prm_2,
-    ulong prm_3,
-    ulong prm_4
-)
-{
-    for(size_t idx = get_global_id(0); idx < n; idx += get_global_size(0)) {
-        ulong temp_1 = prm_3 + idx;
-        ulong temp_2 = temp_1 > 0 ? temp_1 - 1 : temp_1;
-        ulong temp_3 = temp_1 + 1 < prm_4 ? temp_1 + 1 : temp_1;
-        prm_1[idx] = prm_2[ temp_1 ] * 2 - prm_2[ temp_2 ] - prm_2[ temp_3 ];
-    }
-}
-~~~
-
-Similar approach could be used, for example, to implement an N-body problem
+Similar approach could be used in order to implement an N-body problem
 with a user-defined function:
 ~~~{.cpp}
 // Takes vector size, current element position, and pointer to a vector to sum:
