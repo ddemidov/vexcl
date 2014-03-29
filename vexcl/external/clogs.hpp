@@ -72,9 +72,9 @@ VEXCL_REGISTER_CLOGS_TYPE(cl_double, TYPE_DOUBLE);
 
 // Generates clogs_type for vector types, using vex::cl_scalar_of
 template<typename T>
-struct clogs_type<T, typename std::enable_if<vex::is_cl_vector<T>::value>::type>
-{
-    static inline ::clogs::Type type() {
+struct clogs_type<T, typename std::enable_if<vex::is_cl_vector<T>::value>::type> {
+    static inline ::clogs::Type type()
+    {
         return ::clogs::Type(
             clogs_type<typename vex::cl_scalar_of<T>::type>::type().getBaseType(),
             vex::cl_vector_length<T>::value);
@@ -89,8 +89,8 @@ struct is_clogs_type : public std::false_type {};
 
 template<typename T>
 struct is_clogs_type<T, typename std::enable_if<sizeof(clogs_type<T>::type())>::type>
-    : public std::true_type {};
-
+    : public std::true_type
+{};
 
 /// Whether T can be used for @ref exclusive_scan
 template<typename T, typename Enable = void>
@@ -111,7 +111,8 @@ struct is_sort_key<T, typename std::enable_if<
         is_clogs_type<T>::value
         && std::is_integral<T>::value
         && std::is_unsigned<T>::value>::type>
-    : public std::true_type {};
+    : public std::true_type
+{};
 
 
 /// Perform exclusive scan using clogs
@@ -123,7 +124,8 @@ template<typename T>
 void exclusive_scan(
         const vex::vector<T> &src,
         typename std::enable_if<is_scannable<T>::value, vex::vector<T> >::type &dst,
-        const T &init = T()) {
+        const T &init = T())
+{
     const std::vector<backend::command_queue> &queue = src.queue_list();
 
     std::vector<T> tail;
@@ -180,7 +182,8 @@ void exclusive_scan(
  */
 template<typename K>
 typename std::enable_if<is_sort_key<K>::value>::type
-sort(vex::vector<K> &keys) {
+sort(vex::vector<K> &keys)
+{
     const std::vector<backend::command_queue> &queue = keys.queue_list();
 
     for (unsigned d = 0; d < queue.size(); ++d) {
@@ -211,7 +214,8 @@ sort(vex::vector<K> &keys) {
  */
 template<typename K, typename V>
 typename std::enable_if<is_sort_key<K>::value && is_clogs_type<V>::value>::type
-stable_sort_by_key(vex::vector<K> &keys, vex::vector<V> &values) {
+stable_sort_by_key(vex::vector<K> &keys, vex::vector<V> &values)
+{
     const std::vector<backend::command_queue> &queue = keys.queue_list();
 
     for (unsigned d = 0; d < queue.size(); ++d) {
