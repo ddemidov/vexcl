@@ -152,7 +152,8 @@ void exclusive_scan(
                     clogs_type<T>::type());
             scanner.enqueue(
                     queue[d],
-                    src(d).raw_buffer(), dst(d).raw_buffer(), src.part_size(d), &init);
+                    src(d).raw_buffer(), dst(d).raw_buffer(), src.part_size(d),
+                    d == 0 ? &init : nullptr);
         }
     }
 
