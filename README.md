@@ -1087,10 +1087,11 @@ for(uint d = 0; d < ctx.size(); d++) {
 
 Since VexCL is built upon standard Khronos OpenCL C++ bindings, it is
 easily interoperable with other OpenCL libraries. In particular, VexCL provides
-some glue code for [ViennaCL][] and for [Boost.compute][] libraries.
+some glue code for the [ViennaCL][], [Boost.compute][] and [CLOGS][] libraries.
 
 [ViennaCL]: http://viennacl.sourceforge.net/
 [Boost.compute]: https://github.com/kylelutz/compute
+[CLOGS]: http://clogs.sourceforge.net/
 
 [ViennaCL][] (The Vienna Computing Library) is a scientific computing library
 written in C++.  It provides OpenCL, CUDA, and OpenMP compute backends.  The
@@ -1119,6 +1120,16 @@ extensions including parallel-computing algorithms (e.g. `exclusive_scan()`,
 provides an example of using Boost.compute algorithms with VexCL vectors.
 Namely, it implements parallel sort and inclusive scan primitives on top of the
 corresponding Boost.compute algorithms.
+
+[CLOGS][] is a parallel primitives library implementing exclusive scan and
+radix sort in OpenCL. It uses auto-tuning to provide high performance for large
+problem sizes. In particular, the exclusive scan has much higher performance
+than the generic implementation in VexCL.
+
+[vexcl/external/clogs.hpp](https://github.com/ddemidov/vexcl/blob/master/vexcl/external/clogs.hpp)
+provides wrappers to use CLOGS functionality with VexCL vectors. This interface
+currently does not benefit from the VexCL kernel cache, and so performance may
+be poor for small problem sizes.
 
 ## <a name="supported-compilers"></a>Supported compilers
 
