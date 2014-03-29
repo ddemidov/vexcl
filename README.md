@@ -1072,44 +1072,30 @@ some glue code for the [ViennaCL][], [Boost.compute][] and [CLOGS][] libraries.
 [ViennaCL]: http://viennacl.sourceforge.net/
 [Boost.compute]: https://github.com/kylelutz/compute
 [CLOGS]: http://clogs.sourceforge.net/
+[examples/viennacl/solvers.cpp]: https://github.com/ddemidov/vexcl/blob/master/examples/viennacl/solvers.cpp
+[vexcl/external/boost_compute.hpp]: https://github.com/ddemidov/vexcl/blob/master/vexcl/external/boost_compute.hpp
+[vexcl/external/clogs.hpp]: https://github.com/ddemidov/vexcl/blob/master/vexcl/external/clogs.hpp
 
-[ViennaCL][] (The Vienna Computing Library) is a scientific computing library
-written in C++.  It provides OpenCL, CUDA, and OpenMP compute backends.  The
-programming interface is compatible with Boost.uBLAS and allows for simple,
-high-level access to the vast computing resources available on parallel
-architectures such as GPUs.  The library's primary focus is on common linear
-algebra operations (BLAS levels 1, 2 and 3) and the solution of large sparse
-systems of equations by means of iterative methods with optional
-preconditioners.
-
-It is possible to use ViennaCL's generic solvers with VexCL types. See
-[examples/viennacl/solvers.cpp](https://github.com/ddemidov/vexcl/blob/master/examples/viennacl/solvers.cpp)
-for an example.
-
-[Boost.compute][] is a GPU/parallel-computing library for C++ based on OpenCL.
-The core library is a thin C++ wrapper over the OpenCL C API and provides
-access to compute devices, contexts, command queues and memory buffers.  On top
-of the core library is a generic, STL-like interface providing common
-algorithms (e.g. `transform()`, `accumulate()`, `sort()`) along with common
-containers (e.g. `vector<T>`, `flat_set<T>`). It also features a number of
-extensions including parallel-computing algorithms (e.g. `exclusive_scan()`,
-`scatter()`, `reduce()`) and a number of fancy iterators (e.g.
-`transform_iterator<>`, `permutation_iterator<>`, `zip_iterator<>`).
-
-[vexcl/external/boost_compute.hpp](https://github.com/ddemidov/vexcl/blob/master/vexcl/external/boost_compute.hpp)
-provides an example of using Boost.compute algorithms with VexCL vectors.
-Namely, it implements parallel sort and inclusive scan primitives on top of the
-corresponding Boost.compute algorithms.
-
-[CLOGS][] is a parallel primitives library implementing exclusive scan and
-radix sort in OpenCL. It uses auto-tuning to provide high performance for large
-problem sizes. In particular, the exclusive scan has much higher performance
-than the generic implementation in VexCL.
-
-[vexcl/external/clogs.hpp](https://github.com/ddemidov/vexcl/blob/master/vexcl/external/clogs.hpp)
-provides wrappers to use CLOGS functionality with VexCL vectors. This interface
-currently does not benefit from the VexCL kernel cache, and so performance may
-be poor for small problem sizes.
+* [ViennaCL][] (The Vienna Computing Library) is a scientific computing library
+  written in C++.  It provides OpenCL, CUDA, and OpenMP compute backends. It is
+  possible to use ViennaCL's generic solvers with VexCL types. See
+  [examples/viennacl/solvers.cpp][] for an example.
+* [Boost.compute][] is a GPU/parallel-computing library for C++ based on
+  OpenCL.  The core library is a thin C++ wrapper over the OpenCL C API and
+  provides access to compute devices, contexts, command queues and memory
+  buffers.  On top of the core library is a generic, STL-like interface
+  providing common algorithms along with common containers.
+  [vexcl/external/boost_compute.hpp][] provides an example of using
+  Boost.compute algorithms with VexCL vectors.  Namely, it implements parallel
+  sort and inclusive scan primitives on top of the corresponding Boost.compute
+  algorithms.
+* [CLOGS][] is a parallel primitives library implementing exclusive scan and
+  radix sort in OpenCL. It uses auto-tuning to provide high performance for
+  large problem sizes. In particular, the exclusive scan has much higher
+  performance than the generic implementation in VexCL.
+  [vexcl/external/clogs.hpp][] provides wrappers to use CLOGS functionality
+  with VexCL vectors. This interface currently does not benefit from the VexCL
+  kernel cache, and so performance may be poor for small problem sizes.
 
 ## <a name="supported-compilers"></a>Supported compilers
 
