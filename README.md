@@ -721,47 +721,27 @@ allowed in additive expressions.
 
 Unfortunately, describing two dimensional stencils (e.g. discretization of the
 Laplace operator) would not be effective, because the stencil width would be too
-large. One can solve this problem by using a combination of
-`raw_pointer(const vector<T>&)` with a derefence operator (essentially doing
-pointer arithmetic inside compute kernel). For the sake of simplicity, the
-example below implements a simple 3-point laplace operator for a one-dimensional
-vector; but this could be easily extended in the two-dimensional case:
+large. One can solve this problem by using a `raw_pointer(const vector<T>&)`
+with a subscript operator.  For the sake of simplicity, the example below
+implements a 3-point laplace operator for a one-dimensional vector; but this
+could be easily extended onto a two-dimensional case:
 ~~~{.cpp}
 VEX_CONSTANT(zero, 0);
 VEX_CONSTANT(one,  1);
 VEX_CONSTANT(two,  2);
 
-auto N   = vex::tag<1>( x.size() );
-auto ptr = vex::tag<2>( vex::raw_pointer(x) );
+size_t N   = x.size();
+auto   ptr = vex::raw_pointer(x);
 
 auto i     = vex::make_temp<1>( vex::element_index() );
 auto left  = vex::make_temp<2>( if_else(i > zero(),    i - one(), i) );
 auto right = vex::make_temp<3>( if_else(i + one() < N, i + one(), i) );
 
-y = *(ptr + i) * two() - *(ptr + left) - *(ptr + right);
+y = ptr[i] * two() - ptr[left] - ptr[right];
 ~~~
 
-This would result in the following compute kernel:
-~~~{.c}
-kernel void vexcl_vector_kernel(
-    ulong n,
-    global double * prm_1,
-    global double * prm_2,
-    ulong prm_3,
-    ulong prm_4
-)
-{
-    for(size_t idx = get_global_id(0); idx < n; idx += get_global_size(0)) {
-        ulong temp_1 = prm_3 + idx;
-        ulong temp_2 = temp_1 > 0 ? temp_1 - 1 : temp_1;
-        ulong temp_3 = temp_1 + 1 < prm_4 ? temp_1 + 1 : temp_1;
-        prm_1[idx] = *(prm_2 + temp_1) * 2 - *(prm_2 + temp_2) - *(prm_2 + temp_3);
-    }
-}
-~~~
-
-The same approach could be used, for example, to implement an N-body problem with a
-user-defined function:
+Similar approach could be used in order to implement an N-body problem
+with a user-defined function:
 ~~~{.cpp}
 // Takes vector size, current element position, and pointer to a vector to sum:
 VEX_FUNCTION(global_interaction, double(size_t, size_t, double*),

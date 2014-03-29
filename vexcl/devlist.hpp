@@ -267,6 +267,20 @@ inline const Context& current_context() {
     return StaticContext<>::get();
 }
 
+/// Check if type is a device filter.
+template <class T, class Enable = void>
+struct is_device_filter : std::false_type {};
+
+template <class T>
+struct is_device_filter<T,
+    typename std::enable_if<
+            std::is_same<
+                bool, typename std::result_of<T(const backend::device&)>::type
+            >::value
+        >::type
+    > : std::true_type
+{};
+
 /// VexCL context holder.
 /**
  * Holds vectors of backend::contexts and backend::command_queues returned by queue_list.
@@ -288,14 +302,9 @@ class Context {
         }
 
         /// Initializes context from user-supplied list of backend::contexts and backend::command_queues.
-        Context(const std::vector<std::pair<backend::context, backend::command_queue>> &user_ctx) {
-            c.reserve(user_ctx.size());
-            q.reserve(user_ctx.size());
-            for(auto u = user_ctx.begin(); u != user_ctx.end(); u++) {
-                c.push_back(u->first);
-                q.push_back(u->second);
-            }
-
+        Context(std::vector<backend::context> c, std::vector<backend::command_queue> q)
+            : c(std::move(c)), q(std::move(q))
+        {
             StaticContext<>::set(*this);
         }
 
