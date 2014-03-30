@@ -88,6 +88,61 @@ void inclusive_scan(const vex::vector<T> &src, vex::vector<T> &dst) {
     }
 }
 
+/// Exclusive scan.
+template <typename T>
+void exclusive_scan(const vex::vector<T> &src, vex::vector<T> &dst) {
+    auto queue = src.queue_list();
+
+    std::vector<T> tail;
+    /* If there is more than one partition, we need to take a copy the last
+     * element in each partition (except the last) as otherwise information
+     * about it is lost.
+     *
+     * This must be captured here rather than later, in case the input and
+     * output alias.
+     */
+    if (queue.size() > 1) {
+        tail.resize(queue.size() - 1);
+        for (unsigned d = 0; d < tail.size(); ++d) {
+            if (src.part_size(d))
+                tail[d] = src[src.part_start(d + 1) - 1];
+        }
+    }
+
+    // Scan partitions separately.
+    for(unsigned d = 0; d < queue.size(); ++d) {
+        if (src.part_size(d)) {
+            boost::compute::command_queue q( queue[d]() );
+
+            boost::compute::buffer sbuf( src(d).raw() );
+            boost::compute::buffer dbuf( dst(d).raw() );
+
+            boost::compute::detail::scan(
+                    boost::compute::make_buffer_iterator<T>(sbuf, 0),
+                    boost::compute::make_buffer_iterator<T>(sbuf, src.part_size(d)),
+                    boost::compute::make_buffer_iterator<T>(dbuf, 0),
+                    true, q
+                    );
+        }
+    }
+
+    // If there are more than one partition,
+    // update all of them except for the first.
+    if (queue.size() > 1) {
+        T sum{};
+
+        for(unsigned d = 0; d < tail.size(); ++d) {
+            if (src.part_size(d)) {
+                sum += tail[d];
+                sum += dst[src.part_start(d + 1) - 1];
+                // Wrap partition into vector for ease of use:
+                vex::vector<T> part(queue[d + 1], dst(d + 1));
+                part += sum;
+            }
+        }
+    }
+}
+
 /// Sort.
 /**
  * If there are more than one device in vector's queue list, then all
