@@ -121,11 +121,14 @@ struct is_sort_key<T, typename std::enable_if<
  * in-place scan is performed.
  */
 template<typename T>
-void exclusive_scan(
-        const vex::vector<T> &src,
-        typename std::enable_if<is_scannable<T>::value, vex::vector<T> >::type &dst,
+void exclusive_scan(const vex::vector<T> &src, vex::vector<T> &dst,
         const T &init = T())
 {
+    static_assert(
+            is_scannable<T>::value,
+            "Unsupported type for clogs::exclusive_scan"
+            );
+
     const std::vector<backend::command_queue> &queue = src.queue_list();
 
     std::vector<T> tail;
@@ -182,9 +185,10 @@ void exclusive_scan(
  * partitions are sorted individually on devices and then merged on the host.
  */
 template<typename K>
-typename std::enable_if<is_sort_key<K>::value>::type
-sort(vex::vector<K> &keys)
+void sort(vex::vector<K> &keys)
 {
+    static_assert(is_sort_key<K>::value, "Unsupported type for clogs::sort");
+
     const std::vector<backend::command_queue> &queue = keys.queue_list();
 
     for (unsigned d = 0; d < queue.size(); ++d) {
@@ -214,9 +218,13 @@ sort(vex::vector<K> &keys)
  * partitions are sorted individually on devices and then merged on the host.
  */
 template<typename K, typename V>
-typename std::enable_if<is_sort_key<K>::value && is_clogs_type<V>::value>::type
-stable_sort_by_key(vex::vector<K> &keys, vex::vector<V> &values)
+void stable_sort_by_key(vex::vector<K> &keys, vex::vector<V> &values)
 {
+    static_assert(
+            is_sort_key<K>::value && is_clogs_type<V>::value,
+            "Unsupported types for clogs::stable_sort_by_key"
+            );
+
     const std::vector<backend::command_queue> &queue = keys.queue_list();
 
     for (unsigned d = 0; d < queue.size(); ++d) {
