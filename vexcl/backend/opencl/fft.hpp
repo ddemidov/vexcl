@@ -39,7 +39,7 @@ namespace vex {
 
 /// Fast Fourier Transform.
 /**
- * Usage:
+ Usage:
  \code
  FFT<cl_double2> fft(ctx, length);
  output = fft(input); // out-of-place transform
@@ -47,11 +47,17 @@ namespace vex {
  FFT<cl_double2> ifft({width, height}, fft::inverse); // implicit context
  input = ifft(output); // backward transform
  \endcode
- * To batch multiple transformations, use `fft::none` as the first kind:
+ To batch multiple transformations, use `fft::none` as the first kind:
  \code
  FFT<cl_double2> fft({batch, n}, {fft::none, fft::forward});
  output = fft(input);
  \endcode
+
+ \note FFT always works with complex types (cl_double2 or cl_float2)
+ internally. When the input is specified as real (float or double), it is
+ extended to the complex plane (by setting the imaginary part to zero). When
+ user asks the output to be real, the complex values are truncated by dropping
+ the imaginary part.
  */
 template <typename Tin, typename Tout = Tin, class Planner = fft::planner>
 struct FFT {
