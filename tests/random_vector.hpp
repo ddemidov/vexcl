@@ -33,7 +33,7 @@ struct generator<T, typename std::enable_if<vex::is_cl_vector<T>::value>::type>
 {
     static T get() {
         T r;
-        for (int i = 0; i < vex::cl_vector_length<T>::value; i++)
+        for (unsigned i = 0; i < vex::cl_vector_length<T>::value; i++)
             r.s[i] = ::generator<typename vex::cl_scalar_of<T>::type>::get();
         return r;
     }
