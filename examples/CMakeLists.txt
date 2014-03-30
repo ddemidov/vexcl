@@ -19,6 +19,10 @@ if ("${VEXCL_BACKEND}" STREQUAL "OpenCL")
     add_vexcl_example(exclusive)
 endif()
 
+if (CLOGS)
+    target_link_libraries(benchmark ${CLOGS_LIB})
+endif()
+
 find_path(MBA_INCLUDE mba/mba.hpp)
 if (MBA_INCLUDE)
     include_directories(${MBA_INCLUDE})

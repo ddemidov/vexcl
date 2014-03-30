@@ -4,7 +4,7 @@ project(VexCL)
 include_directories( "${CMAKE_SOURCE_DIR}" )
 
 #----------------------------------------------------------------------------
-# Show generated kernels in tests and examples
+# Compile-time options
 #----------------------------------------------------------------------------
 option(VEXCL_SHOW_KERNELS "Show generated kernels in tests and examples")
 if (VEXCL_SHOW_KERNELS)
@@ -24,9 +24,28 @@ endif ()
 set(VEXCL_CHECK_SIZES 2 CACHE STRING "Check that expressions have correct sizes")
 add_definitions(-DVEXCL_CHECK_SIZES=${VEXCL_CHECK_SIZES})
 
-option(BOOST_TEST_DYN_LINK
-    "Link tests against dynamic version of boost unittest library"
-    ON)
+option(BOOST_TEST_DYN_LINK "Link tests against dynamic version of boost unittest library" ON)
+
+#----------------------------------------------------------------------------
+# Interoperation with Boost.compute
+#----------------------------------------------------------------------------
+option(BOOST_COMPUTE "Use Boost.Compute algorithms" OFF)
+if (BOOST_COMPUTE)
+    find_path(BOOST_COMPUTE_INCLUDE boost/compute.hpp)
+    include_directories(${BOOST_COMPUTE_INCLUDE})
+    add_definitions(-DHAVE_BOOST_COMPUTE)
+endif ()
+
+#----------------------------------------------------------------------------
+# Interoperation with clogs
+#----------------------------------------------------------------------------
+option(CLOGS "Use clogs algorithms" OFF)
+if (CLOGS)
+    find_path(CLOGS_INCLUDE clogs/clogs.h)
+    find_library(CLOGS_LIB clogs)
+    include_directories(${CLOGS_INCLUDE})
+    add_definitions(-DHAVE_CLOGS)
+endif ()
 
 #----------------------------------------------------------------------------
 # Find Boost

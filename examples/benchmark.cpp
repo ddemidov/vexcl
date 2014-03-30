@@ -16,6 +16,15 @@
 #include <vexcl/spmat.hpp>
 #include <vexcl/stencil.hpp>
 #include <vexcl/sort.hpp>
+#include <vexcl/scan.hpp>
+
+#ifdef HAVE_BOOST_COMPUTE
+#  include <vexcl/external/boost_compute.hpp>
+#endif
+
+#ifdef HAVE_CLOGS
+#  include <vexcl/external/clogs.hpp>
+#endif
 
 #ifdef _MSC_VER
 #  pragma warning(disable : 4267)
@@ -30,6 +39,7 @@ struct Options {
     bool bm_spmv;
     bool bm_rng;
     bool bm_sort;
+    bool bm_scan;
     bool bm_cpu;
 
     Options() :
@@ -40,6 +50,7 @@ struct Options {
         bm_spmv(true),
         bm_rng(true),
         bm_sort(true),
+        bm_scan(true),
         bm_cpu(true)
     {}
 } options;
@@ -650,39 +661,173 @@ void benchmark_sort(
     const size_t N = 16 * 1024 * 1024;
     const size_t M = 16;
 
-    std::vector<real> x0 = random_vector<real>(N);
-    std::vector<real> x1(N);
+    typedef typename std::conditional<
+        std::is_same<float, real>::value, cl_uint, cl_ulong
+        >::type key_type;
 
-    vex::vector<real> X0(ctx, x0);
-    vex::vector<real> X1(ctx, N);
+    std::default_random_engine rng( std::rand() );
+    std::uniform_int_distribution<key_type> rnd;
+
+    std::vector<key_type> x0(N);
+    std::vector<key_type> x1(N);
+
+    std::generate(x0.begin(), x0.end(), [&]() { return rnd(rng); });
+
+    vex::vector<key_type> X0(ctx, x0);
+    vex::vector<key_type> X1(ctx, N);
 
     X1 = X0;
     vex::sort(X1);
 
-    double time_cl = 0, time_cpu = 0;
-
+    double tot_time = 0;
     for(size_t i = 0; i < M; i++) {
         X1 = X0;
         ctx.finish();
-        prof.tic_cpu("OpenCL");
+        prof.tic_cpu("VexCL");
         vex::sort(X1);
         ctx.finish();
-        time_cl += prof.toc("OpenCL");
+        tot_time += prof.toc("VexCL");
     }
 
     std::cout
-        << "Sort (" << vex::type_name<real>() << ")\n"
-        << "    OpenCL: " << N * M / time_cl << " keys/sec\n";
+        << "Sort (" << vex::type_name<key_type>() << ")\n"
+        << "    VexCL:         " << N * M / tot_time << " keys/sec\n";
+
+#ifdef HAVE_BOOST_COMPUTE
+    X1 = X0;
+    vex::compute::sort(X1);
+
+    tot_time = 0;
+    for(size_t i = 0; i < M; i++) {
+        X1 = X0;
+        ctx.finish();
+        prof.tic_cpu("Boost.Compute");
+        vex::compute::sort(X1);
+        ctx.finish();
+        tot_time += prof.toc("Boost.Compute");
+    }
+
+    std::cout
+        << "    Boost.Compute: " << N * M / tot_time << " keys/sec\n";
+#endif
+
+#ifdef HAVE_CLOGS
+    X1 = X0;
+    vex::clogs::sort(X1);
+
+    tot_time = 0;
+    for(size_t i = 0; i < M; i++) {
+        X1 = X0;
+        ctx.finish();
+        prof.tic_cpu("CLOGS");
+        vex::clogs::sort(X1);
+        ctx.finish();
+        tot_time += prof.toc("CLOGS");
+    }
+
+    std::cout
+        << "    CLOGS:         " << N * M / tot_time << " keys/sec\n";
+#endif
 
     if (options.bm_cpu) {
+        tot_time = 0;
         for(size_t i = 0; i < M; i++) {
             std::copy(x0.begin(), x0.end(), x1.begin());
-            prof.tic_cpu("CPU");
+            prof.tic_cpu("STL");
             std::sort(x1.begin(), x1.end());
-            time_cpu += prof.toc("CPU");
+            tot_time += prof.toc("STL");
         }
 
-        std::cout << "    CPU:    " << N * M / time_cpu << " keys/sec\n";
+        std::cout << "    STL:           " << N * M / tot_time << " keys/sec\n";
+    }
+
+    std::cout << std::endl;
+}
+
+//---------------------------------------------------------------------------
+template <typename real>
+void benchmark_scan(
+        const vex::Context &ctx, vex::profiler<> &prof
+        )
+{
+    const size_t N = 16 * 1024 * 1024;
+    const size_t M = 16;
+
+    typedef typename std::conditional<
+        std::is_same<float, real>::value, cl_uint, cl_ulong
+        >::type key_type;
+
+    std::default_random_engine rng( std::rand() );
+    std::uniform_int_distribution<key_type> rnd;
+
+    std::vector<key_type> x0(N);
+    std::vector<key_type> x1(N);
+
+    std::generate(x0.begin(), x0.end(), [&]() { return rnd(rng); });
+
+    vex::vector<key_type> X0(ctx, x0);
+    vex::vector<key_type> X1(ctx, N);
+
+    vex::exclusive_scan(X0, X1);
+
+    ctx.finish();
+    prof.tic_cpu("VexCL");
+
+    for(size_t i = 0; i < M; i++)
+        vex::exclusive_scan(X0, X1);
+
+    ctx.finish();
+    double tot_time = prof.toc("VexCL");
+
+    std::cout
+        << "Scan (" << vex::type_name<key_type>() << ")\n"
+        << "    VexCL:         " << N * M / tot_time << " keys/sec\n";
+
+#ifdef HAVE_BOOST_COMPUTE
+    vex::compute::exclusive_scan(X0, X1);
+
+    ctx.finish();
+    prof.tic_cpu("Boost.Compute");
+
+    for(size_t i = 0; i < M; i++)
+        vex::compute::exclusive_scan(X0, X1);
+
+    ctx.finish();
+    tot_time = prof.toc("Boost.Compute");
+
+    std::cout
+        << "    Boost.Compute: " << N * M / tot_time << " keys/sec\n";
+#endif
+
+#ifdef HAVE_CLOGS
+    vex::clogs::exclusive_scan(X0, X1);
+
+    ctx.finish();
+    prof.tic_cpu("CLOGS");
+
+    for(size_t i = 0; i < M; i++)
+        vex::clogs::exclusive_scan(X0, X1);
+
+    ctx.finish();
+    tot_time = prof.toc("CLOGS");
+
+    std::cout
+        << "    CLOGS:         " << N * M / tot_time << " keys/sec\n";
+#endif
+
+    if (options.bm_cpu) {
+        prof.tic_cpu("CPU");
+        for(size_t i = 0; i < M; i++) {
+            key_type sum = 0.0;
+            for(size_t j = 0; j < N; ++j) {
+                key_type next = sum + x0[j];
+                x1[j] = sum;
+                sum = next;
+            }
+        }
+        tot_time = prof.toc("CPU");
+
+        std::cout << "    CPU:           " << N * M / tot_time << " keys/sec\n";
     }
 
     std::cout << std::endl;
@@ -764,6 +909,12 @@ void run_tests(const vex::Context &ctx, vex::profiler<> &prof)
         prof.toc("Sorting");
     }
 
+    if (options.bm_scan) {
+        prof.tic_cpu("Scanning");
+        benchmark_scan<real>(ctx, prof);
+        prof.toc("Scanning");
+    }
+
     prof.toc( vex::type_name<real>() );
 
     std::cout << std::endl << std::endl;
@@ -803,6 +954,10 @@ int main(int argc, char *argv[]) {
         ("bm_sort",
             po::value<bool>(&options.bm_sort)->default_value(true),
             "benchmark sorting (on/off)"
+            )
+        ("bm_scan",
+            po::value<bool>(&options.bm_sort)->default_value(true),
+            "benchmark exclusive scan (on/off)"
             )
         ("bm_cpu",
             po::value<bool>(&options.bm_cpu)->default_value(true),

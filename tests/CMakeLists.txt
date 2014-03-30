@@ -65,12 +65,7 @@ add_vexcl_test(multiple_objects         "dummy1.cpp;dummy2.cpp")
 #----------------------------------------------------------------------------
 # Test interoperation with Boost.compute
 #----------------------------------------------------------------------------
-option(BOOST_COMPUTE "Use Boost.Compute algorithms" OFF)
-
 if (BOOST_COMPUTE)
-    find_path(BOOST_COMPUTE_INCLUDE boost/compute.hpp)
-    include_directories(${BOOST_COMPUTE_INCLUDE})
-
     add_vexcl_test(boost_compute_sort boost_compute_sort.cpp)
     add_vexcl_test(boost_compute_scan boost_compute_scan.cpp)
 endif ()
@@ -78,13 +73,7 @@ endif ()
 #----------------------------------------------------------------------------
 # Test interoperation with clogs
 #----------------------------------------------------------------------------
-option(CLOGS "Use clogs algorithms" OFF)
-
 if (CLOGS)
-    find_path(CLOGS_INCLUDE clogs/clogs.h)
-    find_library(CLOGS_LIB clogs)
-    include_directories(${CLOGS_INCLUDE})
-
     add_vexcl_test(clogs_scan clogs_scan.cpp)
     target_link_libraries(clogs_scan ${CLOGS_LIB})
     add_vexcl_test(clogs_sort clogs_sort.cpp)
