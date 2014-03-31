@@ -19,7 +19,7 @@ BOOST_AUTO_TEST_CASE(nbody)
     vex::vector<double> x(queue, X);
     vex::vector<double> y(queue, n);
 
-    VEX_FUNCTION(nbody, double(size_t, size_t, double*),
+    VEX_FUNCTION_V1(nbody, double(size_t, size_t, double*),
             VEX_STRINGIZE_SOURCE(
                 double sum = 0;
                 for(size_t i = 0; i < prm1; ++i)

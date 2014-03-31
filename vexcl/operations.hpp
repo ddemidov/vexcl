@@ -892,16 +892,21 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_USER_FUNCTION, ~)
 /// Macro to declare a user function type.
 /**
  \code
- VEX_FUNCTION_TYPE(pow3_t, double(double), "", "return pow(prm1, 3.0);");
+ VEX_FUNCTION_V1_TYPE(pow3_t, double(double), "", "return pow(prm1, 3.0);");
  pow3_t pow3;
  output = pow3(input);
  \endcode
- *
- * \note Should be used in case same function is used in several places (to
- * save on OpenCL kernel recompilations). Otherwise VEX_FUNCTION should
- * be used locally.
+
+ \note This version of the macro uses function call signature in order to
+ define the function paramaters. Parameters are named automatically (prm1,
+ prm2, ...), which reduces readability of the code. Use of VEX_FUNCTION is
+ recommended instead.
+
+ \note Should be used in case same function is used in several places (to
+ save on OpenCL kernel recompilations). Otherwise VEX_FUNCTION should
+ be used locally.
  */
-#define VEX_FUNCTION_TYPE(name, signature, preamble_str, body_str)             \
+#define VEX_FUNCTION_V1_TYPE(name, signature, preamble_str, body_str)          \
   struct name : vex::UserFunction<name, signature> {                           \
     name() {}                                                                  \
     static std::string preamble() { return preamble_str; }                     \
@@ -911,12 +916,17 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_USER_FUNCTION, ~)
 /// Macro to declare a user function.
 /**
  \code
- VEX_FUNCTION(pow3, double(double), "return pow(prm1, 3.0);");
+ VEX_FUNCTION_V1(pow3, double(double), "return pow(prm1, 3.0);");
  output = pow3(input);
  \endcode
+
+ \note This version of the macro uses function call signature in order to
+ define the function paramaters. Parameters are named automatically (prm1,
+ prm2, ...), which reduces readability of the code. Use of VEX_FUNCTION is
+ recommended instead.
  */
-#define VEX_FUNCTION(name, signature, body)                                    \
-  VEX_FUNCTION_TYPE(user_function_##name##_body, signature, "", body)          \
+#define VEX_FUNCTION_V1(name, signature, body)                                 \
+  VEX_FUNCTION_V1_TYPE(user_function_##name##_body, signature, "", body)       \
     const name
 
 
@@ -924,23 +934,28 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_USER_FUNCTION, ~)
 /**
  * The preamble may be used to define helper functions or macros.
  \code
- VEX_FUNCTION_WITH_PREAMBLE(one, double(double),
+ VEX_FUNCTION_V1_WITH_PREAMBLE(one, double(double),
          "double sin2(double x) { return pow(sin(x), 2.0); }\n"
          "double cos2(double x) { return pow(cos(x), 2.0); }\n",
          "return sin2(prm1) + cos2(prm1);"
          );
  y = one(x);
  \endcode
+
+ \note This version of the macro uses function call signature in order to
+ define the function paramaters. Parameters are named automatically (prm1,
+ prm2, ...), which reduces readability of the code. Use of VEX_FUNCTION is
+ recommended instead.
  */
-#define VEX_FUNCTION_WITH_PREAMBLE(name, signature, preamble, body)            \
-  VEX_FUNCTION_TYPE(user_function_##name##_body, signature, preamble, body)    \
+#define VEX_FUNCTION_V1_WITH_PREAMBLE(name, signature, preamble, body)         \
+  VEX_FUNCTION_V1_TYPE(user_function_##name##_body, signature, preamble, body) \
     const name
 
 /// Stringizes compute kernel source code.
 /**
  * Example:
 \code
-VEX_FUNCTION(diff_cube, double(double, double),
+VEX_FUNCTION_V1(diff_cube, double(double, double),
     VEX_STRINGIZE_SOURCE(
         double d = prm1 - prm2;
         return d * d * d;

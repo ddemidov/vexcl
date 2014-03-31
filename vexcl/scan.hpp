@@ -423,7 +423,7 @@ void scan(
 /// Binary function object class whose call returns the result of adding its two arguments.
 template <typename T>
 struct plus : std::plus<T> {
-    VEX_FUNCTION(device, T(T, T), "return prm1 + prm2;");
+    VEX_FUNCTION_V1(device, T(T, T), "return prm1 + prm2;");
 
     plus() {}
 };

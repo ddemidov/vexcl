@@ -103,7 +103,7 @@ BOOST_AUTO_TEST_CASE(user_defined_functions)
     elem_t v1 = {{1, 2}};
     elem_t v2 = {{2, 1}};
 
-    VEX_FUNCTION(greater, size_t(double, double), "return prm1 > prm2;");
+    VEX_FUNCTION_V1(greater, size_t(double, double), "return prm1 > prm2;");
 
     x = v1;
     y = v2;

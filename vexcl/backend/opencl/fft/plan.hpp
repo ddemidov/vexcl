@@ -187,8 +187,8 @@ struct plan {
 
     typedef typename cl_vector_of<Ts, 2>::type T2;
 
-    VEX_FUNCTION(r2c, T2(Ts), "return (" + type_name<T2>() + ")(prm1, 0);");
-    VEX_FUNCTION(c2r, Ts(T2), "return prm1.x;");
+    VEX_FUNCTION_V1(r2c, T2(Ts), "return (" + type_name<T2>() + ")(prm1, 0);");
+    VEX_FUNCTION_V1(c2r, Ts(T2), "return prm1.x;");
 
     const std::vector<backend::command_queue> &queues;
     Planner planner;
