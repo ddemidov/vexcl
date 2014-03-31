@@ -34,6 +34,7 @@ THE SOFTWARE.
 #include <array>
 #include <tuple>
 #include <deque>
+#include <set>
 #include <memory>
 
 #include <boost/proto/proto.hpp>
@@ -824,6 +825,14 @@ struct UserFunction<Impl, RetType(ArgType...)> : user_function
 
     static std::string preamble() { return ""; }
 
+    static std::string name() {
+        return "user_function";
+    }
+
+    static void define(backend::source_generator &src) {
+        define(src, Impl::name());
+    }
+
     static void define(backend::source_generator &src, const std::string &name)
     {
         src << Impl::preamble();
@@ -857,6 +866,12 @@ struct UserFunction<Impl, RetType(ArgType...)> : user_function
   struct UserFunction<                                                         \
       Impl, RetType(BOOST_PP_ENUM_PARAMS(n, ArgType))> : user_function {       \
     UserFunction() {}                                                          \
+    static std::string name() {                                                \
+        return "user_function";                                                \
+    }                                                                          \
+    static void define(backend::source_generator &src) {                       \
+        define(src, Impl::name());                                             \
+    }                                                                          \
     typedef RetType value_type;                                                \
     template <BOOST_PP_ENUM_PARAMS(n, class Arg)>                              \
     typename boost::proto::result_of::make_expr<                               \
@@ -906,9 +921,12 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_USER_FUNCTION, ~)
  save on OpenCL kernel recompilations). Otherwise VEX_FUNCTION should
  be used locally.
  */
-#define VEX_FUNCTION_V1_TYPE(name, signature, preamble_str, body_str)          \
-  struct name : vex::UserFunction<name, signature> {                           \
-    name() {}                                                                  \
+#define VEX_FUNCTION_V1_TYPE(fname, signature, preamble_str, body_str)         \
+  struct vex_function_##fname                                                  \
+    : vex::UserFunction<vex_function_##fname, signature>                       \
+  {                                                                            \
+    vex_function_##fname() {}                                                  \
+    static std::string name() { return #fname; }                               \
     static std::string preamble() { return preamble_str; }                     \
     static std::string body() { return body_str; }                             \
   }
@@ -926,8 +944,7 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_USER_FUNCTION, ~)
  recommended instead.
  */
 #define VEX_FUNCTION_V1(name, signature, body)                                 \
-  VEX_FUNCTION_V1_TYPE(user_function_##name##_body, signature, "", body)       \
-    const name
+  VEX_FUNCTION_V1_TYPE(name, signature, "", body) const name
 
 
 /// Macro to declare a user function with preamble.
@@ -948,8 +965,7 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_USER_FUNCTION, ~)
  recommended instead.
  */
 #define VEX_FUNCTION_V1_WITH_PREAMBLE(name, signature, preamble, body)         \
-  VEX_FUNCTION_V1_TYPE(user_function_##name##_body, signature, preamble, body) \
-    const name
+  VEX_FUNCTION_V1_TYPE(name, signature, preamble, body) const name
 
 /// Stringizes compute kernel source code.
 /**
@@ -1359,13 +1375,26 @@ struct output_terminal_preamble : public expression_context {
         void
         >::type
         operator()(const FunCall &expr, output_terminal_preamble &ctx) const {
-            std::ostringstream name;
-            name << ctx.prefix << "_func_" << ++ctx.fun_idx;
+            // Output function definition (once) and continue with parameters.
+            auto s = ctx.state->find("user_functions");
+            if (s == ctx.state->end()) {
+                s = ctx.state->insert(std::make_pair(
+                            std::string("user_functions"),
+                            boost::any( std::set<std::string>() )
+                            )).first;
+            }
+            auto &seen = boost::any_cast< std::set<std::string>& >(s->second);
 
-            // Output function definition and continue with parameters.
-            boost::proto::result_of::value<
+            typedef typename boost::proto::result_of::value<
                 typename boost::proto::result_of::child_c<FunCall,0>::type
-            >::type::define(ctx.src, name.str());
+            >::type fun;
+
+            std::string fname = fun::name();
+
+            if (seen.find(fname) == seen.end()) {
+                seen.insert(fname);
+                fun::define(ctx.src);
+            }
 
             boost::fusion::for_each(
                     boost::fusion::pop_front(expr),
@@ -1598,35 +1627,8 @@ struct vector_expr_context : public expression_context {
         };
 
         template <class FunCall>
-        typename std::enable_if<
-            std::is_base_of<
-                builtin_function,
-                typename boost::proto::result_of::value<
-                    typename boost::proto::result_of::child_c<FunCall,0>::type
-                >::type
-            >::value,
-        void
-        >::type
-        operator()(const FunCall &expr, vector_expr_context &ctx) const {
+        void operator()(const FunCall &expr, vector_expr_context &ctx) const {
             ctx.src << boost::proto::value(boost::proto::child_c<0>(expr)).name() << "( ";
-            boost::fusion::for_each(
-                    boost::fusion::pop_front(expr), do_eval(ctx)
-                    );
-            ctx.src << " )";
-        }
-
-        template <class FunCall>
-        typename std::enable_if<
-            std::is_base_of<
-                user_function,
-                typename boost::proto::result_of::value<
-                    typename boost::proto::result_of::child_c<FunCall,0>::type
-                >::type
-            >::value,
-        void
-        >::type
-        operator()(const FunCall &expr, vector_expr_context &ctx) const {
-            ctx.src << ctx.prefix << "_func_" << ++ctx.fun_idx << "( ";
             boost::fusion::for_each(
                     boost::fusion::pop_front(expr), do_eval(ctx)
                     );

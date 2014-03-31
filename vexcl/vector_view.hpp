@@ -781,13 +781,10 @@ struct terminal_preamble< reduced_vector_view<Expr, NDIM, NR, RDC> > {
         detail::output_terminal_preamble termpream(src, queue, prm_name, state);
         boost::proto::eval(boost::proto::as_child(term.expr), termpream);
 
-        std::ostringstream rdc_name;
-        rdc_name << prm_name << "_reduce";
-
         typedef typename detail::return_type<Expr>::type T;
         typedef typename RDC::template function<T> fun;
 
-        fun::define(src, rdc_name.str());
+        boost::proto::eval(boost::proto::as_child( fun() (T(), T()) ), termpream);
     }
 };
 
@@ -799,9 +796,7 @@ struct local_terminal_init< reduced_vector_view<Expr, NDIM, NR, RDC> > {
             detail::kernel_generator_state_ptr state)
     {
         typedef typename detail::return_type<Expr>::type T;
-
-        std::ostringstream rdc_name;
-        rdc_name << prm_name << "_reduce";
+        typedef typename RDC::template function<T> fun;
 
         src.new_line() << type_name<T>() << " " << prm_name << "_sum = (" <<
             type_name<T>() << ")" << RDC::template initial<T>() << ";";
@@ -839,7 +834,7 @@ struct local_terminal_init< reduced_vector_view<Expr, NDIM, NR, RDC> > {
         boost::proto::eval(boost::proto::as_child(term.expr), init_ctx);
 
         src.new_line()
-            << prm_name << "_sum = " << rdc_name.str() << "("
+            << prm_name << "_sum = " << fun::name() << "("
             << prm_name << "_sum, ";
 
         detail::vector_expr_context expr_ctx(src, queue, prm_name, state);

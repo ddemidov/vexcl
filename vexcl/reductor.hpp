@@ -60,6 +60,7 @@ struct SUM {
      */
     template <typename T>
     struct function : UserFunction<function<T>, T(T, T)> {
+        static std::string name() { return "SUM"; }
         static std::string body() { return "return prm1 + prm2;"; }
     };
 
@@ -95,6 +96,7 @@ struct MAX {
 
     template <typename T>
     struct function : UserFunction<function<T>, T(T, T)> {
+        static std::string name() { return "MAX"; }
         static std::string body() { return "return prm1 > prm2 ? prm1 : prm2;"; }
     };
 
@@ -114,6 +116,7 @@ struct MIN {
 
     template <typename T>
     struct function : UserFunction<function<T>, T(T, T)> {
+        static std::string name() { return "MIN"; }
         static std::string body() { return "return prm1 < prm2 ? prm1 : prm2;"; }
     };
 
@@ -234,7 +237,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
             backend::source_generator source(queue[d]);
 
             typedef typename RDC::template function<real> fun;
-            fun::define(source, "reduce_operation");
+            fun::define(source);
 
             output_terminal_preamble termpream(source, queue[d], "prm", empty_state());
             boost::proto::eval(boost::proto::as_child(expr),  termpream);
@@ -254,7 +257,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
     output_local_preamble loc_init(source, queue[d], "prm", empty_state());    \
     boost::proto::eval(expr, loc_init);                                        \
     vector_expr_context expr_ctx(source, queue[d], "prm", empty_state());      \
-    source.new_line() << "mySum = reduce_operation(mySum, ";                   \
+    source.new_line() << "mySum = " << fun::name() << "(mySum, ";              \
     boost::proto::eval(expr, expr_ctx);                                        \
     source << ");";                                                            \
   }
@@ -292,7 +295,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
                 for(unsigned bs = 512; bs > 32; bs /= 2) {
                     source.new_line() << "if (block_size >= " << bs * 2 << ")";
                     source.open("{").new_line() << "if (tid < " << bs << ") "
-                        "{ sdata[tid] = mySum = reduce_operation(mySum, sdata[tid + " << bs << "]); }";
+                        "{ sdata[tid] = mySum = " << fun::name() << "(mySum, sdata[tid + " << bs << "]); }";
                     source.new_line().barrier().close("}");
                 }
                 source.new_line() << "if (tid < 32)";
@@ -300,7 +303,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
                 source.new_line() << "volatile " << type_name< shared_ptr<real> >() << " smem = sdata;";
                 for(unsigned bs = 32; bs > 0; bs /= 2) {
                     source.new_line() << "if (block_size >= " << 2 * bs << ") "
-                        "{ smem[tid] = mySum = reduce_operation(mySum, smem[tid + " << bs << "]); }";
+                        "{ smem[tid] = mySum = " << fun::name() << "(mySum, smem[tid + " << bs << "]); }";
                 }
                 source.close("}");
                 source.new_line() << "if (tid == 0) g_odata[" << source.group_id(0) << "] = sdata[0];";

@@ -286,14 +286,14 @@ struct symbolic_context {
             void
         >::type
         operator()(const FunCall &expr, symbolic_context &ctx) const {
-            std::ostringstream fname;
-            fname << "fun" << var_id();
-
-            boost::proto::result_of::value<
+            typedef typename boost::proto::result_of::value<
                 typename boost::proto::result_of::child_c<FunCall,0>::type
-            >::type::define(get_preamble(), fname.str());
+            >::type fun;
 
-            get_recorder() << fname.str() << "( ";
+            // TODO: only do it once!
+            fun::define(get_preamble());
+
+            get_recorder() << fun::name() << "( ";
 
             boost::fusion::for_each(
                     boost::fusion::pop_front(expr),
@@ -721,11 +721,13 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_MAKE_FUNCTION, ~)
 template <class Signature, class Functor>
 struct FunctorAdapter : UserFunction<FunctorAdapter<Signature, Functor>, Signature>
 {
+    static std::string name_string;
     static std::string body_string;
 
-    FunctorAdapter(Functor &&f) {
+    FunctorAdapter(Functor &&f, std::string fname) {
         using boost::function_types::function_arity;
 
+        name_string = fname;
         body_string = get_body(std::forward<Functor>(f),
                 boost::mpl::size_t< function_arity<Signature>::value >() );
     }
@@ -734,9 +736,8 @@ struct FunctorAdapter : UserFunction<FunctorAdapter<Signature, Functor>, Signatu
     // string is already constructed by the time the constructor is called.
     FunctorAdapter() {}
 
-    static std::string body() {
-        return body_string;
-    }
+    static std::string name() { return name_string; }
+    static std::string body() { return body_string; }
 
 #define VEXCL_PRINT_PRM(z, n, data)                                            \
   typedef symbolic<                                                            \
@@ -766,6 +767,9 @@ struct FunctorAdapter : UserFunction<FunctorAdapter<Signature, Functor>, Signatu
 };
 
 template <class Signature, class Functor>
+std::string FunctorAdapter<Signature, Functor>::name_string;
+
+template <class Signature, class Functor>
 std::string FunctorAdapter<Signature, Functor>::body_string;
 
 /// Generates user-defined function from a genric functor.
@@ -776,7 +780,10 @@ std::string FunctorAdapter<Signature, Functor>::body_string;
  */
 template <class Signature, class Functor>
 FunctorAdapter<Signature, Functor> make_function(Functor &&f) {
-    return FunctorAdapter<Signature, Functor>(std::forward<Functor>(f));
+    static size_t id = 0;
+    std::ostringstream name;
+    name << "generated_function_" << ++id;
+    return FunctorAdapter<Signature, Functor>(std::forward<Functor>(f), name.str());
 }
 
 } // namespace generator;
