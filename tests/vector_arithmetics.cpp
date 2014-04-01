@@ -213,6 +213,79 @@ BOOST_AUTO_TEST_CASE(function_with_preamble)
             });
 }
 
+BOOST_AUTO_TEST_CASE(function_v2)
+{
+    const size_t n = 1024;
+
+    vex::vector<double> x(ctx, random_vector<double>(n));
+    vex::vector<double> y(ctx, random_vector<double>(n));
+    vex::vector<double> z(ctx, n);
+
+    {
+        VEX_FUNCTION(double, foo, (double, x)(double, y),
+                return (x - y) * (x + y);
+                );
+
+        z = foo(x, y);
+
+        check_sample(x, y, z, [](size_t, double X, double Y, double Z) {
+                BOOST_CHECK_EQUAL(Z, (X - Y) * (X + Y));
+                });
+    }
+
+    {
+        VEX_FUNCTION_S(double, foo, (double, x)(double, y),
+                "return (x - y) * (x + y);"
+                );
+
+        z = foo(x, y);
+
+        check_sample(x, y, z, [](size_t, double X, double Y, double Z) {
+                BOOST_CHECK_EQUAL(Z, (X - Y) * (X + Y));
+                });
+    }
+
+    {
+        VEX_FUNCTION(double, bar, (double, x),
+                double s = sin(x);
+                return s * s;
+                );
+        VEX_FUNCTION(double, baz, (double, x),
+                double c = cos(x);
+                return c * c;
+                );
+        VEX_FUNCTION_D(double, foo, (double, x)(double, y), (bar)(baz),
+                return bar(x - y) * baz(x + y);
+                );
+
+        z = foo(x, y);
+
+        check_sample(x, y, z, [](size_t, double X, double Y, double Z) {
+                BOOST_CHECK_CLOSE(Z, pow(sin(X - Y), 2) * pow(cos(X + Y), 2), 1e-8);
+                });
+    }
+
+    {
+        VEX_FUNCTION(double, bar, (double, x),
+                double s = sin(x);
+                return s * s;
+                );
+        VEX_FUNCTION(double, baz, (double, x),
+                double c = cos(x);
+                return c * c;
+                );
+        VEX_FUNCTION_DS(double, foo, (double, x)(double, y), (bar)(baz),
+                "return bar(x - y) * baz(x + y);"
+                );
+
+        z = foo(x, y);
+
+        check_sample(x, y, z, [](size_t, double X, double Y, double Z) {
+                BOOST_CHECK_CLOSE(Z, pow(sin(X - Y), 2) * pow(cos(X + Y), 2), 1e-8);
+                });
+    }
+}
+
 BOOST_AUTO_TEST_CASE(ternary_operator)
 {
     const size_t n = 1024;

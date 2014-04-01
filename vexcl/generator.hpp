@@ -77,8 +77,9 @@ class recorder {
         static void set(std::ostream &s) {
             os = &s;
 
-            // Reset preamble.
+            // Reset preamble and state.
             preamble.reset(new backend::source_generator);
+            state = detail::empty_state();
         }
 
         static std::ostream& get() {
@@ -89,6 +90,10 @@ class recorder {
             return *preamble;
         }
 
+        static detail::kernel_generator_state_ptr get_state() {
+            return state;
+        }
+
         static size_t var_id() {
             return ++index;
         }
@@ -96,6 +101,7 @@ class recorder {
         static size_t index;
         static std::ostream *os;
         static std::unique_ptr<backend::source_generator> preamble;
+        static detail::kernel_generator_state_ptr state;
 };
 
 template <bool dummy>
@@ -107,6 +113,9 @@ std::ostream *recorder<dummy>::os = 0;
 template <bool dummy>
 std::unique_ptr<backend::source_generator> recorder<dummy>::preamble;
 
+template <bool dummy>
+detail::kernel_generator_state_ptr recorder<dummy>::state;
+
 inline size_t var_id() {
     return recorder<>::var_id();
 }
@@ -117,6 +126,10 @@ inline std::ostream& get_recorder() {
 
 inline backend::source_generator& get_preamble() {
     return recorder<>::get_preamble();
+}
+
+inline detail::kernel_generator_state_ptr get_state() {
+    return recorder<>::get_state();
 }
 /// \endcond
 
@@ -290,8 +303,22 @@ struct symbolic_context {
                 typename boost::proto::result_of::child_c<FunCall,0>::type
             >::type fun;
 
-            // TODO: only do it once!
-            fun::define(get_preamble());
+            // Output function definition (once).
+            auto s = get_state()->find("user_functions");
+            if (s == get_state()->end()) {
+                s = get_state()->insert(std::make_pair(
+                            std::string("user_functions"),
+                            boost::any( std::set<std::string>() )
+                            )).first;
+            }
+            auto &seen = boost::any_cast< std::set<std::string>& >(s->second);
+
+            std::string fname = fun::name();
+
+            if (seen.find(fname) == seen.end()) {
+                seen.insert(fname);
+                fun::define(get_preamble());
+            }
 
             get_recorder() << fun::name() << "( ";
 

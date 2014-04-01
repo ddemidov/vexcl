@@ -45,15 +45,20 @@ THE SOFTWARE.
 #include <vexcl/types.hpp>
 #include <vexcl/util.hpp>
 
-// Include boost.preprocessor header if variadic templates are not available.
-// Also include it if we use gcc v4.6.
-// This is required due to bug http://gcc.gnu.org/bugzilla/show_bug.cgi?id=35722
+// Workaround for gcc bug http://gcc.gnu.org/bugzilla/show_bug.cgi?id=35722
 #if defined(BOOST_NO_VARIADIC_TEMPLATES) || (defined(__GNUC__) && !defined(__clang__) && __GNUC__ == 4 && __GNUC_MINOR__ == 6)
 #  include <boost/preprocessor/repetition.hpp>
 #  ifndef VEXCL_MAX_ARITY
 #    define VEXCL_MAX_ARITY BOOST_PROTO_MAX_ARITY
 #  endif
 #endif
+
+#include <boost/preprocessor/enum.hpp>
+#include <boost/preprocessor/enum_params.hpp>
+#include <boost/preprocessor/seq.hpp>
+#include <boost/preprocessor/cat.hpp>
+#include <boost/preprocessor/tuple.hpp>
+#include <boost/preprocessor/stringize.hpp>
 
 /// Vector expression template library for OpenCL.
 namespace vex {
@@ -980,6 +985,164 @@ VEX_FUNCTION_V1(diff_cube, double(double, double),
 \endcode
 */
 #define VEX_STRINGIZE_SOURCE(...) #__VA_ARGS__
+
+/// \cond INTERNAL
+#define VEXCL_FUNCTION_ARG_TYPE(s, data, arg) BOOST_PP_TUPLE_ELEM(2, 0, arg)
+
+#define VEXCL_FUNCTION_ARG_TYPES(args) \
+    BOOST_PP_SEQ_ENUM(BOOST_PP_SEQ_TRANSFORM(VEXCL_FUNCTION_ARG_TYPE, ~, args))
+
+#define VEXCL_FUNCTION_NTH_ARG_TYPE(n, args)                                   \
+    BOOST_PP_TUPLE_ELEM(2, 0, BOOST_PP_SEQ_ELEM(n, args))
+
+#define VEXCL_FUNCTION_NTH_ARG_NAME(n, args)                                   \
+    BOOST_PP_STRINGIZE(BOOST_PP_TUPLE_ELEM(2, 1, BOOST_PP_SEQ_ELEM(n, args)))
+
+#define VEXCL_FUNCTION_DEF_ARG(z, n, args)                                     \
+    src.parameter<VEXCL_FUNCTION_NTH_ARG_TYPE(n, args)>(                       \
+            VEXCL_FUNCTION_NTH_ARG_NAME(n, args));
+
+#define VEXCL_FUNCTION_DEFINE_DEP(z, data, dep)                                \
+        BOOST_PP_CAT(vex_function_, dep)::define(src);
+
+#define VEX_FUNCTION_SINK(rtype, func_name, nargs, args, deps, body)           \
+struct vex_function_##func_name                                                \
+    : vex::UserFunction<                                                       \
+        vex_function_##func_name,                                              \
+        rtype( VEXCL_FUNCTION_ARG_TYPES(args) )                                \
+      >                                                                        \
+{                                                                              \
+    vex_function_##func_name() {}                                              \
+    static std::string name() { return #func_name; }                           \
+    static void define(vex::backend::source_generator &src) {                  \
+        define(src, name());                                                   \
+    }                                                                          \
+    static void define(vex::backend::source_generator &src,                    \
+            const std::string &fname)                                          \
+    {                                                                          \
+        BOOST_PP_SEQ_FOR_EACH(VEXCL_FUNCTION_DEFINE_DEP, ~, deps)              \
+        src.function< rtype >(fname).open("(");                                \
+        BOOST_PP_REPEAT(nargs, VEXCL_FUNCTION_DEF_ARG, args)                   \
+        src.close(")").open("{").new_line() << body;                           \
+        src.close("}");                                                        \
+    }                                                                          \
+} const func_name
+
+#define VEXCL_FUNCTION_MAKE_SEQ_0(...) ((__VA_ARGS__)) VEXCL_FUNCTION_MAKE_SEQ_1
+#define VEXCL_FUNCTION_MAKE_SEQ_1(...) ((__VA_ARGS__)) VEXCL_FUNCTION_MAKE_SEQ_0
+#define VEXCL_FUNCTION_MAKE_SEQ_0_END
+#define VEXCL_FUNCTION_MAKE_SEQ_1_END
+
+#define VEXCL_FUNCTION_MAKE_SEQ(args)                                          \
+    BOOST_PP_CAT(VEXCL_FUNCTION_MAKE_SEQ_0 args,_END)
+
+/// \endcond
+
+/// Create a user-defined function with dependencies.
+/**
+ \param type Return type of the function.
+ \param name Name of the function.
+ \param args Arguments of the function. Specified as a preprocessor sequence
+             of tuples. In each of the tuples the first element argument
+             type, and the second element defines argument name.
+ \param deps User-defined functions that are called inside the body of the
+             function that is being defined. Specified as a preprocessor
+             sequence of function names.
+ \param body Body of the function specified as string.
+
+ Example:
+ \code
+ VEX_FUNCTION_SD(double, foo, (double, x)(double, y), (bar)(baz),
+    "return bar(x + y) * baz(x - y);");
+
+ vex::vector<double> x(ctx, n), y(ctx, n), z(ctx, n);
+ z = foo(x, y);
+ \endcode
+ */
+#define VEX_FUNCTION_SD(type, name, args, deps, body)                          \
+    VEX_FUNCTION_SINK(type, name,                                              \
+            BOOST_PP_SEQ_SIZE(VEXCL_FUNCTION_MAKE_SEQ(args)),                  \
+            VEXCL_FUNCTION_MAKE_SEQ(args), deps, body)
+
+/// Alias for VEX_FUNCTION_SD
+/** \copydoc VEX_FUNCTION_SD */
+#define VEX_FUNCTION_DS VEX_FUNCTION_SD
+
+/// Create a user-defined function.
+/**
+ \param type Return type of the function.
+ \param name Name of the function.
+ \param args Arguments of the function. Specified as a preprocessor sequence
+             of tuples. In each of the tuples the first element argument
+             type, and the second element defines argument name.
+ \param deps User-defined functions that are called inside the body of the
+             function that is being defined. Specified as a preprocessor
+             sequence of function names.
+ \param body Body of the function specified as string.
+
+ Example:
+ \code
+ VEX_FUNCTION_S(double, foo, (double, x)(double, y),
+    "return (x + y) * (x - y);");
+
+ vex::vector<double> x(ctx, n), y(ctx, n), z(ctx, n);
+ z = foo(x, y);
+ \endcode
+ */
+#define VEX_FUNCTION_S(type, name, args, body)                                 \
+    VEX_FUNCTION_SD(type, name, args, , body)
+
+/// Create a user-defined function with dependencies.
+/**
+ \param type Return type of the function.
+ \param name Name of the function.
+ \param args Arguments of the function. Specified as a preprocessor sequence
+             of tuples. In each of the tuples the first element argument
+             type, and the second element defines argument name.
+ \param deps User-defined functions that are called inside the body of the
+             function that is being defined. Specified as a preprocessor
+             sequence of function names.
+
+ \note Body of the function is specified as unquoted C source at the end of the
+       macro.
+
+ Example:
+ \code
+ VEX_FUNCTION_D(double, foo, (double, x)(double, y), (bar)(baz),
+    return bar(x + y) * baz(x - y);
+    );
+
+ vex::vector<double> x(ctx, n), y(ctx, n), z(ctx, n);
+ z = foo(x, y);
+ \endcode
+ */
+#define VEX_FUNCTION_D(type, name, args, deps, ...)                            \
+    VEX_FUNCTION_SD(type, name, args, deps, BOOST_PP_STRINGIZE(__VA_ARGS__) )
+
+
+/// Create a user-defined function.
+/**
+ \param type Return type of the function.
+ \param name Name of the function.
+ \param args Arguments of the function. Specified as a preprocessor sequence
+             of tuples. In each of the tuples the first element argument
+             type, and the second element defines argument name.
+
+ \note Body of the function is specified as unquoted C source at the end of the
+       macro.
+
+ Example:
+ \code
+ VEX_FUNCTION_D(double, foo, (double, x)(double, y),
+    return (x + y) * (x - y);
+    );
+
+ vex::vector<double> x(ctx, n), y(ctx, n), z(ctx, n);
+ z = foo(x, y);
+ \endcode
+ */
+#define VEX_FUNCTION(type, name, args, ...)                                    \
+    VEX_FUNCTION_S(type, name, args, BOOST_PP_STRINGIZE(__VA_ARGS__))
 
 
 /// \cond INTERNAL
