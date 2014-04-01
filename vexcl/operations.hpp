@@ -510,18 +510,21 @@ struct user_function {};
 
 #ifdef DOXYGEN
 
-#define VEXCL_BUILTIN_FUNCTION_1(func)                                         \
+/// Define builtin function with one argument.
+#define VEX_BUILTIN_FUNCTION_1(func)                                           \
   expression func(const Arg & arg);
 
-#define VEXCL_BUILTIN_FUNCTION_2(func)                                         \
+/// Define builtin function with two arguments.
+#define VEX_BUILTIN_FUNCTION_2(func)                                           \
   expression func(const Arg1 & arg1, const Arg2 & arg2);
 
-#define VEXCL_BUILTIN_FUNCTION_3(func)                                         \
+/// Define builtin function with three arguments.
+#define VEX_BUILTIN_FUNCTION_3(func)                                           \
   expression func(const Arg1 & arg1, const Arg2 & arg2, const Arg3 & arg3);
 
 #else
 
-#define VEXCL_BUILTIN_FUNCTION_1(func)                                         \
+#define VEX_BUILTIN_FUNCTION_1(func)                                           \
   struct func##_func : builtin_function {                                      \
     static const char *name() { return #func; }                                \
   };                                                                           \
@@ -532,7 +535,7 @@ struct user_function {};
         func##_func(), boost::ref(arg));                                       \
   }
 
-#define VEXCL_BUILTIN_FUNCTION_2(func)                                         \
+#define VEX_BUILTIN_FUNCTION_2(func)                                           \
   struct func##_func : builtin_function {                                      \
     static const char *name() { return #func; }                                \
   };                                                                           \
@@ -544,7 +547,7 @@ struct user_function {};
         func##_func(), boost::ref(arg1), boost::ref(arg2));                    \
   }
 
-#define VEXCL_BUILTIN_FUNCTION_3(func)                                         \
+#define VEX_BUILTIN_FUNCTION_3(func)                                           \
   struct func##_func : builtin_function {                                      \
     static const char *name() { return #func; }                                \
   };                                                                           \
@@ -559,130 +562,125 @@ struct user_function {};
 
 #endif
 
-
 /// \defgroup builtins Builtin device functions
 /** @{ */
-VEXCL_BUILTIN_FUNCTION_2( abs_diff )
-VEXCL_BUILTIN_FUNCTION_1( acos )
-VEXCL_BUILTIN_FUNCTION_1( acosh )
-VEXCL_BUILTIN_FUNCTION_1( acospi )
-VEXCL_BUILTIN_FUNCTION_2( add_sat )
-VEXCL_BUILTIN_FUNCTION_1( all )
-VEXCL_BUILTIN_FUNCTION_1( any )
-VEXCL_BUILTIN_FUNCTION_1( asin )
-VEXCL_BUILTIN_FUNCTION_1( asinh )
-VEXCL_BUILTIN_FUNCTION_1( asinpi )
-VEXCL_BUILTIN_FUNCTION_1( atan )
-VEXCL_BUILTIN_FUNCTION_2( atan2 )
-VEXCL_BUILTIN_FUNCTION_2( atan2pi )
-VEXCL_BUILTIN_FUNCTION_1( atanh )
-VEXCL_BUILTIN_FUNCTION_1( atanpi )
-VEXCL_BUILTIN_FUNCTION_3( bitselect )
-VEXCL_BUILTIN_FUNCTION_1( cbrt )
-VEXCL_BUILTIN_FUNCTION_1( ceil )
-VEXCL_BUILTIN_FUNCTION_3( clamp )
-VEXCL_BUILTIN_FUNCTION_1( clz )
-VEXCL_BUILTIN_FUNCTION_2( copysign )
-VEXCL_BUILTIN_FUNCTION_1( cos )
-VEXCL_BUILTIN_FUNCTION_1( cosh )
-VEXCL_BUILTIN_FUNCTION_1( cospi )
-VEXCL_BUILTIN_FUNCTION_2( cross )
-VEXCL_BUILTIN_FUNCTION_1( degrees )
-VEXCL_BUILTIN_FUNCTION_2( distance )
-VEXCL_BUILTIN_FUNCTION_2( dot )
-VEXCL_BUILTIN_FUNCTION_1( erf )
-VEXCL_BUILTIN_FUNCTION_1( erfc )
-VEXCL_BUILTIN_FUNCTION_1( exp )
-VEXCL_BUILTIN_FUNCTION_1( exp10 )
-VEXCL_BUILTIN_FUNCTION_1( exp2 )
-VEXCL_BUILTIN_FUNCTION_1( expm1 )
-VEXCL_BUILTIN_FUNCTION_1( fabs )
-VEXCL_BUILTIN_FUNCTION_2( fast_distance )
-VEXCL_BUILTIN_FUNCTION_1( fast_length )
-VEXCL_BUILTIN_FUNCTION_1( fast_normalize )
-VEXCL_BUILTIN_FUNCTION_2( fdim )
-VEXCL_BUILTIN_FUNCTION_1( floor )
-VEXCL_BUILTIN_FUNCTION_3( fma )
-VEXCL_BUILTIN_FUNCTION_2( fmax )
-VEXCL_BUILTIN_FUNCTION_2( fmin )
-VEXCL_BUILTIN_FUNCTION_2( fmod )
-VEXCL_BUILTIN_FUNCTION_2( fract )
-VEXCL_BUILTIN_FUNCTION_2( frexp )
-VEXCL_BUILTIN_FUNCTION_2( hadd )
-VEXCL_BUILTIN_FUNCTION_2( hypot )
-VEXCL_BUILTIN_FUNCTION_1( ilogb )
-VEXCL_BUILTIN_FUNCTION_2( isequal )
-VEXCL_BUILTIN_FUNCTION_1( isfinite )
-VEXCL_BUILTIN_FUNCTION_2( isgreater )
-VEXCL_BUILTIN_FUNCTION_2( isgreaterequal )
-VEXCL_BUILTIN_FUNCTION_1( isinf )
-VEXCL_BUILTIN_FUNCTION_2( isless )
-VEXCL_BUILTIN_FUNCTION_2( islessequal )
-VEXCL_BUILTIN_FUNCTION_2( islessgreater )
-VEXCL_BUILTIN_FUNCTION_1( isnan )
-VEXCL_BUILTIN_FUNCTION_1( isnormal )
-VEXCL_BUILTIN_FUNCTION_2( isnotequal )
-VEXCL_BUILTIN_FUNCTION_2( isordered )
-VEXCL_BUILTIN_FUNCTION_2( isunordered )
-VEXCL_BUILTIN_FUNCTION_2( ldexp )
-VEXCL_BUILTIN_FUNCTION_1( length )
-VEXCL_BUILTIN_FUNCTION_1( lgamma )
-VEXCL_BUILTIN_FUNCTION_2( lgamma_r )
-VEXCL_BUILTIN_FUNCTION_1( log )
-VEXCL_BUILTIN_FUNCTION_1( log10 )
-VEXCL_BUILTIN_FUNCTION_1( log1p )
-VEXCL_BUILTIN_FUNCTION_1( log2 )
-VEXCL_BUILTIN_FUNCTION_1( logb )
-VEXCL_BUILTIN_FUNCTION_3( mad )
-VEXCL_BUILTIN_FUNCTION_3( mad24 )
-VEXCL_BUILTIN_FUNCTION_3( mad_hi )
-VEXCL_BUILTIN_FUNCTION_3( mad_sat )
-VEXCL_BUILTIN_FUNCTION_2( max )
-VEXCL_BUILTIN_FUNCTION_2( maxmag )
-VEXCL_BUILTIN_FUNCTION_2( min )
-VEXCL_BUILTIN_FUNCTION_2( minmag )
-VEXCL_BUILTIN_FUNCTION_3( mix )
-VEXCL_BUILTIN_FUNCTION_2( modf )
-VEXCL_BUILTIN_FUNCTION_2( mul_hi )
-VEXCL_BUILTIN_FUNCTION_1( nan )
-VEXCL_BUILTIN_FUNCTION_2( nextafter )
-VEXCL_BUILTIN_FUNCTION_1( normalize )
-VEXCL_BUILTIN_FUNCTION_1( popcount )
-VEXCL_BUILTIN_FUNCTION_2( pow )
-VEXCL_BUILTIN_FUNCTION_2( pown )
-VEXCL_BUILTIN_FUNCTION_2( powr )
-VEXCL_BUILTIN_FUNCTION_1( radians )
-VEXCL_BUILTIN_FUNCTION_2( remainder )
-VEXCL_BUILTIN_FUNCTION_3( remquo )
-VEXCL_BUILTIN_FUNCTION_2( rhadd )
-VEXCL_BUILTIN_FUNCTION_1( rint )
-VEXCL_BUILTIN_FUNCTION_2( rootn )
-VEXCL_BUILTIN_FUNCTION_2( rotate )
-VEXCL_BUILTIN_FUNCTION_1( round )
-VEXCL_BUILTIN_FUNCTION_1( rsqrt )
-VEXCL_BUILTIN_FUNCTION_3( select )
-VEXCL_BUILTIN_FUNCTION_2( shuffle )
-VEXCL_BUILTIN_FUNCTION_3( shuffle2 )
-VEXCL_BUILTIN_FUNCTION_1( sign )
-VEXCL_BUILTIN_FUNCTION_1( signbit )
-VEXCL_BUILTIN_FUNCTION_1( sin )
-VEXCL_BUILTIN_FUNCTION_2( sincos )
-VEXCL_BUILTIN_FUNCTION_1( sinh )
-VEXCL_BUILTIN_FUNCTION_1( sinpi )
-VEXCL_BUILTIN_FUNCTION_3( smoothstep )
-VEXCL_BUILTIN_FUNCTION_1( sqrt )
-VEXCL_BUILTIN_FUNCTION_2( step )
-VEXCL_BUILTIN_FUNCTION_2( sub_sat )
-VEXCL_BUILTIN_FUNCTION_1( tan )
-VEXCL_BUILTIN_FUNCTION_1( tanh )
-VEXCL_BUILTIN_FUNCTION_1( tanpi )
-VEXCL_BUILTIN_FUNCTION_1( tgamma )
-VEXCL_BUILTIN_FUNCTION_1( trunc )
-VEXCL_BUILTIN_FUNCTION_2( upsample )
-
-#undef VEXCL_BUILTIN_FUNCTION_1
-#undef VEXCL_BUILTIN_FUNCTION_2
-#undef VEXCL_BUILTIN_FUNCTION_3
+VEX_BUILTIN_FUNCTION_2( abs_diff )
+VEX_BUILTIN_FUNCTION_1( acos )
+VEX_BUILTIN_FUNCTION_1( acosh )
+VEX_BUILTIN_FUNCTION_1( acospi )
+VEX_BUILTIN_FUNCTION_2( add_sat )
+VEX_BUILTIN_FUNCTION_1( all )
+VEX_BUILTIN_FUNCTION_1( any )
+VEX_BUILTIN_FUNCTION_1( asin )
+VEX_BUILTIN_FUNCTION_1( asinh )
+VEX_BUILTIN_FUNCTION_1( asinpi )
+VEX_BUILTIN_FUNCTION_1( atan )
+VEX_BUILTIN_FUNCTION_2( atan2 )
+VEX_BUILTIN_FUNCTION_2( atan2pi )
+VEX_BUILTIN_FUNCTION_1( atanh )
+VEX_BUILTIN_FUNCTION_1( atanpi )
+VEX_BUILTIN_FUNCTION_3( bitselect )
+VEX_BUILTIN_FUNCTION_1( cbrt )
+VEX_BUILTIN_FUNCTION_1( ceil )
+VEX_BUILTIN_FUNCTION_3( clamp )
+VEX_BUILTIN_FUNCTION_1( clz )
+VEX_BUILTIN_FUNCTION_2( copysign )
+VEX_BUILTIN_FUNCTION_1( cos )
+VEX_BUILTIN_FUNCTION_1( cosh )
+VEX_BUILTIN_FUNCTION_1( cospi )
+VEX_BUILTIN_FUNCTION_2( cross )
+VEX_BUILTIN_FUNCTION_1( degrees )
+VEX_BUILTIN_FUNCTION_2( distance )
+VEX_BUILTIN_FUNCTION_2( dot )
+VEX_BUILTIN_FUNCTION_1( erf )
+VEX_BUILTIN_FUNCTION_1( erfc )
+VEX_BUILTIN_FUNCTION_1( exp )
+VEX_BUILTIN_FUNCTION_1( exp10 )
+VEX_BUILTIN_FUNCTION_1( exp2 )
+VEX_BUILTIN_FUNCTION_1( expm1 )
+VEX_BUILTIN_FUNCTION_1( fabs )
+VEX_BUILTIN_FUNCTION_2( fast_distance )
+VEX_BUILTIN_FUNCTION_1( fast_length )
+VEX_BUILTIN_FUNCTION_1( fast_normalize )
+VEX_BUILTIN_FUNCTION_2( fdim )
+VEX_BUILTIN_FUNCTION_1( floor )
+VEX_BUILTIN_FUNCTION_3( fma )
+VEX_BUILTIN_FUNCTION_2( fmax )
+VEX_BUILTIN_FUNCTION_2( fmin )
+VEX_BUILTIN_FUNCTION_2( fmod )
+VEX_BUILTIN_FUNCTION_2( fract )
+VEX_BUILTIN_FUNCTION_2( frexp )
+VEX_BUILTIN_FUNCTION_2( hadd )
+VEX_BUILTIN_FUNCTION_2( hypot )
+VEX_BUILTIN_FUNCTION_1( ilogb )
+VEX_BUILTIN_FUNCTION_2( isequal )
+VEX_BUILTIN_FUNCTION_1( isfinite )
+VEX_BUILTIN_FUNCTION_2( isgreater )
+VEX_BUILTIN_FUNCTION_2( isgreaterequal )
+VEX_BUILTIN_FUNCTION_1( isinf )
+VEX_BUILTIN_FUNCTION_2( isless )
+VEX_BUILTIN_FUNCTION_2( islessequal )
+VEX_BUILTIN_FUNCTION_2( islessgreater )
+VEX_BUILTIN_FUNCTION_1( isnan )
+VEX_BUILTIN_FUNCTION_1( isnormal )
+VEX_BUILTIN_FUNCTION_2( isnotequal )
+VEX_BUILTIN_FUNCTION_2( isordered )
+VEX_BUILTIN_FUNCTION_2( isunordered )
+VEX_BUILTIN_FUNCTION_2( ldexp )
+VEX_BUILTIN_FUNCTION_1( length )
+VEX_BUILTIN_FUNCTION_1( lgamma )
+VEX_BUILTIN_FUNCTION_2( lgamma_r )
+VEX_BUILTIN_FUNCTION_1( log )
+VEX_BUILTIN_FUNCTION_1( log10 )
+VEX_BUILTIN_FUNCTION_1( log1p )
+VEX_BUILTIN_FUNCTION_1( log2 )
+VEX_BUILTIN_FUNCTION_1( logb )
+VEX_BUILTIN_FUNCTION_3( mad )
+VEX_BUILTIN_FUNCTION_3( mad24 )
+VEX_BUILTIN_FUNCTION_3( mad_hi )
+VEX_BUILTIN_FUNCTION_3( mad_sat )
+VEX_BUILTIN_FUNCTION_2( max )
+VEX_BUILTIN_FUNCTION_2( maxmag )
+VEX_BUILTIN_FUNCTION_2( min )
+VEX_BUILTIN_FUNCTION_2( minmag )
+VEX_BUILTIN_FUNCTION_3( mix )
+VEX_BUILTIN_FUNCTION_2( modf )
+VEX_BUILTIN_FUNCTION_2( mul_hi )
+VEX_BUILTIN_FUNCTION_1( nan )
+VEX_BUILTIN_FUNCTION_2( nextafter )
+VEX_BUILTIN_FUNCTION_1( normalize )
+VEX_BUILTIN_FUNCTION_1( popcount )
+VEX_BUILTIN_FUNCTION_2( pow )
+VEX_BUILTIN_FUNCTION_2( pown )
+VEX_BUILTIN_FUNCTION_2( powr )
+VEX_BUILTIN_FUNCTION_1( radians )
+VEX_BUILTIN_FUNCTION_2( remainder )
+VEX_BUILTIN_FUNCTION_3( remquo )
+VEX_BUILTIN_FUNCTION_2( rhadd )
+VEX_BUILTIN_FUNCTION_1( rint )
+VEX_BUILTIN_FUNCTION_2( rootn )
+VEX_BUILTIN_FUNCTION_2( rotate )
+VEX_BUILTIN_FUNCTION_1( round )
+VEX_BUILTIN_FUNCTION_1( rsqrt )
+VEX_BUILTIN_FUNCTION_3( select )
+VEX_BUILTIN_FUNCTION_2( shuffle )
+VEX_BUILTIN_FUNCTION_3( shuffle2 )
+VEX_BUILTIN_FUNCTION_1( sign )
+VEX_BUILTIN_FUNCTION_1( signbit )
+VEX_BUILTIN_FUNCTION_1( sin )
+VEX_BUILTIN_FUNCTION_2( sincos )
+VEX_BUILTIN_FUNCTION_1( sinh )
+VEX_BUILTIN_FUNCTION_1( sinpi )
+VEX_BUILTIN_FUNCTION_3( smoothstep )
+VEX_BUILTIN_FUNCTION_1( sqrt )
+VEX_BUILTIN_FUNCTION_2( step )
+VEX_BUILTIN_FUNCTION_2( sub_sat )
+VEX_BUILTIN_FUNCTION_1( tan )
+VEX_BUILTIN_FUNCTION_1( tanh )
+VEX_BUILTIN_FUNCTION_1( tanpi )
+VEX_BUILTIN_FUNCTION_1( tgamma )
+VEX_BUILTIN_FUNCTION_1( trunc )
+VEX_BUILTIN_FUNCTION_2( upsample )
 
 // Special case: abs() overloaded with floating point arguments should call
 // fabs in the OpenCL code
@@ -917,6 +915,8 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_USER_FUNCTION, ~)
  output = pow3(input);
  \endcode
 
+ \deprecated
+
  \note This version of the macro uses function call signature in order to
  define the function paramaters. Parameters are named automatically (prm1,
  prm2, ...), which reduces readability of the code. Use of VEX_FUNCTION is
@@ -943,6 +943,8 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_USER_FUNCTION, ~)
  output = pow3(input);
  \endcode
 
+ \deprecated
+
  \note This version of the macro uses function call signature in order to
  define the function paramaters. Parameters are named automatically (prm1,
  prm2, ...), which reduces readability of the code. Use of VEX_FUNCTION is
@@ -963,6 +965,8 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_USER_FUNCTION, ~)
          );
  y = one(x);
  \endcode
+
+ \deprecated
 
  \note This version of the macro uses function call signature in order to
  define the function paramaters. Parameters are named automatically (prm1,
