@@ -1137,7 +1137,7 @@ struct vex_function_##func_name                                                \
 
  Example:
  \code
- VEX_FUNCTION_D(double, foo, (double, x)(double, y),
+ VEX_FUNCTION(double, foo, (double, x)(double, y),
     return (x + y) * (x - y);
     );
 
