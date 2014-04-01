@@ -94,11 +94,11 @@ BOOST_AUTO_TEST_CASE(rbk_tuple)
     vex::vector<cl_long> okey2;
     vex::vector<double>  ovals;
 
-    VEX_FUNCTION(equal, bool(cl_int, cl_long, cl_int, cl_long),
+    VEX_FUNCTION_V1(equal, bool(cl_int, cl_long, cl_int, cl_long),
             "return (prm1 == prm3) && (prm2 == prm4);"
             );
 
-    VEX_FUNCTION(plus, double(double, double),
+    VEX_FUNCTION_V1(plus, double(double, double),
             "return prm1 + prm2;"
             );
 

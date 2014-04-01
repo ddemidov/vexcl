@@ -13,7 +13,7 @@ BOOST_AUTO_TEST_CASE(temporary)
     vex::vector<double> x(ctx, random_vector<double>(n));
     vex::vector<double> y(ctx, n);
 
-    VEX_FUNCTION(sqr, double(double), "return prm1 * prm1;");
+    VEX_FUNCTION_V1(sqr, double(double), "return prm1 * prm1;");
 
     {
         // Deduce temporary type

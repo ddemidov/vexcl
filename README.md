@@ -285,47 +285,75 @@ Y = sin(vex::constants::two_pi() * vex::element_index() / Y.size());
 
 ### <a name="user-defined-functions"></a>User-defined functions
 
-Users may define custom functions to use in vector expressions. One has to
-define the function signature and function body. The body may contain any
+Users may define custom functions for use in vector expressions. One has to
+define the function signature and the function body. The body may contain any
 number of lines of valid OpenCL or CUDA code, depending on the selected
-backend. Function parameters are named `prm1`, `prm2`, etc.  The most
-convenient way to define a function is via the `VEX_FUNCTION` macro:
+backend. The most convenient way to define a function is via the `VEX_FUNCTION`
+macro:
 
 ~~~{.cpp}
-VEX_FUNCTION(squared_radius, double(double, double), "return prm1 * prm1 + prm2 * prm2;");
+VEX_FUNCTION(double, squared_radius, (double, x)(double, y),
+    return x * x + y * y;
+    );
 Z = sqrt(squared_radius(X, Y));
 ~~~
-The resulting `squared_radius` function object is stateless; only its type is
-used for kernel generation. Hence, it is safe to put commonly used functions in
-global scope.
+The first macro parameter here defines the function return type, the second
+parameter is the function name, the third parameter defines function arguments
+in form of a preprocessor sequence. Each element of the sequence is a tuple of
+argument type and name. The rest of the macro is the function body (compare
+this with how functions are defined in C/C++).  The resulting `squared_radius`
+function object is stateless; only its type is used for kernel generation.
+Hence, it is safe to define commonly used functions at the global scope.
 
-Note that any valid vector expression may be passed as a function parameter:
+Note that any valid vector expression may be passed as a function parameter,
+including nested function calls:
 ~~~{.cpp}
 Z = squared_radius(sin(X + Y), cos(X - Y));
 ~~~
 
+Another version of the macro takes the function body directly as a string:
+~~~{.cpp}
+VEX_FUNCTION_S(double, squared_radius, (double, x)(double, y),
+    "return x * x + y * y;"
+    );
+Z = sqrt(squared_radius(X, Y));
+~~~
+
+In case the function that is being defined calls other custom function inside
+its body, one can use the version of the `VEX_FUNCTION` macro that takes
+sequence of parent function names as the fourth parameter:
+~~~{.cpp}
+VEX_FUNCTION(double, bar, (double, x),
+        double s = sin(x);
+        return s * s;
+        );
+VEX_FUNCTION(double, baz, (double, x),
+        double c = cos(x);
+        return c * c;
+        );
+VEX_FUNCTION_D(double, foo, (double, x)(double, y), (bar)(baz),
+        return bar(x - y) * baz(x + y);
+        );
+~~~
+
+Similarly to `VEX_FUNCTION_S`, there is a version called `VEX_FUNCTION_DS` (or
+`VEX_FUNCTION_SD`) that takes the function body as a string parameter.
+
 Custom functions may be used not only for convenience, but also for performance
-reasons. The above example could in principle be rewritten as:
+reasons. The example with `squared_radius` could in principle be rewritten as:
 ~~~{.cpp}
 Z = sqrt(X * X + Y * Y);
 ~~~
-The drawback of the latter variant is that `X` and `Y` will be read _twice_.
+The drawback of the latter variant is that `X` and `Y` will be passed to the
+kernel and read _twice_ (see next section for an explanation).
 
-The convenience macro `VEX_STRINGIZE_SOURCE` may be used to easily enquote the
-source code for a user-defined function. It's advantage is that users will have
-benefits of syntax highlighting and general readability of their code:
-~~~{.cpp}
-VEX_FUNCTION(diff_cube, double(double, double),
-    VEX_STRINGIZE_SOURCE(
-        double d = prm1 - prm2;
-        return d * d * d;
-        )
-    );
-~~~
+_Note that prior to release 1.2 of VexCL the `VEX_FUNCTION` macro had different
+interface. That version is considered deprecated but is still available as
+`VEX_FUNCTION_V1`._
 
 ### <a name="tagged-terminals"></a>Tagged terminals
 
-The code snippet from the last paragraph is ineffective because the compiler
+The last example of the previous section is ineffective because the compiler
 cannot tell if any two terminals in an expression tree are actually referring
 to the same data. But programmers often have this information. VexCL allows one
 to pass this knowledge to compiler by tagging terminals with unique tags.  By
@@ -634,7 +662,9 @@ double s = sum(x * y);
 And here is an easy way to compute an approximate value of π with Monte-Carlo
 method:
 ~~~{.cpp}
-VEX_FUNCTION(squared_radius, double(double, double), "return prm1 * prm1 + prm2 * prm2;");
+VEX_FUNCTION(double, squared_radius, (double, x)(double, y),
+    return x * x + y * y;
+    );
 
 vex::Reductor<size_t, vex::SUM> sum(ctx);
 vex::Random<double, vex::random::threefry> rnd;
@@ -744,14 +774,12 @@ Similar approach could be used in order to implement an N-body problem
 with a user-defined function:
 ~~~{.cpp}
 // Takes vector size, current element position, and pointer to a vector to sum:
-VEX_FUNCTION(global_interaction, double(size_t, size_t, double*),
-    VEX_STRINGIZE_SOURCE(
-        double sum = 0;
-        double myval = prm3[prm2];
-        for(size_t i = 0; i < prm1; ++i)
-            if (i != prm2) sum += fabs(prm3[i] - myval);
-        return sum;
-        )
+VEX_FUNCTION(double, global_interaction, (size_t, n)(size_t, i)(double*, val),
+    double sum = 0;
+    double myval = val[i];
+    for(size_t j = 0; j < n; ++j)
+        if (j != i) sum += fabs(val[j] - myval);
+    return sum;
     );
 
 y = global_interaction(x.size(), vex::element_index(), vex::raw_pointer(x));
@@ -777,20 +805,19 @@ that even elements precede odd ones:
 ~~~{.cpp}
 template <typename T>
 struct even_first {
-    VEX_FUNCTION(device, bool(int, int),
-        VEX_STRINGIZE_SOURCE(
-            char bit1 = 1 & prm1;
-            char bit2 = 1 & prm2;
-            if (bit1 == bit2) return prm1 < prm2;
-            return bit1 < bit2;
-            )
-        );
-    bool operator()(int a, int b) const {
-        char bit1 = 1 & a;
-        char bit2 = 1 & b;
-        if (bit1 == bit2) return a < b;
+    #define BODY                        \
+        char bit1 = 1 & a;              \
+        char bit2 = 1 & b;              \
+        if (bit1 == bit2) return a < b; \
         return bit1 < bit2;
-    }
+
+    // Device version.
+    VEX_FUNCTION(bool, device, (int, a)(int, b), BODY);
+
+    // Host version.
+    bool operator()(int a, int b) const { BODY }
+
+    #undef BODY
 };
 ~~~
 
@@ -815,8 +842,8 @@ vex::vector<float>  keys2(ctx, n);
 vex::vector<double> vals (ctx, n);
 
 struct {
-    VEX_FUNCTION(device, bool(int, float, int, float),
-            "return (prm1 == prm3) ? (prm2 < prm4) : (prm1 < prm3);"
+    VEX_FUNCTION(bool, device, (int, a1)(float, a2)(int, b1)(float, b2),
+            return (a1 == b1) ? (a2 < b2) : (a1 < b1);
             );
     bool operator()(int a1, float a2, int b1, float b2) const {
         return std::make_tuple(a1, a2) < std::tuple(b1, b2);
@@ -839,7 +866,9 @@ reduction of a multivector returns an `std::array<T,N>`.  In order to access
 k-th component of a multivector, one can use the overloaded `operator()`:
 
 ~~~{.cpp}
-VEX_FUNCTION(between, bool(double, double, double), "return prm1 <= prm2 && prm2 <= prm3;");
+VEX_FUNCTION(bool, between, (double, a)(double, b)(double, c),
+    return a <= b && b <= c;
+    );
 
 vex::Reductor<double, vex::SUM> sum(ctx);
 vex::SpMat<double> A(ctx, ... );

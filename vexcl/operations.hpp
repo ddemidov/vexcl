@@ -34,6 +34,7 @@ THE SOFTWARE.
 #include <array>
 #include <tuple>
 #include <deque>
+#include <set>
 #include <memory>
 
 #include <boost/proto/proto.hpp>
@@ -44,15 +45,20 @@ THE SOFTWARE.
 #include <vexcl/types.hpp>
 #include <vexcl/util.hpp>
 
-// Include boost.preprocessor header if variadic templates are not available.
-// Also include it if we use gcc v4.6.
-// This is required due to bug http://gcc.gnu.org/bugzilla/show_bug.cgi?id=35722
+// Workaround for gcc bug http://gcc.gnu.org/bugzilla/show_bug.cgi?id=35722
 #if defined(BOOST_NO_VARIADIC_TEMPLATES) || (defined(__GNUC__) && !defined(__clang__) && __GNUC__ == 4 && __GNUC_MINOR__ == 6)
 #  include <boost/preprocessor/repetition.hpp>
 #  ifndef VEXCL_MAX_ARITY
 #    define VEXCL_MAX_ARITY BOOST_PROTO_MAX_ARITY
 #  endif
 #endif
+
+#include <boost/preprocessor/enum.hpp>
+#include <boost/preprocessor/enum_params.hpp>
+#include <boost/preprocessor/seq.hpp>
+#include <boost/preprocessor/cat.hpp>
+#include <boost/preprocessor/tuple.hpp>
+#include <boost/preprocessor/stringize.hpp>
 
 /// Vector expression template library for OpenCL.
 namespace vex {
@@ -504,18 +510,21 @@ struct user_function {};
 
 #ifdef DOXYGEN
 
-#define VEXCL_BUILTIN_FUNCTION_1(func)                                         \
+/// Define builtin function with one argument.
+#define VEX_BUILTIN_FUNCTION_1(func)                                           \
   expression func(const Arg & arg);
 
-#define VEXCL_BUILTIN_FUNCTION_2(func)                                         \
+/// Define builtin function with two arguments.
+#define VEX_BUILTIN_FUNCTION_2(func)                                           \
   expression func(const Arg1 & arg1, const Arg2 & arg2);
 
-#define VEXCL_BUILTIN_FUNCTION_3(func)                                         \
+/// Define builtin function with three arguments.
+#define VEX_BUILTIN_FUNCTION_3(func)                                           \
   expression func(const Arg1 & arg1, const Arg2 & arg2, const Arg3 & arg3);
 
 #else
 
-#define VEXCL_BUILTIN_FUNCTION_1(func)                                         \
+#define VEX_BUILTIN_FUNCTION_1(func)                                           \
   struct func##_func : builtin_function {                                      \
     static const char *name() { return #func; }                                \
   };                                                                           \
@@ -526,7 +535,7 @@ struct user_function {};
         func##_func(), boost::ref(arg));                                       \
   }
 
-#define VEXCL_BUILTIN_FUNCTION_2(func)                                         \
+#define VEX_BUILTIN_FUNCTION_2(func)                                           \
   struct func##_func : builtin_function {                                      \
     static const char *name() { return #func; }                                \
   };                                                                           \
@@ -538,7 +547,7 @@ struct user_function {};
         func##_func(), boost::ref(arg1), boost::ref(arg2));                    \
   }
 
-#define VEXCL_BUILTIN_FUNCTION_3(func)                                         \
+#define VEX_BUILTIN_FUNCTION_3(func)                                           \
   struct func##_func : builtin_function {                                      \
     static const char *name() { return #func; }                                \
   };                                                                           \
@@ -553,130 +562,125 @@ struct user_function {};
 
 #endif
 
-
 /// \defgroup builtins Builtin device functions
 /** @{ */
-VEXCL_BUILTIN_FUNCTION_2( abs_diff )
-VEXCL_BUILTIN_FUNCTION_1( acos )
-VEXCL_BUILTIN_FUNCTION_1( acosh )
-VEXCL_BUILTIN_FUNCTION_1( acospi )
-VEXCL_BUILTIN_FUNCTION_2( add_sat )
-VEXCL_BUILTIN_FUNCTION_1( all )
-VEXCL_BUILTIN_FUNCTION_1( any )
-VEXCL_BUILTIN_FUNCTION_1( asin )
-VEXCL_BUILTIN_FUNCTION_1( asinh )
-VEXCL_BUILTIN_FUNCTION_1( asinpi )
-VEXCL_BUILTIN_FUNCTION_1( atan )
-VEXCL_BUILTIN_FUNCTION_2( atan2 )
-VEXCL_BUILTIN_FUNCTION_2( atan2pi )
-VEXCL_BUILTIN_FUNCTION_1( atanh )
-VEXCL_BUILTIN_FUNCTION_1( atanpi )
-VEXCL_BUILTIN_FUNCTION_3( bitselect )
-VEXCL_BUILTIN_FUNCTION_1( cbrt )
-VEXCL_BUILTIN_FUNCTION_1( ceil )
-VEXCL_BUILTIN_FUNCTION_3( clamp )
-VEXCL_BUILTIN_FUNCTION_1( clz )
-VEXCL_BUILTIN_FUNCTION_2( copysign )
-VEXCL_BUILTIN_FUNCTION_1( cos )
-VEXCL_BUILTIN_FUNCTION_1( cosh )
-VEXCL_BUILTIN_FUNCTION_1( cospi )
-VEXCL_BUILTIN_FUNCTION_2( cross )
-VEXCL_BUILTIN_FUNCTION_1( degrees )
-VEXCL_BUILTIN_FUNCTION_2( distance )
-VEXCL_BUILTIN_FUNCTION_2( dot )
-VEXCL_BUILTIN_FUNCTION_1( erf )
-VEXCL_BUILTIN_FUNCTION_1( erfc )
-VEXCL_BUILTIN_FUNCTION_1( exp )
-VEXCL_BUILTIN_FUNCTION_1( exp10 )
-VEXCL_BUILTIN_FUNCTION_1( exp2 )
-VEXCL_BUILTIN_FUNCTION_1( expm1 )
-VEXCL_BUILTIN_FUNCTION_1( fabs )
-VEXCL_BUILTIN_FUNCTION_2( fast_distance )
-VEXCL_BUILTIN_FUNCTION_1( fast_length )
-VEXCL_BUILTIN_FUNCTION_1( fast_normalize )
-VEXCL_BUILTIN_FUNCTION_2( fdim )
-VEXCL_BUILTIN_FUNCTION_1( floor )
-VEXCL_BUILTIN_FUNCTION_3( fma )
-VEXCL_BUILTIN_FUNCTION_2( fmax )
-VEXCL_BUILTIN_FUNCTION_2( fmin )
-VEXCL_BUILTIN_FUNCTION_2( fmod )
-VEXCL_BUILTIN_FUNCTION_2( fract )
-VEXCL_BUILTIN_FUNCTION_2( frexp )
-VEXCL_BUILTIN_FUNCTION_2( hadd )
-VEXCL_BUILTIN_FUNCTION_2( hypot )
-VEXCL_BUILTIN_FUNCTION_1( ilogb )
-VEXCL_BUILTIN_FUNCTION_2( isequal )
-VEXCL_BUILTIN_FUNCTION_1( isfinite )
-VEXCL_BUILTIN_FUNCTION_2( isgreater )
-VEXCL_BUILTIN_FUNCTION_2( isgreaterequal )
-VEXCL_BUILTIN_FUNCTION_1( isinf )
-VEXCL_BUILTIN_FUNCTION_2( isless )
-VEXCL_BUILTIN_FUNCTION_2( islessequal )
-VEXCL_BUILTIN_FUNCTION_2( islessgreater )
-VEXCL_BUILTIN_FUNCTION_1( isnan )
-VEXCL_BUILTIN_FUNCTION_1( isnormal )
-VEXCL_BUILTIN_FUNCTION_2( isnotequal )
-VEXCL_BUILTIN_FUNCTION_2( isordered )
-VEXCL_BUILTIN_FUNCTION_2( isunordered )
-VEXCL_BUILTIN_FUNCTION_2( ldexp )
-VEXCL_BUILTIN_FUNCTION_1( length )
-VEXCL_BUILTIN_FUNCTION_1( lgamma )
-VEXCL_BUILTIN_FUNCTION_2( lgamma_r )
-VEXCL_BUILTIN_FUNCTION_1( log )
-VEXCL_BUILTIN_FUNCTION_1( log10 )
-VEXCL_BUILTIN_FUNCTION_1( log1p )
-VEXCL_BUILTIN_FUNCTION_1( log2 )
-VEXCL_BUILTIN_FUNCTION_1( logb )
-VEXCL_BUILTIN_FUNCTION_3( mad )
-VEXCL_BUILTIN_FUNCTION_3( mad24 )
-VEXCL_BUILTIN_FUNCTION_3( mad_hi )
-VEXCL_BUILTIN_FUNCTION_3( mad_sat )
-VEXCL_BUILTIN_FUNCTION_2( max )
-VEXCL_BUILTIN_FUNCTION_2( maxmag )
-VEXCL_BUILTIN_FUNCTION_2( min )
-VEXCL_BUILTIN_FUNCTION_2( minmag )
-VEXCL_BUILTIN_FUNCTION_3( mix )
-VEXCL_BUILTIN_FUNCTION_2( modf )
-VEXCL_BUILTIN_FUNCTION_2( mul_hi )
-VEXCL_BUILTIN_FUNCTION_1( nan )
-VEXCL_BUILTIN_FUNCTION_2( nextafter )
-VEXCL_BUILTIN_FUNCTION_1( normalize )
-VEXCL_BUILTIN_FUNCTION_1( popcount )
-VEXCL_BUILTIN_FUNCTION_2( pow )
-VEXCL_BUILTIN_FUNCTION_2( pown )
-VEXCL_BUILTIN_FUNCTION_2( powr )
-VEXCL_BUILTIN_FUNCTION_1( radians )
-VEXCL_BUILTIN_FUNCTION_2( remainder )
-VEXCL_BUILTIN_FUNCTION_3( remquo )
-VEXCL_BUILTIN_FUNCTION_2( rhadd )
-VEXCL_BUILTIN_FUNCTION_1( rint )
-VEXCL_BUILTIN_FUNCTION_2( rootn )
-VEXCL_BUILTIN_FUNCTION_2( rotate )
-VEXCL_BUILTIN_FUNCTION_1( round )
-VEXCL_BUILTIN_FUNCTION_1( rsqrt )
-VEXCL_BUILTIN_FUNCTION_3( select )
-VEXCL_BUILTIN_FUNCTION_2( shuffle )
-VEXCL_BUILTIN_FUNCTION_3( shuffle2 )
-VEXCL_BUILTIN_FUNCTION_1( sign )
-VEXCL_BUILTIN_FUNCTION_1( signbit )
-VEXCL_BUILTIN_FUNCTION_1( sin )
-VEXCL_BUILTIN_FUNCTION_2( sincos )
-VEXCL_BUILTIN_FUNCTION_1( sinh )
-VEXCL_BUILTIN_FUNCTION_1( sinpi )
-VEXCL_BUILTIN_FUNCTION_3( smoothstep )
-VEXCL_BUILTIN_FUNCTION_1( sqrt )
-VEXCL_BUILTIN_FUNCTION_2( step )
-VEXCL_BUILTIN_FUNCTION_2( sub_sat )
-VEXCL_BUILTIN_FUNCTION_1( tan )
-VEXCL_BUILTIN_FUNCTION_1( tanh )
-VEXCL_BUILTIN_FUNCTION_1( tanpi )
-VEXCL_BUILTIN_FUNCTION_1( tgamma )
-VEXCL_BUILTIN_FUNCTION_1( trunc )
-VEXCL_BUILTIN_FUNCTION_2( upsample )
-
-#undef VEXCL_BUILTIN_FUNCTION_1
-#undef VEXCL_BUILTIN_FUNCTION_2
-#undef VEXCL_BUILTIN_FUNCTION_3
+VEX_BUILTIN_FUNCTION_2( abs_diff )
+VEX_BUILTIN_FUNCTION_1( acos )
+VEX_BUILTIN_FUNCTION_1( acosh )
+VEX_BUILTIN_FUNCTION_1( acospi )
+VEX_BUILTIN_FUNCTION_2( add_sat )
+VEX_BUILTIN_FUNCTION_1( all )
+VEX_BUILTIN_FUNCTION_1( any )
+VEX_BUILTIN_FUNCTION_1( asin )
+VEX_BUILTIN_FUNCTION_1( asinh )
+VEX_BUILTIN_FUNCTION_1( asinpi )
+VEX_BUILTIN_FUNCTION_1( atan )
+VEX_BUILTIN_FUNCTION_2( atan2 )
+VEX_BUILTIN_FUNCTION_2( atan2pi )
+VEX_BUILTIN_FUNCTION_1( atanh )
+VEX_BUILTIN_FUNCTION_1( atanpi )
+VEX_BUILTIN_FUNCTION_3( bitselect )
+VEX_BUILTIN_FUNCTION_1( cbrt )
+VEX_BUILTIN_FUNCTION_1( ceil )
+VEX_BUILTIN_FUNCTION_3( clamp )
+VEX_BUILTIN_FUNCTION_1( clz )
+VEX_BUILTIN_FUNCTION_2( copysign )
+VEX_BUILTIN_FUNCTION_1( cos )
+VEX_BUILTIN_FUNCTION_1( cosh )
+VEX_BUILTIN_FUNCTION_1( cospi )
+VEX_BUILTIN_FUNCTION_2( cross )
+VEX_BUILTIN_FUNCTION_1( degrees )
+VEX_BUILTIN_FUNCTION_2( distance )
+VEX_BUILTIN_FUNCTION_2( dot )
+VEX_BUILTIN_FUNCTION_1( erf )
+VEX_BUILTIN_FUNCTION_1( erfc )
+VEX_BUILTIN_FUNCTION_1( exp )
+VEX_BUILTIN_FUNCTION_1( exp10 )
+VEX_BUILTIN_FUNCTION_1( exp2 )
+VEX_BUILTIN_FUNCTION_1( expm1 )
+VEX_BUILTIN_FUNCTION_1( fabs )
+VEX_BUILTIN_FUNCTION_2( fast_distance )
+VEX_BUILTIN_FUNCTION_1( fast_length )
+VEX_BUILTIN_FUNCTION_1( fast_normalize )
+VEX_BUILTIN_FUNCTION_2( fdim )
+VEX_BUILTIN_FUNCTION_1( floor )
+VEX_BUILTIN_FUNCTION_3( fma )
+VEX_BUILTIN_FUNCTION_2( fmax )
+VEX_BUILTIN_FUNCTION_2( fmin )
+VEX_BUILTIN_FUNCTION_2( fmod )
+VEX_BUILTIN_FUNCTION_2( fract )
+VEX_BUILTIN_FUNCTION_2( frexp )
+VEX_BUILTIN_FUNCTION_2( hadd )
+VEX_BUILTIN_FUNCTION_2( hypot )
+VEX_BUILTIN_FUNCTION_1( ilogb )
+VEX_BUILTIN_FUNCTION_2( isequal )
+VEX_BUILTIN_FUNCTION_1( isfinite )
+VEX_BUILTIN_FUNCTION_2( isgreater )
+VEX_BUILTIN_FUNCTION_2( isgreaterequal )
+VEX_BUILTIN_FUNCTION_1( isinf )
+VEX_BUILTIN_FUNCTION_2( isless )
+VEX_BUILTIN_FUNCTION_2( islessequal )
+VEX_BUILTIN_FUNCTION_2( islessgreater )
+VEX_BUILTIN_FUNCTION_1( isnan )
+VEX_BUILTIN_FUNCTION_1( isnormal )
+VEX_BUILTIN_FUNCTION_2( isnotequal )
+VEX_BUILTIN_FUNCTION_2( isordered )
+VEX_BUILTIN_FUNCTION_2( isunordered )
+VEX_BUILTIN_FUNCTION_2( ldexp )
+VEX_BUILTIN_FUNCTION_1( length )
+VEX_BUILTIN_FUNCTION_1( lgamma )
+VEX_BUILTIN_FUNCTION_2( lgamma_r )
+VEX_BUILTIN_FUNCTION_1( log )
+VEX_BUILTIN_FUNCTION_1( log10 )
+VEX_BUILTIN_FUNCTION_1( log1p )
+VEX_BUILTIN_FUNCTION_1( log2 )
+VEX_BUILTIN_FUNCTION_1( logb )
+VEX_BUILTIN_FUNCTION_3( mad )
+VEX_BUILTIN_FUNCTION_3( mad24 )
+VEX_BUILTIN_FUNCTION_3( mad_hi )
+VEX_BUILTIN_FUNCTION_3( mad_sat )
+VEX_BUILTIN_FUNCTION_2( max )
+VEX_BUILTIN_FUNCTION_2( maxmag )
+VEX_BUILTIN_FUNCTION_2( min )
+VEX_BUILTIN_FUNCTION_2( minmag )
+VEX_BUILTIN_FUNCTION_3( mix )
+VEX_BUILTIN_FUNCTION_2( modf )
+VEX_BUILTIN_FUNCTION_2( mul_hi )
+VEX_BUILTIN_FUNCTION_1( nan )
+VEX_BUILTIN_FUNCTION_2( nextafter )
+VEX_BUILTIN_FUNCTION_1( normalize )
+VEX_BUILTIN_FUNCTION_1( popcount )
+VEX_BUILTIN_FUNCTION_2( pow )
+VEX_BUILTIN_FUNCTION_2( pown )
+VEX_BUILTIN_FUNCTION_2( powr )
+VEX_BUILTIN_FUNCTION_1( radians )
+VEX_BUILTIN_FUNCTION_2( remainder )
+VEX_BUILTIN_FUNCTION_3( remquo )
+VEX_BUILTIN_FUNCTION_2( rhadd )
+VEX_BUILTIN_FUNCTION_1( rint )
+VEX_BUILTIN_FUNCTION_2( rootn )
+VEX_BUILTIN_FUNCTION_2( rotate )
+VEX_BUILTIN_FUNCTION_1( round )
+VEX_BUILTIN_FUNCTION_1( rsqrt )
+VEX_BUILTIN_FUNCTION_3( select )
+VEX_BUILTIN_FUNCTION_2( shuffle )
+VEX_BUILTIN_FUNCTION_3( shuffle2 )
+VEX_BUILTIN_FUNCTION_1( sign )
+VEX_BUILTIN_FUNCTION_1( signbit )
+VEX_BUILTIN_FUNCTION_1( sin )
+VEX_BUILTIN_FUNCTION_2( sincos )
+VEX_BUILTIN_FUNCTION_1( sinh )
+VEX_BUILTIN_FUNCTION_1( sinpi )
+VEX_BUILTIN_FUNCTION_3( smoothstep )
+VEX_BUILTIN_FUNCTION_1( sqrt )
+VEX_BUILTIN_FUNCTION_2( step )
+VEX_BUILTIN_FUNCTION_2( sub_sat )
+VEX_BUILTIN_FUNCTION_1( tan )
+VEX_BUILTIN_FUNCTION_1( tanh )
+VEX_BUILTIN_FUNCTION_1( tanpi )
+VEX_BUILTIN_FUNCTION_1( tgamma )
+VEX_BUILTIN_FUNCTION_1( trunc )
+VEX_BUILTIN_FUNCTION_2( upsample )
 
 // Special case: abs() overloaded with floating point arguments should call
 // fabs in the OpenCL code
@@ -824,6 +828,14 @@ struct UserFunction<Impl, RetType(ArgType...)> : user_function
 
     static std::string preamble() { return ""; }
 
+    static std::string name() {
+        return "user_function";
+    }
+
+    static void define(backend::source_generator &src) {
+        define(src, Impl::name());
+    }
+
     static void define(backend::source_generator &src, const std::string &name)
     {
         src << Impl::preamble();
@@ -857,6 +869,12 @@ struct UserFunction<Impl, RetType(ArgType...)> : user_function
   struct UserFunction<                                                         \
       Impl, RetType(BOOST_PP_ENUM_PARAMS(n, ArgType))> : user_function {       \
     UserFunction() {}                                                          \
+    static std::string name() {                                                \
+        return "user_function";                                                \
+    }                                                                          \
+    static void define(backend::source_generator &src) {                       \
+        define(src, Impl::name());                                             \
+    }                                                                          \
     typedef RetType value_type;                                                \
     template <BOOST_PP_ENUM_PARAMS(n, class Arg)>                              \
     typename boost::proto::result_of::make_expr<                               \
@@ -892,18 +910,28 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_USER_FUNCTION, ~)
 /// Macro to declare a user function type.
 /**
  \code
- VEX_FUNCTION_TYPE(pow3_t, double(double), "", "return pow(prm1, 3.0);");
+ VEX_FUNCTION_V1_TYPE(pow3_t, double(double), "", "return pow(prm1, 3.0);");
  pow3_t pow3;
  output = pow3(input);
  \endcode
- *
- * \note Should be used in case same function is used in several places (to
- * save on OpenCL kernel recompilations). Otherwise VEX_FUNCTION should
- * be used locally.
+
+ \deprecated
+
+ \note This version of the macro uses function call signature in order to
+ define the function paramaters. Parameters are named automatically (prm1,
+ prm2, ...), which reduces readability of the code. Use of VEX_FUNCTION is
+ recommended instead.
+
+ \note Should be used in case same function is used in several places (to
+ save on OpenCL kernel recompilations). Otherwise VEX_FUNCTION should
+ be used locally.
  */
-#define VEX_FUNCTION_TYPE(name, signature, preamble_str, body_str)             \
-  struct name : vex::UserFunction<name, signature> {                           \
-    name() {}                                                                  \
+#define VEX_FUNCTION_V1_TYPE(fname, signature, preamble_str, body_str)         \
+  struct vex_function_##fname                                                  \
+    : vex::UserFunction<vex_function_##fname, signature>                       \
+  {                                                                            \
+    vex_function_##fname() {}                                                  \
+    static std::string name() { return #fname; }                               \
     static std::string preamble() { return preamble_str; }                     \
     static std::string body() { return body_str; }                             \
   }
@@ -911,36 +939,48 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_USER_FUNCTION, ~)
 /// Macro to declare a user function.
 /**
  \code
- VEX_FUNCTION(pow3, double(double), "return pow(prm1, 3.0);");
+ VEX_FUNCTION_V1(pow3, double(double), "return pow(prm1, 3.0);");
  output = pow3(input);
  \endcode
+
+ \deprecated
+
+ \note This version of the macro uses function call signature in order to
+ define the function paramaters. Parameters are named automatically (prm1,
+ prm2, ...), which reduces readability of the code. Use of VEX_FUNCTION is
+ recommended instead.
  */
-#define VEX_FUNCTION(name, signature, body)                                    \
-  VEX_FUNCTION_TYPE(user_function_##name##_body, signature, "", body)          \
-    const name
+#define VEX_FUNCTION_V1(name, signature, body)                                 \
+  VEX_FUNCTION_V1_TYPE(name, signature, "", body) const name
 
 
 /// Macro to declare a user function with preamble.
 /**
  * The preamble may be used to define helper functions or macros.
  \code
- VEX_FUNCTION_WITH_PREAMBLE(one, double(double),
+ VEX_FUNCTION_V1_WITH_PREAMBLE(one, double(double),
          "double sin2(double x) { return pow(sin(x), 2.0); }\n"
          "double cos2(double x) { return pow(cos(x), 2.0); }\n",
          "return sin2(prm1) + cos2(prm1);"
          );
  y = one(x);
  \endcode
+
+ \deprecated
+
+ \note This version of the macro uses function call signature in order to
+ define the function paramaters. Parameters are named automatically (prm1,
+ prm2, ...), which reduces readability of the code. Use of VEX_FUNCTION is
+ recommended instead.
  */
-#define VEX_FUNCTION_WITH_PREAMBLE(name, signature, preamble, body)            \
-  VEX_FUNCTION_TYPE(user_function_##name##_body, signature, preamble, body)    \
-    const name
+#define VEX_FUNCTION_V1_WITH_PREAMBLE(name, signature, preamble, body)         \
+  VEX_FUNCTION_V1_TYPE(name, signature, preamble, body) const name
 
 /// Stringizes compute kernel source code.
 /**
  * Example:
 \code
-VEX_FUNCTION(diff_cube, double(double, double),
+VEX_FUNCTION_V1(diff_cube, double(double, double),
     VEX_STRINGIZE_SOURCE(
         double d = prm1 - prm2;
         return d * d * d;
@@ -949,6 +989,164 @@ VEX_FUNCTION(diff_cube, double(double, double),
 \endcode
 */
 #define VEX_STRINGIZE_SOURCE(...) #__VA_ARGS__
+
+/// \cond INTERNAL
+#define VEXCL_FUNCTION_ARG_TYPE(s, data, arg) BOOST_PP_TUPLE_ELEM(2, 0, arg)
+
+#define VEXCL_FUNCTION_ARG_TYPES(args) \
+    BOOST_PP_SEQ_ENUM(BOOST_PP_SEQ_TRANSFORM(VEXCL_FUNCTION_ARG_TYPE, ~, args))
+
+#define VEXCL_FUNCTION_NTH_ARG_TYPE(n, args)                                   \
+    BOOST_PP_TUPLE_ELEM(2, 0, BOOST_PP_SEQ_ELEM(n, args))
+
+#define VEXCL_FUNCTION_NTH_ARG_NAME(n, args)                                   \
+    BOOST_PP_STRINGIZE(BOOST_PP_TUPLE_ELEM(2, 1, BOOST_PP_SEQ_ELEM(n, args)))
+
+#define VEXCL_FUNCTION_DEF_ARG(z, n, args)                                     \
+    src.parameter<VEXCL_FUNCTION_NTH_ARG_TYPE(n, args)>(                       \
+            VEXCL_FUNCTION_NTH_ARG_NAME(n, args));
+
+#define VEXCL_FUNCTION_DEFINE_DEP(z, data, dep)                                \
+        BOOST_PP_CAT(vex_function_, dep)::define(src);
+
+#define VEX_FUNCTION_SINK(rtype, func_name, nargs, args, deps, body)           \
+struct vex_function_##func_name                                                \
+    : vex::UserFunction<                                                       \
+        vex_function_##func_name,                                              \
+        rtype( VEXCL_FUNCTION_ARG_TYPES(args) )                                \
+      >                                                                        \
+{                                                                              \
+    vex_function_##func_name() {}                                              \
+    static std::string name() { return #func_name; }                           \
+    static void define(vex::backend::source_generator &src) {                  \
+        define(src, name());                                                   \
+    }                                                                          \
+    static void define(vex::backend::source_generator &src,                    \
+            const std::string &fname)                                          \
+    {                                                                          \
+        BOOST_PP_SEQ_FOR_EACH(VEXCL_FUNCTION_DEFINE_DEP, ~, deps)              \
+        src.function< rtype >(fname).open("(");                                \
+        BOOST_PP_REPEAT(nargs, VEXCL_FUNCTION_DEF_ARG, args)                   \
+        src.close(")").open("{").new_line() << body;                           \
+        src.close("}");                                                        \
+    }                                                                          \
+} const func_name
+
+#define VEXCL_FUNCTION_MAKE_SEQ_0(...) ((__VA_ARGS__)) VEXCL_FUNCTION_MAKE_SEQ_1
+#define VEXCL_FUNCTION_MAKE_SEQ_1(...) ((__VA_ARGS__)) VEXCL_FUNCTION_MAKE_SEQ_0
+#define VEXCL_FUNCTION_MAKE_SEQ_0_END
+#define VEXCL_FUNCTION_MAKE_SEQ_1_END
+
+#define VEXCL_FUNCTION_MAKE_SEQ(args)                                          \
+    BOOST_PP_CAT(VEXCL_FUNCTION_MAKE_SEQ_0 args,_END)
+
+/// \endcond
+
+/// Create a user-defined function with dependencies.
+/**
+ \param type Return type of the function.
+ \param name Name of the function.
+ \param args Arguments of the function. Specified as a preprocessor sequence
+             of tuples. In each of the tuples the first element argument
+             type, and the second element defines argument name.
+ \param deps User-defined functions that are called inside the body of the
+             function that is being defined. Specified as a preprocessor
+             sequence of function names.
+ \param body Body of the function specified as string.
+
+ Example:
+ \code
+ VEX_FUNCTION_SD(double, foo, (double, x)(double, y), (bar)(baz),
+    "return bar(x + y) * baz(x - y);");
+
+ vex::vector<double> x(ctx, n), y(ctx, n), z(ctx, n);
+ z = foo(x, y);
+ \endcode
+ */
+#define VEX_FUNCTION_SD(type, name, args, deps, body)                          \
+    VEX_FUNCTION_SINK(type, name,                                              \
+            BOOST_PP_SEQ_SIZE(VEXCL_FUNCTION_MAKE_SEQ(args)),                  \
+            VEXCL_FUNCTION_MAKE_SEQ(args), deps, body)
+
+/// Alias for VEX_FUNCTION_SD
+/** \copydoc VEX_FUNCTION_SD */
+#define VEX_FUNCTION_DS VEX_FUNCTION_SD
+
+/// Create a user-defined function.
+/**
+ \param type Return type of the function.
+ \param name Name of the function.
+ \param args Arguments of the function. Specified as a preprocessor sequence
+             of tuples. In each of the tuples the first element argument
+             type, and the second element defines argument name.
+ \param deps User-defined functions that are called inside the body of the
+             function that is being defined. Specified as a preprocessor
+             sequence of function names.
+ \param body Body of the function specified as string.
+
+ Example:
+ \code
+ VEX_FUNCTION_S(double, foo, (double, x)(double, y),
+    "return (x + y) * (x - y);");
+
+ vex::vector<double> x(ctx, n), y(ctx, n), z(ctx, n);
+ z = foo(x, y);
+ \endcode
+ */
+#define VEX_FUNCTION_S(type, name, args, body)                                 \
+    VEX_FUNCTION_SD(type, name, args, , body)
+
+/// Create a user-defined function with dependencies.
+/**
+ \param type Return type of the function.
+ \param name Name of the function.
+ \param args Arguments of the function. Specified as a preprocessor sequence
+             of tuples. In each of the tuples the first element argument
+             type, and the second element defines argument name.
+ \param deps User-defined functions that are called inside the body of the
+             function that is being defined. Specified as a preprocessor
+             sequence of function names.
+
+ \note Body of the function is specified as unquoted C source at the end of the
+       macro.
+
+ Example:
+ \code
+ VEX_FUNCTION_D(double, foo, (double, x)(double, y), (bar)(baz),
+    return bar(x + y) * baz(x - y);
+    );
+
+ vex::vector<double> x(ctx, n), y(ctx, n), z(ctx, n);
+ z = foo(x, y);
+ \endcode
+ */
+#define VEX_FUNCTION_D(type, name, args, deps, ...)                            \
+    VEX_FUNCTION_SD(type, name, args, deps, BOOST_PP_STRINGIZE(__VA_ARGS__) )
+
+
+/// Create a user-defined function.
+/**
+ \param type Return type of the function.
+ \param name Name of the function.
+ \param args Arguments of the function. Specified as a preprocessor sequence
+             of tuples. In each of the tuples the first element argument
+             type, and the second element defines argument name.
+
+ \note Body of the function is specified as unquoted C source at the end of the
+       macro.
+
+ Example:
+ \code
+ VEX_FUNCTION_D(double, foo, (double, x)(double, y),
+    return (x + y) * (x - y);
+    );
+
+ vex::vector<double> x(ctx, n), y(ctx, n), z(ctx, n);
+ z = foo(x, y);
+ \endcode
+ */
+#define VEX_FUNCTION(type, name, args, ...)                                    \
+    VEX_FUNCTION_S(type, name, args, BOOST_PP_STRINGIZE(__VA_ARGS__))
 
 
 /// \cond INTERNAL
@@ -1344,13 +1542,26 @@ struct output_terminal_preamble : public expression_context {
         void
         >::type
         operator()(const FunCall &expr, output_terminal_preamble &ctx) const {
-            std::ostringstream name;
-            name << ctx.prefix << "_func_" << ++ctx.fun_idx;
+            // Output function definition (once) and continue with parameters.
+            auto s = ctx.state->find("user_functions");
+            if (s == ctx.state->end()) {
+                s = ctx.state->insert(std::make_pair(
+                            std::string("user_functions"),
+                            boost::any( std::set<std::string>() )
+                            )).first;
+            }
+            auto &seen = boost::any_cast< std::set<std::string>& >(s->second);
 
-            // Output function definition and continue with parameters.
-            boost::proto::result_of::value<
+            typedef typename boost::proto::result_of::value<
                 typename boost::proto::result_of::child_c<FunCall,0>::type
-            >::type::define(ctx.src, name.str());
+            >::type fun;
+
+            std::string fname = fun::name();
+
+            if (seen.find(fname) == seen.end()) {
+                seen.insert(fname);
+                fun::define(ctx.src);
+            }
 
             boost::fusion::for_each(
                     boost::fusion::pop_front(expr),
@@ -1583,35 +1794,8 @@ struct vector_expr_context : public expression_context {
         };
 
         template <class FunCall>
-        typename std::enable_if<
-            std::is_base_of<
-                builtin_function,
-                typename boost::proto::result_of::value<
-                    typename boost::proto::result_of::child_c<FunCall,0>::type
-                >::type
-            >::value,
-        void
-        >::type
-        operator()(const FunCall &expr, vector_expr_context &ctx) const {
+        void operator()(const FunCall &expr, vector_expr_context &ctx) const {
             ctx.src << boost::proto::value(boost::proto::child_c<0>(expr)).name() << "( ";
-            boost::fusion::for_each(
-                    boost::fusion::pop_front(expr), do_eval(ctx)
-                    );
-            ctx.src << " )";
-        }
-
-        template <class FunCall>
-        typename std::enable_if<
-            std::is_base_of<
-                user_function,
-                typename boost::proto::result_of::value<
-                    typename boost::proto::result_of::child_c<FunCall,0>::type
-                >::type
-            >::value,
-        void
-        >::type
-        operator()(const FunCall &expr, vector_expr_context &ctx) const {
-            ctx.src << ctx.prefix << "_func_" << ++ctx.fun_idx << "( ";
             boost::fusion::for_each(
                     boost::fusion::pop_front(expr), do_eval(ctx)
                     );
