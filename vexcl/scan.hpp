@@ -445,18 +445,18 @@ void inclusive_scan(
 
     auto &queue = input.queue_list();
 
-    for(size_t d = 0; d < queue.size(); ++d)
+    for(unsigned d = 0; d < queue.size(); ++d)
         detail::scan(queue[d], input(d), output(d), init, false, oper.device);
 
     std::vector<T> tail(queue.size() - 1);
 
-    for(size_t d = 1; d < queue.size(); ++d)
+    for(unsigned d = 1; d < queue.size(); ++d)
         if (size_t head = output.part_start(d))
             tail[d - 1] = output[head - 1];
 
     std::partial_sum(tail.begin(), tail.end(), tail.begin(), oper);
 
-    for(size_t d = 1; d < queue.size(); ++d)
+    for(unsigned d = 1; d < queue.size(); ++d)
         if (output.part_start(d)) {
             vector<T> part(queue[d], output(d));
             part = oper.device(part, tail[d - 1]);
@@ -492,20 +492,20 @@ void exclusive_scan(
 
     std::vector<T> tail(queue.size() - 1);
 
-    for(size_t d = 1; d < queue.size(); ++d)
+    for(unsigned d = 1; d < queue.size(); ++d)
         if (size_t head = input.part_start(d))
             tail[d - 1] = input[head - 1];
 
-    for(size_t d = 0; d < queue.size(); ++d)
+    for(unsigned d = 0; d < queue.size(); ++d)
         detail::scan(queue[d], input(d), output(d), init, true, oper.device);
 
-    for(size_t d = 1; d < queue.size(); ++d)
+    for(unsigned d = 1; d < queue.size(); ++d)
         if (size_t head = output.part_start(d))
             tail[d - 1] = oper(tail[d - 1], output[head - 1]);
 
     std::partial_sum(tail.begin(), tail.end(), tail.begin(), oper);
 
-    for(size_t d = 1; d < queue.size(); ++d)
+    for(unsigned d = 1; d < queue.size(); ++d)
         if (output.part_start(d)) {
             vector<T> part(queue[d], output(d));
             part = oper.device(part, tail[d - 1]);

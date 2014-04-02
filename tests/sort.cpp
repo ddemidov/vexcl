@@ -30,7 +30,7 @@ BOOST_AUTO_TEST_CASE(sort_keys_vals_default)
     vex::vector<int  > keys(ctx, k);
     vex::vector<float> vals(ctx, v);
 
-    std::iota(p.begin(), p.end(), 0);
+    for(size_t i = 0; i < p.size(); ++i) p[i] = static_cast<int>(i);
     std::stable_sort(p.begin(), p.end(), [&](int i, int j) { return k[i] < k[j]; });
 
     vex::sort_by_key(keys, vals);
@@ -55,7 +55,7 @@ BOOST_AUTO_TEST_CASE(sort_keys_vals_custom_op)
     vex::vector<int  > keys(ctx, k);
     vex::vector<float> vals(ctx, v);
 
-    std::iota(p.begin(), p.end(), 0);
+    for(size_t i = 0; i < p.size(); ++i) p[i] = static_cast<int>(i);
 
     struct even_first_t {
         typedef bool result_type;
@@ -69,7 +69,7 @@ BOOST_AUTO_TEST_CASE(sort_keys_vals_custom_op)
             )
     } even_first;
 
-    std::stable_sort(p.begin(), p.end(), [&](int i, int j) {
+    std::stable_sort(p.begin(), p.end(), [&](int i, int j) -> bool {
             int a = k[i];
             int b = k[j];
             return even_first(a, b);
@@ -132,7 +132,7 @@ BOOST_AUTO_TEST_CASE(sort_keys_vals_tuple)
     vex::vector<short>   vals2(ctx, v2);
 
     std::vector<int> p(n);
-    std::iota(p.begin(), p.end(), 0);
+    for(size_t i = 0; i < p.size(); ++i) p[i] = static_cast<int>(i);
 
     struct less_t {
         typedef bool result_type;

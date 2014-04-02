@@ -818,7 +818,7 @@ void benchmark_scan(
     if (options.bm_cpu) {
         prof.tic_cpu("CPU");
         for(size_t i = 0; i < M; i++) {
-            key_type sum = 0.0;
+            key_type sum = key_type();
             for(size_t j = 0; j < N; ++j) {
                 key_type next = sum + x0[j];
                 x1[j] = sum;

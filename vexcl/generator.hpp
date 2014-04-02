@@ -80,7 +80,7 @@ class recorder {
 
             // Reset preamble and state.
             preamble.reset(new backend::source_generator);
-            state = detail::empty_state();
+            state = vex::detail::empty_state();
         }
 
         static std::ostream& get() {
@@ -91,7 +91,7 @@ class recorder {
             return *preamble;
         }
 
-        static detail::kernel_generator_state_ptr get_state() {
+        static vex::detail::kernel_generator_state_ptr get_state() {
             return state;
         }
 
@@ -102,7 +102,7 @@ class recorder {
         static size_t index;
         static std::ostream *os;
         static std::unique_ptr<backend::source_generator> preamble;
-        static detail::kernel_generator_state_ptr state;
+        static vex::detail::kernel_generator_state_ptr state;
 };
 
 template <bool dummy>
@@ -115,7 +115,7 @@ template <bool dummy>
 std::unique_ptr<backend::source_generator> recorder<dummy>::preamble;
 
 template <bool dummy>
-detail::kernel_generator_state_ptr recorder<dummy>::state;
+vex::detail::kernel_generator_state_ptr recorder<dummy>::state;
 
 inline size_t var_id() {
     return recorder<>::var_id();
@@ -129,7 +129,7 @@ inline backend::source_generator& get_preamble() {
     return recorder<>::get_preamble();
 }
 
-inline detail::kernel_generator_state_ptr get_state() {
+inline vex::detail::kernel_generator_state_ptr get_state() {
     return recorder<>::get_state();
 }
 /// \endcond
