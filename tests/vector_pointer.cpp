@@ -6,6 +6,7 @@
 #include <vexcl/tagged_terminal.hpp>
 #include <vexcl/temporary.hpp>
 #include <vexcl/constants.hpp>
+#include <vexcl/function.hpp>
 #include "context_setup.hpp"
 
 BOOST_AUTO_TEST_CASE(nbody)

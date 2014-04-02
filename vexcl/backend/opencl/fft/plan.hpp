@@ -37,6 +37,7 @@ THE SOFTWARE.
 
 #include <vexcl/profiler.hpp>
 #include <vexcl/vector.hpp>
+#include <vexcl/function.hpp>
 #include <vexcl/backend/opencl/fft/unrolled_dft.hpp>
 #include <vexcl/backend/opencl/fft/kernels.hpp>
 

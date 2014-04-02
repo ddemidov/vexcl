@@ -56,5 +56,6 @@ THE SOFTWARE.
 #include <vexcl/scan.hpp>
 #include <vexcl/reduce_by_key.hpp>
 #include <vexcl/profiler.hpp>
+#include <vexcl/function.hpp>
 
 #endif

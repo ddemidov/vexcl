@@ -46,6 +46,7 @@ THE SOFTWARE.
 #include <boost/function_types/function_arity.hpp>
 #include <vexcl/util.hpp>
 #include <vexcl/operations.hpp>
+#include <vexcl/function.hpp>
 #include <vexcl/vector.hpp>
 #include <boost/preprocessor/repetition.hpp>
 #ifndef VEXCL_MAX_ARITY

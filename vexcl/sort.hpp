@@ -68,6 +68,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <vexcl/util.hpp>
 #include <vexcl/vector.hpp>
 #include <vexcl/detail/fusion.hpp>
+#include <vexcl/function.hpp>
 
 namespace vex {
 namespace detail {

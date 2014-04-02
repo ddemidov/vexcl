@@ -55,6 +55,7 @@ limitations under the License.
 #include <vexcl/vector.hpp>
 #include <vexcl/scan.hpp>
 #include <vexcl/detail/fusion.hpp>
+#include <vexcl/function.hpp>
 
 namespace vex {
 namespace detail {

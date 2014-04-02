@@ -11,6 +11,7 @@
 #include <vexcl/cast.hpp>
 #include <vexcl/vector_view.hpp>
 #include <vexcl/reductor.hpp>
+#include <vexcl/function.hpp>
 #include "context_setup.hpp"
 
 template <typename T>

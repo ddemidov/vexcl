@@ -4,6 +4,7 @@
 #include <vexcl/multivector.hpp>
 #include <vexcl/temporary.hpp>
 #include <vexcl/reductor.hpp>
+#include <vexcl/function.hpp>
 #include "context_setup.hpp"
 
 BOOST_AUTO_TEST_CASE(temporary)

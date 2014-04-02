@@ -56,6 +56,7 @@ limitations under the License.
 #include <vexcl/backend.hpp>
 #include <vexcl/util.hpp>
 #include <vexcl/vector.hpp>
+#include <vexcl/function.hpp>
 
 namespace vex {
 
