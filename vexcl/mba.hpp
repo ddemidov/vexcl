@@ -249,23 +249,18 @@ class mba {
         }
 #else
 
-#define VEXCL_PRINT_PARAM(z, n, data) const Expr ## n &expr ## n
-#define VEXCL_PRINT_TEMPL(z, n, data) const Expr ## n &
-
 #define VEXCL_FUNCALL_OPERATOR(z, n, data)                                     \
   template <BOOST_PP_ENUM_PARAMS(n, class Expr)>                               \
-  mba_interp<                                                                  \
-      mba, boost::tuple<BOOST_PP_ENUM(n, VEXCL_PRINT_TEMPL, ~)> > operator()(  \
-      BOOST_PP_ENUM(n, VEXCL_PRINT_PARAM, ~)) {                                \
-    return mba_interp<mba,                                                     \
-                      boost::tuple<BOOST_PP_ENUM(n, VEXCL_PRINT_TEMPL, ~)> >(  \
+  mba_interp<mba, boost::tuple<BOOST_PP_ENUM_BINARY_PARAMS(                    \
+                      n, const Expr, &BOOST_PP_INTERCEPT)> >                   \
+  operator()(BOOST_PP_ENUM_BINARY_PARAMS(n, const Expr, &expr)) {              \
+    return mba_interp<mba, boost::tuple<BOOST_PP_ENUM_BINARY_PARAMS(           \
+                               n, const Expr, &BOOST_PP_INTERCEPT)> >(         \
         *this, boost::tie(BOOST_PP_ENUM_PARAMS(n, expr)));                     \
   }
 
 BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_FUNCALL_OPERATOR, ~)
 
-#undef VEXCL_PRINT_TEMPL
-#undef VEXCL_PRINT_PARAM
 #undef VEXCL_FUNCALL_OPERATOR
 #endif
     private:

@@ -561,17 +561,14 @@ class Kernel {
         }
 #else
 
-#define VEXCL_PRINT_PARAM(z, n, data) const Param ## n &param ## n
-
 #define VEXCL_FUNCALL_OPERATOR(z, n, data)                                     \
   template <BOOST_PP_ENUM_PARAMS(n, class Param)>                              \
-  void operator()(BOOST_PP_ENUM(n, VEXCL_PRINT_PARAM, ~)) {                    \
+  void operator()(BOOST_PP_ENUM_BINARY_PARAMS(n, const Param, &param)) {       \
     launch(boost::tie(BOOST_PP_ENUM_PARAMS(n, param)));                        \
   }
 
 BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_FUNCALL_OPERATOR, ~)
 
-#undef VEXCL_PRINT_PARAM
 #undef VEXCL_FUNCALL_OPERATOR
 
 #endif
@@ -717,13 +714,11 @@ std::string make_function(std::string body, const Ret &ret, const Args&... args)
 }
 #else
 
-#define VEXCL_PRINT_ARG(z, n, data) const Arg ## n &arg ## n
-
 #define VEXCL_BUILD_KERNEL(z, n, data)                                         \
   template <BOOST_PP_ENUM_PARAMS(n, class Arg)>                                \
   Kernel<n> build_kernel(const std::vector<backend::command_queue> & queue,    \
                          const std::string & name, const std::string & body,   \
-                         BOOST_PP_ENUM(n, VEXCL_PRINT_ARG, ~)) {               \
+                         BOOST_PP_ENUM_BINARY_PARAMS(n, const Arg, &arg)) {    \
     return Kernel<n>(queue, name, body,                                        \
                      boost::tie(BOOST_PP_ENUM_PARAMS(n, arg)));                \
   }
@@ -731,7 +726,7 @@ std::string make_function(std::string body, const Ret &ret, const Args&... args)
 #define VEXCL_MAKE_FUNCTION(z, n, data)                                        \
   template<class Ret, BOOST_PP_ENUM_PARAMS(n, class Arg)> std::string          \
   make_function(std::string body, const Ret & ret,                             \
-                BOOST_PP_ENUM(n, VEXCL_PRINT_ARG, ~)) {                        \
+                BOOST_PP_ENUM_BINARY_PARAMS(n, const Arg, &arg)) {             \
     return Function(body, ret, boost::tie(BOOST_PP_ENUM_PARAMS(n, arg)))       \
         .get();                                                                \
   }
@@ -741,7 +736,6 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_MAKE_FUNCTION, ~)
 
 #undef VEXCL_BUILD_KERNEL
 #undef VEXCL_MAKE_FUNCTION
-#undef VEXCL_PRINT_ARG
 
 #endif
 

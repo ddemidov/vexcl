@@ -852,8 +852,6 @@ struct UserFunction<Impl, RetType(ArgType...)> : user_function
 
 #else
 
-#define VEXCL_PRINT_ARG_REF(z, n, data) const Arg##n &
-#define VEXCL_PRINT_PARAM(z, n, data) const Arg##n &arg##n
 #define VEXCL_PRINT_BOOST_REF(z, n, data) boost::ref(arg##n)
 #define VEXCL_PRINT_PRM_DEF(z, n, data) src.parameter<ArgType##n>("prm") << n + 1;
 
@@ -872,8 +870,10 @@ struct UserFunction<Impl, RetType(ArgType...)> : user_function
     template <BOOST_PP_ENUM_PARAMS(n, class Arg)>                              \
     typename boost::proto::result_of::make_expr<                               \
         boost::proto::tag::function, Impl,                                     \
-        BOOST_PP_ENUM(n, VEXCL_PRINT_ARG_REF, ~)>::type const operator()(      \
-        BOOST_PP_ENUM(n, VEXCL_PRINT_PARAM, ~)) const {                        \
+        BOOST_PP_ENUM_BINARY_PARAMS(                                           \
+                n, const Arg,& BOOST_PP_INTERCEPT)>::type const                \
+    operator()(                                                                \
+        BOOST_PP_ENUM_BINARY_PARAMS(n, const Arg, &arg)) const {               \
       return boost::proto::make_expr<boost::proto::tag::function>(             \
           Impl(), BOOST_PP_ENUM(n, VEXCL_PRINT_BOOST_REF, ~));                 \
     }                                                                          \
@@ -882,7 +882,7 @@ struct UserFunction<Impl, RetType(ArgType...)> : user_function
                        const std::string &name) {                              \
       src << Impl::preamble();                                                 \
       src.function<RetType>(name).open("(");                                   \
-      BOOST_PP_REPEAT(n, VEXCL_PRINT_PRM_DEF, n);                              \
+      BOOST_PP_REPEAT(n, VEXCL_PRINT_PRM_DEF, n)                               \
       src.close(")").open("{").new_line() << Impl::body();                     \
       src.close("}");                                                          \
     }                                                                          \
@@ -890,8 +890,6 @@ struct UserFunction<Impl, RetType(ArgType...)> : user_function
 
 BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_USER_FUNCTION, ~)
 
-#undef VEXCL_PRINT_ARG_REF
-#undef VEXCL_PRINT_PARAM
 #undef VEXCL_PRINT_BOOST_REF
 #undef VEXCL_PRINT_PRM_DEF
 #undef VEXCL_USER_FUNCTION
@@ -2551,23 +2549,19 @@ tie(const Expr&... expr) {
 }
 #else
 
-#define VEXCL_PRINT_TYPES(z, n, data) const Expr ## n &
-#define VEXCL_PRINT_PARAM(z, n, data) const Expr ## n &expr ## n
-
 #define VEXCL_TIE_VECTORS(z, n, data)                                          \
   template <BOOST_PP_ENUM_PARAMS(n, class Expr)>                               \
-  expression_tuple<std::tuple<BOOST_PP_ENUM(n, VEXCL_PRINT_TYPES, ~)> > tie(   \
-      BOOST_PP_ENUM(n, VEXCL_PRINT_PARAM, ~)) {                                \
-    return expression_tuple<                                                   \
-        std::tuple<BOOST_PP_ENUM(n, VEXCL_PRINT_TYPES, ~)> >(                  \
+  expression_tuple<std::tuple<                                                 \
+      BOOST_PP_ENUM_BINARY_PARAMS(n, const Expr, &BOOST_PP_INTERCEPT)> >       \
+  tie(BOOST_PP_ENUM_BINARY_PARAMS(n, const Expr, &expr)) {                     \
+    return expression_tuple<std::tuple<                                        \
+        BOOST_PP_ENUM_BINARY_PARAMS(n, const Expr, &BOOST_PP_INTERCEPT)> >(    \
         std::tie(BOOST_PP_ENUM_PARAMS(n, expr)));                              \
   }
 
 BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_TIE_VECTORS, ~)
 
 #undef VEXCL_TIE_VECTORS
-#undef VEXCL_PRINT_PARAM
-#undef VEXCL_PRINT_TYPES
 
 #endif
 

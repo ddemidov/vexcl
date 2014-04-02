@@ -125,11 +125,10 @@ make_array(T t, Tail... tail) {
 }
 #else
 
-#define VEXCL_PRINT_PARAM(z, n, data) T ## n t ## n
 #define VEXCL_INIT_ARRAY(z, n, data) static_cast<T0>(t ## n)
 #define VEXCL_MAKE_ARRAY(z, n, data)                                           \
   template <BOOST_PP_ENUM_PARAMS(n, class T)>                                  \
-  std::array<T0, n> make_array(BOOST_PP_ENUM(n, VEXCL_PRINT_PARAM, ~)) {       \
+  std::array<T0, n> make_array(BOOST_PP_ENUM_BINARY_PARAMS(n, T, t)) {         \
     std::array<T0, n> a = { { BOOST_PP_ENUM(n, VEXCL_INIT_ARRAY, ~) } };       \
     return a;                                                                  \
   }
@@ -138,7 +137,6 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_MAKE_ARRAY, ~)
 
 #undef VEXCL_MAKE_ARRAY
 #undef VEXCL_INIT_ARRAY
-#undef VEXCL_PRINT_PARAM
 
 #endif
 
