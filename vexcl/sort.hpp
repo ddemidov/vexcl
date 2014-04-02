@@ -2212,7 +2212,7 @@ void sort_by_key_sink(K &&keys, V &&vals, Comp comp) {
  */
 template <typename T>
 struct less : std::less<T> {
-    VEX_FUNCTION_V1(device, bool(T, T), "return prm1 < prm2;");
+    VEX_FUNCTION(bool, device, (T, x)(T, y), return x < y;);
 
     less() {}
 };
@@ -2225,7 +2225,7 @@ struct less : std::less<T> {
  */
 template <typename T>
 struct less_equal : std::less_equal<T> {
-    VEX_FUNCTION_V1(device, bool(T, T), "return prm1 <= prm2;");
+    VEX_FUNCTION(bool, device, (T, x)(T, y), return x <= y;);
 
     less_equal() {}
 };
@@ -2238,7 +2238,7 @@ struct less_equal : std::less_equal<T> {
  */
 template <typename T>
 struct greater : std::greater<T> {
-    VEX_FUNCTION_V1(device, bool(T, T), "return prm1 > prm2;");
+    VEX_FUNCTION(bool, device, (T, x)(T, y), return x > y;);
 
     greater() {}
 };
@@ -2251,7 +2251,7 @@ struct greater : std::greater<T> {
  */
 template <typename T>
 struct greater_equal : std::greater_equal<T> {
-    VEX_FUNCTION_V1(device, bool(T, T), "return prm1 >= prm2;");
+    VEX_FUNCTION(bool, device, (T, x)(T, y), return x >= y;);
 
     greater_equal() {}
 };

@@ -20,13 +20,11 @@ BOOST_AUTO_TEST_CASE(nbody)
     vex::vector<double> x(queue, X);
     vex::vector<double> y(queue, n);
 
-    VEX_FUNCTION_V1(nbody, double(size_t, size_t, double*),
-            VEX_STRINGIZE_SOURCE(
-                double sum = 0;
-                for(size_t i = 0; i < prm1; ++i)
-                    if (i != prm2) sum += prm3[i];
-                return sum;
-                )
+    VEX_FUNCTION(double, nbody, (size_t, n)(size_t, j)(double*, x),
+            double sum = 0;
+            for(size_t i = 0; i < n; ++i)
+                if (i != j) sum += x[i];
+                    return sum;
             );
 
     y = nbody(n, vex::element_index(), vex::raw_pointer(x));

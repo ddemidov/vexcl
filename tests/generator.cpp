@@ -64,7 +64,10 @@ BOOST_AUTO_TEST_CASE(kernel_generator_with_user_function)
     sym_state sym_x(sym_state::VectorParameter, sym_state::Const);
     sym_state sym_y(sym_state::VectorParameter);
 
-    VEX_FUNCTION_V1(sin2, double(double), "double s = sin(prm1); return s * s;");
+    VEX_FUNCTION(double, sin2, (double, x),
+            double s = sin(x);
+            return s * s;
+            );
 
     sym_y = sin2(sym_x);
 
@@ -100,7 +103,7 @@ BOOST_AUTO_TEST_CASE(function_generator)
     static std::string function_body = vex::generator::make_function(
             body.str(), sym_x, sym_x);
 
-    VEX_FUNCTION_V1(rk2, double(double), function_body);
+    VEX_FUNCTION_S(double, rk2, (double, prm1), function_body);
 
     std::vector<double> x = random_vector<double>(n);
     vex::vector<double> X(ctx, x);

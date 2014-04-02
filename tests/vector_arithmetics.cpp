@@ -95,7 +95,7 @@ BOOST_AUTO_TEST_CASE(user_defined_functions)
     x = 1;
     y = 2;
 
-    VEX_FUNCTION_V1(greater, size_t(double, double), "return prm1 > prm2;");
+    VEX_FUNCTION(size_t, greater, (double, x)(double, y), return x > y;);
 
     vex::Reductor<size_t,vex::SUM> sum(ctx);
 
@@ -110,8 +110,8 @@ BOOST_AUTO_TEST_CASE(user_defined_functions_same_signature)
 
     x = 1;
 
-    VEX_FUNCTION_V1(times2, double(double), "return prm1 * 2;");
-    VEX_FUNCTION_V1(times4, double(double), "return prm1 * 4;");
+    VEX_FUNCTION(double, times2, (double, x), return x * 2;);
+    VEX_FUNCTION(double, times4, (double, x), return x * 4;);
 
     vex::Reductor<size_t,vex::SUM> sum(ctx);
 
@@ -135,7 +135,7 @@ BOOST_AUTO_TEST_CASE(vector_values)
 {
     const size_t N = 1024;
 
-    VEX_FUNCTION_V1(make_int4, cl_int4(int), "return (int4)(prm1, prm1, prm1, prm1);");
+    VEX_FUNCTION(cl_int4, make_int4, (int, x), return (int4)(x, x, x, x););
 
     cl_int4 c = {{1, 2, 3, 4}};
 
@@ -153,8 +153,8 @@ BOOST_AUTO_TEST_CASE(nested_functions)
 {
     const size_t N = 1024;
 
-    VEX_FUNCTION_V1(f, int(int), "return 2 * prm1;");
-    VEX_FUNCTION_V1(g, int(int), "return 3 * prm1;");
+    VEX_FUNCTION(int, f, (int, x), return 2 * x;);
+    VEX_FUNCTION(int, g, (int, x), return 3 * x;);
 
     vex::vector<int> x(ctx, N);
 
@@ -175,7 +175,7 @@ BOOST_AUTO_TEST_CASE(custom_header)
 
     vex::push_program_header(ctx, "#define THE_ANSWER 42\n");
 
-    VEX_FUNCTION_V1(answer, int(int), "return prm1 * THE_ANSWER;");
+    VEX_FUNCTION(int, answer, (int, x), return x * THE_ANSWER;);
 
     x = answer(1);
 
@@ -193,98 +193,17 @@ BOOST_AUTO_TEST_CASE(function_with_preamble)
     vex::vector<double> x(ctx, random_vector<double>(n));
     vex::vector<double> y(ctx, n);
 
-#ifdef VEXCL_BACKEND_OPENCL
-    VEX_FUNCTION_V1_WITH_PREAMBLE(one, double(double),
-            "double sin2(double x) { return pow(sin(x), 2.0); }\n"
-            "double cos2(double x) { return pow(cos(x), 2.0); }\n",
-            "return sin2(prm1) + cos2(prm1);"
+    VEX_FUNCTION(double, sin2, (double, x), return pow(sin(x), 2.0););
+    VEX_FUNCTION(double, cos2, (double, x), return pow(cos(x), 2.0););
+    VEX_FUNCTION_D(double, one, (double, x), (sin2)(cos2),
+            return sin2(x) + cos2(x);
             );
-#else
-    VEX_FUNCTION_V1_WITH_PREAMBLE(one, double(double),
-            "__device__ double sin2(double x) { return pow(sin(x), 2.0); }\n"
-            "__device__ double cos2(double x) { return pow(cos(x), 2.0); }\n",
-            "return sin2(prm1) + cos2(prm1);"
-            );
-#endif
 
     y = one(x);
 
     check_sample(y, [](size_t, double a) {
             BOOST_CHECK_CLOSE(a, 1.0, 1e-8);
             });
-}
-
-BOOST_AUTO_TEST_CASE(function_v2)
-{
-    const size_t n = 1024;
-
-    vex::vector<double> x(ctx, random_vector<double>(n));
-    vex::vector<double> y(ctx, random_vector<double>(n));
-    vex::vector<double> z(ctx, n);
-
-    {
-        VEX_FUNCTION(double, foo, (double, x)(double, y),
-                return (x - y) * (x + y);
-                );
-
-        z = foo(x, y);
-
-        check_sample(x, y, z, [](size_t, double X, double Y, double Z) {
-                BOOST_CHECK_EQUAL(Z, (X - Y) * (X + Y));
-                });
-    }
-
-    {
-        VEX_FUNCTION_S(double, foo, (double, x)(double, y),
-                "return (x - y) * (x + y);"
-                );
-
-        z = foo(x, y);
-
-        check_sample(x, y, z, [](size_t, double X, double Y, double Z) {
-                BOOST_CHECK_EQUAL(Z, (X - Y) * (X + Y));
-                });
-    }
-
-    {
-        VEX_FUNCTION(double, bar, (double, x),
-                double s = sin(x);
-                return s * s;
-                );
-        VEX_FUNCTION(double, baz, (double, x),
-                double c = cos(x);
-                return c * c;
-                );
-        VEX_FUNCTION_D(double, foo, (double, x)(double, y), (bar)(baz),
-                return bar(x - y) * baz(x + y);
-                );
-
-        z = foo(x, y);
-
-        check_sample(x, y, z, [](size_t, double X, double Y, double Z) {
-                BOOST_CHECK_CLOSE(Z, pow(sin(X - Y), 2) * pow(cos(X + Y), 2), 1e-8);
-                });
-    }
-
-    {
-        VEX_FUNCTION(double, bar, (double, x),
-                double s = sin(x);
-                return s * s;
-                );
-        VEX_FUNCTION(double, baz, (double, x),
-                double c = cos(x);
-                return c * c;
-                );
-        VEX_FUNCTION_DS(double, foo, (double, x)(double, y), (bar)(baz),
-                "return bar(x - y) * baz(x + y);"
-                );
-
-        z = foo(x, y);
-
-        check_sample(x, y, z, [](size_t, double X, double Y, double Z) {
-                BOOST_CHECK_CLOSE(Z, pow(sin(X - Y), 2) * pow(cos(X + Y), 2), 1e-8);
-                });
-    }
 }
 
 BOOST_AUTO_TEST_CASE(ternary_operator)

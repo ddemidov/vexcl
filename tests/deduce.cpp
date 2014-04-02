@@ -109,8 +109,8 @@ BOOST_AUTO_TEST_CASE(user_functions)
     vex::vector<double> x;
     vex::vector<int> y;
 
-    VEX_FUNCTION_V1(f1, double(double),      "return 42;");
-    VEX_FUNCTION_V1(f2, int(double, double), "return 42;");
+    VEX_FUNCTION(double, f1, (double, x),            return 42;);
+    VEX_FUNCTION(int,    f2, (double, x)(double, y), return 42;);
 
     check<double>( f1(x) );
     check<int>   ( f2(x, y) );

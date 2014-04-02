@@ -486,7 +486,7 @@ int reduce_by_key_sink(
 
     krn0(queue[0]);
 
-    VEX_FUNCTION_V1(plus, int(int, int), "return prm1 + prm2;");
+    VEX_FUNCTION(int, plus, (int, x)(int, y), return x + y;);
     detail::scan(queue[0], offset, offset, 0, false, plus);
 
     /***** Kernel 1 *****/
@@ -580,8 +580,8 @@ int reduce_by_key(
         vector<V>       &ovals
         )
 {
-    VEX_FUNCTION_V1(equal, bool(K, K), "return prm1 == prm2;");
-    VEX_FUNCTION_V1(plus,  V(V, V), "return prm1 + prm2;");
+    VEX_FUNCTION(bool, equal, (K, x)(K, y), return x == y;);
+    VEX_FUNCTION(V, plus, (V, x)(V, y), return x + y;);
     return reduce_by_key(ikeys, ivals, okeys, ovals, equal, plus);
 }
 

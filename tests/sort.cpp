@@ -59,24 +59,14 @@ BOOST_AUTO_TEST_CASE(sort_keys_vals_custom_op)
 
     struct even_first_t {
         typedef bool result_type;
+        even_first_t() {}
 
-        VEX_FUNCTION_V1(device, bool(int, int),
-            VEX_STRINGIZE_SOURCE(
-                char bit1 = 1 & prm1;
-                char bit2 = 1 & prm2;
-                if (bit1 == bit2) return prm1 < prm2;
-                return bit1 < bit2;
-                )
-            );
-
-        result_type operator()(int a, int b) const {
+        VEX_DUAL_FUNCTOR(result_type, (int, a)(int, b),
             char bit1 = 1 & a;
             char bit2 = 1 & b;
             if (bit1 == bit2) return a < b;
             return bit1 < bit2;
-        }
-
-        even_first_t() {}
+            )
     } even_first;
 
     std::stable_sort(p.begin(), p.end(), [&](int i, int j) {
@@ -108,16 +98,11 @@ BOOST_AUTO_TEST_CASE(sort_keys_tuple)
 
     struct less_t {
         typedef bool result_type;
-
-        VEX_FUNCTION_V1(device, bool(int, float, int, float),
-                "return (prm1 == prm3) ? (prm2 < prm4) : (prm1 < prm3);"
-                );
-
-        result_type operator()(int a1, float a2, int b1, float b2) const {
-            return (a1 == b1) ? (a2 < b2) : (a1 < b1);
-        }
-
         less_t() {}
+
+        VEX_DUAL_FUNCTOR(result_type, (int, a1)(float, a2)(int, b1)(float, b2),
+            return (a1 == b1) ? (a2 < b2) : (a1 < b1);
+            )
     } less;
 
     vex::sort(boost::fusion::vector_tie(keys1, keys2), less );
@@ -151,16 +136,11 @@ BOOST_AUTO_TEST_CASE(sort_keys_vals_tuple)
 
     struct less_t {
         typedef bool result_type;
-
-        VEX_FUNCTION_V1(device, bool(int, float, int, float),
-                "return (prm1 == prm3) ? (prm2 < prm4) : (prm1 < prm3);"
-                );
-
-        result_type operator()(int a1, float a2, int b1, float b2) const {
-            return (a1 == b1) ? (a2 < b2) : (a1 < b1);
-        }
-
         less_t() {}
+
+        VEX_DUAL_FUNCTOR(result_type, (int, a1)(float, a2)(int, b1)(float, b2),
+            return (a1 == b1) ? (a2 < b2) : (a1 < b1);
+            )
     } less;
 
     std::stable_sort(p.begin(), p.end(), [&](int i, int j) {
