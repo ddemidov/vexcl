@@ -821,6 +821,21 @@ struct even_first {
 };
 ~~~
 
+Same functor could be created with help of `VEX_DUAL_FUNCTOR` macro, which
+takes return type, sequence of arguments (similar to `VEX_FUNCTION`), and the
+body of the functor:
+~~~{.cpp}
+template <typename T>
+struct even_first {
+    VEX_DUAL_FUNCTOR(bool, (int, a)(int, b),
+        char bit1 = 1 & a;
+        char bit2 = 1 & b;
+        if (bit1 == bit2) return a < b;
+        return bit1 < bit2;
+    )
+};
+~~~
+
 Note that VexCL already provides `vex::less<T>`, `vex::less_equal<T>`,
 `vex::greater<T>`, `vex::greater_equal<T>`, and `vex::plus<T>`.
 
