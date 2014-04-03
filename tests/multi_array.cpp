@@ -3,6 +3,7 @@
 #include <vexcl/element_index.hpp>
 #include <vexcl/multi_array.hpp>
 #include <vexcl/reductor.hpp>
+#include <vexcl/function.hpp>
 #include <boost/math/constants/constants.hpp>
 #include "context_setup.hpp"
 

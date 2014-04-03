@@ -3,6 +3,7 @@
 #include <vexcl/vector.hpp>
 #include <vexcl/multivector.hpp>
 #include <vexcl/spmat.hpp>
+#include <vexcl/function.hpp>
 #include "context_setup.hpp"
 #include "random_matrix.hpp"
 

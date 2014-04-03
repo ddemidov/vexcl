@@ -6,6 +6,7 @@
 #include <vexcl/element_index.hpp>
 #include <vexcl/temporary.hpp>
 #include <vexcl/reductor.hpp>
+#include <vexcl/function.hpp>
 #include "context_setup.hpp"
 
 BOOST_AUTO_TEST_CASE(vector_view_1d)

@@ -4,6 +4,7 @@
 #include <vexcl/vector.hpp>
 #include <vexcl/element_index.hpp>
 #include <vexcl/temporary.hpp>
+#include <vexcl/function.hpp>
 #include "context_setup.hpp"
 
 template <typename T>

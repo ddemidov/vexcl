@@ -40,6 +40,8 @@ THE SOFTWARE.
 
 #include <vexcl/operations.hpp>
 
+namespace vex {
+
 /// Stringizes compute kernel source code.
 /**
  * Example:
@@ -319,5 +321,219 @@ rtype operator()(VEXCL_DUAL_FUNCTOR_ARGS(args)) const {                        \
     VEX_DUAL_FUNCTOR_SINK(type,                                                \
             BOOST_PP_SEQ_SIZE(VEXCL_FUNCTION_MAKE_SEQ(args)),                  \
             VEXCL_FUNCTION_MAKE_SEQ(args), __VA_ARGS__)
+
+//---------------------------------------------------------------------------
+// Builtin functions
+//---------------------------------------------------------------------------
+#ifdef DOXYGEN
+
+/// Define builtin function.
+#define VEX_BUILTIN_FUNCTION(nargs, func)                                      \
+  expression func(const Arg0 & arg0, ... const ArgN & argN);
+
+#else
+
+#define VEXCL_PRINT_BOOST_REF(z, n, data) boost::ref(arg##n)
+
+#define VEX_BUILTIN_FUNCTION(nargs, func)                                      \
+    struct func##_func : vex::builtin_function {                                    \
+        static const char *name() { return #func; }                            \
+    };                                                                         \
+    template <BOOST_PP_ENUM_PARAMS(nargs, class Arg)>                          \
+    typename boost::proto::result_of::make_expr<                               \
+        boost::proto::tag::function, func##_func,                              \
+        BOOST_PP_ENUM_BINARY_PARAMS(nargs, const Arg,                          \
+                                    &BOOST_PP_INTERCEPT)>::type const          \
+    func(BOOST_PP_ENUM_BINARY_PARAMS(nargs, const Arg, &arg)) {                \
+        return boost::proto::make_expr<boost::proto::tag::function>(           \
+            func##_func(), BOOST_PP_ENUM(nargs, VEXCL_PRINT_BOOST_REF, ~));    \
+    }
+
+#endif
+
+/// \defgroup builtins Builtin device functions
+/** @{ */
+VEX_BUILTIN_FUNCTION( 2, abs_diff )
+VEX_BUILTIN_FUNCTION( 1, acos )
+VEX_BUILTIN_FUNCTION( 1, acosh )
+VEX_BUILTIN_FUNCTION( 1, acospi )
+VEX_BUILTIN_FUNCTION( 2, add_sat )
+VEX_BUILTIN_FUNCTION( 1, all )
+VEX_BUILTIN_FUNCTION( 1, any )
+VEX_BUILTIN_FUNCTION( 1, asin )
+VEX_BUILTIN_FUNCTION( 1, asinh )
+VEX_BUILTIN_FUNCTION( 1, asinpi )
+VEX_BUILTIN_FUNCTION( 1, atan )
+VEX_BUILTIN_FUNCTION( 2, atan2 )
+VEX_BUILTIN_FUNCTION( 2, atan2pi )
+VEX_BUILTIN_FUNCTION( 1, atanh )
+VEX_BUILTIN_FUNCTION( 1, atanpi )
+VEX_BUILTIN_FUNCTION( 3, bitselect )
+VEX_BUILTIN_FUNCTION( 1, cbrt )
+VEX_BUILTIN_FUNCTION( 1, ceil )
+VEX_BUILTIN_FUNCTION( 3, clamp )
+VEX_BUILTIN_FUNCTION( 1, clz )
+VEX_BUILTIN_FUNCTION( 2, copysign )
+VEX_BUILTIN_FUNCTION( 1, cos )
+VEX_BUILTIN_FUNCTION( 1, cosh )
+VEX_BUILTIN_FUNCTION( 1, cospi )
+VEX_BUILTIN_FUNCTION( 2, cross )
+VEX_BUILTIN_FUNCTION( 1, degrees )
+VEX_BUILTIN_FUNCTION( 2, distance )
+VEX_BUILTIN_FUNCTION( 2, dot )
+VEX_BUILTIN_FUNCTION( 1, erf )
+VEX_BUILTIN_FUNCTION( 1, erfc )
+VEX_BUILTIN_FUNCTION( 1, exp )
+VEX_BUILTIN_FUNCTION( 1, exp10 )
+VEX_BUILTIN_FUNCTION( 1, exp2 )
+VEX_BUILTIN_FUNCTION( 1, expm1 )
+VEX_BUILTIN_FUNCTION( 1, fabs )
+VEX_BUILTIN_FUNCTION( 2, fast_distance )
+VEX_BUILTIN_FUNCTION( 1, fast_length )
+VEX_BUILTIN_FUNCTION( 1, fast_normalize )
+VEX_BUILTIN_FUNCTION( 2, fdim )
+VEX_BUILTIN_FUNCTION( 1, floor )
+VEX_BUILTIN_FUNCTION( 3, fma )
+VEX_BUILTIN_FUNCTION( 2, fmax )
+VEX_BUILTIN_FUNCTION( 2, fmin )
+VEX_BUILTIN_FUNCTION( 2, fmod )
+VEX_BUILTIN_FUNCTION( 2, fract )
+VEX_BUILTIN_FUNCTION( 2, frexp )
+VEX_BUILTIN_FUNCTION( 2, hadd )
+VEX_BUILTIN_FUNCTION( 2, hypot )
+VEX_BUILTIN_FUNCTION( 1, ilogb )
+VEX_BUILTIN_FUNCTION( 2, isequal )
+VEX_BUILTIN_FUNCTION( 1, isfinite )
+VEX_BUILTIN_FUNCTION( 2, isgreater )
+VEX_BUILTIN_FUNCTION( 2, isgreaterequal )
+VEX_BUILTIN_FUNCTION( 1, isinf )
+VEX_BUILTIN_FUNCTION( 2, isless )
+VEX_BUILTIN_FUNCTION( 2, islessequal )
+VEX_BUILTIN_FUNCTION( 2, islessgreater )
+VEX_BUILTIN_FUNCTION( 1, isnan )
+VEX_BUILTIN_FUNCTION( 1, isnormal )
+VEX_BUILTIN_FUNCTION( 2, isnotequal )
+VEX_BUILTIN_FUNCTION( 2, isordered )
+VEX_BUILTIN_FUNCTION( 2, isunordered )
+VEX_BUILTIN_FUNCTION( 2, ldexp )
+VEX_BUILTIN_FUNCTION( 1, length )
+VEX_BUILTIN_FUNCTION( 1, lgamma )
+VEX_BUILTIN_FUNCTION( 2, lgamma_r )
+VEX_BUILTIN_FUNCTION( 1, log )
+VEX_BUILTIN_FUNCTION( 1, log10 )
+VEX_BUILTIN_FUNCTION( 1, log1p )
+VEX_BUILTIN_FUNCTION( 1, log2 )
+VEX_BUILTIN_FUNCTION( 1, logb )
+VEX_BUILTIN_FUNCTION( 3, mad )
+VEX_BUILTIN_FUNCTION( 3, mad24 )
+VEX_BUILTIN_FUNCTION( 3, mad_hi )
+VEX_BUILTIN_FUNCTION( 3, mad_sat )
+VEX_BUILTIN_FUNCTION( 2, max )
+VEX_BUILTIN_FUNCTION( 2, maxmag )
+VEX_BUILTIN_FUNCTION( 2, min )
+VEX_BUILTIN_FUNCTION( 2, minmag )
+VEX_BUILTIN_FUNCTION( 3, mix )
+VEX_BUILTIN_FUNCTION( 2, modf )
+VEX_BUILTIN_FUNCTION( 2, mul_hi )
+VEX_BUILTIN_FUNCTION( 1, nan )
+VEX_BUILTIN_FUNCTION( 2, nextafter )
+VEX_BUILTIN_FUNCTION( 1, normalize )
+VEX_BUILTIN_FUNCTION( 1, popcount )
+VEX_BUILTIN_FUNCTION( 2, pow )
+VEX_BUILTIN_FUNCTION( 2, pown )
+VEX_BUILTIN_FUNCTION( 2, powr )
+VEX_BUILTIN_FUNCTION( 1, radians )
+VEX_BUILTIN_FUNCTION( 2, remainder )
+VEX_BUILTIN_FUNCTION( 3, remquo )
+VEX_BUILTIN_FUNCTION( 2, rhadd )
+VEX_BUILTIN_FUNCTION( 1, rint )
+VEX_BUILTIN_FUNCTION( 2, rootn )
+VEX_BUILTIN_FUNCTION( 2, rotate )
+VEX_BUILTIN_FUNCTION( 1, round )
+VEX_BUILTIN_FUNCTION( 1, rsqrt )
+VEX_BUILTIN_FUNCTION( 3, select )
+VEX_BUILTIN_FUNCTION( 2, shuffle )
+VEX_BUILTIN_FUNCTION( 3, shuffle2 )
+VEX_BUILTIN_FUNCTION( 1, sign )
+VEX_BUILTIN_FUNCTION( 1, signbit )
+VEX_BUILTIN_FUNCTION( 1, sin )
+VEX_BUILTIN_FUNCTION( 2, sincos )
+VEX_BUILTIN_FUNCTION( 1, sinh )
+VEX_BUILTIN_FUNCTION( 1, sinpi )
+VEX_BUILTIN_FUNCTION( 3, smoothstep )
+VEX_BUILTIN_FUNCTION( 1, sqrt )
+VEX_BUILTIN_FUNCTION( 2, step )
+VEX_BUILTIN_FUNCTION( 2, sub_sat )
+VEX_BUILTIN_FUNCTION( 1, tan )
+VEX_BUILTIN_FUNCTION( 1, tanh )
+VEX_BUILTIN_FUNCTION( 1, tanpi )
+VEX_BUILTIN_FUNCTION( 1, tgamma )
+VEX_BUILTIN_FUNCTION( 1, trunc )
+VEX_BUILTIN_FUNCTION( 2, upsample )
+
+// Special case: abs() overloaded with floating point arguments should call
+// fabs in the OpenCL code
+struct abs_func : builtin_function {
+    static const char* name() {
+        return "abs";
+    }
+};
+
+
+namespace detail {
+    template <class Expr> struct return_type;
+}
+
+#ifdef DOXYGEN
+expression
+#else
+template <typename Arg>
+typename std::enable_if<
+    std::is_integral<
+        typename cl_scalar_of<
+            typename detail::return_type<Arg>::type
+        >::type
+    >::value,
+    typename boost::proto::result_of::make_expr<
+        boost::proto::tag::function,
+        abs_func,
+        const Arg&
+    >::type const
+>::type
+#endif
+abs(const Arg &arg) {
+    return boost::proto::make_expr<boost::proto::tag::function>(
+            abs_func(),
+            boost::ref(arg)
+            );
+}
+
+#ifdef DOXYGEN
+expression
+#else
+template <typename Arg>
+typename std::enable_if<
+    !std::is_integral<
+        typename cl_scalar_of<
+            typename detail::return_type<Arg>::type
+        >::type
+    >::value,
+    typename boost::proto::result_of::make_expr<
+        boost::proto::tag::function,
+        fabs_func,
+        const Arg&
+    >::type const
+>::type
+#endif
+abs(const Arg &arg) {
+    return boost::proto::make_expr<boost::proto::tag::function>(
+            fabs_func(),
+            boost::ref(arg)
+            );
+}
+
+/** @} */
+
+} // namespace vex
 
 #endif

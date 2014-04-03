@@ -6,6 +6,7 @@
 #include <vexcl/reductor.hpp>
 #include <vexcl/tagged_terminal.hpp>
 #include <vexcl/temporary.hpp>
+#include <vexcl/function.hpp>
 #include <boost/math/constants/constants.hpp>
 #include "context_setup.hpp"
 
