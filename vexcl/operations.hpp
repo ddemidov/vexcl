@@ -613,6 +613,7 @@ struct UserFunction<Impl, RetType(ArgType...)> : user_function
 #else
 
 #define VEXCL_PRINT_PRM_DEF(z, n, data) src.parameter<ArgType##n>("prm") << n + 1;
+#define VEXCL_PRINT_BOOST_REF(z, n, data) boost::ref(arg##n)
 
 #define VEXCL_USER_FUNCTION(z, n, data)                                        \
   template <class Impl, class RetType, BOOST_PP_ENUM_PARAMS(n, class ArgType)> \
@@ -650,6 +651,7 @@ struct UserFunction<Impl, RetType(ArgType...)> : user_function
 BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_USER_FUNCTION, ~)
 
 #undef VEXCL_PRINT_PRM_DEF
+#undef VEXCL_PRINT_BOOST_REF
 #undef VEXCL_USER_FUNCTION
 
 #endif

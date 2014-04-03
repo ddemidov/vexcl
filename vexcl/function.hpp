@@ -333,7 +333,7 @@ rtype operator()(VEXCL_DUAL_FUNCTOR_ARGS(args)) const {                        \
 
 #else
 
-#define VEXCL_PRINT_BOOST_REF(z, n, data) boost::ref(arg##n)
+#define VEXCL_BUILTIN_PRINT_BOOST_REF(z, n, data) boost::ref(arg##n)
 
 #define VEX_BUILTIN_FUNCTION(nargs, func)                                      \
     struct func##_func : vex::builtin_function {                                    \
@@ -346,7 +346,8 @@ rtype operator()(VEXCL_DUAL_FUNCTOR_ARGS(args)) const {                        \
                                     &BOOST_PP_INTERCEPT)>::type const          \
     func(BOOST_PP_ENUM_BINARY_PARAMS(nargs, const Arg, &arg)) {                \
         return boost::proto::make_expr<boost::proto::tag::function>(           \
-            func##_func(), BOOST_PP_ENUM(nargs, VEXCL_PRINT_BOOST_REF, ~));    \
+            func##_func(), BOOST_PP_ENUM(                                      \
+                nargs, VEXCL_BUILTIN_PRINT_BOOST_REF, ~));                     \
     }
 
 #endif
