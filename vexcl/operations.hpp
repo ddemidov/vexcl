@@ -1793,17 +1793,16 @@ struct return_type {
 };
 
 
-// Kernel cache (is a map from context handle to a kernel)
-typedef backend::kernel kernel_cache_entry;
-struct kernel_cache;
+// Object cache (is a map from context handle to an arbitrary object)
+struct object_cache_base;
 
 template <bool dummy = true>
 struct cache_register {
     static_assert(dummy, "Dummy parameter should be true");
 
-    static std::deque<kernel_cache*> caches;
+    static std::deque<object_cache_base*> caches;
 
-    static void add(kernel_cache *cache) {
+    static void add(object_cache_base *cache) {
         caches.push_back(cache);
     }
 
@@ -1812,39 +1811,49 @@ struct cache_register {
 };
 
 template <bool dummy>
-std::deque<kernel_cache*> cache_register<dummy>::caches;
+std::deque<object_cache_base*> cache_register<dummy>::caches;
 
-struct kernel_cache {
-    typedef std::map<backend::kernel_cache_key, kernel_cache_entry> store_type;
+struct object_cache_base {
+    virtual void clear() = 0;
+    virtual void erase(backend::kernel_cache_key key) = 0;
+};
+
+template<typename T>
+struct object_cache : public object_cache_base {
+    typedef std::map<backend::kernel_cache_key, T> store_type;
 
     store_type store;
 
-    kernel_cache() {
+    object_cache() {
         cache_register<>::add(this);
     }
 
-    template <typename T>
-    std::pair<store_type::iterator, bool> insert(T&& item) {
-        return store.insert(std::forward<T>(item));
+    template <typename S>
+    std::pair<typename store_type::iterator, bool> insert(S&& item) {
+        return store.insert(std::forward<S>(item));
     }
 
-    store_type::const_iterator end() const {
+    typename store_type::const_iterator end() const {
         return store.end();
     }
 
-    template <typename T>
-    store_type::iterator find(T&& key) {
-        return store.find( std::forward<T>(key) );
+    template <typename S>
+    typename store_type::iterator find(S&& key) {
+        return store.find( std::forward<S>(key) );
     }
 
-    void clear() {
+    virtual void clear() {
         store.clear();
     }
 
-    void erase(backend::kernel_cache_key key) {
+    virtual void erase(backend::kernel_cache_key key) {
         store.erase(key);
     }
 };
+
+// Most common case is a cache of kernels
+typedef backend::kernel kernel_cache_entry;
+typedef object_cache<kernel_cache_entry> kernel_cache;
 
 template <bool dummy>
 void cache_register<dummy>::clear() {
