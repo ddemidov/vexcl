@@ -53,6 +53,18 @@ struct Options {
         bm_scan(true),
         bm_cpu(true)
     {}
+
+    void revert() {
+        bm_saxpy    = !bm_saxpy;
+        bm_vector   = !bm_vector;
+        bm_reductor = !bm_reductor;
+        bm_stencil  = !bm_stencil;
+        bm_spmv     = !bm_spmv;
+        bm_rng      = !bm_rng;
+        bm_sort     = !bm_sort;
+        bm_scan     = !bm_scan;
+        bm_cpu      = !bm_cpu;
+    }
 } options;
 
 //---------------------------------------------------------------------------
@@ -927,6 +939,7 @@ int main(int argc, char *argv[]) {
 
     desc.add_options()
         ("help,h", "show help")
+        ("revert,r", "revert options")
         ("bm_saxpy",
             po::value<bool>(&options.bm_saxpy)->default_value(true),
             "benchmark SAXPY (on/off)"
@@ -971,6 +984,10 @@ int main(int argc, char *argv[]) {
     if (vm.count("help")) {
         std::cout << desc << std::endl;
         return 0;
+    }
+
+    if (vm.count("revert")) {
+        options.revert();
     }
 
     try {
