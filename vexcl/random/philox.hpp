@@ -1,5 +1,5 @@
-#ifndef VEXCL_BACKEND_OPENCL_RANDOM_PHILOX_HPP
-#define VEXCL_BACKEND_OPENCL_RANDOM_PHILOX_HPP
+#ifndef VEXCL_RANDOM_PHILOX_HPP
+#define VEXCL_RANDOM_PHILOX_HPP
 
 /*
 The MIT License
@@ -26,7 +26,7 @@ THE SOFTWARE.
 */
 
 /**
- * \file   vexcl/backend/opencl/random/philox.hpp
+ * \file   vexcl/random/philox.hpp
  * \author Pascal Germroth <pascal@ensieve.org>
  * \brief  Philox random generator.
 
@@ -84,70 +84,97 @@ namespace random {
  * \sa vex::RandomNormal
  */
 struct philox {
-    /// generates a macro `philox(ctr, key)`
-    /// modifies both inputs, uses the components of ctr for randomness.
-    template <class T>
-    static void macro(std::ostream &o, std::string name, size_t rounds = 10) {
-        const size_t w = cl_vector_length<T>::value;
-        static_assert(w == 2 || w == 4, "Only supports 2- and 4-vectors.");
-        typedef typename cl_scalar_of<T>::type Ts;
-        static_assert(std::is_same<Ts, cl_uint>::value || std::is_same<Ts, cl_ulong>::value,
-            "Only supports 32 or 64 bit integers.");
-        typedef T ctr_t;
-        typedef typename cl_vector_of<Ts, w/2>::type key_t;
 
-        o << "typedef " << type_name<ctr_t>() << " ctr_t;\n";
-        o << "typedef " << type_name<key_t>() << " key_t;\n";
-
-        // Define macro
-        o << "#define " << name << "(ctr, key) {\\\n"
-          << "ctr_t __mul;\\\n";
-        o << type_name<Ts>() << " ";
-        // constants
-        if(std::is_same<Ts, cl_uint>::value) { // 32
-            o << "W0 = 0x9E3779B9, ";
-            if(w == 2)
-                o << "M0 = 0xD256D193;\\\n";
-            else
-                o << "W1 = 0xBB67AE85, "
-                    "M0 = 0xD2511F53, "
-                    "M1 = 0xCD9E8D57;\\\n";
-        } else { // 64
-            o << "W0 = 0x9E3779B97F4A7C15, "; // golden ratio
-            if(w == 2)
-                o << "M0 = 0xD2B74407B1CE6E93;\\\n";
-            else
-                o << "M0 = 0xD2E7470EE14C6C93, "
-                    "M1 = 0xCA5A826395121157, "
-                    "W1 = 0xBB67AE8584CAA73B;\\\n"; // sqrt(3)-1
-        }
-
-        for(size_t round = 0 ; round < rounds ; round++) {
-            if(round > 0) { // bump key
-                if(w == 2)
-                    o << "key += W0;\\\n";
-                else
-                    o << "key.s0 += W0;"
-                        " key.s1 += W1;\\\n";
-            }
-            // next round
-            if(w == 2)
-                o << "__mul.s0 = mul_hi(M0, ctr.s0);"
-                    " __mul.s1 = M0 * ctr.s0;"
-                    " ctr.s0 = __mul.s0 ^ key ^ ctr.s1;"
-                    " ctr.s1 = __mul.s1;\\\n";
-            else
-                o << "__mul.s0 = mul_hi(M0, ctr.s0);"
-                    " __mul.s1 = M0 * ctr.s0;"
-                    " __mul.s2 = mul_hi(M1, ctr.s2);"
-                    " __mul.s3 = M1 * ctr.s2;"
-                    " ctr.s0 = __mul.s2 ^ ctr.s1 ^ key.s0;"
-                    " ctr.s1 = __mul.s3;"
-                    " ctr.s2 = __mul.s0 ^ ctr.s3 ^ key.s1;"
-                    " ctr.s3 = __mul.s1;\\\n";
-        }
-        o << "}\n";
+    static std::string name() {
+        return "philox";
     }
+
+    // Generates function philox(ctr, key);
+    // modifies both inputs, uses the components of ctr for randomness.
+    template <class T, size_t N, size_t R = 10>
+    struct function {
+        static const size_t K = N / 2;
+
+        static_assert(
+                N == 2 || N == 4,
+                "Only supports vectors with 2 or 4 components."
+                );
+
+        static_assert(
+                std::is_same<T, cl_uint>::value ||
+                std::is_same<T, cl_ulong>::value,
+                "Only supports 32 or 64 bit integers."
+                );
+
+        static std::string name() {
+            std::ostringstream s;
+            s << "philox_" << type_name<T>() << "_" << N << "_" << R;
+            return s.str();
+        }
+
+        static void define(backend::source_generator &src) {
+            std::string M[2], W[2];
+            if(std::is_same<T, cl_uint>::value) { // 32
+                W[0] = "0x9E3779B9";
+                if(N == 2) {
+                    M[0] = "0xD256D193";
+                } else {
+                    W[1] = "0xBB67AE85";
+                    M[0] = "0xD2511F53";
+                    M[1] = "0xCD9E8D57";
+                }
+            } else { // 64
+                W[0] = "0x9E3779B97F4A7C15"; // golden ratio
+                if(N == 2) {
+                    M[0] = "0xD2B74407B1CE6E93";
+                } else {
+                    W[1] = "0xBB67AE8584CAA73B"; // sqrt(3)-1
+                    M[0] = "0xD2E7470EE14C6C93";
+                    M[1] = "0xCA5A826395121157";
+                }
+            }
+
+            src.function<void>( name() ).open("(")
+                .template parameter< regstr_ptr<T> >("ctr")
+                .template parameter< regstr_ptr<T> >("key")
+            .close(")").open("{");
+
+            src.new_line() << type_name<T>() << " m[" << N << "];";
+
+#ifdef VEXCL_BACKEND_CUDA
+            src.new_line() << "#define mul_hi __umulhi";
+#endif
+
+            for(size_t round = 0; round < R; ++round) {
+                if(round > 0) { // bump key
+                    for(size_t i = 0; i < K; ++i)
+                        src.new_line() << "key[" << i <<"] += " << W[i] << ";";
+                }
+                // next round
+                if(N == 2) {
+                    src.new_line() << "m[0] = mul_hi(" << M[0] << ", ctr[0]);";
+                    src.new_line() << "m[1] = " << M[0] << " * ctr[0];";
+                    src.new_line() << "ctr[0] = m[0] ^ key[0] ^ ctr[1];";
+                    src.new_line() << "ctr[1] = m[1];";
+                } else {
+                    src.new_line() << "m[0] = mul_hi(" << M[0] << ", ctr[0]);";
+                    src.new_line() << "m[1] = " << M[0] << " * ctr[0];";
+                    src.new_line() << "m[2] = mul_hi(" << M[1] << ", ctr[2]);";
+                    src.new_line() << "m[3] = " << M[1] << " * ctr[2];";
+                    src.new_line() << "ctr[0] = m[2] ^ ctr[1] ^ key[0];";
+                    src.new_line() << "ctr[1] = m[3];";
+                    src.new_line() << "ctr[2] = m[0] ^ ctr[3] ^ key[1];";
+                    src.new_line() << "ctr[3] = m[1];";
+                }
+            }
+
+#ifdef VEXCL_BACKEND_CUDA
+            src.new_line() << "#undef mul_hi";
+#endif
+
+            src.close("}");
+        }
+    };
 };
 
 

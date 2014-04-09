@@ -27,18 +27,255 @@ THE SOFTWARE.
 
 /**
  * \file   vexcl/random.hpp
- * \author Denis Demidov <dennis.demidov@gmail.com>
- * \brief  Backend selector for random number generators.
+ * \author Pascal Germroth <pascal@ensieve.org>
+ * \brief  Random generators for OpenCL.
  */
 
-#include <vexcl/backend.hpp>
+#include <vexcl/operations.hpp>
+#include <boost/math/constants/constants.hpp>
+#include <vexcl/random/philox.hpp>
+#include <vexcl/random/threefry.hpp>
+
+
+namespace vex {
+
+/// A random generator.
+/**
+ * For integral types, generated values span the complete range.
+ * For floating point types, generated values are >= 0 and <= 1.
+ *
+ * Uses Random123 generators which provide 64(2x32), 128(4x32, 2x64)
+ * and 256(4x64) random bits, this limits the supported output types,
+ * which means `cl_double8` (512bit) is not supported, but `cl_uchar2` is.
+ *
+ \code
+ Random<cl_int> rand();
+ // Generate numbers from the same sequence
+ output1 = rand(element_index(), seed1);
+ output2 = rand(element_index(output1.size()), seed1);
+ // Generate a new sequence
+ output3 = rand(element_index(), seed2);
+ \endcode
+ */
+template <class T, class Generator = random::philox>
+struct Random : UserFunction<Random<T, Generator>, T(cl_ulong, cl_ulong)> {
+    static_assert(
+            sizeof(T) == 1  ||
+            sizeof(T) == 2  ||
+            sizeof(T) == 4  ||
+            sizeof(T) == 8  ||
+            sizeof(T) == 16 ||
+            sizeof(T) == 32,
+            "Unsupported random output type."
+            );
+
+    // TODO: parameter should be same size as ctr_t
+    // to allow using full range of the generator.
+    typedef typename cl_scalar_of<T>::type Ts;
+
+    static std::string name() {
+        return "random_" + type_name<T>() + "_" + Generator::name();
+    }
+
+    static void define(backend::source_generator &src) {
+        define( src, name() );
+    }
+
+    static void define(backend::source_generator &src, const std::string &fname)
+    {
+        const size_t N = cl_vector_length<T>::value;
+
+        typedef typename std::conditional<
+                    sizeof(T) < 32, cl_uint, cl_ulong
+                >::type ctr_t;
+
+        const size_t ctr_n = sizeof(T) <= 8 ? 2 : 4;
+
+        typedef typename Generator::template function<ctr_t, ctr_n> generator;
+
+        const size_t key_n = generator::K;
+
+        generator::define(src);
+
+        src.function<T>(fname).open("(")
+            .template parameter<cl_ulong>("prm1")
+            .template parameter<cl_ulong>("prm2")
+        .close(")").open("{");
+
+        src.new_line() << "union ";
+        src.open("{");
+        src.new_line() << type_name<ctr_t>() << " ctr[" << ctr_n << "];";
+        if (std::is_same<Ts, cl_float>::value) {
+            src.new_line()
+                << type_name<cl_uint>() << " res_i[" << N << "];";
+            src.new_line()
+                << type_name<cl_float>() << " res_f[" << N << "];";
+        } else if (std::is_same<Ts, cl_double>::value) {
+            src.new_line()
+                << type_name<cl_ulong>() << " res_i[" << N << "];";
+            src.new_line()
+                << type_name<cl_double>() << " res_f[" << N << "];";
+        }
+        src.new_line() << type_name<T>() << " res;";
+        src.close("} ctr;");
+
+        src.new_line() << type_name<ctr_t>() << " key[" << key_n << "];";
+
+        for(size_t i = 0; i < ctr_n; i += 2)
+            src.new_line()
+                << "ctr.ctr[" << i     << "] = prm1; "
+                << "ctr.ctr[" << i + 1 << "] = prm2;";
+
+        for(size_t i = 0; i < key_n; ++i)
+            src.new_line() << "key[" << i << "] = 0x12345678;";
+
+        src.new_line() << generator::name() << "(ctr.ctr, key);";
+
+        if(std::is_same<Ts, cl_float>::value) {
+            for(size_t i = 0; i < N; ++i)
+                src.new_line()
+                    << "ctr.res_f[" << i << "] = ctr.res_i[" << i
+                    << "] / " << std::numeric_limits<cl_uint>::max()
+                    << ".0f;";
+        } else if (std::is_same<Ts, cl_double>::value) {
+            for(size_t i = 0; i < N; ++i)
+                src.new_line()
+                    << "ctr.res_f[" << i << "] = ctr.res_i[" << i
+                    << "] / " << std::numeric_limits<cl_ulong>::max()
+                    << ".0;";
+        }
+        src.new_line() << "return ctr.res;";
+
+        src.close("}");
+    }
+};
+
+
+/// Returns normal distributed random numbers.
+/**
+ \code
+ RandomNormal<cl_double2> rand();
+ output = mean + std_deviation * rand(element_index(), seed);
+ \endcode
+ */
+template <class T, class Generator = random::philox>
+struct RandomNormal : UserFunction<RandomNormal<T,Generator>, T(cl_ulong, cl_ulong)> {
+    typedef typename cl_scalar_of<T>::type Ts;
+    static_assert(
+            std::is_same<Ts, cl_float>::value ||
+            std::is_same<Ts, cl_double>::value,
+            "Must use float or double vector or scalar."
+            );
+
+    static std::string name() {
+        return "random_normal_" + type_name<T>() + "_" + Generator::name();
+    }
+
+    static void define(backend::source_generator &src) {
+        define( src, name() );
+    }
+
+    static void define(backend::source_generator &src, const std::string &fname)
+    {
+        const size_t N        = cl_vector_length<T>::value;
+        const bool   is_float = std::is_same<Ts, cl_float>::value;
+        const size_t ctr_n    = is_float ? 2 : 4;
+
+        typedef typename Generator::template function<cl_uint, ctr_n> generator;
+
+        const size_t key_n = generator::K;
+
+        generator::define(src);
+
+        src.function<T>(fname).open("(")
+            .template parameter<cl_ulong>("prm1")
+            .template parameter<cl_ulong>("prm2")
+        .close(")").open("{");
+
+        src.new_line() << "union ";
+        src.open("{");
+        src.new_line() << type_name<cl_uint>() << " ctr[" << ctr_n << "];";
+        if (is_float) {
+            src.new_line() << type_name<cl_uint>()  << " res_i[2];";
+        } else {
+            src.new_line() << type_name<cl_ulong>()  << " res_i[2];";
+        }
+        src.close("} ctr;");
+        src.new_line() << type_name<Ts>() << " u[2];";
+
+        src.new_line() << type_name<cl_uint>() << " key[" << key_n << "];";
+
+        for(size_t i = 0; i < ctr_n; i += 2)
+            src.new_line()
+                << "ctr.ctr[" << i     << "] = prm1; "
+                << "ctr.ctr[" << i + 1 << "] = prm2;";
+
+        for(size_t i = 0; i < key_n; ++i)
+            src.new_line() << "key[" << i << "] = 0x12345678;";
+
+        if (N > 1) {
+            src.new_line() << "union ";
+            src.open("{");
+            src.new_line() << type_name<Ts>() << " z[" << N << "];";
+            src.new_line() << type_name<T>() << " v;";
+            src.close("} res;");
+        }
+
+        for(size_t i = 0 ; i < N ; i += 2) {
+            src.new_line() << generator::name() << "(ctr.ctr, key);";
+
+            if(is_float) {
+                for(size_t i = 0; i < 2; ++i)
+                    src.new_line()
+                        << "u[" << i << "] = ctr.res_i[" << i
+                        << "] / " << std::numeric_limits<cl_uint>::max()
+                        << ".0f;";
+            } else {
+                for(size_t i = 0; i < 2; ++i)
+                    src.new_line()
+                        << "u[" << i << "] = ctr.res_i[" << i
+                        << "] / " << std::numeric_limits<cl_ulong>::max()
+                        << ".0;";
+            }
+
+            if(N == 1) {
+                src.new_line()
+                    << "return sqrt(-2 * log(u[0])) * cospi(2 * u[1]);\n";
+            } else {
+                src.open("{");
+
+                src.new_line() << type_name<Ts>()
+                    << " l = sqrt(-2 * log(u[0])), cs, sn;";
 
 #if defined(VEXCL_BACKEND_OPENCL)
-#  include <vexcl/backend/opencl/random.hpp>
-#elif defined(VEXCL_BACKEND_CUDA)
-#  include <vexcl/backend/cuda/random.hpp>
+                src.new_line() << "sn = sincos("
+                    << std::setprecision(16)
+                    << boost::math::constants::two_pi<double>()
+                    << " * u[1], &cs);";
+#elif defined(VEXCL_BACKEND_CUDA) 
+                src.new_line() << "sincospi(2 * u[1], &sn, &cs);";
 #else
-#  error Neither OpenCL nor CUDA backend is selected
+#  error Unsupported backend!
 #endif
+                src.new_line() << "res.z[" << i     << "] = l * cs;";
+                src.new_line() << "res.z[" << i + 1 << "] = l * sn;";
+
+                src.close("}");
+            }
+        }
+
+        if (N > 1)
+            src.new_line() << "return res.v;";
+
+        src.close("}");
+    }
+};
+
+
+
+
+} // namespace vex
+
+
 
 #endif
