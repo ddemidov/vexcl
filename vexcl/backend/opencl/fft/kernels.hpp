@@ -37,7 +37,7 @@ namespace vex {
 namespace fft {
 
 /// \cond INTERNAL
-inline cl::Device qdev(const cl::CommandQueue& q) {
+inline cl::Device qdev(const backend::command_queue& q) {
     cl::Device dev;
     q.getInfo(CL_QUEUE_DEVICE, &dev);
     return dev;
@@ -70,7 +70,9 @@ struct kernel_call {
 
 
 // generates "(prefix vfrom,vfrom+1,...,vto)"
-inline void param_list(std::ostringstream &o, std::string prefix, size_t from, size_t to, size_t step = 1) {
+inline void param_list(backend::source_generator &o,
+        std::string prefix, size_t from, size_t to, size_t step = 1)
+{
     o << '(';
     for(size_t i = from ; i != to ; i += step) {
         if(i != from) o << ", ";
@@ -78,48 +80,56 @@ inline void param_list(std::ostringstream &o, std::string prefix, size_t from, s
     } o << ')';
 }
 
-template <class T>
-inline void kernel_radix(std::ostringstream &o, pow radix, bool invert) {
+template <class T, class T2>
+inline void kernel_radix(backend::source_generator &o, pow radix, bool invert) {
     o << in_place_dft(radix.value, invert);
 
     // kernel.
-    o << "__kernel void radix(__global const real2_t *x, __global real2_t *y, uint p, uint threads) {\n"
-      << "  const size_t i = get_global_id(0);\n"
-      << "  if(i >= threads) return;\n"
-        // index in input sequence, in 0..P-1
-      << "  const size_t k = i % p;\n"
-      << "  const size_t batch_offset = get_global_id(1) * threads * " << radix.value << ";\n";
+    o.kernel("radix").open("(")
+        .template parameter< global_ptr<const T2> >("x")
+        .template parameter< global_ptr<      T2> >("y")
+        .template parameter< cl_uint              >("p")
+        .template parameter< cl_uint              >("threads")
+    .close(")").open("{");
+
+    o.new_line() << "const size_t i = " << o.global_id(0) << ";";
+    o.new_line() << "if(i >= threads) return;";
+
+    // index in input sequence, in 0..P-1
+    o.new_line() << "const size_t k = i % p;";
+    o.new_line() << "const size_t batch_offset = " << o.global_id(1) << " * threads * " << radix.value << ";";
 
     // read
-    o << "  x += i + batch_offset;\n";
-    for(size_t i = 0 ; i < radix.value ; i++)
-        o << "  real2_t v" << i << " = x[" << i << " * threads];\n";
+    o.new_line() << "x += i + batch_offset;";
+    for(size_t i = 0; i < radix.value; ++i)
+        o.new_line() << type_name<T2>() << " v" << i << " = x[" << i << " * threads];";
 
     // twiddle
-    o << "  if(p != 1) {\n";
-    for(size_t i = 1 ; i < radix.value ; i++) {
+    o.new_line() << "if(p != 1)";
+    o.open("{");
+    for(size_t i = 1; i < radix.value; ++i) {
         const T alpha = -boost::math::constants::two_pi<T>() * i / radix.value;
-        o << "    v" << i << " = mul(v" << i << ", twiddle("
-          << "(real_t)" << alpha << " * k / p));\n";
+        o.new_line() << "v" << i << " = mul(v" << i << ", twiddle("
+          << "(" << type_name<T>() << ")" << std::setprecision(16) << alpha << " * k / p));";
     }
-    o << "  }\n";
+    o.close("}");
 
     // inplace DFT
-    o << "  dft" << radix.value;
+    o.new_line() << "dft" << radix.value;
     param_list(o, "&", 0, radix.value);
-    o << ";\n";
+    o << ";";
 
     // write back
-    o << "  const size_t j = k + (i - k) * " << radix.value << ";\n";
-    o << "  y += j + batch_offset;\n";
-    for(size_t i = 0 ; i < radix.value ; i++)
-        o << "  y[" << i << " * p] = v" << i << ";\n";
-    o << "}\n";
+    o.new_line() << "const size_t j = k + (i - k) * " << radix.value << ";";
+    o.new_line() << "y += j + batch_offset;";
+    for(size_t i = 0; i < radix.value; i++)
+        o.new_line() << "y[" << i << " * p] = v" << i << ";";
+    o.close("}");
 }
 
 
 template <class T>
-inline void kernel_common(std::ostringstream &o, const cl::CommandQueue& q) {
+inline void kernel_common(backend::source_generator &o, const backend::command_queue& q) {
 #ifdef VEXCL_BACKEND_OPENCL
     o << "#define DEVICE\n";
 #else
@@ -135,7 +145,7 @@ inline void kernel_common(std::ostringstream &o, const cl::CommandQueue& q) {
     }
 }
 
-inline void mul_code(std::ostringstream &o, bool invert) {
+inline void mul_code(backend::source_generator &o, bool invert) {
     // Return A*B (complex multiplication)
     o << "real2_t mul(real2_t a, real2_t b) {\n";
     if(invert) // conjugate b
@@ -146,7 +156,7 @@ inline void mul_code(std::ostringstream &o, bool invert) {
 }
 
 template <class T>
-inline void twiddle_code(std::ostringstream &o) {
+inline void twiddle_code(backend::source_generator &o) {
     // A * exp(alpha * I) == A  * (cos(alpha) + I * sin(alpha))
     // native_cos(), native_sin() is a *lot* faster than sincos, on nVidia.
     o << "real2_t twiddle(real_t alpha) {\n";
@@ -169,7 +179,7 @@ inline kernel_call radix_kernel(
         const backend::device_vector<T2> &out
         )
 {
-    std::ostringstream o;
+    backend::source_generator o;
     o << std::setprecision(25);
     const auto device = qdev(queue);
     kernel_common<T>(o, queue);
@@ -177,7 +187,7 @@ inline kernel_call radix_kernel(
     twiddle_code<T>(o);
 
     const size_t m = n / radix.value;
-    kernel_radix<T>(o, radix, invert);
+    kernel_radix<T, T2>(o, radix, invert);
 
     auto program = backend::build_sources(queue, o.str(), "-cl-mad-enable -cl-fast-relaxed-math");
     cl::Kernel kernel(program, "radix");
@@ -208,7 +218,7 @@ inline kernel_call transpose_kernel(
         const backend::device_vector<T2> &out
         )
 {
-    std::ostringstream o;
+    backend::source_generator o;
     const auto dev = qdev(queue);
     kernel_common<T>(o, queue);
 
@@ -273,7 +283,7 @@ inline kernel_call bluestein_twiddle(
         const backend::device_vector<T2> &out
         )
 {
-    std::ostringstream o;
+    backend::source_generator o;
     kernel_common<T>(o, queue);
     twiddle_code<T>(o);
 
@@ -300,7 +310,7 @@ inline kernel_call bluestein_pad_kernel(
         const backend::device_vector<T2> &out
         )
 {
-    std::ostringstream o;
+    backend::source_generator o;
     kernel_common<T>(o, queue);
 
     o << "real2_t conj(real2_t v) {\n"
@@ -336,7 +346,7 @@ inline kernel_call bluestein_mul_in(
         const backend::device_vector<T2> &out
         )
 {
-    std::ostringstream o;
+    backend::source_generator o;
     kernel_common<T>(o, queue);
     mul_code(o, false);
     twiddle_code<T>(o);
@@ -393,7 +403,7 @@ inline kernel_call bluestein_mul_out(
         const backend::device_vector<T2> &out
         )
 {
-    std::ostringstream o;
+    backend::source_generator o;
     kernel_common<T>(o, queue);
     mul_code(o, false);
 
@@ -440,7 +450,7 @@ inline kernel_call bluestein_mul(
         const backend::device_vector<T2> &out
         )
 {
-    std::ostringstream o;
+    backend::source_generator o;
     kernel_common<T>(o, queue);
     mul_code(o, false);
 
