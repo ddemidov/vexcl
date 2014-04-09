@@ -167,19 +167,37 @@ inline void mul_code(backend::source_generator &o, bool invert) {
     o.close("}");
 }
 
-template <class T>
+// A * exp(alpha * I) == A  * (cos(alpha) + I * sin(alpha))
+// native_cos(), native_sin() is a *lot* faster than sincos, on nVidia.
+template <class T, class T2>
 inline void twiddle_code(backend::source_generator &o) {
-    // A * exp(alpha * I) == A  * (cos(alpha) + I * sin(alpha))
-    // native_cos(), native_sin() is a *lot* faster than sincos, on nVidia.
-    o << "real2_t twiddle(real_t alpha) {\n";
-    if(std::is_same<T, cl_double>::value)
+    o.function<T2>("twiddle").open("(")
+        .template parameter<T>("alpha")
+    .close(")").open("{");
+
+    if(std::is_same<T, cl_double>::value) {
         // use sincos with double since we probably want higher precision
-        o << "  real_t cs, sn = sincos(alpha, &cs);\n"
-          << "  return (real2_t)(cs, sn);\n";
-    else
+#ifdef VEXCL_BACKEND_OPENCL
+        o.new_line() << type_name<T>() << " cs, sn = sincos(alpha, &cs);";
+#else
+        o.new_line() << type_name<T>() << " sn, cs;";
+        o.new_line() << "sincos(alpha, &sn, &cs);";
+#endif
+        o.new_line() << type_name<T2>() << " r = {cs, sn};";
+    } else {
         // use native with float since we probably want higher performance
-        o << "  return (real2_t)(native_cos(alpha), native_sin(alpha));\n";
-    o << "}\n";
+#ifdef VEXCL_BACKEND_OPENCL
+        o.new_line() << type_name<T2>() << " r = {"
+            "native_cos(alpha), native_sin(alpha)};";
+#else
+        o.new_line() << type_name<T>() << " sn, cs;";
+        o.new_line() << "__sincosf(alpha, &sn, &cs);";
+        o.new_line() << type_name<T2>() << " r = {cs, sn};";
+#endif
+    }
+
+    o.new_line() << "return r;";
+    o.close("}");
 }
 
 
@@ -196,7 +214,7 @@ inline kernel_call radix_kernel(
     const auto device = qdev(queue);
     kernel_common<T>(o, queue);
     mul_code<T2>(o, invert);
-    twiddle_code<T>(o);
+    twiddle_code<T, T2>(o);
 
     const size_t m = n / radix.value;
     kernel_radix<T, T2>(o, radix, invert);
@@ -297,7 +315,7 @@ inline kernel_call bluestein_twiddle(
 {
     backend::source_generator o;
     kernel_common<T>(o, queue);
-    twiddle_code<T>(o);
+    twiddle_code<T, T2>(o);
 
     o << "__kernel void bluestein_twiddle(__global real2_t *output) {\n"
       << "  const size_t x = get_global_id(0), n = get_global_size(0);\n"
@@ -361,7 +379,7 @@ inline kernel_call bluestein_mul_in(
     backend::source_generator o;
     kernel_common<T>(o, queue);
     mul_code<T2>(o, false);
-    twiddle_code<T>(o);
+    twiddle_code<T, T2>(o);
 
     o << "__kernel void bluestein_mul_in("
       << "__global const real2_t *data, __global const real2_t *exp, __global real2_t *output, "
