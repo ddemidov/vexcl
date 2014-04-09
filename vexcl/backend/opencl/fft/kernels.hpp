@@ -262,27 +262,43 @@ inline kernel_call transpose_kernel(
     }
 
     // from NVIDIA SDK.
-    o << "__kernel void transpose("
-      << "__global const real2_t *input, __global real2_t *output, uint width, uint height) {\n"
-      << "  const size_t "
-      << "    global_x = get_global_id(0), global_y = get_global_id(1),\n"
-      << "    local_x = get_local_id(0), local_y = get_local_id(1),\n"
-      << "    group_x = get_group_id(0), group_y = get_group_id(1),\n"
-      << "    block_size = " << block_size << ",\n"
-      << "    target_x = local_y + group_y * block_size,\n"
-      << "    target_y = local_x + group_x * block_size;\n"
-      << "  const bool range = global_x < width && global_y < height;\n"
-        // local memory
-      << "  __local real2_t block[" << (block_size * block_size) << "];\n"
-        // copy from input to local memory
-      << "  if(range)\n"
-      << "    block[local_x + local_y * block_size] = input[global_x + global_y * width];\n"
-        // wait until the whole block is filled
-      << "  barrier(CLK_LOCAL_MEM_FENCE);\n"
-        // transpose local block to target
-      << "  if(range)\n"
-      << "    output[target_x + target_y * height] = block[local_x + local_y * block_size];\n"
-      << "}\n";
+    o.kernel("transpose").open("(")
+        .template parameter< global_ptr<const T2> >("input")
+        .template parameter< global_ptr<      T2> >("output")
+        .template parameter< cl_uint              >("width")
+        .template parameter< cl_uint              >("height")
+    .close(")").open("{");
+
+    o.new_line() << "const size_t global_x = " << o.global_id(0) << ";";
+    o.new_line() << "const size_t global_y = " << o.global_id(1) << ";";
+    o.new_line() << "const size_t local_x  = " << o.local_id(0)  << ";";
+    o.new_line() << "const size_t local_y  = " << o.local_id(1)  << ";";
+    o.new_line() << "const size_t group_x  = " << o.group_id(0)  << ";";
+    o.new_line() << "const size_t group_y  = " << o.group_id(1)  << ";";
+    o.new_line() << "const size_t block_size = " << block_size << ";";
+    o.new_line() << "const size_t target_x = local_y + group_y * block_size;";
+    o.new_line() << "const size_t target_y = local_x + group_x * block_size;";
+    o.new_line() << "const bool range = global_x < width && global_y < height;";
+
+    // local memory
+    {
+        std::ostringstream s;
+        s << "block[" << block_size * block_size << "]";
+        o.smem_static_var(type_name<T2>(), s.str());
+    }
+
+    // copy from input to local memory
+    o.new_line() << "if(range) "
+        << "block[local_x + local_y * block_size] = input[global_x + global_y * width];";
+
+    // wait until the whole block is filled
+    o.new_line() << "barrier(CLK_LOCAL_MEM_FENCE);";
+
+    // transpose local block to target
+    o.new_line() << "if(range) "
+      << "output[target_x + target_y * height] = block[local_x + local_y * block_size];";
+
+    o.close("}");
 
     auto program = backend::build_sources(queue, o.str());
     cl::Kernel kernel(program, "transpose");
