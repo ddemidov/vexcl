@@ -71,12 +71,15 @@ class device_vector {
         typedef CUdeviceptr raw_type;
 
         /// Empty constructor.
-        device_vector() {}
+        device_vector() : n(0) {}
 
         /// Allocates memory buffer on the device associated with the given queue.
-        device_vector(const command_queue &q, size_t n) : n(n) {
+        device_vector(const command_queue &q, size_t n)
+            : ctx(q.context()), n(n)
+        {
+            std::cout << n << std::endl;
             if (n) {
-                q.context().set_current();
+                ctx.set_current();
 
                 CUdeviceptr ptr;
                 cuda_check( cuMemAlloc(&ptr, n * sizeof(T)) );
@@ -89,12 +92,12 @@ class device_vector {
         template <typename H>
         device_vector(const command_queue &q, size_t n,
                 const H *host = 0, mem_flags flags = MEM_READ_WRITE)
-            : n(n)
+            : ctx(q.context()), n(n)
         {
             (void)flags;
 
             if (n) {
-                q.context().set_current();
+                ctx.set_current();
 
                 CUdeviceptr ptr;
                 cuda_check( cuMemAlloc(&ptr, n * sizeof(T)) );
@@ -110,26 +113,31 @@ class device_vector {
             }
         }
 
+        /// Selects correct device before automatic deleter kicks in.
+        ~device_vector() {
+            if (buffer) ctx.set_current();
+        }
+
         /// Copies data from host memory to device.
-        void write(const command_queue &q, size_t offset, size_t size, const T *host,
+        void write(const command_queue&, size_t offset, size_t size, const T *host,
                 bool blocking = false) const
         {
             (void)blocking;
 
             if (size) {
-                q.context().set_current();
+                ctx.set_current();
                 cuda_check( cuMemcpyHtoD(raw() + offset * sizeof(T), host, size * sizeof(T)) );
             }
         }
 
         /// Copies data from device to host memory.
-        void read(const command_queue &q, size_t offset, size_t size, T *host,
+        void read(const command_queue&, size_t offset, size_t size, T *host,
                 bool blocking = false) const
         {
             (void)blocking;
 
             if (size) {
-                q.context().set_current();
+                ctx.set_current();
                 cuda_check( cuMemcpyDtoH(host, raw() + offset * sizeof(T), size * sizeof(T)) );
             }
         }
@@ -187,8 +195,9 @@ class device_vector {
             return reinterpret_cast<T*>(reinterpret_cast<size_t>(buffer.get()));
         }
     private:
-        std::shared_ptr<char> buffer;
+        context ctx;
         size_t n;
+        std::shared_ptr<char> buffer;
 };
 
 } // namespace cuda
