@@ -28,7 +28,7 @@ THE SOFTWARE.
 /**
  * \file   vexcl/random.hpp
  * \author Pascal Germroth <pascal@ensieve.org>
- * \brief  Random generators for OpenCL.
+ * \brief  Random number generators.
  */
 
 #include <vexcl/operations.hpp>

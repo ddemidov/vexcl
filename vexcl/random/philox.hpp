@@ -28,7 +28,7 @@ THE SOFTWARE.
 /**
  * \file   vexcl/random/philox.hpp
  * \author Pascal Germroth <pascal@ensieve.org>
- * \brief  Philox random generator.
+ * \brief  Philox RNG.
 
 Philox is an integer multiplication based, non cryptographic algorithm
 for pseudorandom number generation from the Random123 suite,

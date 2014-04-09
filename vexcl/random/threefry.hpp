@@ -28,7 +28,7 @@ THE SOFTWARE.
 /**
  * \file   vexcl/random/threefry.hpp
  * \author Pascal Germroth <pascal@ensieve.org>
- * \brief  Threefry random generator.
+ * \brief  Threefry RNG.
 
 Threefry, based on the Threefish cipher, is a non cryptographic algorithm
 for pseudorandom number generation from the Random123 suite,
