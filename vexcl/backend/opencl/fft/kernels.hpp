@@ -120,6 +120,11 @@ inline void kernel_radix(std::ostringstream &o, pow radix, bool invert) {
 
 template <class T>
 inline void kernel_common(std::ostringstream &o, const cl::CommandQueue& q) {
+#ifdef VEXCL_BACKEND_OPENCL
+    o << "#define DEVICE\n";
+#else
+    o << "#define DEVICE __device__\n";
+#endif
     if(std::is_same<T, cl_double>::value) {
         o << backend::standard_kernel_header(q)
           << "typedef double real_t;\n"
