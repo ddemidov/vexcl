@@ -77,7 +77,6 @@ class device_vector {
         device_vector(const command_queue &q, size_t n)
             : ctx(q.context()), n(n)
         {
-            std::cout << n << std::endl;
             if (n) {
                 ctx.set_current();
 
