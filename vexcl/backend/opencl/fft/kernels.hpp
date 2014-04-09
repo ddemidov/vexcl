@@ -145,14 +145,26 @@ inline void kernel_common(backend::source_generator &o, const backend::command_q
     }
 }
 
+// Return A*B (complex multiplication)
+template <class T2>
 inline void mul_code(backend::source_generator &o, bool invert) {
-    // Return A*B (complex multiplication)
-    o << "real2_t mul(real2_t a, real2_t b) {\n";
-    if(invert) // conjugate b
-        o << "  return (real2_t)(a.x * b.x + a.y * b.y, a.y * b.x - a.x * b.y);\n";
-    else
-        o << "  return (real2_t)(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x);\n";
-    o << "}\n";
+    o.function<T2>("mul").open("(")
+        .template parameter<T2>("a")
+        .template parameter<T2>("b")
+    .close(")").open("{");
+
+    if(invert) { // conjugate b
+        o.new_line() << type_name<T2>() << " r = {"
+            "a.x * b.x + a.y * b.y, "
+            "a.y * b.x - a.x * b.y};";
+    } else {
+        o.new_line() << type_name<T2>() << " r = {"
+            "a.x * b.x - a.y * b.y, "
+            "a.y * b.x + a.x * b.y};";
+    }
+
+    o.new_line() << "return r;";
+    o.close("}");
 }
 
 template <class T>
@@ -183,7 +195,7 @@ inline kernel_call radix_kernel(
     o << std::setprecision(25);
     const auto device = qdev(queue);
     kernel_common<T>(o, queue);
-    mul_code(o, invert);
+    mul_code<T2>(o, invert);
     twiddle_code<T>(o);
 
     const size_t m = n / radix.value;
@@ -348,7 +360,7 @@ inline kernel_call bluestein_mul_in(
 {
     backend::source_generator o;
     kernel_common<T>(o, queue);
-    mul_code(o, false);
+    mul_code<T2>(o, false);
     twiddle_code<T>(o);
 
     o << "__kernel void bluestein_mul_in("
@@ -405,7 +417,7 @@ inline kernel_call bluestein_mul_out(
 {
     backend::source_generator o;
     kernel_common<T>(o, queue);
-    mul_code(o, false);
+    mul_code<T2>(o, false);
 
     o << "__kernel void bluestein_mul_out("
       << "__global const real2_t *data, __global const real2_t *exp, __global real2_t *output, "
@@ -452,7 +464,7 @@ inline kernel_call bluestein_mul(
 {
     backend::source_generator o;
     kernel_common<T>(o, queue);
-    mul_code(o, false);
+    mul_code<T2>(o, false);
 
     o << "__kernel void bluestein_mul("
       << "__global const real2_t *data, __global const real2_t *exp, __global real2_t *output, uint stride) {\n"
