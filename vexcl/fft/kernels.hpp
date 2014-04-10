@@ -73,54 +73,6 @@ inline void param_list(backend::source_generator &o,
     } o << ')';
 }
 
-template <class T, class T2>
-inline void kernel_radix(backend::source_generator &o, pow radix, bool invert) {
-    o << in_place_dft(radix.value, invert);
-
-    // kernel.
-    o.kernel("radix").open("(")
-        .template parameter< global_ptr<const T2> >("x")
-        .template parameter< global_ptr<      T2> >("y")
-        .template parameter< cl_uint              >("p")
-        .template parameter< cl_uint              >("threads")
-    .close(")").open("{");
-
-    o.new_line() << "const size_t i = " << o.global_id(0) << ";";
-    o.new_line() << "if(i >= threads) return;";
-
-    // index in input sequence, in 0..P-1
-    o.new_line() << "const size_t k = i % p;";
-    o.new_line() << "const size_t batch_offset = " << o.global_id(1) << " * threads * " << radix.value << ";";
-
-    // read
-    o.new_line() << "x += i + batch_offset;";
-    for(size_t i = 0; i < radix.value; ++i)
-        o.new_line() << type_name<T2>() << " v" << i << " = x[" << i << " * threads];";
-
-    // twiddle
-    o.new_line() << "if(p != 1)";
-    o.open("{");
-    for(size_t i = 1; i < radix.value; ++i) {
-        const T alpha = -boost::math::constants::two_pi<T>() * i / radix.value;
-        o.new_line() << "v" << i << " = mul(v" << i << ", twiddle("
-          << "(" << type_name<T>() << ")" << std::setprecision(16) << alpha << " * k / p));";
-    }
-    o.close("}");
-
-    // inplace DFT
-    o.new_line() << "dft" << radix.value;
-    param_list(o, "&", 0, radix.value);
-    o << ";";
-
-    // write back
-    o.new_line() << "const size_t j = k + (i - k) * " << radix.value << ";";
-    o.new_line() << "y += j + batch_offset;";
-    for(size_t i = 0; i < radix.value; i++)
-        o.new_line() << "y[" << i << " * p] = v" << i << ";";
-    o.close("}");
-}
-
-
 template <class T>
 inline void kernel_common(backend::source_generator &o, const backend::command_queue& q) {
 #ifdef VEXCL_BACKEND_OPENCL
@@ -209,7 +161,47 @@ inline kernel_call radix_kernel(
     twiddle_code<T, T2>(o);
 
     const size_t m = n / radix.value;
-    kernel_radix<T, T2>(o, radix, invert);
+
+    o << in_place_dft(radix.value, invert);
+
+    // kernel.
+    o.kernel("radix").open("(")
+        .template parameter< global_ptr<const T2> >("x")
+        .template parameter< global_ptr<      T2> >("y")
+    .close(")").open("{");
+
+    o.new_line() << "const size_t i = " << o.global_id(0) << ";";
+    o.new_line() << "if(i >= " << m << ") return;";
+
+    // index in input sequence, in 0..P-1
+    o.new_line() << "const size_t k = i % " << p << ";";
+    o.new_line() << "const size_t batch_offset = " << o.global_id(1) << " * " << m * radix.value << ";";
+
+    // read
+    o.new_line() << "x += i + batch_offset;";
+    for(size_t i = 0; i < radix.value; ++i)
+        o.new_line() << type_name<T2>() << " v" << i << " = x[" << i * m << "];";
+
+    // twiddle
+    if(p != 1) {
+        for(size_t i = 1; i < radix.value; ++i) {
+            const T alpha = -boost::math::constants::two_pi<T>() * i / radix.value;
+            o.new_line() << "v" << i << " = mul(v" << i << ", twiddle("
+                << "(" << type_name<T>() << ")" << std::setprecision(16) << alpha << " * k / " << p << "));";
+        }
+    }
+
+    // inplace DFT
+    o.new_line() << "dft" << radix.value;
+    param_list(o, "&", 0, radix.value);
+    o << ";";
+
+    // write back
+    o.new_line() << "const size_t j = k + (i - k) * " << radix.value << ";";
+    o.new_line() << "y += j + batch_offset;";
+    for(size_t i = 0; i < radix.value; i++)
+        o.new_line() << "y[" << i * p << "] = v" << i << ";";
+    o.close("}");
 
     backend::kernel kernel(queue, o.str(), "radix", 0,
 #ifdef VEXCL_BACKEND_OPENCL
@@ -221,8 +213,6 @@ inline kernel_call radix_kernel(
 
     kernel.push_arg(in);
     kernel.push_arg(out);
-    kernel.push_arg(static_cast<cl_uint>(p));
-    kernel.push_arg(static_cast<cl_uint>(m));
 
     const size_t wg_mul = kernel.preferred_work_group_size_multiple(queue);
     //const size_t max_cu = device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>();
@@ -270,8 +260,6 @@ inline kernel_call transpose_kernel(
     o.kernel("transpose").open("(")
         .template parameter< global_ptr<const T2> >("input")
         .template parameter< global_ptr<      T2> >("output")
-        .template parameter< cl_uint              >("width")
-        .template parameter< cl_uint              >("height")
     .close(")").open("{");
 
     o.new_line() << "const size_t global_x = " << o.global_id(0) << ";";
@@ -282,7 +270,7 @@ inline kernel_call transpose_kernel(
     o.new_line() << "const size_t group_y  = " << o.group_id(1)  << ";";
     o.new_line() << "const size_t target_x = local_y + group_y * " << block_size << ";";
     o.new_line() << "const size_t target_y = local_x + group_x * " << block_size << ";";
-    o.new_line() << "const bool range = global_x < width && global_y < height;";
+    o.new_line() << "const bool range = global_x < " << width << " && global_y < " << height << ";";
 
     // local memory
     {
@@ -293,14 +281,14 @@ inline kernel_call transpose_kernel(
 
     // copy from input to local memory
     o.new_line() << "if(range) "
-        << "block[local_x + local_y * " << block_size << "] = input[global_x + global_y * width];";
+        << "block[local_x + local_y * " << block_size << "] = input[global_x + global_y * " << width << "];";
 
     // wait until the whole block is filled
     o.new_line().barrier();
 
     // transpose local block to target
     o.new_line() << "if(range) "
-      << "output[target_x + target_y * height] = block[local_x + local_y * " << block_size << "];";
+      << "output[target_x + target_y * " << height << "] = block[local_x + local_y * " << block_size << "];";
 
     o.close("}");
 
@@ -308,8 +296,6 @@ inline kernel_call transpose_kernel(
 
     kernel.push_arg(in);
     kernel.push_arg(out);
-    kernel.push_arg(static_cast<cl_uint>(width));
-    kernel.push_arg(static_cast<cl_uint>(height));
 
     // range multiple of wg size, last block maybe not completely filled.
     size_t r_w = (width  + block_size - 1) / block_size;
@@ -339,22 +325,20 @@ inline kernel_call bluestein_twiddle(
     twiddle_code<T, T2>(o);
 
     o.kernel("bluestein_twiddle").open("(")
-        .template parameter< size_t         >("n")
         .template parameter< global_ptr<T2> >("output")
     .close(")").open("{");
 
     o.new_line() << "const size_t x = " << o.global_id(0) << ";";
 
-    o.new_line() << "const size_t xx = ((ulong)x * x) % (2 * n);";
-    o.new_line() << "if (x < n) output[x] = twiddle("
+    o.new_line() << "const size_t xx = ((ulong)x * x) % " << 2 * n << ";";
+    o.new_line() << "if (x < " << n << ") output[x] = twiddle("
         << std::setprecision(16)
         << (inverse ? 1 : -1) * boost::math::constants::pi<T>()
-        << " * xx / n);";
+        << " * xx / " << n << ");";
 
     o.close("}");
 
     backend::kernel kernel(queue, o.str(), "bluestein_twiddle");
-    kernel.push_arg(n);
     kernel.push_arg(out);
 
     size_t ws = kernel.preferred_work_group_size_multiple(queue);
@@ -387,15 +371,13 @@ inline kernel_call bluestein_pad_kernel(
     o.kernel("bluestein_pad_kernel").open("(")
         .template parameter< global_ptr<const T2> >("input")
         .template parameter< global_ptr<      T2> >("output")
-        .template parameter< cl_uint              >("n")
-        .template parameter< cl_uint              >("m")
     .close(")").open("{");
     o.new_line() << "const size_t x = " << o.global_id(0) << ";";
-    o.new_line() << "if (x < m)";
+    o.new_line() << "if (x < " << m << ")";
     o.open("{");
-    o.new_line() << "if(x < n || m - x < n)";
+    o.new_line() << "if(x < " << n << " || " << m << " - x < " << n << ")";
     o.open("{");
-    o.new_line() << "output[x] = conj(input[min(x, m - x)]);";
+    o.new_line() << "output[x] = conj(input[min(x, " << m << " - x)]);";
     o.close("}");
     o.new_line() << "else";
     o.open("{");
@@ -408,8 +390,6 @@ inline kernel_call bluestein_pad_kernel(
     backend::kernel kernel(queue, o.str(), "bluestein_pad_kernel");
     kernel.push_arg(in);
     kernel.push_arg(out);
-    kernel.push_arg(static_cast<cl_uint>(n));
-    kernel.push_arg(static_cast<cl_uint>(m));
 
     size_t ws = kernel.preferred_work_group_size_multiple(queue);
     size_t gs = (m + ws - 1) / ws;
@@ -439,9 +419,6 @@ inline kernel_call bluestein_mul_in(
         .template parameter< global_ptr<const T2> >("data")
         .template parameter< global_ptr<const T2> >("exp")
         .template parameter< global_ptr<      T2> >("output")
-        .template parameter< cl_uint              >("radix")
-        .template parameter< cl_uint              >("p")
-        .template parameter< cl_uint              >("out_stride")
     .close(")").open("{");
 
     o.new_line() << "const size_t thread  = " << o.global_id(0)   << ";";
@@ -449,27 +426,25 @@ inline kernel_call bluestein_mul_in(
     o.new_line() << "const size_t batch   = " << o.global_id(1)   << ";";
     o.new_line() << "const size_t element = " << o.global_id(2)   << ";";
 
-    o.new_line() << "if(element < out_stride)";
+    o.new_line() << "if(element < " << stride << ")";
     o.open("{");
 
-    o.new_line() << "const size_t in_off  = thread + batch * radix * threads + element * threads;";
-    o.new_line() << "const size_t out_off = thread * out_stride + batch * out_stride * threads + element;";
+    o.new_line() << "const size_t in_off  = thread + batch * " << radix << " * threads + element * threads;";
+    o.new_line() << "const size_t out_off = thread * " << stride << " + batch * " << stride << " * threads + element;";
 
-    o.new_line() << "if(element < radix)";
+    o.new_line() << "if(element < " << radix << ")";
     o.open("{");
 
     o.new_line() << type_name<T2>() << " w = exp[element];";
 
-    o.new_line() << "if(p != 1)";
-    o.open("{");
-
-    o.new_line() << "ulong a = (ulong)element * (thread % p);";
-    o.new_line() << "ulong b = (ulong)radix * p;";
-    o.new_line() << type_name<T2>() << " t = twiddle(" << std::setprecision(16)
-        << (inverse ? 1 : -1) * boost::math::constants::two_pi<T>()
-        << " * (a % (2 * b)) / b);";
-    o.new_line() << "w = mul(w, t);";
-    o.close("}");
+    if(p != 1) {
+        o.new_line() << "ulong a = (ulong)element * (thread % " << p << ");";
+        o.new_line() << "ulong b = " << radix * p << ";";
+        o.new_line() << type_name<T2>() << " t = twiddle(" << std::setprecision(16)
+            << (inverse ? 1 : -1) * boost::math::constants::two_pi<T>()
+            << " * (a % (2 * b)) / b);";
+        o.new_line() << "w = mul(w, t);";
+    }
 
     o.new_line() << "output[out_off] = mul(data[in_off], w);";
 
@@ -488,9 +463,6 @@ inline kernel_call bluestein_mul_in(
     kernel.push_arg(data);
     kernel.push_arg(exp);
     kernel.push_arg(out);
-    kernel.push_arg(static_cast<cl_uint>(radix));
-    kernel.push_arg(static_cast<cl_uint>(p));
-    kernel.push_arg(static_cast<cl_uint>(stride));
 
     const size_t wg = kernel.preferred_work_group_size_multiple(queue);
     const size_t stride_pad = (stride + wg - 1) / wg;
@@ -522,10 +494,6 @@ inline kernel_call bluestein_mul_out(
         .template parameter< global_ptr<const T2> >("data")
         .template parameter< global_ptr<const T2> >("exp")
         .template parameter< global_ptr<      T2> >("output")
-        .template parameter< T                    >("div")
-        .template parameter< cl_uint              >("p")
-        .template parameter< cl_uint              >("in_stride")
-        .template parameter< cl_uint              >("radix")
     .close(")").open("{");
 
     o.new_line() << "const size_t i = " << o.global_id(0) << ";";
@@ -533,15 +501,15 @@ inline kernel_call bluestein_mul_out(
     o.new_line() << "const size_t b = " << o.global_id(1) << ";";
     o.new_line() << "const size_t l = " << o.global_id(2) << ";";
 
-    o.new_line() << "if(l < radix)";
+    o.new_line() << "if(l < " << radix << ")";
     o.open("{");
 
-    o.new_line() << "const size_t k = i % p;";
-    o.new_line() << "const size_t j = k + (i - k) * radix;";
-    o.new_line() << "const size_t in_off = i * in_stride + b * in_stride * threads + l;";
-    o.new_line() << "const size_t out_off = j + b * threads * radix + l * p;";
+    o.new_line() << "const size_t k = i % " << p << ";";
+    o.new_line() << "const size_t j = k + (i - k) * " << radix << ";";
+    o.new_line() << "const size_t in_off = i * " << stride << " + b * " << stride << " * threads + l;";
+    o.new_line() << "const size_t out_off = j + b * threads * " << radix << " + l * " << p << ";";
 
-    o.new_line() << "output[out_off] = mul(data[in_off] * div, exp[l]);";
+    o.new_line() << "output[out_off] = mul(data[in_off] / " << stride << ", exp[l]);";
 
     o.close("}");
     o.close("}");
@@ -550,10 +518,6 @@ inline kernel_call bluestein_mul_out(
     kernel.push_arg(data);
     kernel.push_arg(exp);
     kernel.push_arg(out);
-    kernel.push_arg(static_cast<T>(1.0 / stride));
-    kernel.push_arg(static_cast<cl_uint>(p));
-    kernel.push_arg(static_cast<cl_uint>(stride));
-    kernel.push_arg(static_cast<cl_uint>(radix));
 
     const size_t wg = kernel.preferred_work_group_size_multiple(queue);
     const size_t radix_pad = (radix + wg - 1) / wg;
@@ -584,16 +548,15 @@ inline kernel_call bluestein_mul(
         .template parameter< global_ptr<const T2> >("data")
         .template parameter< global_ptr<const T2> >("exp")
         .template parameter< global_ptr<      T2> >("output")
-        .template parameter< cl_uint              >("stride")
     .close(")").open("{");
 
     o.new_line() << "const size_t x = " << o.global_id(0) << ";";
     o.new_line() << "const size_t y = " << o.global_id(1) << ";";
 
-    o.new_line() << "if(x < stride)";
+    o.new_line() << "if(x < " << n << ")";
     o.open("{");
 
-    o.new_line() << "const size_t off = x + stride * y;";
+    o.new_line() << "const size_t off = x + " << n << " * y;";
     o.new_line() << "output[off] = mul(data[off], exp[x]);";
 
     o.close("}");
@@ -603,7 +566,6 @@ inline kernel_call bluestein_mul(
     kernel.push_arg(data);
     kernel.push_arg(exp);
     kernel.push_arg(out);
-    kernel.push_arg(static_cast<cl_uint>(n));
 
     const size_t wg = kernel.preferred_work_group_size_multiple(queue);
     const size_t threads = (n + wg - 1) / wg;
