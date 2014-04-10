@@ -50,6 +50,7 @@ typedef cl::Device                  device;
 typedef cl::CommandQueue            command_queue;
 typedef cl_command_queue_properties command_queue_properties;
 typedef cl_device_id                device_id;
+typedef cl::NDRange                 ndrange;
 
 /// Binds the specified context to the calling CPU thread.
 /**

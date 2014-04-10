@@ -249,6 +249,13 @@ inline device_id get_device_id(const command_queue &q) {
     return q.device().raw();
 }
 
+/// Launch grid size.
+struct ndrange {
+    unsigned x, y, z;
+    ndrange(unsigned x = 1, unsigned y = 1, unsigned z = 1)
+        : x(x), y(y), z(z) {}
+};
+
 /// \cond INTERNAL
 /// A unique context id that is used for online kernel caching.
 typedef CUcontext kernel_cache_key;

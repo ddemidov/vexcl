@@ -89,14 +89,14 @@ class kernel {
 
         /// Adds local memory to the kernel.
         void set_smem(size_t smem_per_thread) {
-            cl::LocalSpaceArg smem = { smem_per_thread * w_size };
+            cl::LocalSpaceArg smem = { smem_per_thread * workgroup_size() };
             K.setArg(argpos++, smem);
         }
 
         /// Adds local memory to the kernel.
         template <class F>
         void set_smem(F &&f) {
-            cl::LocalSpaceArg smem = { f(w_size) };
+            cl::LocalSpaceArg smem = { f(workgroup_size()) };
             K.setArg(argpos++, smem);
         }
 
@@ -118,7 +118,10 @@ class kernel {
 
         /// Workgroup size.
         size_t workgroup_size() const {
-            return w_size;
+            size_t threads = 1;
+            for(size_t i = 0; i < w_size.dimensions(); ++i)
+                threads *= static_cast<const size_t*>(w_size)[i];
+            return threads;
         }
 
         /// Standard number of workgroups to launch on a device.
@@ -147,26 +150,45 @@ class kernel {
         void config(const cl::CommandQueue &queue, std::function<size_t(size_t)> smem) {
             cl::Device dev = queue.getInfo<CL_QUEUE_DEVICE>();
 
+            size_t ws;
+
             if ( is_cpu(queue) ) {
-                w_size = 1;
+                ws = 1;
             } else {
                 // Select workgroup size that would fit into the device.
-                w_size = dev.getInfo<CL_DEVICE_MAX_WORK_ITEM_SIZES>()[0] / 2;
+                ws = dev.getInfo<CL_DEVICE_MAX_WORK_ITEM_SIZES>()[0] / 2;
 
                 size_t max_ws   = max_threads_per_block(queue);
                 size_t max_smem = max_shared_memory_per_block(queue);
 
                 // Reduce workgroup size until it satisfies resource requirements:
-                while( (w_size > max_ws) || (smem(w_size) > max_smem) )
-                    w_size /= 2;
+                while( (ws > max_ws) || (smem(ws) > max_smem) )
+                    ws /= 2;
             }
 
-            g_size = w_size * num_workgroups(queue);
+            config(num_workgroups(queue), ws);
         }
 
         /// Set launch configuration.
-        void config(size_t blocks, size_t threads) {
-            g_size = blocks * threads;
+        void config(ndrange blocks, ndrange threads) {
+            size_t dim = std::max(blocks.dimensions(), threads.dimensions());
+
+            const size_t *b = blocks;
+            const size_t *t = threads;
+
+            switch(dim) {
+                case 3:
+                    g_size = ndrange(b[0] * t[0], b[1] * t[1], b[2] * t[2]);
+                    break;
+                case 2:
+                    g_size = ndrange(b[0] * t[0], b[1] * t[1]);
+                    break;
+                case 1:
+                default:
+                    g_size = ndrange(b[0] * t[0]);
+                    break;
+            }
+
             w_size = threads;
         }
 
@@ -180,8 +202,8 @@ class kernel {
 
         cl::Kernel K;
 
-        size_t   w_size;
-        size_t   g_size;
+        backend::ndrange w_size;
+        backend::ndrange g_size;
 };
 
 /// \endcond
