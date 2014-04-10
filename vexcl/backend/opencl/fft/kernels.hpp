@@ -60,12 +60,11 @@ struct kernel_call {
     bool once;
     size_t count;
     std::string desc;
-    cl::Program program;
-    cl::Kernel kernel;
-    cl::NDRange global, local;
-    kernel_call(bool o, std::string d, cl::Program p, cl::Kernel k, cl::NDRange g, cl::NDRange l) : once(o), count(0), desc(d), program(p), kernel(k), global(g), local(l) {}
+    backend::kernel kernel;
+    kernel_call(bool o, std::string d, backend::kernel k)
+        : once(o), count(0), desc(d), kernel(k)
+    {}
 };
-
 
 
 
@@ -219,25 +218,33 @@ inline kernel_call radix_kernel(
     const size_t m = n / radix.value;
     kernel_radix<T, T2>(o, radix, invert);
 
-    auto program = backend::build_sources(queue, o.str(), "-cl-mad-enable -cl-fast-relaxed-math");
-    cl::Kernel kernel(program, "radix");
-    kernel.setArg(0, in);
-    kernel.setArg(1, out);
-    kernel.setArg(2, static_cast<cl_uint>(p));
-    kernel.setArg(3, static_cast<cl_uint>(m));
+    backend::kernel kernel(queue, o.str(), "radix", 0,
+#ifdef VEXCL_BACKEND_OPENCL
+            "-cl-mad-enable -cl-fast-relaxed-math"
+#else
+            "--use_fast_math"
+#endif
+            );
 
-    const size_t wg_mul = kernel.getWorkGroupInfo<CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE>(device);
+    kernel.push_arg(in);
+    kernel.push_arg(out);
+    kernel.push_arg(static_cast<cl_uint>(p));
+    kernel.push_arg(static_cast<cl_uint>(m));
+
+    const size_t wg_mul = kernel.preferred_work_group_size_multiple(queue);
     //const size_t max_cu = device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>();
     //const size_t max_wg = device.getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>();
     size_t wg = wg_mul;
     //while(wg * max_cu < max_wg) wg += wg_mul;
     //wg -= wg_mul;
-    const size_t threads = alignup(m, wg);
+    const size_t threads = (m + wg - 1) / wg;
+
+    kernel.config(backend::ndrange(threads, batch), backend::ndrange(wg, 1));
 
     std::ostringstream desc;
     desc << "dft{r=" << radix << ", p=" << p << ", n=" << n << ", batch=" << batch << ", threads=" << m << "(" << threads << "), wg=" << wg << "}";
 
-    return kernel_call(once, desc.str(), program, kernel, cl::NDRange(threads, batch), cl::NDRange(wg, 1));
+    return kernel_call(once, desc.str(), kernel);
 }
 
 
@@ -300,16 +307,18 @@ inline kernel_call transpose_kernel(
 
     o.close("}");
 
-    auto program = backend::build_sources(queue, o.str());
-    cl::Kernel kernel(program, "transpose");
-    kernel.setArg(0, in);
-    kernel.setArg(1, out);
-    kernel.setArg(2, static_cast<cl_uint>(width));
-    kernel.setArg(3, static_cast<cl_uint>(height));
+    backend::kernel kernel(queue, o.str(), "transpose");
+
+    kernel.push_arg(in);
+    kernel.push_arg(out);
+    kernel.push_arg(static_cast<cl_uint>(width));
+    kernel.push_arg(static_cast<cl_uint>(height));
 
     // range multiple of wg size, last block maybe not completely filled.
-    size_t r_w = alignup(width, block_size);
-    size_t r_h = alignup(height, block_size);
+    size_t r_w = (width  + block_size - 1) / block_size;
+    size_t r_h = (height + block_size - 1) / block_size;
+
+    kernel.config(backend::ndrange(r_w, r_h), backend::ndrange(block_size, block_size));
 
     std::ostringstream desc;
     desc << "transpose{"
@@ -317,8 +326,7 @@ inline kernel_call transpose_kernel(
          << "h=" << height << "(" << r_h << "), "
          << "bs=" << block_size << "}";
 
-    return kernel_call(false, desc.str(), program, kernel, cl::NDRange(r_w, r_h),
-        cl::NDRange(block_size, block_size));
+    return kernel_call(false, desc.str(), kernel);
 }
 
 
@@ -334,26 +342,32 @@ inline kernel_call bluestein_twiddle(
     twiddle_code<T, T2>(o);
 
     o.kernel("bluestein_twiddle").open("(")
+        .template parameter< size_t         >("n")
         .template parameter< global_ptr<T2> >("output")
     .close(")").open("{");
 
     o.new_line() << "const size_t x = " << o.global_id(0) << ";";
-    o.new_line() << "const size_t n = " << o.global_size(0) << ";";
 
     o.new_line() << "const size_t xx = ((ulong)x * x) % (2 * n);";
-    o.new_line() << "output[x] = twiddle(" << std::setprecision(16)
+    o.new_line() << "if (x < n) output[x] = twiddle("
+        << std::setprecision(16)
         << (inverse ? 1 : -1) * boost::math::constants::pi<T>()
         << " * xx / n);";
 
     o.close("}");
 
-    auto program = backend::build_sources(queue, o.str());
-    cl::Kernel kernel(program, "bluestein_twiddle");
-    kernel.setArg(0, out);
+    backend::kernel kernel(queue, o.str(), "bluestein_twiddle");
+    kernel.push_arg(n);
+    kernel.push_arg(out);
+
+    size_t ws = kernel.preferred_work_group_size_multiple(queue);
+    size_t gs = (n + ws - 1) / ws;
+
+    kernel.config(gs, ws);
 
     std::ostringstream desc;
     desc << "bluestein_twiddle{n=" << n << ", inverse=" << inverse << "}";
-    return kernel_call(true, desc.str(), program, kernel, cl::NDRange(n), cl::NullRange);
+    return kernel_call(true, desc.str(), kernel);
 }
 
 template <class T, class T2>
@@ -380,23 +394,34 @@ inline kernel_call bluestein_pad_kernel(
         .template parameter< cl_uint              >("m")
     .close(")").open("{");
     o.new_line() << "const size_t x = " << o.global_id(0) << ";";
+    o.new_line() << "if (x < m)";
+    o.open("{");
     o.new_line() << "if(x < n || m - x < n)";
-    o.open("{").new_line()  << "output[x] = conj(input[min(x, m - x)]);";
-    o.close("}").new_line() << "else";
-    o.open("{").new_line()  << type_name<T2>() << " r = {0,0};";
+    o.open("{");
+    o.new_line() << "output[x] = conj(input[min(x, m - x)]);";
+    o.close("}");
+    o.new_line() << "else";
+    o.open("{");
+    o.new_line() << type_name<T2>() << " r = {0,0};";
     o.new_line() << "output[x] = r;";
-    o.close("}").close("}");
+    o.close("}");
+    o.close("}");
+    o.close("}");
 
-    auto program = backend::build_sources(queue, o.str());
-    cl::Kernel kernel(program, "bluestein_pad_kernel");
-    kernel.setArg(0, in);
-    kernel.setArg(1, out);
-    kernel.setArg(2, static_cast<cl_uint>(n));
-    kernel.setArg(3, static_cast<cl_uint>(m));
+    backend::kernel kernel(queue, o.str(), "bluestein_pad_kernel");
+    kernel.push_arg(in);
+    kernel.push_arg(out);
+    kernel.push_arg(static_cast<cl_uint>(n));
+    kernel.push_arg(static_cast<cl_uint>(m));
+
+    size_t ws = kernel.preferred_work_group_size_multiple(queue);
+    size_t gs = (m + ws - 1) / ws;
+
+    kernel.config(gs, ws);
 
     std::ostringstream desc;
     desc << "bluestein_pad_kernel{n=" << n << ", m=" << m << "}";
-    return kernel_call(true, desc.str(), program, kernel, cl::NDRange(m), cl::NullRange);
+    return kernel_call(true, desc.str(), kernel);
 }
 
 template <class T, class T2>
@@ -462,21 +487,25 @@ inline kernel_call bluestein_mul_in(
     o.close("}");
     o.close("}");
 
-    auto program = backend::build_sources(queue, o.str());
-    cl::Kernel kernel(program, "bluestein_mul_in");
-    kernel.setArg(0, data);
-    kernel.setArg(1, exp);
-    kernel.setArg(2, out);
-    kernel.setArg(3, static_cast<cl_uint>(radix));
-    kernel.setArg(4, static_cast<cl_uint>(p));
-    kernel.setArg(5, static_cast<cl_uint>(stride));
+    backend::kernel kernel(queue, o.str(), "bluestein_mul_in");
+    kernel.push_arg(data);
+    kernel.push_arg(exp);
+    kernel.push_arg(out);
+    kernel.push_arg(static_cast<cl_uint>(radix));
+    kernel.push_arg(static_cast<cl_uint>(p));
+    kernel.push_arg(static_cast<cl_uint>(stride));
 
-    const size_t wg = kernel.getWorkGroupInfo<CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE>(qdev(queue));
-    const size_t stride_pad = alignup(stride, wg);
+    const size_t wg = kernel.preferred_work_group_size_multiple(queue);
+    const size_t stride_pad = (stride + wg - 1) / wg;
+
+    kernel.config(
+            backend::ndrange(threads, batch, stride_pad),
+            backend::ndrange(      1,     1,         wg)
+            );
 
     std::ostringstream desc;
     desc << "bluestein_mul_in{batch=" << batch << ", radix=" << radix << ", p=" << p << ", threads=" << threads << ", stride=" << stride << "(" << stride_pad << "), wg=" << wg << "}";
-    return kernel_call(false, desc.str(), program, kernel, cl::NDRange(threads, batch, stride_pad), cl::NDRange(1, 1, wg));
+    return kernel_call(false, desc.str(), kernel);
 }
 
 template <class T, class T2>
@@ -520,22 +549,26 @@ inline kernel_call bluestein_mul_out(
     o.close("}");
     o.close("}");
 
-    auto program = backend::build_sources(queue, o.str());
-    cl::Kernel kernel(program, "bluestein_mul_out");
-    kernel.setArg(0, data);
-    kernel.setArg(1, exp);
-    kernel.setArg(2, out);
-    kernel.setArg<T>(3, static_cast<T>(1) / stride);
-    kernel.setArg(4, static_cast<cl_uint>(p));
-    kernel.setArg(5, static_cast<cl_uint>(stride));
-    kernel.setArg(6, static_cast<cl_uint>(radix));
+    backend::kernel kernel(queue, o.str(), "bluestein_mul_out");
+    kernel.push_arg(data);
+    kernel.push_arg(exp);
+    kernel.push_arg(out);
+    kernel.push_arg(static_cast<T>(1.0 / stride));
+    kernel.push_arg(static_cast<cl_uint>(p));
+    kernel.push_arg(static_cast<cl_uint>(stride));
+    kernel.push_arg(static_cast<cl_uint>(radix));
 
-    const size_t wg = kernel.getWorkGroupInfo<CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE>(qdev(queue));
-    const size_t radix_pad = alignup(radix, wg);
+    const size_t wg = kernel.preferred_work_group_size_multiple(queue);
+    const size_t radix_pad = (radix + wg - 1) / wg;
+
+    kernel.config(
+            backend::ndrange(threads, batch, radix_pad),
+            backend::ndrange(      1,     1,        wg)
+            );
 
     std::ostringstream desc;
     desc << "bluestein_mul_out{r=" << radix << "(" << radix_pad << "), wg=" << wg << ", batch=" << batch << ", p=" << p << ", thr=" << threads << ", stride=" << stride << "}";
-    return kernel_call(false, desc.str(), program, kernel, cl::NDRange(threads, batch, radix_pad), cl::NDRange(1, 1, wg));
+    return kernel_call(false, desc.str(), kernel);
 }
 
 template <class T, class T2>
@@ -569,19 +602,20 @@ inline kernel_call bluestein_mul(
     o.close("}");
     o.close("}");
 
-    auto program = backend::build_sources(queue, o.str());
-    cl::Kernel kernel(program, "bluestein_mul");
-    kernel.setArg(0, data);
-    kernel.setArg(1, exp);
-    kernel.setArg(2, out);
-    kernel.setArg(3, static_cast<cl_uint>(n));
+    backend::kernel kernel(queue, o.str(), "bluestein_mul");
+    kernel.push_arg(data);
+    kernel.push_arg(exp);
+    kernel.push_arg(out);
+    kernel.push_arg(static_cast<cl_uint>(n));
 
-    const size_t wg = kernel.getWorkGroupInfo<CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE>(qdev(queue));
-    const size_t threads = alignup(n, wg);
+    const size_t wg = kernel.preferred_work_group_size_multiple(queue);
+    const size_t threads = (n + wg - 1) / wg;
+
+    kernel.config(backend::ndrange(threads, batch), backend::ndrange(wg, 1));
 
     std::ostringstream desc;
     desc << "bluestein_mul{n=" << n << "(" << threads << "), wg=" << wg << ", batch=" << batch << "}";
-    return kernel_call(false, desc.str(), program, kernel, cl::NDRange(threads, batch), cl::NDRange(wg, 1));
+    return kernel_call(false, desc.str(), kernel);
 }
 
 /// \endcond

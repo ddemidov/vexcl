@@ -339,8 +339,7 @@ struct plan {
                     s << " " << run->desc;
                     profile->tic_cl(s.str());
                 }
-                queues[0].enqueueNDRangeKernel(run->kernel, cl::NullRange,
-                    run->global, run->local);
+                run->kernel(queues[0]);
                 run->count++;
                 if(profile) profile->toc("");
             }
