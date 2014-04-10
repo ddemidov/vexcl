@@ -333,12 +333,19 @@ inline kernel_call bluestein_twiddle(
     kernel_common<T>(o, queue);
     twiddle_code<T, T2>(o);
 
-    o << "__kernel void bluestein_twiddle(__global real2_t *output) {\n"
-      << "  const size_t x = get_global_id(0), n = get_global_size(0);\n"
-      << "  const int sign = " << (inverse ? "+1" : "-1") << ";\n"
-      << "  const size_t xx = ((ulong)x * x) % (2 * n);\n"
-      << "  output[x] = twiddle(sign * M_PI * xx / n);\n"
-      << "}\n";
+    o.kernel("bluestein_twiddle").open("(")
+        .template parameter< global_ptr<T2> >("output")
+    .close(")").open("{");
+
+    o.new_line() << "const size_t x = " << o.global_id(0) << ";";
+    o.new_line() << "const size_t n = " << o.global_size(0) << ";";
+
+    o.new_line() << "const size_t xx = ((ulong)x * x) % (2 * n);";
+    o.new_line() << "output[x] = twiddle(" << std::setprecision(16)
+        << (inverse ? 1 : -1) * boost::math::constants::pi<T>()
+        << " * xx / n);";
+
+    o.close("}");
 
     auto program = backend::build_sources(queue, o.str());
     cl::Kernel kernel(program, "bluestein_twiddle");
