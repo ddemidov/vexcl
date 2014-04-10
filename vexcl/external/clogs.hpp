@@ -147,6 +147,7 @@ void exclusive_scan(const vex::vector<T> &src, vex::vector<T> &dst,
         }
     }
 
+    bool first = true;
     for (unsigned d = 0; d < queue.size(); ++d) {
         if (src.part_size(d)) {
             ::clogs::Scan scanner(
@@ -156,7 +157,8 @@ void exclusive_scan(const vex::vector<T> &src, vex::vector<T> &dst,
             scanner.enqueue(
                     queue[d],
                     src(d).raw_buffer(), dst(d).raw_buffer(), src.part_size(d),
-                    d == 0 ? &init : nullptr);
+                    first ? &init : nullptr);
+            first = false;
         }
     }
 
@@ -166,13 +168,20 @@ void exclusive_scan(const vex::vector<T> &src, vex::vector<T> &dst,
      * partitions.
      */
     if (queue.size() > 1) {
-        for (unsigned d = 0; d < tail.size(); ++d) {
-            if (src.part_size(d)) {
-                T sum = dst[src.part_start(d + 1) - 1];
-                sum += tail[d];
-                // Wrap partition into vector for ease of use:
-                vex::vector<T> part(queue[d + 1], dst(d + 1));
-                part = sum + part;
+        T sum{};
+        first = true;
+        for (unsigned d = 0; d < queue.size(); ++d) {
+            if (dst.part_size(d)) {
+                if (!first) {
+                    // Add in sum of previous sections
+                    vex::vector<T> part(queue[d], dst(d));
+                    part = sum + part;
+                }
+                if (d < tail.size()) {
+                    // Update sum for following partitions
+                    sum = dst[dst.part_start(d + 1) - 1] + tail[d];
+                }
+                first = false;
             }
         }
     }
