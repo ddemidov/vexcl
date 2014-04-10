@@ -52,10 +52,11 @@ class kernel {
         kernel(const command_queue &queue,
                const std::string &src,
                const std::string &name,
-               size_t smem_per_thread = 0
+               size_t smem_per_thread = 0,
+               const std::string &options = ""
                )
             : ctx(queue.context()),
-              module(build_sources(queue, src), detail::deleter()),
+              module(build_sources(queue, src, options), detail::deleter()),
               smem(0)
         {
             cuda_check( cuModuleGetFunction(&K, module.get(), name.c_str()) );
@@ -67,10 +68,11 @@ class kernel {
         /// Constructor. Creates a cl::Kernel instance from source.
         kernel(const command_queue &queue,
                const std::string &src, const std::string &name,
-               std::function<size_t(size_t)> smem
+               std::function<size_t(size_t)> smem,
+               const std::string &options = ""
                )
             : ctx(queue.context()),
-              module(build_sources(queue, src), detail::deleter()),
+              module(build_sources(queue, src, options), detail::deleter()),
               smem(0)
         {
             cuda_check( cuModuleGetFunction(&K, module.get(), name.c_str()) );
@@ -94,7 +96,7 @@ class kernel {
         /// Adds local memory to the kernel.
         template <class F>
         void set_smem(F &&f) {
-            smem = f(w_size);
+            smem = f(workgroup_size());
         }
 
         /// Enqueue the kernel to the specified command queue.
@@ -106,8 +108,8 @@ class kernel {
             cuda_check(
                     cuLaunchKernel(
                         K,
-                        static_cast<unsigned>(g_size), 1, 1,
-                        static_cast<unsigned>(w_size), 1, 1,
+                        g_size.x, g_size.y, g_size.z,
+                        w_size.x, w_size.y, w_size.z,
                         static_cast<unsigned>(smem),
                         q.raw(),
                         prm_addr.data(),
@@ -131,7 +133,7 @@ class kernel {
 
         /// Workgroup size.
         size_t workgroup_size() const {
-            return w_size;
+            return w_size.x * w_size.y * w_size.z;
         }
 
         /// Standard number of workgroups to launch on a device.
@@ -155,30 +157,34 @@ class kernel {
         /// Select best launch configuration for the given shared memory requirements.
         void config(const command_queue &q, std::function<size_t(size_t)> smem) {
             // Select workgroup size that would fit into the device.
-            w_size = q.device().max_threads_per_block() / 2;
+            size_t ws = q.device().max_threads_per_block() / 2;
 
             size_t max_ws   = max_threads_per_block(q);
             size_t max_smem = max_shared_memory_per_block(q);
 
             // Reduce workgroup size until it satisfies resource requirements:
-            while( (w_size > max_ws) || (smem(w_size) > max_smem) )
-                w_size /= 2;
+            while( (ws > max_ws) || (smem(ws) > max_smem) )
+                ws /= 2;
 
-            g_size = num_workgroups(q);
+            config(num_workgroups(q), ws);
         }
 
         /// Set launch configuration.
-        void config(size_t blocks, size_t threads) {
+        void config(ndrange blocks, ndrange threads) {
             g_size = blocks;
             w_size = threads;
+        }
+
+        size_t preferred_work_group_size_multiple(const backend::command_queue &q) const {
+            return q.device().warp_size();
         }
     private:
         context ctx;
         std::shared_ptr< std::remove_pointer<CUmodule>::type > module;
         CUfunction K;
 
-        size_t   w_size;
-        size_t   g_size;
+        ndrange  w_size;
+        ndrange  g_size;
         size_t   smem;
 
         std::vector<char>   stack;

@@ -83,19 +83,17 @@ endif ()
 #----------------------------------------------------------------------------
 # Test Fast Fourier Transform
 #----------------------------------------------------------------------------
-if ("${VEXCL_BACKEND}" STREQUAL "OpenCL")
-    find_package(FFTW QUIET)
+find_package(FFTW QUIET)
 
-    if (FFTW_FOUND)
-        include_directories(${FFTW_INCLUDES})
-        add_definitions(-DHAVE_FFTW)
-    endif ()
+if (FFTW_FOUND)
+    include_directories(${FFTW_INCLUDES})
+    add_definitions(-DHAVE_FFTW)
+endif ()
 
-    add_vexcl_test(fft fft.cpp)
+add_vexcl_test(fft fft.cpp)
 
-    if (FFTW_FOUND)
-        target_link_libraries(fft ${FFTW_LIBRARIES})
-    endif ()
+if (FFTW_FOUND)
+    target_link_libraries(fft ${FFTW_LIBRARIES})
 endif ()
 
 if ("${VEXCL_BACKEND}" STREQUAL "CUDA")

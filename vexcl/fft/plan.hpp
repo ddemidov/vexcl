@@ -26,7 +26,7 @@ THE SOFTWARE.
 */
 
 /**
- * \file   vexcl/backend/opencl/fft/plan.hpp
+ * \file   vexcl/fft/plan.hpp
  * \author Pascal Germroth <pascal@ensieve.org>
  * \brief  FFT plan, stores kernels and buffers for one configuration.
  */
@@ -38,8 +38,8 @@ THE SOFTWARE.
 #include <vexcl/profiler.hpp>
 #include <vexcl/vector.hpp>
 #include <vexcl/function.hpp>
-#include <vexcl/backend/opencl/fft/unrolled_dft.hpp>
-#include <vexcl/backend/opencl/fft/kernels.hpp>
+#include <vexcl/fft/unrolled_dft.hpp>
+#include <vexcl/fft/kernels.hpp>
 
 namespace vex {
 
@@ -188,8 +188,9 @@ struct plan {
 
     typedef typename cl_vector_of<Ts, 2>::type T2;
 
-    VEX_FUNCTION_S(T2, r2c, (Ts, v), "return (" + type_name<T2>() + ")(v, 0);");
+    VEX_FUNCTION_S(T2, r2c, (Ts, v), type_name<T2>() + " r = {v, 0}; return r;");
     VEX_FUNCTION_S(Ts, c2r, (T2, v), "return v.x;");
+    VEX_FUNCTION_S(T2, scl, (T2, v)(Ts, s), "v.x *= s; v.y *= s; return v;");
 
     const std::vector<backend::command_queue> &queues;
     Planner planner;
@@ -339,8 +340,7 @@ struct plan {
                     s << " " << run->desc;
                     profile->tic_cl(s.str());
                 }
-                queues[0].enqueueNDRangeKernel(run->kernel, cl::NullRange,
-                    run->global, run->local);
+                run->kernel(queues[0]);
                 run->count++;
                 if(profile) profile->toc("");
             }
@@ -367,11 +367,11 @@ struct plan {
     auto apply(const Expr &expr) ->
         typename std::enable_if<
             cl_vector_length<Tout>::value == 2,
-            decltype( scale * bufs[output] )
+            decltype( scl(bufs[output], scale) )
         >::type
     {
         transform(expr);
-        return scale * bufs[output];
+        return scl(bufs[output], scale);
     }
 
     std::string desc() const {

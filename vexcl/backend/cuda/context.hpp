@@ -136,6 +136,11 @@ class device {
             return n;
         }
 
+        size_t warp_size() const {
+            int n;
+            cuda_check( cuDeviceGetAttribute(&n, CU_DEVICE_ATTRIBUTE_WARP_SIZE, d) );
+            return n;
+        }
     private:
         CUdevice d;
 };
@@ -243,6 +248,13 @@ typedef CUdevice  device_id;
 inline device_id get_device_id(const command_queue &q) {
     return q.device().raw();
 }
+
+/// Launch grid size.
+struct ndrange {
+    unsigned x, y, z;
+    ndrange(unsigned x = 1, unsigned y = 1, unsigned z = 1)
+        : x(x), y(y), z(z) {}
+};
 
 /// \cond INTERNAL
 /// A unique context id that is used for online kernel caching.
