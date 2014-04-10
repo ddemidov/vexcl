@@ -136,6 +136,11 @@ class device {
             return n;
         }
 
+        size_t warp_size() const {
+            int n;
+            cuda_check( cuDeviceGetAttribute(&n, CU_DEVICE_ATTRIBUTE_WARP_SIZE, d) );
+            return n;
+        }
     private:
         CUdevice d;
 };

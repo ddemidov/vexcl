@@ -174,6 +174,10 @@ class kernel {
             g_size = blocks;
             w_size = threads;
         }
+
+        size_t preferred_work_group_size_multiple(const backend::command_queue &q) const {
+            return q.device().warp_size();
+        }
     private:
         context ctx;
         std::shared_ptr< std::remove_pointer<CUmodule>::type > module;

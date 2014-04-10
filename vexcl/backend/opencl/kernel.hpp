@@ -169,6 +169,12 @@ class kernel {
             g_size = blocks * threads;
             w_size = threads;
         }
+
+        size_t preferred_work_group_size_multiple(const backend::command_queue &q) const {
+            return K.getWorkGroupInfo<CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE>(
+                    q.getInfo<CL_QUEUE_DEVICE>()
+                    );
+        }
     private:
         unsigned argpos;
 
