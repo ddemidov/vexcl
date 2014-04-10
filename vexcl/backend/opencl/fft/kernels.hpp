@@ -550,14 +550,24 @@ inline kernel_call bluestein_mul(
     kernel_common<T>(o, queue);
     mul_code<T2>(o, false);
 
-    o << "__kernel void bluestein_mul("
-      << "__global const real2_t *data, __global const real2_t *exp, __global real2_t *output, uint stride) {\n"
-      << "  const size_t x = get_global_id(0), y = get_global_id(1);\n"
-      << "  if(x < stride) {\n"
-      << "    const size_t off = x + stride * y;"
-      << "    output[off] = mul(data[off], exp[x]);\n"
-      << "  }\n"
-      << "}\n";
+    o.kernel("bluestein_mul").open("(")
+        .template parameter< global_ptr<const T2> >("data")
+        .template parameter< global_ptr<const T2> >("exp")
+        .template parameter< global_ptr<      T2> >("output")
+        .template parameter< cl_uint              >("stride")
+    .close(")").open("{");
+
+    o.new_line() << "const size_t x = " << o.global_id(0) << ";";
+    o.new_line() << "const size_t y = " << o.global_id(1) << ";";
+
+    o.new_line() << "if(x < stride)";
+    o.open("{");
+
+    o.new_line() << "const size_t off = x + stride * y;";
+    o.new_line() << "output[off] = mul(data[off], exp[x]);";
+
+    o.close("}");
+    o.close("}");
 
     auto program = backend::build_sources(queue, o.str());
     cl::Kernel kernel(program, "bluestein_mul");
