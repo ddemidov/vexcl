@@ -413,31 +413,54 @@ inline kernel_call bluestein_mul_in(
     mul_code<T2>(o, false);
     twiddle_code<T, T2>(o);
 
-    o << "__kernel void bluestein_mul_in("
-      << "__global const real2_t *data, __global const real2_t *exp, __global real2_t *output, "
-      << "uint radix, uint p, uint out_stride) {\n"
-      << "  const size_t\n"
-      << "    thread = get_global_id(0), threads = get_global_size(0),\n"
-      << "    batch = get_global_id(1),\n"
-      << "    element = get_global_id(2);\n"
-      << "  if(element < out_stride) {\n"
-      << "    const size_t\n"
-      << "      in_off = thread + batch * radix * threads + element * threads,\n"
-      << "      out_off = thread * out_stride + batch * out_stride * threads + element;\n"
-      << "    if(element < radix) {\n"
-      << "      real2_t w = exp[element];"
-      << "      if(p != 1) {\n"
-      << "        const int sign = " << (inverse ? "+1" : "-1") << ";\n"
-      << "        ulong a = (ulong)element * (thread % p);\n"
-      << "        ulong b = (ulong)radix * p;\n"
-      << "        real2_t t = twiddle(2 * sign * M_PI * (a % (2 * b)) / b);\n"
-      << "        w = mul(w, t);\n"
-      << "      }\n"
-      << "      output[out_off] = mul(data[in_off], w);\n"
-      << "    } else\n"
-      << "      output[out_off] = (real2_t)(0,0);"
-      << "  }\n"
-      << "}\n";
+    o.kernel("bluestein_mul_in").open("(")
+        .template parameter< global_ptr<const T2> >("data")
+        .template parameter< global_ptr<const T2> >("exp")
+        .template parameter< global_ptr<      T2> >("output")
+        .template parameter< cl_uint              >("radix")
+        .template parameter< cl_uint              >("p")
+        .template parameter< cl_uint              >("out_stride")
+    .close(")").open("{");
+
+    o.new_line() << "const size_t thread  = " << o.global_id(0)   << ";";
+    o.new_line() << "const size_t threads = " << o.global_size(0) << ";";
+    o.new_line() << "const size_t batch   = " << o.global_id(1)   << ";";
+    o.new_line() << "const size_t element = " << o.global_id(2)   << ";";
+
+    o.new_line() << "if(element < out_stride)";
+    o.open("{");
+
+    o.new_line() << "const size_t in_off  = thread + batch * radix * threads + element * threads;";
+    o.new_line() << "const size_t out_off = thread * out_stride + batch * out_stride * threads + element;";
+
+    o.new_line() << "if(element < radix)";
+    o.open("{");
+
+    o.new_line() << type_name<T2>() << " w = exp[element];";
+
+    o.new_line() << "if(p != 1)";
+    o.open("{");
+
+    o.new_line() << "ulong a = (ulong)element * (thread % p);";
+    o.new_line() << "ulong b = (ulong)radix * p;";
+    o.new_line() << type_name<T2>() << " t = twiddle(" << std::setprecision(16)
+        << (inverse ? 1 : -1) * boost::math::constants::two_pi<T>()
+        << " * (a % (2 * b)) / b);";
+    o.new_line() << "w = mul(w, t);";
+    o.close("}");
+
+    o.new_line() << "output[out_off] = mul(data[in_off], w);";
+
+    o.close("}");
+    o.new_line() << "else";
+    o.open("{");
+
+    o.new_line() << type_name<T2>() << " r = {0,0};";
+    o.new_line() << "output[out_off] = r;";
+
+    o.close("}");
+    o.close("}");
+    o.close("}");
 
     auto program = backend::build_sources(queue, o.str());
     cl::Kernel kernel(program, "bluestein_mul_in");
