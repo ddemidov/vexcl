@@ -366,17 +366,26 @@ inline kernel_call bluestein_pad_kernel(
     backend::source_generator o;
     kernel_common<T>(o, queue);
 
-    o << "real2_t conj(real2_t v) {\n"
-      << "  return (real2_t)(v.x, -v.y);\n"
-      << "}\n";
-    o << "__kernel void bluestein_pad_kernel("
-      << "__global real2_t *input, __global real2_t *output, uint n, uint m) {\n"
-      << "  const size_t x = get_global_id(0);\n"
-      << "  if(x < n || m - x < n)\n"
-      << "    output[x] = conj(input[min(x, m - x)]);\n"
-      << "  else\n"
-      << "    output[x] = (real2_t)(0,0);\n"
-      << "}\n";
+    o.function<T2>("conj").open("(")
+        .template parameter<T2>("v")
+    .close(")").open("{");
+    o.new_line() << type_name<T2>() << " r = {v.x, -v.y};";
+    o.new_line() << "return r;";
+    o.close("}");
+
+    o.kernel("bluestein_pad_kernel").open("(")
+        .template parameter< global_ptr<const T2> >("input")
+        .template parameter< global_ptr<      T2> >("output")
+        .template parameter< cl_uint              >("n")
+        .template parameter< cl_uint              >("m")
+    .close(")").open("{");
+    o.new_line() << "const size_t x = " << o.global_id(0) << ";";
+    o.new_line() << "if(x < n || m - x < n)";
+    o.open("{").new_line()  << "output[x] = conj(input[min(x, m - x)]);";
+    o.close("}").new_line() << "else";
+    o.open("{").new_line()  << type_name<T2>() << " r = {0,0};";
+    o.new_line() << "output[x] = r;";
+    o.close("}").close("}");
 
     auto program = backend::build_sources(queue, o.str());
     cl::Kernel kernel(program, "bluestein_pad_kernel");
