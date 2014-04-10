@@ -166,11 +166,10 @@ void exclusive_scan(const vex::vector<T> &src, vex::vector<T> &dst,
      * partitions.
      */
     if (queue.size() > 1) {
-        T sum{};
         for (unsigned d = 0; d < tail.size(); ++d) {
             if (src.part_size(d)) {
+                T sum = dst[src.part_start(d + 1) - 1];
                 sum += tail[d];
-                sum += dst[src.part_start(d + 1) - 1];
                 // Wrap partition into vector for ease of use:
                 vex::vector<T> part(queue[d + 1], dst(d + 1));
                 part = sum + part;
