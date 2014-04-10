@@ -26,7 +26,7 @@ THE SOFTWARE.
 */
 
 /**
- * \file   vexcl/backend/opencl/fft/kernels.hpp
+ * \file   vexcl/fft/kernels.hpp
  * \author Pascal Germroth <pascal@ensieve.org>
  * \brief  Kernel generator for FFT.
  */
@@ -37,12 +37,6 @@ namespace vex {
 namespace fft {
 
 /// \cond INTERNAL
-inline cl::Device qdev(const backend::command_queue& q) {
-    cl::Device dev;
-    q.getInfo(CL_QUEUE_DEVICE, &dev);
-    return dev;
-}
-
 // Store v=b^e as components.
 struct pow {
     size_t base, exponent, value;
@@ -210,7 +204,6 @@ inline kernel_call radix_kernel(
 {
     backend::source_generator o;
     o << std::setprecision(25);
-    const auto device = qdev(queue);
     kernel_common<T>(o, queue);
     mul_code<T2>(o, invert);
     twiddle_code<T, T2>(o);
@@ -256,14 +249,19 @@ inline kernel_call transpose_kernel(
         )
 {
     backend::source_generator o;
-    const auto dev = qdev(queue);
     kernel_common<T>(o, queue);
 
     // determine max block size to fit into local memory/workgroup
     size_t block_size = 128;
     {
+#ifdef VEXCL_BACKEND_OPENCL
+        const auto dev = queue.getInfo<CL_QUEUE_DEVICE>();
         const auto local_size = dev.getInfo<CL_DEVICE_LOCAL_MEM_SIZE>();
         const auto workgroup = dev.getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>();
+#else
+        const auto local_size = queue.device().max_shared_memory_per_block();
+        const auto workgroup = queue.device().max_threads_per_block();
+#endif
         while(block_size * block_size * sizeof(T) * 2 > local_size) block_size /= 2;
         while(block_size * block_size > workgroup) block_size /= 2;
     }
@@ -282,9 +280,8 @@ inline kernel_call transpose_kernel(
     o.new_line() << "const size_t local_y  = " << o.local_id(1)  << ";";
     o.new_line() << "const size_t group_x  = " << o.group_id(0)  << ";";
     o.new_line() << "const size_t group_y  = " << o.group_id(1)  << ";";
-    o.new_line() << "const size_t block_size = " << block_size << ";";
-    o.new_line() << "const size_t target_x = local_y + group_y * block_size;";
-    o.new_line() << "const size_t target_y = local_x + group_x * block_size;";
+    o.new_line() << "const size_t target_x = local_y + group_y * " << block_size << ";";
+    o.new_line() << "const size_t target_y = local_x + group_x * " << block_size << ";";
     o.new_line() << "const bool range = global_x < width && global_y < height;";
 
     // local memory
@@ -296,14 +293,14 @@ inline kernel_call transpose_kernel(
 
     // copy from input to local memory
     o.new_line() << "if(range) "
-        << "block[local_x + local_y * block_size] = input[global_x + global_y * width];";
+        << "block[local_x + local_y * " << block_size << "] = input[global_x + global_y * width];";
 
     // wait until the whole block is filled
-    o.new_line() << "barrier(CLK_LOCAL_MEM_FENCE);";
+    o.new_line().barrier();
 
     // transpose local block to target
     o.new_line() << "if(range) "
-      << "output[target_x + target_y * height] = block[local_x + local_y * block_size];";
+      << "output[target_x + target_y * height] = block[local_x + local_y * " << block_size << "];";
 
     o.close("}");
 

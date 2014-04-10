@@ -13,7 +13,7 @@
 BOOST_AUTO_TEST_CASE(transform_expression)
 {
     const size_t N = 1024;
-    std::vector<cl::CommandQueue> queue(1, ctx.queue(0));
+    std::vector<vex::backend::command_queue> queue(1, ctx.queue(0));
 
     vex::vector<cl_float> data(queue, N);
     vex::FFT<cl_float> fft(queue, N);
@@ -25,7 +25,7 @@ BOOST_AUTO_TEST_CASE(transform_expression)
 BOOST_AUTO_TEST_CASE(check_correctness)
 {
     const size_t N = 1024;
-    std::vector<cl::CommandQueue> queue(1, ctx.queue(0));
+    std::vector<vex::backend::command_queue> queue(1, ctx.queue(0));
 
     vex::vector<cl_float>  in  (queue, N);
     vex::vector<cl_float2> out (queue, N);
@@ -53,7 +53,7 @@ void test(const vex::Context &ctx, std::vector<size_t> ns, size_t batch) {
     for(size_t i = 1; i < ns.size(); i++) std::cout << 'x' << ns[i];
     std::cout << " batch=" << batch << std::endl;
 
-    std::vector<cl::CommandQueue> queue(1, ctx.queue(0));
+    std::vector<vex::backend::command_queue> queue(1, ctx.queue(0));
 
     size_t n1 = std::accumulate(ns.begin(), ns.end(), 1UL, std::multiplies<size_t>());
     size_t n = n1 * batch;

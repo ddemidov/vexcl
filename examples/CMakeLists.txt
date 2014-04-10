@@ -39,25 +39,23 @@ endif ()
 #----------------------------------------------------------------------------
 # FFT benchmark
 #----------------------------------------------------------------------------
-if ("${VEXCL_BACKEND}" STREQUAL "OpenCL")
-    add_vexcl_example(fft_profile)
-    add_vexcl_example(fft_benchmark)
-    find_package(FFTW QUIET)
-    if (FFTW_FOUND)
-        include_directories(${FFTW_INCLUDES})
-        add_definitions(-DHAVE_FFTW)
-        set(FFT_BENCHMARK_LIBS ${FFT_BENCHMARK_LIBS} ${FFTW_LIBRARIES})
-    endif ()
+add_vexcl_example(fft_profile)
+add_vexcl_example(fft_benchmark)
+find_package(FFTW QUIET)
+if (FFTW_FOUND)
+    include_directories(${FFTW_INCLUDES})
+    add_definitions(-DHAVE_FFTW)
+    set(FFT_BENCHMARK_LIBS ${FFT_BENCHMARK_LIBS} ${FFTW_LIBRARIES})
+endif ()
 
-    find_package(CUDA QUIET)
-    if(CUDA_FOUND)
-        include_directories(${CUDA_INCLUDE_DIRS})
-        add_definitions(-DHAVE_CUDA)
-        set(FFT_BENCHMARK_LIBS ${FFT_BENCHMARK_LIBS} ${CUDA_LIBRARIES} ${CUDA_cufft_LIBRARY})
-    endif()
-
-    target_link_libraries(fft_benchmark ${FFT_BENCHMARK_LIBS})
+find_package(CUDA QUIET)
+if(CUDA_FOUND)
+    include_directories(${CUDA_INCLUDE_DIRS})
+    add_definitions(-DHAVE_CUDA)
+    set(FFT_BENCHMARK_LIBS ${FFT_BENCHMARK_LIBS} ${CUDA_LIBRARIES} ${CUDA_cufft_LIBRARY})
 endif()
+
+target_link_libraries(fft_benchmark ${FFT_BENCHMARK_LIBS})
 
 #----------------------------------------------------------------------------
 # Thrust interoperation examples

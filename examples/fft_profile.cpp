@@ -35,7 +35,7 @@ int main() {
 
         profile(ctx, std::vector<size_t>(2, 512));
         profile(ctx, std::vector<size_t>(2, 521));
-    } catch(cl::Error &e) {
+    } catch(vex::backend::error &e) {
         std::cerr << e << std::endl;
     }
 
