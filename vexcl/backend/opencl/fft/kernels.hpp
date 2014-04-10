@@ -492,22 +492,33 @@ inline kernel_call bluestein_mul_out(
     kernel_common<T>(o, queue);
     mul_code<T2>(o, false);
 
-    o << "__kernel void bluestein_mul_out("
-      << "__global const real2_t *data, __global const real2_t *exp, __global real2_t *output, "
-      << "real_t div, uint p, uint in_stride, uint radix) {\n"
-      << "  const size_t\n"
-      << "    i = get_global_id(0), threads = get_global_size(0),\n"
-      << "    b = get_global_id(1),\n"
-      << "    l = get_global_id(2);\n"
-      << "  if(l < radix) {\n"
-      << "    const size_t\n"
-      << "      k = i % p,\n"
-      << "      j = k + (i - k) * radix,\n"
-      << "      in_off = i * in_stride + b * in_stride * threads + l,\n"
-      << "      out_off = j + b * threads * radix + l * p;\n"
-      << "    output[out_off] = mul(data[in_off] * div, exp[l]);\n"
-      << "  }\n"
-      << "}\n";
+    o.kernel("bluestein_mul_out").open("(")
+        .template parameter< global_ptr<const T2> >("data")
+        .template parameter< global_ptr<const T2> >("exp")
+        .template parameter< global_ptr<      T2> >("output")
+        .template parameter< T                    >("div")
+        .template parameter< cl_uint              >("p")
+        .template parameter< cl_uint              >("in_stride")
+        .template parameter< cl_uint              >("radix")
+    .close(")").open("{");
+
+    o.new_line() << "const size_t i = " << o.global_id(0) << ";";
+    o.new_line() << "const size_t threads = " << o.global_size(0) << ";";
+    o.new_line() << "const size_t b = " << o.global_id(1) << ";";
+    o.new_line() << "const size_t l = " << o.global_id(2) << ";";
+
+    o.new_line() << "if(l < radix)";
+    o.open("{");
+
+    o.new_line() << "const size_t k = i % p;";
+    o.new_line() << "const size_t j = k + (i - k) * radix;";
+    o.new_line() << "const size_t in_off = i * in_stride + b * in_stride * threads + l;";
+    o.new_line() << "const size_t out_off = j + b * threads * radix + l * p;";
+
+    o.new_line() << "output[out_off] = mul(data[in_off] * div, exp[l]);";
+
+    o.close("}");
+    o.close("}");
 
     auto program = backend::build_sources(queue, o.str());
     cl::Kernel kernel(program, "bluestein_mul_out");
