@@ -38,6 +38,7 @@ THE SOFTWARE.
 
 #include <vexcl/backend.hpp>
 #include <vexcl/util.hpp>
+#include <vexcl/operations.hpp>
 
 #ifdef __GNUC__
 #  ifndef _GLIBCXX_USE_NANOSLEEP
@@ -306,6 +307,10 @@ class Context {
             : c(std::move(c)), q(std::move(q))
         {
             StaticContext<>::set(*this);
+        }
+
+        ~Context() {
+            purge_kernel_caches(q);
         }
 
         const std::vector<backend::context>& context() const {
