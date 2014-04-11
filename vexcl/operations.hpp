@@ -1793,7 +1793,7 @@ struct return_type {
 };
 
 
-// Object cache (is a map from context handle to an arbitrary object)
+// Object cache (a map from context handle to an arbitrary object)
 struct object_cache_base;
 
 template <bool dummy = true>

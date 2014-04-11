@@ -35,6 +35,7 @@ THE SOFTWARE.
 #include <vector>
 #include <memory>
 #include <utility>
+#include <iterator>
 #include <vexcl/vector.hpp>
 #include <vexcl/types.hpp>
 #include <vexcl/operations.hpp> // for cache
@@ -50,6 +51,57 @@ namespace vex {
 
 /// Wrappers for the clogs library
 namespace clogs {
+
+namespace detail {
+
+struct compare_queue
+{
+    bool operator()(const cl::CommandQueue &a, const cl::CommandQueue &b) const
+    {
+        return a() < b();
+    }
+};
+
+template<typename T>
+struct queue_cache : public vex::detail::object_cache_base {
+    typedef std::map<cl::CommandQueue, T, compare_queue> store_type;
+
+    store_type store;
+
+    queue_cache() {
+        vex::detail::cache_register<>::add(this);
+    }
+
+    template <typename S>
+    std::pair<typename store_type::iterator, bool> insert(S&& item) {
+        return store.insert(std::forward<S>(item));
+    }
+
+    typename store_type::const_iterator end() const {
+        return store.end();
+    }
+
+    template <typename S>
+    typename store_type::iterator find(S&& key) {
+        return store.find( std::forward<S>(key) );
+    }
+
+    virtual void clear() {
+        store.clear();
+    }
+
+    virtual void erase(backend::kernel_cache_key key) {
+        auto p = store.begin();
+        while (p != store.end()) {
+            auto next = std::next(p);
+            if (p->first.template getInfo<CL_QUEUE_CONTEXT>()() == key)
+                store.erase(p);
+            p = next;
+        }
+    }
+};
+
+} // namespace detail
 
 /// Maps a compile-time C type to a clogs type structure
 template<typename T, typename Enable = void>
@@ -132,7 +184,7 @@ void exclusive_scan(const vex::vector<T> &src, vex::vector<T> &dst,
             "Unsupported type for clogs::exclusive_scan"
             );
 
-    static vex::detail::object_cache<std::unique_ptr< ::clogs::Scan> > cache;
+    static detail::queue_cache<std::unique_ptr< ::clogs::Scan> > cache;
 
     const std::vector<backend::command_queue> &queue = src.queue_list();
 
@@ -154,14 +206,13 @@ void exclusive_scan(const vex::vector<T> &src, vex::vector<T> &dst,
 
     for (unsigned d = 0; d < queue.size(); ++d) {
         if (src.part_size(d)) {
-            auto cache_key = backend::cache_key(queue[d]);
-            auto entry = cache.find(cache_key);
+            auto entry = cache.find(queue[d]);
             if (entry == cache.end()) {
                 std::unique_ptr< ::clogs::Scan> scanner(new ::clogs::Scan(
                     queue[d].getInfo<CL_QUEUE_CONTEXT>(),
                     queue[d].getInfo<CL_QUEUE_DEVICE>(),
                     clogs_type<T>::type()));
-                entry = cache.insert(std::make_pair(cache_key, std::move(scanner))).first;
+                entry = cache.insert(std::make_pair(queue[d], std::move(scanner))).first;
             }
             entry->second->enqueue(
                     queue[d],
@@ -199,20 +250,19 @@ void sort(vex::vector<K> &keys)
 {
     static_assert(is_sort_key<K>::value, "Unsupported type for clogs::sort");
 
-    static vex::detail::object_cache<std::unique_ptr< ::clogs::Radixsort> > cache;
+    static detail::queue_cache<std::unique_ptr< ::clogs::Radixsort> > cache;
 
     const std::vector<backend::command_queue> &queue = keys.queue_list();
 
     for (unsigned d = 0; d < queue.size(); ++d) {
         if (keys.part_size(d)) {
-            auto cache_key = backend::cache_key(queue[d]);
-            auto entry = cache.find(cache_key);
+            auto entry = cache.find(queue[d]);
             if (entry == cache.end()) {
                 std::unique_ptr< ::clogs::Radixsort> sorter(new ::clogs::Radixsort(
                     queue[d].getInfo<CL_QUEUE_CONTEXT>(),
                     queue[d].getInfo<CL_QUEUE_DEVICE>(),
                     clogs_type<K>::type(), ::clogs::Type()));
-                entry = cache.insert(std::make_pair(cache_key, std::move(sorter))).first;
+                entry = cache.insert(std::make_pair(queue[d], std::move(sorter))).first;
             }
             entry->second->enqueue(
                 queue[d], keys(d).raw_buffer(), cl::Buffer(), keys.part_size(d));
@@ -224,8 +274,8 @@ void sort(vex::vector<K> &keys)
         namespace fusion = boost::fusion;
 
         auto key_vectors = fusion::vector_tie(keys);
-        auto host_vectors = detail::merge(key_vectors, vex::less<K>());
-        fusion::for_each( detail::make_zip_view(host_vectors, key_vectors), detail::do_copy() );
+        auto host_vectors = vex::detail::merge(key_vectors, vex::less<K>());
+        fusion::for_each( vex::detail::make_zip_view(host_vectors, key_vectors), vex::detail::do_copy() );
     }
 }
 
@@ -242,21 +292,20 @@ void stable_sort_by_key(vex::vector<K> &keys, vex::vector<V> &values)
             "Unsupported types for clogs::stable_sort_by_key"
             );
 
-    static vex::detail::object_cache<std::unique_ptr< ::clogs::Radixsort> > cache;
+    static detail::queue_cache<std::unique_ptr< ::clogs::Radixsort> > cache;
 
     const std::vector<backend::command_queue> &queue = keys.queue_list();
 
     for (unsigned d = 0; d < queue.size(); ++d) {
         if (keys.part_size(d)) {
-            auto cache_key = backend::cache_key(queue[d]);
-            auto entry = cache.find(cache_key);
+            auto entry = cache.find(queue[d]);
             if (entry == cache.end()) {
                 std::unique_ptr< ::clogs::Radixsort> sorter(new ::clogs::Radixsort(
                     queue[d].getInfo<CL_QUEUE_CONTEXT>(),
                     queue[d].getInfo<CL_QUEUE_DEVICE>(),
                     clogs_type<K>::type(),
                     clogs_type<V>::type()));
-                entry = cache.insert(std::make_pair(cache_key, std::move(sorter))).first;
+                entry = cache.insert(std::make_pair(queue[d], std::move(sorter))).first;
             }
             entry->second->enqueue(
                 queue[d], keys(d).raw_buffer(), values(d).raw_buffer(), keys.part_size(d));
@@ -269,9 +318,9 @@ void stable_sort_by_key(vex::vector<K> &keys, vex::vector<V> &values)
 
         auto key_vectors = fusion::vector_tie(keys);
         auto value_vectors = fusion::vector_tie(values);
-        auto host_vectors = detail::merge(key_vectors, value_vectors, vex::less<K>());
+        auto host_vectors = vex::detail::merge(key_vectors, value_vectors, vex::less<K>());
         auto dev_vectors = fusion::join(key_vectors, value_vectors);
-        boost::fusion::for_each( detail::make_zip_view(host_vectors, dev_vectors), detail::do_copy() );
+        boost::fusion::for_each( vex::detail::make_zip_view(host_vectors, dev_vectors), vex::detail::do_copy() );
     }
 }
 
