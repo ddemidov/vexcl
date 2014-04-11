@@ -192,6 +192,11 @@ class kernel {
             w_size = threads;
         }
 
+        /// Set launch configuration.
+        void config(size_t blocks, size_t threads) {
+            config(ndrange(blocks), ndrange(threads));
+        }
+
         size_t preferred_work_group_size_multiple(const backend::command_queue &q) const {
             return K.getWorkGroupInfo<CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE>(
                     q.getInfo<CL_QUEUE_DEVICE>()

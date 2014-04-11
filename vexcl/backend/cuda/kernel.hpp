@@ -175,6 +175,11 @@ class kernel {
             w_size = threads;
         }
 
+        /// Set launch configuration.
+        void config(size_t blocks, size_t threads) {
+            config(ndrange(blocks), ndrange(threads));
+        }
+
         size_t preferred_work_group_size_multiple(const backend::command_queue &q) const {
             return q.device().warp_size();
         }

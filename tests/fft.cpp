@@ -50,7 +50,7 @@ void test(const vex::Context &ctx, std::vector<size_t> ns, size_t batch) {
 
     std::vector<vex::backend::command_queue> queue(1, ctx.queue(0));
 
-    size_t n1 = std::accumulate(ns.begin(), ns.end(), 1UL, std::multiplies<size_t>());
+    size_t n1 = std::accumulate(ns.begin(), ns.end(), static_cast<size_t>(1), std::multiplies<size_t>());
     size_t n = n1 * batch;
 
     // random data.
@@ -75,7 +75,7 @@ void test(const vex::Context &ctx, std::vector<size_t> ns, size_t batch) {
     out  = fft (inp);
     back = ifft(out);
 
-    auto rms = [&](const vex::vector<cl_double2> &a, const vex::vector<cl_double2> &b) {
+    auto rms = [&](const vex::vector<cl_double2> &a, const vex::vector<cl_double2> &b) -> double {
         static vex::Reductor<double, vex::SUM> sum(queue);
         return std::sqrt(sum(dot(a - b, a - b))) / std::sqrt(sum(dot(b, b)));
     };
@@ -108,10 +108,10 @@ BOOST_AUTO_TEST_CASE(test_dimensions)
 
         // random size.
         std::vector<size_t> n;
-        size_t d_max = std::pow(max, 1.0 / dims);
+        size_t d_max = static_cast<size_t>(std::pow(static_cast<double>(max), 1.0 / dims));
         size_t total = batch;
         for(size_t d = 0 ; d < dims ; d++) {
-            size_t sz = random_dim(dims == 1 ? 3 : 1, d_max);
+            size_t sz = random_dim(dims == 1 ? 3 : 1, static_cast<double>(d_max));
 
             if(rand() % 3 != 0)
                 sz = p.best_size(sz);
