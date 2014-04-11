@@ -1,8 +1,5 @@
 #define BOOST_TEST_MODULE FastFourierTransform
 #include <boost/test/unit_test.hpp>
-#ifdef HAVE_FFTW
-#  include <fftw3.h>
-#endif
 #include <vexcl/vector.hpp>
 #include <vexcl/fft.hpp>
 #include <vexcl/random.hpp>
@@ -46,8 +43,6 @@ BOOST_AUTO_TEST_CASE(check_correctness)
     BOOST_CHECK(std::sqrt(sum(pow(in - back, 2.0f)) / N) < 1e-3);
 }
 
-#ifdef HAVE_FFTW
-
 void test(const vex::Context &ctx, std::vector<size_t> ns, size_t batch) {
     std::cout << "FFT(C2C) size=" << ns[0];
     for(size_t i = 1; i < ns.size(); i++) std::cout << 'x' << ns[i];
@@ -80,25 +75,11 @@ void test(const vex::Context &ctx, std::vector<size_t> ns, size_t batch) {
     out  = fft (inp);
     back = ifft(out);
 
-    // reference.
-    std::vector<cl_double2> ref_h(n);
-    std::vector<int> nsi(ns.begin(), ns.end());
-    for(size_t i = 0 ; i < batch ; i++) {
-        fftw_plan p1 = fftw_plan_dft(nsi.size(), nsi.data(),
-            reinterpret_cast<fftw_complex*>(inp_h.data() + i * n1),
-            reinterpret_cast<fftw_complex*>(ref_h.data() + i * n1),
-            FFTW_FORWARD, FFTW_ESTIMATE);
-        fftw_execute(p1);
-        fftw_destroy_plan(p1);
-    }
-    vex::vector<cl_double2> ref(queue, n, ref_h.data());
-
     auto rms = [&](const vex::vector<cl_double2> &a, const vex::vector<cl_double2> &b) {
         static vex::Reductor<double, vex::SUM> sum(queue);
         return std::sqrt(sum(dot(a - b, a - b))) / std::sqrt(sum(dot(b, b)));
     };
 
-    BOOST_CHECK_SMALL(rms(out,  ref), 1e-8);
     BOOST_CHECK_SMALL(rms(back, inp), 1e-8);
 }
 
@@ -143,7 +124,5 @@ BOOST_AUTO_TEST_CASE(test_dimensions)
         if(total <= max) test(ctx, n, batch);
     }
 }
-
-#endif
 
 BOOST_AUTO_TEST_SUITE_END()
