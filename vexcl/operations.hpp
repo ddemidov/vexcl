@@ -1801,10 +1801,14 @@ template <bool dummy = true>
 struct cache_register {
     static_assert(dummy, "Dummy parameter should be true");
 
-    static std::deque<kernel_cache*> caches;
+    static std::set<kernel_cache*> caches;
 
     static void add(kernel_cache *cache) {
-        caches.push_back(cache);
+        caches.insert(cache);
+    }
+
+    static void remove(kernel_cache *cache) {
+        caches.erase(cache);
     }
 
     static void clear();
@@ -1812,7 +1816,7 @@ struct cache_register {
 };
 
 template <bool dummy>
-std::deque<kernel_cache*> cache_register<dummy>::caches;
+std::set<kernel_cache*> cache_register<dummy>::caches;
 
 struct kernel_cache {
     typedef std::map<backend::kernel_cache_key, kernel_cache_entry> store_type;
@@ -1821,6 +1825,10 @@ struct kernel_cache {
 
     kernel_cache() {
         cache_register<>::add(this);
+    }
+
+    ~kernel_cache() {
+        cache_register<>::remove(this);
     }
 
     template <typename T>
