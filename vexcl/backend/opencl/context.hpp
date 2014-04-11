@@ -66,11 +66,30 @@ inline device_id get_device_id(const command_queue &q) {
 }
 
 /// \cond INTERNAL
-typedef cl_context                  kernel_cache_key;
-/// Returns kernel cache key for the given queue.
-inline kernel_cache_key cache_key(const command_queue &q) {
+typedef cl_context       context_id;
+/// Returns raw context id for the given queue.
+inline context_id get_context_id(const command_queue &q) {
     return q.getInfo<CL_QUEUE_CONTEXT>()();
 }
+
+/// Returns context for the given queue.
+inline context get_context(const command_queue &q) {
+    return q.getInfo<CL_QUEUE_CONTEXT>();
+}
+
+/// Compares contexts by raw ids.
+struct compare_contexts {
+    bool operator()(const context &a, const context &b) const {
+        return a() < b();
+    }
+};
+
+/// Compares queues by raw ids.
+struct compare_queues {
+    bool operator()(const command_queue &a, const command_queue &b) const {
+        return a() < b();
+    }
+};
 /// \endcond
 
 /// Create command queue on the same context and device as the given one.

@@ -44,6 +44,7 @@ THE SOFTWARE.
 #include <vexcl/backend.hpp>
 #include <vexcl/types.hpp>
 #include <vexcl/util.hpp>
+#include <vexcl/cache.hpp>
 
 // Workaround for gcc bug http://gcc.gnu.org/bugzilla/show_bug.cgi?id=35722
 #if defined(BOOST_NO_VARIADIC_TEMPLATES) || (defined(__GNUC__) && !defined(__clang__) && __GNUC__ == 4 && __GNUC_MINOR__ == 6)
@@ -1793,79 +1794,6 @@ struct return_type {
 };
 
 
-// Kernel cache (is a map from context handle to a kernel)
-typedef backend::kernel kernel_cache_entry;
-struct kernel_cache;
-
-template <bool dummy = true>
-struct cache_register {
-    static_assert(dummy, "Dummy parameter should be true");
-
-    static std::set<kernel_cache*> caches;
-
-    static void add(kernel_cache *cache) {
-        caches.insert(cache);
-    }
-
-    static void remove(kernel_cache *cache) {
-        caches.erase(cache);
-    }
-
-    static void clear();
-    static void erase(backend::kernel_cache_key key);
-};
-
-template <bool dummy>
-std::set<kernel_cache*> cache_register<dummy>::caches;
-
-struct kernel_cache {
-    typedef std::map<backend::kernel_cache_key, kernel_cache_entry> store_type;
-
-    store_type store;
-
-    kernel_cache() {
-        cache_register<>::add(this);
-    }
-
-    ~kernel_cache() {
-        cache_register<>::remove(this);
-    }
-
-    template <typename T>
-    std::pair<store_type::iterator, bool> insert(T&& item) {
-        return store.insert(std::forward<T>(item));
-    }
-
-    store_type::const_iterator end() const {
-        return store.end();
-    }
-
-    template <typename T>
-    store_type::iterator find(T&& key) {
-        return store.find( std::forward<T>(key) );
-    }
-
-    void clear() {
-        store.clear();
-    }
-
-    void erase(backend::kernel_cache_key key) {
-        store.erase(key);
-    }
-};
-
-template <bool dummy>
-void cache_register<dummy>::clear() {
-    for(auto c = caches.begin(); c != caches.end(); ++c)
-        (*c)->clear();
-}
-
-template <bool dummy>
-void cache_register<dummy>::erase(backend::kernel_cache_key key) {
-    for(auto c = caches.begin(); c != caches.end(); ++c)
-        (*c)->erase(key);
-}
-
 //---------------------------------------------------------------------------
 // Assign expression to lhs
 //---------------------------------------------------------------------------
@@ -1895,8 +1823,7 @@ void assign_expression(LHS &lhs, const RHS &rhs,
     static kernel_cache cache;
 
     for(unsigned d = 0; d < queue.size(); d++) {
-        auto key    = backend::cache_key(queue[d]);
-        auto kernel = cache.find(key);
+        auto kernel = cache.find(queue[d]);
 
         backend::select_context(queue[d]);
 
@@ -1936,9 +1863,8 @@ void assign_expression(LHS &lhs, const RHS &rhs,
             source << ";";
             source.close("}").close("}");
 
-            backend::kernel krn(queue[d], source.str(), "vexcl_vector_kernel");
-
-            kernel = cache.insert(std::make_pair(key, krn)).first;
+            kernel = cache.insert(queue[d], backend::kernel(
+                        queue[d], source.str(), "vexcl_vector_kernel"));
         }
 
         if (size_t psize = part[d + 1] - part[d]) {
@@ -2187,8 +2113,7 @@ void assign_multiexpression( LHS &lhs, const RHS &rhs,
     }
 
     for(unsigned d = 0; d < queue.size(); d++) {
-        auto key    = backend::cache_key(queue[d]);
-        auto kernel = cache.find(key);
+        auto kernel = cache.find(queue[d]);
 
         backend::select_context(queue[d]);
 
@@ -2215,9 +2140,8 @@ void assign_multiexpression( LHS &lhs, const RHS &rhs,
 
             source.close("}").close("}");
 
-            backend::kernel krn(queue[d], source.str(), "vexcl_multivector_kernel");
-
-            kernel = cache.insert(std::make_pair(key, krn)).first;
+            kernel = cache.insert(queue[d], backend::kernel(
+                        queue[d], source.str(), "vexcl_multivector_kernel") );
         }
 
         if (size_t psize = part[d + 1] - part[d]) {
@@ -2332,22 +2256,6 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_TIE_VECTORS, ~)
 #undef VEXCL_TIE_VECTORS
 
 #endif
-
-/// Clears cached OpenCL kernels, allowing to release OpenCL contexts.
-inline void purge_kernel_caches() {
-    detail::cache_register<>::clear();
-}
-
-/// Clears cached OpenCL kernels, allowing to release OpenCL contexts.
-inline void purge_kernel_caches(backend::kernel_cache_key key) {
-    detail::cache_register<>::erase(key);
-}
-
-/// Clears cached OpenCL kernels, allowing to release OpenCL contexts.
-inline void purge_kernel_caches(const std::vector<backend::command_queue> &queue) {
-    for(auto q = queue.begin(); q != queue.end(); ++q)
-        detail::cache_register<>::erase( backend::cache_key(*q) );
-}
 
 /// Meta-filter for VexCL vector expressions
 template <class T>

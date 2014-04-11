@@ -69,9 +69,9 @@ struct deleter_impl<cusparseHybMat_t> {
 
 inline cusparseHandle_t cusparse_handle(const command_queue &q) {
     typedef std::shared_ptr<std::remove_pointer<cusparseHandle_t>::type> smart_handle;
-    static std::map< kernel_cache_key, smart_handle > cache;
+    static std::map< backend::context_id, smart_handle > cache;
 
-    auto key = cache_key(q);
+    auto key = backend::get_context_id(q);
     auto h   = cache.find(key);
 
     if (h == cache.end()) {

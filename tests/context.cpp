@@ -20,12 +20,11 @@ void local_context() {
 
     BOOST_CHECK(x.size() == n);
     BOOST_CHECK(x[0] == 0);
-
-    vex::purge_kernel_caches(ctx);
 }
 
 BOOST_AUTO_TEST_CASE(create_destroy)
 {
+    // This should work on NVIDIA GPUs with exclusive compute mode.
     local_context();
     local_context();
 }

@@ -228,8 +228,7 @@ struct SpMatHELL : public sparse_matrix {
 
         static kernel_cache cache;
 
-        auto key    = backend::cache_key(queue);
-        auto kernel = cache.find(key);
+        auto kernel = cache.find(queue);
 
         backend::select_context(queue);
 
@@ -269,8 +268,8 @@ struct SpMatHELL : public sparse_matrix {
             source.new_line() << "out[i] " << OP::string() << " scale * sum;";
             source.close("}").close("}");
 
-            backend::kernel krn(queue, source.str(), "hybrid_ell_spmv");
-            kernel = cache.insert(std::make_pair(key, krn)).first;
+            kernel = cache.insert(queue, backend::kernel(
+                        queue, source.str(), "hybrid_ell_spmv"));
         }
 
         kernel->second.push_arg(n);
