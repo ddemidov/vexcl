@@ -44,10 +44,12 @@ THE SOFTWARE.
 #include <boost/function_types/parameter_types.hpp>
 #include <boost/function_types/result_type.hpp>
 #include <boost/function_types/function_arity.hpp>
+
 #include <vexcl/util.hpp>
 #include <vexcl/operations.hpp>
 #include <vexcl/function.hpp>
 #include <vexcl/vector.hpp>
+
 #include <boost/preprocessor/repetition.hpp>
 #ifndef VEXCL_MAX_ARITY
 #  define VEXCL_MAX_ARITY BOOST_PROTO_MAX_ARITY
@@ -647,7 +649,10 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_FUNCALL_OPERATOR, ~)
 
         std::vector<backend::command_queue> queue;
 
-        vex::detail::kernel_cache cache;
+        std::map<
+            vex::backend::kernel_cache_key,
+            vex::backend::kernel
+            > cache;
 
         struct param_size {
             unsigned device;
