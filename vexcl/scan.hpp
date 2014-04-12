@@ -68,8 +68,7 @@ backend::kernel block_inclusive_scan(const backend::command_queue &queue)
 {
     static detail::kernel_cache cache;
 
-    auto cache_key = backend::cache_key(queue);
-    auto kernel    = cache.find(cache_key);
+    auto kernel = cache.find(queue);
 
     if (kernel == cache.end()) {
         backend::source_generator src(queue);
@@ -137,8 +136,8 @@ backend::kernel block_inclusive_scan(const backend::command_queue &queue)
         src.close("}");
         src.close("}");
 
-        backend::kernel krn(queue, src.str(), "block_inclusive_scan");
-        kernel = cache.insert(std::make_pair(cache_key, krn)).first;
+        kernel = cache.insert(queue, backend::kernel(
+                    queue, src.str(), "block_inclusive_scan"));
     }
 
     return kernel->second;
@@ -149,8 +148,7 @@ backend::kernel intra_block_inclusive_scan(const backend::command_queue &queue)
 {
     static detail::kernel_cache cache;
 
-    auto cache_key = backend::cache_key(queue);
-    auto kernel    = cache.find(cache_key);
+    auto kernel = cache.find(queue);
 
     if (kernel == cache.end()) {
         backend::source_generator src(queue);
@@ -240,8 +238,8 @@ backend::kernel intra_block_inclusive_scan(const backend::command_queue &queue)
         src.close("}");
         src.close("}");
 
-        backend::kernel krn(queue, src.str(), "intra_block_inclusive_scan");
-        kernel = cache.insert(std::make_pair(cache_key, krn)).first;
+        kernel = cache.insert(queue, backend::kernel(
+                    queue, src.str(), "intra_block_inclusive_scan"));
     }
 
     return kernel->second;
@@ -254,8 +252,7 @@ backend::kernel block_addition(
 {
     static detail::kernel_cache cache;
 
-    auto cache_key = backend::cache_key(queue);
-    auto kernel    = cache.find(cache_key);
+    auto kernel = cache.find(queue);
 
     if (kernel == cache.end()) {
         backend::source_generator src(queue);
@@ -330,8 +327,8 @@ backend::kernel block_addition(
 
         src.close("}");
 
-        backend::kernel krn(queue, src.str(), "block_addition");
-        kernel = cache.insert(std::make_pair(cache_key, krn)).first;
+        kernel = cache.insert(queue, backend::kernel(
+                    queue, src.str(), "block_addition"));
     }
 
     return kernel->second;

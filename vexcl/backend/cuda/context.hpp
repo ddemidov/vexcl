@@ -257,13 +257,31 @@ struct ndrange {
 };
 
 /// \cond INTERNAL
-/// A unique context id that is used for online kernel caching.
-typedef CUcontext kernel_cache_key;
+typedef CUcontext context_id;
 
-/// Returns kernel cache key for the given queue.
-inline kernel_cache_key cache_key(const command_queue &q) {
+/// Returns raw context id for the given queue.
+inline context_id get_context_id(const command_queue &q) {
     return q.context().raw();
 }
+
+/// Returns context for the given queue.
+inline context get_context(const command_queue &q) {
+    return q.context();
+}
+
+/// Compares contexts by raw ids.
+struct compare_contexts {
+    bool operator()(const context &a, const context &b) const {
+        return a.raw() < b.raw();
+    }
+};
+
+/// Compares queues by raw ids.
+struct compare_queues {
+    bool operator()(const command_queue &a, const command_queue &b) const {
+        return a.raw() < b.raw();
+    }
+};
 /// \endcond
 
 /// Create command queue on the same context and device as the given one.

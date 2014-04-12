@@ -228,8 +228,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
         prop.part = vex::partition(prop.size, queue);
 
     for(unsigned d = 0; d < queue.size(); ++d) {
-        auto key    = backend::cache_key(queue[d]);
-        auto kernel = cache.find(key);
+        auto kernel = cache.find(queue[d]);
 
         backend::select_context(queue[d]);
 
@@ -280,8 +279,8 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
                 source.new_line() << "g_odata[" << source.group_id(0) << "] = mySum;";
                 source.close("}");
 
-                backend::kernel krn(queue[d], source.str(), "vexcl_reductor_kernel");
-                kernel = cache.insert(std::make_pair(key, krn)).first;
+                kernel = cache.insert(queue[d], backend::kernel(
+                            queue[d], source.str(), "vexcl_reductor_kernel"));
             } else {
                 source.new_line() << "size_t tid = " << source.local_id(0) << ";";
                 source.new_line() << "size_t block_size = " << source.local_size(0) << ";";
@@ -309,8 +308,9 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
                 source.new_line() << "if (tid == 0) g_odata[" << source.group_id(0) << "] = sdata[0];";
                 source.close("}");
 
-                backend::kernel krn(queue[d], source.str(), "vexcl_reductor_kernel", sizeof(real));
-                kernel = cache.insert(std::make_pair(key, krn)).first;
+                kernel = cache.insert(queue[d], backend::kernel(
+                            queue[d], source.str(), "vexcl_reductor_kernel",
+                            sizeof(real)));
             }
         }
 
@@ -365,13 +365,15 @@ template <typename T, class R>
 const vex::Reductor<T, R>& get_reductor(const std::vector<backend::command_queue> &queue)
 {
     // We will hold one static reductor per set of queues (or, rather, contexts):
-    static std::map< std::vector<backend::kernel_cache_key>, vex::Reductor<T, R> > cache;
+    /* TODO: this should be incorporated into detail::object_cache structure.
+     * Currently the cache is omitted from purging. */
+    static std::map< std::vector<backend::context_id>, vex::Reductor<T, R> > cache;
 
     // Extract OpenCL context handles from command queues:
-    std::vector<backend::kernel_cache_key> ctx;
+    std::vector<backend::context_id> ctx;
     ctx.reserve(queue.size());
     for(auto q = queue.begin(); q != queue.end(); ++q)
-        ctx.push_back( backend::cache_key(*q) );
+        ctx.push_back( backend::get_context_id(*q) );
 
     // See if there is suitable instance of reductor already:
     auto r = cache.find(ctx);

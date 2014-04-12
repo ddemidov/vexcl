@@ -310,7 +310,7 @@ class Context {
         }
 
         ~Context() {
-            purge_kernel_caches(q);
+            purge_caches(q);
         }
 
         const std::vector<backend::context>& context() const {

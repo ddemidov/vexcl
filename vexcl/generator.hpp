@@ -549,7 +549,7 @@ class Kernel {
 
                 backend::select_context(*q);
                 cache.insert(std::make_pair(
-                            backend::cache_key(*q),
+                            backend::get_context_id(*q),
                             backend::kernel(*q, source.str(), name.c_str())
                             ));
             }
@@ -585,7 +585,7 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_FUNCALL_OPERATOR, ~)
 
             for(unsigned d = 0; d < queue.size(); d++) {
                 if (size_t psize = boost::fusion::fold(param, 0, param_size(d))) {
-                    auto key = backend::cache_key(queue[d]);
+                    auto key = backend::get_context_id(queue[d]);
                     auto krn = cache.find(key);
                     krn->second.push_arg(psize);
 
@@ -649,10 +649,7 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_FUNCALL_OPERATOR, ~)
 
         std::vector<backend::command_queue> queue;
 
-        std::map<
-            vex::backend::kernel_cache_key,
-            vex::backend::kernel
-            > cache;
+        std::map<vex::backend::context_id, vex::backend::kernel> cache;
 
         struct param_size {
             unsigned device;

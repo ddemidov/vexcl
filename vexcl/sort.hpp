@@ -814,8 +814,7 @@ template <int NT, int VT, typename K, typename V, typename Comp>
 backend::kernel& block_sort_kernel(const backend::command_queue &queue) {
     static detail::kernel_cache cache;
 
-    auto cache_key = backend::cache_key(queue);
-    auto kernel    = cache.find(cache_key);
+    auto kernel = cache.find(queue);
 
     if (kernel == cache.end()) {
         backend::source_generator src(queue);
@@ -951,8 +950,8 @@ backend::kernel& block_sort_kernel(const backend::command_queue &queue) {
 
         src.close("}");
 
-        backend::kernel krn(queue, src.str(), "block_sort");
-        kernel = cache.insert(std::make_pair(cache_key, krn)).first;
+        kernel = cache.insert(queue, backend::kernel(
+                    queue, src.str(), "block_sort"));
     }
 
     return kernel->second;
@@ -988,8 +987,7 @@ template <int NT, typename T, typename Comp>
 backend::kernel merge_partition_kernel(const backend::command_queue &queue) {
     static detail::kernel_cache cache;
 
-    auto cache_key = backend::cache_key(queue);
-    auto kernel    = cache.find(cache_key);
+    auto kernel = cache.find(queue);
 
     if (kernel == cache.end()) {
         backend::source_generator src(queue);
@@ -1043,8 +1041,8 @@ backend::kernel merge_partition_kernel(const backend::command_queue &queue) {
 
         src.close("}");
 
-        backend::kernel krn(queue, src.str(), "merge_partition");
-        kernel = cache.insert(std::make_pair(cache_key, krn)).first;
+        kernel = cache.insert(queue, backend::kernel(
+                    queue, src.str(), "merge_partition"));
     }
 
     return kernel->second;
@@ -1673,8 +1671,7 @@ template <int NT, int VT, typename K, typename V, typename Comp>
 backend::kernel merge_kernel(const backend::command_queue &queue) {
     static detail::kernel_cache cache;
 
-    auto cache_key = backend::cache_key(queue);
-    auto kernel    = cache.find(cache_key);
+    auto kernel = cache.find(queue);
 
     if (kernel == cache.end()) {
         backend::source_generator src(queue);
@@ -1760,8 +1757,8 @@ backend::kernel merge_kernel(const backend::command_queue &queue) {
 
         src.close("}");
 
-        backend::kernel krn(queue, src.str(), "merge");
-        kernel = cache.insert(std::make_pair(cache_key, krn)).first;
+        kernel = cache.insert(queue, backend::kernel(
+                    queue, src.str(), "merge"));
     }
 
     return kernel->second;

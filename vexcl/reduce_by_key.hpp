@@ -65,8 +65,7 @@ template <typename T, class Comp>
 backend::kernel offset_calculation(const backend::command_queue &queue) {
     static detail::kernel_cache cache;
 
-    auto cache_key = backend::cache_key(queue);
-    auto kernel    = cache.find(cache_key);
+    auto kernel = cache.find(queue);
 
     if (kernel == cache.end()) {
         backend::source_generator src(queue);
@@ -95,8 +94,8 @@ backend::kernel offset_calculation(const backend::command_queue &queue) {
         src.close("}");
         src.close("}");
 
-        backend::kernel krn(queue, src.str(), "offset_calculation");
-        kernel = cache.insert(std::make_pair(cache_key, krn)).first;
+        kernel = cache.insert(queue, backend::kernel(
+                    queue, src.str(), "offset_calculation"));
     }
 
     return kernel->second;
@@ -107,8 +106,7 @@ template <int NT, typename T, class Oper>
 backend::kernel block_scan_by_key(const backend::command_queue &queue) {
     static detail::kernel_cache cache;
 
-    auto cache_key = backend::cache_key(queue);
-    auto kernel    = cache.find(cache_key);
+    auto kernel = cache.find(queue);
 
     if (kernel == cache.end()) {
         backend::source_generator src(queue);
@@ -179,8 +177,8 @@ backend::kernel block_scan_by_key(const backend::command_queue &queue) {
 
         src.close("}");
 
-        backend::kernel krn(queue, src.str(), "block_scan_by_key");
-        kernel = cache.insert(std::make_pair(cache_key, krn)).first;
+        kernel = cache.insert(queue, backend::kernel(
+                    queue, src.str(), "block_scan_by_key"));
     }
 
     return kernel->second;
@@ -192,8 +190,7 @@ backend::kernel block_inclusive_scan_by_key(const backend::command_queue &queue)
 {
     static detail::kernel_cache cache;
 
-    auto cache_key = backend::cache_key(queue);
-    auto kernel    = cache.find(cache_key);
+    auto kernel = cache.find(queue);
 
     if (kernel == cache.end()) {
         backend::source_generator src(queue);
@@ -305,8 +302,8 @@ backend::kernel block_inclusive_scan_by_key(const backend::command_queue &queue)
 
         src.close("}");
 
-        backend::kernel krn(queue, src.str(), "block_inclusive_scan_by_key");
-        kernel = cache.insert(std::make_pair(cache_key, krn)).first;
+        kernel = cache.insert(queue, backend::kernel(
+                    queue, src.str(), "block_inclusive_scan_by_key"));
     }
 
     return kernel->second;
@@ -317,8 +314,7 @@ template <typename T, class Oper>
 backend::kernel block_sum_by_key(const backend::command_queue &queue) {
     static detail::kernel_cache cache;
 
-    auto cache_key = backend::cache_key(queue);
-    auto kernel    = cache.find(cache_key);
+    auto kernel = cache.find(queue);
 
     if (kernel == cache.end()) {
         backend::source_generator src(queue);
@@ -353,8 +349,8 @@ backend::kernel block_sum_by_key(const backend::command_queue &queue) {
 
         src.close("}");
 
-        backend::kernel krn(queue, src.str(), "block_sum_by_key");
-        kernel = cache.insert(std::make_pair(cache_key, krn)).first;
+        kernel = cache.insert(queue, backend::kernel(
+                    queue, src.str(), "block_sum_by_key"));
     }
 
     return kernel->second;
@@ -365,8 +361,7 @@ template <typename K, typename V>
 backend::kernel key_value_mapping(const backend::command_queue &queue) {
     static detail::kernel_cache cache;
 
-    auto cache_key = backend::cache_key(queue);
-    auto kernel    = cache.find(cache_key);
+    auto kernel = cache.find(queue);
 
     if (kernel == cache.end()) {
         backend::source_generator src(queue);
@@ -406,8 +401,8 @@ backend::kernel key_value_mapping(const backend::command_queue &queue) {
 
         src.close("}");
 
-        backend::kernel krn(queue, src.str(), "key_value_mapping");
-        kernel = cache.insert(std::make_pair(cache_key, krn)).first;
+        kernel = cache.insert(queue, backend::kernel(
+                    queue, src.str(), "key_value_mapping"));
     }
 
     return kernel->second;

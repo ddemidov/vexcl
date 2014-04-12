@@ -249,8 +249,8 @@ class stencil : private stencil_base<T> {
 
         void init(unsigned width);
 
-        static const detail::kernel_cache_entry& slow_conv(const backend::command_queue &queue);
-        static const detail::kernel_cache_entry& fast_conv(const backend::command_queue &queue);
+        static const backend::kernel& slow_conv(const backend::command_queue &queue);
+        static const backend::kernel& fast_conv(const backend::command_queue &queue);
 };
 
 /// \cond INTERNAL
@@ -291,13 +291,12 @@ inline void define_read_x(backend::source_generator &source) {
 }
 
 template <typename T>
-const detail::kernel_cache_entry& stencil<T>::slow_conv(const backend::command_queue &queue) {
+const backend::kernel& stencil<T>::slow_conv(const backend::command_queue &queue) {
     using namespace detail;
 
     static kernel_cache cache;
 
-    auto key    = backend::cache_key(queue);
-    auto kernel = cache.find(key);
+    auto kernel = cache.find(queue);
 
     backend::select_context(queue);
 
@@ -334,21 +333,20 @@ const detail::kernel_cache_entry& stencil<T>::slow_conv(const backend::command_q
         source.new_line() << "else y[idx] = beta * sum;";
         source.close("}").close("}");
 
-        backend::kernel krn(queue, source.str(), "slow_conv");
-        kernel = cache.insert(std::make_pair(key, krn)).first;
+        kernel = cache.insert(queue, backend::kernel(
+                    queue, source.str(), "slow_conv"));
     }
 
     return kernel->second;
 }
 
 template <typename T>
-const detail::kernel_cache_entry& stencil<T>::fast_conv(const backend::command_queue &queue) {
+const backend::kernel& stencil<T>::fast_conv(const backend::command_queue &queue) {
     using namespace detail;
 
     static kernel_cache cache;
 
-    auto key    = backend::cache_key(queue);
-    auto kernel = cache.find(key);
+    auto kernel = cache.find(queue);
 
     backend::select_context(queue);
 
@@ -402,8 +400,8 @@ const detail::kernel_cache_entry& stencil<T>::fast_conv(const backend::command_q
         source.new_line().barrier();
         source.close("}").close("}");
 
-        backend::kernel krn(queue, source.str(), "fast_conv");
-        kernel = cache.insert(std::make_pair(key, krn)).first;
+        kernel = cache.insert(queue, backend::kernel(
+                    queue, source.str(), "fast_conv"));
     }
 
     return kernel->second;
@@ -557,15 +555,15 @@ void StencilOperator<T, width, center, Impl>::apply(
     T beta = append ? 1 : 0;
 
     static kernel_cache cache;
-    static std::map<backend::kernel_cache_key, size_t> lmem;
+    static std::map<backend::context_id, size_t> lmem;
 
     Base::exchange_halos(x);
 
     for(unsigned d = 0; d < queue.size(); d++) {
         backend::select_context(queue[d]);
 
-        auto key    = backend::cache_key(queue[d]);
-        auto kernel = cache.find(key);
+        auto key    = backend::get_context_id(queue[d]);
+        auto kernel = cache.find(queue[d]);
 
         if (kernel == cache.end()) {
             backend::source_generator source(queue[d]);
@@ -617,12 +615,12 @@ void StencilOperator<T, width, center, Impl>::apply(
             source.new_line().barrier();
             source.close("}").close("}");
 
-            backend::kernel krn(queue[d], source.str(), "convolve",
-                    [](size_t wgs) { return (width + wgs - 1) * sizeof(T); }
-                    );
-            kernel = cache.insert(std::make_pair(key, krn)).first;
+            kernel = cache.insert(queue[d], backend::kernel(
+                        queue[d], source.str(), "convolve",
+                        [](size_t wgs) { return (width + wgs - 1) * sizeof(T); }
+                        ));
 
-            lmem[key] = sizeof(T) * (krn.workgroup_size() + width - 1);
+            lmem[key] = sizeof(T) * (kernel->second.workgroup_size() + width - 1);
         }
 
         if (size_t psize = x.part_size(d)) {
