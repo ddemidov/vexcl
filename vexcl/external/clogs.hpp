@@ -33,8 +33,11 @@ THE SOFTWARE.
 
 #include <type_traits>
 #include <vector>
+#include <memory>
+#include <utility>
 #include <vexcl/vector.hpp>
 #include <vexcl/types.hpp>
+#include <vexcl/cache.hpp>
 #include <vexcl/sort.hpp> // for merging
 #include <clogs/scan.h>
 #include <clogs/radixsort.h>
@@ -129,6 +132,10 @@ void exclusive_scan(const vex::vector<T> &src, vex::vector<T> &dst,
             "Unsupported type for clogs::exclusive_scan"
             );
 
+    static vex::detail::object_cache<
+        vex::detail::index_by_queue,
+        std::unique_ptr< ::clogs::Scan> > cache;
+
     const std::vector<backend::command_queue> &queue = src.queue_list();
 
     std::vector<T> tail;
@@ -150,11 +157,15 @@ void exclusive_scan(const vex::vector<T> &src, vex::vector<T> &dst,
     bool first = true;
     for (unsigned d = 0; d < queue.size(); ++d) {
         if (src.part_size(d)) {
-            ::clogs::Scan scanner(
+            auto entry = cache.find(queue[d]);
+            if (entry == cache.end()) {
+                std::unique_ptr< ::clogs::Scan> scanner(new ::clogs::Scan(
                     queue[d].getInfo<CL_QUEUE_CONTEXT>(),
                     queue[d].getInfo<CL_QUEUE_DEVICE>(),
-                    clogs_type<T>::type());
-            scanner.enqueue(
+                    clogs_type<T>::type()));
+                entry = cache.insert(queue[d], std::move(scanner));
+            }
+            entry->second->enqueue(
                     queue[d],
                     src(d).raw_buffer(), dst(d).raw_buffer(), src.part_size(d),
                     first ? &init : nullptr);
@@ -197,16 +208,24 @@ void sort(vex::vector<K> &keys)
 {
     static_assert(is_sort_key<K>::value, "Unsupported type for clogs::sort");
 
+    static vex::detail::object_cache<
+        vex::detail::index_by_queue,
+        std::unique_ptr< ::clogs::Radixsort> > cache;
+
     const std::vector<backend::command_queue> &queue = keys.queue_list();
 
     for (unsigned d = 0; d < queue.size(); ++d) {
         if (keys.part_size(d)) {
-            ::clogs::Radixsort sorter(
-                queue[d].getInfo<CL_QUEUE_CONTEXT>(),
-                queue[d].getInfo<CL_QUEUE_DEVICE>(),
-                clogs_type<K>::type(), ::clogs::Type());
-            sorter.enqueue(queue[d], keys(d).raw_buffer(), cl::Buffer(),
-                           keys.part_size(d));
+            auto entry = cache.find(queue[d]);
+            if (entry == cache.end()) {
+                std::unique_ptr< ::clogs::Radixsort> sorter(new ::clogs::Radixsort(
+                    queue[d].getInfo<CL_QUEUE_CONTEXT>(),
+                    queue[d].getInfo<CL_QUEUE_DEVICE>(),
+                    clogs_type<K>::type(), ::clogs::Type()));
+                entry = cache.insert(queue[d], std::move(sorter));
+            }
+            entry->second->enqueue(
+                queue[d], keys(d).raw_buffer(), cl::Buffer(), keys.part_size(d));
         }
     }
 
@@ -233,17 +252,25 @@ void stable_sort_by_key(vex::vector<K> &keys, vex::vector<V> &values)
             "Unsupported types for clogs::stable_sort_by_key"
             );
 
+    static vex::detail::object_cache<
+        vex::detail::index_by_queue,
+        std::unique_ptr< ::clogs::Radixsort> > cache;
+
     const std::vector<backend::command_queue> &queue = keys.queue_list();
 
     for (unsigned d = 0; d < queue.size(); ++d) {
         if (keys.part_size(d)) {
-            ::clogs::Radixsort sorter(
-                queue[d].getInfo<CL_QUEUE_CONTEXT>(),
-                queue[d].getInfo<CL_QUEUE_DEVICE>(),
-                clogs_type<K>::type(),
-                clogs_type<V>::type());
-            sorter.enqueue(queue[d], keys(d).raw_buffer(), values(d).raw_buffer(),
-                           keys.part_size(d));
+            auto entry = cache.find(queue[d]);
+            if (entry == cache.end()) {
+                std::unique_ptr< ::clogs::Radixsort> sorter(new ::clogs::Radixsort(
+                    queue[d].getInfo<CL_QUEUE_CONTEXT>(),
+                    queue[d].getInfo<CL_QUEUE_DEVICE>(),
+                    clogs_type<K>::type(),
+                    clogs_type<V>::type()));
+                entry = cache.insert(queue[d], std::move(sorter));
+            }
+            entry->second->enqueue(
+                queue[d], keys(d).raw_buffer(), values(d).raw_buffer(), keys.part_size(d));
         }
     }
 
