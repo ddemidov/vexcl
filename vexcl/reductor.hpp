@@ -44,43 +44,34 @@ namespace vex {
 
 /// Summation. Should be used as a template parameter for Reductor class.
 struct SUM {
-    /* In order to define a reduction kind for vex::Reductor, one should:
-     *
-     * 1. Define initial value (e.g. 0 for sums, 1 for products, plus-minus
-     *    infinity for extrema):
-     */
-    template <typename T>
-    static T initial() {
-        return T();
-    }
+    // In order to define a reduction kind for vex::Reductor, one should define
+    // a struct like the following:
+    template <class T>
+    struct impl {
+        // Initial value for the operation.
+        static T initial() {
+            return T();
+        }
 
-    /*
-     * 2. Provide an OpenCL function that will be used on compute device to do
-     *    incremental reductions. That is nested struct "function":
-     */
-    template <typename T>
-    struct function : UserFunction<function<T>, T(T, T)> {
-        static std::string name() { return "SUM"; }
-        static std::string body() { return "return prm1 + prm2;"; }
+        // Device-side reduction function.
+        struct device : UserFunction<device, T(T, T)> {
+            static std::string name() { return "SUM_" + type_name<T>(); }
+            static std::string body() { return "return prm1 + prm2;"; }
+        };
+
+        // Host-side reduction function.
+        T operator()(T a, T b) const {
+            return a + b;
+        }
     };
-
-    /*
-     * 3. Provide a host-side function that will be used for final reduction of
-     *    small result vector on host:
-     */
-    template <class Iterator>
-    static typename std::iterator_traits<Iterator>::value_type
-    reduce(Iterator begin, Iterator end) {
-        return std::accumulate(begin, end,
-                initial<typename std::iterator_traits<Iterator>::value_type>()
-                );
-    }
 };
 
 /// Maximum element. Should be used as a template parameter for Reductor class.
 struct MAX {
-    template <typename T>
-    static T initial() {
+    template <class T>
+    struct impl {
+        // Initial value for the operation.
+        static T initial() {
 #ifdef _MSC_VER
 #  pragma warning(push)
 #  pragma warning(disable: 4146)
@@ -92,39 +83,37 @@ struct MAX {
 #ifdef _MSC_VER
 #  pragma warning(pop)
 #endif
-    }
+        }
 
-    template <typename T>
-    struct function : UserFunction<function<T>, T(T, T)> {
-        static std::string name() { return "MAX"; }
-        static std::string body() { return "return prm1 > prm2 ? prm1 : prm2;"; }
+        struct device : UserFunction<device, T(T, T)> {
+            static std::string name() { return "MAX_" + type_name<T>(); }
+            static std::string body() { return "return prm1 > prm2 ? prm1 : prm2;"; }
+        };
+
+        T operator()(T a, T b) const {
+            return a > b ? a : b;
+        }
     };
-
-    template <class Iterator>
-    static typename std::iterator_traits<Iterator>::value_type
-    reduce(Iterator begin, Iterator end) {
-        return *std::max_element(begin, end);
-    }
 };
 
 /// Minimum element. Should be used as a template parameter for Reductor class.
 struct MIN {
-    template <typename T>
-    static T initial() {
-        return std::numeric_limits<T>::max();
-    }
+    template <class T>
+    struct impl {
+        // Initial value for the operation.
+        static T initial() {
+            return std::numeric_limits<T>::max();
+        }
 
-    template <typename T>
-    struct function : UserFunction<function<T>, T(T, T)> {
-        static std::string name() { return "MIN"; }
-        static std::string body() { return "return prm1 < prm2 ? prm1 : prm2;"; }
+        struct device : UserFunction<device, T(T, T)> {
+            static std::string name() { return "MIN_" + type_name<T>(); }
+            static std::string body() { return "return prm1 < prm2 ? prm1 : prm2;"; }
+        };
+
+        T operator()(T a, T b) const {
+            return a < b ? a : b;
+        }
     };
-
-    template <class Iterator>
-    static typename std::iterator_traits<Iterator>::value_type
-    reduce(Iterator begin, Iterator end) {
-        return *std::min_element(begin, end);
-    }
 };
 
 /// Parallel reduction of arbitrary expression.
@@ -220,8 +209,10 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
     get_expression_properties prop;
     extract_terminals()(expr, prop);
 
+    real initial = RDC::template impl<real>::initial();
+
     // If expression is of zero size, then there is nothing to do. Hurray!
-    if (prop.size == 0) return RDC::template initial<real>();
+    if (prop.size == 0) return initial;
 
     // Sometimes the expression only knows its size:
     if (prop.size && prop.part.empty())
@@ -235,7 +226,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
         if (kernel == cache.end()) {
             backend::source_generator source(queue[d]);
 
-            typedef typename RDC::template function<real> fun;
+            typedef typename RDC::template impl<real>::device fun;
             fun::define(source);
 
             output_terminal_preamble termpream(source, queue[d], "prm", empty_state());
@@ -271,7 +262,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
                 source.new_line() << "size_t chunk_id   = " << source.global_id(0) << ";";
                 source.new_line() << "size_t start      = min(n, chunk_size * chunk_id);";
                 source.new_line() << "size_t stop       = min(n, chunk_size * (chunk_id + 1));";
-                source.new_line() << type_name<real>() << " mySum = (" << type_name<real>() << ")" << RDC::template initial<real>() << ";";
+                source.new_line() << type_name<real>() << " mySum = (" << type_name<real>() << ")" << initial << ";";
                 source.new_line() << "for (size_t idx = start; idx < stop; idx++)";
                 source.open("{");
                 VEXCL_INCREMENT_MY_SUM
@@ -284,7 +275,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
             } else {
                 source.new_line() << "size_t tid = " << source.local_id(0) << ";";
                 source.new_line() << "size_t block_size = " << source.local_size(0) << ";";
-                source.new_line() << type_name<real>() << " mySum = " << RDC::template initial<real>() << ";";
+                source.new_line() << type_name<real>() << " mySum = " << initial << ";";
 
                 source.grid_stride_loop().open("{");
                 VEXCL_INCREMENT_MY_SUM
@@ -331,7 +322,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
         }
     }
 
-    std::fill(hbuf.begin(), hbuf.end(), RDC::template initial<real>());
+    std::fill(hbuf.begin(), hbuf.end(), initial);
 
     for(unsigned d = 0; d < queue.size(); d++) {
         if (prop.part_size(d))
@@ -341,7 +332,8 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
     for(unsigned d = 0; d < queue.size(); d++)
         if (prop.part_size(d)) queue[d].finish();
 
-    return RDC::reduce(hbuf.begin(), hbuf.end());
+    typename RDC::template impl<real> rdc;
+    return std::accumulate(hbuf.begin(), hbuf.end(), initial, rdc);
 }
 
 template <typename real, class RDC> template <class Expr>

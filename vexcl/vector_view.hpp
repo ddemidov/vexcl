@@ -782,7 +782,7 @@ struct terminal_preamble< reduced_vector_view<Expr, NDIM, NR, RDC> > {
         boost::proto::eval(boost::proto::as_child(term.expr), termpream);
 
         typedef typename detail::return_type<Expr>::type T;
-        typedef typename RDC::template function<T> fun;
+        typedef typename RDC::template impl<T>::device fun;
 
         boost::proto::eval(boost::proto::as_child( fun() (T(), T()) ), termpream);
     }
@@ -796,10 +796,10 @@ struct local_terminal_init< reduced_vector_view<Expr, NDIM, NR, RDC> > {
             detail::kernel_generator_state_ptr state)
     {
         typedef typename detail::return_type<Expr>::type T;
-        typedef typename RDC::template function<T> fun;
+        typedef typename RDC::template impl<T>::device fun;
 
         src.new_line() << type_name<T>() << " " << prm_name << "_sum = (" <<
-            type_name<T>() << ")" << RDC::template initial<T>() << ";";
+            type_name<T>() << ")" << RDC::template impl<T>::initial() << ";";
         src.open("{");
 
         src.new_line()
