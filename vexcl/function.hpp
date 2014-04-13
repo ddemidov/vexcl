@@ -54,7 +54,7 @@ VEX_FUNCTION_V1(diff_cube, double(double, double),
     );
 \endcode
 */
-#define VEX_STRINGIZE_SOURCE(...) BOOST_PP_STRINGIZE(__VA_ARGS__)
+#define VEX_STRINGIZE_SOURCE(...) #__VA_ARGS__
 
 //---------------------------------------------------------------------------
 // VEX_FUNCTION (v1) macros
