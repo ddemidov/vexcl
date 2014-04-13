@@ -101,7 +101,7 @@ BOOST_AUTO_TEST_CASE(test_dimensions)
 
     vex::fft::planner p;
 
-    for(size_t i = 0; i < 32; ++i) {
+    for(size_t i = 0; i < 100; ++i) {
         // random number of dimensions, mostly 1.
         size_t dims = random_dim(3, 5);
         size_t batch = random_dim(5, 100);
