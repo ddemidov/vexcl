@@ -158,10 +158,25 @@ class Reductor {
         operator()(const Expr &expr) const;
     private:
         const std::vector<backend::command_queue> &queue;
-        std::vector<size_t> idx;
-        std::vector< backend::device_vector<real> > dbuf;
 
-        mutable std::vector<real> hbuf;
+        struct reductor_data {
+            std::vector<real>            hbuf;
+            backend::device_vector<real> dbuf;
+
+            reductor_data(const backend::command_queue &q)
+                : hbuf(backend::kernel::num_workgroups(q)),
+                  dbuf(q, backend::kernel::num_workgroups(q))
+            { }
+        };
+
+        typedef
+            detail::object_cache<detail::index_by_queue, reductor_data>
+            reductor_data_cache;
+
+        static reductor_data_cache& get_data_cache() {
+            static reductor_data_cache cache;
+            return cache;
+        }
 
         template <size_t I, size_t N, class Expr>
         typename std::enable_if<I == N, void>::type
@@ -182,19 +197,7 @@ class Reductor {
 template <typename real, class RDC>
 Reductor<real,RDC>::Reductor(const std::vector<backend::command_queue> &queue)
     : queue(queue)
-{
-    idx.reserve(queue.size() + 1);
-    idx.push_back(0);
-
-    for(auto q = queue.begin(); q != queue.end(); q++) {
-        size_t bufsize = backend::kernel::num_workgroups(*q);
-        idx.push_back(idx.back() + bufsize);
-
-        dbuf.push_back(backend::device_vector<real>(*q, bufsize));
-    }
-
-    hbuf.resize(idx.back());
-}
+{ }
 
 template <typename real, class RDC> template <class Expr>
 typename std::enable_if<
@@ -205,6 +208,8 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
     using namespace detail;
 
     static kernel_cache cache;
+
+    auto &data_cache = get_data_cache();
 
     get_expression_properties prop;
     extract_terminals()(expr, prop);
@@ -308,6 +313,10 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
 #undef VEXCL_INCREMENT_MY_SUM
 
         if (size_t psize = prop.part_size(d)) {
+            auto data = data_cache.find(queue[d]);
+            if (data == data_cache.end())
+                data = data_cache.insert(queue[d], reductor_data(queue[d]));
+
             kernel->second.push_arg(psize);
 
             extract_terminals()(
@@ -315,25 +324,36 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
                     set_expression_argument(kernel->second, d, prop.part_start(d), empty_state())
                     );
 
-            kernel->second.push_arg(dbuf[d]);
+            kernel->second.push_arg(data->second.dbuf);
             kernel->second.set_smem([](size_t wgs){ return wgs * sizeof(real); });
 
             kernel->second(queue[d]);
         }
     }
 
-    std::fill(hbuf.begin(), hbuf.end(), initial);
-
     for(unsigned d = 0; d < queue.size(); d++) {
-        if (prop.part_size(d))
-            dbuf[d].read(queue[d], 0, idx[d + 1] - idx[d], &hbuf[idx[d]]);
+        if (prop.part_size(d)) {
+            auto data = data_cache.find(queue[d]);
+
+            data->second.dbuf.read(queue[d], 0, data->second.hbuf.size(), data->second.hbuf.data());
+        }
     }
 
-    for(unsigned d = 0; d < queue.size(); d++)
-        if (prop.part_size(d)) queue[d].finish();
-
+    real result = initial;
     typename RDC::template impl<real> rdc;
-    return std::accumulate(hbuf.begin(), hbuf.end(), initial, rdc);
+    for(unsigned d = 0; d < queue.size(); d++) {
+        if (prop.part_size(d)) {
+            auto data = data_cache.find(queue[d]);
+
+            queue[d].finish();
+
+            result = rdc(result, std::accumulate(
+                        data->second.hbuf.begin(), data->second.hbuf.end(),
+                        initial, rdc));
+        }
+    }
+
+    return result;
 }
 
 template <typename real, class RDC> template <class Expr>
@@ -352,31 +372,14 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
 }
 #endif
 
-/// Returns a reference to a static instance of vex::Reductor<T,R>
+/// Returns an instance of vex::Reductor<T,R>
+/**
+ * \deprecated
+ */
 template <typename T, class R>
-const vex::Reductor<T, R>& get_reductor(const std::vector<backend::command_queue> &queue)
+const vex::Reductor<T, R> get_reductor(const std::vector<backend::command_queue> &queue)
 {
-    // We will hold one static reductor per set of queues (or, rather, contexts):
-    /* TODO: this should be incorporated into detail::object_cache structure.
-     * Currently the cache is omitted from purging. */
-    static std::map< std::vector<backend::context_id>, vex::Reductor<T, R> > cache;
-
-    // Extract OpenCL context handles from command queues:
-    std::vector<backend::context_id> ctx;
-    ctx.reserve(queue.size());
-    for(auto q = queue.begin(); q != queue.end(); ++q)
-        ctx.push_back( backend::get_context_id(*q) );
-
-    // See if there is suitable instance of reductor already:
-    auto r = cache.find(ctx);
-
-    // If not, create new instance and move it to the cache.
-    if (r == cache.end())
-        r = cache.insert( std::make_pair(
-                    std::move(ctx), vex::Reductor<T, R>(queue)
-                    ) ).first;
-
-    return r->second;
+    return vex::Reductor<T, R>(queue);
 }
 
 } // namespace vex
