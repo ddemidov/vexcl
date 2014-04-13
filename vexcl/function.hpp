@@ -274,7 +274,7 @@ rtype operator()(VEXCL_DUAL_FUNCTOR_ARGS(args)) const {                        \
  \endcode
  */
 #define VEX_FUNCTION_D(type, name, args, deps, ...)                            \
-    VEX_FUNCTION_SD(type, name, args, deps, BOOST_PP_STRINGIZE(__VA_ARGS__) )
+    VEX_FUNCTION_SD(type, name, args, deps, VEX_STRINGIZE_SOURCE(__VA_ARGS__) )
 
 
 /// Create a user-defined function.
@@ -299,7 +299,7 @@ rtype operator()(VEXCL_DUAL_FUNCTOR_ARGS(args)) const {                        \
  \endcode
  */
 #define VEX_FUNCTION(type, name, args, ...)                                    \
-    VEX_FUNCTION_S(type, name, args, BOOST_PP_STRINGIZE(__VA_ARGS__))
+    VEX_FUNCTION_S(type, name, args, VEX_STRINGIZE_SOURCE(__VA_ARGS__))
 
 /// Defines both device and host versions of a function call operator.
 /**
