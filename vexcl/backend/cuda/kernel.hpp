@@ -108,8 +108,8 @@ class kernel {
             cuda_check(
                     cuLaunchKernel(
                         K,
-                        g_size.x, g_size.y, g_size.z,
-                        w_size.x, w_size.y, w_size.z,
+                        static_cast<unsigned>(g_size.x), static_cast<unsigned>(g_size.y), static_cast<unsigned>(g_size.z),
+                        static_cast<unsigned>(w_size.x), static_cast<unsigned>(w_size.y), static_cast<unsigned>(w_size.z),
                         static_cast<unsigned>(smem),
                         q.raw(),
                         prm_addr.data(),

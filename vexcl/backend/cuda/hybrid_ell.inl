@@ -49,7 +49,8 @@ struct SpMatHELL : public sparse_matrix {
 
         if (ghost_cols.empty()) {
             loc.reset(new backend::cuda::spmat_hyb<val_t>(queue,
-                        row_end - row_begin, col_end - col_begin,
+                        static_cast<int>(row_end - row_begin),
+                        static_cast<int>(col_end - col_begin),
                         row_begin, col, val
                         ));
         } else {
@@ -101,7 +102,8 @@ struct SpMatHELL : public sparse_matrix {
             // Copy local part to the device.
             if (lrow.back()) {
                 loc.reset(new backend::cuda::spmat_hyb<val_t>(queue,
-                        row_end - row_begin, col_end - col_begin,
+                        static_cast<int>(row_end - row_begin),
+                        static_cast<int>(col_end - col_begin),
                         lrow.data(), lcol.data(), lval.data()
                         ));
             }
@@ -109,7 +111,8 @@ struct SpMatHELL : public sparse_matrix {
             // Copy remote part to the device.
             if (!ghost_cols.empty()) {
                 rem.reset(new backend::cuda::spmat_hyb<val_t>(queue,
-                            row_end - row_begin, nghost,
+                            static_cast<int>(row_end - row_begin),
+                            static_cast<int>(nghost),
                             rrow.data(), rcol.data(), rval.data()
                             ));
             }

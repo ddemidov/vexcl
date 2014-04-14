@@ -251,8 +251,8 @@ inline device_id get_device_id(const command_queue &q) {
 
 /// Launch grid size.
 struct ndrange {
-    unsigned x, y, z;
-    ndrange(unsigned x = 1, unsigned y = 1, unsigned z = 1)
+    size_t x, y, z;
+    ndrange(size_t x = 1, size_t y = 1, size_t z = 1)
         : x(x), y(y), z(z) {}
 };
 

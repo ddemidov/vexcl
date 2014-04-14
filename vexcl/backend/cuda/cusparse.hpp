@@ -125,7 +125,7 @@ class spmat_hyb {
         void mul(const device_vector<float> &x, device_vector<float> &y,
                  float alpha = 1, bool append = false) const
         {
-            float beta = append ? 1 : 0;
+            float beta = append ? 1.0f : 0.0f;
 
             cuda_check(
                     cusparseShybmv(handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
@@ -138,7 +138,7 @@ class spmat_hyb {
         void mul(const device_vector<double> &x, device_vector<double> &y,
                  double alpha = 1, bool append = false) const
         {
-            double beta = append ? 1 : 0;
+            double beta = append ? 1.0 : 0.0;
 
             cuda_check(
                     cusparseDhybmv(handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
@@ -226,7 +226,7 @@ class spmat_crs {
                 const col_t *col_begin,
                 const val_t *val_begin
                 )
-            : n(n), m(m), nnz(row_begin[n] - row_begin[0]),
+            : n(n), m(m), nnz(static_cast<unsigned>(row_begin[n] - row_begin[0])),
               handle( cusparse_handle(queue) ),
               desc  ( create_description(), detail::deleter() ),
               row(queue, n+1, row_begin),
@@ -252,7 +252,7 @@ class spmat_crs {
         void mul(const device_vector<float> &x, device_vector<float> &y,
                  float alpha = 1, bool append = false) const
         {
-            float beta = append ? 1 : 0;
+            float beta = append ? 1.0f : 0.0f;
 
             cuda_check(
                     cusparseScsrmv(handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
@@ -266,7 +266,7 @@ class spmat_crs {
         void mul(const device_vector<double> &x, device_vector<double> &y,
                  double alpha = 1, bool append = false) const
         {
-            double beta = append ? 1 : 0;
+            double beta = append ? 1.0 : 0.0;
 
             cuda_check(
                     cusparseDcsrmv(handle, CUSPARSE_OPERATION_NON_TRANSPOSE,

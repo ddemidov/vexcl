@@ -47,14 +47,8 @@ struct comp {
 
     comp(const cl_int * k1, const cl_long *k2) : k1(k1), k2(k2) {}
 
-    template <class Tuple>
-    bool operator()(size_t i, Tuple t) const {
-        return std::make_tuple(k1[i], k2[i]) < t;
-    }
-
-    template <class Tuple>
-    bool operator()(Tuple t, size_t i) const {
-        return t < std::make_tuple(k1[i], k2[i]);
+    bool operator()(size_t i, size_t j) const {
+        return std::make_tuple(k1[i], k2[i]) < std::make_tuple(k1[j], k2[j]);
     }
 };
 
@@ -123,9 +117,9 @@ BOOST_AUTO_TEST_CASE(rbk_tuple)
     std::vector<size_t> idx(n);
     std::iota(idx.begin(), idx.end(), 0);
 
-    check_sample(okey1, okey2, ovals, [&](size_t, cl_int key1, cl_long key2, double dev_sum) {
+    check_sample(okey1, okey2, ovals, [&](size_t i, cl_int key1, cl_long key2, double dev_sum) {
         auto r = std::equal_range(idx.begin(), idx.end(),
-            std::make_tuple(key1, key2), comp(k1.data(), k2.data()));
+            i, comp(k1.data(), k2.data()));
 
         double host_sum = std::accumulate(
                 ivals.begin() + std::distance(idx.begin(), r.first),

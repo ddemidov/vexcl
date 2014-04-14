@@ -80,6 +80,7 @@ include_directories( ${Boost_INCLUDE_DIRS} )
 if (WIN32)
     add_definitions(-DNOMINMAX)
     add_definitions(-D_VARIADIC_MAX=10)
+    add_definitions(/bigobj)
 endif ()
 
 set(VEXCL_BACKEND "OpenCL" CACHE STRING "Select VexCL backend (OpenCL/CUDA)")
