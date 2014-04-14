@@ -93,9 +93,11 @@ size_t random_dim(double p, double s) {
 
 BOOST_AUTO_TEST_CASE(test_dimensions)
 {
+#ifdef VEXCL_BACKEND_OPENCL
     // TODO: POCL fails this test.
     if (vex::Filter::Platform("Portable Computing Language")(ctx.device(0)))
         return;
+#endif
 
     const size_t max = vex::is_cpu(ctx.queue(0)) ? 1 << 10 : 1 << 20;
 
