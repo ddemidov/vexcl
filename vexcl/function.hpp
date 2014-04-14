@@ -232,9 +232,6 @@ rtype operator()(VEXCL_DUAL_FUNCTOR_ARGS(args)) const {                        \
  \param args Arguments of the function. Specified as a preprocessor sequence
              of tuples. In each of the tuples the first element argument
              type, and the second element defines argument name.
- \param deps User-defined functions that are called inside the body of the
-             function that is being defined. Specified as a preprocessor
-             sequence of function names.
  \param body Body of the function specified as string.
 
  Example:

@@ -4,7 +4,7 @@
 # under given OpenCL and CUDA platforms.
 
 # Stop on errors:
-set -e
+#set -e
 
 # Make with every configured compiler:
 parallel --ungroup make -j2 -C ::: build-*
