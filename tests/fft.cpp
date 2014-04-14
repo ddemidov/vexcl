@@ -76,8 +76,19 @@ void test(const vex::Context &ctx, std::vector<size_t> ns, size_t batch) {
     back = ifft(out);
 
     auto rms = [&](const vex::vector<cl_double2> &a, const vex::vector<cl_double2> &b) -> double {
+        // Required for CUDA compatibility:
+        VEX_FUNCTION(cl_double2, minus, (cl_double2, a)(cl_double2, b),
+                double2 r = {a.x - b.x, a.y - b.y};
+                return r;
+                );
+
+        VEX_FUNCTION(double, dot2, (cl_double2, a)(cl_double2, b),
+                return a.x * b.x + a.y * b.y;
+                );
+
         static vex::Reductor<double, vex::SUM> sum(queue);
-        return std::sqrt(sum(dot(a - b, a - b))) / std::sqrt(sum(dot(b, b)));
+        return std::sqrt(sum(dot2(minus(a, b), minus(a, b)))) /
+            std::sqrt(sum(dot2(b, b)));
     };
 
     BOOST_CHECK_SMALL(rms(back, inp), 1e-8);

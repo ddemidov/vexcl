@@ -390,7 +390,7 @@ inline kernel_call bluestein_pad_kernel(
         .template parameter< cl_uint              >("n")
         .template parameter< cl_uint              >("m")
     .close(")").open("{");
-    o.new_line() << "const size_t x = " << o.global_id(0) << ";";
+    o.new_line() << "const uint x = " << o.global_id(0) << ";";
     o.new_line() << "if (x < m)";
     o.open("{");
     o.new_line() << "if(x < n || m - x < n)";
@@ -518,6 +518,15 @@ inline kernel_call bluestein_mul_out(
     kernel_common<T>(o, queue);
     mul_code<T2>(o, false);
 
+    o.function<T2>("scale").open("(")
+        .template parameter<T2>("x")
+        .template parameter<T >("a")
+    .close(")").open("{");
+
+    o.new_line() << type_name<T2>() << " r = {x.x * a, x.y * a};";
+    o.new_line() << "return r;";
+    o.close("}");
+
     o.kernel("bluestein_mul_out").open("(")
         .template parameter< global_ptr<const T2> >("data")
         .template parameter< global_ptr<const T2> >("exp")
@@ -541,7 +550,7 @@ inline kernel_call bluestein_mul_out(
     o.new_line() << "const size_t in_off = i * in_stride + b * in_stride * threads + l;";
     o.new_line() << "const size_t out_off = j + b * threads * radix + l * p;";
 
-    o.new_line() << "output[out_off] = mul(data[in_off] * div, exp[l]);";
+    o.new_line() << "output[out_off] = mul(scale(data[in_off], div), exp[l]);";
 
     o.close("}");
     o.close("}");
