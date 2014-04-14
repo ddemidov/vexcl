@@ -110,7 +110,7 @@ BOOST_AUTO_TEST_CASE(test_dimensions)
         return;
 #endif
 
-    const size_t max = vex::is_cpu(ctx.queue(0)) ? 1 << 10 : 1 << 20;
+    const size_t max = 1 << 12;
 
     vex::fft::planner p;
 
