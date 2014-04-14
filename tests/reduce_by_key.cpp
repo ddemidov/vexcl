@@ -41,23 +41,6 @@ BOOST_AUTO_TEST_CASE(rbk)
         });
 }
 
-struct comp {
-    const cl_int  *k1;
-    const cl_long *k2;
-
-    comp(const cl_int * k1, const cl_long *k2) : k1(k1), k2(k2) {}
-
-    template <class Tuple>
-    bool operator()(size_t i, Tuple t) const {
-        return std::make_tuple(k1[i], k2[i]) < t;
-    }
-
-    template <class Tuple>
-    bool operator()(Tuple t, size_t i) const {
-        return t < std::make_tuple(k1[i], k2[i]);
-    }
-};
-
 BOOST_AUTO_TEST_CASE(rbk_tuple)
 {
     const int n = 1000 * 1000;
@@ -108,14 +91,29 @@ BOOST_AUTO_TEST_CASE(rbk_tuple)
             equal, plus
             );
 
-    size_t unique_keys = 1;
+    std::vector<cl_int>  rk1;
+    std::vector<cl_long> rk2;
+    std::vector<double>  rsum;
+
+    rk1.reserve(num_keys);
+    rk2.reserve(num_keys);
+    rsum.reserve(num_keys);
+
+    rk1.push_back(k1[0]);
+    rk2.push_back(k2[0]);
+    rsum.push_back(y[0]);
 
     for(int i = 1; i < n; ++i) {
-        if (std::make_tuple(k1[i-1], k2[i-1]) != std::make_tuple(k1[i], k2[i]))
-            ++unique_keys;
+        if (std::make_tuple(k1[i-1], k2[i-1]) == std::make_tuple(k1[i], k2[i])) {
+            rsum.back() += y[i];
+        } else {
+            rk1.push_back(k1[i]);
+            rk2.push_back(k2[i]);
+            rsum.push_back(y[i]);
+        }
     }
 
-    BOOST_CHECK_EQUAL(unique_keys,  num_keys);
+    BOOST_CHECK_EQUAL(rsum.size(),  num_keys);
     BOOST_CHECK_EQUAL(okey1.size(), num_keys);
     BOOST_CHECK_EQUAL(okey2.size(), num_keys);
     BOOST_CHECK_EQUAL(ovals.size(), num_keys);
@@ -123,16 +121,10 @@ BOOST_AUTO_TEST_CASE(rbk_tuple)
     std::vector<size_t> idx(n);
     std::iota(idx.begin(), idx.end(), 0);
 
-    check_sample(okey1, okey2, ovals, [&](size_t, cl_int key1, cl_long key2, double dev_sum) {
-        auto r = std::equal_range(idx.begin(), idx.end(),
-            std::make_tuple(key1, key2), comp(k1.data(), k2.data()));
-
-        double host_sum = std::accumulate(
-                ivals.begin() + std::distance(idx.begin(), r.first),
-                ivals.begin() + std::distance(idx.begin(), r.second),
-                0.0);
-
-        BOOST_CHECK_CLOSE(dev_sum, host_sum, 1e-8);
+    check_sample(okey1, okey2, ovals, [&](size_t i, cl_int key1, cl_long key2, double dsum) {
+        BOOST_CHECK_EQUAL(key1, rk1[i]);
+        BOOST_CHECK_EQUAL(key2, rk2[i]);
+        BOOST_CHECK_CLOSE(dsum, rsum[i], 1e-8);
         });
 }
 
