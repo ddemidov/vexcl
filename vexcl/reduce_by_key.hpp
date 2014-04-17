@@ -127,7 +127,6 @@ backend::kernel block_scan_by_key(const backend::command_queue &queue) {
         src.new_line() << "size_t l_id  = " << src.local_id(0)   << ";";
         src.new_line() << "size_t g_id  = " << src.global_id(0)  << ";";
         src.new_line() << "size_t block = " << src.group_id(0)   << ";";
-        src.new_line() << "size_t wgsz  = " << src.local_size(0) << ";";
 
         src.new_line() << "struct Shared";
         src.open("{");
@@ -150,7 +149,7 @@ backend::kernel block_scan_by_key(const backend::command_queue &queue) {
 
         // Computes a scan within a workgroup updates vals in lds but not keys
         src.new_line() << type_name<T>() << " sum = val;";
-        src.new_line() << "for(size_t offset = 1; offset < wgsz; offset *= 2)";
+        src.new_line() << "for(size_t offset = 1; offset < " << NT << "; offset *= 2)";
         src.open("{");
         src.new_line().barrier();
         src.new_line() << "if (l_id >= offset && shared.keys[l_id - offset] == key)";
@@ -172,8 +171,8 @@ backend::kernel block_scan_by_key(const backend::command_queue &queue) {
 
         src.new_line() << "if (l_id == 0)";
         src.open("{");
-        src.new_line() << "key_buf[block] = shared.keys[wgsz - 1];";
-        src.new_line() << "val_buf[block] = shared.vals[wgsz - 1];";
+        src.new_line() << "key_buf[block] = shared.keys[" << NT - 1 << "];";
+        src.new_line() << "val_buf[block] = shared.vals[" << NT - 1 << "];";
         src.close("}");
 
         src.close("}");
@@ -209,7 +208,6 @@ backend::kernel block_inclusive_scan_by_key(const backend::command_queue &queue)
 
         src.new_line() << "size_t l_id   = " << src.local_id(0)   << ";";
         src.new_line() << "size_t g_id   = " << src.global_id(0)  << ";";
-        src.new_line() << "size_t wgsz   = " << src.local_size(0) << ";";
         src.new_line() << "size_t map_id = g_id * work_per_thread;";
 
         src.new_line() << "struct Shared";
@@ -261,7 +259,7 @@ backend::kernel block_inclusive_scan_by_key(const backend::command_queue &queue)
         // scan in lds
         src.new_line() << type_name<T>() << " scan_sum = work_sum;";
 
-        src.new_line() << "for( offset = 1; offset < wgsz; offset *= 2 )";
+        src.new_line() << "for( offset = 1; offset < " << NT << "; offset *= 2 )";
         src.open("{");
         src.new_line().barrier();
 
