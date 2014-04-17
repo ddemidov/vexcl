@@ -1048,87 +1048,6 @@ backend::kernel merge_partition_kernel(const backend::command_queue &queue) {
     return kernel->second;
 }
 
-template <class K, size_t I = 0, class Enable = void>
-struct temp_storage {
-    device_vector< typename boost::mpl::at_c<K, I>::type > head;
-    temp_storage<K, I + 1> tail;
-
-    temp_storage(const backend::command_queue &queue, size_t n)
-        : head(queue, n), tail(queue, n) {}
-
-    template <size_t J>
-    typename std::enable_if<
-        (J > I),
-        device_vector< typename boost::mpl::at_c<K, J>::type >
-    >::type&
-    get() {
-        return tail.template get<J>();
-    }
-
-    template <size_t J>
-    typename std::enable_if<
-        (J == I),
-        device_vector< typename boost::mpl::at_c<K, J>::type >
-    >::type&
-    get() {
-        return head;
-    }
-
-    template <class Tuple>
-    typename std::enable_if<
-        boost::fusion::result_of::size<Tuple>::value == boost::mpl::size<K>::value &&
-        I + 1 < static_cast<size_t>(boost::mpl::size<K>::value),
-        void
-    >::type
-    swap(Tuple &t) {
-        std::swap(head, boost::fusion::at_c<I>(t));
-        tail.swap(t);
-    }
-
-    template <class Tuple>
-    typename std::enable_if<
-        boost::fusion::result_of::size<Tuple>::value == boost::mpl::size<K>::value &&
-        I + 1 == boost::mpl::size<K>::value,
-        void
-    >::type
-    swap(Tuple &t) {
-        std::swap(head, boost::fusion::at_c<I>(t));
-    }
-};
-
-
-template <class K, size_t I>
-struct temp_storage<K, I,
-    typename std::enable_if<I == boost::mpl::size<K>::value>::type >
-{
-    temp_storage(const backend::command_queue&, size_t) {}
-};
-
-template <size_t I, size_t N, class Enable = void>
-struct arg_pusher {
-    template <class T>
-    static void push(backend::kernel &krn, T &&t) {
-        krn.push_arg(boost::fusion::at_c<I>(t));
-        arg_pusher<I + 1, N>::push(krn, std::forward<T>(t));
-    }
-
-    template <class T>
-    static void push(backend::kernel &krn, temp_storage<T> &t) {
-        krn.push_arg(t.template get<I>());
-        arg_pusher<I + 1, N>::push(krn, t);
-    }
-};
-
-template <size_t I, size_t N>
-struct arg_pusher<I, N, typename std::enable_if<I == N>::type> {
-    template <class T> static void push(backend::kernel&, T&&) { }
-};
-
-template <size_t N, class T>
-void push_args(backend::kernel &krn, T &&t) {
-    arg_pusher<0, N>::push(krn, t);
-}
-
 //---------------------------------------------------------------------------
 template <typename Comp, class KT>
 backend::device_vector<int> merge_path_partitions(
@@ -1783,12 +1702,6 @@ inline int find_log2(int x, bool round_up = false) {
     return a;
 }
 
-template <size_t I, class K>
-device_vector< typename boost::mpl::at_c<K, I>::type >&
-at_c(temp_storage<K, 0> &s) {
-    return s.template get<I>();
-}
-
 /// Sorts single partition of a vector.
 template <class KT, class Comp>
 void sort(const backend::command_queue &queue, KT &keys, Comp) {
@@ -2131,24 +2044,6 @@ merge(const KTuple &keys, const VTuple &vals, Comp comp) {
 
     return fusion::as_vector(fusion::join(dst_keys, dst_vals));
 }
-
-struct extract_device_vector {
-    uint d;
-
-    extract_device_vector(uint d) : d(d) {}
-
-    template <class T> struct result;
-
-    template <class This, class T>
-    struct result< This(T) > {
-        typedef device_vector<typename std::decay<T>::type::value_type>& type;
-    };
-
-    template <class T>
-    typename result<extract_device_vector(T)>::type operator()(T &t) const {
-        return t(d);
-    }
-};
 
 template <class K, class Comp>
 void sort_sink(K &&keys, Comp comp) {
