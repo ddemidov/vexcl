@@ -60,6 +60,19 @@ namespace vex {
 namespace detail {
 namespace sbk {
 
+struct gcc46_workaround {
+    backend::source_generator &src;
+    int wgsz, pos;
+
+    gcc46_workaround(backend::source_generator &src, int wgsz)
+        : src(src), wgsz(wgsz), pos(0) {}
+
+    template <class T>
+    void operator()(T) {
+        src.new_line() << type_name<T>() << " keys" << pos++ << "[" << wgsz << "];";
+    }
+};
+
 //---------------------------------------------------------------------------
 template <int NT, typename K, typename V, class Comp, class Oper, bool exclusive>
 backend::kernel block_scan_by_key(const backend::command_queue &queue) {
@@ -99,13 +112,11 @@ backend::kernel block_scan_by_key(const backend::command_queue &queue) {
 
         src.new_line() << "struct Shared";
         src.open("{");
-            src.new_line() << type_name<V>() << " vals[" << wgsz << "];";
-            boost::mpl::for_each<K>(
-                    type_iterator([&](size_t p, std::string tname) {
-                        src.new_line()
-                            << tname << " keys" << p << "[" << wgsz << "];";
-                        })
-                    );
+        src.new_line() << type_name<V>() << " vals[" << wgsz << "];";
+
+        // gcc 4.6 crashes if the following type iteration is done with lambda.
+        // so here it goes:
+        boost::mpl::for_each<K>( gcc46_workaround(src, wgsz) );
         src.close("};");
         src.smem_static_var("struct Shared", "shared");
 
