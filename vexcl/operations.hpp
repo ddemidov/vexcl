@@ -575,6 +575,9 @@ struct UserFunction<Impl, RetType(ArgType...)> : user_function
         const Arg&...
     >::type const
     operator()(const Arg&... arg) const {
+        static_assert(sizeof...(Arg) == sizeof...(ArgType),
+                "Wrong number of arguments for a user-defined function!"
+                );
         return boost::proto::make_expr<boost::proto::tag::function>(
                 Impl(), boost::ref(arg)...
                 );
