@@ -88,7 +88,6 @@ backend::kernel block_inclusive_scan(const backend::command_queue &queue)
         src.new_line() << "size_t l_id  = " << src.local_id(0)   << ";";
         src.new_line() << "size_t g_id  = " << src.global_id(0)  << ";";
         src.new_line() << "size_t block = " << src.group_id(0)   << ";";
-        src.new_line() << "size_t wgsz  = " << src.local_size(0) << " * 2;";
 
         src.new_line() << "size_t offset = 1;";
 
@@ -100,20 +99,20 @@ backend::kernel block_inclusive_scan(const backend::command_queue &queue)
 
         // load input into shared memory
         src.new_line()
-            << "if(block * wgsz + l_id < n)"
-            << " shared[l_id] = input[block * wgsz + l_id];";
+            << "if(block * " << 2 * NT << " + l_id < n)"
+            << " shared[l_id] = input[block * " << 2 * NT << " + l_id];";
 
         src.new_line()
-            << "if(block * wgsz + l_id + " << NT << " < n)"
+            << "if(block * " << 2 * NT << " + l_id + " << NT << " < n)"
             << " shared[l_id + " << NT << "] ="
-            << " input[block * wgsz + l_id + " << NT << "];";
+            << " input[block * " << 2 * NT << " + l_id + " << NT << "];";
 
         // Exclusive case
         src.new_line()
             << "if(exclusive && g_id == 0)"
             << " shared[l_id] = oper(identity, input[0]);";
 
-        src.new_line() << "for (size_t start = wgsz >> 1; start > 0; start >>= 1, offset *= 2)";
+        src.new_line() << "for (size_t start = " << NT << "; start > 0; start >>= 1, offset *= 2)";
         src.open("{");
         src.new_line().barrier();
 
@@ -131,8 +130,8 @@ backend::kernel block_inclusive_scan(const backend::command_queue &queue)
 
         src.new_line() << "if (l_id == 0)";
         src.open("{");
-        src.new_line() << "scan_buf1[ block ] = shared[wgsz - 1];";
-        src.new_line() << "scan_buf2[ block ] = shared[" << NT << " - 1];";
+        src.new_line() << "scan_buf1[ block ] = shared[" << NT * 2 - 1 << "];";
+        src.new_line() << "scan_buf2[ block ] = shared[" << NT - 1 << "];";
         src.close("}");
         src.close("}");
 
@@ -166,7 +165,6 @@ backend::kernel intra_block_inclusive_scan(const backend::command_queue &queue)
 
         src.new_line() << "size_t l_id   = " << src.local_id(0)   << ";";
         src.new_line() << "size_t g_id   = " << src.global_id(0)  << ";";
-        src.new_line() << "size_t wgsz   = " << src.local_size(0) << ";";
         src.new_line() << "size_t map_id = g_id * work_per_thread;";
 
         {
@@ -199,7 +197,7 @@ backend::kernel intra_block_inclusive_scan(const backend::command_queue &queue)
         src.new_line() << "shared[ l_id ] = work_sum;";
 
         // scan in shared
-        src.new_line() << "for( offset = 1; offset < wgsz; offset *= 2 )";
+        src.new_line() << "for( offset = 1; offset < " << NT << "; offset *= 2 )";
         src.open("{");
         src.new_line().barrier();
 
@@ -273,7 +271,6 @@ backend::kernel block_addition(
         src.new_line() << "size_t l_id  = " << src.local_id(0)   << ";";
         src.new_line() << "size_t g_id  = " << src.global_id(0)  << ";";
         src.new_line() << "size_t block = " << src.group_id(0)   << ";";
-        src.new_line() << "size_t wgsz  = " << src.local_size(0) << ";";
 
         src.new_line() << type_name<T>() << " val;";
 
@@ -315,7 +312,7 @@ backend::kernel block_addition(
 
         //  Computes a scan within a workgroup
         src.new_line() << "sum = shared[ l_id ];";
-        src.new_line() << "for( size_t offset = 1; offset < wgsz; offset *= 2 )";
+        src.new_line() << "for( size_t offset = 1; offset < " << NT << "; offset *= 2 )";
         src.open("{");
         src.new_line().barrier();
         src.new_line() << "if (l_id >= offset) sum = oper( sum, shared[ l_id - offset ] );";

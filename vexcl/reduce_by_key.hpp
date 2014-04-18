@@ -59,6 +59,7 @@ limitations under the License.
 
 namespace vex {
 namespace detail {
+namespace rbk {
 
 //---------------------------------------------------------------------------
 template <typename T, class Comp>
@@ -126,7 +127,6 @@ backend::kernel block_scan_by_key(const backend::command_queue &queue) {
         src.new_line() << "size_t l_id  = " << src.local_id(0)   << ";";
         src.new_line() << "size_t g_id  = " << src.global_id(0)  << ";";
         src.new_line() << "size_t block = " << src.group_id(0)   << ";";
-        src.new_line() << "size_t wgsz  = " << src.local_size(0) << ";";
 
         src.new_line() << "struct Shared";
         src.open("{");
@@ -149,7 +149,7 @@ backend::kernel block_scan_by_key(const backend::command_queue &queue) {
 
         // Computes a scan within a workgroup updates vals in lds but not keys
         src.new_line() << type_name<T>() << " sum = val;";
-        src.new_line() << "for(size_t offset = 1; offset < wgsz; offset *= 2)";
+        src.new_line() << "for(size_t offset = 1; offset < " << NT << "; offset *= 2)";
         src.open("{");
         src.new_line().barrier();
         src.new_line() << "if (l_id >= offset && shared.keys[l_id - offset] == key)";
@@ -171,8 +171,8 @@ backend::kernel block_scan_by_key(const backend::command_queue &queue) {
 
         src.new_line() << "if (l_id == 0)";
         src.open("{");
-        src.new_line() << "key_buf[block] = shared.keys[wgsz - 1];";
-        src.new_line() << "val_buf[block] = shared.vals[wgsz - 1];";
+        src.new_line() << "key_buf[block] = shared.keys[" << NT - 1 << "];";
+        src.new_line() << "val_buf[block] = shared.vals[" << NT - 1 << "];";
         src.close("}");
 
         src.close("}");
@@ -208,7 +208,6 @@ backend::kernel block_inclusive_scan_by_key(const backend::command_queue &queue)
 
         src.new_line() << "size_t l_id   = " << src.local_id(0)   << ";";
         src.new_line() << "size_t g_id   = " << src.global_id(0)  << ";";
-        src.new_line() << "size_t wgsz   = " << src.local_size(0) << ";";
         src.new_line() << "size_t map_id = g_id * work_per_thread;";
 
         src.new_line() << "struct Shared";
@@ -260,7 +259,7 @@ backend::kernel block_inclusive_scan_by_key(const backend::command_queue &queue)
         // scan in lds
         src.new_line() << type_name<T>() << " scan_sum = work_sum;";
 
-        src.new_line() << "for( offset = 1; offset < wgsz; offset *= 2 )";
+        src.new_line() << "for( offset = 1; offset < " << NT << "; offset *= 2 )";
         src.open("{");
         src.new_line().barrier();
 
@@ -448,7 +447,7 @@ int reduce_by_key_sink(
 
     precondition(
             fusion::at_c<0>(ikeys).nparts() == 1 && ivals.nparts() == 1,
-            "Sorting is only supported for single device contexts"
+            "reduce_by_key is only supported for single device contexts"
             );
 
     precondition(fusion::at_c<0>(ikeys).size() == ivals.size(),
@@ -473,7 +472,7 @@ int reduce_by_key_sink(
     backend::device_vector<int> offset    (queue[0], count);
 
     /***** Kernel 0 *****/
-    auto krn0 = detail::offset_calculation<K, Comp>(queue[0]);
+    auto krn0 = offset_calculation<K, Comp>(queue[0]);
 
     krn0.push_arg(count);
     boost::fusion::for_each(ikeys, do_push_arg(krn0));
@@ -482,12 +481,12 @@ int reduce_by_key_sink(
     krn0(queue[0]);
 
     VEX_FUNCTION(int, plus, (int, x)(int, y), return x + y;);
-    detail::scan(queue[0], offset, offset, 0, false, plus);
+    scan(queue[0], offset, offset, 0, false, plus);
 
     /***** Kernel 1 *****/
     auto krn1 = is_cpu(queue[0]) ?
-        detail::block_scan_by_key<NT_cpu, V, Oper>(queue[0]) :
-        detail::block_scan_by_key<NT_gpu, V, Oper>(queue[0]);
+        block_scan_by_key<NT_cpu, V, Oper>(queue[0]) :
+        block_scan_by_key<NT_gpu, V, Oper>(queue[0]);
 
     krn1.push_arg(count);
     krn1.push_arg(offset);
@@ -503,8 +502,8 @@ int reduce_by_key_sink(
     uint work_per_thread = std::max<uint>(1U, static_cast<uint>(scan_buf_size / NT));
 
     auto krn2 = is_cpu(queue[0]) ?
-        detail::block_inclusive_scan_by_key<NT_cpu, V, Oper>(queue[0]) :
-        detail::block_inclusive_scan_by_key<NT_gpu, V, Oper>(queue[0]);
+        block_inclusive_scan_by_key<NT_cpu, V, Oper>(queue[0]) :
+        block_inclusive_scan_by_key<NT_gpu, V, Oper>(queue[0]);
 
     krn2.push_arg(num_blocks);
     krn2.push_arg(key_sum);
@@ -516,7 +515,7 @@ int reduce_by_key_sink(
     krn2(queue[0]);
 
     /***** Kernel 3 *****/
-    auto krn3 = detail::block_sum_by_key<V, Oper>(queue[0]);
+    auto krn3 = block_sum_by_key<V, Oper>(queue[0]);
 
     krn3.push_arg(count);
     krn3.push_arg(key_sum);
@@ -536,7 +535,7 @@ int reduce_by_key_sink(
     ovals.resize(ivals.queue_list(), out_elements);
 
     /***** Kernel 4 *****/
-    auto krn4 = detail::key_value_mapping<K, V>(queue[0]);
+    auto krn4 = key_value_mapping<K, V>(queue[0]);
 
     krn4.push_arg(count);
     boost::fusion::for_each(ikeys, do_push_arg(krn4));
@@ -550,7 +549,8 @@ int reduce_by_key_sink(
     return out_elements;
 }
 
-}
+} // namespace rbk
+} // namespace detail
 
 /// Reduce by key algorithm.
 template <typename IKeys, typename OKeys, typename V, class Comp, class Oper>
@@ -560,7 +560,7 @@ int reduce_by_key(
         Comp comp, Oper oper
         )
 {
-    return detail::reduce_by_key_sink(
+    return detail::rbk::reduce_by_key_sink(
             detail::forward_as_sequence(ikeys), ivals,
             detail::forward_as_sequence(okeys), ovals,
             comp, oper);
