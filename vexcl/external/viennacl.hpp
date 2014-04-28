@@ -37,9 +37,7 @@ namespace viennacl {
         template< typename T1, typename T2 >
         decltype(T1() * T2())
         inner_prod(const vex::vector<T1> &v1, const vex::vector<T2> &v2) {
-            static vex::Reductor<decltype(T1() * T2()), vex::SUM> sum(
-                    vex::StaticContext<>::get().queue()
-                    );
+            vex::Reductor<decltype(T1() * T2()), vex::SUM> sum(v1.queue_list());
             return sum(v1 * v2);
         }
 
