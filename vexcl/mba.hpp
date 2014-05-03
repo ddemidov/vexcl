@@ -259,7 +259,7 @@ class mba {
         *this, boost::tie(BOOST_PP_ENUM_PARAMS(n, expr)));                     \
   }
 
-BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_FUNCALL_OPERATOR, ~)
+BOOST_PP_REPEAT_FROM_TO(1, 10, VEXCL_FUNCALL_OPERATOR, ~)
 
 #undef VEXCL_FUNCALL_OPERATOR
 #endif
