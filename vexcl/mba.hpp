@@ -343,9 +343,9 @@ BOOST_PP_REPEAT_FROM_TO(1, 10, VEXCL_FUNCALL_OPERATOR, ~)
 
                 size_t np = coo_end - coo_begin;
 #pragma omp parallel for
-                for(size_t i = 0; i < np; ++i) {
-                    auto p = coo_begin[i];
-                    auto v = val_begin[i];
+                for(size_t j = 0; j < np; ++j) {
+                    auto p = coo_begin[j];
+                    auto v = val_begin[j];
                     if (!contained(cmin, cmax, p)) continue;
 
                     index i;
