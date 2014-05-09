@@ -383,11 +383,10 @@ BOOST_PP_REPEAT_FROM_TO(1, 10, VEXCL_FUNCALL_OPERATOR, ~)
 
                         assert(idx < delta.size());
 
-#pragma omp critical
-                        {
-                            delta[idx] += w2 * phi;
-                            omega[idx] += w2;
-                        }
+#pragma omp atomic
+                        delta[idx] += w2 * phi;
+#pragma omp atomic
+                        omega[idx] += w2;
                     }
                 }
 
