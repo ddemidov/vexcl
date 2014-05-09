@@ -341,16 +341,18 @@ BOOST_PP_REPEAT_FROM_TO(1, 10, VEXCL_FUNCALL_OPERATOR, ~)
                 std::vector<real> delta(n[0] * stride[0], 0.0);
                 std::vector<real> omega(n[0] * stride[0], 0.0);
 
-                auto p = coo_begin;
-                auto v = val_begin;
-                for(; p != coo_end; ++p, ++v) {
-                    if (!contained(cmin, cmax, *p)) continue;
+                size_t np = coo_end - coo_begin;
+#pragma omp parallel for
+                for(size_t i = 0; i < np; ++i) {
+                    auto p = coo_begin[i];
+                    auto v = val_begin[i];
+                    if (!contained(cmin, cmax, p)) continue;
 
                     index i;
                     point s;
 
                     for(size_t d = 0; d < NDIM; ++d) {
-                        real u = ((*p)[d] - xmin[d]) * hinv[d];
+                        real u = (p[d] - xmin[d]) * hinv[d];
                         i[d] = static_cast<size_t>(std::floor(u) - 1);
                         s[d] = u - std::floor(u);
                     }
@@ -368,7 +370,7 @@ BOOST_PP_REPEAT_FROM_TO(1, 10, VEXCL_FUNCALL_OPERATOR, ~)
                     }
 
                     for(detail::scounter<4, NDIM> d; d.valid(); ++d) {
-                        real phi = (*v) * w[d] / sw2;
+                        real phi = v * w[d] / sw2;
 
                         size_t idx = 0;
                         for(size_t k = 0; k < NDIM; ++k) {
@@ -381,22 +383,22 @@ BOOST_PP_REPEAT_FROM_TO(1, 10, VEXCL_FUNCALL_OPERATOR, ~)
 
                         assert(idx < delta.size());
 
-                        delta[idx] += w2 * phi;
-                        omega[idx] += w2;
+#pragma omp critical
+                        {
+                            delta[idx] += w2 * phi;
+                            omega[idx] += w2;
+                        }
                     }
                 }
 
                 phi.resize(omega.size());
 
-                for(auto w = omega.begin(), d = delta.begin(), f = phi.begin();
-                        w != omega.end();
-                        ++w, ++d, ++f
-                   )
-                {
-                    if (std::fabs(*w) < 1e-32)
-                        *f = 0;
+#pragma omp parallel for
+                for(size_t i = 0; i < omega.size(); ++i) {
+                    if (std::fabs(omega[i]) < 1e-32)
+                        phi[i] = 0;
                     else
-                        *f = (*d) / (*w);
+                        phi[i] = delta[i] / omega[i];
                 }
             }
 
@@ -430,15 +432,13 @@ BOOST_PP_REPEAT_FROM_TO(1, 10, VEXCL_FUNCALL_OPERATOR, ~)
                     CooIter coo_begin, CooIter coo_end, ValIter val_begin
                     ) const
             {
-                auto c = coo_begin;
-                auto v = val_begin;
-
                 real res = 0;
 
-                for(; c != coo_end; ++c, ++v) {
-                    *v -= (*this)(*c);
-
-                    res += (*v) * (*v);
+                size_t np = coo_end - coo_begin;
+#pragma omp parallel for reduction(+: res)
+                for(size_t i = 0; i < np; ++i) {
+                    real v = (val_begin[i] -= (*this)(coo_begin[i]));
+                    res += v * v;
                 }
 
                 return res;
