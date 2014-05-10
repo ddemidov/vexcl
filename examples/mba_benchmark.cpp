@@ -62,15 +62,13 @@ int main(int argc, char *argv[]) {
                 );
         prof.toc("setup");
 
-        vex::multivector<double, 2> C(ctx, n);
+        vex::vector<double> X(ctx, x);
+        vex::vector<double> Y(ctx, y);
         vex::vector<double> Z(ctx, n);
-
-        vex::copy(x, C(0));
-        vex::copy(y, C(1));
 
         prof.tic_cl("interpolate");
         for(size_t i = 0; i < m; ++i)
-            Z = surf(C(0), C(1));
+            Z = surf(X, Y);
         prof.toc("interpolate");
         std::cout << "surf(0.5, 0.5) = " << Z[0] << std::endl;
     }
