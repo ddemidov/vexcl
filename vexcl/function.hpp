@@ -150,7 +150,8 @@ VEX_FUNCTION_V1(diff_cube, double(double, double),
             VEXCL_FUNCTION_NTH_ARG_NAME(n, args));
 
 #define VEXCL_FUNCTION_DEFINE_DEP(z, data, dep)                                \
-        BOOST_PP_CAT(vex_function_, dep)::define(src);
+        typedef decltype(dep) BOOST_PP_CAT(dep, _type);                        \
+        BOOST_PP_CAT(dep, _type)::define(src);
 
 #define VEX_FUNCTION_SINK(rtype, func_name, nargs, args, deps, body)           \
 struct vex_function_##func_name                                                \
