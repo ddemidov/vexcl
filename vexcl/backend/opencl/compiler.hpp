@@ -31,6 +31,7 @@ THE SOFTWARE.
  * \brief  OpenCL source code compilation wrapper.
  */
 
+#include <thread>
 #include <cstdlib>
 #include <vexcl/backend/common.hpp>
 
@@ -48,6 +49,10 @@ inline void save_program_binaries(
         const std::string &hash, const cl::Program &program, const std::string &source
         )
 {
+    // Prevent writing to the same file by several threads at the same time.
+    static std::mutex mx;
+    std::unique_lock<std::mutex> lock(mx);
+
     std::ofstream bfile(program_binaries_path(hash, true) + "kernel", std::ios::binary);
     if (!bfile) return;
 
