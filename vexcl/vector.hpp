@@ -37,6 +37,7 @@ THE SOFTWARE.
 #include <iomanip>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <type_traits>
 #include <functional>
 
@@ -87,6 +88,8 @@ struct partitioning_scheme {
     typedef std::function< double(const backend::command_queue&) > weight_function;
 
     static void set(weight_function f) {
+        std::unique_lock<std::mutex> lock(mx);
+
         if (!is_set) {
             weight = f;
             is_set = true;
@@ -104,6 +107,7 @@ struct partitioning_scheme {
         static bool is_set;
         static weight_function weight;
         static std::map<backend::device_id, double> device_weight;
+        static std::mutex mx;
 };
 
 template <bool dummy>
@@ -113,13 +117,21 @@ template <bool dummy>
 std::map<backend::device_id, double> partitioning_scheme<dummy>::device_weight;
 
 template <bool dummy>
+std::mutex partitioning_scheme<dummy>::mx;
+
+template <bool dummy>
 std::vector<size_t> partitioning_scheme<dummy>::get(size_t n,
         const std::vector<backend::command_queue> &queue)
 {
-    if (!is_set) {
-        weight = device_vector_perf;
-        is_set = true;
-    }
+    static const bool once = [](){
+        std::unique_lock<std::mutex> lock(mx);
+        if (!is_set) {
+            weight = device_vector_perf;
+            is_set = true;
+        }
+        return true;
+    }();
+    (void)once; // do not warn about unused variable
 
     std::vector<size_t> part;
     part.reserve(queue.size() + 1);

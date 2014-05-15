@@ -46,7 +46,7 @@ namespace cuda {
 
 /// \cond INTERNAL
 inline CUresult do_init() {
-    static CUresult rc = cuInit(0);
+    static const CUresult rc = cuInit(0);
     return rc;
 }
 
