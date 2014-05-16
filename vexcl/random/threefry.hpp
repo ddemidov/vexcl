@@ -79,7 +79,7 @@ namespace detail {
     template<>
     struct rotation_table<32, 2> {
         static std::array<unsigned, 8> get() {
-            static std::array<unsigned, 8> R = {{
+            static const std::array<unsigned, 8> R = {{
                 13, 15, 26,  6, 17, 29, 16, 24
             }};
             return R;
@@ -89,7 +89,7 @@ namespace detail {
     template <>
     struct rotation_table<32, 4> {
         static std::array<unsigned, 16> get() {
-            static std::array<unsigned, 16> R = {{
+            static const std::array<unsigned, 16> R = {{
                 10, 26, 11, 21, 13, 27, 23,  5,
                  6, 20, 17, 11, 25, 10, 18, 20
             }};
@@ -100,7 +100,7 @@ namespace detail {
     template <>
     struct rotation_table<64, 2> {
         static std::array<unsigned, 8> get() {
-            static std::array<unsigned, 8> R = {{
+            static const std::array<unsigned, 8> R = {{
                 16, 42, 12, 31, 16, 32, 24, 21
             }};
             return R;
@@ -110,7 +110,7 @@ namespace detail {
     template <>
     struct rotation_table<64, 4> {
         static std::array<unsigned, 16> get() {
-            static std::array<unsigned, 16> R = {{
+            static const std::array<unsigned, 16> R = {{
                 14, 16, 52, 57, 23, 40,  5, 37,
                 25, 33, 46, 12, 58, 22, 32, 32
             }};

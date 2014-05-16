@@ -273,7 +273,7 @@ namespace Filter {
 
             bool operator()(const cl::Device &d) const {
                 static std::map<cl_device_id, std::string> dev_uids = get_uids();
-                static std::vector<std::unique_ptr<locker>> locks;
+                static /*thread_local*/ std::vector<std::unique_ptr<locker>> locks;
 
                 std::unique_ptr<locker> lck(new locker(dev_uids[d()]));
 

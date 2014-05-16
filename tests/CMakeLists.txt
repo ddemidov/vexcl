@@ -60,6 +60,7 @@ add_vexcl_test(sort                     sort.cpp)
 add_vexcl_test(scan                     scan.cpp)
 add_vexcl_test(scan_by_key              scan_by_key.cpp)
 add_vexcl_test(reduce_by_key            reduce_by_key.cpp)
+add_vexcl_test(threads                  threads.cpp)
 add_vexcl_test(multiple_objects         "dummy1.cpp;dummy2.cpp")
 
 #----------------------------------------------------------------------------

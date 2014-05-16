@@ -257,11 +257,11 @@ class StaticContext {
             return *instance;
         }
     private:
-        static Context *instance;
+        static /*thread_local*/ Context *instance;
 };
 
 template <bool dummy>
-Context* StaticContext<dummy>::instance = 0;
+/*thread_local*/ Context* StaticContext<dummy>::instance = 0;
 
 /// Returns reference to the latest instance of vex::Context.
 inline const Context& current_context() {

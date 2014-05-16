@@ -7,6 +7,7 @@
 #include <cusparse_v2.h>
 
 #include <vexcl/vector.hpp>
+#include <vexcl/cache.hpp>
 #include <vexcl/backend/cuda/error.hpp>
 #include <vexcl/backend/cuda/context.hpp>
 
@@ -69,10 +70,11 @@ struct deleter_impl<cusparseHybMat_t> {
 
 inline cusparseHandle_t cusparse_handle(const command_queue &q) {
     typedef std::shared_ptr<std::remove_pointer<cusparseHandle_t>::type> smart_handle;
-    static std::map< backend::context_id, smart_handle > cache;
+    typedef vex::detail::object_cache<vex::detail::index_by_context, smart_handle> cache_type;
 
-    auto key = backend::get_context_id(q);
-    auto h   = cache.find(key);
+    static cache_type cache;
+
+    auto h = cache.find(q);
 
     if (h == cache.end()) {
         select_context(q);
@@ -80,7 +82,7 @@ inline cusparseHandle_t cusparse_handle(const command_queue &q) {
         cuda_check( cusparseCreate(&handle) );
         cuda_check( cusparseSetStream(handle, q.raw()) );
 
-        h = cache.insert(std::make_pair(key, smart_handle(handle, detail::deleter()))).first;
+        h = cache.insert(q, smart_handle(handle, detail::deleter()));
     }
 
     return h->second.get();

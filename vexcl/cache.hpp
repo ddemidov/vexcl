@@ -34,6 +34,7 @@ THE SOFTWARE.
 #include <set>
 #include <map>
 
+#include <boost/thread.hpp>
 #include <boost/utility.hpp>
 
 #include <vexcl/backend.hpp>
@@ -50,12 +51,15 @@ struct cache_register {
     static_assert(dummy, "Dummy parameter should be true");
 
     static std::set<object_cache_base*> caches;
+    static boost::mutex caches_mx;
 
     static void add(object_cache_base *cache) {
+        boost::lock_guard<boost::mutex> lock(caches_mx);
         caches.insert(cache);
     }
 
     static void remove(object_cache_base *cache) {
+        boost::lock_guard<boost::mutex> lock(caches_mx);
         caches.erase(cache);
     }
 
@@ -65,6 +69,9 @@ struct cache_register {
 
 template <bool dummy>
 std::set<object_cache_base*> cache_register<dummy>::caches;
+
+template <bool dummy>
+boost::mutex cache_register<dummy>::caches_mx;
 
 // Abstract base class for object cache.
 struct object_cache_base {
@@ -113,6 +120,7 @@ struct object_cache : public object_cache_base, boost::noncopyable {
     typedef std::map<typename Key::type, Object, typename Key::compare> store_type;
 
     store_type store;
+    mutable boost::mutex store_mx;
 
     object_cache() {
         cache_register<true>::add(this);
@@ -125,24 +133,30 @@ struct object_cache : public object_cache_base, boost::noncopyable {
     template <class I>
     typename store_type::iterator
     insert(const backend::command_queue &q, I &&item) {
+        boost::lock_guard<boost::mutex> lock(store_mx);
+
         return store.insert( std::make_pair(
                     Key::get(q), std::forward<I>(item)
                     ) ).first;
     }
 
     typename store_type::const_iterator end() const {
+        boost::lock_guard<boost::mutex> lock(store_mx);
         return store.end();
     }
 
     typename store_type::iterator find(const backend::command_queue &q) {
+        boost::lock_guard<boost::mutex> lock(store_mx);
         return store.find( Key::get(q) );
     }
 
     void clear() {
+        boost::lock_guard<boost::mutex> lock(store_mx);
         store.clear();
     }
 
     void erase(const backend::command_queue &q) {
+        boost::lock_guard<boost::mutex> lock(store_mx);
         store.erase( Key::get(q) );
     }
 };

@@ -336,7 +336,7 @@ rtype operator()(VEXCL_DUAL_FUNCTOR_ARGS(args)) const {                        \
 #define VEXCL_BUILTIN_PRINT_BOOST_REF(z, n, data) boost::ref(arg##n)
 
 #define VEX_BUILTIN_FUNCTION(nargs, func)                                      \
-    struct func##_func : vex::builtin_function {                                    \
+    struct func##_func : vex::builtin_function {                               \
         static const char *name() { return #func; }                            \
     };                                                                         \
     template <BOOST_PP_ENUM_PARAMS(nargs, class Arg)>                          \

@@ -62,6 +62,7 @@ set(BOOST_COMPONENTS
     date_time
     filesystem
     system
+    thread
     unit_test_framework
     program_options
     )

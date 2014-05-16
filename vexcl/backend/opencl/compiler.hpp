@@ -32,6 +32,9 @@ THE SOFTWARE.
  */
 
 #include <cstdlib>
+
+#include <boost/thread.hpp>
+
 #include <vexcl/backend/common.hpp>
 
 #ifndef __CL_ENABLE_EXCEPTIONS
@@ -48,6 +51,10 @@ inline void save_program_binaries(
         const std::string &hash, const cl::Program &program, const std::string &source
         )
 {
+    // Prevent writing to the same file by several threads at the same time.
+    static boost::mutex mx;
+    boost::lock_guard<boost::mutex> lock(mx);
+
     std::ofstream bfile(program_binaries_path(hash, true) + "kernel", std::ios::binary);
     if (!bfile) return;
 
