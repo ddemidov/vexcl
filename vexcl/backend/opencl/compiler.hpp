@@ -31,8 +31,10 @@ THE SOFTWARE.
  * \brief  OpenCL source code compilation wrapper.
  */
 
-#include <thread>
 #include <cstdlib>
+
+#include <boost/thread.hpp>
+
 #include <vexcl/backend/common.hpp>
 
 #ifndef __CL_ENABLE_EXCEPTIONS
@@ -50,8 +52,8 @@ inline void save_program_binaries(
         )
 {
     // Prevent writing to the same file by several threads at the same time.
-    static std::mutex mx;
-    std::unique_lock<std::mutex> lock(mx);
+    static boost::mutex mx;
+    boost::lock_guard<boost::mutex> lock(mx);
 
     std::ofstream bfile(program_binaries_path(hash, true) + "kernel", std::ios::binary);
     if (!bfile) return;

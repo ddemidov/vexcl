@@ -37,11 +37,11 @@ THE SOFTWARE.
 #include <fstream>
 #include <sstream>
 #include <iomanip>
-#include <mutex>
 #include <cstdlib>
 #include <boost/uuid/sha1.hpp>
 #include <boost/optional.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/thread.hpp>
 
 namespace vex {
 
@@ -57,7 +57,7 @@ struct device_options {
     static const std::string& get(const backend::command_queue &q) {
         auto dev = backend::get_device_id(q);
 
-        std::unique_lock<std::mutex> lock(options_mx);
+        boost::lock_guard<boost::mutex> lock(options_mx);
         if (options[dev].empty()) options[dev].push_back("");
         return options[dev].back();
     }
@@ -65,27 +65,27 @@ struct device_options {
     static void push(const backend::command_queue &q, const std::string &str) {
         auto dev = backend::get_device_id(q);
 
-        std::unique_lock<std::mutex> lock(options_mx);
+        boost::lock_guard<boost::mutex> lock(options_mx);
         options[dev].push_back(str);
     }
 
     static void pop(const backend::command_queue &q) {
         auto dev = backend::get_device_id(q);
 
-        std::unique_lock<std::mutex> lock(options_mx);
+        boost::lock_guard<boost::mutex> lock(options_mx);
         if (!options[dev].empty()) options[dev].pop_back();
     }
 
     private:
         static std::map<backend::device_id, std::vector<std::string> > options;
-        static std::mutex options_mx;
+        static boost::mutex options_mx;
 };
 
 template <device_options_kind kind>
 std::map<backend::device_id, std::vector<std::string> > device_options<kind>::options;
 
 template <device_options_kind kind>
-std::mutex device_options<kind>::options_mx;
+boost::mutex device_options<kind>::options_mx;
 
 inline std::string get_compile_options(const backend::command_queue &q) {
     return device_options<compile_options>::get(q);
