@@ -1,4 +1,7 @@
 #define BOOST_TEST_MODULE VectorArithmetics
+#include <boost/accumulators/accumulators.hpp>
+#include <boost/accumulators/statistics/stats.hpp>
+#include <boost/accumulators/statistics/sum_kahan.hpp>
 #include <boost/test/unit_test.hpp>
 #include <vexcl/constants.hpp>
 #include <vexcl/vector.hpp>
@@ -44,21 +47,30 @@ BOOST_AUTO_TEST_CASE(compound_assignment)
 
 BOOST_AUTO_TEST_CASE(reduce_expression)
 {
+    namespace acc = boost::accumulators;
+
     const size_t N = 1024;
 
     std::vector<double> x = random_vector<double>(N);
+    std::transform(x.begin(), x.end(), x.begin(), [](double v){ return (v - 0.5) * 1e8; });
+
     vex::vector<double> X(ctx, x);
 
-    vex::Reductor<double,vex::SUM> sum(ctx);
-    vex::Reductor<double,vex::MIN> min(ctx);
-    vex::Reductor<double,vex::MAX> max(ctx);
+    vex::Reductor<double,vex::SUM      > sum(ctx);
+    vex::Reductor<double,vex::MIN      > min(ctx);
+    vex::Reductor<double,vex::MAX      > max(ctx);
+    vex::Reductor<double,vex::SUM_Kahan> csum(ctx);
 
-    BOOST_CHECK_CLOSE(sum(X), std::accumulate(x.begin(), x.end(), 0.0), 1e-6);
+    acc::accumulator_set< double, acc::stats< acc::tag::sum_kahan > > stat;
+    std::for_each(x.begin(), x.end(), std::ref(stat));
 
-    BOOST_CHECK_CLOSE(min(X), *std::min_element(x.begin(), x.end()), 1e-6);
-    BOOST_CHECK_CLOSE(max(X), *std::max_element(x.begin(), x.end()), 1e-6);
+    BOOST_CHECK_CLOSE(sum(X),  acc::sum_kahan(stat), 1e-8);
+    BOOST_CHECK_CLOSE(csum(X), acc::sum_kahan(stat), 1e-8);
 
-    BOOST_CHECK_SMALL(max(fabs(X - X)), 1e-12);
+    BOOST_CHECK_EQUAL(min(X), *std::min_element(x.begin(), x.end()));
+    BOOST_CHECK_EQUAL(max(X), *std::max_element(x.begin(), x.end()));
+
+    BOOST_CHECK_EQUAL( max( fabs(X - X) ), 0.0);
 }
 
 BOOST_AUTO_TEST_CASE(static_reductor)
