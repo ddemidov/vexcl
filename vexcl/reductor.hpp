@@ -66,6 +66,14 @@ struct SUM {
     };
 };
 
+/// Compensated summation.
+/**
+ * Reduces the numerical error in the result with <a
+ * href="http://en.wikipedia.org/wiki/Kahan_summation_algorithm">
+ * Kahan summation algorithm</a>.
+ */
+struct SUM_Kahan : SUM {};
+
 /// Maximum element. Should be used as a template parameter for Reductor class.
 struct MAX {
     template <class T>
@@ -191,6 +199,62 @@ class Reductor {
 
             assign_subexpressions<I + 1, N, Expr>(result, expr);
         }
+
+        template <class Expr, class OP>
+        struct local_sum {
+            static void get(const backend::command_queue &q, const Expr &expr,
+                    backend::source_generator &source)
+            {
+                using namespace detail;
+
+                typedef typename OP::template impl<real>::device fun;
+                real initial = OP::template impl<real>::initial();
+
+                source.new_line()
+                    << type_name<real>() << " mySum = ("
+                    << type_name<real>() << ")" << initial << ";";
+                source.grid_stride_loop().open("{");
+
+                output_local_preamble loc_init(source, q, "prm", empty_state());
+                boost::proto::eval(expr, loc_init);
+                source.new_line() << "mySum = " << fun::name() << "(mySum, ";
+                vector_expr_context expr_ctx(source, q, "prm", empty_state());
+                boost::proto::eval(expr, expr_ctx);
+                source << ");";
+
+                source.close("}");
+            }
+        };
+
+        // http://en.wikipedia.org/wiki/Kahan_summation_algorithm
+        template <class Expr>
+        struct local_sum<Expr, SUM_Kahan> {
+            static void get(const backend::command_queue &q, const Expr &expr,
+                    backend::source_generator &source)
+            {
+                using namespace detail;
+
+                source.new_line()
+                    << type_name<real>() << " mySum = ("
+                    << type_name<real>() << ")0, c = ("
+                    << type_name<real>() << ")0;";
+                source.grid_stride_loop().open("{");
+
+                output_local_preamble loc_init(source, q, "prm", empty_state());
+                boost::proto::eval(expr, loc_init);
+
+                source.new_line() << type_name<real>() << " y = (";
+                vector_expr_context expr_ctx(source, q, "prm", empty_state());
+                boost::proto::eval(expr, expr_ctx);
+                source << ") - c;";
+
+                source.new_line() << type_name<real>() << " t = mySum + y;";
+                source.new_line() << "c = (t - mySum) - y;";
+                source.new_line() << "mySum = t;";
+
+                source.close("}");
+            }
+        };
 };
 
 #ifndef DOXYGEN
@@ -242,49 +306,31 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
 
             extract_terminals()( expr, declare_expression_parameter(source, queue[d], "prm", empty_state()) );
 
-            source
-                .template parameter< global_ptr<real> >("g_odata")
-                .template smem_parameter<real>()
-                .close(")");
+            source.template parameter< global_ptr<real> >("g_odata");
 
-#define VEXCL_INCREMENT_MY_SUM                                                 \
-  {                                                                            \
-    output_local_preamble loc_init(source, queue[d], "prm", empty_state());    \
-    boost::proto::eval(expr, loc_init);                                        \
-    vector_expr_context expr_ctx(source, queue[d], "prm", empty_state());      \
-    source.new_line() << "mySum = " << fun::name() << "(mySum, ";              \
-    boost::proto::eval(expr, expr_ctx);                                        \
-    source << ");";                                                            \
-  }
+            if (!backend::is_cpu(queue[d]))
+                source.template smem_parameter<real>();
+
+            source.close(")");
+
 
             source.open("{");
-            source.smem_declaration<real>();
-            source.new_line() << type_name< shared_ptr<real> >() << " sdata = smem;";
+
+            local_sum<Expr, RDC>::get(queue[d], expr, source);
 
             if ( backend::is_cpu(queue[d]) ) {
-                source.new_line() << "size_t grid_size  = " << source.global_size(0) << ";";
-                source.new_line() << "size_t chunk_size = (n + grid_size - 1) / grid_size;";
-                source.new_line() << "size_t chunk_id   = " << source.global_id(0) << ";";
-                source.new_line() << "size_t start      = min(n, chunk_size * chunk_id);";
-                source.new_line() << "size_t stop       = min(n, chunk_size * (chunk_id + 1));";
-                source.new_line() << type_name<real>() << " mySum = (" << type_name<real>() << ")" << initial << ";";
-                source.new_line() << "for (size_t idx = start; idx < stop; idx++)";
-                source.open("{");
-                VEXCL_INCREMENT_MY_SUM
-                source.close("}");
                 source.new_line() << "g_odata[" << source.group_id(0) << "] = mySum;";
                 source.close("}");
 
                 kernel = cache.insert(queue[d], backend::kernel(
                             queue[d], source.str(), "vexcl_reductor_kernel"));
             } else {
+                source.smem_declaration<real>();
+                source.new_line() << type_name< shared_ptr<real> >() << " sdata = smem;";
+
                 source.new_line() << "size_t tid = " << source.local_id(0) << ";";
                 source.new_line() << "size_t block_size = " << source.local_size(0) << ";";
-                source.new_line() << type_name<real>() << " mySum = " << initial << ";";
 
-                source.grid_stride_loop().open("{");
-                VEXCL_INCREMENT_MY_SUM
-                source.close("}");
                 source.new_line() << "sdata[tid] = mySum;";
                 source.new_line().barrier();
                 for(unsigned bs = 512; bs > 32; bs /= 2) {
@@ -325,7 +371,12 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
                     );
 
             kernel->second.push_arg(data->second.dbuf);
-            kernel->second.set_smem([](size_t wgs){ return wgs * sizeof(real); });
+
+            if (!backend::is_cpu(queue[d]))
+                kernel->second.set_smem(
+                        [](size_t wgs){
+                            return wgs * sizeof(real);
+                        });
 
             kernel->second(queue[d]);
         }
