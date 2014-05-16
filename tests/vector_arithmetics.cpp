@@ -186,6 +186,12 @@ BOOST_AUTO_TEST_CASE(custom_header)
     vex::pop_program_header(ctx);
 }
 
+// Have to define these outside of the following test case scope.
+// In Visual C++ is not types defined in enclosing function scope
+// are not able to refeence each other.
+VEX_FUNCTION(double, sin2, (double, x), return pow(sin(x), 2.0););
+VEX_FUNCTION(double, cos2, (double, x), return pow(cos(x), 2.0););
+
 BOOST_AUTO_TEST_CASE(function_with_preamble)
 {
     const size_t n = 1024;
@@ -193,8 +199,6 @@ BOOST_AUTO_TEST_CASE(function_with_preamble)
     vex::vector<double> x(ctx, random_vector<double>(n));
     vex::vector<double> y(ctx, n);
 
-    VEX_FUNCTION(double, sin2, (double, x), return pow(sin(x), 2.0););
-    VEX_FUNCTION(double, cos2, (double, x), return pow(cos(x), 2.0););
     VEX_FUNCTION_D(double, one, (double, x), (sin2)(cos2),
             return sin2(x) + cos2(x);
             );
