@@ -356,8 +356,6 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
             }
         }
 
-#undef VEXCL_INCREMENT_MY_SUM
-
         if (size_t psize = prop.part_size(d)) {
             auto data = data_cache.find(queue[d]);
             if (data == data_cache.end())
