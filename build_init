@@ -10,6 +10,7 @@ for compiler in $*; do
     CXX=${compiler} cmake        \
         -DVEXCL_CACHE_KERNELS=ON \
         -DVEXCL_BACKEND=OpenCL   \
+        -G Ninja                 \
         ..
     popd
 
@@ -18,6 +19,7 @@ for compiler in $*; do
     pushd build-cu-${compiler}
     CXX=${compiler} cmake        \
         -DVEXCL_BACKEND=CUDA     \
+        -G Ninja                 \
         ..
     popd
 done

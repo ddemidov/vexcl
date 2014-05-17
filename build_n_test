@@ -6,22 +6,21 @@
 # Stop on errors:
 #set -e
 
-# Make with every configured compiler:
-parallel --ungroup make -j2 -C ::: build-*
-
 # List of OpenCL platforms to test:
 available_platforms="NVIDIA Intel AMD"
 
-# Run tests for each OpenCL platform ...
-for platform in ${available_platforms}; do
-    # ... built with every possible compiler:
-    for compiler in build-cl-*; do
+# Build with every possible compiler:
+for compiler in build-cl-*; do
+    ninja -C ${compiler}
+
+    # and run the tests for each OpenCL platform:
+    for platform in ${available_platforms}; do
         echo
         echo "----------------------------------------------------------------------"
         echo "OCL_PLATFORM=${platform} compiler=${compiler}"
         echo "----------------------------------------------------------------------"
         echo
-        OCL_PLATFORM=${platform} make -C ${compiler} test
+        OCL_PLATFORM=${platform} ninja -C ${compiler} test
     done
 done
 
@@ -32,5 +31,5 @@ for compiler in build-cu-*; do
     echo "CUDA backend; compiler=${compiler}"
     echo "----------------------------------------------------------------------"
     echo
-    make -C ${compiler} test
+    ninja -C ${compiler} all test
 done
