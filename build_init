@@ -14,12 +14,14 @@ for compiler in $*; do
         ..
     popd
 
-    # CUDA backend
-    mkdir build-cu-${compiler}
-    pushd build-cu-${compiler}
-    CXX=${compiler} cmake        \
-        -DVEXCL_BACKEND=CUDA     \
-        -G Ninja                 \
-        ..
-    popd
+    if which nvcc; then
+        # CUDA backend
+        mkdir build-cu-${compiler}
+        pushd build-cu-${compiler}
+        CXX=${compiler} cmake        \
+            -DVEXCL_BACKEND=CUDA     \
+            -G Ninja                 \
+            ..
+        popd
+    fi
 done
