@@ -253,6 +253,20 @@ struct symbolic_context {
 
 #undef VEXCL_UNARY_POST_OPERATION
 
+    template <typename Expr>
+    struct eval<Expr, boost::proto::tag::if_else_> {
+        typedef void result_type;
+        void operator()(const Expr &expr, symbolic_context &ctx) const {
+            get_recorder() << "( ";
+            boost::proto::eval(boost::proto::child_c<0>(expr), ctx);
+            get_recorder() << " ? ";
+            boost::proto::eval(boost::proto::child_c<1>(expr), ctx);
+            get_recorder() << " : ";
+            boost::proto::eval(boost::proto::child_c<2>(expr), ctx);
+            get_recorder() << " )";
+        }
+    };
+
     template <class Expr>
     struct eval<Expr, boost::proto::tag::function> {
         typedef void result_type;
