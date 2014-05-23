@@ -39,11 +39,12 @@ THE SOFTWARE.
 #include <memory>
 
 #include <boost/proto/proto.hpp>
-#include <boost/tuple/tuple.hpp>
-#include <boost/fusion/adapted/boost_tuple.hpp>
 #include <boost/function_types/parameter_types.hpp>
 #include <boost/function_types/result_type.hpp>
 #include <boost/function_types/function_arity.hpp>
+
+#include <boost/fusion/include/for_each.hpp>
+#include <boost/fusion/include/vector_tie.hpp>
 
 #include <vexcl/util.hpp>
 #include <vexcl/operations.hpp>
@@ -537,7 +538,7 @@ class Kernel {
               ) : queue(queue)
         {
             static_assert(
-                    boost::tuples::length<ArgTuple>::value == NP,
+                    boost::fusion::result_of::size<ArgTuple>::value == NP,
                     "Wrong number of kernel parameters"
                     );
 
@@ -573,14 +574,14 @@ class Kernel {
         /// Launches kernel with provided parameters.
         template <class... Param>
         void operator()(const Param&... param) {
-            launch(boost::tie(param...));
+            launch(boost::fusion::vector_tie(param...));
         }
 #else
 
 #define VEXCL_FUNCALL_OPERATOR(z, n, data)                                     \
   template <BOOST_PP_ENUM_PARAMS(n, class Param)>                              \
   void operator()(BOOST_PP_ENUM_BINARY_PARAMS(n, const Param, &param)) {       \
-    launch(boost::tie(BOOST_PP_ENUM_PARAMS(n, param)));                        \
+    launch(boost::fusion::vector_tie(BOOST_PP_ENUM_PARAMS(n, param)));         \
   }
 
 BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_FUNCALL_OPERATOR, ~)
@@ -593,7 +594,7 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_FUNCALL_OPERATOR, ~)
         template <class ParamTuple>
         void launch(const ParamTuple &param) {
             static_assert(
-                    boost::tuples::length<ParamTuple>::value == NP,
+                    boost::fusion::result_of::size<ParamTuple>::value == NP,
                     "Wrong number of kernel parameters"
                     );
 
@@ -720,13 +721,13 @@ Kernel<sizeof...(Args)> build_kernel(
         const std::string &name, const std::string& body, const Args&... args
         )
 {
-    return Kernel<sizeof...(Args)>(queue, name, body, boost::tie(args...));
+    return Kernel<sizeof...(Args)>(queue, name, body, boost::fusion::vector_tie(args...));
 }
 
 /// Builds function body from recorded expression and symbolic return value and parameters.
 template <class Ret, class... Args>
 std::string make_function(std::string body, const Ret &ret, const Args&... args) {
-    return Function(body, ret, boost::tie(args...)).get();
+    return Function(body, ret, boost::fusion::vector_tie(args...)).get();
 }
 #else
 
@@ -736,15 +737,15 @@ std::string make_function(std::string body, const Ret &ret, const Args&... args)
                          const std::string & name, const std::string & body,   \
                          BOOST_PP_ENUM_BINARY_PARAMS(n, const Arg, &arg)) {    \
     return Kernel<n>(queue, name, body,                                        \
-                     boost::tie(BOOST_PP_ENUM_PARAMS(n, arg)));                \
+                     boost::fusion::vector_tie(BOOST_PP_ENUM_PARAMS(n, arg))); \
   }
 
 #define VEXCL_MAKE_FUNCTION(z, n, data)                                        \
-  template<class Ret, BOOST_PP_ENUM_PARAMS(n, class Arg)> std::string          \
-  make_function(std::string body, const Ret & ret,                             \
-                BOOST_PP_ENUM_BINARY_PARAMS(n, const Arg, &arg)) {             \
-    return Function(body, ret, boost::tie(BOOST_PP_ENUM_PARAMS(n, arg)))       \
-        .get();                                                                \
+  template <class Ret, BOOST_PP_ENUM_PARAMS(n, class Arg)>                     \
+  std::string make_function(std::string body, const Ret &ret,                  \
+                            BOOST_PP_ENUM_BINARY_PARAMS(n, const Arg, &arg)) { \
+    return Function(body, ret, boost::fusion::vector_tie(                      \
+                                   BOOST_PP_ENUM_PARAMS(n, arg))).get();       \
   }
 
 BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_BUILD_KERNEL, ~)
