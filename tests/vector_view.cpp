@@ -246,6 +246,27 @@ BOOST_AUTO_TEST_CASE(assign_to_view) {
         BOOST_CHECK_EQUAL(x[i * m], 42);
 }
 
+BOOST_AUTO_TEST_CASE(slice_reductor_to_scalar)
+{
+    std::vector<vex::command_queue> queue(1, ctx.queue(0));
+
+    using vex::extents;
+    using vex::_;
+
+    vex::vector<int> x(queue, 32);
+    vex::vector<int> y(queue, 1);
+
+    vex::slicer<1> slice(extents[32]);
+
+    for(int i = 0; i < 32; ++i) {
+        slice[i](x) = 1;
+    }
+
+    y = vex::reduce<vex::SUM>(slice[_](x), 0);
+
+    BOOST_CHECK_EQUAL(y[0], 32);
+}
+
 BOOST_AUTO_TEST_CASE(slice_reductor_single_dim)
 {
     std::vector<vex::command_queue> queue(1, ctx.queue(0));
