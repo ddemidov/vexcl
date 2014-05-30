@@ -251,18 +251,12 @@ BOOST_AUTO_TEST_CASE(slice_reductor_to_scalar)
     std::vector<vex::command_queue> queue(1, ctx.queue(0));
 
     using vex::extents;
-    using vex::_;
 
     vex::vector<int> x(queue, 32);
     vex::vector<int> y(queue, 1);
 
-    vex::slicer<1> slice(extents[32]);
-
-    for(int i = 0; i < 32; ++i) {
-        slice[i](x) = 1;
-    }
-
-    y = vex::reduce<vex::SUM>(slice[_](x), 0);
+    x = 1;
+    y = vex::reduce<vex::SUM>(extents[1][32], x, 1);
 
     BOOST_CHECK_EQUAL(y[0], 32);
 }
