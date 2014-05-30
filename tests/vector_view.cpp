@@ -256,9 +256,12 @@ BOOST_AUTO_TEST_CASE(slice_reductor_to_scalar)
     vex::vector<int> y(queue, 1);
 
     x = 1;
-    y = vex::reduce<vex::SUM>(extents[1][32], x, 1);
-
+    y = vex::reduce<vex::SUM>(extents[32], x, 0);
     BOOST_CHECK_EQUAL(y[0], 32);
+
+    x = 2;
+    y = vex::reduce<vex::SUM>(extents[4][8], x, extents[0][1]);
+    BOOST_CHECK_EQUAL(y[0], 64);
 }
 
 BOOST_AUTO_TEST_CASE(slice_reductor_single_dim)
