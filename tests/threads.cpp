@@ -1,6 +1,7 @@
 #define BOOST_TEST_MODULE Sort
 #include <boost/thread.hpp>
 #include <boost/test/unit_test.hpp>
+#include <boost/ptr_container/ptr_vector.hpp>
 #include <vexcl/vector.hpp>
 #include <vexcl/reductor.hpp>
 #include "context_setup.hpp"
@@ -17,11 +18,11 @@ BOOST_AUTO_TEST_CASE(threads)
         *s = sum(x);
     };
 
-    std::vector< boost::thread > threads;
+    boost::ptr_vector< boost::thread > threads;
     std::vector< cl_long       > results(ctx.size(), 0);
 
     for(unsigned d = 0; d < ctx.size(); ++d) {
-        threads.push_back( boost::thread(run, ctx.queue(d), &results[d]) );
+        threads.push_back( new boost::thread(run, ctx.queue(d), &results[d]) );
     }
 
     cl_long sum = 0;
