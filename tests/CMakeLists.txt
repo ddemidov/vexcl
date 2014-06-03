@@ -37,6 +37,7 @@ endfunction()
 #----------------------------------------------------------------------------
 # General tests
 #----------------------------------------------------------------------------
+add_vexcl_test(boost_version            boost_version.cpp)
 add_vexcl_test(types                    types.cpp)
 add_vexcl_test(deduce                   deduce.cpp)
 add_vexcl_test(context                  context.cpp)
