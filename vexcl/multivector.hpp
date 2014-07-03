@@ -285,6 +285,9 @@ class multivector : public multivector_terminal_expression {
             for(size_t i = 0; i < N; ++i) vec[i].resize(size);
         }
 
+#ifdef VEXCL_NO_COPY_CONSTRUCTORS
+    private:
+#endif
         /// Copy constructor.
         multivector(const multivector &mv) {
 #ifdef VEXCL_SHOW_COPIES
@@ -293,6 +296,9 @@ class multivector : public multivector_terminal_expression {
 #endif
             for(size_t i = 0; i < N; ++i) vec[i].resize(mv(i));
         }
+#ifdef VEXCL_NO_COPY_CONSTRUCTORS
+    public:
+#endif
 
         /// Move constructor.
         multivector(multivector &&mv) noexcept {

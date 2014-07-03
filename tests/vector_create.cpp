@@ -51,6 +51,7 @@ BOOST_AUTO_TEST_CASE(host_pointer)
     check_sample(x, y, [](size_t, double a, double b) { BOOST_CHECK(a == b); });
 }
 
+#ifndef VEXCL_NO_COPY_CONSTRUCTORS
 BOOST_AUTO_TEST_CASE(copy_constructor)
 {
     const size_t N = 1024;
@@ -69,6 +70,7 @@ BOOST_AUTO_TEST_CASE(copy_constructor)
 
     check_sample(y1, y2, [](size_t, double a, double b) { BOOST_CHECK(a == b); });
 }
+#endif
 
 BOOST_AUTO_TEST_CASE(move_constructor)
 {

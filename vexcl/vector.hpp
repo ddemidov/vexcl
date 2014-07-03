@@ -369,6 +369,9 @@ class vector : public vector_terminal_expression {
         /// Empty constructor.
         vector() {}
 
+#ifdef VEXCL_NO_COPY_CONSTRUCTORS
+    private:
+#endif
         /// Copy constructor.
         vector(const vector &v) : queue(v.queue), part(v.part)
         {
@@ -379,6 +382,9 @@ class vector : public vector_terminal_expression {
             if (size()) allocate_buffers(backend::MEM_READ_WRITE, 0);
             *this = v;
         }
+#ifdef VEXCL_NO_COPY_CONSTRUCTORS
+    public:
+#endif
 
         /// Wrap a native buffer
         vector(const backend::command_queue &q,

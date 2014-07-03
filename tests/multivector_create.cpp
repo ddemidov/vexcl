@@ -15,6 +15,7 @@ BOOST_AUTO_TEST_CASE(empty_constructor)
         BOOST_CHECK(0U == m(i).size());
 }
 
+#ifndef VEXCL_NO_COPY_CONSTRUCTORS
 BOOST_AUTO_TEST_CASE(copy_constructor)
 {
     typedef std::array<double, 3> elem_t;
@@ -32,6 +33,7 @@ BOOST_AUTO_TEST_CASE(copy_constructor)
 
     check_sample(c, m, [](size_t, elem_t a, elem_t b) { BOOST_CHECK(a == b); });
 }
+#endif
 
 BOOST_AUTO_TEST_CASE(element_access)
 {
