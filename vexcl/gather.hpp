@@ -41,9 +41,15 @@ THE SOFTWARE.
 
 namespace vex {
 
+/// Gathers vector elements at specified indices.
 template <typename T>
 class gather {
     public:
+        /// Constructor.
+        /**
+         * \param queue   VexCL context.
+         * \param indices Indices of elements to be gathered.
+         */
         gather(
                 const std::vector<backend::command_queue> &queue,
                 size_t src_size, std::vector<size_t> indices
@@ -76,6 +82,7 @@ class gather {
                 if (ptr[d + 1] - ptr[d]) queue[d].finish();
         }
 
+        /// Gather elements of device vector into host vector.
         template <class HostVector>
         void operator()(const vex::vector<T> &src, HostVector &dst) {
             using namespace detail;
