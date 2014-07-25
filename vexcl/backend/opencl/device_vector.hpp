@@ -57,7 +57,7 @@ class device_vector {
         device_vector(const cl::CommandQueue &q, size_t n,
                 const T *host = 0, mem_flags flags = MEM_READ_WRITE)
         {
-            if (host)
+            if (host && flags != CL_MEM_USE_HOST_PTR)
                 flags |= CL_MEM_COPY_HOST_PTR;
 
             if (n)
