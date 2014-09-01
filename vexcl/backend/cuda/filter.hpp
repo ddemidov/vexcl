@@ -91,6 +91,16 @@ namespace Filter {
         return filter;
     }
 
+/// Allows exclusive access to compute devices across several processes.
+/**
+ * Since NVIDIA provides a better way to exclusively access compute devices,
+ * this is just a stub doing nothing.
+ */
+template <class Filter>
+Filter Exclusive(Filter&& filter) {
+    return std::forward<Filter>(filter);
+}
+
 } // namespace Filter
 } // namespace vex
 
