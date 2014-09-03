@@ -302,7 +302,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
             boost::proto::eval(boost::proto::as_child(expr),  termpream);
 
             source.kernel("vexcl_reductor_kernel")
-                .open("(").parameter<size_t>("n");
+                .open("(").template parameter<size_t>("n");
 
             extract_terminals()( expr, declare_expression_parameter(source, queue[d], "prm", empty_state()) );
 

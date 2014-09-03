@@ -58,5 +58,6 @@ THE SOFTWARE.
 #include <vexcl/reduce_by_key.hpp>
 #include <vexcl/profiler.hpp>
 #include <vexcl/function.hpp>
+#include <vexcl/logical.hpp>
 
 #endif
