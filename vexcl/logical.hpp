@@ -79,7 +79,7 @@ class any_of {
             }
 
             for(unsigned d = 0; d < queue.size(); ++d) {
-                if (size_t psize = prop.part_size(d)) {
+                if (prop.part_size(d)) {
                     char r;
                     result[d].read(queue[d], 0, 1, &r, true);
                     if (r) return true;
