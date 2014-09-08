@@ -176,7 +176,6 @@ VEX_CONSTANT( pi_minus_three, boost::math::constants::pi_minus_three<double>() )
 VEX_CONSTANT( four_minus_pi, boost::math::constants::four_minus_pi<double>() );
 VEX_CONSTANT( two_pi, boost::math::constants::two_pi<double>() );
 VEX_CONSTANT( half_root_two, boost::math::constants::half_root_two<double>() );
-VEX_CONSTANT( pow23_four_minus_pi, boost::math::constants::pow23_four_minus_pi<double>() );
 VEX_CONSTANT( exp_minus_half, boost::math::constants::exp_minus_half<double>() );
 #if (BOOST_VERSION >= 105000) || defined(DOXYGEN)
 VEX_CONSTANT( one_div_two_pi, boost::math::constants::one_div_two_pi<double>() );
