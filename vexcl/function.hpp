@@ -439,7 +439,14 @@ VEX_BUILTIN_FUNCTION( 2, mul_hi )
 VEX_BUILTIN_FUNCTION( 1, nan )
 VEX_BUILTIN_FUNCTION( 2, nextafter )
 VEX_BUILTIN_FUNCTION( 1, normalize )
+#if defined(VEXCL_BACKEND_OPENCL)
 VEX_BUILTIN_FUNCTION( 1, popcount )
+#elif defined(VEXCL_BACKEND_CUDA)
+VEX_BUILTIN_FUNCTION( 1, __popc )
+VEX_BUILTIN_FUNCTION( 1, __popcll )
+#else
+#  error Unsupported backend!
+#endif
 VEX_BUILTIN_FUNCTION( 2, pow )
 VEX_BUILTIN_FUNCTION( 2, pown )
 VEX_BUILTIN_FUNCTION( 2, powr )
