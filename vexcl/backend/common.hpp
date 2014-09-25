@@ -43,6 +43,11 @@ THE SOFTWARE.
 #include <boost/filesystem.hpp>
 #include <boost/thread.hpp>
 
+#ifdef __linux__
+#  include <execinfo.h>
+#  include <stdlib.h>
+#endif
+
 namespace vex {
 
 /// \cond INTERNAL
@@ -196,6 +201,26 @@ inline std::string sha1(const std::string &src) {
 
     return buf.str();
 }
+
+#ifdef __linux__
+inline void print_backtrace() {
+    const size_t nbuf = 100;
+    void *buffer[nbuf];
+
+    int nptrs = backtrace(buffer, nbuf);
+
+    if (char **strings = backtrace_symbols(buffer, nptrs)) {
+        for(int i = 0; i < nptrs; ++i)
+            std::cerr << strings[i] << "\n";
+
+        std::cerr << std::endl;
+
+        free(strings);
+    }
+}
+#else
+inline void print_backtrace() {}
+#endif
 
 } // namespace vex
 

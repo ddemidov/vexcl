@@ -93,6 +93,8 @@ inline CUmodule build_sources(
 #ifndef VEXCL_SHOW_KERNELS
             std::cerr << fullsrc.str() << std::endl;
 #endif
+
+            print_backtrace();
             throw std::runtime_error("nvcc invocation failed");
         }
     }

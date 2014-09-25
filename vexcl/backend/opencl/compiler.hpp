@@ -173,6 +173,8 @@ inline cl::Program build_sources(
                   << std::endl
                   << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device[0])
                   << std::endl;
+
+        print_backtrace();
         throw;
     }
 
