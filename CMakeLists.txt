@@ -58,20 +58,20 @@ else ()
   endif ()
 endif ()
 
-set(BOOST_COMPONENTS
+set(VEXCL_BOOST_COMPONENTS
     date_time
     filesystem
     system
     thread
     unit_test_framework
     program_options
-    PARENT_SCOPE)
+    CACHE STRING "Boost components required by VexCL.")
 
 if (MSVC10)
-    set(BOOST_COMPONENTS ${BOOST_COMPONENTS} chrono)
+    set(VEXCL_BOOST_COMPONENTS ${VEXCL_BOOST_COMPONENTS} chrono)
 endif ()
 
-find_package(Boost COMPONENTS ${BOOST_COMPONENTS})
+find_package(Boost COMPONENTS ${VEXCL_BOOST_COMPONENTS})
 
 include_directories( ${Boost_INCLUDE_DIRS} )
 
