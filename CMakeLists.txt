@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8)
 project(VexCL)
 
-include_directories( "${CMAKE_SOURCE_DIR}" )
+include_directories( "${PROJECT_SOURCE_DIR}" )
 
 #----------------------------------------------------------------------------
 # Compile-time options
@@ -58,20 +58,20 @@ else ()
   endif ()
 endif ()
 
-set(BOOST_COMPONENTS
+set(VEXCL_BOOST_COMPONENTS
     date_time
     filesystem
     system
     thread
     unit_test_framework
     program_options
-    )
+    CACHE STRING "Boost components required by VexCL.")
 
 if (MSVC10)
-    set(BOOST_COMPONENTS ${BOOST_COMPONENTS} chrono)
+    set(VEXCL_BOOST_COMPONENTS ${VEXCL_BOOST_COMPONENTS} chrono)
 endif ()
 
-find_package(Boost COMPONENTS ${BOOST_COMPONENTS})
+find_package(Boost COMPONENTS ${VEXCL_BOOST_COMPONENTS})
 
 include_directories( ${Boost_INCLUDE_DIRS} )
 
@@ -91,7 +91,7 @@ set_property(CACHE VEXCL_BACKEND PROPERTY STRINGS "OpenCL" "CUDA")
 # Find Backend
 #----------------------------------------------------------------------------
 if ("${VEXCL_BACKEND}" STREQUAL "OpenCL")
-    set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
+    set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
     find_package(OpenCL REQUIRED)
     include_directories( ${OPENCL_INCLUDE_DIRS} )
     set(BACKEND_LIBS ${OPENCL_LIBRARIES})

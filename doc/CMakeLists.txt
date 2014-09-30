@@ -8,7 +8,7 @@ if (LATEX_COMPILER AND DOXYGEN_FOUND)
     option(DOC_BUILD "Build documentation")
     option(DOC_BUILD_CHM "Build documentation in chm format")
 
-    set(DOXYGEN_INPUT_DIR   "${CMAKE_SOURCE_DIR}")
+    set(DOXYGEN_INPUT_DIR   "${PROJECT_SOURCE_DIR}")
     set(DOXYGEN_OUTPUT_DIR  "${CMAKE_CURRENT_BINARY_DIR}")
     set(DOXYGEN_FIGURES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/figures")
 
