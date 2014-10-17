@@ -207,13 +207,10 @@ namespace Filter {
         }
 
         bool operator()(const backend::device &d) const {
-            if (filter.empty()) return true;
+            for(size_t i = 0; i < filter.size(); ++i)
+                if (!filter[i](d)) return false;
 
-            return std::all_of(
-                    filter.begin(), filter.end(),
-                    [d](const std::function<bool(const backend::device)> &f) {
-                        return f(d);
-                    });
+            return true;
         }
 
         private:
