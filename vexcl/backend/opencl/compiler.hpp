@@ -36,6 +36,7 @@ THE SOFTWARE.
 #include <boost/thread.hpp>
 
 #include <vexcl/backend/common.hpp>
+#include <vexcl/detail/backtrace.hpp>
 
 #ifndef __CL_ENABLE_EXCEPTIONS
 #  define __CL_ENABLE_EXCEPTIONS
@@ -174,7 +175,7 @@ inline cl::Program build_sources(
                   << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device[0])
                   << std::endl;
 
-        print_backtrace();
+        vex::detail::print_backtrace();
         throw;
     }
 

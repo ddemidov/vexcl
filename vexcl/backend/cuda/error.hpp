@@ -43,6 +43,8 @@ THE SOFTWARE.
 
 #include <cuda.h>
 
+#include <vexcl/detail/backtrace.hpp>
+
 namespace std {
 
 /// Send human-readable representation of CUresult to the output stream.
@@ -131,7 +133,10 @@ class error : public std::runtime_error {
 
 /// \cond INTERNAL
 inline void check(CUresult rc, const char *file, int line) {
-    if (rc != CUDA_SUCCESS) throw error(rc, file, line);
+    if (rc != CUDA_SUCCESS) {
+        vex::detail::print_backtrace();
+	throw error(rc, file, line);
+    }
 }
 /// \endcond
 

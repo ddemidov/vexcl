@@ -10,6 +10,7 @@
 #include <vexcl/cache.hpp>
 #include <vexcl/backend/cuda/error.hpp>
 #include <vexcl/backend/cuda/context.hpp>
+#include <vexcl/detail/backtrace.hpp>
 
 namespace vex {
 namespace backend {
@@ -37,8 +38,10 @@ inline std::ostream& operator<<(std::ostream &os, cusparseStatus_t rc) {
 }
 
 inline void check(cusparseStatus_t rc, const char *file, int line) {
-    if (rc != CUSPARSE_STATUS_SUCCESS)
+    if (rc != CUSPARSE_STATUS_SUCCESS) {
+        vex::detail::print_backtrace();
         throw error(rc, file, line);
+    }
 }
 
 /// \cond INTERNAL

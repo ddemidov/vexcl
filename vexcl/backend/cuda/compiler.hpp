@@ -35,6 +35,7 @@ THE SOFTWARE.
 #include <cuda.h>
 
 #include <vexcl/backend/common.hpp>
+#include <vexcl/detail/backtrace.hpp>
 
 namespace vex {
 namespace backend {
@@ -94,7 +95,7 @@ inline CUmodule build_sources(
             std::cerr << fullsrc.str() << std::endl;
 #endif
 
-            print_backtrace();
+            vex::detail::print_backtrace();
             throw std::runtime_error("nvcc invocation failed");
         }
     }
