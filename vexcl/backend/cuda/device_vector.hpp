@@ -83,7 +83,7 @@ class device_vector {
                 CUdeviceptr ptr;
                 cuda_check( cuMemAlloc(&ptr, n * sizeof(T)) );
 
-                buffer.reset(reinterpret_cast<char*>(static_cast<size_t>(ptr)), detail::deleter() );
+                buffer.reset(reinterpret_cast<char*>(static_cast<size_t>(ptr)), detail::deleter(q.context().raw()) );
             }
         }
 
@@ -101,7 +101,7 @@ class device_vector {
                 CUdeviceptr ptr;
                 cuda_check( cuMemAlloc(&ptr, n * sizeof(T)) );
 
-                buffer.reset(reinterpret_cast<char*>(static_cast<size_t>(ptr)), detail::deleter() );
+                buffer.reset(reinterpret_cast<char*>(static_cast<size_t>(ptr)), detail::deleter(q.context().raw()) );
 
                 if (host) {
                     if (std::is_same<T, H>::value)

@@ -56,7 +56,7 @@ class kernel {
                const std::string &options = ""
                )
             : ctx(queue.context()),
-              module(build_sources(queue, src, options), detail::deleter()),
+              module(build_sources(queue, src, options), detail::deleter(queue.context().raw())),
               smem(0)
         {
             cuda_check( cuModuleGetFunction(&K, module.get(), name.c_str()) );
@@ -72,7 +72,7 @@ class kernel {
                const std::string &options = ""
                )
             : ctx(queue.context()),
-              module(build_sources(queue, src, options), detail::deleter()),
+              module(build_sources(queue, src, options), detail::deleter(queue.context().raw())),
               smem(0)
         {
             cuda_check( cuModuleGetFunction(&K, module.get(), name.c_str()) );

@@ -85,7 +85,7 @@ inline cusparseHandle_t cusparse_handle(const command_queue &q) {
         cuda_check( cusparseCreate(&handle) );
         cuda_check( cusparseSetStream(handle, q.raw()) );
 
-        h = cache.insert(q, smart_handle(handle, detail::deleter()));
+        h = cache.insert(q, smart_handle(handle, detail::deleter(q.context().raw())));
     }
 
     return h->second.get();
@@ -109,8 +109,8 @@ class spmat_hyb {
                 const val_t *val_begin
                 )
             : handle( cusparse_handle(queue) ),
-              desc  ( create_description(), detail::deleter() ),
-              mat   ( create_matrix(),      detail::deleter() )
+              desc  ( create_description(), detail::deleter(queue.context().raw()) ),
+              mat   ( create_matrix(),      detail::deleter(queue.context().raw()) )
         {
             cuda_check( cusparseSetMatType(desc.get(), CUSPARSE_MATRIX_TYPE_GENERAL) );
             cuda_check( cusparseSetMatIndexBase(desc.get(), CUSPARSE_INDEX_BASE_ZERO) );
@@ -233,7 +233,7 @@ class spmat_crs {
                 )
             : n(n), m(m), nnz(static_cast<unsigned>(row_begin[n] - row_begin[0])),
               handle( cusparse_handle(queue) ),
-              desc  ( create_description(), detail::deleter() ),
+              desc  ( create_description(), detail::deleter(queue.context().raw()) ),
               row(queue, n+1, row_begin),
               col(queue, nnz, col_begin + row_begin[0]),
               val(queue, nnz, val_begin + row_begin[0])
