@@ -61,6 +61,8 @@ inline CUmodule build_sources(
 #  endif
 #endif
 
+    queue.context().set_current();
+
     auto cc = queue.device().compute_capability();
     std::ostringstream fullsrc;
     fullsrc << "// Device:  " << queue.device().name() << "\n"
