@@ -675,6 +675,11 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_FUNCALL_OPERATOR, ~)
 
             template <class T>
             size_t operator()(size_t s, const T &v) const {
+                return s;
+            }
+
+            template <class T>
+            size_t operator()(size_t s, const vector<T> &v) const {
                 return std::max(s, v.part_size(device));
             }
         };
