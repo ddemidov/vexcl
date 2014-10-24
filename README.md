@@ -462,7 +462,7 @@ interval `[100, 200)` of a one-dimensional vector X:
 vex::vector<double> X(ctx, n);
 vex::vector<double> Y(ctx, 50);
 
-vex::slicer<1> slice({n});
+vex::slicer<1> slice(vex::extents[n]);
 
 Y = slice[vex::range(100, 2, 200)](X);
 ~~~
