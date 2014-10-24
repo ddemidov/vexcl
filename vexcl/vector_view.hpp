@@ -525,7 +525,7 @@ const index_gen<0> indices;
  vex::vector<double> y(ctx, n)
  vex::vector<double> z(ctx, n / 2);
 
- vex::slicer<2> slice({n, n});
+ vex::slicer<2> slice(vex::extents[n][n]);
 
  y = slice[42](x);                // Put 42-th row of x into y.
  y = slice[range()][42](x);       // Put 42-th column of x into y.
