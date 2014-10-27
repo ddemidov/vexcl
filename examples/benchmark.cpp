@@ -432,8 +432,8 @@ std::pair<double,double> benchmark_spmv(
     ctx.finish();
     time_elapsed = prof.toc("OpenCL");
 
-    double gflops = (2.0 * nnz + N) * M / time_elapsed / 1e9;
-    double bwidth = M * (nnz * (2 * sizeof(real) + sizeof(size_t)) + 4 * N * sizeof(real)) / time_elapsed / 1e9;
+    double gflops = M / time_elapsed / 1e9 * (2.0 * nnz + N);
+    double bwidth = M / time_elapsed / 1e9 * (nnz * (2 * sizeof(real) + sizeof(size_t)) + 4 * N * sizeof(real));
 
     std::cout
         << "SpMV (" << vex::type_name<real>() << ")\n"
@@ -454,8 +454,8 @@ std::pair<double,double> benchmark_spmv(
         time_elapsed = prof.toc("C++");
 
         {
-            double gflops = (2.0 * nnz + N) * M / time_elapsed / 1e9;
-            double bwidth = M * (nnz * (2 * sizeof(real) + sizeof(size_t)) + 4 * N * sizeof(real)) / time_elapsed / 1e9;
+            double gflops = M / time_elapsed / 1e9 * (2.0 * nnz + N);
+            double bwidth = M / time_elapsed / 1e9 * (nnz * (2 * sizeof(real) + sizeof(size_t)) + 4 * N * sizeof(real));
 
             std::cout
                 << "  C++"
