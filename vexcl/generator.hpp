@@ -674,7 +674,7 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_FUNCALL_OPERATOR, ~)
             typedef size_t result_type;
 
             template <class T>
-            size_t operator()(size_t s, const T &v) const {
+            size_t operator()(size_t s, const T&) const {
                 return s;
             }
 
