@@ -143,7 +143,13 @@ namespace Filter {
     };
 
     /// Selects devices supporting OpenGL Sharing Extension
-    const Extension GLSharing("cl_khr_gl_sharing");
+    const Extension GLSharing(
+    #if defined(__APPLE__)
+        "cl_apple_gl_sharing"
+    #else
+        "cl_khr_gl_sharing"
+    #endif
+    );
 
     /// List of device filters based on environment variables.
     inline std::vector< std::function<bool(const cl::Device&)> >
