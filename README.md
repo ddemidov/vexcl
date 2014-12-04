@@ -16,18 +16,15 @@ The code is available at https://github.com/ddemidov/vexcl.
 
 Doxygen-generated documentation: http://ddemidov.github.io/vexcl.
 
-Slides from VexCL-related talks:
+Slides from VexCL talks:
 
-* [Meeting C++ 2012, Dusseldorf](https://speakerdeck.com/ddemidov/vexcl-at-meeting-c-plus-plus-2012)
-* [SIAM CSE 2013, Boston](https://speakerdeck.com/ddemidov/vexcl-at-cse13)
-* [FOSDEM 2013, Brussels](https://fosdem.org/2013/schedule/event/odes_cuda_opencl)
-* [GPU-SMP-2013, Changchun, China](https://speakerdeck.com/ddemidov/converting-generic-c-plus-plus-algorithms-to-opencl-with-vexcl-library)
-* [Overview of VexCL interface, UTexas, Austin, USA](https://speakerdeck.com/ddemidov/vexcl-at-pecos-university-of-texas-2013)
-* [VexCL implementation, UTexas, Austin, USA](https://speakerdeck.com/ddemidov/vexcl-implementation-university-of-texas-2013)
+* [UTexas, Austin, USA](https://speakerdeck.com/ddemidov/vexcl-at-pecos-university-of-texas-2013):
+  an overview of VexCL interface.
+* [Meeting C++ 2014, Berlin](https://speakerdeck.com/ddemidov/vexcl-implementation-meeting-c-plus-plus-2014):
+  a high-level description of VexCL implementation.
 
-The paper [Programming CUDA and OpenCL: A Case Study Using Modern C++
-Libraries](http://arxiv.org/abs/1212.6326) compares both convenience and
-performance of several GPGPU libraries, including VexCL.
+Other talks may be found at
+[speakerdeck.com](https://speakerdeck.com/ddemidov).
 
 ### Table of contents
 
@@ -61,6 +58,7 @@ performance of several GPGPU libraries, including VexCL.
 * [Custom kernels](#custom-kernels)
 * [Interoperability with other libraries](#interoperability-with-other-libraries)
 * [Supported compilers](#supported-compilers)
+* [Publications](#publications)
 
 ## <a name="selecting-backend"></a>Selecting backend
 
@@ -1153,6 +1151,17 @@ enough. The compilers that have been tested and supported:
 VexCL uses standard OpenCL bindings for C++ from Khronos group. The cl.hpp file
 should be included with the OpenCL implementation on your system, but it is
 also provided with the library.
+
+## <a name="publications"></a>Publications
+
+* D. Demidov, K. Ahnert, K. Rupp, and P. Gottchling. "Programming CUDA and
+  OpenCL: A Case Study Using Modern C++ Libraries." SIAM Journal on Scientific
+  Computing 35.5 (2013): C453-C472. DOI:
+  [10.1137/120903683](http://dx.doi.org/10.1137/120903683).
+* K. Ahnert, D. Demidov, and M. Mulansky. "Solving Ordinary Differential
+  Equations on GPUs." Numerical Computations with GPUs. Springer International
+  Publishing, 2014. 125-157. DOI:
+  [10.1007/978-3-319-06548-9_7](http://dx.doi.org/10.1007/978-3-319-06548-9_7).
 
 ----------------------------
 _This work is a joint effort of [Supercomputer Center of Russian Academy of
