@@ -224,12 +224,17 @@ inline kernel_call radix_kernel(
     kernel.push_arg(static_cast<cl_uint>(p));
     kernel.push_arg(static_cast<cl_uint>(m));
 
-    const size_t wg_mul = kernel.preferred_work_group_size_multiple(queue);
-    //const size_t max_cu = device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>();
-    //const size_t max_wg = device.getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>();
-    size_t wg = wg_mul;
-    //while(wg * max_cu < max_wg) wg += wg_mul;
-    //wg -= wg_mul;
+    size_t wg;
+    if (is_cpu(queue)) {
+        wg = 1;
+    } else {
+        const size_t wg_mul = kernel.preferred_work_group_size_multiple(queue);
+        //const size_t max_cu = device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>();
+        //const size_t max_wg = device.getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>();
+        wg = wg_mul;
+        //while(wg * max_cu < max_wg) wg += wg_mul;
+        //wg -= wg_mul;
+    }
     const size_t threads = (m + wg - 1) / wg;
 
     kernel.config(backend::ndrange(threads, batch), backend::ndrange(wg, 1));
@@ -251,19 +256,25 @@ inline kernel_call transpose_kernel(
     backend::source_generator o;
     kernel_common<T>(o, queue);
 
-    // determine max block size to fit into local memory/workgroup
-    size_t block_size = 128;
-    {
+    size_t block_size;
+
+    if (is_cpu(queue)) {
+        block_size = 1;
+    } else {
+        // determine max block size to fit into local memory/workgroup
+        block_size = 128;
+        {
 #ifdef VEXCL_BACKEND_OPENCL
-        const auto dev = queue.getInfo<CL_QUEUE_DEVICE>();
-        const auto local_size = dev.getInfo<CL_DEVICE_LOCAL_MEM_SIZE>();
-        const auto workgroup = dev.getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>();
+            const auto dev = queue.getInfo<CL_QUEUE_DEVICE>();
+            const auto local_size = dev.getInfo<CL_DEVICE_LOCAL_MEM_SIZE>();
+            const auto workgroup = dev.getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>();
 #else
-        const auto local_size = queue.device().max_shared_memory_per_block();
-        const auto workgroup = queue.device().max_threads_per_block();
+            const auto local_size = queue.device().max_shared_memory_per_block();
+            const auto workgroup = queue.device().max_threads_per_block();
 #endif
-        while(block_size * block_size * sizeof(T) * 2 > local_size) block_size /= 2;
-        while(block_size * block_size > workgroup) block_size /= 2;
+            while(block_size * block_size * sizeof(T) * 2 > local_size) block_size /= 2;
+            while(block_size * block_size > workgroup) block_size /= 2;
+        }
     }
 
     // from NVIDIA SDK.
@@ -357,7 +368,7 @@ inline kernel_call bluestein_twiddle(
     kernel.push_arg(n);
     kernel.push_arg(out);
 
-    size_t ws = kernel.preferred_work_group_size_multiple(queue);
+    size_t ws = is_cpu(queue) ? 1 : kernel.preferred_work_group_size_multiple(queue);
     size_t gs = (n + ws - 1) / ws;
 
     kernel.config(gs, ws);
@@ -411,7 +422,7 @@ inline kernel_call bluestein_pad_kernel(
     kernel.push_arg(static_cast<cl_uint>(n));
     kernel.push_arg(static_cast<cl_uint>(m));
 
-    size_t ws = kernel.preferred_work_group_size_multiple(queue);
+    size_t ws = is_cpu(queue) ? 1 : kernel.preferred_work_group_size_multiple(queue);
     size_t gs = (m + ws - 1) / ws;
 
     kernel.config(gs, ws);
@@ -492,7 +503,7 @@ inline kernel_call bluestein_mul_in(
     kernel.push_arg(static_cast<cl_uint>(p));
     kernel.push_arg(static_cast<cl_uint>(stride));
 
-    const size_t wg = kernel.preferred_work_group_size_multiple(queue);
+    const size_t wg = is_cpu(queue) ? 1 : kernel.preferred_work_group_size_multiple(queue);
     const size_t stride_pad = (stride + wg - 1) / wg;
 
     kernel.config(
@@ -564,7 +575,7 @@ inline kernel_call bluestein_mul_out(
     kernel.push_arg(static_cast<cl_uint>(stride));
     kernel.push_arg(static_cast<cl_uint>(radix));
 
-    const size_t wg = kernel.preferred_work_group_size_multiple(queue);
+    const size_t wg = is_cpu(queue) ? 1 : kernel.preferred_work_group_size_multiple(queue);
     const size_t radix_pad = (radix + wg - 1) / wg;
 
     kernel.config(
@@ -614,7 +625,7 @@ inline kernel_call bluestein_mul(
     kernel.push_arg(out);
     kernel.push_arg(static_cast<cl_uint>(n));
 
-    const size_t wg = kernel.preferred_work_group_size_multiple(queue);
+    const size_t wg = is_cpu(queue) ? 1 : kernel.preferred_work_group_size_multiple(queue);
     const size_t threads = (n + wg - 1) / wg;
 
     kernel.config(backend::ndrange(threads, batch), backend::ndrange(wg, 1));
