@@ -44,6 +44,7 @@ Other talks may be found at
     * [Slicing](#slicing)
     * [Reducing multidimensional expressions](#reducing)
     * [Reshaping](#reshaping)
+    * [Tensor product](#tensordot)
     * [Scattered data interpolation with multilevel B-Splines](#mba)
     * [Fast Fourier Transform](#fast-fourier-transform)
 * [Reductions](#reductions)
@@ -570,6 +571,29 @@ result is a vector expression (and hence may be a part of a still larger
 expression) could be more important sometimes.
 
 _Reshaping is only supported in single-device contexts._
+
+### <a name="tensordot"></a>Tensor product
+
+Given two tensors (arrays of dimension greater than or equal to one), A and B,
+and a list of axes pairs (where each pair represents corresponding axes from
+two tensors), the tensor product operation sums the products of A's and B's
+elements over the given axes. In VexCL this is implemented as
+`vex::tensordot()` operation (compare with python's [numpy.tensordot][]).
+
+For example, the above matrix-matrix product may be implemented much more
+efficiently with `tensordot()`:
+~~~{.cpp}
+using vex::_;
+
+vex::slicer<2> Adim(vex::extents[N][M]);
+vex::slicer<2> Bdim(vex::extents[M][L]);
+
+C = vex::tensordot(Adim[_](A), Bdim[_](B), vex::axes_pairs(1, 0));
+~~~
+
+_`tensordot()` is only available for single-device contexts._
+
+[numpy.tensordot]: http://docs.scipy.org/doc/numpy/reference/generated/numpy.tensordot.html
 
 ### <a name="mba"></a>Scattered data interpolation with multilevel B-Splines
 
