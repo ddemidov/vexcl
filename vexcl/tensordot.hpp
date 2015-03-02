@@ -332,7 +332,7 @@ axes_pairs(Args... args) {
             "Odd number of arguments in axes_pairs"
             );
 
-    return std::array<std::array<size_t, 2>, sizeof...(Args) / 2>{static_cast<size_t>(args)...};
+    return std::array<std::array<size_t, 2>, sizeof...(Args) / 2>{{static_cast<size_t>(args)...}};
 }
 #else
 
