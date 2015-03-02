@@ -295,11 +295,11 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
         if (kernel == cache.end()) {
             backend::source_generator source(queue[d]);
 
-            typedef typename RDC::template impl<real>::device fun;
-            fun::define(source);
-
             output_terminal_preamble termpream(source, queue[d], "prm", empty_state());
             boost::proto::eval(boost::proto::as_child(expr),  termpream);
+
+            typedef typename RDC::template impl<real>::device fun;
+            boost::proto::eval(boost::proto::as_child( fun()( real(), real()) ), termpream);
 
             source.kernel("vexcl_reductor_kernel")
                 .open("(").template parameter<size_t>("n");
