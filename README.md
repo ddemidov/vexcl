@@ -350,6 +350,15 @@ _Note that prior to release 1.2 of VexCL the `VEX_FUNCTION` macro had different
 interface. That version is considered deprecated but is still available as
 `VEX_FUNCTION_V1`._
 
+Another example of using a custom function is type-casting a vector. This has the advantage of beeing backend independent. 
+~~~{.cpp}
+VEX_FUNCTION(float, make_float, (int, i),
+    return (float)i;
+    );
+b = make_float(a) / 2;
+~~~
+Another option would be to use builtin OpenCL functions [convert_*](https://www.khronos.org/registry/cl/sdk/1.1/docs/man/xhtml/convert_T.html)' (`vex::convert_*`),but those are obviously only available for OpenCL backend.
+
 ### <a name="tagged-terminals"></a>Tagged terminals
 
 The last example of the previous section is ineffective because the compiler
