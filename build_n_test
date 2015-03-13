@@ -30,5 +30,6 @@ for compiler in build-cu-*; do
     echo "CUDA backend; compiler=${compiler}"
     echo "----------------------------------------------------------------------"
     echo
-    ninja -C ${compiler} all test
+    ninja -C ${compiler}
+    ninja -C ${compiler} test
 done
