@@ -168,8 +168,7 @@ class source_generator {
         }
 
         template <class Prm>
-        source_generator& smem_parameter(const std::string &name = "smem") {
-            (void)name;
+        source_generator& smem_parameter(const std::string& = "smem") {
             return *this;
         }
 
@@ -199,8 +198,7 @@ class source_generator {
             return *this;
         }
 
-        source_generator& barrier(bool global = false) {
-            (void)global;
+        source_generator& barrier(bool /*global*/ = false) {
             src << "__syncthreads();";
             return *this;
         }

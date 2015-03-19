@@ -90,11 +90,9 @@ class device_vector {
         /// Allocates memory buffer on the device associated with the given queue.
         template <typename H>
         device_vector(const command_queue &q, size_t n,
-                const H *host = 0, mem_flags flags = MEM_READ_WRITE)
+                const H *host = 0, mem_flags = MEM_READ_WRITE)
             : ctx(q.context()), n(n)
         {
-            (void)flags;
-
             if (n) {
                 ctx.set_current();
 
@@ -119,10 +117,8 @@ class device_vector {
 
         /// Copies data from host memory to device.
         void write(const command_queue&, size_t offset, size_t size, const T *host,
-                bool blocking = false) const
+                bool /*blocking*/ = false) const
         {
-            (void)blocking;
-
             if (size) {
                 ctx.set_current();
                 cuda_check( cuMemcpyHtoD(raw() + offset * sizeof(T), host, size * sizeof(T)) );
@@ -131,10 +127,8 @@ class device_vector {
 
         /// Copies data from device to host memory.
         void read(const command_queue&, size_t offset, size_t size, T *host,
-                bool blocking = false) const
+                bool /*blocking*/ = false) const
         {
-            (void)blocking;
-
             if (size) {
                 ctx.set_current();
                 cuda_check( cuMemcpyDtoH(host, raw() + offset * sizeof(T), size * sizeof(T)) );
