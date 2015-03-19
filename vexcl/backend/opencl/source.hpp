@@ -195,8 +195,7 @@ class source_generator {
         }
 
         template <class Prm>
-        source_generator& smem_declaration(const std::string &name = "smem") {
-            (void)name;
+        source_generator& smem_declaration(const std::string& = "smem") {
             return *this;
         }
 
