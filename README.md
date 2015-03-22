@@ -38,6 +38,7 @@ Other talks may be found at
     * [Element indices](#element-indices)
     * [User-defined functions](#user-defined-functions)
     * [Tagged terminals](#tagged-terminals)
+    * [Pointer qualifiers](#pointer-qualifiers)
     * [Temporary values](#temporary-values)
     * [Random number generation](#random-number-generation)
     * [Permutations](#permutations)
@@ -51,6 +52,7 @@ Other talks may be found at
 * [Sparse matrix-vector products](#sparse-matrix-vector-products)
 * [Stencil convolutions](#stencil-convolutions)
 * [Raw pointers](#raw-pointers)
+* [Pointers to constant vector](#pointers-to-constant-vector)
 * [Sort, scan, reduce-by-key algorithms](#parallel-primitives)
 * [Multivectors](#multivectors)
 * [Converting generic C++ algorithms to OpenCL/CUDA](#converting-generic-c-algorithms-to-opencl)
@@ -375,6 +377,15 @@ Z = sqrt(tag<1>(X) * tag<1>(X) + tag<2>(Y) * tag<2>(Y));
 ~~~
 Here, the generated kernel will have one parameter for each of the vectors `X`
 and `Y`.
+
+### <a name="pointer-qualifiers"></a>Pointer qualifiers
+
+To optimise the code the programmer can use pointer qualifiers.
+At the moment the 'constant' qualifier is implemented. The qualifier will set the variable into a separate memoryspace.
+This memoryspace is a separate cache and is as fast as the local memory. The cache size is vendor dependent but has to
+be atleast 64kB for openCL devices.
+For example if you need to add two small vectors. <32kB each.
+s = constant(x) + constant(y);
 
 ### <a name="temporary-values"></a>Temporary values
 
@@ -819,6 +830,16 @@ y = global_interaction(x.size(), vex::element_index(), vex::raw_pointer(x));
 Note that the use of `raw_pointer()` is limited to single-device contexts for
 obvious reasons.
 
+## <a name="pointers-to-constant-vector"></a>Pointers to constant vector
+These special kind of pointers are exactly the same as a raw pointer, but they point to objects in the constant
+memoryspace instead of the global memoryspace. These vectors have a maximum size defined by the manufacturer.
+The constant memoryspace is atleast 64kB in size for openCL devices.
+one could for example cache some logarithmic math instead of calculating it.
+
+~~~{.cpp}
+ptrLogVector=constant_pointer(logVector);
+s = logVector[IntVector];
+~~~
 ## <a name="parallel-primitives"></a>Sort, scan, reduce-by-key algorithms
 
 VexCL provides several standalone parallel primitives that may not be used as

@@ -60,5 +60,6 @@ THE SOFTWARE.
 #include <vexcl/profiler.hpp>
 #include <vexcl/function.hpp>
 #include <vexcl/logical.hpp>
+#include <vexcl/pointer_qualifiers.hpp>
 
 #endif

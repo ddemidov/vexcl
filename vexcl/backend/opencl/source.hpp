@@ -47,12 +47,14 @@ namespace vex {
 template <class T> struct global_ptr {};
 template <class T> struct shared_ptr {};
 template <class T> struct regstr_ptr {};
+template <class T> struct constant_ptr {};
 
 template <class T> struct remove_ptr;
 
 template <class T> struct remove_ptr< global_ptr<T> > { typedef T type; };
 template <class T> struct remove_ptr< shared_ptr<T> > { typedef T type; };
 template <class T> struct remove_ptr< regstr_ptr<T> > { typedef T type; };
+template <class T> struct remove_ptr< constant_ptr<T> > { typedef T type; };
 
 template <class T>
 struct type_name_impl <global_ptr<T> > {
@@ -107,6 +109,29 @@ struct type_name_impl <regstr_ptr<const T> > {
         return s.str();
     }
 };
+
+//constant is not the same as const.
+//constant variables tends to end up in a constant cache which is as fast as local memory or even faster.
+//const is just read only
+template <class T>
+struct type_name_impl <constant_ptr<T> > {
+	static std::string get() {
+		std::ostringstream s;
+		s << "constant " <<type_name<T>() << " *";
+		return s.str();
+	}
+};
+
+template <class T>
+struct type_name_impl <constant_ptr<const T> > {
+	static std::string get() {
+		std::ostringstream s;
+		s << "constant " << type_name<T>() << " *";
+		return s.str();
+	}
+};
+
+
 
 template<typename T>
 struct type_name_impl<T*>
