@@ -51,6 +51,7 @@ Other talks may be found at
 * [Sparse matrix-vector products](#sparse-matrix-vector-products)
 * [Stencil convolutions](#stencil-convolutions)
 * [Raw pointers](#raw-pointers)
+* [Using constant cache in OpenCL](#constant-address-space)
 * [Sort, scan, reduce-by-key algorithms](#parallel-primitives)
 * [Multivectors](#multivectors)
 * [Converting generic C++ algorithms to OpenCL/CUDA](#converting-generic-c-algorithms-to-opencl)
@@ -818,6 +819,36 @@ y = global_interaction(x.size(), vex::element_index(), vex::raw_pointer(x));
 
 Note that the use of `raw_pointer()` is limited to single-device contexts for
 obvious reasons.
+
+## <a name="constant-address-space"></a>Using constant cache in OpenCL
+
+The OpenCL backend of VexCL allows one to use constant cache on GPUs in order
+to speed up read-only access to small vectors. Usually around 64Kb of constant
+cache multiprocessor is available. Vectors wrapped in `vex::constant()` will be
+decorated with `constant` keyword insted of the usual `global` one. For
+example, the following expression:
+~~~{.cpp}
+x = 2 * vex::constant(y);
+~~~
+will result in the OpenCL kernel below:
+~~~{.c}
+kernel void vexcl_vector_kernel
+(
+  ulong n,
+  global int * prm_1,
+  int prm_2,
+  constant int * prm_3
+)
+{
+  for(ulong idx = get_global_id(0); idx < n; idx += get_global_size(0)) {
+    prm_1[idx] = ( prm_2 * prm_3[idx] );
+  }
+}
+~~~
+
+In cases where access to arbitrary vector elements is required,
+`vex::constant_pointer()` may be used similarly to `vex::raw_pointer()`. The
+extracted pointer will be decorated with `constant` keyword.
 
 ## <a name="parallel-primitives"></a>Sort, scan, reduce-by-key algorithms
 

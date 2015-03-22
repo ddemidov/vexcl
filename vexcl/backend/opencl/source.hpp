@@ -47,12 +47,14 @@ namespace vex {
 template <class T> struct global_ptr {};
 template <class T> struct shared_ptr {};
 template <class T> struct regstr_ptr {};
+template <class T> struct constant_ptr {};
 
 template <class T> struct remove_ptr;
 
 template <class T> struct remove_ptr< global_ptr<T> > { typedef T type; };
 template <class T> struct remove_ptr< shared_ptr<T> > { typedef T type; };
 template <class T> struct remove_ptr< regstr_ptr<T> > { typedef T type; };
+template <class T> struct remove_ptr< constant_ptr<T> > { typedef T type; };
 
 template <class T>
 struct type_name_impl <global_ptr<T> > {
@@ -104,6 +106,21 @@ struct type_name_impl <regstr_ptr<const T> > {
     static std::string get() {
         std::ostringstream s;
         s << "const " << type_name<T>() << " *";
+        return s.str();
+    }
+};
+
+// Note that constant_ptr<T> and global_ptr<const T> are not the same.
+// The former uses constant cache for read-only access to vector data
+// while the latter simply informs the compiler that it is illegal to modify
+// the vector data.
+template <class T>
+struct type_name_impl <constant_ptr<T> > {
+    static std::string get() {
+        std::ostringstream s;
+        s << "constant "
+          << type_name<typename std::decay<T>::type>()
+          << " *";
         return s.str();
     }
 };

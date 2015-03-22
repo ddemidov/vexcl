@@ -36,6 +36,7 @@ THE SOFTWARE.
 
 namespace vex {
 
+/// \cond INTERNAL
 template <typename T>
 struct vector_pointer {
     typedef T value_type;
@@ -45,27 +46,16 @@ struct vector_pointer {
     vector_pointer(const vector<T> &v) : v(v) {}
 };
 
-/// Cast vex::vector to a raw pointer.
-/**
- * Useful when user wants to get a pointer to a vector instead of its current
- * element inside a vector expression. Could be combined with calls to
- * address_of/dereference operators or with user-defined functions iterating
- * through the vector. See examples in tests/vector_pointer.cpp.
- */
+#ifdef VEXCL_BACKEND_OPENCL
 template <typename T>
-#ifdef DOXYGEN
-vector_pointer<T>
-#else
-inline typename boost::proto::result_of::as_expr<vector_pointer<T>, vector_domain>::type
-#endif
-raw_pointer(const vector<T> &v) {
-    precondition(
-            v.nparts() == 1,
-            "raw_pointer is not supported for multi-device contexts"
-            );
+struct constant_vector_pointer {
+    typedef T value_type;
 
-    return boost::proto::as_expr<vector_domain>(vector_pointer<T>(v));
-}
+    const vector<T> &v;
+
+    constant_vector_pointer(const vector<T> &v) : v(v) {}
+};
+#endif
 
 namespace traits {
 
@@ -110,7 +100,106 @@ struct expression_properties< vector_pointer<T> >
     }
 };
 
+#ifdef VEXCL_BACKEND_OPENCL
+template <typename T>
+struct is_vector_expr_terminal< constant_vector_pointer<T> > : std::true_type {};
+
+template <typename T>
+struct kernel_param_declaration< constant_vector_pointer<T> >
+{
+    static void get(backend::source_generator &src,
+            const constant_vector_pointer<T>&,
+            const backend::command_queue&, const std::string &prm_name,
+            detail::kernel_generator_state_ptr)
+    {
+        src.parameter< constant_ptr<T> >(prm_name);
+    }
+};
+
+template <typename T>
+struct kernel_arg_setter< constant_vector_pointer<T> >
+{
+        static void set(const constant_vector_pointer<T> &term,
+                                        backend::kernel &kernel, unsigned/*part*/, size_t/*index_offset*/,
+                                        detail::kernel_generator_state_ptr)
+        {
+                kernel.push_arg(term.v(0));
+        }
+};
+
+template <typename T>
+struct expression_properties< constant_vector_pointer<T> >
+{
+    static void get(const constant_vector_pointer<T> &term,
+            std::vector<backend::command_queue> &queue_list,
+            std::vector<size_t> &partition,
+            size_t &/*size*/
+            )
+    {
+        queue_list = term.v.queue_list();
+        partition  = term.v.partition();
+        // Raw pointers should not have size.
+    }
+};
+#endif
+
 } // namespace traits
+
+/// \endcond
+
+/// Cast vex::vector to a raw pointer.
+/**
+ * Useful when user wants to get a pointer to a vector instead of its current
+ * element inside a vector expression. Could be combined with calls to
+ * address_of/dereference operators or with user-defined functions iterating
+ * through the vector. See examples in tests/vector_pointer.cpp.
+ */
+template <typename T>
+#ifdef DOXYGEN
+vector_pointer<T>
+#else
+inline typename boost::proto::result_of::as_expr<vector_pointer<T>, vector_domain>::type
+#endif
+raw_pointer(const vector<T> &v) {
+    precondition(
+            v.nparts() == 1,
+            "raw_pointer is not supported for multi-device contexts"
+            );
+
+    return boost::proto::as_expr<vector_domain>(vector_pointer<T>(v));
 }
+
+
+#ifdef VEXCL_BACKEND_OPENCL
+/// Cast vex::vector to a constant pointer.
+/**
+ * Useful when user wants to get a pointer to a constant vector instead of its
+ * current element inside a vector expression. Could be combined with calls to
+ * address_of/dereference operators or with user-defined functions iterating
+ * through the constant vector. This vector is atleast 64kB in size as defined
+ * by the openCL standard.
+ * One could for example cache some logarithmic math instead of calculating it.
+\code
+auto ptr = constant_pointer(log_table);
+s = ptr[I];
+\endcode
+ */
+template <typename T>
+#ifdef DOXYGEN
+constant_vector_pointer<T>
+#else
+inline typename boost::proto::result_of::as_expr<constant_vector_pointer<T>, vector_domain>::type
+#endif
+constant_pointer(const vector<T> &v) {
+    precondition(
+            v.nparts() == 1,
+            "constant_pointer is not supported for multi-device contexts"
+            );
+
+    return boost::proto::as_expr<vector_domain>(constant_vector_pointer<T>(v));
+}
+#endif
+
+} // namespace vex
 
 #endif

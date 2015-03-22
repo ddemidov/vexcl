@@ -80,5 +80,25 @@ BOOST_AUTO_TEST_CASE(manual_stencil)
             });
 }
 
+#ifdef VEXCL_BACKEND_OPENCL
+BOOST_AUTO_TEST_CASE(constant_pointer)
+{
+    std::vector<vex::command_queue> queue(1, ctx.queue(0));
+
+    const size_t n = 1024;
+
+    int host_data[] = {1, 2, 3, 4};
+    vex::vector<int> x(queue, 4, host_data, vex::backend::MEM_READ_ONLY);
+    vex::vector<int> y(queue, n);
+
+    auto X = vex::constant_pointer(x);
+    y = X[vex::element_index() % 4];
+
+    check_sample(y, [&](size_t idx, int v) {
+            BOOST_CHECK_EQUAL(v, host_data[idx % 4]);
+            });
+}
+#endif
+
 BOOST_AUTO_TEST_SUITE_END()
 

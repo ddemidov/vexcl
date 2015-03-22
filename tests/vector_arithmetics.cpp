@@ -9,6 +9,10 @@
 #include <vexcl/element_index.hpp>
 #include <vexcl/tagged_terminal.hpp>
 #include <vexcl/function.hpp>
+#ifdef VEXCL_BACKEND_OPENCL
+#include <vexcl/vector_view.hpp>
+#include <vexcl/constant_address_space.hpp>
+#endif
 #include <boost/math/constants/constants.hpp>
 #include "context_setup.hpp"
 
@@ -282,6 +286,26 @@ BOOST_AUTO_TEST_CASE(constants)
     x = vex::constants::pi();
     check_sample(x, [](size_t, double v) { BOOST_CHECK_CLOSE(v, boost::math::constants::pi<double>(), 1e-8); });
 }
+
+#ifdef VEXCL_BACKEND_OPENCL
+BOOST_AUTO_TEST_CASE(constant_address_space)
+{
+    std::vector<vex::command_queue> queue(1, ctx.queue(0));
+
+    const size_t N = 1024;
+
+    int host_data[] = {1, 2, 3, 4};
+
+    vex::vector<int> x(queue, 4, host_data, vex::backend::MEM_READ_ONLY);
+    vex::vector<int> y(queue, N);
+
+    y = vex::permutation(vex::element_index() % 4)( vex::constant(x) );
+
+    check_sample(y, [&](size_t idx, int v) {
+            BOOST_CHECK_EQUAL(v, host_data[idx % 4]);
+            });
+}
+#endif
 
 #if (VEXCL_CHECK_SIZES > 0)
 BOOST_AUTO_TEST_CASE(expression_size_check)

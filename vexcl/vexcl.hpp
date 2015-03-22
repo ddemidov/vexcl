@@ -61,4 +61,8 @@ THE SOFTWARE.
 #include <vexcl/function.hpp>
 #include <vexcl/logical.hpp>
 
+#ifdef VEXCL_BACKEND_OPENCL
+#include <vexcl/constant_address_space.hpp>
+#endif
+
 #endif
