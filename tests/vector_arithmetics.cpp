@@ -9,6 +9,7 @@
 #include <vexcl/element_index.hpp>
 #include <vexcl/tagged_terminal.hpp>
 #include <vexcl/function.hpp>
+#include <vexcl/pointer_qualifiers.hpp>
 #include <boost/math/constants/constants.hpp>
 #include "context_setup.hpp"
 
@@ -281,6 +282,23 @@ BOOST_AUTO_TEST_CASE(constants)
 
     x = vex::constants::pi();
     check_sample(x, [](size_t, double v) { BOOST_CHECK_CLOSE(v, boost::math::constants::pi<double>(), 1e-8); });
+}
+
+BOOST_AUTO_TEST_CASE(constant)
+{
+    const size_t N = 1024;
+
+    vex::vector<double> x(ctx, N);
+    vex::vector<double> y(ctx, N);
+    vex::vector<double> z(ctx, N);
+
+    y = 42;
+    z = 67;
+    x = 5 * sin(vex::constant(y)) + vex::constant(z);
+
+    check_sample(x, [](size_t, double a) {
+            BOOST_CHECK_CLOSE(a, 5 * sin(42.0) + 67, 1e-12);
+            });
 }
 
 #if (VEXCL_CHECK_SIZES > 0)
