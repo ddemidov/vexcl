@@ -182,20 +182,30 @@ inline std::string program_binaries_path(const std::string &hash, bool create = 
     return dir + path_delim();
 }
 
-/// Returns SHA1 hash of the string parameter.
-inline std::string sha1(const std::string &src) {
-    boost::uuids::detail::sha1 sha1;
-    sha1.process_bytes(src.c_str(), src.size());
+/// SHA1 hasher.
+class sha1_hasher {
+    public:
+        sha1_hasher(const std::string &s = "") {
+            if (!s.empty()) (*this)(s);
+        }
 
-    unsigned int hash[5];
-    sha1.get_digest(hash);
+        void operator()(const std::string &s) {
+            h.process_bytes(s.c_str(), s.size());
+        }
 
-    std::ostringstream buf;
-    for(int i = 0; i < 5; ++i)
-        buf << std::hex << std::setfill('0') << std::setw(8) << hash[i];
+        operator std::string() {
+            unsigned int digest[5];
+            h.get_digest(digest);
 
-    return buf.str();
-}
+            std::ostringstream buf;
+            for(int i = 0; i < 5; ++i)
+                buf << std::hex << std::setfill('0') << std::setw(8) << digest[i];
+
+            return buf.str();
+        }
+    private:
+        boost::uuids::detail::sha1 h;
+};
 
 } // namespace vex
 

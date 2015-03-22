@@ -63,15 +63,17 @@ inline CUmodule build_sources(
 
     queue.context().set_current();
 
+    sha1_hasher sha1(source);
+
+    sha1(queue.device().name());
+    sha1(options);
+
     auto cc = queue.device().compute_capability();
-    std::ostringstream fullsrc;
-    fullsrc << "// Device:  " << queue.device().name() << "\n"
-            << "// CC:      " << std::get<0>(cc) << "." << std::get<1>(cc) << "\n"
-            << "// options: " << options << "\n"
-            << source;
+    sha1(std::to_string(std::get<0>(cc)) + std::to_string(std::get<1>(cc)));
+
+    std::string hash = static_cast<std::string>(sha1);
 
     // Write source to a .cu file
-    std::string hash = sha1( fullsrc.str() );
     std::string basename = program_binaries_path(hash, true) + "kernel";
     std::string ptxfile  = basename + ".ptx";
 
@@ -81,12 +83,11 @@ inline CUmodule build_sources(
 
         {
             std::ofstream f(basename + ".cu");
-            f << fullsrc.str();
+            f << source;
         }
 
         // Compile the source to ptx.
         std::ostringstream cmdline;
-        auto cc = queue.device().compute_capability();
         cmdline
             << "nvcc -ptx -O3"
             << " -arch=sm_" << std::get<0>(cc) << std::get<1>(cc)
@@ -94,7 +95,7 @@ inline CUmodule build_sources(
             << " -o " << ptxfile << " " << cufile;
         if (0 != system(cmdline.str().c_str()) ) {
 #ifndef VEXCL_SHOW_KERNELS
-            std::cerr << fullsrc.str() << std::endl;
+            std::cerr << source << std::endl;
 #endif
 
             vex::detail::print_backtrace();

@@ -49,7 +49,7 @@ namespace opencl {
 
 /// Saves program binaries for future reuse.
 inline void save_program_binaries(
-        const std::string &hash, const cl::Program &program, const std::string &source
+        const std::string &hash, const cl::Program &program
         )
 {
     // Prevent writing to the same file by several threads at the same time.
@@ -67,8 +67,6 @@ inline void save_program_binaries(
     bfile.write((char*)&sizes[0], sizeof(size_t));
     bfile.write(binaries[0], sizes[0]);
     delete[] binaries[0];
-
-    bfile << "\n" << source << "\n";
 }
 
 /// Tries to read program binaries from file cache.
@@ -133,12 +131,14 @@ inline cl::Program build_sources(
 
 #ifdef VEXCL_CACHE_KERNELS
     // Get unique (hopefully) hash string for the kernel.
-    std::ostringstream fullsrc;
+    sha1_hasher sha1(source);
 
-    fullsrc
-        << "// Platform: " << cl::Platform(device[0].getInfo<CL_DEVICE_PLATFORM>()).getInfo<CL_PLATFORM_NAME>()
-        << "\n// Device:   " << device[0].getInfo<CL_DEVICE_NAME>()
-        << "\n// Compiler: "
+    sha1(cl::Platform(device[0].getInfo<CL_DEVICE_PLATFORM>()).getInfo<CL_PLATFORM_NAME>());
+    sha1(device[0].getInfo<CL_DEVICE_NAME>());
+    sha1(compile_options);
+
+    std::ostringstream compiler_tag;
+    compiler_tag
 #if defined(_MSC_VER)
         << "MSC " << _MSC_VER
 #elif defined(__clang__)
@@ -148,10 +148,10 @@ inline cl::Program build_sources(
 #else
         << "unknown"
 #endif
-        << "\n// options:  " << compile_options
-        << "\n" << source;
+        ;
+    sha1(compiler_tag.str());
 
-    std::string hash = sha1( fullsrc.str() );
+    std::string hash = static_cast<std::string>(sha1);
 
     // Try to get cached program binaries:
     try {
@@ -181,7 +181,7 @@ inline cl::Program build_sources(
 
 #ifdef VEXCL_CACHE_KERNELS
     // Save program binaries for future reuse:
-    save_program_binaries(hash, program, fullsrc.str());
+    save_program_binaries(hash, program);
 #endif
 
     return program;
