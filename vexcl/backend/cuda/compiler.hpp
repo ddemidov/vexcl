@@ -69,7 +69,9 @@ inline CUmodule build_sources(
     sha1(options);
 
     auto cc = queue.device().compute_capability();
-    sha1(std::to_string(std::get<0>(cc)) + std::to_string(std::get<1>(cc)));
+    std::ostringstream ccstr;
+    ccstr << std::get<0>(cc) << std::get<1>(cc);
+    sha1(ccstr.str());
 
     std::string hash = static_cast<std::string>(sha1);
 
@@ -79,7 +81,6 @@ inline CUmodule build_sources(
 
     if ( !boost::filesystem::exists(ptxfile) ) {
         std::string cufile = basename + ".cu";
-
 
         {
             std::ofstream f(basename + ".cu");
