@@ -48,12 +48,6 @@ template <class T> struct global_ptr {};
 template <class T> struct shared_ptr {};
 template <class T> struct regstr_ptr {};
 
-template <class T> struct remove_ptr;
-
-template <class T> struct remove_ptr< global_ptr<T> > { typedef T type; };
-template <class T> struct remove_ptr< shared_ptr<T> > { typedef T type; };
-template <class T> struct remove_ptr< regstr_ptr<T> > { typedef T type; };
-
 template <class T>
 struct type_name_impl <global_ptr<T> > {
     static std::string get() {
