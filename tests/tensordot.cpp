@@ -39,7 +39,7 @@ BOOST_AUTO_TEST_CASE(tensordot) {
 
     vex::slicer<2> dim(extents[N][N]);
 
-    BOOST_CHECK_EQUAL(
+    BOOST_CHECK_SMALL(
             sum(
                 fabs(
                     vex::reduce<vex::SUM>(
@@ -52,7 +52,7 @@ BOOST_AUTO_TEST_CASE(tensordot) {
                         )
                     )
                ),
-            0.0);
+            1e-8);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
