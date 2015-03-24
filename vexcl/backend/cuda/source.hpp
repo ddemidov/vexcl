@@ -97,7 +97,7 @@ namespace cuda {
 inline std::string standard_kernel_header(const command_queue &q) {
     std::ostringstream s;
     s
-#if defined(_MSC_VER) || defined(__APPLE__)
+#if defined(_MSC_VER) || defined(__APPLE__) || (CUDA_VERSION >= 7000)
       << "typedef unsigned char       uchar;\n"
          "typedef unsigned int        uint;\n"
          "typedef unsigned short      ushort;\n"

@@ -28,91 +28,15 @@ THE SOFTWARE.
 /**
  * \file   vexcl/backend/cuda/compiler.hpp
  * \author Denis Demidov <dennis.demidov@gmail.com>
- * \brief  CUDA source code compilation wrapper.
+ * \brief  Choose CUDA compiler implementation based on CUDA version.
  */
 
-#include <cstdlib>
 #include <cuda.h>
 
-#include <vexcl/backend/common.hpp>
-#include <vexcl/detail/backtrace.hpp>
-
-namespace vex {
-namespace backend {
-namespace cuda {
-
-/// Create and build a program from source string.
-inline CUmodule build_sources(
-        const command_queue &queue, const std::string &source,
-        const std::string &options = ""
-        )
-{
-#ifdef VEXCL_SHOW_KERNELS
-    std::cout << source << std::endl;
+#if CUDA_VERSION >= 7000
+#  include <vexcl/backend/cuda/compiler_nvrtc.hpp>
 #else
-#  ifdef _MSC_VER
-#    pragma warning(push)
-#    pragma warning(disable: 4996)
-#  endif
-    if (getenv("VEXCL_SHOW_KERNELS"))
-        std::cout << source << std::endl;
-#  ifdef _MSC_VER
-#    pragma warning(pop)
-#  endif
+#  include <vexcl/backend/cuda/compiler_nvcc.hpp>
 #endif
-
-    queue.context().set_current();
-
-    sha1_hasher sha1(source);
-
-    sha1(queue.device().name());
-    sha1(options);
-
-    auto cc = queue.device().compute_capability();
-    std::ostringstream ccstr;
-    ccstr << std::get<0>(cc) << std::get<1>(cc);
-    sha1(ccstr.str());
-
-    std::string hash = static_cast<std::string>(sha1);
-
-    // Write source to a .cu file
-    std::string basename = program_binaries_path(hash, true) + "kernel";
-    std::string ptxfile  = basename + ".ptx";
-
-    if ( !boost::filesystem::exists(ptxfile) ) {
-        std::string cufile = basename + ".cu";
-
-        {
-            std::ofstream f(basename + ".cu");
-            f << source;
-        }
-
-        // Compile the source to ptx.
-        std::ostringstream cmdline;
-        cmdline
-            << "nvcc -ptx -O3"
-            << " -arch=sm_" << std::get<0>(cc) << std::get<1>(cc)
-            << " " << options
-            << " -o " << ptxfile << " " << cufile;
-        if (0 != system(cmdline.str().c_str()) ) {
-#ifndef VEXCL_SHOW_KERNELS
-            std::cerr << source << std::endl;
-#endif
-
-            vex::detail::print_backtrace();
-            throw std::runtime_error("nvcc invocation failed");
-        }
-    }
-
-    // Load the compiled ptx.
-    CUmodule program;
-    cuda_check( cuModuleLoad(&program, ptxfile.c_str()) );
-
-    return program;
-}
-
-} // namespace cuda
-} // namespace backend
-} // namespace vex
 
 #endif
