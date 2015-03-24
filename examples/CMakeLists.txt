@@ -66,7 +66,7 @@ if ("${VEXCL_BACKEND}" STREQUAL "CUDA")
     endif()
     set(CUDA_NVCC_FLAGS "-arch=sm_20")
     cuda_add_executable(thrust-sort thrust-sort.cpp thrust-sort.cu)
-    target_link_libraries(thrust-sort ${Boost_LIBRARIES} ${CUDA_CUDA_LIBRARY})
+    target_link_libraries(thrust-sort ${Boost_LIBRARIES} ${BACKEND_LIBS})
 endif()
 
 #----------------------------------------------------------------------------
