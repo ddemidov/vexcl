@@ -98,6 +98,28 @@ BOOST_AUTO_TEST_CASE(constant_pointer)
             BOOST_CHECK_EQUAL(v, host_data[idx % 4]);
             });
 }
+
+BOOST_AUTO_TEST_CASE(pass_constant_pointer_to_function)
+{
+    std::vector<vex::command_queue> queue(1, ctx.queue(0));
+
+    const size_t N = 1024;
+
+    int host_data[] = {1, 2, 3, 4};
+
+    vex::vector<int> x(queue, 4, host_data, vex::backend::MEM_READ_ONLY);
+    vex::vector<int> y(queue, N);
+
+    VEX_FUNCTION(int, foo, (int, idx)(vex::constant_ptr<int>, x),
+            return x[idx % 4];
+            );
+
+    y = foo(vex::element_index(), vex::constant_pointer(x));
+
+    check_sample(y, [&](size_t idx, int v) {
+            BOOST_CHECK_EQUAL(v, host_data[idx % 4]);
+            });
+}
 #endif
 
 BOOST_AUTO_TEST_SUITE_END()
