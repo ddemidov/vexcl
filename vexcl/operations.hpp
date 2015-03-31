@@ -1435,10 +1435,6 @@ struct get_expression_properties {
             precondition(
                     q.empty() || queue.empty() || q.size() == queue.size(),
                     "Incompatible queue lists");
-
-            precondition(
-                    s == 0 || size == 0 || s == size,
-                    "Incompatible expression sizes");
         }
 #endif
     }
