@@ -191,7 +191,7 @@ struct local_terminal_init< tensordot_expr<LHS, LDIM, RHS, RDIM, CDIM> > {
 
         {
             src.open("{");
-            src.new_line() << type_name<size_t>() << " idx = lptr" << LDIM - CDIM << ";";
+            src.new_line() << type_name<size_t>() << " idx = lptr" << CDIM << ";";
 
             detail::output_local_preamble init_ctx(src, queue, prm_name + "_lhs", state);
             boost::proto::eval(boost::proto::as_child(term.lhs), init_ctx);
@@ -207,7 +207,7 @@ struct local_terminal_init< tensordot_expr<LHS, LDIM, RHS, RDIM, CDIM> > {
 
         {
             src.open("{");
-            src.new_line() << type_name<size_t>() << " idx = rptr" << RDIM - CDIM << ";";
+            src.new_line() << type_name<size_t>() << " idx = rptr" << CDIM << ";";
 
             detail::output_local_preamble init_ctx(src, queue, prm_name + "_rhs", state);
             boost::proto::eval(boost::proto::as_child(term.rhs), init_ctx);
