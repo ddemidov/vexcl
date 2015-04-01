@@ -287,6 +287,9 @@ struct expression_properties< tensordot_expr<LHS, LDIM, RHS, RDIM, CDIM> > {
     {
         detail::get_expression_properties prop;
         detail::extract_terminals()(boost::proto::as_child(term.lhs), prop);
+        // Sizes of lhs and rhs expressions most probably differ.
+        // Avoid triggering size check exception:
+        prop.size = 0;
         detail::extract_terminals()(boost::proto::as_child(term.rhs), prop);
 
         queue_list = prop.queue;
