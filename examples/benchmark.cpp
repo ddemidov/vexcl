@@ -100,7 +100,7 @@ std::pair<double,double> benchmark_saxpy(
     auto ta = vex::tag<1>(a);
 
     ta = alpha * ta + b;
-    ta = 0;
+    ta = static_cast<real>(0);
 
     prof.tic_cpu("OpenCL");
     for(size_t i = 0; i < M; i++)
