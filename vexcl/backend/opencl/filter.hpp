@@ -95,7 +95,7 @@ namespace Filter {
         explicit Type(const std::string t) : type(device_type(t)) {}
 
         bool operator()(const cl::Device &d) const {
-            return d.getInfo<CL_DEVICE_TYPE>() == type;
+            return d.getInfo<CL_DEVICE_TYPE>() | type;
         }
 
         private:

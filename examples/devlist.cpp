@@ -23,6 +23,7 @@ int main() {
         cout << "    " << left << setw(32) << #name << " = " \
                   << d->getInfo< name >() << endl
 
+        SHOW_DEVPROP(CL_DEVICE_TYPE);
         SHOW_DEVPROP(CL_DEVICE_VENDOR);
         SHOW_DEVPROP(CL_DEVICE_VERSION);
         SHOW_DEVPROP(CL_DEVICE_MAX_COMPUTE_UNITS);
