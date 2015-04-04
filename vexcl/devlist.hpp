@@ -314,7 +314,15 @@ class Context {
             return c;
         }
 
+        std::vector<backend::context>& context() {
+            return c;
+        }
+
         const backend::context& context(unsigned d) const {
+            return c[d];
+        }
+
+        backend::context& context(unsigned d) {
             return c[d];
         }
 
@@ -322,7 +330,15 @@ class Context {
             return q;
         }
 
+        std::vector<backend::command_queue>& queue() {
+            return q;
+        }
+
         operator const std::vector<backend::command_queue>&() const {
+            return q;
+        }
+
+        operator std::vector<backend::command_queue>&() {
             return q;
         }
 
@@ -330,7 +346,11 @@ class Context {
             return q[d];
         }
 
-        const backend::device device(unsigned d) const {
+        backend::command_queue& queue(unsigned d) {
+            return q[d];
+        }
+
+        backend::device device(unsigned d) const {
             return backend::device( backend::get_device_id(q[d]) );
         }
 
@@ -347,6 +367,13 @@ class Context {
         }
 
         void finish() const {
+            for(auto queue = q.begin(); queue != q.end(); ++queue) {
+                backend::command_queue q = *queue;
+                q.finish();
+            }
+        }
+
+        void finish() {
             for(auto queue = q.begin(); queue != q.end(); ++queue)
                 queue->finish();
         }

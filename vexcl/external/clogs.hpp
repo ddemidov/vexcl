@@ -42,8 +42,8 @@ THE SOFTWARE.
 #include <clogs/scan.h>
 #include <clogs/radixsort.h>
 
-#ifdef VEXCL_BACKEND_CUDA
-#  error "clogs interoperation is not supported for the CUDA backend!"
+#if !defined(VEXCL_BACKEND_OPENCL)
+#  error "clogs interoperation is only supported for OpenCL backend!"
 #endif
 
 namespace vex {

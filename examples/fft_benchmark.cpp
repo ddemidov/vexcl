@@ -105,10 +105,10 @@ watch test_clfft(Context &ctx, cl_float2 *data, size_t n, size_t m, size_t runs,
 
     watch w;
     for(size_t i = 0 ; i < runs ; i++) {
-        ctx.queue()[0].finish();
+        ctx.finish();
         w.tic();
         b = fft(a);
-        ctx.queue()[0].finish();
+        ctx.finish();
         w.toc();
     }
 

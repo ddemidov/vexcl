@@ -30,9 +30,13 @@ option(BOOST_TEST_DYN_LINK "Link tests against dynamic version of boost unittest
 # Interoperation with Boost.compute
 #----------------------------------------------------------------------------
 option(BOOST_COMPUTE "Use Boost.Compute algorithms" OFF)
-if (BOOST_COMPUTE)
+function(find_boost_compute)
     find_path(BOOST_COMPUTE_INCLUDE boost/compute.hpp)
     include_directories(${BOOST_COMPUTE_INCLUDE})
+endfunction()
+
+if (BOOST_COMPUTE)
+    find_boost_compute()
     add_definitions(-DHAVE_BOOST_COMPUTE)
 endif ()
 
@@ -85,7 +89,7 @@ if (WIN32)
 endif ()
 
 set(VEXCL_BACKEND "OpenCL" CACHE STRING "Select VexCL backend (OpenCL/CUDA)")
-set_property(CACHE VEXCL_BACKEND PROPERTY STRINGS "OpenCL" "CUDA")
+set_property(CACHE VEXCL_BACKEND PROPERTY STRINGS "OpenCL" "CUDA" "Compute")
 
 #----------------------------------------------------------------------------
 # Find Backend
@@ -96,6 +100,13 @@ if ("${VEXCL_BACKEND}" STREQUAL "OpenCL")
     include_directories( ${OPENCL_INCLUDE_DIRS} )
     set(BACKEND_LIBS ${OPENCL_LIBRARIES})
     add_definitions(-DVEXCL_BACKEND_OPENCL)
+elseif ("${VEXCL_BACKEND}" STREQUAL "Compute")
+    find_boost_compute()
+    set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
+    find_package(OpenCL REQUIRED)
+    include_directories( ${OPENCL_INCLUDE_DIRS} )
+    set(BACKEND_LIBS ${OPENCL_LIBRARIES})
+    add_definitions(-DVEXCL_BACKEND_COMPUTE)
 elseif ("${VEXCL_BACKEND}" STREQUAL "CUDA")
     find_package(CUDA REQUIRED)
     include_directories( ${CUDA_INCLUDE_DIRS} )
@@ -116,11 +127,11 @@ endif ()
 # Enable C++11 support, set compilation flags
 #----------------------------------------------------------------------------
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -Wall -Wclobbered -Wempty-body -Wignored-qualifiers -Wmissing-field-initializers -Wsign-compare -Wtype-limits -Wuninitialized -Wunused-parameter -Wunused-but-set-parameter -Wno-comment -Wno-type-limits -Wno-strict-aliasing")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -Wall -Wclobbered -Wempty-body -Wmissing-field-initializers -Wsign-compare -Wtype-limits -Wuninitialized -Wunused-but-set-parameter -Wno-comment -Wno-type-limits -Wno-strict-aliasing -Wno-missing-braces")
 endif ()
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -Wall -Wempty-body -Wignored-qualifiers -Wmissing-field-initializers -Wsign-compare -Wtype-limits -Wuninitialized -Wunused-parameter -Wno-comment -Wno-tautological-compare")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -Wall -Wempty-body -Wmissing-field-initializers -Wsign-compare -Wtype-limits -Wuninitialized -Wno-comment -Wno-tautological-compare -Wno-missing-braces")
 
     option(USE_LIBCPP "Use libc++ with Clang" OFF)
     if (USE_LIBCPP)

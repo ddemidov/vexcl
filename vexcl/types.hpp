@@ -39,16 +39,8 @@ THE SOFTWARE.
 
 #include <boost/io/ios_state.hpp>
 
-#if defined(VEXCL_BACKEND_OPENCL)
-#  ifndef __CL_ENABLE_EXCEPTIONS
-#    define __CL_ENABLE_EXCEPTIONS
-#  endif
-#  include <CL/cl.hpp>
-#elif defined(VEXCL_BACKEND_CUDA)
-#  include <CL/cl_platform.h>
-#else
-#  error Neither OpenCL nor CUDA backend is selected
-#endif
+// This should be available for all backends
+#include <CL/cl_platform.h>
 
 /// \cond INTERNAL
 typedef unsigned int  uint;

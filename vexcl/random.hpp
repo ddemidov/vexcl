@@ -247,15 +247,13 @@ struct RandomNormal : UserFunction<RandomNormal<T,Generator>, T(cl_ulong, cl_ulo
                 src.new_line() << type_name<Ts>()
                     << " l = sqrt(-2 * log(u[0])), cs, sn;";
 
-#if defined(VEXCL_BACKEND_OPENCL)
+#if defined(VEXCL_BACKEND_CUDA)
+                src.new_line() << "sincospi(2 * u[1], &sn, &cs);";
+#else
                 src.new_line() << "sn = sincos("
                     << std::setprecision(16)
                     << boost::math::constants::two_pi<double>()
                     << " * u[1], &cs);";
-#elif defined(VEXCL_BACKEND_CUDA) 
-                src.new_line() << "sincospi(2 * u[1], &sn, &cs);";
-#else
-#  error Unsupported backend!
 #endif
                 src.new_line() << "res.z[" << i     << "] = l * cs;";
                 src.new_line() << "res.z[" << i + 1 << "] = l * sn;";

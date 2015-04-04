@@ -1,5 +1,5 @@
-#ifndef VEXCL_VEXCL_HPP
-#define VEXCL_VEXCL_HPP
+#ifndef VEXCL_BACKEND_COMPUTE_ERROR_HPP
+#define VEXCL_BACKEND_COMPUTE_ERROR_HPP
 
 /*
 The MIT License
@@ -26,43 +26,31 @@ THE SOFTWARE.
 */
 
 /**
- * \file   vexcl.hpp
+ * \file   vexcl/backend/compute/error.hpp
  * \author Denis Demidov <dennis.demidov@gmail.com>
- * \brief  Vector expression template library for OpenCL.
+ * \brief  Output Boost.Compute errors to a std::stream.
  */
 
-#include <vexcl/backend.hpp>
+#include <iostream>
+#include <boost/compute/core.hpp>
 
-#include <vexcl/devlist.hpp>
-#include <vexcl/constants.hpp>
-#include <vexcl/element_index.hpp>
-#include <vexcl/vector.hpp>
-#include <vexcl/vector_view.hpp>
-#include <vexcl/tensordot.hpp>
-#include <vexcl/vector_pointer.hpp>
-#include <vexcl/tagged_terminal.hpp>
-#include <vexcl/temporary.hpp>
-#include <vexcl/cast.hpp>
-#include <vexcl/multivector.hpp>
-#include <vexcl/reductor.hpp>
-#include <vexcl/spmat.hpp>
-#include <vexcl/stencil.hpp>
-#include <vexcl/gather.hpp>
-#include <vexcl/random.hpp>
-#include <vexcl/fft.hpp>
-#include <vexcl/mba.hpp>
-#include <vexcl/generator.hpp>
-#include <vexcl/mba.hpp>
-#include <vexcl/sort.hpp>
-#include <vexcl/scan.hpp>
-#include <vexcl/scan_by_key.hpp>
-#include <vexcl/reduce_by_key.hpp>
-#include <vexcl/profiler.hpp>
-#include <vexcl/function.hpp>
-#include <vexcl/logical.hpp>
+namespace vex {
+namespace backend {
+namespace compute {
 
-#ifndef VEXCL_BACKEND_CUDA
-#include <vexcl/constant_address_space.hpp>
-#endif
+typedef std::exception error;
+
+} // namespace compute
+} // namespace backend
+} // namespace vex
+
+namespace std {
+
+/// Sends description of an OpenCL error to the output stream.
+inline std::ostream& operator<<(std::ostream &os, const vex::backend::compute::error &e) {
+    return os << e.what();
+}
+
+}
 
 #endif

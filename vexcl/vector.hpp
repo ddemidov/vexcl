@@ -809,7 +809,7 @@ class vector : public vector_terminal_expression {
         }
 
     private:
-        std::vector<backend::command_queue>      queue;
+        mutable std::vector<backend::command_queue> queue;
         std::vector<size_t>                      part;
         std::vector< backend::device_vector<T> > buf;
 

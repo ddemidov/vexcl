@@ -1,5 +1,5 @@
-#ifndef VEXCL_BACKEND_OPENCL_FFT_HPP
-#define VEXCL_BACKEND_OPENCL_FFT_HPP
+#ifndef VEXCL_FFT_HPP
+#define VEXCL_FFT_HPP
 
 /*
 The MIT License

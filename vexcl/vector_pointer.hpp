@@ -46,7 +46,7 @@ struct vector_pointer {
     vector_pointer(const vector<T> &v) : v(v) {}
 };
 
-#ifdef VEXCL_BACKEND_OPENCL
+#ifndef VEXCL_BACKEND_CUDA
 template <typename T>
 struct constant_vector_pointer {
     typedef T value_type;
@@ -100,7 +100,7 @@ struct expression_properties< vector_pointer<T> >
     }
 };
 
-#ifdef VEXCL_BACKEND_OPENCL
+#ifndef VEXCL_BACKEND_CUDA
 template <typename T>
 struct is_vector_expr_terminal< constant_vector_pointer<T> > : std::true_type {};
 
@@ -170,7 +170,7 @@ raw_pointer(const vector<T> &v) {
 }
 
 
-#ifdef VEXCL_BACKEND_OPENCL
+#ifndef VEXCL_BACKEND_CUDA
 /// Cast vex::vector to a constant pointer.
 /**
  * Useful when user wants to get a pointer to a constant vector instead of its

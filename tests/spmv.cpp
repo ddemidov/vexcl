@@ -436,7 +436,7 @@ BOOST_AUTO_TEST_CASE(ccsr_multivector_product)
             });
 }
 
-#ifdef VEXCL_BACKEND_OPENCL
+#ifndef VEXCL_BACKEND_CUDA
 BOOST_AUTO_TEST_CASE(vector_valued_matrix)
 {
     const size_t n = 1024;
