@@ -37,6 +37,9 @@ THE SOFTWARE.
 #ifndef __CL_ENABLE_EXCEPTIONS
 #  define __CL_ENABLE_EXCEPTIONS
 #endif
+#ifndef CL_USE_DEPRECATED_OPENCL_2_0_APIS
+#define CL_USE_DEPRECATED_OPENCL_2_0_APIS
+#endif
 #include <CL/cl.hpp>
 
 namespace vex {
