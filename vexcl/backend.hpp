@@ -28,22 +28,13 @@ THE SOFTWARE.
 /**
  * \file   vexcl/backend.hpp
  * \author Denis Demidov <dennis.demidov@gmail.com>
- * \brief  Compile-time selection of backend (OpenCL/CUDA).
+ * \brief  Compile-time selection of backend (OpenCL/CUDA/Boost.Compute).
+ *
+ * \note Definitions from either vex::backend::opencl or vex::backend::cuda
+ * are directly brought into vex::backend namespace. Define either
+ * VEXCL_BACKEND_OPENCL or VEXCL_BACKEND_CUDA macro in order to select
+ * backend. You will also need to link to libOpenCL or libcuda accordingly.
  */
-
-namespace vex {
-    /// Backend-specific functionality.
-    /**
-     * \note Definitions from either vex::backend::opencl or vex::backend::cuda
-     * are directly brought into vex::backend namespace. Define either
-     * VEXCL_BACKEND_OPENCL or VEXCL_BACKEND_CUDA macro in order to select
-     * backend. You will also need to link to libOpenCL or libcuda accordingly.
-     */
-    namespace backend {
-        namespace cuda {}
-        using namespace cuda;
-    }
-}
 
 #if defined(VEXCL_BACKEND_CUDA)
 
@@ -67,10 +58,6 @@ namespace vex {
 
 #include <vexcl/backend/opencl.hpp>
 
-#endif
-
-#if defined(VEXCL_BACKEND_OPENCL) && defined(VEXCL_BACKEND_CUDA)
-#  error Both OpenCL and CUDA backends are selected. Make your mind!
 #endif
 
 namespace vex {
