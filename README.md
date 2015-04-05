@@ -101,7 +101,7 @@ selected:
 #include <vexcl/vexcl.hpp>
 
 int main() {
-    vex::Context ctx( vex::Filter::Type(CL_DEVICE_TYPE_GPU) && vex::Filter::DoublePrecision );
+    vex::Context ctx( vex::Filter::GPU && vex::Filter::DoublePrecision );
 
     if (!ctx) throw std::runtime_error("No devices available.");
 

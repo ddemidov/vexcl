@@ -118,6 +118,13 @@ namespace Filter {
             }
     };
 
+    /// Selects CPU devices
+    const Type CPU        (CL_DEVICE_TYPE_CPU);
+    /// Selects GPU devices
+    const Type GPU        (CL_DEVICE_TYPE_GPU);
+    /// Selects accelerator devices
+    const Type Accelerator(CL_DEVICE_TYPE_ACCELERATOR);
+
     /// \cond INTERNAL
     struct DoublePrecisionFilter {
         bool operator()(const cl::Device &d) const {
