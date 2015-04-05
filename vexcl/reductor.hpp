@@ -165,7 +165,7 @@ class Reductor {
 #endif
         operator()(const Expr &expr) const;
     private:
-        const std::vector<backend::command_queue> &queue;
+        mutable std::vector<backend::command_queue> queue;
 
         struct reductor_data {
             std::vector<real>            hbuf;
@@ -426,7 +426,7 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
  * \deprecated
  */
 template <typename T, class R>
-const vex::Reductor<T, R> get_reductor(const std::vector<backend::command_queue> &queue)
+vex::Reductor<T, R> get_reductor(const std::vector<backend::command_queue> &queue)
 {
     return vex::Reductor<T, R>(queue);
 }

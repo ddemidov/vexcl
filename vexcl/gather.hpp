@@ -51,11 +51,11 @@ class gather {
          * \param indices Indices of elements to be gathered.
          */
         gather(
-                const std::vector<backend::command_queue> &queue,
+                const std::vector<backend::command_queue> &q,
                 size_t src_size, std::vector<size_t> indices
               )
-            : queue(queue), ptr(queue.size() + 1, 0),
-              idx(queue.size()), val(queue.size())
+            : queue(q), ptr(q.size() + 1, 0),
+              idx(q.size()), val(q.size())
         {
             assert(std::is_sorted(indices.begin(), indices.end()));
 

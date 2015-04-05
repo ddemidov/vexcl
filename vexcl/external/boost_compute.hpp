@@ -36,8 +36,12 @@ THE SOFTWARE.
 #include <vexcl/sort.hpp>
 #include <boost/compute.hpp>
 
-#ifdef VEXCL_BACKEND_CUDA
-#  error Boost.Compute interoperation is not supported for the CUDA backend!
+#if !defined(VEXCL_BACKEND_OPENCL)
+#  if defined(VEXCL_BACKEND_CUDA)
+#    error Boost.Compute interoperation is not supported for the CUDA backend!
+#  else
+#    error The code below is not required for Boost.Compute backend!
+#  endif
 #endif
 
 namespace vex {

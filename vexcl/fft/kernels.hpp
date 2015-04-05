@@ -1,5 +1,5 @@
-#ifndef VEXCL_BACKEND_OPENCL_FFT_KERNELS_HPP
-#define VEXCL_BACKEND_OPENCL_FFT_KERNELS_HPP
+#ifndef VEXCL_FFT_KERNELS_HPP
+#define VEXCL_FFT_KERNELS_HPP
 
 /*
 The MIT License
@@ -123,7 +123,7 @@ inline void kernel_radix(backend::source_generator &o, pow radix, bool invert) {
 
 template <class T>
 inline void kernel_common(backend::source_generator &o, const backend::command_queue& q) {
-#ifdef VEXCL_BACKEND_OPENCL
+#ifndef VEXCL_BACKEND_CUDA
     o << "#define DEVICE\n";
 #else
     o << "#define DEVICE __device__\n";
@@ -170,7 +170,7 @@ inline void twiddle_code(backend::source_generator &o) {
 
     if(std::is_same<T, cl_double>::value) {
         // use sincos with double since we probably want higher precision
-#ifdef VEXCL_BACKEND_OPENCL
+#ifndef VEXCL_BACKEND_CUDA
         o.new_line() << type_name<T>() << " cs, sn = sincos(alpha, &cs);";
 #else
         o.new_line() << type_name<T>() << " sn, cs;";
@@ -179,7 +179,7 @@ inline void twiddle_code(backend::source_generator &o) {
         o.new_line() << type_name<T2>() << " r = {cs, sn};";
     } else {
         // use native with float since we probably want higher performance
-#ifdef VEXCL_BACKEND_OPENCL
+#ifndef VEXCL_BACKEND_CUDA
         o.new_line() << type_name<T2>() << " r = {"
             "native_cos(alpha), native_sin(alpha)};";
 #else
@@ -212,7 +212,7 @@ inline kernel_call radix_kernel(
     kernel_radix<T, T2>(o, radix, invert);
 
     backend::kernel kernel(queue, o.str(), "radix", 0,
-#ifdef VEXCL_BACKEND_OPENCL
+#ifndef VEXCL_BACKEND_CUDA
             "-cl-mad-enable -cl-fast-relaxed-math"
 #else
             "--use_fast_math"
@@ -254,10 +254,12 @@ inline kernel_call transpose_kernel(
     // determine max block size to fit into local memory/workgroup
     size_t block_size = 128;
     {
-#ifdef VEXCL_BACKEND_OPENCL
-        const auto dev = queue.getInfo<CL_QUEUE_DEVICE>();
-        const auto local_size = dev.getInfo<CL_DEVICE_LOCAL_MEM_SIZE>();
-        const auto workgroup = dev.getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>();
+#ifndef VEXCL_BACKEND_CUDA
+        cl_device_id dev = backend::get_device_id(queue);
+        cl_ulong local_size;
+        size_t workgroup;
+        clGetDeviceInfo(dev, CL_DEVICE_LOCAL_MEM_SIZE, sizeof(cl_ulong), &local_size, NULL);
+        clGetDeviceInfo(dev, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(size_t), &workgroup, NULL);
 #else
         const auto local_size = queue.device().max_shared_memory_per_block();
         const auto workgroup = queue.device().max_threads_per_block();

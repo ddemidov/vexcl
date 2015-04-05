@@ -31,8 +31,8 @@ THE SOFTWARE.
  * \brief  Functions enabling use of constant cache in OpenCL backend.
  */
 
-#ifndef VEXCL_BACKEND_OPENCL
-#  error Constant address space is only supported for OpenCL backend!
+#if defined(VEXCL_BACKEND_CUDA)
+#  error Constant address space is not supported by CUDA backend!
 #endif
 
 #include <vexcl/operations.hpp>

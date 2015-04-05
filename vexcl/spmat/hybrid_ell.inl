@@ -281,8 +281,8 @@ struct SpMatHELL : public sparse_matrix {
             kernel->second.push_arg(part.ell.col);
             kernel->second.push_arg(part.ell.val);
         } else {
-            kernel->second.push_arg(static_cast<void*>(0));
-            kernel->second.push_arg(static_cast<void*>(0));
+            kernel->second.push_arg(static_cast<size_t>(0));
+            kernel->second.push_arg(static_cast<size_t>(0));
         }
 
         if (part.csr.nnz) {
@@ -290,9 +290,9 @@ struct SpMatHELL : public sparse_matrix {
             kernel->second.push_arg(part.csr.col);
             kernel->second.push_arg(part.csr.val);
         } else {
-            kernel->second.push_arg(static_cast<void*>(0));
-            kernel->second.push_arg(static_cast<void*>(0));
-            kernel->second.push_arg(static_cast<void*>(0));
+            kernel->second.push_arg(static_cast<size_t>(0));
+            kernel->second.push_arg(static_cast<size_t>(0));
+            kernel->second.push_arg(static_cast<size_t>(0));
         }
         kernel->second.push_arg(in);
         kernel->second.push_arg(out);
@@ -384,17 +384,17 @@ struct SpMatHELL : public sparse_matrix {
             krn.push_arg(loc.ell.col);
             krn.push_arg(loc.ell.val);
         } else {
-            krn.push_arg(static_cast<void*>(0));
-            krn.push_arg(static_cast<void*>(0));
+            krn.push_arg(static_cast<size_t>(0));
+            krn.push_arg(static_cast<size_t>(0));
         }
         if (loc.csr.nnz) {
             krn.push_arg(loc.csr.row);
             krn.push_arg(loc.csr.col);
             krn.push_arg(loc.csr.val);
         } else {
-            krn.push_arg(static_cast<void*>(0));
-            krn.push_arg(static_cast<void*>(0));
-            krn.push_arg(static_cast<void*>(0));
+            krn.push_arg(static_cast<size_t>(0));
+            krn.push_arg(static_cast<size_t>(0));
+            krn.push_arg(static_cast<size_t>(0));
         }
         krn.push_arg(x(device));
     }

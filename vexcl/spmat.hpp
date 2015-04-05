@@ -199,7 +199,7 @@ class SpMat {
         /// Number of non-zero entries.
         size_t nonzeros() const { return nnz;   }
 
-#if defined(VEXCL_BACKEND_OPENCL) || !defined(VEXCL_USE_CUSPARSE)
+#if !defined(VEXCL_BACKEND_CUDA) || !defined(VEXCL_USE_CUSPARSE)
         static void inline_preamble(backend::source_generator &src,
                 const backend::command_queue &queue, const std::string &prm_name,
                 detail::kernel_generator_state_ptr)
@@ -256,7 +256,7 @@ class SpMat {
                     scalar_type alpha
                     ) const = 0;
 
-#if defined(VEXCL_BACKEND_OPENCL) || !defined(VEXCL_USE_CUSPARSE)
+#if !defined(VEXCL_BACKEND_CUDA) || !defined(VEXCL_USE_CUSPARSE)
             virtual void setArgs(backend::kernel &kernel, unsigned part, const vector<val_t> &x) const = 0;
 #endif
 
@@ -264,7 +264,7 @@ class SpMat {
         };
 
 
-#if defined(VEXCL_BACKEND_OPENCL) || !defined(VEXCL_USE_CUSPARSE)
+#if !defined(VEXCL_BACKEND_CUDA) || !defined(VEXCL_USE_CUSPARSE)
 #  include <vexcl/spmat/hybrid_ell.inl>
 #  include <vexcl/spmat/csr.inl>
 #else
@@ -281,8 +281,8 @@ class SpMat {
             backend::device_vector<val_t> rx;
         };
 
-        const std::vector<backend::command_queue> queue;
-        std::vector<backend::command_queue>       squeue;
+        mutable std::vector<backend::command_queue> queue;
+        mutable std::vector<backend::command_queue> squeue;
         const std::vector<size_t>           part;
 
         std::vector< std::unique_ptr<sparse_matrix> > mtx;

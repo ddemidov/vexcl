@@ -134,7 +134,7 @@ namespace opencl {
  * Defines pragmas necessary to work with double precision and anything
  * provided by the user with help of push_program_header().
  */
-inline std::string standard_kernel_header(const cl::CommandQueue &q) {
+inline std::string standard_kernel_header(const command_queue &q) {
     return std::string(
         "#if defined(cl_khr_fp64)\n"
         "#  pragma OPENCL EXTENSION cl_khr_fp64: enable\n"
@@ -154,7 +154,7 @@ class source_generator {
     public:
         source_generator() : indent(0), first_prm(true), cpu(false) { }
 
-        source_generator(const cl::CommandQueue &queue)
+        source_generator(const command_queue &queue)
             : indent(0), first_prm(true), cpu( is_cpu(queue) )
         {
             src << standard_kernel_header(queue);

@@ -80,7 +80,7 @@ BOOST_AUTO_TEST_CASE(manual_stencil)
             });
 }
 
-#ifdef VEXCL_BACKEND_OPENCL
+#ifndef VEXCL_BACKEND_CUDA
 BOOST_AUTO_TEST_CASE(constant_pointer)
 {
     std::vector<vex::command_queue> queue(1, ctx.queue(0));

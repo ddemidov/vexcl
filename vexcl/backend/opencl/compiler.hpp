@@ -190,7 +190,7 @@ inline cl::Program build_sources(
     return program;
 }
 
-} // namespace cuda
+} // namespace opencl
 } // namespace backend
 } // namespace vex
 

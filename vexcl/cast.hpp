@@ -165,7 +165,7 @@ struct expression_properties< casted_expession<T, Expr> > {
 
 /// \endcond
 
-#ifdef VEXCL_BACKEND_OPENCL
+#if !defined(VEXCL_BACKEND_CUDA)
 
 #ifdef DOXYGEN
 #define VEXCL_CONVERT_FUNCTIONS(to)                                            \

@@ -9,7 +9,7 @@
 #include <vexcl/element_index.hpp>
 #include <vexcl/tagged_terminal.hpp>
 #include <vexcl/function.hpp>
-#ifdef VEXCL_BACKEND_OPENCL
+#ifndef VEXCL_BACKEND_CUDA
 #include <vexcl/vector_view.hpp>
 #include <vexcl/constant_address_space.hpp>
 #endif
@@ -77,18 +77,6 @@ BOOST_AUTO_TEST_CASE(reduce_expression)
     BOOST_CHECK_EQUAL( max( fabs(X - X) ), 0.0);
 }
 
-BOOST_AUTO_TEST_CASE(static_reductor)
-{
-    const size_t N = 1024;
-
-    vex::vector<double> X(ctx, random_vector<double>(N));
-
-    const vex::Reductor<double,vex::SUM> sum(ctx);
-    const vex::Reductor<double,vex::SUM> &static_sum = vex::get_reductor<double, vex::SUM>(ctx);
-
-    BOOST_CHECK_CLOSE(sum(X), static_sum(X), 1e-6);
-}
-
 BOOST_AUTO_TEST_CASE(builtin_functions)
 {
     const size_t N = 1024;
@@ -146,7 +134,7 @@ BOOST_AUTO_TEST_CASE(element_index)
     check_sample(x, [](size_t idx, double a) { BOOST_CHECK_CLOSE(a, sin(0.5 * idx), 1e-6); });
 }
 
-#ifdef VEXCL_BACKEND_OPENCL
+#ifndef VEXCL_BACKEND_CUDA
 BOOST_AUTO_TEST_CASE(vector_values)
 {
     const size_t N = 1024;
@@ -287,7 +275,7 @@ BOOST_AUTO_TEST_CASE(constants)
     check_sample(x, [](size_t, double v) { BOOST_CHECK_CLOSE(v, boost::math::constants::pi<double>(), 1e-8); });
 }
 
-#ifdef VEXCL_BACKEND_OPENCL
+#ifndef VEXCL_BACKEND_CUDA
 BOOST_AUTO_TEST_CASE(constant_address_space)
 {
     std::vector<vex::command_queue> queue(1, ctx.queue(0));

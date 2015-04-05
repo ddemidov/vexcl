@@ -248,7 +248,7 @@ class profiler {
 
         class cl_profile_unit : public profile_unit {
             public:
-                cl_profile_unit(const std::string &name, const std::vector<backend::command_queue> &queue)
+                cl_profile_unit(const std::string &name, std::vector<backend::command_queue> &queue)
                     : profile_unit(name), queue(queue) {}
 
                 void tic() {
@@ -265,7 +265,7 @@ class profiler {
                     return profile_unit::toc();
                 }
             private:
-                const std::vector<backend::command_queue> &queue;
+                std::vector<backend::command_queue> &queue;
         };
 
     public:
@@ -341,7 +341,7 @@ class profiler {
         }
 
     private:
-        const std::vector<backend::command_queue> &queue;
+        std::vector<backend::command_queue> queue;
         std::deque<std::shared_ptr<profile_unit>> stack;
 };
 

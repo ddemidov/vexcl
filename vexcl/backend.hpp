@@ -47,7 +47,22 @@ namespace vex {
 
 #include <vexcl/backend/cuda.hpp>
 
-#else // defined(VEXCL_BACKEND_OPENCL)
+#elif defined(VEXCL_BACKEND_COMPUTE)
+
+namespace vex {
+    namespace backend {
+        namespace compute {}
+        using namespace compute;
+    }
+}
+
+#ifdef VEXCL_CACHE_KERNELS
+#  define BOOST_COMPUTE_USE_OFFLINE_CACHE
+#endif
+
+#include <vexcl/backend/compute.hpp>
+
+#else // either defined(VEXCL_BACKEND_OPENCL) or by default
 
 namespace vex {
     namespace backend {

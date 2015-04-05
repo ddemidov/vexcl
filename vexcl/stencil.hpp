@@ -50,7 +50,7 @@ class stencil_base {
 
         void exchange_halos(const vex::vector<T> &x) const;
 
-        const std::vector<backend::command_queue> &queue;
+        mutable std::vector<backend::command_queue> queue;
 
         mutable std::vector<T>  hbuf;
         std::vector< backend::device_vector<T> > dbuf;
@@ -62,11 +62,11 @@ class stencil_base {
 
 template <typename T> template <class Iterator>
 stencil_base<T>::stencil_base(
-        const std::vector<backend::command_queue> &queue,
+        const std::vector<backend::command_queue> &q,
         unsigned width, unsigned center, Iterator begin, Iterator end
         )
-    : queue(queue), hbuf(queue.size() * (width - 1)),
-      dbuf(queue.size()), s(queue.size()),
+    : queue(q), hbuf(q.size() * (width - 1)),
+      dbuf(q.size()), s(q.size()),
       lhalo(center), rhalo(width - center - 1)
 {
     assert(queue.size());

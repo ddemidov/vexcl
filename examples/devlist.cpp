@@ -11,7 +11,7 @@ int main() {
 
     auto dev = vex::backend::device_list(vex::Filter::Any);
 
-#ifdef VEXCL_BACKEND_OPENCL
+#if defined(VEXCL_BACKEND_OPENCL)
     cout << "OpenCL devices:" << endl << endl;
     for (auto d = dev.begin(); d != dev.end(); d++) {
         cout << "  " << d->getInfo<CL_DEVICE_NAME>() << endl
@@ -58,11 +58,16 @@ int main() {
         }
         cout << endl << endl;
     }
-#elif VEXCL_BACKEND_CUDA
+#elif defined(VEXCL_BACKEND_CUDA)
     cout << "CUDA devices:" << endl << endl;
     unsigned pos = 0;
     for(auto d = dev.begin(); d != dev.end(); d++)
         cout << ++pos << ". " << *d << endl;
+#elif defined(VEXCL_BACKEND_COMPUTE)
+    cout << "Compute devices:" << endl << endl;
+    unsigned pos = 0;
+    for(auto d = dev.begin(); d != dev.end(); d++)
+        cout << ++pos << ". " << d->name() << " (" << d->platform().name() << ")" << endl;
 #else
 #error Unsupported backend
 #endif
