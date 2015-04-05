@@ -64,13 +64,26 @@ Other talks may be found at
 
 ## <a name="selecting-backend"></a>Selecting backend
 
-VexCL provides two backends: OpenCL and CUDA. In order to choose either of those,
-user has to define `VEXCL_BACKEND_OPENCL` or `VEXCL_BACKEND_CUDA` macros. In
-case neither of those are defined, OpenCL backend is chosen by default. One
-also has to link to either libOpenCL.so (OpenCL.dll) or libcuda.so (cuda.dll).
+VexCL provides the following backends:
 
-For the CUDA backend to work, CUDA Toolkit has to be installed, NVIDIA CUDA
-compiler driver `nvcc` has to be in executable PATH and usable at runtime.
+* **OpenCL**, built on top of [Khronos C++ API][]. The backend is selected when
+  `VEXCL_BACKEND_OPENCL` macro is defined, or by default. Link with
+  `libOpenCL.so` on unix-like systems or with `OpenCL.dll` on Windows.
+* **Boost.compute**. The backend is also based on OpenCL, but uses core
+  functionality of the [Boost.compute][] library instead of somewhat outdated
+  Khronos C++ API. The additional advantage is the increased interoperability
+  between VexCL and Boost.Compute. The backend is selected when
+  `VEXCL_BACKEND_COMPUTE` macro is defined. Link with
+  `libOpenCL.so`/`OpenCL.dll` and make sure that Boost.Compute headers are in
+  the include path.
+* **CUDA**, uses NVIDIA CUDA technology. The backend is selected when
+  `VEXCL_BACKEND_CUDA` macro is defined. Link with `libcuda.so`/`cuda.dll`.
+  For the CUDA backend to work, CUDA Toolkit has to be installed, and NVIDIA
+  CUDA compiler driver `nvcc` has to be in executable PATH and usable at
+  runtime.
+
+[Khronos C++ API]: https://www.khronos.org/registry/cl
+[Boost.compute]: https://github.com/kylelutz/compute
 
 ## <a name="context-initialization"></a>Context initialization
 
@@ -1176,7 +1189,6 @@ easily interoperable with other OpenCL libraries. In particular, VexCL provides
 some glue code for the [ViennaCL][], [Boost.compute][] and [CLOGS][] libraries.
 
 [ViennaCL]: http://viennacl.sourceforge.net/
-[Boost.compute]: https://github.com/kylelutz/compute
 [CLOGS]: http://clogs.sourceforge.net/
 [examples/viennacl/solvers.cpp]: https://github.com/ddemidov/vexcl/blob/master/examples/viennacl/solvers.cpp
 [vexcl/external/boost_compute.hpp]: https://github.com/ddemidov/vexcl/blob/master/vexcl/external/boost_compute.hpp
