@@ -32,34 +32,9 @@ struct ContextSetup {
 };
 
 struct ContextReference {
-    ContextReference() :
-        ctx( vex::current_context() )
-    {
-#ifdef VEXCL_BACKEND_OPENCL
-        amd_is_present = std::any_of(ctx.queue().begin(), ctx.queue().end(),
-            [](const cl::CommandQueue &q) {
-                return vex::Filter::Platform("AMD")(q.getInfo<CL_QUEUE_DEVICE>());
-            });
-#else
-        amd_is_present = false;
-#endif
-    }
-
-    void amd_workaround() const {
-#ifdef VEXCL_BACKEND_OPENCL
-        // There is a bug in AMD OpenCL that requires to call finish() on
-        // command queues after some kernels launch:
-        // http://devgurus.amd.com/message/1295503#1295503
-        if (amd_is_present) {
-            std::for_each(ctx.queue().begin(), ctx.queue().end(), [](const cl::CommandQueue &q) {
-                q.finish();
-            });
-        }
-#endif
-    }
+    ContextReference() : ctx( vex::current_context() ) { }
 
     const vex::Context &ctx;
-    bool amd_is_present;
 };
 
 #define SAMPLE_SIZE 32
