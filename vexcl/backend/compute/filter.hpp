@@ -91,7 +91,7 @@ namespace Filter {
         explicit Type(const std::string t) : type(device_type(t)) {}
 
         bool operator()(const boost::compute::device &d) const {
-            return d.type() & type;
+            return 0 != (d.type() & type);
         }
 
         private:
