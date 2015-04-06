@@ -63,13 +63,8 @@ int main() {
         }
 
         // Move data to GPU(s).
-        vex::Context ctx(
-                vex::Filter::Type(CL_DEVICE_TYPE_GPU) &&
-                vex::Filter::DoublePrecision
-                );
-
+        vex::Context ctx(vex::Filter::Env && vex::Filter::DoublePrecision);
         if (!ctx) throw std::runtime_error("No GPUs with double precision found");
-
         std::cout << ctx << std::endl;
 
         vex::SpMat <real> A(ctx, n, n, row.data(), col.data(), val.data());
@@ -90,8 +85,6 @@ int main() {
 
         std::cout << prof << std::endl;
 
-    } catch(const cl::Error &err) {
-        std::cerr << "OpenCL Error: " << err << std::endl;
     } catch(const std::exception &err) {
         std::cerr << "Error: " << err.what() << std::endl;
     }
