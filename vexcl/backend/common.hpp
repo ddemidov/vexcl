@@ -186,11 +186,12 @@ inline std::string program_binaries_path(const std::string &hash, bool create = 
 class sha1_hasher {
     public:
         sha1_hasher(const std::string &s = "") {
-            if (!s.empty()) (*this)(s);
+            if (!s.empty()) this->process(s);
         }
 
-        void operator()(const std::string &s) {
+        sha1_hasher& process(const std::string &s) {
             h.process_bytes(s.c_str(), s.size());
+            return *this;
         }
 
         operator std::string() {

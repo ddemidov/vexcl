@@ -63,15 +63,16 @@ inline CUmodule build_sources(
 
     queue.context().set_current();
 
-    sha1_hasher sha1(source);
-
-    sha1(queue.device().name());
-    sha1(options);
-
     auto cc = queue.device().compute_capability();
     std::ostringstream ccstr;
     ccstr << std::get<0>(cc) << std::get<1>(cc);
-    sha1(ccstr.str());
+
+    sha1_hasher sha1;
+    sha1.process(source)
+        .process(queue.device().name())
+        .process(options)
+        .process(ccstr.str())
+        ;
 
     std::string hash = static_cast<std::string>(sha1);
 

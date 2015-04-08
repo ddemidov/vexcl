@@ -134,12 +134,6 @@ inline cl::Program build_sources(
 
 #ifdef VEXCL_CACHE_KERNELS
     // Get unique (hopefully) hash string for the kernel.
-    sha1_hasher sha1(source);
-
-    sha1(cl::Platform(device[0].getInfo<CL_DEVICE_PLATFORM>()).getInfo<CL_PLATFORM_NAME>());
-    sha1(device[0].getInfo<CL_DEVICE_NAME>());
-    sha1(compile_options);
-
     std::ostringstream compiler_tag;
     compiler_tag
 #if defined(_MSC_VER)
@@ -152,7 +146,14 @@ inline cl::Program build_sources(
         << "unknown"
 #endif
         ;
-    sha1(compiler_tag.str());
+
+    sha1_hasher sha1;
+    sha1.process(source)
+        .process(cl::Platform(device[0].getInfo<CL_DEVICE_PLATFORM>()).getInfo<CL_PLATFORM_NAME>())
+        .process(device[0].getInfo<CL_DEVICE_NAME>())
+        .process(compile_options)
+        .process(compiler_tag.str())
+        ;
 
     std::string hash = static_cast<std::string>(sha1);
 
