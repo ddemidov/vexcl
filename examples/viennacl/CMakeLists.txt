@@ -10,5 +10,5 @@ if (VIENNACL_EXAMPLES)
         )
 
     add_executable(solvers solvers.cpp)
-    target_link_libraries(solvers ${OPENCL_LIBRARIES} ${Boost_LIBRARIES})
+    target_link_libraries(solvers ${BACKEND_LIBS} ${Boost_LIBRARIES})
 endif (VIENNACL_EXAMPLES)
