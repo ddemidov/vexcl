@@ -8,7 +8,7 @@ VexCL is a vector expression template library for OpenCL/CUDA. It has been
 created for ease of GPGPU development with C++. VexCL strives to reduce amount
 of boilerplate code needed to develop GPGPU applications. The library provides
 convenient and intuitive notation for vector arithmetic, reduction, sparse
-matrix-vector products, etc. Multi-device and even multi-platform computations
+matrix-vectork products, etc. Multi-device and even multi-platform computations
 are supported. The source code of the library is distributed under very
 permissive MIT license.
 
@@ -83,7 +83,7 @@ VexCL provides the following backends:
   runtime.
 
 [Khronos C++ API]: https://www.khronos.org/registry/cl
-[Boost.compute]: https://github.com/kylelutz/compute
+[Boost.compute]: https://github.com/boostorg/compute
 
 ## <a name="context-initialization"></a>Context initialization
 
