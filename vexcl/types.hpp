@@ -36,6 +36,7 @@ THE SOFTWARE.
 #include <stdexcept>
 #include <iostream>
 #include <sstream>
+#include <iomanip>
 
 #include <boost/io/ios_state.hpp>
 
