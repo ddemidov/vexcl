@@ -1,6 +1,11 @@
 cmake_minimum_required(VERSION 2.8)
 project(VexCL)
 
+set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
+if (CMAKE_VERSION VERSION_LESS "3.1.0")
+    set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/opencl)
+endif()
+
 include_directories( "${PROJECT_SOURCE_DIR}" )
 
 #----------------------------------------------------------------------------
@@ -95,17 +100,15 @@ set_property(CACHE VEXCL_BACKEND PROPERTY STRINGS "OpenCL" "CUDA" "Compute")
 # Find Backend
 #----------------------------------------------------------------------------
 if ("${VEXCL_BACKEND}" STREQUAL "OpenCL")
-    set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
     find_package(OpenCL REQUIRED)
-    include_directories( ${OPENCL_INCLUDE_DIRS} )
-    set(BACKEND_LIBS ${OPENCL_LIBRARIES})
+    include_directories( ${OpenCL_INCLUDE_DIRS} )
+    set(BACKEND_LIBS ${OpenCL_LIBRARIES})
     add_definitions(-DVEXCL_BACKEND_OPENCL)
 elseif ("${VEXCL_BACKEND}" STREQUAL "Compute")
     find_boost_compute()
-    set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
     find_package(OpenCL REQUIRED)
-    include_directories( ${OPENCL_INCLUDE_DIRS} )
-    set(BACKEND_LIBS ${OPENCL_LIBRARIES})
+    include_directories( ${OpenCL_INCLUDE_DIRS} )
+    set(BACKEND_LIBS ${OpenCL_LIBRARIES})
     add_definitions(-DVEXCL_BACKEND_COMPUTE)
 elseif ("${VEXCL_BACKEND}" STREQUAL "CUDA")
     find_package(CUDA REQUIRED)
