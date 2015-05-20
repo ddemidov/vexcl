@@ -1,6 +1,7 @@
 # VexCL
 
-[<img src="https://travis-ci.org/ddemidov/vexcl.svg?branch=master" alt="Build Status" />](https://travis-ci.org/ddemidov/vexcl)
+[<img src="https://travis-ci.org/ddemidov/vexcl.svg?branch=master" alt="g++ Build Status" />](https://travis-ci.org/ddemidov/vexcl)
+[<img src="https://ci.appveyor.com/api/projects/status/fmmc3e099w6c8x1e/branch/master?svg=true" alt="Visual Studio Build Status"/>](https://ci.appveyor.com/project/ddemidov/vexcl/branch/master)
 [<img src="http://codecov.io/github/ddemidov/vexcl/coverage.svg?branch=master" alt="Coverage Status" />](http://codecov.io/github/ddemidov/vexcl?branch=master)
 [<img src="https://scan.coverity.com/projects/5306/badge.svg" alt="Coverity Scan Build Status"/>](https://scan.coverity.com/projects/5306)
 

@@ -1,0 +1,17 @@
+environment:
+    BOOST_ROOT: C:\Libraries\boost_1_59_0
+    BOOST_LIBRARYDIR: C:\Libraries\boost_1_59_0\lib64-msvc-14.0
+    INTELOCLSDKROOT: C:\Program Files (x86)\Intel\OpenCL SDK\5.3
+clone_folder: C:\vexcl
+platform:
+    - x64
+before_build:
+    - ps: Start-FileDownload "http://registrationcenter-download.intel.com/akdlm/irc_nas/8386/intel_sdk_for_opencl_2015_r3_x64_setup.msi"
+    - start /wait msiexec /i intel_sdk_for_opencl_2015_r3_x64_setup.msi /qn  /l*v msiexec.log
+    #- type msiexec.log
+build_script:
+    - mkdir build && cd build
+    - cmake -G"Visual Studio 14 Win64" ..
+    - cmake --build . --config Release
+test_script:
+    - ctest --output-on-failure
