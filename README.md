@@ -2,6 +2,7 @@
 
 [<img src="https://travis-ci.org/ddemidov/vexcl.svg?branch=master" alt="Build Status" />](https://travis-ci.org/ddemidov/vexcl)
 [<img src="http://codecov.io/github/ddemidov/vexcl/coverage.svg?branch=master" alt="Coverage Status" />](http://codecov.io/github/ddemidov/vexcl?branch=master)
+[<img src="https://scan.coverity.com/projects/5306/badge.svg" alt="Coverity Scan Build Status"/>](https://scan.coverity.com/projects/5306)
 
 
 VexCL is a vector expression template library for OpenCL/CUDA. It has been

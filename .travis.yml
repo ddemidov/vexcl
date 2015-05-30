@@ -2,9 +2,27 @@ language: cpp
 compiler:
     - gcc
     - clang
+
+env:
+  global:
+      - secure: "A5GuWMfy2tamED4Xq/h1hXSAX18qemLuhaX3mLD77VMv6Hx2ZPAPXXDuRwg+Htoqccz3DQ3ezA5tf/D2PXffbOvkQeXMKkOBqHLy4aReZm9L+UajPETrQVW2bWBAuVJXMJbJEqdOv+QAEXf82Eml25zGp2r7L0J+FO5nrPtSeqE="
+
+addons:
+  coverity_scan:
+    project:
+      name: "ddemidov/vexcl"
+      description: "Build submitted via Travis CI"
+    notification_email: dennis.demidov@gmail.com
+    build_command_prepend: mkdir build-coverity && cd build-coverity && cmake -DCMAKE_BUILD_TYPE=Release ..
+    build_command: make
+    branch_pattern: master
+
 before_install:
     - sudo apt-get update -qq
-    - sudo apt-get install -qq fglrx=2:8.960-0ubuntu1 opencl-headers libboost-chrono1.48-dev libboost-date-time1.48-dev libboost-filesystem1.48-dev libboost-system1.48-dev libboost-thread1.48-dev libboost-program-options1.48-dev libboost-test1.48-dev python-yaml lcov
+    - sudo apt-get install -qq fglrx=2:8.960-0ubuntu1 opencl-headers
+      libboost-chrono1.48-dev libboost-date-time1.48-dev libboost-filesystem1.48-dev
+      libboost-system1.48-dev libboost-thread1.48-dev libboost-program-options1.48-dev
+      libboost-test1.48-dev python-yaml lcov
 script:
     - mkdir -p build && cd build
     - cmake -DTEST_COVERAGE=ON ..
