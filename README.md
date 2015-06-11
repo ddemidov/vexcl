@@ -1176,7 +1176,7 @@ for(uint d = 0; d < ctx.size(); d++) {
 
 // Apply the kernels to the vector partitions on each device.
 for(uint d = 0; d < ctx.size(); d++) {
-    kernel[d].push_arg<cl_ulong>(x.part_size());
+    kernel[d].push_arg<cl_ulong>(x.part_size(d));
     kernel[d].push_arg(x(d));
 
     kernel[d](ctx.queue(d));
