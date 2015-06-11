@@ -130,7 +130,7 @@ struct MIN {
  * parameter. One Reductor class for each reduction kind is enough per thread
  * of execution.
  */
-template <typename real, class RDC>
+template <typename real, class RDC = SUM>
 class Reductor {
     public:
         /// Constructor.
