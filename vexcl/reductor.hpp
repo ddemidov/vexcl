@@ -333,20 +333,12 @@ Reductor<real,RDC>::operator()(const Expr &expr) const {
 
                 source.new_line() << "sdata[tid] = mySum;";
                 source.new_line().barrier();
-                for(unsigned bs = 512; bs > 32; bs /= 2) {
+                for(unsigned bs = 512; bs > 0; bs /= 2) {
                     source.new_line() << "if (block_size >= " << bs * 2 << ")";
                     source.open("{").new_line() << "if (tid < " << bs << ") "
                         "{ sdata[tid] = mySum = " << fun::name() << "(mySum, sdata[tid + " << bs << "]); }";
                     source.new_line().barrier().close("}");
                 }
-                source.new_line() << "if (tid < 32)";
-                source.open("{");
-                source.new_line() << "volatile " << type_name< shared_ptr<real> >() << " smem = sdata;";
-                for(unsigned bs = 32; bs > 0; bs /= 2) {
-                    source.new_line() << "if (block_size >= " << 2 * bs << ") "
-                        "{ smem[tid] = mySum = " << fun::name() << "(mySum, smem[tid + " << bs << "]); }";
-                }
-                source.close("}");
                 source.new_line() << "if (tid == 0) g_odata[" << source.group_id(0) << "] = sdata[0];";
                 source.close("}");
 
