@@ -95,8 +95,7 @@ struct expression_properties< vector_pointer<T> >
             )
     {
         queue_list = term.v.queue_list();
-        partition  = term.v.partition();
-        // Raw pointers should not have size.
+        // Raw pointers should not have size or partition info.
     }
 };
 
