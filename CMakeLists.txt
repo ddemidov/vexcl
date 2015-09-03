@@ -80,7 +80,7 @@ if (MSVC10)
     set(VEXCL_BOOST_COMPONENTS ${VEXCL_BOOST_COMPONENTS} chrono)
 endif ()
 
-find_package(Boost COMPONENTS ${VEXCL_BOOST_COMPONENTS})
+find_package(Boost REQUIRED COMPONENTS ${VEXCL_BOOST_COMPONENTS})
 
 include_directories( ${Boost_INCLUDE_DIRS} )
 
