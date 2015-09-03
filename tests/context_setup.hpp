@@ -67,7 +67,7 @@ void check_sample(const V1 &v1, const V2 &v2, const V3 &v3, F f) {
     }
 }
 
-BOOST_GLOBAL_FIXTURE( ContextSetup )
+BOOST_GLOBAL_FIXTURE( ContextSetup );
 BOOST_FIXTURE_TEST_SUITE(cr, ContextReference)
 
 BOOST_AUTO_TEST_CASE(context_ready)
