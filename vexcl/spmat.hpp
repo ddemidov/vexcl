@@ -128,8 +128,6 @@ class SpMat {
         {
             using namespace detail;
 
-            static kernel_cache cache;
-
             if (rx.size()) {
                 // Gather values to send to neighbors.
                 for(unsigned d = 0; d < queue.size(); d++) {
