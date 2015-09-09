@@ -38,6 +38,7 @@ THE SOFTWARE.
 #include <numeric>
 #include <limits>
 
+#include <vexcl/vector.hpp>
 #include <vexcl/operations.hpp>
 
 namespace vex {
