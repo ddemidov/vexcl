@@ -41,7 +41,11 @@ THE SOFTWARE.
 #include <boost/io/ios_state.hpp>
 
 // This should be available for all backends
+#if defined(__APPLE__) || defined(__MACOSX)
+#include <OpenCL/cl_platform.h>
+#else
 #include <CL/cl_platform.h>
+#endif
 
 /// \cond INTERNAL
 typedef unsigned int  uint;
