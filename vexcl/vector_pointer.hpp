@@ -90,7 +90,7 @@ struct expression_properties< vector_pointer<T> >
 {
     static void get(const vector_pointer<T> &term,
             std::vector<backend::command_queue> &queue_list,
-            std::vector<size_t> &partition,
+            std::vector<size_t>&,
             size_t &/*size*/
             )
     {
