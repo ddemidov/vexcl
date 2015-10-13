@@ -83,9 +83,16 @@ BOOST_AUTO_TEST_CASE(gather)
     i.resize( std::unique(i.begin(), i.end()) - i.begin() );
 
     std::vector<double> data(i.size());
-    vex::gather<double> get(ctx, x.size(), i);
+    vex::gather<double>  get(ctx, x.size(), i);
+    vex::scatter<double> put(ctx, x.size(), i);
 
     get(X, data);
+
+    for(size_t p = 0; p < i.size(); ++p)
+        BOOST_CHECK(data[p] == x[i[p]]);
+
+    X = 0;
+    put(data, X);
 
     for(size_t p = 0; p < i.size(); ++p)
         BOOST_CHECK(data[p] == x[i[p]]);

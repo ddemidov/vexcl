@@ -41,25 +41,21 @@ THE SOFTWARE.
 
 namespace vex {
 
-/// Gathers vector elements at specified indices.
-template <typename T>
-class gather {
+namespace detail {
+
+template <class T>
+class index_partition {
     public:
-        /// Constructor.
-        /**
-         * \param queue   VexCL context.
-         * \param indices Indices of elements to be gathered.
-         */
-        gather(
+        index_partition(
                 const std::vector<backend::command_queue> &q,
-                size_t src_size, std::vector<size_t> indices
-              )
+                size_t size, std::vector<size_t> indices
+                )
             : queue(q), ptr(q.size() + 1, 0),
               idx(q.size()), val(q.size())
         {
             assert(std::is_sorted(indices.begin(), indices.end()));
 
-            std::vector<size_t> part = partition(src_size, queue);
+            std::vector<size_t> part = partition(size, queue);
             column_owner owner(part);
 
             for(auto i = indices.begin(); i != indices.end(); ++i) {
@@ -82,6 +78,30 @@ class gather {
                 if (ptr[d + 1] - ptr[d]) queue[d].finish();
         }
 
+    protected:
+        std::vector<backend::command_queue>           queue;
+        std::vector< size_t >                         ptr;
+        std::vector< backend::device_vector<size_t> > idx;
+        std::vector< backend::device_vector<T> >      val;
+};
+
+} // namespace detail
+
+/// Gathers vector elements at specified indices.
+template <typename T>
+class gather : protected detail::index_partition<T> {
+    public:
+        /// Constructor.
+        /**
+         * \param queue   VexCL context.
+         * \param indices Indices of elements to be gathered.
+         */
+        gather(
+                const std::vector<backend::command_queue> &q,
+                size_t size, std::vector<size_t> indices
+              ) : Base(q, size, indices)
+        {}
+
         /// Gather elements of device vector into host vector.
         template <class HostVector>
         void operator()(const vex::vector<T> &src, HostVector &dst) {
@@ -89,26 +109,64 @@ class gather {
 
             static kernel_cache cache;
 
-            for(unsigned d = 0; d < queue.size(); d++) {
-                if (size_t n = ptr[d + 1] - ptr[d]) {
-                    vector<T>      v(queue[d], val[d]);
-                    vector<T>      s(queue[d], src(d));
-                    vector<size_t> i(queue[d], idx[d]);
+            for(unsigned d = 0; d < Base::queue.size(); d++) {
+                if (size_t n = Base::ptr[d + 1] - Base::ptr[d]) {
+                    vector<T>      v(Base::queue[d], Base::val[d]);
+                    vector<T>      s(Base::queue[d], src(d));
+                    vector<size_t> i(Base::queue[d], Base::idx[d]);
 
                     v = permutation(i)(s);
 
-                    val[d].read(queue[d], 0, n, &dst[ptr[d]]);
+                    Base::val[d].read(Base::queue[d], 0, n, &dst[Base::ptr[d]]);
                 }
             }
 
-            for(unsigned d = 0; d < queue.size(); d++)
-                if (ptr[d + 1] - ptr[d]) queue[d].finish();
+            for(unsigned d = 0; d < Base::queue.size(); d++)
+                if (Base::ptr[d + 1] - Base::ptr[d]) Base::queue[d].finish();
         }
     private:
-        std::vector<backend::command_queue> queue;
-        std::vector<size_t>                           ptr;
-        std::vector< backend::device_vector<size_t> > idx;
-        std::vector< backend::device_vector<T> >      val;
+        typedef detail::index_partition<T> Base;
+};
+
+/// Scatters vector elements to specified indices.
+template <typename T>
+class scatter : protected detail::index_partition<T> {
+    public:
+        /// Constructor.
+        /**
+         * \param queue   VexCL context.
+         * \param indices Indices of elements to be gathered.
+         */
+        scatter(
+                const std::vector<backend::command_queue> &q,
+                size_t size, std::vector<size_t> indices
+              ) : Base(q, size, indices)
+        {}
+
+        /// Scatter elements of host vector to device vector.
+        template <class HostVector>
+        void operator()(const HostVector &src, vex::vector<T> &dst) {
+            using namespace detail;
+
+            static kernel_cache cache;
+
+            for(unsigned d = 0; d < Base::queue.size(); d++) {
+                if (size_t n = Base::ptr[d + 1] - Base::ptr[d]) {
+                    Base::val[d].write(Base::queue[d], 0, n, &src[Base::ptr[d]]);
+
+                    vector<T>      v(Base::queue[d], Base::val[d]);
+                    vector<T>      s(Base::queue[d], dst(d));
+                    vector<size_t> i(Base::queue[d], Base::idx[d]);
+
+                    permutation(i)(s) = v;
+                }
+            }
+
+            for(unsigned d = 0; d < Base::queue.size(); d++)
+                if (Base::ptr[d + 1] - Base::ptr[d]) Base::queue[d].finish();
+        }
+    private:
+        typedef detail::index_partition<T> Base;
 };
 
 } // namespace vex
