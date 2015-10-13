@@ -913,6 +913,12 @@ void copy(const T *hv, vex::vector<T> &dv, bool blocking = true) {
     dv.write_data(0, dv.size(), hv, blocking);
 }
 
+/// Copy device vector to device vector.
+template <class T>
+void copy(const vex::vector<T> &src, vex::vector<T> &dst) {
+    dst = src;
+}
+
 /// \cond INTERNAL
 
 template<class Iterator, class Enable = void>
