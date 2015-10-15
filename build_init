@@ -7,10 +7,11 @@ for compiler in $*; do
     # OpenCL backend
     mkdir build-cl-${compiler}
     pushd build-cl-${compiler}
-    CXX=${compiler} cmake        \
-        -DVEXCL_CACHE_KERNELS=ON \
-        -DVEXCL_BACKEND=OpenCL   \
-        -G Ninja                 \
+    CXX=${compiler} cmake          \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DVEXCL_CACHE_KERNELS=ON   \
+        -DVEXCL_BACKEND=OpenCL     \
+        -G Ninja                   \
         ..
     popd
 
@@ -18,9 +19,10 @@ for compiler in $*; do
         # CUDA backend
         mkdir build-cu-${compiler}
         pushd build-cu-${compiler}
-        CXX=${compiler} cmake        \
-            -DVEXCL_BACKEND=CUDA     \
-            -G Ninja                 \
+        CXX=${compiler} cmake      \
+        -DCMAKE_BUILD_TYPE=Release \
+            -DVEXCL_BACKEND=CUDA   \
+            -G Ninja               \
             ..
         popd
     fi
