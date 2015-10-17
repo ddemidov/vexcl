@@ -1954,10 +1954,15 @@ merge(const KTuple &keys, Comp comp) {
             for(unsigned d = 0; d < queue.size(); ++d) {
                 if (begin[d] == end[d]) continue;
 
+                if (winner < 0) {
+                    winner = d;
+                    continue;
+                }
+
                 auto curr = fusion::transform(src, do_index(begin[d]));
                 auto best = fusion::transform(src, do_index(begin[winner]));
 
-                if (winner < 0 || fusion::invoke(comp, fusion::join(curr, best)))
+                if (fusion::invoke(comp, fusion::join(curr, best)))
                     winner = d;
             }
 
