@@ -76,7 +76,7 @@ set(VEXCL_BOOST_COMPONENTS
     program_options
     CACHE STRING "Boost components required by VexCL.")
 
-if (MSVC10 OR MSVC11 OR MSVC12 OR MSVC14)
+if (MSVC)
     set(VEXCL_BOOST_COMPONENTS ${VEXCL_BOOST_COMPONENTS} chrono)
 endif ()
 
