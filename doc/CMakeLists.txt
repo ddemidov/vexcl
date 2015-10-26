@@ -24,11 +24,19 @@ if (LATEX_COMPILER AND DOXYGEN_FOUND)
 	)
 
     if (DOC_BUILD)
-        add_custom_target(doc ALL DEPENDS
-            COMMAND rm -rf "${CMAKE_CURRENT_BINARY_DIR}/html"
-            COMMAND "${DOXYGEN_EXECUTABLE}" "${CMAKE_CURRENT_BINARY_DIR}/Doxyfile"
-            COMMENT "Build Doxygen-generated documentation"
-            )
+        if(NOT WIN32)
+            add_custom_target(doc ALL DEPENDS
+                COMMAND rm -rf "${CMAKE_CURRENT_BINARY_DIR}/html"
+                COMMAND "${DOXYGEN_EXECUTABLE}" "${CMAKE_CURRENT_BINARY_DIR}/Doxyfile"
+                COMMENT "Build Doxygen-generated documentation"
+                )
+        else()
+            add_custom_target(doc ALL DEPENDS
+                COMMAND del /s/q "\"${CMAKE_CURRENT_BINARY_DIR}/html\""
+                COMMAND "${DOXYGEN_EXECUTABLE}" "${CMAKE_CURRENT_BINARY_DIR}/Doxyfile"
+                COMMENT "Build Doxygen-generated documentation"
+                )
+        endif()
         install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/html" DESTINATION share/vexcl/doc)
     endif (DOC_BUILD)
 endif(LATEX_COMPILER AND DOXYGEN_FOUND)
