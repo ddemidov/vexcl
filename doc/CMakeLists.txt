@@ -25,7 +25,7 @@ if (LATEX_COMPILER AND DOXYGEN_FOUND)
 
     if (DOC_BUILD)
         add_custom_target(doc ALL DEPENDS
-            COMMAND rm -rf "${CMAKE_CURRENT_BINARY_DIR}/html"
+            COMMAND ${CMAKE_COMMAND} -E remove_directory "${CMAKE_CURRENT_BINARY_DIR}/html"
             COMMAND "${DOXYGEN_EXECUTABLE}" "${CMAKE_CURRENT_BINARY_DIR}/Doxyfile"
             COMMENT "Build Doxygen-generated documentation"
             )
