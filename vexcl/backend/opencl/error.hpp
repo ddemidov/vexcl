@@ -55,7 +55,7 @@ namespace std {
 
 /// Sends description of an OpenCL error to the output stream.
 inline std::ostream& operator<<(std::ostream &os, const vex::backend::opencl::error &e) {
-    os << e.what() << "(";
+    os << e.what() << "(" << e.err() << ": ";
 
 #define VEXCL_CL_ERR2TXT(num, msg) case (num): os << (msg); break
 
