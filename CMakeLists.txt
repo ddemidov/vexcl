@@ -92,6 +92,7 @@ if (WIN32)
     add_definitions(-D_VARIADIC_MAX=10)
     add_definitions(/bigobj)
     add_definitions(/wd4996) # Deprecated declarations in CL/cl.hpp
+    add_definitions(/wd4003) # Not enough actual parameters for a BOOST_PP macro
 endif ()
 
 set(VEXCL_BACKEND "OpenCL" CACHE STRING "Select VexCL backend (OpenCL/CUDA)")
