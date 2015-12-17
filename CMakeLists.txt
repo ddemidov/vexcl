@@ -1,4 +1,9 @@
 cmake_minimum_required(VERSION 2.8)
+if (NOT CMAKE_BUILD_TYPE)
+    message(STATUS "No build type selected, default to RelWithDebInfo")
+    set(CMAKE_BUILD_TYPE "RelWithDebInfo" CACHE STRING "Build type")
+endif()
+
 project(VexCL)
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
