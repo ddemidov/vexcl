@@ -24,21 +24,21 @@ BOOST_AUTO_TEST_CASE(check_correctness)
     const size_t N = 1024;
     std::vector<vex::backend::command_queue> queue(1, ctx.queue(0));
 
-    vex::vector<cl_float>  in  (queue, N);
-    vex::vector<cl_float2> out (queue, N);
-    vex::vector<cl_float>  back(queue, N);
+    vex::vector<cl_double>  in  (queue, N);
+    vex::vector<cl_double2> out (queue, N);
+    vex::vector<cl_double>  back(queue, N);
 
-    vex::Random<cl_float> rnd;
+    vex::Random<cl_double> rnd;
 
     in = rnd(vex::element_index(), std::rand());
 
-    vex::FFT<cl_float,  cl_float2> fft (queue, N);
-    vex::FFT<cl_float2, cl_float > ifft(queue, N, vex::fft::inverse);
+    vex::FFT<cl_double,  cl_double2> fft (queue, N);
+    vex::FFT<cl_double2, cl_double > ifft(queue, N, vex::fft::inverse);
 
     out  = fft (in );
     back = ifft(out);
 
-    vex::Reductor<cl_float, vex::SUM> sum(queue);
+    vex::Reductor<cl_double, vex::SUM> sum(queue);
 
     BOOST_CHECK(std::sqrt(sum(pow(in - back, 2.0f)) / N) < 1e-3);
 }
