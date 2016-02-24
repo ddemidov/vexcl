@@ -74,6 +74,13 @@ BOOST_AUTO_TEST_CASE(reduce_expression)
     BOOST_CHECK_EQUAL(min(X), *std::min_element(x.begin(), x.end()));
     BOOST_CHECK_EQUAL(max(X), *std::max_element(x.begin(), x.end()));
 
+#ifndef BOOST_NO_VARIADIC_TEMPLATES
+    vex::Reductor<double,vex::MIN_MAX  > minmax(ctx);
+    auto mm = minmax(X);
+    BOOST_CHECK_EQUAL(mm.s[0], *std::min_element(x.begin(), x.end()));
+    BOOST_CHECK_EQUAL(mm.s[1], *std::max_element(x.begin(), x.end()));
+#endif
+
     BOOST_CHECK_EQUAL( max( fabs(X - X) ), 0.0);
 }
 

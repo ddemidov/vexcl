@@ -317,6 +317,30 @@ struct is_cl_vector<T,
     > : std::true_type
 {};
 
+template <unsigned I, class Enable = void>
+struct cl_fit_vec_size { };
+
+template <> struct cl_fit_vec_size<1> : std::integral_constant<int, 1> {};
+template <> struct cl_fit_vec_size<2> : std::integral_constant<int, 2> {};
+
+template <unsigned I>
+struct cl_fit_vec_size<I, typename std::enable_if<(I>2) && (I<=4)>::type>
+: std::integral_constant<unsigned, 4> {};
+
+template <unsigned I>
+struct cl_fit_vec_size<I, typename std::enable_if<(I>4) && (I<=8)>::type>
+: std::integral_constant<unsigned, 8> {};
+
+template <unsigned I>
+struct cl_fit_vec_size<I, typename std::enable_if<(I>8) && (I<=16)>::type>
+: std::integral_constant<unsigned, 16> {};
+
+template <unsigned I>
+struct cl_fit_vec_size<I, typename std::enable_if<(I<1) || (I>16)>::type>
+{
+    static_assert(I >= 1 && I <= 16, "Unsupported vector size");
+};
+
 }
 
 /// \endcond
