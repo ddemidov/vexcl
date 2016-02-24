@@ -40,7 +40,7 @@ BOOST_AUTO_TEST_CASE(check_correctness)
 
     vex::Reductor<cl_double, vex::SUM> sum(queue);
 
-    BOOST_CHECK(std::sqrt(sum(pow(in - back, 2.0f)) / N) < 1e-3);
+    BOOST_CHECK(std::sqrt(sum(pow(in - back, 2.0)) / N) < 1e-3);
 }
 
 void test(const vex::Context &ctx, std::vector<size_t> ns, size_t batch) {
