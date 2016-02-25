@@ -87,17 +87,7 @@ struct MAX {
 
         // Initial value for the operation.
         static T initial() {
-#ifdef _MSC_VER
-#  pragma warning(push)
-#  pragma warning(disable: 4146)
-#endif
-        if (std::is_unsigned<T>::value)
-            return static_cast<T>(0);
-        else
-            return -std::numeric_limits<T>::max();
-#ifdef _MSC_VER
-#  pragma warning(pop)
-#endif
+            return std::numeric_limits<T>::lowest();
         }
 
         struct device_in : UserFunction<device_in, T(T, T)> {
