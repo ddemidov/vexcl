@@ -200,7 +200,7 @@ struct CombineReductors {
         };
 
         struct device_out : UserFunction<device_out, result_type(result_type, T)> {
-            static std::string name() { return "CombinedReductor_out" + type_name<T>(); }
+            static std::string name() { return "CombinedReductor_out_" + type_name<T>(); }
 
             static void define(backend::source_generator &src, const std::string &fname = name()) {
                 src.function<result_type>(fname).open("(")
@@ -218,7 +218,7 @@ struct CombineReductors {
 
             template <class Head>
             static void partial_reduce(backend::source_generator &src, int &pos) {
-                src << Head::template impl<T>::device_in::name()
+                src << Head::template impl<T>::device_out::name()
                     << "(a.s" << pos << ", b.s" << pos << ") ";
                 pos++;
             }
@@ -227,7 +227,7 @@ struct CombineReductors {
             static
             typename std::enable_if<(sizeof...(Tail) > 0), void>::type
             partial_reduce(backend::source_generator &src, int &pos) {
-                src << Head::template impl<T>::device_in::name()
+                src << Head::template impl<T>::device_out::name()
                     << "(a.s" << pos << ", b.s" << pos << "), ";
                 pos++;
                 partial_reduce<Tail...>(src, pos);
