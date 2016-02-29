@@ -2,6 +2,7 @@
 #include <iomanip>
 #include <random>
 #include <boost/program_options.hpp>
+#include <boost/io/ios_state.hpp>
 
 #include <vexcl/devlist.hpp>
 #include <vexcl/vector.hpp>
@@ -117,6 +118,8 @@ watch test_clfft(Context &ctx, cl_float2 *data, size_t n, size_t m, size_t runs,
 }
 
 void info(const watch &w, size_t size, size_t dim) {
+    boost::io::ios_all_saver stream_state(std::cout);
+
     // FFT is O(n log n)
     double ops = dim == 1
         ? size * std::log(static_cast<double>(size)) // O(n log n)
