@@ -116,7 +116,7 @@ watch test_clfft(Context &ctx, cl_float2 *data, size_t n, size_t m, size_t runs,
     return w;
 }
 
-void info(watch w, size_t size, size_t dim) {
+void info(const watch &w, size_t size, size_t dim) {
     // FFT is O(n log n)
     double ops = dim == 1
         ? size * std::log(static_cast<double>(size)) // O(n log n)
