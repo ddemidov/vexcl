@@ -181,7 +181,7 @@ int main(int argc, char **argv) {
 
     if(composite != 0) {
         for(auto n = twos.begin() ; n != twos.end() ; n++) {
-            const size_t m = static_cast<size_t>(*n / composite + 0.5);
+            const size_t m = static_cast<size_t>(*n / static_cast<double>(composite) + 0.5);
             if(m > 1) ns.push_back(composite * m);
         }
     }
