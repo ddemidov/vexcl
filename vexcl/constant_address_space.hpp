@@ -3,7 +3,7 @@
 /*
 The MIT License
 
-Copyright (c) 2012-2015 Denis Demidov <dennis.demidov@gmail.com>
+Copyright (c) 2012-2016 Denis Demidov <dennis.demidov@gmail.com>
 Copyright (c) 2015 Boris Smidt <smidtboris1@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
