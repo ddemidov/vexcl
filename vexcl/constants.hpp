@@ -42,6 +42,7 @@ THE SOFTWARE.
 #include <vexcl/operations.hpp>
 
 #include <boost/math/constants/constants.hpp>
+#include <boost/version.hpp>
 
 namespace vex {
 
