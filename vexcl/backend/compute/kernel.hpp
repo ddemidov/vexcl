@@ -180,6 +180,10 @@ class kernel {
         size_t preferred_work_group_size_multiple(const boost::compute::command_queue &q) const {
             return K.get_work_group_info<size_t>(q.get_device(), CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE);
         }
+
+        /// Get reference to the underlying object.
+        const boost::compute::kernel& get() const { return K; }
+        boost::compute::kernel& get() { return K; }
     private:
         unsigned argpos;
 

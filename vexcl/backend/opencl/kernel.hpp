@@ -205,6 +205,10 @@ class kernel {
                     q.getInfo<CL_QUEUE_DEVICE>()
                     );
         }
+
+        /// Get reference to the underlying object.
+        const cl::Kernel& get() const { return K; }
+        cl::Kernel& get() { return K; }
     private:
         unsigned argpos;
 
