@@ -61,6 +61,8 @@ inline CUmodule build_sources(
 #  endif
 #endif
 
+    std::string compile_options = options + " " + get_compile_options(queue);
+
     queue.context().set_current();
 
     auto cc = queue.device().compute_capability();
@@ -70,7 +72,7 @@ inline CUmodule build_sources(
     sha1_hasher sha1;
     sha1.process(source)
         .process(queue.device().name())
-        .process(options)
+        .process(compile_options)
         .process(ccstr.str())
         ;
 
@@ -93,7 +95,7 @@ inline CUmodule build_sources(
         cmdline
             << "nvcc -ptx -O3"
             << " -arch=sm_" << std::get<0>(cc) << std::get<1>(cc)
-            << " " << options
+            << " " << compile_options
             << " -o " << ptxfile << " " << cufile;
         if (0 != system(cmdline.str().c_str()) ) {
 #ifndef VEXCL_SHOW_KERNELS
