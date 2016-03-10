@@ -153,6 +153,17 @@ namespace Filter {
     #endif
     );
 
+    /// Selects device by OpenCL version.
+    struct CLVersion {
+        int _major, _minor;
+
+        CLVersion(int major, int minor) : _major(major), _minor(minor) {}
+
+        bool operator()(const boost::compute::device &d) const {
+            return d.check_version(_major, _minor);
+        }
+    };
+
     /// List of device filters based on environment variables.
     inline std::vector< std::function<bool(const boost::compute::device&)> >
     backend_env_filters()

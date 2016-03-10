@@ -158,6 +158,21 @@ namespace Filter {
     #endif
     );
 
+    /// Selects device by OpenCL version.
+    struct CLVersion {
+        std::tuple<int, int> min_version;
+
+        CLVersion(int major, int minor) : min_version(major, minor) {}
+
+        bool operator()(const cl::Device &d) const {
+            // version contains OpenCL n.m
+            //                  0123456789
+            std::string version = d.getInfo<CL_DRIVER_VERSION>();
+
+            return min_version <= std::make_tuple(version[7]-'0', version[9]-'0');
+        }
+    };
+
     /// List of device filters based on environment variables.
     inline std::vector< std::function<bool(const cl::Device&)> >
     backend_env_filters()
