@@ -145,6 +145,78 @@ struct expression_properties< svm_vector<T> >
 };
 
 } // namespace traits
+
+// --- raw_pointer(svm_vector<T>) ---
+template <typename T>
+struct svm_vector_pointer {
+    typedef T value_type;
+
+    const svm_vector<T> &v;
+
+    svm_vector_pointer(const svm_vector<T> &v) : v(v) {}
+};
+
+namespace traits {
+
+template <typename T>
+struct is_vector_expr_terminal< svm_vector_pointer<T> > : std::true_type {};
+
+template <typename T>
+struct kernel_param_declaration< svm_vector_pointer<T> >
+{
+    static void get(backend::source_generator &src,
+            const svm_vector_pointer<T>&,
+            const backend::command_queue&, const std::string &prm_name,
+            detail::kernel_generator_state_ptr)
+    {
+        src.parameter< global_ptr<T> >(prm_name);
+    }
+};
+
+template <typename T>
+struct kernel_arg_setter< svm_vector_pointer<T> >
+{
+    static void set(const svm_vector_pointer<T> &term,
+            backend::kernel &kernel, unsigned/*part*/, size_t/*index_offset*/,
+            detail::kernel_generator_state_ptr)
+    {
+        kernel.push_arg(term.v.get());
+    }
+};
+
+template <typename T>
+struct expression_properties< svm_vector_pointer<T> >
+{
+    static void get(const svm_vector_pointer<T> &term,
+            std::vector<backend::command_queue> &queue_list,
+            std::vector<size_t> &partition,
+            size_t &size
+            )
+    {
+        detail::get_expression_properties prop;
+        detail::extract_terminals()(boost::proto::as_child(term.v), prop);
+
+        queue_list = prop.queue;
+        partition  = prop.part;
+        size       = prop.size;
+    }
+};
+
+} // namespace traits
+
+/// Cast vex::vector to a raw pointer.
+/**
+ * Useful when user wants to get a pointer to a vector instead of its current
+ * element inside a vector expression. Could be combined with calls to
+ * address_of/dereference operators or with user-defined functions iterating
+ * through the vector. See examples in tests/vector_pointer.cpp.
+ */
+template <typename T>
+inline typename boost::proto::result_of::as_expr<svm_vector_pointer<T>, vector_domain>::type
+raw_pointer(const svm_vector<T> &v) {
+    return boost::proto::as_expr<vector_domain>(svm_vector_pointer<T>(v));
+}
+
 } // namespace vex
 
 

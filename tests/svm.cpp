@@ -4,8 +4,9 @@
 #include <vexcl/vector.hpp>
 
 #if defined(CL_VERSION_2_0) || defined(VEXCL_BACKEND_CUDA)
-#include <vexcl/element_index.hpp>
 #include <vexcl/svm_vector.hpp>
+#include <vexcl/element_index.hpp>
+#include <vexcl/function.hpp>
 #include "context_setup.hpp"
 
 BOOST_AUTO_TEST_CASE(svm)
@@ -50,6 +51,12 @@ BOOST_AUTO_TEST_CASE(svm)
             BOOST_CHECK_EQUAL(p[i], i);
     }
 
+    VEX_FUNCTION(int, dbl, (size_t, i)(int*, x),
+            return x[i] * 2;
+            );
+
+    y = dbl(vex::element_index(), vex::raw_pointer(x));
+    check_sample(y, [&](int idx, int v){ BOOST_CHECK_EQUAL(2 * idx, v); });
 }
 
 BOOST_AUTO_TEST_SUITE_END()
