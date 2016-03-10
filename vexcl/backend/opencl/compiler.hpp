@@ -38,13 +38,8 @@ THE SOFTWARE.
 #include <vexcl/backend/common.hpp>
 #include <vexcl/detail/backtrace.hpp>
 
-#ifndef __CL_ENABLE_EXCEPTIONS
-#  define __CL_ENABLE_EXCEPTIONS
-#endif
-#ifndef CL_USE_DEPRECATED_OPENCL_2_0_APIS
-#define CL_USE_DEPRECATED_OPENCL_2_0_APIS
-#endif
-#include <CL/cl.hpp>
+#include <vexcl/backend/opencl/defines.hpp>
+#include <CL/cl2.hpp>
 
 namespace vex {
 namespace backend {
@@ -62,37 +57,36 @@ inline void save_program_binaries(
     std::ofstream bfile(program_binaries_path(hash, true) + "kernel", std::ios::binary);
     if (!bfile) return;
 
-    std::vector<size_t> sizes    = program.getInfo<CL_PROGRAM_BINARY_SIZES>();
-    std::vector<char*>  binaries = program.getInfo<CL_PROGRAM_BINARIES>();
+    std::vector<size_t> sizes = program.getInfo<CL_PROGRAM_BINARY_SIZES>();
+    std::vector<std::vector<unsigned char>> binaries = program.getInfo<CL_PROGRAM_BINARIES>();
 
     assert(sizes.size() == 1);
 
     bfile.write((char*)&sizes[0], sizeof(size_t));
-    bfile.write(binaries[0], sizes[0]);
-    delete[] binaries[0];
+    bfile.write((char*)binaries[0].data(), sizes[0]);
 }
 
 /// Tries to read program binaries from file cache.
 inline boost::optional<cl::Program> load_program_binaries(
         const std::string &hash, const cl::Context &context,
-        const std::vector<cl::Device> &device
+        const std::vector<cl::Device> &device,
+        const std::string &options = ""
         )
 {
     std::ifstream bfile(program_binaries_path(hash) + "kernel", std::ios::binary);
     if (!bfile) return boost::optional<cl::Program>();
 
     size_t n;
-    std::vector<char> buf;
+    std::vector<std::vector<unsigned char>> buf(1);
 
     bfile.read((char*)&n, sizeof(size_t));
-    buf.resize(n);
-    bfile.read(buf.data(), n);
+    buf[0].resize(n);
+    bfile.read((char*)buf[0].data(), n);
 
-    cl::Program program(context, device, cl::Program::Binaries(
-                1, std::make_pair(static_cast<const void*>(buf.data()), n)));
+    cl::Program program(context, device, buf);
 
     try {
-        program.build(device, "");
+        program.build(device, options.c_str());
     } catch(const cl::Error&) {
         std::cerr << "Loading binaries failed:" << std::endl
             << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device[0])
@@ -159,17 +153,16 @@ inline cl::Program build_sources(
 
     // Try to get cached program binaries:
     try {
-        if (boost::optional<cl::Program> program = load_program_binaries(hash, context, device))
+        if (boost::optional<cl::Program> program = load_program_binaries(hash, context, device, compile_options))
             return *program;
     } catch (...) {
         // Shit happens.
+        std::cerr << "Shit happened" << std::endl;
     }
 #endif
 
     // If cache is not available, just compile the sources.
-    cl::Program program(context, cl::Program::Sources(
-                1, std::make_pair(source.c_str(), source.size())
-                ));
+    cl::Program program(context, source);
 
     try {
         program.build(device, (options + " " + get_compile_options(queue)).c_str());

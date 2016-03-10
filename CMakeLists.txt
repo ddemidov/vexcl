@@ -137,11 +137,11 @@ endif ()
 # Enable C++11 support, set compilation flags
 #----------------------------------------------------------------------------
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -Wall -Wclobbered -Wempty-body -Wmissing-field-initializers -Wsign-compare -Wtype-limits -Wuninitialized -Wunused-but-set-parameter -Wno-comment -Wno-type-limits -Wno-strict-aliasing -Wno-missing-braces -Wno-deprecated-declarations")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -Wall -Wclobbered -Wempty-body -Wmissing-field-initializers -Wtype-limits -Wuninitialized -Wunused-but-set-parameter -Wno-comment -Wno-type-limits -Wno-strict-aliasing -Wno-missing-braces -Wno-deprecated-declarations -Wno-unused-function")
 endif ()
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -Wall -Wempty-body -Wmissing-field-initializers -Wsign-compare -Wtype-limits -Wuninitialized -Wno-comment -Wno-tautological-compare -Wno-missing-braces -Wno-deprecated-declarations")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -Wall -Wempty-body -Wmissing-field-initializers -Wtype-limits -Wuninitialized -Wno-comment -Wno-tautological-compare -Wno-missing-braces -Wno-deprecated-declarations -Wno-unused-function")
 
     option(USE_LIBCPP "Use libc++ with Clang" OFF)
     if (USE_LIBCPP)

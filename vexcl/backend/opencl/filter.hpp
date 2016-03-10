@@ -44,13 +44,8 @@ THE SOFTWARE.
 #include <boost/config.hpp>
 #include <boost/version.hpp>
 
-#ifndef __CL_ENABLE_EXCEPTIONS
-#  define __CL_ENABLE_EXCEPTIONS
-#endif
-#ifndef CL_USE_DEPRECATED_OPENCL_2_0_APIS
-#define CL_USE_DEPRECATED_OPENCL_2_0_APIS
-#endif
-#include <CL/cl.hpp>
+#include <vexcl/backend/opencl/defines.hpp>
+#include <CL/cl2.hpp>
 
 
 namespace vex {
