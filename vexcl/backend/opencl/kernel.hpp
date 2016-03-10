@@ -44,6 +44,13 @@ namespace opencl {
 
 /// \cond INTERNAL
 
+template <typename T>
+struct kernel_arg_pusher {
+    static void set(cl::Kernel &k, unsigned argpos, const T &arg) {
+        k.setArg(argpos, arg);
+    }
+};
+
 /// An abstraction over OpenCL compute kernel.
 class kernel {
     public:
@@ -75,8 +82,8 @@ class kernel {
 
         /// Adds an argument to the kernel.
         template <class Arg>
-        void push_arg(Arg &&arg) {
-            K.setArg(argpos++, arg);
+        void push_arg(const Arg &arg) {
+            kernel_arg_pusher<Arg>::set(K, argpos++, arg);
         }
 
         /// Adds an argument to the kernel.
