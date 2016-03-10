@@ -167,7 +167,7 @@ namespace Filter {
         bool operator()(const cl::Device &d) const {
             // version contains OpenCL n.m
             //                  0123456789
-            std::string version = d.getInfo<CL_DRIVER_VERSION>();
+            std::string version = d.getInfo<CL_DEVICE_VERSION>();
 
             return min_version <= std::make_tuple(version[7]-'0', version[9]-'0');
         }
