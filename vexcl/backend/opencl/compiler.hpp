@@ -69,7 +69,8 @@ inline void save_program_binaries(
 /// Tries to read program binaries from file cache.
 inline boost::optional<cl::Program> load_program_binaries(
         const std::string &hash, const cl::Context &context,
-        const std::vector<cl::Device> &device
+        const std::vector<cl::Device> &device,
+        const std::string &options = ""
         )
 {
     std::ifstream bfile(program_binaries_path(hash) + "kernel", std::ios::binary);
@@ -85,7 +86,7 @@ inline boost::optional<cl::Program> load_program_binaries(
     cl::Program program(context, device, buf);
 
     try {
-        program.build(device, "");
+        program.build(device, options.c_str());
     } catch(const cl::Error&) {
         std::cerr << "Loading binaries failed:" << std::endl
             << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device[0])
@@ -152,7 +153,7 @@ inline cl::Program build_sources(
 
     // Try to get cached program binaries:
     try {
-        if (boost::optional<cl::Program> program = load_program_binaries(hash, context, device))
+        if (boost::optional<cl::Program> program = load_program_binaries(hash, context, device, compile_options))
             return *program;
     } catch (...) {
         // Shit happens.
