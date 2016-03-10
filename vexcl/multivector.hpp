@@ -378,37 +378,21 @@ class multivector : public multivector_terminal_expression {
             return *this;
         }
 
-#ifdef DOXYGEN
-#define VEXCL_ASSIGNMENT(cop, op)                                              \
-  /** \brief Multivector expression assignment.
-   \details All operations are delegated to components of the multivector.
-   */                                                                          \
-  template <class Expr> const multivector &operator cop(const Expr & expr);
-#else
-#define VEXCL_ASSIGNMENT(cop, op)                                              \
+#define VEXCL_ASSIGNMENT(op, op_type)                                          \
   template <class Expr>                                                        \
-          typename std::enable_if <                                            \
-          boost::proto::matches<                                               \
-              typename boost::proto::result_of::as_expr<Expr>::type,           \
-              multivector_expr_grammar>::value || is_tuple<Expr>::value,       \
-      const multivector & > ::type operator cop(const Expr & expr) {           \
-    detail::assign_multiexpression<op>(*this, expr, vec[0].queue_list(),       \
+  typename std::enable_if<                                                     \
+      boost::proto::matches<                                                   \
+          typename boost::proto::result_of::as_expr<Expr>::type,               \
+          multivector_expr_grammar>::value ||                                  \
+          is_tuple<Expr>::value,                                               \
+      const multivector &>::type                                               \
+  operator op(const Expr &expr) {                                              \
+    detail::assign_multiexpression<op_type>(*this, expr, vec[0].queue_list(),  \
                                        vec[0].partition());                    \
     return *this;                                                              \
   }
-#endif
 
-        VEXCL_ASSIGNMENT(=,   assign::SET)
-        VEXCL_ASSIGNMENT(+=,  assign::ADD)
-        VEXCL_ASSIGNMENT(-=,  assign::SUB)
-        VEXCL_ASSIGNMENT(*=,  assign::MUL)
-        VEXCL_ASSIGNMENT(/=,  assign::DIV)
-        VEXCL_ASSIGNMENT(%=,  assign::MOD)
-        VEXCL_ASSIGNMENT(&=,  assign::AND)
-        VEXCL_ASSIGNMENT(|=,  assign::OR)
-        VEXCL_ASSIGNMENT(^=,  assign::XOR)
-        VEXCL_ASSIGNMENT(<<=, assign::LSH)
-        VEXCL_ASSIGNMENT(>>=, assign::RSH)
+        VEXCL_ASSIGNMENTS(VEXCL_ASSIGNMENT)
 
 #undef VEXCL_ASSIGNMENT
 

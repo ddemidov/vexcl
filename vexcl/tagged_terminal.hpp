@@ -69,17 +69,7 @@ struct tagged_terminal : tagged_terminal_expression
     return *this;                                                              \
   }
 
-    VEXCL_ASSIGNMENT(=,   assign::SET)
-    VEXCL_ASSIGNMENT(+=,  assign::ADD)
-    VEXCL_ASSIGNMENT(-=,  assign::SUB)
-    VEXCL_ASSIGNMENT(*=,  assign::MUL)
-    VEXCL_ASSIGNMENT(/=,  assign::DIV)
-    VEXCL_ASSIGNMENT(%=,  assign::MOD)
-    VEXCL_ASSIGNMENT(&=,  assign::AND)
-    VEXCL_ASSIGNMENT(|=,  assign::OR)
-    VEXCL_ASSIGNMENT(^=,  assign::XOR)
-    VEXCL_ASSIGNMENT(<<=, assign::LSH)
-    VEXCL_ASSIGNMENT(>>=, assign::RSH)
+    VEXCL_ASSIGNMENTS(VEXCL_ASSIGNMENT)
 
 #undef VEXCL_ASSIGNMENT
 };

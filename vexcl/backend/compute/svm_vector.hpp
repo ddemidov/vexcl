@@ -1,5 +1,5 @@
-#ifndef VEXCL_BACKEND_COMPUTE_SVM_HPP
-#define VEXCL_BACKEND_COMPUTE_SVM_HPP
+#ifndef VEXCL_BACKEND_COMPUTE_SVM_VECTOR_HPP
+#define VEXCL_BACKEND_COMPUTE_SVM_VECTOR_HPP
 
 /*
 The MIT License
@@ -26,7 +26,7 @@ THE SOFTWARE.
 */
 
 /**
- * \file   vexcl/backend/compute/svm.hpp
+ * \file   vexcl/backend/compute/svm_vector.hpp
  * \author Denis Demidov <dennis.demidov@gmail.com>
  * \brief  Shared virtual memory support for Boost.Compute backend.
  */
@@ -48,13 +48,13 @@ static const map_flags MAP_WRITE = CL_MAP_WRITE;
 } }
 
 template <typename T>
-class svm {
+class svm_vector : public svm_vector_terminal_expression {
     public:
-        svm(const boost::compute::command_queue &q, size_t n)
+        svm_vector(const boost::compute::command_queue &q, size_t n)
             : n(n), q(q), p(boost::compute::svm_alloc<T>(q.get_context(), n))
         {}
 
-        ~svm() {
+        ~svm_vector() {
             q.finish();
             boost::compute::svm_free(q.get_context(), p);
         }
@@ -87,10 +87,14 @@ class svm {
             q.enqueue_svm_map(p.get(), n * sizeof(T), map_flags);
             return mapped_pointer(static_cast<T*>(p.get()), unmapper(q));
         }
+
+        VEXCL_ASSIGNMENTS(VEXCL_SVM_ASSIGNMENT)
     private:
         size_t n;
         boost::compute::command_queue q;
         boost::compute::svm_ptr<T>    p;
+
+        svm_vector(const svm_vector&) {}
 };
 
 } // namespace vex

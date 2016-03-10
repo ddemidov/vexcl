@@ -82,6 +82,18 @@ namespace assign {
 
 #undef VEXCL_ASSIGN_OP
 
+#define VEXCL_ASSIGNMENTS(ASSIGNMENT_MACRO)                                    \
+    ASSIGNMENT_MACRO(=,   assign::SET)                                         \
+    ASSIGNMENT_MACRO(+=,  assign::ADD)                                         \
+    ASSIGNMENT_MACRO(-=,  assign::SUB)                                         \
+    ASSIGNMENT_MACRO(*=,  assign::MUL)                                         \
+    ASSIGNMENT_MACRO(/=,  assign::DIV)                                         \
+    ASSIGNMENT_MACRO(%=,  assign::MOD)                                         \
+    ASSIGNMENT_MACRO(&=,  assign::AND)                                         \
+    ASSIGNMENT_MACRO(|=,  assign::OR)                                          \
+    ASSIGNMENT_MACRO(^=,  assign::XOR)                                         \
+    ASSIGNMENT_MACRO(<<=, assign::LSH)                                         \
+    ASSIGNMENT_MACRO(>>=, assign::RSH)
 }
 
 namespace detail {

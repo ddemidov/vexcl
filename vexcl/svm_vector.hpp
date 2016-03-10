@@ -1,5 +1,5 @@
-#ifndef VEXCL_SVM_HPP
-#define VEXCL_SVM_HPP
+#ifndef VEXCL_SVM_VECTOR_HPP
+#define VEXCL_SVM_VECTOR_HPP
 
 /*
 The MIT License
@@ -26,32 +26,75 @@ THE SOFTWARE.
 */
 
 /**
- * \file   vexcl/svm.hpp
+ * \file   vexcl/svm_vector.hpp
  * \author Denis Demidov <dennis.demidov@gmail.com>
  * \brief  Shared virtual memory support.
  */
 
 #include <vexcl/operations.hpp>
 
+namespace vex {
+
+struct svm_vector_terminal {};
+
+typedef vector_expression<
+    typename boost::proto::terminal< svm_vector_terminal >::type
+    > svm_vector_terminal_expression;
+
+namespace traits {
+
+// Hold SVM vector terminals by reference:
+template <class T>
+struct hold_terminal_by_reference< T,
+        typename std::enable_if<
+            boost::proto::matches<
+                typename boost::proto::result_of::as_expr< T >::type,
+                boost::proto::terminal< svm_vector_terminal >
+            >::value
+        >::type
+    >
+    : std::true_type
+{ };
+
+} // namespace traits
+} // namespace vex
+
+#define VEXCL_SVM_ASSIGNMENT(op, op_type) \
+  template <class Expr>                                                        \
+  typename std::enable_if<                                                     \
+      boost::proto::matches<                                                   \
+          typename boost::proto::result_of::as_expr<Expr>::type,               \
+          vector_expr_grammar>::value,                                         \
+      const svm_vector &>::type operator op(const Expr & expr) {               \
+    detail::assign_expression<op_type>(*this, expr);                           \
+    return *this;                                                              \
+  }                                                                            \
+  const svm_vector &operator op(const svm_vector & other) {                    \
+    detail::assign_expression<op_type>(*this, other);                          \
+    return *this;                                                              \
+  }
+
 #if defined(VEXCL_BACKEND_OPENCL)
-#  include <vexcl/backend/opencl/svm.hpp>
+#  include <vexcl/backend/opencl/svm_vector.hpp>
 #elif defined(VEXCL_BACKEND_COMPUTE)
-#  include <vexcl/backend/compute/svm.hpp>
+#  include <vexcl/backend/compute/svm_vector.hpp>
 #elif defined(VEXCL_BACKEND_CUDA)
-#  include <vexcl/backend/cuda/svm.hpp>
+#  include <vexcl/backend/cuda/svm_vector.hpp>
 #endif
+
+#undef VEXCL_SVM_ASSIGNMENT
 
 namespace vex {
 namespace traits {
 
-template <typename T>
-struct is_vector_expr_terminal< svm<T> > : std::true_type {};
+template <> struct is_vector_expr_terminal< svm_vector_terminal > : std::true_type {};
+template <> struct proto_terminal_is_value< svm_vector_terminal > : std::true_type {};
 
 template <typename T>
-struct kernel_param_declaration< svm<T> >
+struct kernel_param_declaration< svm_vector<T> >
 {
     static void get(backend::source_generator &src,
-            const svm<T>&,
+            const svm_vector<T>&,
             const backend::command_queue&, const std::string &prm_name,
             detail::kernel_generator_state_ptr)
     {
@@ -60,9 +103,9 @@ struct kernel_param_declaration< svm<T> >
 };
 
 template <typename T>
-struct partial_vector_expr< svm<T> > {
+struct partial_vector_expr< svm_vector<T> > {
     static void get(backend::source_generator &src,
-            const svm<T>&,
+            const svm_vector<T>&,
             const backend::command_queue&, const std::string &prm_name,
             detail::kernel_generator_state_ptr)
     {
@@ -71,9 +114,9 @@ struct partial_vector_expr< svm<T> > {
 };
 
 template <typename T>
-struct kernel_arg_setter< svm<T> >
+struct kernel_arg_setter< svm_vector<T> >
 {
-    static void set(const svm<T> &term,
+    static void set(const svm_vector<T> &term,
             backend::kernel &kernel, unsigned/*part*/, size_t/*index_offset*/,
             detail::kernel_generator_state_ptr)
     {
@@ -82,9 +125,9 @@ struct kernel_arg_setter< svm<T> >
 };
 
 template <typename T>
-struct expression_properties< svm<T> >
+struct expression_properties< svm_vector<T> >
 {
-    static void get(const svm<T> &term,
+    static void get(const svm_vector<T> &term,
             std::vector<backend::command_queue> &queue_list,
             std::vector<size_t> &partition,
             size_t &size

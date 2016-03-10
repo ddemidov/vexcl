@@ -1,5 +1,5 @@
-#ifndef VEXCL_BACKEND_CUDA_SVM_HPP
-#define VEXCL_BACKEND_CUDA_SVM_HPP
+#ifndef VEXCL_BACKEND_CUDA_SVM_VECTOR_HPP
+#define VEXCL_BACKEND_CUDA_SVM_VECTOR_HPP
 
 /*
 The MIT License
@@ -26,7 +26,7 @@ THE SOFTWARE.
 */
 
 /**
- * \file   vexcl/backend/cuda/svm.hpp
+ * \file   vexcl/backend/cuda/svm_vector.hpp
  * \author Denis Demidov <dennis.demidov@gmail.com>
  * \brief  Mapping between CUDA UVM and OpenCL SVM concepts.
  */
@@ -50,9 +50,9 @@ static const map_flags MAP_WRITE = 2;
 }
 
 template <typename T>
-class svm {
+class svm_vector : public svm_vector_terminal_expression {
     public:
-        svm(const backend::command_queue &q, size_t n) : n(n), q(q), p(NULL) {
+        svm_vector(const backend::command_queue &q, size_t n) : n(n), q(q), p(NULL) {
             q.context().set_current();
 
             CUdeviceptr dptr;
@@ -60,7 +60,7 @@ class svm {
             p = reinterpret_cast<T*>(static_cast<size_t>(dptr));
         }
 
-        ~svm() {
+        ~svm_vector() {
             q.context().set_current();
             cuda_check( cuMemFree(static_cast<CUdeviceptr>(reinterpret_cast<size_t>(p))));
         }
@@ -81,10 +81,14 @@ class svm {
             q.finish();
             return p;
         }
+
+        VEXCL_ASSIGNMENTS(VEXCL_SVM_ASSIGNMENT)
     private:
         size_t n;
         backend::command_queue q;
         T *p;
+
+        svm_vector(const svm_vector&) {}
 };
 
 } // namespace vex

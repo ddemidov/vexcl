@@ -71,8 +71,6 @@ struct vector_view : public vector_view_terminal_expression
         : expr(expr), slice(slice)
     { }
 
-    // Expression assignments (copy assignment needs to be explicitly defined
-    // to allow vector_view to vector_view assignment).
 #define VEXCL_ASSIGNMENT(cop, op)                                              \
   template <class RHS>                                                         \
   typename std::enable_if<                                                     \
@@ -88,17 +86,7 @@ struct vector_view : public vector_view_terminal_expression
     return *this;                                                              \
   }
 
-    VEXCL_ASSIGNMENT(=,   assign::SET);
-    VEXCL_ASSIGNMENT(+=,  assign::ADD);
-    VEXCL_ASSIGNMENT(-=,  assign::SUB);
-    VEXCL_ASSIGNMENT(*=,  assign::MUL);
-    VEXCL_ASSIGNMENT(/=,  assign::DIV);
-    VEXCL_ASSIGNMENT(%=,  assign::MOD);
-    VEXCL_ASSIGNMENT(&=,  assign::AND);
-    VEXCL_ASSIGNMENT(|=,  assign::OR);
-    VEXCL_ASSIGNMENT(^=,  assign::XOR);
-    VEXCL_ASSIGNMENT(<<=, assign::LSH);
-    VEXCL_ASSIGNMENT(>>=, assign::RSH);
+    VEXCL_ASSIGNMENTS(VEXCL_ASSIGNMENT)
 
 #undef VEXCL_ASSIGNMENT
 };

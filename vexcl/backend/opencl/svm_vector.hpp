@@ -1,5 +1,5 @@
-#ifndef VEXCL_BACKEND_OPENCL_SVM_HPP
-#define VEXCL_BACKEND_OPENCL_SVM_HPP
+#ifndef VEXCL_BACKEND_OPENCL_SVM_VECTOR_HPP
+#define VEXCL_BACKEND_OPENCL_SVM_VECTOR_HPP
 
 /*
 The MIT License
@@ -26,7 +26,7 @@ THE SOFTWARE.
 */
 
 /**
- * \file   vexcl/backend/opencl/svm.hpp
+ * \file   vexcl/backend/opencl/svm_vector.hpp
  * \author Denis Demidov <dennis.demidov@gmail.com>
  * \brief  Shared virtual memory support for OpenCL backend.
  */
@@ -69,13 +69,13 @@ struct kernel_arg_pusher< svm_ptr<T> > {
 } }
 
 template <typename T>
-class svm {
+class svm_vector : public svm_vector_terminal_expression {
     public:
-        svm(const cl::CommandQueue &q, size_t n) : n(n), q(q), p(NULL) {
+        svm_vector(const cl::CommandQueue &q, size_t n) : n(n), q(q), p(NULL) {
             p = static_cast<T*>(clSVMAlloc(backend::get_context_id(q), CL_MEM_READ_WRITE, n * sizeof(T), 0));
         }
 
-        ~svm() {
+        ~svm_vector() {
             q.finish();
             clSVMFree(backend::get_context_id(q), p);
         }
@@ -110,10 +110,14 @@ class svm {
             if (ret != CL_SUCCESS) throw cl::Error(ret, "clEnqueueSVMUnmap");
             return mapped_pointer(p, unmapper(q));
         }
+
+        VEXCL_ASSIGNMENTS(VEXCL_SVM_ASSIGNMENT)
     private:
         size_t n;
         cl::CommandQueue q;
         T *p;
+
+        svm_vector(const svm_vector&) {}
 };
 
 } // namespace vex
