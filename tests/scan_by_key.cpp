@@ -6,8 +6,19 @@
 #include <vexcl/scan_by_key.hpp>
 #include "context_setup.hpp"
 
+bool nvidia_cl(const vex::Context &ctx) {
+#ifdef VEXCL_BACKEND_CUDA
+    return false;
+#else
+    return vex::Filter::Platform("NVIDIA")(ctx.device(0));
+#endif
+}
+
 BOOST_AUTO_TEST_CASE(sbk)
 {
+    // NVIDIA OpenCL compiler crashes on scan_by_key kernels.
+    if (nvidia_cl(ctx)) return;
+
     const int n = 1000;
 
     std::vector<int> x = random_vector<int>(n);
@@ -52,6 +63,9 @@ BOOST_AUTO_TEST_CASE(sbk)
 
 BOOST_AUTO_TEST_CASE(sbk_tuple)
 {
+    // NVIDIA OpenCL compiler crashes on scan_by_key kernels.
+    if (nvidia_cl(ctx)) return;
+
     const int n = 1000;
 
     std::vector<int> x1 = random_vector<int>(n);
