@@ -15,11 +15,13 @@ struct ContextSetup {
         // If there is only one device in context, duplicate the command queues
         // in order to properly test multi-device capabilities.
         if (context.queue().size() == 1) {
+            vex::Context second(vex::Filter::DoublePrecision && vex::Filter::Env);
+
             std::vector<vex::backend::context>       c = context.context();
             std::vector<vex::backend::command_queue> q = context.queue();
 
-            c.push_back(c[0]);
-            q.push_back(vex::backend::duplicate_queue(q[0]));
+            c.push_back(second.context(0));
+            q.push_back(second.queue(0));
 
             context = vex::Context(c, q);
             vex::StaticContext<>::set(context);
