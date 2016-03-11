@@ -4,26 +4,15 @@
 # ./build_init g++-4.6.4 g++-4.7.2 g++-4.8.1 clang++
 
 for compiler in $*; do
-    # OpenCL backend
-    mkdir build-cl-${compiler}
-    pushd build-cl-${compiler}
-    CXX=${compiler} cmake          \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DVEXCL_CACHE_KERNELS=ON   \
-        -DVEXCL_BACKEND=OpenCL     \
-        -G Ninja                   \
-        ..
-    popd
-
-    if which nvcc; then
-        # CUDA backend
-        mkdir build-cu-${compiler}
-        pushd build-cu-${compiler}
-        CXX=${compiler} cmake      \
-        -DCMAKE_BUILD_TYPE=Release \
-            -DVEXCL_BACKEND=CUDA   \
-            -G Ninja               \
+    for backend in OpenCL Compute CUDA; do
+        mkdir build-${backend,,}-${compiler}
+        pushd build-${backend,,}-${compiler}
+        CXX=${compiler} cmake          \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DVEXCL_CACHE_KERNELS=ON   \
+            -DVEXCL_BACKEND=${backend} \
+            -G Ninja                   \
             ..
         popd
-    fi
+    done
 done
