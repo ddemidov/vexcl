@@ -500,7 +500,7 @@ class Reductor {
         static typename std::enable_if<(cl_vector_length<result_type>::value > 1), void>::type
         initial_value(backend::source_generator &src, result_type initial) {
             src.new_line() << type_name<result_type>() << " mySum = {" << initial.s[0];
-            for(int i = 1; i < cl_vector_length<result_type>::value; ++i)
+            for(unsigned i = 1; i < cl_vector_length<result_type>::value; ++i)
                 src << ", " << initial.s[i];
             src << "};";
         }
