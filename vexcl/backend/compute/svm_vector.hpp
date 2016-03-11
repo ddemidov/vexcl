@@ -88,6 +88,11 @@ class svm_vector : public svm_vector_terminal_expression {
             return mapped_pointer(static_cast<T*>(p.get()), unmapper(q));
         }
 
+        const svm_vector& operator=(const svm_vector & other) {
+            detail::assign_expression<assign::SET>(*this, other);
+            return *this;
+        }
+
         VEXCL_ASSIGNMENTS(VEXCL_SVM_ASSIGNMENT)
     private:
         size_t n;

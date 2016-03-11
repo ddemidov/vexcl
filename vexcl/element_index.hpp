@@ -35,7 +35,6 @@ THE SOFTWARE.
 
 namespace vex {
 
-/// \cond INTERNAL
 struct elem_index {
     typedef size_t value_type;
 
@@ -44,21 +43,15 @@ struct elem_index {
     elem_index(size_t offset = 0, size_t length = 0)
         : offset(offset), length(length) {}
 };
-/// \endcond
 
-/// When used in vector expression, returns current element index plus offset.
-/**
- * \param offset Element indices will start from this value.
- * \param length Specify length of vector expression. This is only relevant
- * when parent expression does not contain any vectors. See monte_carlo_pi test
- * in tests/random.cpp for an example.
+/** Returns index of the current element index with optional ``offset``.
+ * Optional ``length`` parameter may be used to provide the size information to
+ * the resulting expression. This could be useful when reducing stateless
+ * expressions.
  */
-#ifdef DOXYGEN
-elem_index
-#else
-inline boost::proto::result_of::as_expr<elem_index, vector_domain>::type const
-#endif
-element_index(size_t offset = 0, size_t length = 0) {
+inline auto element_index(size_t offset = 0, size_t length = 0)
+    -> boost::proto::result_of::as_expr<elem_index, vector_domain>::type const
+{
     return boost::proto::as_expr<vector_domain>(elem_index(offset, length));
 }
 

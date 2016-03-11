@@ -82,6 +82,11 @@ class svm_vector : public svm_vector_terminal_expression {
             return p;
         }
 
+        const svm_vector& operator=(const svm_vector & other) {
+            detail::assign_expression<assign::SET>(*this, other);
+            return *this;
+        }
+
         VEXCL_ASSIGNMENTS(VEXCL_SVM_ASSIGNMENT)
     private:
         size_t n;

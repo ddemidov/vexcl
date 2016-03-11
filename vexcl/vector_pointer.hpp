@@ -36,7 +36,6 @@ THE SOFTWARE.
 
 namespace vex {
 
-/// \cond INTERNAL
 template <typename T>
 struct vector_pointer {
     typedef T value_type;
@@ -144,22 +143,12 @@ struct expression_properties< constant_vector_pointer<T> >
 
 } // namespace traits
 
-/// \endcond
-
 /// Cast vex::vector to a raw pointer.
-/**
- * Useful when user wants to get a pointer to a vector instead of its current
- * element inside a vector expression. Could be combined with calls to
- * address_of/dereference operators or with user-defined functions iterating
- * through the vector. See examples in tests/vector_pointer.cpp.
- */
 template <typename T>
-#ifdef DOXYGEN
-vector_pointer<T>
-#else
-inline typename boost::proto::result_of::as_expr<vector_pointer<T>, vector_domain>::type
-#endif
-raw_pointer(const vector<T> &v) {
+inline auto raw_pointer(const vector<T> &v) ->
+    typename boost::proto::result_of::as_expr<
+                                vector_pointer<T>, vector_domain>::type
+{
     precondition(
             v.nparts() == 1,
             "raw_pointer is not supported for multi-device contexts"
@@ -172,24 +161,16 @@ raw_pointer(const vector<T> &v) {
 #ifndef VEXCL_BACKEND_CUDA
 /// Cast vex::vector to a constant pointer.
 /**
- * Useful when user wants to get a pointer to a constant vector instead of its
- * current element inside a vector expression. Could be combined with calls to
- * address_of/dereference operators or with user-defined functions iterating
- * through the constant vector. This vector is atleast 64kB in size as defined
- * by the openCL standard.
- * One could for example cache some logarithmic math instead of calculating it.
-\code
-auto ptr = constant_pointer(log_table);
-s = ptr[I];
-\endcode
+\rst
+.. note::
+    Only available for OpenCL-based backends.
+\endrst
  */
 template <typename T>
-#ifdef DOXYGEN
-constant_vector_pointer<T>
-#else
-inline typename boost::proto::result_of::as_expr<constant_vector_pointer<T>, vector_domain>::type
-#endif
-constant_pointer(const vector<T> &v) {
+inline auto constant_pointer(const vector<T> &v) ->
+    typename boost::proto::result_of::as_expr<
+                            constant_vector_pointer<T>, vector_domain>::type
+{
     precondition(
             v.nparts() == 1,
             "constant_pointer is not supported for multi-device contexts"

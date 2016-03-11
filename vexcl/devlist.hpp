@@ -50,13 +50,11 @@ namespace vex {
 
 /// Device filters.
 namespace Filter {
-    /// \cond INTERNAL
     struct AnyFilter {
         bool operator()(const backend::device&) const {
             return true;
         }
     };
-    /// \endcond
 
     /// Selects any device. \deprecated
     const AnyFilter All = {};
@@ -97,8 +95,6 @@ namespace Filter {
         private:
             mutable int pos;
     };
-
-    /// \cond INTERNAL
 
     /// Negation of a filter.
     struct NegateFilter {
@@ -145,8 +141,6 @@ namespace Filter {
             std::function<bool(const backend::device&)> rhs;
     };
 
-    /// \endcond
-
     /// Join two filters with AND operator.
     template <class LHS, class RHS>
     FilterBinaryOp<FilterAnd> operator&&(LHS&& lhs, RHS&& rhs)
@@ -187,7 +181,6 @@ namespace Filter {
             std::function<bool(const backend::device&)> filter;
     };
 
-    /// \cond INTERNAL
     struct EnvFilter {
         EnvFilter()
             : filter( backend_env_filters() )
@@ -216,7 +209,6 @@ namespace Filter {
         private:
             std::vector< std::function<bool(const backend::device&)> > filter;
     };
-    /// \endcond
 
     /// Environment filter
     /**
@@ -279,16 +271,19 @@ struct is_device_filter<T,
     > : std::true_type
 {};
 
-/// VexCL context holder.
+/// VexCL context.
 /**
- * Holds vectors of backend::contexts and backend::command_queues returned by queue_list.
+ * Holds vectors of ``vex::backend::context`` and
+ * ``vex::backend::command_queue`` instances.
  */
 class Context {
     public:
-        /// Initialize context from a device filter.
+        /**
+         * Initializes context from the device filter.
+         */
         template <class DevFilter>
         explicit Context(DevFilter&& filter,
-                backend::command_queue_properties properties = 0)
+                vex::backend::command_queue_properties properties = 0)
         {
             std::tie(c, q) = backend::queue_list(std::forward<DevFilter>(filter), properties);
 
@@ -299,8 +294,11 @@ class Context {
             StaticContext<>::set(*this);
         }
 
-        /// Initializes context from user-supplied list of backend::contexts and backend::command_queues.
-        Context(std::vector<backend::context> c, std::vector<backend::command_queue> q)
+        /** Initializes context from the user-supplied vectors of
+         * ``vex::backend::context`` and ``vex::backend::command_queues``
+         * instances.
+         */
+        Context(std::vector<vex::backend::context> c, std::vector<vex::backend::command_queue> q)
             : c(std::move(c)), q(std::move(q))
         {
             StaticContext<>::set(*this);
@@ -310,62 +308,78 @@ class Context {
             purge_caches(q);
         }
 
-        const std::vector<backend::context>& context() const {
+        /** Returns reference to the vector of initialized
+         * ``vex::backend::context`` instances.
+         */
+        const std::vector<vex::backend::context>& context() const {
             return c;
         }
 
-        std::vector<backend::context>& context() {
+        std::vector<vex::backend::context>& context() {
             return c;
         }
 
-        const backend::context& context(unsigned d) const {
+        const vex::backend::context& context(unsigned d) const {
             return c[d];
         }
 
-        backend::context& context(unsigned d) {
+        /** Returns reference to the specified ``vex::backend::context`` instance. */
+        vex::backend::context& context(unsigned d) {
             return c[d];
         }
 
-        const std::vector<backend::command_queue>& queue() const {
+        /** Returns reference to the vector of initialized
+         * ``vex::backend::command_queue`` instances.
+         */
+        const std::vector<vex::backend::command_queue>& queue() const {
             return q;
         }
 
-        std::vector<backend::command_queue>& queue() {
+        std::vector<vex::backend::command_queue>& queue() {
             return q;
         }
 
-        operator const std::vector<backend::command_queue>&() const {
+        /** Returns reference to the vector of initialized
+         * ``vex::backend::command_queue`` instances.
+         */
+        operator const std::vector<vex::backend::command_queue>&() const {
             return q;
         }
 
-        operator std::vector<backend::command_queue>&() {
+        operator std::vector<vex::backend::command_queue>&() {
             return q;
         }
 
-        const backend::command_queue& queue(unsigned d) const {
+        /** Returns reference to the specified ``vex::backend::command_queue`` instance. */
+        const vex::backend::command_queue& queue(unsigned d) const {
             return q[d];
         }
 
-        backend::command_queue& queue(unsigned d) {
+        vex::backend::command_queue& queue(unsigned d) {
             return q[d];
         }
 
-        backend::device device(unsigned d) const {
+        /** Returns reference to the specified ``vex::backend::device`` instance. */
+        vex::backend::device device(unsigned d) const {
             return backend::device( backend::get_device_id(q[d]) );
         }
 
+        /** Returns number of initialized devices. */
         size_t size() const {
             return q.size();
         }
 
+        /** Checks if the context is empty. */
         bool empty() const {
             return q.empty();
         }
 
+        /** Checks if the context is empty. */
         operator bool() const {
             return !empty();
         }
 
+        /** Waits for completion of all command queues in the context. */
         void finish() const {
             for(auto queue = q.begin(); queue != q.end(); ++queue) {
                 backend::command_queue q = *queue;

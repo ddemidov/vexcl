@@ -68,9 +68,11 @@ struct kernel_arg_pusher< svm_ptr<T> > {
 
 } }
 
+/// Shared Virtual Memory wrapper class.
 template <typename T>
 class svm_vector : public svm_vector_terminal_expression {
     public:
+        /// Allocates SVM vector on the given device.
         svm_vector(const cl::CommandQueue &q, size_t n) : n(n), q(q), p(NULL) {
             p = static_cast<T*>(clSVMAlloc(backend::get_context_id(q), CL_MEM_READ_WRITE, n * sizeof(T), 0));
         }
@@ -80,6 +82,7 @@ class svm_vector : public svm_vector_terminal_expression {
             clSVMFree(backend::get_context_id(q), p);
         }
 
+        /// Returns size of the SVM vector.
         size_t size() const {
             return n;
         }
@@ -88,6 +91,7 @@ class svm_vector : public svm_vector_terminal_expression {
             return svm_ptr<T>(p);
         }
 
+        /// Returns reference to the command queue associated with the SVM vector.
         const cl::CommandQueue& queue() const {
             return q;
         }
@@ -105,13 +109,24 @@ class svm_vector : public svm_vector_terminal_expression {
 
         typedef std::unique_ptr<T[], unmapper> mapped_pointer;
 
+        /// Returns host pointer ready to be either read or written by the host.
+        /**
+         * This returns a smart pointer that will be unmapped automatically
+         * upon destruction */
         mapped_pointer map(cl_map_flags map_flags = CL_MAP_READ | CL_MAP_WRITE) {
             cl_int ret = clEnqueueSVMMap(q(), CL_TRUE, map_flags, p, n * sizeof(T), 0, NULL, NULL);
             if (ret != CL_SUCCESS) throw cl::Error(ret, "clEnqueueSVMUnmap");
             return mapped_pointer(p, unmapper(q));
         }
 
+        /// Copy assignment operator.
+        const svm_vector& operator=(const svm_vector & other) {
+            detail::assign_expression<assign::SET>(*this, other);
+            return *this;
+        }
+
         VEXCL_ASSIGNMENTS(VEXCL_SVM_ASSIGNMENT)
+
     private:
         size_t n;
         cl::CommandQueue q;

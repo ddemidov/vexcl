@@ -46,8 +46,6 @@ THE SOFTWARE.
 
 namespace vex {
 
-/// \cond INTERNAL
-
 //---------------------------------------------------------------------------
 // std::integral_constant
 //---------------------------------------------------------------------------
@@ -137,9 +135,10 @@ struct kernel_arg_setter< user_constant<Impl> >
 
 } // namespace traits
 
-/// \endcond
-
-/// Create user-defined constant for use in VexCL expressions
+/**
+ * Creates user-defined constan functor for use in VexCL expressions.
+ * ``value`` will be copied verbatim into kernel source.
+ */
 #define VEX_CONSTANT(name, value)                                              \
   struct constant_##name {                                                     \
     typedef decltype(value) value_type;                                        \

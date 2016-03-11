@@ -2115,11 +2115,6 @@ struct less : std::less<T> {
 };
 
 /// Function object class for less-than-or-equal inequality comparison.
-/**
- * The need for host-side and device-side parts comes from the fact that
- * vectors are partially sorted on device and then final merge step is done on
- * host.
- */
 template <typename T>
 struct less_equal : std::less_equal<T> {
     VEX_FUNCTION(bool, device, (T, x)(T, y), return x <= y;);
@@ -2128,11 +2123,6 @@ struct less_equal : std::less_equal<T> {
 };
 
 /// Function object class for greater-than inequality comparison.
-/**
- * The need for host-side and device-side parts comes from the fact that
- * vectors are partially sorted on device and then final merge step is done on
- * host.
- */
 template <typename T>
 struct greater : std::greater<T> {
     VEX_FUNCTION(bool, device, (T, x)(T, y), return x > y;);
@@ -2141,11 +2131,6 @@ struct greater : std::greater<T> {
 };
 
 /// Function object class for greater-than-or-equal inequality comparison.
-/**
- * The need for host-side and device-side parts comes from the fact that
- * vectors are partially sorted on device and then final merge step is done on
- * host.
- */
 template <typename T>
 struct greater_equal : std::greater_equal<T> {
     VEX_FUNCTION(bool, device, (T, x)(T, y), return x >= y;);
@@ -2154,9 +2139,6 @@ struct greater_equal : std::greater_equal<T> {
 };
 
 /// Sorts the vector into ascending order.
-/**
- * \param comp comparison function.
- */
 template <class K, class Comp>
 void sort(K &&keys, Comp comp) {
     detail::sort_sink(detail::forward_as_sequence(keys), comp);
@@ -2169,9 +2151,6 @@ void sort(vector<K> &keys) {
 }
 
 /// Sorts the elements in keys and values into ascending key order.
-/**
- * \param comp comparison function.
- */
 template <class K, class V, class Comp>
 void sort_by_key(K &&keys, V &&vals, Comp comp) {
     detail::sort_by_key_sink(

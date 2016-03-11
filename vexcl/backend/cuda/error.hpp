@@ -131,14 +131,12 @@ class error : public std::runtime_error {
         }
 };
 
-/// \cond INTERNAL
 inline void check(CUresult rc, const char *file, int line) {
     if (rc != CUDA_SUCCESS) {
         vex::detail::print_backtrace();
 	throw error(rc, file, line);
     }
 }
-/// \endcond
 
 /// Throws if rc is not CUDA_SUCCESS.
 /**

@@ -63,7 +63,6 @@ inline device_id get_device_id(const command_queue &q) {
     return q.getInfo<CL_QUEUE_DEVICE>()();
 }
 
-/// \cond INTERNAL
 typedef cl_context       context_id;
 /// Returns raw context id for the given queue.
 inline context_id get_context_id(const command_queue &q) {
@@ -88,7 +87,6 @@ struct compare_queues {
         return a() < b();
     }
 };
-/// \endcond
 
 /// Create command queue on the same context and device as the given one.
 inline command_queue duplicate_queue(const command_queue &q) {
@@ -109,21 +107,11 @@ inline bool is_cpu(const command_queue &q) {
 #endif
 }
 
-/// Select devices by given criteria.
-/**
- * \param filter  Device filter functor. Functors may be combined with logical
- *                operators.
- * \returns list of devices satisfying the provided filter.
- *
- * This example selects any GPU which supports double precision arithmetic:
- \code
- auto devices = device_list(
-          Filter::Type(CL_DEVICE_TYPE_GPU) && Filter::DoublePrecision
-          );
- \endcode
+/** Returns vector of compute devices satisfying the given criteria without
+ * trying to initialize the contexts on the devices.
  */
 template<class DevFilter>
-std::vector<cl::Device> device_list(DevFilter&& filter) {
+std::vector<vex::backend::device> device_list(DevFilter&& filter) {
     std::vector<cl::Device> device;
 
     std::vector<cl::Platform> platforms;

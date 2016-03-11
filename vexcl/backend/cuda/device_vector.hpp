@@ -50,7 +50,6 @@ static const mem_flags MEM_READ_ONLY  = 1;
 static const mem_flags MEM_WRITE_ONLY = 2;
 static const mem_flags MEM_READ_WRITE = 4;
 
-/// \cond INTERNAL
 namespace detail {
 
 template <>
@@ -61,7 +60,6 @@ struct deleter_impl<char*> {
 };
 
 } // namespace detail
-/// \endcond
 
 /// Wrapper around CUdeviceptr.
 template <typename T>
@@ -140,7 +138,6 @@ class device_vector {
             return n;
         }
 
-        /// \cond INTERNAL
         struct buffer_unmapper {
             const command_queue &queue;
             const device_vector &buffer;
@@ -156,7 +153,6 @@ class device_vector {
                 }
             }
         };
-        /// \endcond
 
         /// Pointer to a host memory region mapped to the device memory.
         /**

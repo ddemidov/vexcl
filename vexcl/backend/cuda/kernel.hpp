@@ -41,8 +41,6 @@ namespace vex {
 namespace backend {
 namespace cuda {
 
-/// \cond INTERNAL
-
 /// An abstraction over CUDA compute kernel.
 class kernel {
     public:
@@ -206,8 +204,6 @@ class kernel {
         }
 
 };
-
-/// \endcond
 
 } // namespace cuda
 } // namespace backend

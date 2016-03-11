@@ -44,7 +44,6 @@ inline void check(cusparseStatus_t rc, const char *file, int line) {
     }
 }
 
-/// \cond INTERNAL
 namespace detail {
 
 template <>
@@ -69,7 +68,6 @@ struct deleter_impl<cusparseHybMat_t> {
 };
 
 } // namespace detail
-/// \endcond
 
 inline cusparseHandle_t cusparse_handle(const command_queue &q) {
     typedef std::shared_ptr<std::remove_pointer<cusparseHandle_t>::type> smart_handle;

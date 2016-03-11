@@ -45,7 +45,6 @@ THE SOFTWARE.
 
 namespace vex {
 
-/// \cond INTERNAL
 enum device_options_kind {
     compile_options,    ///< Options sent to the compute kernel compiler.
     program_header      ///< Program header prepended to all compute kernel source.
@@ -94,8 +93,6 @@ inline std::string get_compile_options(const backend::command_queue &q) {
 inline std::string get_program_header(const backend::command_queue &q) {
     return device_options<program_header>::get(q);
 }
-
-/// \endcond
 
 /// Set global compute kernel compilation options for a given device.
 /**

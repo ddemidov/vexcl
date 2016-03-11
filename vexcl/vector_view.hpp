@@ -52,8 +52,6 @@ THE SOFTWARE.
 
 namespace vex {
 
-/// \cond INTERNAL
-
 struct vector_view_terminal {};
 
 typedef vector_expression<
@@ -71,6 +69,11 @@ struct vector_view : public vector_view_terminal_expression
         : expr(expr), slice(slice)
     { }
 
+    const vector_view& operator=(const vector_view & other) {
+        detail::assign_expression<assign::SET>(*this, other);
+        return *this;
+    }
+
 #define VEXCL_ASSIGNMENT(cop, op)                                              \
   template <class RHS>                                                         \
   typename std::enable_if<                                                     \
@@ -80,18 +83,12 @@ struct vector_view : public vector_view_terminal_expression
       const vector_view &>::type operator cop(const RHS & rhs) {               \
     detail::assign_expression<op>(*this, rhs);                                 \
     return *this;                                                              \
-  }                                                                            \
-  const vector_view &operator cop(const vector_view & other) {                 \
-    detail::assign_expression<op>(*this, other);                               \
-    return *this;                                                              \
   }
 
     VEXCL_ASSIGNMENTS(VEXCL_ASSIGNMENT)
 
 #undef VEXCL_ASSIGNMENT
 };
-
-/// \endcond
 
 // Allow vector_view to participate in vector expressions:
 namespace traits {
@@ -418,7 +415,7 @@ struct range {
     ptrdiff_t stride;
     size_t    stop;
 
-    /// All elements in this dimension.
+    /// Unbounded range (all elements along the current dimension).
     range () : start(0), stride(0), stop(0) {}
 
     /// Range with a single element.
@@ -441,7 +438,6 @@ struct range {
 /// Placeholder for an unbounded range.
 const range _;
 
-/// \cond INTERNAL
 template <size_t NDIM>
 struct extent_gen {
     std::array<size_t, NDIM> dim;
@@ -460,12 +456,10 @@ struct extent_gen {
                 static_cast<size_t>(1), std::multiplies<size_t>());
     }
 };
-/// \endcond
 
 /// Helper object for specifying slicer dimensions.
 const extent_gen<0> extents;
 
-/// \cond INTERNAL
 template <size_t NR, class Dimensions = boost::fusion::vector<> >
 struct index_gen {
     std::array<range, NR> ranges;
@@ -497,44 +491,33 @@ struct index_gen {
             return idx;
         }
 };
-/// \endcond
 
 /// Helper object for specifying slicer shape.
 const index_gen<0> indices;
 
 /// Slicing operator.
 /**
- * Slices multi-dimensional array stored in vex::vector in row-major order.
- * Usage:
- \code
- using vex::range;
-
- vex::vector<double> x(ctx, n * n)
- vex::vector<double> y(ctx, n)
- vex::vector<double> z(ctx, n / 2);
-
- vex::slicer<2> slice(vex::extents[n][n]);
-
- y = slice[42](x);                // Put 42-th row of x into y.
- y = slice[range()][42](x);       // Put 42-th column of x into y.
- z = slice[range(0, 2, n)][5](x); // Put even elements of 5-th column of x into z.
- \endcode
+ * Provides information about shape of multidimensional vector expressions,
+ * allows to slice the expressions.
  */
 template <size_t NR>
 struct slicer {
     std::array<size_t, NR> dim;
     std::array<size_t, NR> stride;
 
+    /// Creates slicer with the given dimensions.
     template <typename T>
     slicer(const std::array<T, NR> &target_dimensions) {
         init(target_dimensions.data());
     }
 
+    /// Creates slicer with the given dimensions.
     template <typename T>
     slicer(const T *target_dimensions) {
         init(target_dimensions);
     }
 
+    /// Creates slicer with the given dimensions.
     slicer(const extent_gen<NR> &ext) {
         init(ext.dim.data());
     }
@@ -610,7 +593,6 @@ struct slicer {
         }
 };
 
-/// \cond INTERNAL
 // Expression-based permutation operator.
 template <class Expr>
 struct expr_permutation {
@@ -693,28 +675,17 @@ struct expr_permutation {
                 >(boost::proto::as_child<vector_domain>(base), *this);
     }
 };
-/// \endcond
 
 /// Returns permutation functor which is based on an integral expression.
-/**
- * Example:
- \code
- auto reverse = vex::permutation(N - 1 - vex::element_index());
- Y = reverse(X);
- \endcode
- */
 template <class Expr>
-#ifdef DOXYGEN
-expr_permutation<Expr>
-#else
-typename std::enable_if<
-    std::is_integral<typename detail::return_type<Expr>::type>::value,
-    expr_permutation<
-        typename boost::proto::result_of::as_child<const Expr, vector_domain>::type
-    >
->::type
-#endif
-permutation(const Expr &expr) {
+auto permutation(const Expr &expr) ->
+    typename std::enable_if<
+        std::is_integral<typename detail::return_type<Expr>::type>::value,
+        expr_permutation<
+            typename boost::proto::result_of::as_child<const Expr, vector_domain>::type
+        >
+    >::type
+{
     return expr_permutation<
         typename boost::proto::result_of::as_child<const Expr, vector_domain>::type
         >(boost::proto::as_child(expr));
@@ -723,7 +694,6 @@ permutation(const Expr &expr) {
 //---------------------------------------------------------------------------
 // Slice reduction
 //---------------------------------------------------------------------------
-/// \cond INTERNAL
 struct reduced_vector_view_terminal {};
 
 typedef vector_expression<
@@ -913,8 +883,16 @@ struct expression_properties< reduced_vector_view<Expr, NDIM, NR, RDC> > {
 };
 
 } // namespace traits
-/// \endcond
 
+#ifdef DOXYGEN
+/// Reduce multidimensional vector expression along specified dimensions.
+template <class Reducer, class SlicedExpr, class ReduceDims>
+auto reduce(const SlicedExpr &expr, const ReduceDims &reduce_dims);
+
+/// Reduce multidimensional vector expression along specified dimensions.
+template <class Reducer, class ExprShape, class Expr, class ReduceDims>
+auto reduce(const ExprShape &shape, const Expr &expr, const ReduceDims &reduce_dims);
+#else
 /// Reduce vector_view along specified dimensions.
 template <class RDC, typename Expr, size_t NDIM, size_t NR>
 reduced_vector_view<Expr, NDIM, NR, RDC> reduce(
@@ -1010,12 +988,12 @@ reduced_vector_view<
 {
     return reduce<RDC>(slicer<NDIM>(ext)[_], expr, reduce_dim);
 }
+#endif
 
 //---------------------------------------------------------------------------
 // Matrix reshaper
 //---------------------------------------------------------------------------
 
-/// \cond INTERNAL
 namespace detail {
 
 template <size_t Nout, size_t Nin>
@@ -1105,26 +1083,18 @@ struct reshape_helper {
 
 } //namespace detail
 
-/// \endcond
 
-/// Reshapes given expression.
+#ifdef DOXYGEN
+/// Reshapes the expression.
 /**
- * Makes a multidimensional expression of dst_dims dimensions from input
- * expression shaped as specified by src_dim.
- * \param expr     Input expression
- * \param dst_dims dimensions of the resulting expression.
- * \param src_dims dimensions of the input expressions. Specified as positions
- *                 in dst_dims.
- *
- * Example:
- \code
- // Matrix transposition:
- auto B = reshape(A, make_array<size_t>(n, m), make_array(1, 0));
-
- // Expand 1D vector to a 2D matrix (by copying along redundant dimension):
- auto A = reshape(x, make_array(n, m), make_array(0));
- \endcode
+ * Makes a multidimensional expression shaped as `dst_dims` from an input
+ * expression shaped as `dst_dims[src_dims]`. `scr_dims` are specified as
+ * indices into `dst_dims`.
  */
+template <class Expr, class DstDims, class SrcDims>
+auto reshape(const Expr &expr, const DstDims &dst_dims, const SrcDims &src_dims);
+#else
+/// Reshapes the expression.
 template <class Expr, size_t Nout, size_t Nin>
 auto reshape(
         const Expr &expr,
@@ -1136,24 +1106,7 @@ auto reshape(
     return vex::permutation(detail::reshape_helper<Nout, Nin>(dst_dims, src_dims)())(expr);
 }
 
-/// Reshapes given expression.
-/**
- * Makes a multidimensional expression of dst_dims dimensions from input
- * expression shaped as specified by src_dim.
- * \param expr     Input expression
- * \param dst_dims dimensions of the resulting expression.
- * \param src_dims dimensions of the input expressions. Specified as positions
- *                 in dst_dims.
- *
- * Example:
- \code
- // Matrix transposition:
- auto B = reshape(A, extents[n][m], extents[1][0]);
-
- // Expand 1D vector to a 2D matrix (by copying along redundant dimension):
- auto A = reshape(x, extents[n][m], extents[0]);
- \endcode
- */
+/// Reshapes the expression.
 template <class Expr, size_t Nout, size_t Nin>
 auto reshape(
         const Expr &expr,
@@ -1164,6 +1117,7 @@ auto reshape(
 {
     return vex::permutation(detail::reshape_helper<Nout, Nin>(dst_dims.dim, src_dims.dim)())(expr);
 }
+#endif
 
 } // namespace vex
 

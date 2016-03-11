@@ -56,7 +56,6 @@ THE SOFTWARE.
 #endif
 namespace vex {
 
-/// \cond INTERNAL
 struct mba_terminal {};
 
 typedef vector_expression<
@@ -158,25 +157,7 @@ namespace detail {
     };
 } // namespace detail
 
-/// \endcond
-
 /// Scattered data interpolation with multilevel B-Splines.
-/**
- * This is an implementation of the MBA algorithm from [1]. This is a fast
- * algorithm for scattered N-dimensional data interpolation and approximation.
- * Multilevel B-splines are used to compute a C2-continuous surface
- * through a set of irregularly spaced points. The algorithm makes use of a
- * coarse-to-fine hierarchy of control lattices to generate a sequence of
- * bicubic B-spline functions whose sum approaches the desired interpolation
- * function. Large performance gains are realized by using B-spline refinement
- * to reduce the sum of these functions into one equivalent B-spline function.
- * High-fidelity reconstruction is possible from a selected set of sparse and
- * irregular samples.
- *
- * [1] S. Lee, G. Wolberg, and S. Y. Shin. Scattered data interpolation with
- *     multilevel B-Splines. IEEE Transactions on Visualization and
- *     Computer Graphics, 3:228–244, 1997.
- */
 template <size_t NDIM, typename real = double>
 class mba {
     public:
@@ -186,22 +167,17 @@ class mba {
 
         static const size_t ndim = NDIM;
 
-        /// \cond INTERNAL
         std::vector< backend::command_queue >       queue;
         std::vector< backend::device_vector<real> > phi;
         point xmin, hinv;
         index n, stride;
-        /// \endcond
 
-        /**
-         * \param queue  command queue list.
-         * \param cmin   corner of bounding box with smallest coordinates.
-         * \param cmax   corner of bounding box with largest coordinates.
-         * \param coo    coordinates of data points.
-         * \param val    values of data points.
-         * \param grid   initial control lattice size (excluding boundary points).
-         * \param levels number of levels in hierarchy.
-         * \param tol    stop if residual is less than this.
+        /** Creates the approximation functor.
+         * `cmin` and `cmax` specify the domain boundaries, `coo` and `val`
+         * contain coordinates and values of the data points. `grid` is the
+         * initial control grid size. The approximation hierarchy will have at
+         * most `levels` and will stop when the desired approximation precision
+         * `tol` will be reached.
          */
         mba(
                 const std::vector<backend::command_queue> &queue,
@@ -213,20 +189,12 @@ class mba {
             init(cmin, cmax, coo.begin(), coo.end(), val.begin(), grid, levels, tol);
         }
 
-        /**
-         * \param queue     command queue list.
-         * \param cmin      corner of bounding box with smallest coordinates.
-         * \param cmax      corner of bounding box with largest coordinates.
-         * \param coo_begin input iterator to the initial position in a
-         *                  sequence of scattered data coordinates.
-         * \param coo_end   input iterator to the final position in a sequence
-         *                  of scattered data coordinates.
-         * \param val_begin input iterator to the initial position in a
-         *                  sequence of scattered data values.
-         * \param grid      initial control lattice size (excluding boundary
-         *                  points).
-         * \param levels    number of levels in hierarchy.
-         * \param tol       stop if residual is less than this.
+        /** Creates the approximation functor.
+         * `cmin` and `cmax` specify the domain boundaries. Coordinates and
+         * values of the data points are passed as iterator ranges. `grid` is
+         * the initial control grid size. The approximation hierarchy will have
+         * at most `levels` and will stop when the desired approximation
+         * precision `tol` will be reached.
          */
         template <class CooIter, class ValIter>
         mba(
@@ -242,8 +210,9 @@ class mba {
 #if !defined(BOOST_NO_VARIADIC_TEMPLATES) && ((!defined(__GNUC__) || (__GNUC__ > 4 || __GNUC__ == 4 && __GNUC_MINOR__ > 6)) || defined(__clang__))
         /// Provide interpolated values at given coordinates.
         template <class... Expr>
-        mba_interp< mba, boost::tuple<const Expr&...> >
-        operator()(const Expr&... expr) const {
+        auto operator()(const Expr&... expr) const ->
+            mba_interp< mba, boost::tuple<const Expr&...> >
+        {
             static_assert(sizeof...(Expr) == NDIM, "Wrong number of parameters");
             return mba_interp< mba, boost::tuple<const Expr&...> >(*this, boost::tie(expr...));
         }
@@ -522,8 +491,6 @@ BOOST_PP_REPEAT_FROM_TO(1, 10, VEXCL_FUNCALL_OPERATOR, ~)
                 }
         };
 };
-
-/// \cond INTERNAL
 
 namespace traits {
 
@@ -829,8 +796,6 @@ struct expression_properties< mba_interp<MBA, ExprTuple> > {
 };
 
 } //namespace traits
-
-/// \endcond
 
 } // namespace vex
 

@@ -59,18 +59,17 @@ struct hold_terminal_by_reference< T,
 } // namespace traits
 } // namespace vex
 
-#define VEXCL_SVM_ASSIGNMENT(op, op_type) \
+#define VEXCL_SVM_ASSIGNMENT(op, op_type)                                      \
+  /** Expression assignment operator. */                                       \
   template <class Expr>                                                        \
-  typename std::enable_if<                                                     \
-      boost::proto::matches<                                                   \
-          typename boost::proto::result_of::as_expr<Expr>::type,               \
-          vector_expr_grammar>::value,                                         \
-      const svm_vector &>::type operator op(const Expr & expr) {               \
+  auto operator op(const Expr & expr) ->                                       \
+      typename std::enable_if<                                                 \
+          boost::proto::matches<                                               \
+              typename boost::proto::result_of::as_expr<Expr>::type,           \
+              vector_expr_grammar>::value,                                     \
+          const svm_vector &>::type                                            \
+  {                                                                            \
     detail::assign_expression<op_type>(*this, expr);                           \
-    return *this;                                                              \
-  }                                                                            \
-  const svm_vector &operator op(const svm_vector & other) {                    \
-    detail::assign_expression<op_type>(*this, other);                          \
     return *this;                                                              \
   }
 
@@ -204,16 +203,12 @@ struct expression_properties< svm_vector_pointer<T> >
 
 } // namespace traits
 
-/// Cast vex::vector to a raw pointer.
-/**
- * Useful when user wants to get a pointer to a vector instead of its current
- * element inside a vector expression. Could be combined with calls to
- * address_of/dereference operators or with user-defined functions iterating
- * through the vector. See examples in tests/vector_pointer.cpp.
- */
+/// Cast vex::svm_vector to a raw pointer.
 template <typename T>
-inline typename boost::proto::result_of::as_expr<svm_vector_pointer<T>, vector_domain>::type
-raw_pointer(const svm_vector<T> &v) {
+inline auto
+raw_pointer(const svm_vector<T> &v) ->
+    typename boost::proto::result_of::as_expr<svm_vector_pointer<T>, vector_domain>::type
+{
     return boost::proto::as_expr<vector_domain>(svm_vector_pointer<T>(v));
 }
 

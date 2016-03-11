@@ -118,7 +118,8 @@ class multi_array
         slicer<NR> slice;
 };
 
-/// Reduce vex::multi_array along the specified dimensions.
+#ifndef DOXYGEN
+// Reduce vex::multi_array along the specified dimensions.
 template <class RDC, typename T, size_t NDIM, size_t NR>
 reduced_vector_view<const vector<T>&, NDIM, NR, RDC> reduce(
         const multi_array<T, NDIM> &m,
@@ -128,7 +129,7 @@ reduced_vector_view<const vector<T>&, NDIM, NR, RDC> reduce(
     return reduced_vector_view<const vector<T>&, NDIM, NR, RDC>(m.vec(), m.slice[_], reduce_dims);
 }
 
-/// Reduce vex::multi_array along the specified dimension.
+// Reduce vex::multi_array along the specified dimension.
 template <class RDC, typename T, size_t NDIM>
 reduced_vector_view<const vector<T>&, NDIM, 1, RDC> reduce(
         const multi_array<T, NDIM> &m,
@@ -138,6 +139,7 @@ reduced_vector_view<const vector<T>&, NDIM, 1, RDC> reduce(
     std::array<size_t, 1> dim = {{reduce_dim}};
     return reduced_vector_view<const vector<T>&, NDIM, 1, RDC>(m.vec(), m.slice[_], dim);
 }
+#endif
 
 } // namespace vex
 

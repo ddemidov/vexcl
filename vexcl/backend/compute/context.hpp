@@ -74,7 +74,6 @@ inline device_id get_device_id(const command_queue &q) {
     return q.get_device().get();
 }
 
-/// \cond INTERNAL
 /// Returns raw context id for the given queue.
 inline context_id get_context_id(const command_queue &q) {
     return q.get_context().get();
@@ -98,7 +97,6 @@ struct compare_queues {
         return a.get() < b.get();
     }
 };
-/// \endcond
 
 /// Create command queue on the same context and device as the given one.
 inline command_queue duplicate_queue(const command_queue &q) {

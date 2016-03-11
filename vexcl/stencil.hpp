@@ -149,8 +149,6 @@ void stencil_base<T>::exchange_halos(const vex::vector<T> &x) const {
     for(unsigned d = 0; d < queue.size(); d++) queue[d].finish();
 }
 
-/// \endcond
-
 /// Stencil.
 /**
  * Should be used for stencil convolutions with vex::vectors as in
@@ -253,7 +251,6 @@ class stencil : private stencil_base<T> {
         static const backend::kernel& fast_conv(const backend::command_queue &queue);
 };
 
-/// \cond INTERNAL
 namespace detail {
 
 template <typename T>
@@ -458,8 +455,6 @@ void stencil<T>::apply(const vex::vector<T> &x, vex::vector<T> &y,
         }
     }
 }
-
-/// \endcond
 
 /// Convolve the stencil with the vector.
 template <typename T>

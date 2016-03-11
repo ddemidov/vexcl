@@ -40,7 +40,6 @@ THE SOFTWARE.
 
 namespace vex {
 
-/// \cond INTERNAL
 struct temporary_terminal {};
 
 typedef vector_expression<
@@ -57,25 +56,22 @@ struct temporary : public temporary_terminal_expression
     temporary(const Expr &expr) : expr(expr) {}
 };
 
-/// \endcond
-
-/// Create temporary to be reused in a vector expression.
-/** The type of the temporary is explicitly specified. */
+/// Creates temporary expression that may be reused in a vector expression.
+/** The type of the resulting temporary variable is automatically deduced from
+ * the expression, but may also be explicitly specified as a template
+ * parameter.
+ */
 template <size_t Tag, typename T, class Expr>
-#ifdef DOXYGEN
-temporary<T, Tag, Expr>
-#else
-typename std::enable_if<
-    boost::proto::matches<
-            typename boost::proto::result_of::as_expr< Expr >::type,
-            vector_expr_grammar
-    >::value,
-    temporary<T, Tag,
-        typename boost::proto::result_of::as_child<const Expr, vector_domain>::type
-    > const
-#endif
->::type
-make_temp(const Expr &expr)
+auto make_temp(const Expr &expr) ->
+    typename std::enable_if<
+        boost::proto::matches<
+                typename boost::proto::result_of::as_expr< Expr >::type,
+                vector_expr_grammar
+        >::value,
+        temporary<T, Tag,
+            typename boost::proto::result_of::as_child<const Expr, vector_domain>::type
+        > const
+    >::type
 {
     return temporary<
                 T, Tag,
@@ -83,13 +79,11 @@ make_temp(const Expr &expr)
             >(boost::proto::as_child<vector_domain>(expr));
 }
 
-/// Create temporary to be reused in a vector expression.
-/** The type of the temporary is automatically deduced from the supplied
- * expression. */
+#ifndef DOXYGEN
+// Creates temporary expression that may be reused in a vector expression.
+/* The type of the resulting temporary variable is automatically deduced from
+ * the expression. */
 template <size_t Tag, class Expr>
-#ifdef DOXYGEN
-temporary<typename detail::return_type<Expr>::type, Tag, Expr>
-#else
 typename std::enable_if<
     boost::proto::matches<
             typename boost::proto::result_of::as_expr< Expr >::type,
@@ -101,7 +95,6 @@ typename std::enable_if<
         typename boost::proto::result_of::as_child<const Expr, vector_domain>::type
     > const
 >::type
-#endif
 make_temp(const Expr &expr)
 {
     return temporary<
@@ -110,10 +103,10 @@ make_temp(const Expr &expr)
         typename boost::proto::result_of::as_child<const Expr, vector_domain>::type
     >(boost::proto::as_child<vector_domain>(expr));
 }
+#endif
 
 #ifdef VEXCL_MULTIVECTOR_HPP
 
-/// \cond INTERNAL
 struct mv_temporary_terminal {};
 
 typedef multivector_expression<
@@ -128,9 +121,8 @@ struct mv_temporary : public mv_temporary_terminal_expression
     mv_temporary(const Expr &expr) : expr(expr) {}
 };
 
-/// \endcond
-
-/// Create temporary to be reused in a multivector expression.
+#ifndef DOXYGEN
+// Creates temporary expression that may be reused in a multivector expression.
 template <size_t Tag, typename T, class Expr>
 typename std::enable_if<
     boost::proto::matches<
@@ -143,9 +135,9 @@ make_temp(const Expr &expr) {
     return mv_temporary<T, Tag, Expr>(expr);
 }
 #endif
+#endif
 
 
-/// \cond INTERNAL
 
 namespace traits {
 
@@ -339,8 +331,6 @@ get(const mv_temporary<T, Tag, Expr> &t)
             );
 }
 #endif
-
-/// \endcond
 
 } // namespace vex
 

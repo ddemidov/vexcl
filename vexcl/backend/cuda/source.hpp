@@ -42,8 +42,6 @@ THE SOFTWARE.
 
 namespace vex {
 
-/// \cond INTERNAL
-
 template <class T> struct global_ptr {};
 template <class T> struct shared_ptr {};
 template <class T> struct regstr_ptr {};
@@ -256,8 +254,6 @@ class source_generator {
 
 } // namespace cuda
 } // namespace backend
-
-/// \endcond
 
 } // namespace vex
 

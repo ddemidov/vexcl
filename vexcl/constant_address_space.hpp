@@ -39,7 +39,6 @@ THE SOFTWARE.
 
 namespace vex {
 
-/// \cond INTERNAL
 // Will be used as an identificator for constant vector expressions.
 struct constant_vector_terminal {};
 
@@ -118,22 +117,13 @@ struct expression_properties< constant_vector<T> > {
 };
 
 } // namespace traits
-/// \endcond
 
 /// Uses constant cache for access to the wrapped vector.
 /**
- * The vectors wrapped with constant() function will be decorated with
- * __constant keyword instead of the usual __global keyword when passed to a
- * compute kernel. This will allow an OpenCL implementation to use constant
- * cache for read-only access to the vector data. The wrapped vector should be
- * created with MEM_READ_ONLY flag.
- *
- * Example:
- \code
- x = 2 * constant(y);
- \endcode
-
- \note Only available for OpenCL backend.
+\rst
+.. note::
+    Only available for OpenCL-based backends.
+\endrst
  */
 template <class T>
 inline constant_vector<T> constant(const vector<T> &v) {

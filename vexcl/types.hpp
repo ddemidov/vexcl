@@ -47,7 +47,6 @@ THE SOFTWARE.
 #include <CL/cl_platform.h>
 #endif
 
-/// \cond INTERNAL
 typedef unsigned int  uint;
 typedef unsigned char uchar;
 
@@ -342,7 +341,5 @@ struct cl_fit_vec_size<I, typename std::enable_if<(I<1) || (I>16)>::type>
 };
 
 }
-
-/// \endcond
 
 #endif

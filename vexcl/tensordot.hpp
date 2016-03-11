@@ -45,7 +45,6 @@ THE SOFTWARE.
 
 namespace vex {
 
-/// \cond INTERNAL
 struct tensordot_terminal {};
 
 typedef vector_expression<
@@ -314,8 +313,6 @@ struct expression_properties< tensordot_expr<LHS, LDIM, RHS, RDIM, CDIM> > {
 
 } // namespace traits
 
-/// \endcond
-
 
 #ifndef BOOST_NO_VARIADIC_TEMPLATES
 /// Helper function for creating axes pairs.
@@ -357,6 +354,14 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_AXES_PAIRS, ~)
 #endif
 
 /// Tensor dot product along specified axes for multidimensional arrays.
+#ifdef DOXYGEN
+template <class SlicedExpr1, size_t SlicedExpr2, size_t CDIM>
+auto tensordot(
+        const SlicedExpr1 &lhs,
+        const SlicedExpr2 &rhs,
+        const std::array<std::array<size_t, 2>, CDIM> &common_axes
+        );
+#else
 template <class LHS, size_t LDIM, class RHS, size_t RDIM, size_t CDIM>
 tensordot_expr<LHS, LDIM, RHS, RDIM, CDIM> tensordot(
         const vector_view<LHS, gslice<LDIM>> &lhs,
@@ -368,6 +373,7 @@ tensordot_expr<LHS, LDIM, RHS, RDIM, CDIM> tensordot(
             lhs.expr, lhs.slice, rhs.expr, rhs.slice, common_axes
             );
 }
+#endif
 
 } // namespace vex
 

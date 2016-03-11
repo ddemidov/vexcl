@@ -42,18 +42,7 @@ THE SOFTWARE.
 
 namespace vex {
 
-/// Stringizes compute kernel source code.
-/**
- * Example:
-\code
-VEX_FUNCTION_V1(diff_cube, double(double, double),
-    VEX_STRINGIZE_SOURCE(
-        double d = prm1 - prm2;
-        return d * d * d;
-        )
-    );
-\endcode
-*/
+/// Converts an unquoted text into a string literal.
 #define VEX_STRINGIZE_SOURCE(...) #__VA_ARGS__
 
 //---------------------------------------------------------------------------
@@ -133,7 +122,6 @@ VEX_FUNCTION_V1(diff_cube, double(double, double),
 //---------------------------------------------------------------------------
 // VEX_FUNCTION (v2) macros
 //---------------------------------------------------------------------------
-/// \cond INTERNAL
 #define VEXCL_FUNCTION_ARG_TYPE(s, data, arg) BOOST_PP_TUPLE_ELEM(2, 0, arg)
 
 #define VEXCL_FUNCTION_ARG_TYPES(args) \
@@ -196,110 +184,44 @@ struct vex_function_##func_name                                                \
 rtype operator()(VEXCL_DUAL_FUNCTOR_ARGS(args)) const {                        \
     __VA_ARGS__                                                                \
 }
-/// \endcond
 
-/// Create a user-defined function with dependencies.
-/**
- \param type Return type of the function.
- \param name Name of the function.
- \param args Arguments of the function. Specified as a preprocessor sequence
-             of tuples. In each of the tuples the first element argument
-             type, and the second element defines argument name.
- \param deps User-defined functions that are called inside the body of the
-             function that is being defined. Specified as a preprocessor
-             sequence of function names.
- \param body Body of the function specified as string.
-
- Example:
- \code
- VEX_FUNCTION_SD(double, foo, (double, x)(double, y), (bar)(baz),
-    "return bar(x + y) * baz(x - y);");
-
- vex::vector<double> x(ctx, n), y(ctx, n), z(ctx, n);
- z = foo(x, y);
- \endcode
+/// Creates a user-defined function with dependencies.
+/** The body of the function is passed as a string literal or a static string
+ * expression.
  */
-#define VEX_FUNCTION_SD(type, name, args, deps, body)                          \
-    VEX_FUNCTION_SINK(type, name,                                              \
-            BOOST_PP_SEQ_SIZE(VEXCL_FUNCTION_MAKE_SEQ(args)),                  \
-            VEXCL_FUNCTION_MAKE_SEQ(args), deps, body)
+#define VEX_FUNCTION_SD(return_type, name, arguments, dependencies, body)      \
+    VEX_FUNCTION_SINK(return_type, name,                                       \
+            BOOST_PP_SEQ_SIZE(VEXCL_FUNCTION_MAKE_SEQ(arguments)),             \
+            VEXCL_FUNCTION_MAKE_SEQ(arguments), dependencies, body)
 
-/// Alias for VEX_FUNCTION_SD
-/** \copydoc VEX_FUNCTION_SD */
+/// Creates a user-defined function with dependencies.
+/** The body of the function is passed as a string literal or a static string
+ * expression.
+ */
 #define VEX_FUNCTION_DS VEX_FUNCTION_SD
 
-/// Create a user-defined function.
-/**
- \param type Return type of the function.
- \param name Name of the function.
- \param args Arguments of the function. Specified as a preprocessor sequence
-             of tuples. In each of the tuples the first element argument
-             type, and the second element defines argument name.
- \param body Body of the function specified as string.
-
- Example:
- \code
- VEX_FUNCTION_S(double, foo, (double, x)(double, y),
-    "return (x + y) * (x - y);");
-
- vex::vector<double> x(ctx, n), y(ctx, n), z(ctx, n);
- z = foo(x, y);
- \endcode
+/// Creates a user-defined function.
+/** The body of the function is passed as a string literal or a static string
+ * expression.
  */
-#define VEX_FUNCTION_S(type, name, args, body)                                 \
-    VEX_FUNCTION_SD(type, name, args, , body)
+#define VEX_FUNCTION_S(return_type, name, arguments, body)                     \
+    VEX_FUNCTION_SD(return_type, name, arguments, , body)
 
-/// Create a user-defined function with dependencies.
-/**
- \param type Return type of the function.
- \param name Name of the function.
- \param args Arguments of the function. Specified as a preprocessor sequence
-             of tuples. In each of the tuples the first element argument
-             type, and the second element defines argument name.
- \param deps User-defined functions that are called inside the body of the
-             function that is being defined. Specified as a preprocessor
-             sequence of function names.
-
- \note Body of the function is specified as unquoted C source at the end of the
-       macro.
-
- Example:
- \code
- VEX_FUNCTION_D(double, foo, (double, x)(double, y), (bar)(baz),
-    return bar(x + y) * baz(x - y);
-    );
-
- vex::vector<double> x(ctx, n), y(ctx, n), z(ctx, n);
- z = foo(x, y);
- \endcode
+/// Creates a user-defined function with dependencies.
+/** The body of the function is specified as unquoted C source at the end of
+ * the macro. The source will be stringized with VEX_STRINGIZE_SOURCE macro.
  */
-#define VEX_FUNCTION_D(type, name, args, deps, ...)                            \
-    VEX_FUNCTION_SD(type, name, args, deps, VEX_STRINGIZE_SOURCE(__VA_ARGS__) )
+#define VEX_FUNCTION_D(return_type, name, arguments, dependencies, ...)        \
+    VEX_FUNCTION_SD(return_type, name, arguments, dependencies, VEX_STRINGIZE_SOURCE(__VA_ARGS__) )
 
 
-/// Create a user-defined function.
+/// Creates a user-defined function.
 /**
- \param type Return type of the function.
- \param name Name of the function.
- \param args Arguments of the function. Specified as a preprocessor sequence
-             of tuples. In each of the tuples the first element argument
-             type, and the second element defines argument name.
-
- \note Body of the function is specified as unquoted C source at the end of the
-       macro.
-
- Example:
- \code
- VEX_FUNCTION(double, foo, (double, x)(double, y),
-    return (x + y) * (x - y);
-    );
-
- vex::vector<double> x(ctx, n), y(ctx, n), z(ctx, n);
- z = foo(x, y);
- \endcode
+ The body of the function is specified as unquoted C source at the end of the
+ macro. The source will be stringized with VEX_STRINGIZE_SOURCE macro.
  */
-#define VEX_FUNCTION(type, name, args, ...)                                    \
-    VEX_FUNCTION_S(type, name, args, VEX_STRINGIZE_SOURCE(__VA_ARGS__))
+#define VEX_FUNCTION(return_type, name, arguments, ...)                        \
+    VEX_FUNCTION_S(return_type, name, arguments, VEX_STRINGIZE_SOURCE(__VA_ARGS__))
 
 /// Defines both device and host versions of a function call operator.
 /**
@@ -325,16 +247,9 @@ rtype operator()(VEXCL_DUAL_FUNCTOR_ARGS(args)) const {                        \
 //---------------------------------------------------------------------------
 // Builtin functions
 //---------------------------------------------------------------------------
-#ifdef DOXYGEN
-
-/// Define builtin function.
-#define VEX_BUILTIN_FUNCTION(nargs, func)                                      \
-  expression func(const Arg0 & arg0, ... const ArgN & argN);
-
-#else
-
 #define VEXCL_BUILTIN_PRINT_BOOST_REF(z, n, data) boost::ref(arg##n)
 
+/// Define builtin function.
 #define VEX_BUILTIN_FUNCTION(nargs, func)                                      \
     struct func##_func : vex::builtin_function {                               \
         static const char *name() { return #func; }                            \
@@ -349,8 +264,6 @@ rtype operator()(VEXCL_DUAL_FUNCTOR_ARGS(args)) const {                        \
             func##_func(), BOOST_PP_ENUM(                                      \
                 nargs, VEXCL_BUILTIN_PRINT_BOOST_REF, ~));                     \
     }
-
-#endif
 
 /// \defgroup builtins Builtin device functions
 /** @{ */
@@ -490,48 +403,42 @@ namespace detail {
     template <class Expr> struct return_type;
 }
 
-#ifdef DOXYGEN
-expression
-#else
 template <typename Arg>
-typename std::enable_if<
-    std::is_integral<
-        typename cl_scalar_of<
-            typename detail::return_type<Arg>::type
-        >::type
-    >::value,
-    typename boost::proto::result_of::make_expr<
-        boost::proto::tag::function,
-        abs_func,
-        const Arg&
-    >::type const
->::type
-#endif
-abs(const Arg &arg) {
+auto abs(const Arg &arg) ->
+    typename std::enable_if<
+        std::is_integral<
+            typename cl_scalar_of<
+                typename detail::return_type<Arg>::type
+            >::type
+        >::value,
+        typename boost::proto::result_of::make_expr<
+            boost::proto::tag::function,
+            abs_func,
+            const Arg&
+        >::type const
+    >::type
+{
     return boost::proto::make_expr<boost::proto::tag::function>(
             abs_func(),
             boost::ref(arg)
             );
 }
 
-#ifdef DOXYGEN
-expression
-#else
 template <typename Arg>
-typename std::enable_if<
-    !std::is_integral<
-        typename cl_scalar_of<
-            typename detail::return_type<Arg>::type
-        >::type
-    >::value,
-    typename boost::proto::result_of::make_expr<
-        boost::proto::tag::function,
-        fabs_func,
-        const Arg&
-    >::type const
->::type
-#endif
-abs(const Arg &arg) {
+auto abs(const Arg &arg) ->
+    typename std::enable_if<
+        !std::is_integral<
+            typename cl_scalar_of<
+                typename detail::return_type<Arg>::type
+            >::type
+        >::value,
+        typename boost::proto::result_of::make_expr<
+            boost::proto::tag::function,
+            fabs_func,
+            const Arg&
+        >::type const
+    >::type
+{
     return boost::proto::make_expr<boost::proto::tag::function>(
             fabs_func(),
             boost::ref(arg)

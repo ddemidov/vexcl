@@ -35,7 +35,6 @@ THE SOFTWARE.
 
 namespace vex {
 
-/// \cond INTERNAL
 struct cast_terminal {};
 
 typedef vector_expression<
@@ -51,31 +50,23 @@ struct casted_expession : public cast_terminal_expression
     casted_expession(const Expr &expr) : expr(expr) {}
 };
 
-/// \endcond
-
 /// Cast an expression to a given type.
 template <typename T, class Expr>
-#ifdef DOXYGEN
-expession
-#else
-typename std::enable_if<
-    boost::proto::matches<
-            typename boost::proto::result_of::as_expr< Expr >::type,
-            vector_expr_grammar
-    >::value,
-    casted_expession<T, typename boost::proto::result_of::as_child<const Expr, vector_domain>::type
-    >
-#endif
->::type
-cast(const Expr &expr)
+auto cast(const Expr &expr) ->
+    typename std::enable_if<
+        boost::proto::matches<
+                typename boost::proto::result_of::as_expr< Expr >::type,
+                vector_expr_grammar
+        >::value,
+        casted_expession<T, typename boost::proto::result_of::as_child<const Expr, vector_domain>::type
+        >
+    >::type
 {
     return casted_expession<
                 T,
                 typename boost::proto::result_of::as_child<const Expr, vector_domain>::type
             >(boost::proto::as_child<vector_domain>(expr));
 }
-
-/// \cond INTERNAL
 
 namespace traits {
 
@@ -163,26 +154,19 @@ struct expression_properties< casted_expession<T, Expr> > {
 
 } // namespace traits
 
-/// \endcond
-
 #if !defined(VEXCL_BACKEND_CUDA)
 
-#ifdef DOXYGEN
-#define VEXCL_CONVERT_FUNCTIONS(to)                                            \
-  template <typename Arg>                                                      \
-  expression convert_##to(const Arg & arg);                                    \
-  template <typename Arg>                                                      \
-  expression as_##to(const Arg & arg);
-#else
 #define VEXCL_CONVERT_FUNCTIONS(to)                                            \
   struct convert_##to##_func : builtin_function {                              \
     static const char *name() { return "convert_" #to; }                       \
   };                                                                           \
   template <typename Arg>                                                      \
-  casted_expession<                                                            \
-      cl_##to, typename boost::proto::result_of::make_expr<                    \
-                   boost::proto::tag::function, convert_##to##_func,           \
-                   const Arg &>::type> const convert_##to(const Arg & arg) {   \
+  auto convert_##to(const Arg &arg)                                            \
+      ->casted_expession<cl_##to,                                              \
+             typename boost::proto::result_of::make_expr<                      \
+                 boost::proto::tag::function, convert_##to##_func,             \
+                 const Arg &>::type> const                                     \
+  {                                                                            \
     return cast<cl_##to>(boost::proto::make_expr<boost::proto::tag::function>( \
         convert_##to##_func(), boost::ref(arg)));                              \
   }                                                                            \
@@ -190,14 +174,14 @@ struct expression_properties< casted_expession<T, Expr> > {
     static const char *name() { return "as_" #to; }                            \
   };                                                                           \
   template <typename Arg>                                                      \
-  casted_expession<cl_##to, typename boost::proto::result_of::make_expr<       \
+  auto as_##to(const Arg &arg) ->                                              \
+      casted_expession<cl_##to, typename boost::proto::result_of::make_expr<   \
                                 boost::proto::tag::function, as_##to##_func,   \
-                                const Arg &>::type> const as_##to(const Arg &  \
-                                                                  arg) {       \
+                                const Arg &>::type> const                      \
+  {                                                                            \
     return cast<cl_##to>(boost::proto::make_expr<boost::proto::tag::function>( \
         as_##to##_func(), boost::ref(arg)));                                   \
   }
-#endif
 
 #define VEXCL_TYPES(name)                                                      \
   VEXCL_CONVERT_FUNCTIONS(name)                                                \

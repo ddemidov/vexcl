@@ -61,18 +61,9 @@ class SpMat {
 
         /// Constructor.
         /**
-         * Constructs GPU representation of the matrix. Input matrix is in CSR
-         * format. GPU matrix utilizes ELL format and is split equally across
-         * all compute devices. When there are more than one device, secondary
-         * queue can be used to perform transfer of ghost values across GPU
-         * boundaries in parallel with computation kernel.
-         * \param queue vector of queues. Each queue represents one
-         *            compute device.
-         * \param n   number of rows in the matrix.
-         * \param m   number of cols in the matrix.
-         * \param row row index into col and val vectors.
-         * \param col column numbers of nonzero elements of the matrix.
-         * \param val values of nonzero elements of the matrix.
+         * Constructs GPU representation of the \f$n \times m\f$matrix. Input
+         * matrix is in CSR format. GPU matrix utilizes ELL format and is split
+         * equally across all compute devices.
          */
         SpMat(const std::vector<backend::command_queue> &queue,
               size_t n, size_t m, const idx_t *row, const col_t *col, const val_t *val
@@ -112,8 +103,8 @@ class SpMat {
         }
 
 
-        /// Matrix-vector multiplication.
-        /**
+        // Matrix-vector multiplication.
+        /*
          * Matrix vector multiplication (\f$y = \alpha Ax\f$ or \f$y += \alpha
          * Ax\f$) is performed in parallel on all registered compute devices.
          * Ghost values of x are transfered across GPU boundaries as needed.
@@ -383,8 +374,6 @@ class SpMat {
         }
 };
 
-/// \cond INTERNAL
-
 template <typename val_t, typename col_t, typename idx_t>
 additive_operator< SpMat<val_t, col_t, idx_t >, vector<val_t> >
 operator*(const SpMat<val_t, col_t, idx_t> &A, const vector<val_t> &x)
@@ -403,8 +392,6 @@ operator*(const SpMat<val_t, col_t, idx_t> &A, const V &x) {
     return multiadditive_operator< SpMat<val_t, col_t, idx_t>, V >(A, x);
 }
 #endif
-
-/// \endcond
 
 /// Weights device wrt to additive_operator performance.
 /**

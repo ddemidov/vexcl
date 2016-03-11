@@ -68,7 +68,6 @@ std::ostream& operator<<(std::ostream &os, const symbolic<T> &sym);
 /// Kernel generation interface.
 namespace generator {
 
-/// \cond INTERNAL
 //---------------------------------------------------------------------------
 // The recorder class. Holds static output stream for kernel recording and
 // static variable index (used in variable names).
@@ -135,14 +134,12 @@ inline backend::source_generator& get_preamble() {
 inline vex::detail::kernel_generator_state_ptr get_state() {
     return recorder<>::get_state();
 }
-/// \endcond
 
-/// Set output stream for kernel recorder.
+/// Set output stream for the kernel recorder.
 inline void set_recorder(std::ostream &os) {
     recorder<>::set(os);
 }
 
-/// \cond INTERNAL
 //---------------------------------------------------------------------------
 // Setting up boost::proto.
 //---------------------------------------------------------------------------
@@ -368,13 +365,12 @@ struct symbolic_context {
 
 } // namespace detail
 
-/// \endcond
-
 } // namespace generator
 
 //---------------------------------------------------------------------------
 // The symbolic class.
 //---------------------------------------------------------------------------
+/// Symbolic variable
 template <typename T>
 class symbolic
     : public generator::symbolic_expr< boost::proto::terminal< generator::variable >::type >
@@ -395,7 +391,7 @@ class symbolic
             Const = 1       ///< Parameter is readonly.
         };
 
-        /// Default constructor. Results in local kernel variable.
+        /// Default constructor. Results in a local variable declaration.
         symbolic() : num(generator::var_id()), scope(LocalVar), constness(NonConst)
         {
             generator::get_recorder() << "\t\t" << type_name<T>() << " " << *this << ";\n";
@@ -410,7 +406,7 @@ class symbolic
             }
         }
 
-        /// Expression constructor. Results in local variable initialized by expression.
+        /// Expression constructor. Results in a local variable declaration initialized by the expression.
         template <class Expr>
         symbolic(const Expr &expr)
             : num(generator::var_id()), scope(LocalVar), constness(NonConst)
@@ -420,7 +416,7 @@ class symbolic
             generator::get_recorder() << ";\n";
         }
 
-        /// Assignment operator. Results in assignment written to recorder.
+        /// Assignment operator. Results in the assignment expression written to the recorder.
         const symbolic& operator=(const symbolic &c) const {
             generator::get_recorder() << "\t\t" << *this << " = ";
             record(c);
@@ -428,38 +424,25 @@ class symbolic
             return *this;
         }
 
-        /// Assignment operator. Results in assignment written to recorder.
-        template <class Expr>
-        const symbolic& operator=(const Expr &expr) const {
-            generator::get_recorder() << "\t\t" << *this << " = ";
-            record(expr);
-            generator::get_recorder() << ";\n";
-            return *this;
-        }
-
-#define VEXCL_COMPOUND_ASSIGNMENT(cop, op)                                     \
+#define VEXCL_ASSIGNMENT(cop, op)                                              \
+  /** Assignment operator.
+   Results in the assignment expression written to the recorder. */            \
   template <class Expr> const symbolic &operator cop(const Expr & expr) {      \
-    return *this = *this op expr;                                              \
+    generator::get_recorder() << "\t\t" << *this << " " #cop " ";              \
+    record(expr);                                                              \
+    generator::get_recorder() << ";\n";                                        \
+    return *this;                                                              \
   }
 
-        VEXCL_COMPOUND_ASSIGNMENT(+=, +)
-        VEXCL_COMPOUND_ASSIGNMENT(-=, -)
-        VEXCL_COMPOUND_ASSIGNMENT(*=, *)
-        VEXCL_COMPOUND_ASSIGNMENT(/=, /)
-        VEXCL_COMPOUND_ASSIGNMENT(%=, %)
-        VEXCL_COMPOUND_ASSIGNMENT(&=, &)
-        VEXCL_COMPOUND_ASSIGNMENT(|=, |)
-        VEXCL_COMPOUND_ASSIGNMENT(^=, ^)
-        VEXCL_COMPOUND_ASSIGNMENT(<<=, <<)
-        VEXCL_COMPOUND_ASSIGNMENT(>>=, >>)
+        VEXCL_ASSIGNMENTS(VEXCL_ASSIGNMENT)
 
-#undef VEXCL_COMPOUND_ASSIGNMENT
+#undef VEXCL_ASSIGNMENT
 
         size_t id() const {
             return num;
         }
 
-        /// Initialize local variable at kernel enter.
+        // Initialize local variable at kernel enter.
         std::string init() const {
             std::ostringstream s;
 
@@ -481,7 +464,7 @@ class symbolic
             return s.str();
         }
 
-        /// Write local variable to parameter at kernel exit.
+        // Write local variable to parameter at kernel exit.
         std::string write() const {
             std::ostringstream s;
 
@@ -491,7 +474,7 @@ class symbolic
             return s.str();
         }
 
-        /// Returns string for parameter declaration.
+        // Returns string for parameter declaration.
         std::string prmdecl() const {
             std::ostringstream s;
 
@@ -571,7 +554,7 @@ class Kernel {
         }
 
 #ifndef BOOST_NO_VARIADIC_TEMPLATES
-        /// Launches kernel with provided parameters.
+        /// Launches the kernel with the provided parameters.
         template <class... Param>
         void operator()(const Param&... param) {
             launch(boost::fusion::vector_tie(param...));
@@ -719,17 +702,25 @@ class Function {
 };
 
 #ifndef BOOST_NO_VARIADIC_TEMPLATES
-/// Builds kernel from recorded expression sequence and symbolic parameter list.
+/// Builds kernel from the recorded expression sequence and the symbolic parameter list.
+/** The symbolic variables passed to the function should have participated in
+ * the recorded algorithm and will be converted to the generated kernel
+ * arguments.
+ */
 template <class... Args>
-Kernel<sizeof...(Args)> build_kernel(
+auto build_kernel(
         const std::vector<backend::command_queue> &queue,
         const std::string &name, const std::string& body, const Args&... args
-        )
+        ) -> Kernel<sizeof...(Args)>
 {
     return Kernel<sizeof...(Args)>(queue, name, body, boost::fusion::vector_tie(args...));
 }
 
-/// Builds function body from recorded expression and symbolic return value and parameters.
+/// Builds function body from the recorded expression.
+/** The symbolic variables passed to the function should have participated in
+ * the recorded algorithm and will be converted to the output value and the
+ * input arguments of the generated function.
+ */
 template <class Ret, class... Args>
 std::string make_function(std::string body, const Ret &ret, const Args&... args) {
     return Function(body, ret, boost::fusion::vector_tie(args...)).get();
@@ -761,7 +752,7 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_MAKE_FUNCTION, ~)
 
 #endif
 
-/// UserFunction implementation from a generic functor
+// UserFunction implementation from a generic functor
 template <class Signature, class Functor>
 struct FunctorAdapter : UserFunction<FunctorAdapter<Signature, Functor>, Signature>
 {
@@ -816,14 +807,16 @@ std::string FunctorAdapter<Signature, Functor>::name_string;
 template <class Signature, class Functor>
 std::string FunctorAdapter<Signature, Functor>::body_string;
 
-/// Generates user-defined function from a genric functor.
+/// Generates a user-defined function from a generic functor.
 /**
- * Takes function signature as template parameter, functor as a single
- * argument.
+ * Takes the function signature as template parameter and a generic functor as
+ * a single argument.
  * Returns user-defined function ready to be used in vector expressions.
  */
 template <class Signature, class Functor>
-FunctorAdapter<Signature, Functor> make_function(Functor &&f) {
+auto make_function(Functor &&f) ->
+    FunctorAdapter<Signature, Functor>
+{
     static size_t id = 0;
     std::ostringstream name;
     name << "generated_function_" << ++id;

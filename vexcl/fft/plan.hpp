@@ -48,10 +48,10 @@ namespace fft {
 
 /// FFT direction.
 enum direction {
-    forward, inverse, none
+    forward, ///< Forward transform.
+    inverse, ///< Inverse transform.
+    none     ///< Specifies dimension(s) to do batch transform.
 };
-
-/// \cond INTERNAL
 
 // Returns successive prime numbers on each call.
 struct prime_generator {
@@ -406,8 +406,6 @@ inline std::ostream &operator<<(std::ostream &o, const plan<T,P> &p) {
     }
     return o << "}";
 }
-
-/// \endcond
 
 } // namespace fft
 } // namespace vex

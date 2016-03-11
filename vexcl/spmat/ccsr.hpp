@@ -85,7 +85,6 @@ struct SpMatCCSR {
     backend::device_vector<val_t> val;
 };
 
-/// \cond INTERNAL
 struct ccsr_product_terminal {};
 
 typedef vector_expression<
@@ -275,8 +274,6 @@ get(const mv_ccsr_product<val_t, col_t, idx_t, MV> &t) {
     return t.A * t.x(I);
 }
 #endif
-
-/// \endcond
 
 } // namespace vex
 

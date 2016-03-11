@@ -122,7 +122,6 @@ namespace Filter {
     /// Selects accelerator devices
     const Type Accelerator(CL_DEVICE_TYPE_ACCELERATOR);
 
-    /// \cond INTERNAL
     struct DoublePrecisionFilter {
         bool operator()(const cl::Device &d) const {
             std::string ext = d.getInfo<CL_DEVICE_EXTENSIONS>();
@@ -132,7 +131,6 @@ namespace Filter {
                    );
         }
     };
-    /// \endcond
 
     /// Selects devices supporting double precision.
     const DoublePrecisionFilter DoublePrecision = {};

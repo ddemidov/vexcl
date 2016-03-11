@@ -41,7 +41,6 @@ THE SOFTWARE.
 
 namespace vex {
 
-/// \cond INTERNAL
 struct tagged_terminal_terminal {};
 
 typedef vector_expression<
@@ -238,19 +237,12 @@ struct expression_properties< tagged_terminal<Tag, Term> > {
 
 } // namespace traits
 
-/// \endcond
-
 /// Tags terminal with a unique (in a single expression) tag.
 /**
  * By tagging terminals user guarantees that the terminals with same tags
  * actually refer to the same data. VexCL is able to use this information in
  * order to reduce number of kernel parameters and unnecessary global memory
  * I/O operations.
- *
- * Example:
- \code
- s = sum(tag<1>(x) * tag<1>(x) + tag<2>(y) * tag<2>(y));
- \endcode
  */
 template <size_t Tag, class Expr>
 auto tag(const Expr& expr)

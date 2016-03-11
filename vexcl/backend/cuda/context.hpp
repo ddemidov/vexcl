@@ -44,7 +44,6 @@ namespace backend {
 /// The CUDA backend.
 namespace cuda {
 
-/// \cond INTERNAL
 inline CUresult do_init() {
     static const CUresult rc = cuInit(0);
     return rc;
@@ -92,7 +91,6 @@ struct deleter {
 };
 
 }
-/// \endcond
 
 /// Wrapper around CUdevice.
 class device {
@@ -261,7 +259,6 @@ struct ndrange {
         : x(x), y(y), z(z) {}
 };
 
-/// \cond INTERNAL
 typedef CUcontext context_id;
 
 /// Returns raw context id for the given queue.
@@ -287,7 +284,6 @@ struct compare_queues {
         return a.raw() < b.raw();
     }
 };
-/// \endcond
 
 /// Create command queue on the same context and device as the given one.
 inline command_queue duplicate_queue(const command_queue &q) {

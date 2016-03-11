@@ -154,7 +154,7 @@ enable_testing()
 add_subdirectory(tests)
 
 add_subdirectory(examples)
-add_subdirectory(doc)
+add_subdirectory(docs)
 add_subdirectory(cmake)
 
 install(DIRECTORY vexcl DESTINATION include)

@@ -79,8 +79,6 @@ inline double equal_weights(const backend::command_queue&) {
     return 1;
 }
 
-/// \cond INTERNAL
-
 template <bool dummy = true>
 struct partitioning_scheme {
     static_assert(dummy, "dummy parameter should be true");
@@ -170,8 +168,6 @@ std::vector<size_t> partitioning_scheme<dummy>::get(size_t n,
 template <bool dummy>
 typename partitioning_scheme<dummy>::weight_function partitioning_scheme<dummy>::weight;
 
-/// \endcond
-
 /// Partitioning scheme for vectors and matrices.
 /**
  * Should be set once before any object of vector or matrix type is declared.
@@ -192,7 +188,6 @@ inline std::vector<size_t> partition(size_t n,
     return partitioning_scheme<>::get(n, queue);
 }
 
-/// \cond INTERNAL
 
 //--- Vector Type -----------------------------------------------------------
 struct vector_terminal {};
@@ -218,37 +213,31 @@ struct hold_terminal_by_reference< T,
 
 } // namespace traits
 
-/// \endcond
-
 /// \defgroup containers Container classes
 
 /// Device vector.
-/**
- * \ingroup containers
- */
 template <typename T>
 class vector : public vector_terminal_expression {
     public:
         typedef T      value_type;
         typedef size_t size_type;
 
-        /// Proxy class.
-        /**
-         * Instances of this class are returned from vector::operator[]. These
-         * may be used to read or write single element of a vector, although
-         * this operations are too expensive to be used extensively and should
-         * be reserved for debugging purposes.
-         */
+        // Proxy class.
+        //
+        // Instances of this class are returned from vector::operator[]. These
+        // may be used to read or write single element of a vector, although
+        // this operations are too expensive to be used extensively and should
+        // be reserved for debugging purposes.
         class element {
             public:
-                /// Read associated element of a vector.
+                // Reads the associated element of a vector.
                 operator T() const {
                     T val;
                     buf.read(queue, index, 1, &val, true);
                     return val;
                 }
 
-                /// Write associated element of a vector.
+                // Writes the associated element of a vector.
                 T operator=(T val) {
                     buf.write(queue, index, 1, &val, true);
                     return val;
@@ -279,12 +268,11 @@ class vector : public vector_terminal_expression {
                 friend class vector;
         };
 
-        /// Iterator class.
-        /**
-         * This class may in principle be used with standard template library,
-         * although its main purpose is range specification for vector copy
-         * operations.
-         */
+        //  Iterator class.
+        //
+        // This class may in principle be used with standard template library,
+        // although its main purpose is range specification for vector copy
+        // operations.
         template <class vector_type, class element_type>
         class iterator_type
             : public boost::iterator_facade<
@@ -386,7 +374,16 @@ class vector : public vector_terminal_expression {
     public:
 #endif
 
-        /// Wrap a native buffer
+        /// Move constructor
+        vector(vector &&v) noexcept {
+            swap(v);
+        }
+
+        /// Wraps a native buffer without owning it.
+        /**
+         * May be used to apply VexCL functions to buffers allocated and
+         * managed outside of VexCL.
+         */
         vector(const backend::command_queue &q,
                const backend::device_vector<T> &buffer,
                size_t size = 0
@@ -396,7 +393,7 @@ class vector : public vector_terminal_expression {
             part[1] = size ? size : buffer.size();
         }
 
-        /// Copy host data to the new buffer.
+        /// Creates vector of the given size and optionally copies host data.
         vector(const std::vector<backend::command_queue> &queue,
                 size_t size, const T *host = 0,
                 backend::mem_flags flags = backend::MEM_READ_WRITE
@@ -406,7 +403,8 @@ class vector : public vector_terminal_expression {
         }
 
 #ifndef VEXCL_NO_STATIC_CONTEXT_CONSTRUCTORS
-        /// Copy host data to the new buffer, use static context.
+        /// Creates vector of the given size and optionally copies host data.
+        /** This version uses the most recently created VexCL context.  */
         vector(size_t size, const T *host = 0,
                 backend::mem_flags flags = backend::MEM_READ_WRITE
               ) : queue(current_context().queue()), part(vex::partition(size, queue))
@@ -415,7 +413,7 @@ class vector : public vector_terminal_expression {
         }
 #endif
 
-        /// Copy host data to the new buffer.
+        /// Creates new device vector and copies the host vector.
         vector(const std::vector<backend::command_queue> &queue,
                 const std::vector<T> &host,
                 backend::mem_flags flags = backend::MEM_READ_WRITE
@@ -425,7 +423,8 @@ class vector : public vector_terminal_expression {
         }
 
 #ifndef VEXCL_NO_STATIC_CONTEXT_CONSTRUCTORS
-        /// Copy host data to the new buffer, use static context.
+        /// Creates new device vector and copies the host vector.
+        /** This version uses the most recently created VexCL context.  */
         vector(const std::vector<T> &host,
                 backend::mem_flags flags = backend::MEM_READ_WRITE
               ) : queue(current_context().queue()), part(vex::partition(host.size(), queue))
@@ -434,18 +433,13 @@ class vector : public vector_terminal_expression {
         }
 #endif
 
-        /// Move constructor
-        vector(vector &&v) noexcept {
-            swap(v);
-        }
-
-        /// Construct new vector from vector expression.
+        /// Constructs new vector from vector expression.
         /**
-         * Vector expression should contain at least one vector for the
-         * constructor to be able to determine queues and size to use.
+         * This will fail if VexCL is unable to automatically determine the
+         * expression size and the compute devices to use.
          */
         template <class Expr
-#ifndef BOOST_NO_CXX11_FUNCTION_TEMPLATE_DEFAULT_ARGS
+#if !defined(BOOST_NO_CXX11_FUNCTION_TEMPLATE_DEFAULT_ARGS) && !defined(DOXYGEN)
             , class Enable = typename std::enable_if<
             !std::is_integral<Expr>::value &&
                 boost::proto::matches<
@@ -480,12 +474,6 @@ class vector : public vector_terminal_expression {
             *this = expr;
         }
 
-        /// Move assignment
-        const vector& operator=(vector &&v) {
-            swap(v);
-            return *this;
-        }
-
         /// Swap function.
         void swap(vector &v) {
             std::swap(queue,   v.queue);
@@ -493,7 +481,11 @@ class vector : public vector_terminal_expression {
             std::swap(buf,     v.buf);
         }
 
-        /// Resize vector.
+        /// Resizes the vector.
+        /**
+         * Borrows devices, size, and data from the given vector.
+         * Any data contained in the resized vector will be lost as a result.
+         */
         void resize(const vector &v, backend::mem_flags flags = backend::MEM_READ_WRITE)
         {
             // Reallocate bufers
@@ -503,7 +495,12 @@ class vector : public vector_terminal_expression {
             *this = v;
         }
 
-        /// Resize vector.
+        /// Resizes the vector with the given parameters.
+        /**
+         * This is equivalent to reconstructing the vector with the given
+         * parameters.
+         * Any data contained in the resized vector will be lost as a result.
+         */
         void resize(const std::vector<backend::command_queue> &queue,
                 size_t size, const T *host = 0,
                 backend::mem_flags flags = backend::MEM_READ_WRITE
@@ -512,7 +509,12 @@ class vector : public vector_terminal_expression {
             *this = std::move(vector(queue, size, host, flags));
         }
 
-        /// Resize vector.
+        /// Resizes the vector.
+        /**
+         * This is equivalent to reconstructing the vector with the given
+         * parameters.
+         * Any data contained in the resized vector will be lost as a result.
+         */
         void resize(const std::vector<backend::command_queue> &queue,
                 const std::vector<T> &host,
                 backend::mem_flags flags = backend::MEM_READ_WRITE
@@ -521,55 +523,61 @@ class vector : public vector_terminal_expression {
             *this = std::move(vector(queue, host, flags));
         }
 
-        /// Resize vector with static context.
+        /// Resizes the vector.
+        /*
+         * This is equivalent to reconstructing the vector with the given
+         * parameters.
+         * This version uses the most recently created VexCL context.
+         */
         void resize(size_t size, const T *host = 0, backend::mem_flags flags = backend::MEM_READ_WRITE)
         {
             vector(size, host, flags).swap(*this);
         }
 
         /// Fills vector with zeros.
+        /** This does not change the vector size! */
         void clear() {
             *this = static_cast<T>(0);
         }
 
-        /// Return memory buffer located on a given device.
+        /// Returns memory buffer located on the given device.
         const backend::device_vector<T>& operator()(unsigned d = 0) const {
             return buf[d];
         }
 
-        /// Return memory buffer located on a given device.
+        /// Returns memory buffer located on the given device.
         backend::device_vector<T>& operator()(unsigned d = 0) {
             return buf[d];
         }
 
-        /// Const iterator to beginning.
+        /// Returns const iterator to the first element of the vector.
         const_iterator begin() const {
             return const_iterator(*this, 0);
         }
 
-        /// Const iterator to end.
+        /// Returns const iterator referring to the past-the-end element in the vector.
         const_iterator end() const {
             return const_iterator(*this, size());
         }
 
-        /// Iterator to beginning.
+        /// Returns iterator to the first element of the vector.
         iterator begin() {
             return iterator(*this, 0);
         }
 
-        /// Iterator to end.
+        /// Returns iterator referring to the past-the-end element in the vector.
         iterator end() {
             return iterator(*this, size());
         }
 
-        /// Access element.
+        /// Access vector element.
         const element operator[](size_t index) const {
             size_t d = std::upper_bound(
                     part.begin(), part.end(), index) - part.begin() - 1;
             return element(queue[d], buf[d], index - part[d]);
         }
 
-        /// Access element.
+        /// Access vector element.
         element operator[](size_t index) {
             unsigned d = static_cast<unsigned>(
                 std::upper_bound(part.begin(), part.end(), index) - part.begin() - 1
@@ -577,55 +585,70 @@ class vector : public vector_terminal_expression {
             return element(queue[d], buf[d], index - part[d]);
         }
 
-        /// Return size .
+        /// Returns vector size.
         size_t size() const {
             return part.empty() ? 0 : part.back();
         }
 
-        /// Return number of parts (devices).
+        /// Returns number of vector parts.
+        /** Each partition is located on single device.
+         */
         size_t nparts() const {
             return queue.size();
         }
 
-        /// Return size of part on a given device.
+        /// Returns vector part size on the given device.
         size_t part_size(unsigned d) const {
             return part[d + 1] - part[d];
         }
 
-        /// Return part start for a given device.
+        /// Returns index of the first element located on the given device.
         size_t part_start(unsigned d) const {
             return part[d];
         }
 
-        /// Return reference to vector's queue list
+        /// Returns reference to the vector of command queues used to construct the vector.
         const std::vector<backend::command_queue>& queue_list() const {
             return queue;
         }
 
-        /// Return reference to vector's partition.
+        // Returns reference to vector's partition.
         const std::vector<size_t>& partition() const {
             return part;
         }
 
+        /// Maps vector part located on the given device to a host array.
+        /**
+         * This returns a smart pointer that will be unmapped automatically
+         * upon destruction */
+        typename backend::device_vector<T>::mapped_array
+        map(unsigned d = 0) {
+            return buf[d].map(queue[d]);
+        }
+
+        /// Copy assignment
         const vector& operator=(const vector &x) {
             if (&x != this)
                 detail::assign_expression<assign::SET>(*this, x, queue, part);
             return *this;
         }
 
-        /// Maps device buffer to host array.
-        typename backend::device_vector<T>::mapped_array
-        map(unsigned d = 0) {
-            return buf[d].map(queue[d]);
+        /// Move assignment.
+        const vector& operator=(vector &&v) {
+            swap(v);
+            return *this;
         }
 
 #define VEXCL_ASSIGNMENT(op, op_type)                                          \
+  /** Expression assignment operator. */                                       \
   template <class Expr>                                                        \
-  typename std::enable_if<                                                     \
-      boost::proto::matches<                                                   \
-          typename boost::proto::result_of::as_expr<Expr>::type,               \
-          vector_expr_grammar>::value,                                         \
-      const vector &>::type operator op(const Expr & expr) {                   \
+  auto operator op(const Expr & expr) ->                                       \
+      typename std::enable_if<                                                 \
+          boost::proto::matches<                                               \
+              typename boost::proto::result_of::as_expr<Expr>::type,           \
+              vector_expr_grammar>::value,                                     \
+          const vector &>::type                                                \
+  {                                                                            \
     detail::assign_expression<op_type>(*this, expr, queue, part);              \
     return *this;                                                              \
   }
@@ -741,7 +764,7 @@ class vector : public vector_terminal_expression {
         }
 #endif
 
-        /// Copy data from host buffer to device(s).
+        // Copy data from host buffer to device(s).
         void write_data(size_t offset, size_t size, const T *hostptr, bool blocking)
         {
             if (!size) return;
@@ -764,7 +787,7 @@ class vector : public vector_terminal_expression {
                 }
         }
 
-        /// Copy data from device(s) to host buffer .
+        // Copy data from device(s) to host buffer .
         void read_data(size_t offset, size_t size, T *hostptr, bool blocking) const
         {
             if (!size) return;
@@ -898,8 +921,6 @@ void copy(const vex::vector<T> &src, vex::vector<T> &dst) {
     dst = src;
 }
 
-/// \cond INTERNAL
-
 template<class Iterator, class Enable = void>
 struct stored_on_device : std::false_type {};
 
@@ -907,8 +928,6 @@ template<class Iterator>
 struct stored_on_device<Iterator,
     typename std::enable_if<Iterator::device_iterator>::type
     > : std::true_type {};
-
-/// \endcond
 
 /// Copy range from device vector to host vector.
 template<class InputIterator, class OutputIterator>

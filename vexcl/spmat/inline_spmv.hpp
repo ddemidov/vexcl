@@ -33,7 +33,6 @@ THE SOFTWARE.
 
 namespace vex {
 
-/// \cond INTERNAL
 struct inline_spmv_terminal {};
 
 typedef vector_expression<
@@ -49,14 +48,12 @@ struct inline_spmv : inline_spmv_terminal_expression {
 
     inline_spmv(const M &A, const V &x) : A(A), x(x) {}
 };
-/// \endcond
 
 /// Inlines a sparse matrix - vector product.
 /**
  * When applied to a matrix-vector product, the product becomes inlineable.
  * That is, it may be used in any vector expression (not just additive
- * expression). This is only possible in single-device contexts, so user has to
- * guarantee that.
+ * expressions). The user has to guarantee the function is only used in single-device expressions.
  *
  * Example:
  \code
@@ -64,16 +61,21 @@ struct inline_spmv : inline_spmv_terminal_expression {
  eps = sum( fabs(f - vex::make_inline(A * x)) );
  \endcode
  */
+#ifdef DOXYGEN
+template <class MVProdExpr>
+auto make_inline(const MVProdExpr &expr);
+#else
 template <typename val_t, typename col_t, typename idx_t>
 inline_spmv< SpMat<val_t, col_t, idx_t>, vector<val_t> >
-make_inline(const additive_operator< SpMat<val_t, col_t, idx_t>, vector<val_t> > &base) {
+make_inline(const additive_operator< SpMat<val_t, col_t, idx_t>, vector<val_t> > &base)
+#endif
+{
     precondition(base.x.nparts() == 1, "Can not inline multi-device SpMV operation.");
 
     return inline_spmv< SpMat<val_t, col_t, idx_t>, vector<val_t> >(base.A, base.x);
 }
 
 #ifdef VEXCL_MULTIVECTOR_HPP
-/// \cond INTERNAL
 struct mv_inline_spmv_terminal {};
 
 typedef multivector_expression<
@@ -87,7 +89,6 @@ struct mv_inline_spmv : mv_inline_spmv_terminal_expression {
 
     mv_inline_spmv(const M &A, const V &x) : A(A), x(x) {}
 };
-/// \endcond
 
 /// Inlines a sparse matrix - multivector product.
 /**
@@ -111,7 +112,6 @@ make_inline(const multiadditive_operator<SpMat<val_t, col_t, idx_t>, V> &base) {
 }
 #endif
 
-/// \cond INTERNAL
 // Allow inline products to participate in vector expressions:
 namespace traits {
 
@@ -204,8 +204,6 @@ get(const mv_inline_spmv<M, V> &t) {
     return make_inline(t.A * t.x(I));
 }
 #endif
-
-/// \endcond
 
 } // namespace vex
 

@@ -36,8 +36,6 @@ THE SOFTWARE.
 namespace vex {
 namespace fft {
 
-/// \cond INTERNAL
-// Store v=b^e as components.
 struct pow {
     size_t base, exponent, value;
     pow(size_t b, size_t e) : base(b), exponent(e),
@@ -625,8 +623,6 @@ inline kernel_call bluestein_mul(
     desc << "bluestein_mul{n=" << n << "(" << threads << "), wg=" << wg << ", batch=" << batch << "}";
     return kernel_call(false, desc.str(), kernel);
 }
-
-/// \endcond
 
 } // namespace fft
 } // namespace vex

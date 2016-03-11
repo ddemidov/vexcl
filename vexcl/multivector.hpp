@@ -48,8 +48,6 @@ THE SOFTWARE.
 /// Vector expression template library for OpenCL.
 namespace vex {
 
-/// \cond INTERNAL
-
 struct multivector_terminal {};
 
 template <typename T, size_t N> class multivector;
@@ -118,14 +116,7 @@ typedef multivector_expression<
     typename boost::proto::terminal< multivector_terminal >::type
     > multivector_terminal_expression;
 
-/// \endcond
-
-/// Container for several vex::vectors.
-/**
- * \ingroup containers
- * This class allows to synchronously operate on several vex::vectors of the
- * same type and size.
- */
+/// Container for several equally sized instances of vex::vector<T>.
 template <typename T, size_t N>
 class multivector : public multivector_terminal_expression {
     public:
@@ -135,7 +126,7 @@ class multivector : public multivector_terminal_expression {
 
         const static size_t NDIM = N;
 
-        /// Proxy class.
+        // Proxy class.
         class element {
             public:
                 operator const value_type () const {
@@ -158,7 +149,7 @@ class multivector : public multivector_terminal_expression {
                 friend class multivector;
         };
 
-        /// Proxy class.
+        // Proxy class.
         class const_element {
             public:
                 operator const value_type () const {
@@ -234,15 +225,9 @@ class multivector : public multivector_terminal_expression {
 
         /// Constructor.
         /**
-         * If host pointer is not NULL, it is copied to the underlying vector
-         * components of the multivector.
-         * \param queue queue list to be shared between all components.
-         * \param host  Host vector that holds data to be copied to
-         *              the components. Size of host vector should be divisible
-         *              by N. Components of the created multivector will have
-         *              size equal to host.size() / N. The data will be
-         *              partitioned equally between all components.
-         * \param flags device memory creation flags.
+         * The host vector data is divided equally between the created
+         * multivector components. Each component gets continuous chunk of the
+         * source vector.
          */
         multivector(const std::vector<backend::command_queue> &queue,
                 const std::vector<T> &host,
@@ -260,14 +245,8 @@ class multivector : public multivector_terminal_expression {
         /// Constructor.
         /**
          * If host pointer is not NULL, it is copied to the underlying vector
-         * components of the multivector.
-         * \param queue queue list to be shared between all components.
-         * \param size  Size of each component.
-         * \param host  Pointer to host buffer that holds data to be copied to
-         *              the components. Size of the buffer should be equal to
-         *              N * size. The data will be partitioned equally between
-         *              all components.
-         * \param flags device memory creation flags.
+         * components of the multivector.  Each component gets continuous chunk
+         * of the source vector.
          */
         multivector(const std::vector<backend::command_queue> &queue, size_t size,
                 const T *host = 0, backend::mem_flags flags = backend::MEM_READ_WRITE)
@@ -278,7 +257,10 @@ class multivector : public multivector_terminal_expression {
                 vec[i].resize(queue, size, host ? host + i * size : 0, flags);
         }
 
-        /// Construct from size.
+        /// Constructor.
+        /**
+         * Uses the most recently created VexCL context.
+         */
         multivector(size_t size) {
             static_assert(N > 0, "What's the point?");
 
@@ -305,72 +287,83 @@ class multivector : public multivector_terminal_expression {
             for(size_t i = 0; i < N; ++i) vec[i].swap(mv.vec[i]);
         }
 
-        /// Resize multivector.
+        /// Resizes the multivector.
+        /**
+         * This is equivalent to reconstructing the vector with the given
+         * parameters.  Any data contained in the resized vector will be lost
+         * as a result.
+         */
         void resize(const std::vector<backend::command_queue> &queue, size_t size) {
             for(unsigned i = 0; i < N; i++) vec[i].resize(queue, size);
         }
 
-        /// Resize multivector.
+        /// Resizes the multivector.
+        /**
+         * Uses the most recently created VexCL context.
+         * This is equivalent to reconstructing the vector with the given
+         * parameters.  Any data contained in the resized vector will be lost
+         * as a result.
+         */
         void resize(size_t size) {
             for(unsigned i = 0; i < N; i++) vec[i].resize(size);
         }
 
-        /// Fills multivector with zeros.
+        /// Fills the multivector with zeros.
         void clear() {
             *this = static_cast<T>(0);
         }
 
-        /// Return size of a multivector (equals size of individual components).
+        /// Returns size of the multivector (equals size of individual components).
         size_t size() const {
             return vec[0].size();
         }
 
-        /// Returns multivector component.
+        /// Returns i-th multivector component.
         const vex::vector<T>& operator()(size_t i) const {
             return vec[i];
         }
 
-        /// Returns multivector component.
+        /// Returns i-th multivector component.
         vex::vector<T>& operator()(size_t i) {
             return vec[i];
         }
 
-        /// Const iterator to beginning.
+        /// Returns const iterator to the first element of the multivector.
         const_iterator begin() const {
             return const_iterator(*this, 0);
         }
 
-        /// Iterator to beginning.
+        /// Returns const iterator to the first element of the multivector.
         iterator begin() {
             return iterator(*this, 0);
         }
 
-        /// Const iterator to end.
+        /// Returns const iterator referring to the past-the-end element in the multivector.
         const_iterator end() const {
             return const_iterator(*this, size());
         }
 
-        /// Iterator to end.
+        /// Returns iterator referring to the past-the-end element in the multivector.
         iterator end() {
             return iterator(*this, size());
         }
 
-        /// Returns elements of all vectors, packed in std::array.
+        /// Returns i-th elements of all components packed in a std::array<T,N>.
         const_element operator[](size_t i) const {
             return const_element(*this, i);
         }
 
-        /// Assigns elements of all vectors to a std::array value.
+        /// Assigns values from std::array<T,N> to i-th elements of all components.
         element operator[](size_t i) {
             return element(*this, i);
         }
 
-        /// Return reference to multivector's queue list
+        /// Returns reference to the multivector's queue list.
         const std::vector<backend::command_queue>& queue_list() const {
             return vec[0].queue_list();
         }
 
-        /// Assignment to a multivector.
+        /// Assignment operator
         const multivector& operator=(const multivector &mv) {
             if (this != &mv)
                 detail::assign_multiexpression<assign::SET>(
@@ -379,14 +372,16 @@ class multivector : public multivector_terminal_expression {
         }
 
 #define VEXCL_ASSIGNMENT(op, op_type)                                          \
+  /** Assignment operator */                                                   \
   template <class Expr>                                                        \
-  typename std::enable_if<                                                     \
-      boost::proto::matches<                                                   \
-          typename boost::proto::result_of::as_expr<Expr>::type,               \
-          multivector_expr_grammar>::value ||                                  \
-          is_tuple<Expr>::value,                                               \
-      const multivector &>::type                                               \
-  operator op(const Expr &expr) {                                              \
+  auto operator op(const Expr &expr) ->                                        \
+      typename std::enable_if<                                                 \
+          boost::proto::matches<                                               \
+              typename boost::proto::result_of::as_expr<Expr>::type,           \
+              multivector_expr_grammar>::value ||                              \
+              is_tuple<Expr>::value,                                           \
+          const multivector &>::type                                           \
+  {                                                                            \
     detail::assign_multiexpression<op_type>(*this, expr, vec[0].queue_list(),  \
                                        vec[0].partition());                    \
     return *this;                                                              \

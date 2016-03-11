@@ -43,7 +43,7 @@ THE SOFTWARE.
 
 namespace vex {
 
-/// Summation. Should be used as a template parameter for Reductor class.
+/// Summation.
 struct SUM {
     // In order to define a reduction kind for vex::Reductor, one should define
     // a struct like the following:
@@ -79,7 +79,7 @@ struct SUM {
  */
 struct SUM_Kahan : SUM {};
 
-/// Maximum element. Should be used as a template parameter for Reductor class.
+/// Maximum element.
 struct MAX {
     template <class T>
     struct impl {
@@ -103,7 +103,7 @@ struct MAX {
     };
 };
 
-/// Minimum element. Should be used as a template parameter for Reductor class.
+/// Minimum element.
 struct MIN {
     template <class T>
     struct impl {
@@ -128,6 +128,7 @@ struct MIN {
 };
 
 #ifndef BOOST_NO_VARIADIC_TEMPLATES
+/// Combines several reduce operations.
 template <class... R>
 struct CombineReductors {
     template <class T>
@@ -273,6 +274,7 @@ struct CombineReductors {
     };
 };
 
+/// Combined MIN and MAX operation.
 typedef CombineReductors<MIN, MAX> MIN_MAX;
 #endif
 
@@ -296,15 +298,12 @@ class Reductor {
 
         /// Compute reduction of a vector expression.
         template <class Expr>
-#ifdef DOXYGEN
-        result_type
-#else
-        typename std::enable_if<
-            boost::proto::matches<Expr, vector_expr_grammar>::value,
-            result_type
-        >::type
-#endif
-        operator()(const Expr &expr) const {
+        auto operator()(const Expr &expr) const ->
+            typename std::enable_if<
+                boost::proto::matches<Expr, vector_expr_grammar>::value,
+                result_type
+            >::type
+        {
             using namespace detail;
 
             static kernel_cache cache;

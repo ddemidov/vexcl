@@ -41,8 +41,6 @@ namespace vex {
 namespace backend {
 namespace compute {
 
-/// \cond INTERNAL
-
 /// An abstraction over OpenCL compute kernel.
 class kernel {
     public:
@@ -192,8 +190,6 @@ class kernel {
         backend::ndrange w_size;
         backend::ndrange g_size;
 };
-
-/// \endcond
 
 } // namespace compute
 } // namespace backend

@@ -709,10 +709,10 @@ void scan_by_key(
 } // namespace sbk
 } // namespace detail
 
-/// Exclusive scan by key algorithm.
-template<class KTuple, typename V, class Comp, class Oper>
+/// Exclusive scan by key.
+template<class K, typename V, class Comp, class Oper>
 void exclusive_scan_by_key(
-        KTuple &&keys, const vector<V> &ivals, vector<V> &ovals,
+        K &&keys, const vector<V> &ivals, vector<V> &ovals,
         Comp comp, Oper oper, V init = V()
         )
 {
@@ -721,10 +721,10 @@ void exclusive_scan_by_key(
             );
 }
 
-/// Inclusive scan by key algorithm.
-template<class KTuple, typename V, class Comp, class Oper>
+/// Inclusive scan by key.
+template<class K, typename V, class Comp, class Oper>
 void inclusive_scan_by_key(
-        KTuple &&keys, const vector<V> &ivals, vector<V> &ovals,
+        K &&keys, const vector<V> &ivals, vector<V> &ovals,
         Comp comp, Oper oper, V init = V()
         )
 {
@@ -733,7 +733,7 @@ void inclusive_scan_by_key(
             );
 }
 
-/// Exclusive scan by key algorithm.
+/// Exclusive scan by key.
 template<typename K, typename V>
 void exclusive_scan_by_key(
         const vector<K> &keys, const vector<V> &ivals, vector<V> &ovals,
@@ -745,7 +745,7 @@ void exclusive_scan_by_key(
     return exclusive_scan_by_key(keys, ivals, ovals, equal, plus, init);
 }
 
-/// Inclusive scan by key algorithm.
+/// Inclusive scan by key.
 template<typename K, typename V>
 void inclusive_scan_by_key(
         const vector<K> &keys, const vector<V> &ivals, vector<V> &ovals,

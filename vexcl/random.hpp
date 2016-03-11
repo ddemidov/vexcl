@@ -39,23 +39,24 @@ THE SOFTWARE.
 
 namespace vex {
 
-/// A random generator.
+/// Returns uniformly distributed random numbers.
 /**
  * For integral types, generated values span the complete range.
- * For floating point types, generated values are >= 0 and <= 1.
+ *
+ * For floating point types, generated values are in \f$[0,1]\f$.
  *
  * Uses Random123 generators which provide 64(2x32), 128(4x32, 2x64)
  * and 256(4x64) random bits, this limits the supported output types,
  * which means `cl_double8` (512bit) is not supported, but `cl_uchar2` is.
  *
- \code
- Random<cl_int> rand();
- // Generate numbers from the same sequence
- output1 = rand(element_index(), seed1);
- output2 = rand(element_index(output1.size()), seed1);
- // Generate a new sequence
- output3 = rand(element_index(), seed2);
- \endcode
+ * Supported generator families are ``random::philox`` (based on integer
+ * multiplication, default) and ``random::threefry`` (based on the Threefish
+ * encryption function). Both satisfy rigorous statistical testing (passing
+ * BigCrush in TestU01), vectorize and parallelize well (each generator can
+ * produce at least \f$2^{64}\f$ independent streams), have long periods (the
+ * period of each stream is at least \f$2^{128}\f$), require little or no
+ * memory or state, and have excellent performance (a few clock cycles per byte
+ * of random output).
  */
 template <class T, class Generator = random::philox>
 struct Random : UserFunction<Random<T, Generator>, T(cl_ulong, cl_ulong)> {
@@ -151,13 +152,8 @@ struct Random : UserFunction<Random<T, Generator>, T(cl_ulong, cl_ulong)> {
 };
 
 
-/// Returns normal distributed random numbers.
-/**
- \code
- RandomNormal<cl_double2> rand();
- output = mean + std_deviation * rand(element_index(), seed);
- \endcode
- */
+/// Returns normally distributed random numbers.
+/** Uses Box-Muller transform. */
 template <class T, class Generator = random::philox>
 struct RandomNormal : UserFunction<RandomNormal<T,Generator>, T(cl_ulong, cl_ulong)> {
     typedef typename cl_scalar_of<T>::type Ts;

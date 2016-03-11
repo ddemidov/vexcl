@@ -42,8 +42,6 @@ namespace vex {
 namespace backend {
 namespace opencl {
 
-/// \cond INTERNAL
-
 template <typename T>
 struct kernel_arg_pusher {
     static void set(cl::Kernel &k, unsigned argpos, const T &arg) {
@@ -219,8 +217,6 @@ class kernel {
         backend::ndrange w_size;
         backend::ndrange g_size;
 };
-
-/// \endcond
 
 } // namespace opencl
 } // namespace backend

@@ -57,7 +57,6 @@ THE SOFTWARE.
 /// Vector expression template library for OpenCL.
 namespace vex {
 
-/// \cond INTERNAL
 //---------------------------------------------------------------------------
 // Assignment operators.
 //---------------------------------------------------------------------------
@@ -2194,24 +2193,21 @@ struct expression_tuple {
 
     expression_tuple(const LHS &lhs) : lhs(lhs) {}
 
-#ifdef DOXYGEN
 #define VEXCL_ASSIGNMENT(cop, op)                                              \
   /** \brief Multiexpression assignment.                                       \
    \details All operations are delegated to components of the multivector.     \
    */                                                                          \
-  template <class RHS> expression_tuple &operator cop(const RHS & rhs);
-#else
-#define VEXCL_ASSIGNMENT(cop, op)                                              \
   template <class RHS>                                                         \
-          typename std::enable_if <                                            \
+  auto operator cop(const RHS & rhs) const ->                                  \
+      typename std::enable_if <                                                \
           boost::proto::matches<                                               \
               typename boost::proto::result_of::as_expr<RHS>::type,            \
               multivector_expr_grammar>::value || is_tuple<RHS>::value,        \
-      const expression_tuple & > ::type operator cop(const RHS & rhs) const {  \
+      const expression_tuple & > ::type                                        \
+  {                                                                            \
     detail::assign_multiexpression<op>(lhs, rhs);                              \
     return *this;                                                              \
   }
-#endif
 
     VEXCL_ASSIGNMENT(=,   assign::SET)
     VEXCL_ASSIGNMENT(+=,  assign::ADD)
@@ -2228,30 +2224,32 @@ struct expression_tuple {
 #undef VEXCL_ASSIGNMENT
 };
 
-/// \endcond
-
 #ifndef BOOST_NO_VARIADIC_TEMPLATES
-/// Ties several vector expressions into writeable tuple.
+/// Ties several vector expressions into a writeable tuple.
 /**
- * The following example results in a single kernel:
+ The following example results in a single kernel:
+
  \code
  vex::vector<double> x(ctx, 1024);
  vex::vector<double> y(ctx, 1024);
 
- vex::tie(x,y) = std::tie( x + y, y - x );
+ vex::tie(x,y) = std::make_tuple( x + y, y - x );
  \endcode
- * This is functionally equivalent to
+
+ This is functionally equivalent to the following code, 
+ but does not use temporary vectors and is more efficient:
+
  \code
  tmp_x = x + y;
  tmp_y = y - x;
  x = tmp_x;
  y = tmp_y;
  \endcode
- * but does not use temporaries and is more efficient.
  */
 template<class... Expr>
-expression_tuple< std::tuple<const Expr&...> >
-tie(const Expr&... expr) {
+auto tie(const Expr&... expr) ->
+    expression_tuple< std::tuple<const Expr&...> >
+{
     return expression_tuple< std::tuple<const Expr&...> >( std::tie(expr...) );
 }
 #else

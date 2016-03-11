@@ -120,7 +120,6 @@ namespace Filter {
     /// Selects accelerator devices
     const Type Accelerator(CL_DEVICE_TYPE_ACCELERATOR);
 
-    /// \cond INTERNAL
     struct DoublePrecisionFilter {
         bool operator()(const boost::compute::device &d) const {
             return
@@ -128,7 +127,6 @@ namespace Filter {
                 d.supports_extension("cl_amd_fp64");
         }
     };
-    /// \endcond
 
     /// Selects devices supporting double precision.
     const DoublePrecisionFilter DoublePrecision = {};
