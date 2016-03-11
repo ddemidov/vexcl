@@ -151,12 +151,13 @@ struct CombineReductors {
                     .template parameter<result_type>("a")
                     .template parameter<T>("b")
                     .close(")").open("{");
-                src.new_line() << "return (" << type_name<result_type>() << ")( ";
+                src.new_line() << type_name<result_type>() << " r = { ";
 
                 int pos = 0;
                 partial_reduce<R...>(src, pos);
 
-                src << ");";
+                src << "};";
+                src.new_line() << "return r;";
                 src.close("}");
             }
 
@@ -175,7 +176,7 @@ struct CombineReductors {
 
             template <class Head>
             static void partial_reduce(backend::source_generator &src, int &pos) {
-                src << Head::template impl<T>::device_in::name() << "(a.s" << pos << ", b) ";
+                src << Head::template impl<T>::device_in::name() << "(a." << vcmp(pos) << ", b) ";
                 pos++;
             }
 
@@ -183,7 +184,7 @@ struct CombineReductors {
             static
             typename std::enable_if<(sizeof...(Tail) > 0), void>::type
             partial_reduce(backend::source_generator &src, int &pos) {
-                src << Head::template impl<T>::device_in::name() << "(a.s" << pos << ", b), ";
+                src << Head::template impl<T>::device_in::name() << "(a." << vcmp(pos) << ", b), ";
                 pos++;
                 partial_reduce<Tail...>(src, pos);
             }
@@ -197,19 +198,20 @@ struct CombineReductors {
                     .template parameter<result_type>("a")
                     .template parameter<result_type>("b")
                     .close(")").open("{");
-                src.new_line() << "return (" << type_name<result_type>() << ")( ";
+                src.new_line() << type_name<result_type>() << " r = { ";
 
                 int pos = 0;
                 partial_reduce<R...>(src, pos);
 
-                src << ");";
+                src << "};";
+                src.new_line() << "return r;";
                 src.close("}");
             }
 
             template <class Head>
             static void partial_reduce(backend::source_generator &src, int &pos) {
                 src << Head::template impl<T>::device_out::name()
-                    << "(a.s" << pos << ", b.s" << pos << ") ";
+                    << "(a." << vcmp(pos) << ", b." << vcmp(pos) << ") ";
                 pos++;
             }
 
@@ -218,7 +220,7 @@ struct CombineReductors {
             typename std::enable_if<(sizeof...(Tail) > 0), void>::type
             partial_reduce(backend::source_generator &src, int &pos) {
                 src << Head::template impl<T>::device_out::name()
-                    << "(a.s" << pos << ", b.s" << pos << "), ";
+                    << "(a." << vcmp(pos) << ", b." << vcmp(pos) << "), ";
                 pos++;
                 partial_reduce<Tail...>(src, pos);
             }
@@ -254,6 +256,19 @@ struct CombineReductors {
             partial_reduce(T *ptr, const T *a, const T *b) const {
                 *ptr++ = typename Head::template impl<T>()(*a++, *b++);
                 partial_reduce<Tail...>(ptr, a, b);
+            }
+
+            static const char* vcmp(int i) {
+                static const char *cmp[] = {
+                    "x",   "y",   "z",   "w",
+                    // CUDA does not provide vector types of width more than 4,
+                    // so we can assume the rest is OpenCL-specific:
+                    "s4", "s5", "s6", "s7",
+                    "s8", "s9", "sa", "sb",
+                    "sc", "sd", "se", "sf"
+                };
+
+                return cmp[i];
             }
     };
 };
@@ -348,7 +363,7 @@ class Reductor {
                         kernel = cache.insert(queue[d], backend::kernel(
                                     queue[d], source.str(), "vexcl_reductor_kernel"));
                     } else {
-                        source.smem_declaration<ScalarType>();
+                        source.smem_declaration<result_type>();
                         source.new_line() << type_name< shared_ptr<result_type> >() << " sdata = smem;";
 
                         source.new_line() << "size_t tid = " << source.local_id(0) << ";";
@@ -475,6 +490,21 @@ class Reductor {
             assign_subexpressions<I + 1, N, Expr>(result, expr);
         }
 
+        template <typename result_type>
+        static typename std::enable_if<cl_vector_length<result_type>::value == 1, void>::type
+        initial_value(backend::source_generator &src, result_type initial) {
+            src.new_line() << type_name<result_type>() << " mySum = " << initial << ";";
+        }
+
+        template <typename result_type>
+        static typename std::enable_if<(cl_vector_length<result_type>::value > 1), void>::type
+        initial_value(backend::source_generator &src, result_type initial) {
+            src.new_line() << type_name<result_type>() << " mySum = {" << initial.s[0];
+            for(int i = 1; i < cl_vector_length<result_type>::value; ++i)
+                src << ", " << initial.s[i];
+            src << "};";
+        }
+
         template <class Expr, class OP>
         struct local_sum {
             static void get(const backend::command_queue &q, const Expr &expr,
@@ -485,9 +515,8 @@ class Reductor {
                 typedef typename OP::template impl<ScalarType>::device_in fun;
                 result_type initial = OP::template impl<ScalarType>::initial();
 
-                source.new_line()
-                    << type_name<result_type>() << " mySum = ("
-                    << type_name<result_type>() << ")" << initial << ";";
+                initial_value(source, initial);
+
                 source.grid_stride_loop().open("{");
 
                 output_local_preamble loc_init(source, q, "prm", empty_state());
