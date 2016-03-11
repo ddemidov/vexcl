@@ -26,10 +26,10 @@ for backend in OpenCL Compute; do
 done
 
 # Run tests for CUDA backend built with every possible compiler:
-for dir in build-cu-*; do
+for dir in build-cuda-*; do
     echo
     echo "----------------------------------------------------------------------"
-    echo "CUDA backend; Test=${dir}"
+    echo "Backend=CUDA Test=${dir}"
     echo "----------------------------------------------------------------------"
     echo
     ninja -C ${dir}
