@@ -1,5 +1,0 @@
-<map id="vexcl/fft/kernels.hpp" name="vexcl/fft/kernels.hpp">
-<area shape="rect" id="node2" href="$plan_8hpp.html" title="FFT plan, stores kernels and buffers for one configuration. " alt="" coords="14,80,133,107"/>
-<area shape="rect" id="node3" href="$fft_8hpp.html" title="Fast Fourier Transformation. " alt="" coords="28,155,119,181"/>
-<area shape="rect" id="node4" href="$vexcl_8hpp.html" title="Vector expression template library for OpenCL. " alt="" coords="19,229,128,256"/>
-</map>

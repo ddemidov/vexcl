@@ -1,7 +1,0 @@
-<map id="vexcl/vector_view.hpp" name="vexcl/vector_view.hpp">
-<area shape="rect" id="node2" href="$gather_8hpp.html" title="Gather scattered points from OpenCL device vector. " alt="" coords="5,80,120,107"/>
-<area shape="rect" id="node3" href="$vexcl_8hpp.html" title="Vector expression template library for OpenCL. " alt="" coords="233,155,343,181"/>
-<area shape="rect" id="node4" href="$multi__array_8hpp.html" title="An analog of boost::multi_array. " alt="" coords="195,80,338,107"/>
-<area shape="rect" id="node5" href="$spmat_8hpp.html" title="OpenCL sparse matrix. " alt="" coords="362,80,478,107"/>
-<area shape="rect" id="node6" href="$tensordot_8hpp.html" title="Tensor dot product along specified axes for multidimensional arrays. " alt="" coords="502,80,637,107"/>
-</map>
