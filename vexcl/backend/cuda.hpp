@@ -44,5 +44,6 @@ THE SOFTWARE.
 #include <vexcl/backend/cuda/source.hpp>
 #include <vexcl/backend/cuda/compiler.hpp>
 #include <vexcl/backend/cuda/kernel.hpp>
+#include <vexcl/backend/cuda/event.hpp>
 
 #endif
