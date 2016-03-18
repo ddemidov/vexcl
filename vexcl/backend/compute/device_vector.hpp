@@ -131,6 +131,18 @@ class device_vector {
                     );
         }
 
+        mapped_array map(boost::compute::command_queue q) const {
+            return mapped_array(
+                    static_cast<T*>(
+                        q.enqueue_map_buffer(
+                            buffer, CL_MAP_READ,
+                            0, size() * sizeof(T)
+                            )
+                        ),
+                    buffer_unmapper(q, buffer)
+                    );
+        }
+
         cl_mem raw() const {
             return buffer.get();
         }

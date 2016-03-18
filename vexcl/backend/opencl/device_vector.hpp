@@ -116,6 +116,18 @@ class device_vector {
                     );
         }
 
+        mapped_array map(const cl::CommandQueue &q) const {
+            return mapped_array(
+                    static_cast<T*>(
+                        q.enqueueMapBuffer(
+                            buffer, CL_TRUE, CL_MAP_READ,
+                            0, size() * sizeof(T)
+                            )
+                        ),
+                    buffer_unmapper(q, buffer)
+                    );
+        }
+
         cl_mem raw() const {
             return buffer();
         }

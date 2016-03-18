@@ -626,6 +626,15 @@ class vector : public vector_terminal_expression {
             return buf[d].map(queue[d]);
         }
 
+        /// Maps vector part located on the given device to a host array.
+        /**
+         * This returns a smart pointer that will be unmapped automatically
+         * upon destruction */
+        typename backend::device_vector<T>::mapped_array
+        map(unsigned d = 0) const {
+            return buf[d].map(queue[d]);
+        }
+
         /// Copy assignment
         const vector& operator=(const vector &x) {
             if (&x != this)
@@ -1007,19 +1016,21 @@ std::ostream &operator<<(std::ostream &o, const vex::vector<T> &t) {
     boost::io::ios_all_saver stream_state(o);
     const size_t chunk = std::is_integral<T>::value ? 10 : 5;
 
-    std::vector<T> data(t.size());
-    copy(t, data);
-
     o << "{" << std::setprecision(6);
-    for(size_t i = 0 ; i < data.size() ; i++) {
-        if (i % chunk == 0) o << "\n" << std::setw(6) << i << ":";
+    for(unsigned p = 0; p < t.nparts(); ++p) {
+        size_t ps = t.part_size(p);
+        auto ptr = t.map(p);
 
-        if (std::is_integral<T>::value)
-            o << " " << std::setw(6) << data[i];
-        else if (std::is_arithmetic<T>::value)
-            o << std::scientific << std::setw(14) << data[i];
-        else
-            o << " " << data[i];
+        for(size_t i = t.part_start(p), j = 0; j < ps; ++j, ++i) {
+            if (i % chunk == 0) o << "\n" << std::setw(6) << i << ":";
+
+            if (std::is_integral<T>::value)
+                o << " " << std::setw(6) << ptr[j];
+            else if (std::is_arithmetic<T>::value)
+                o << std::scientific << std::setw(14) << ptr[j];
+            else
+                o << " " << ptr[j];
+        }
     }
     return o << "\n}\n";
 }

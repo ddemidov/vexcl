@@ -171,6 +171,12 @@ class device_vector {
             return ptr;
         }
 
+        mapped_array map(const command_queue &q) const {
+            mapped_array ptr(new T[n], buffer_unmapper(q, *this));
+            read(q, 0, n, ptr.get(), true);
+            return ptr;
+        }
+
         /// Returns raw CUdeviceptr handle.
         CUdeviceptr raw() const {
             return static_cast<CUdeviceptr>(reinterpret_cast<size_t>(buffer.get()));
