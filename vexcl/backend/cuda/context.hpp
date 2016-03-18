@@ -101,6 +101,9 @@ class device {
         /// Returns raw CUdevice handle.
         CUdevice raw() const { return d; }
 
+        /// Returns raw CUdevice handle.
+        operator CUdevice() const { return d; }
+
         /// Returns name of the device.
         std::string name() const {
             char name[256];
@@ -166,6 +169,11 @@ class context {
             return c.get();
         }
 
+        /// Returns raw CUcontext handle.
+        operator CUcontext() const {
+            return c.get();
+        }
+
         /// Binds the context to the calling CPU thread.
         void set_current() const {
             cuda_check( cuCtxSetCurrent( c.get() ) );
@@ -223,6 +231,12 @@ class command_queue {
         CUstream raw() const {
             return s.get();
         }
+
+        /// Returns raw CUstream handle for the command queue.
+        operator CUstream() const {
+            return s.get();
+        }
+
     private:
         vex::backend::context  ctx;
         vex::backend::device   dev;
