@@ -1021,7 +1021,7 @@ void copy(std::vector<backend::command_queue> &q,
 
 /// Copy device vector to device vector.
 template <class T>
-void copy(vex::vector<T> &src, vex::vector<T> &dst) {
+void copy(const vex::vector<T> &src, vex::vector<T> &dst) {
     dst = src;
 }
 
