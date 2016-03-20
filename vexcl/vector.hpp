@@ -796,6 +796,37 @@ class vector : public vector_terminal_expression {
                 }
         }
 
+        // Copy data from host buffer to device(s).
+        void write_data(size_t offset, size_t size, const T *hostptr,
+                bool blocking, std::vector<backend::command_queue> &q)
+        {
+            precondition(q.size() == queue.size(), "The queue list has wrong size");
+
+            if (!size) return;
+
+            for(unsigned d = 0; d < q.size(); d++) {
+                precondition(
+                        backend::get_context_id(q[d]) == backend::get_context_id(queue[d]),
+                        "Wrong context!"
+                        );
+
+                size_t start = std::max(offset,        part[d]);
+                size_t stop  = std::min(offset + size, part[d + 1]);
+
+                if (stop <= start) continue;
+
+                buf[d].write(q[d], start - part[d], stop - start, hostptr + start - offset);
+            }
+
+            if (blocking)
+                for(size_t d = 0; d < q.size(); d++) {
+                    size_t start = std::max(offset,        part[d]);
+                    size_t stop  = std::min(offset + size, part[d + 1]);
+
+                    if (start < stop) q[d].finish();
+                }
+        }
+
         // Copy data from device(s) to host buffer .
         void read_data(size_t offset, size_t size, T *hostptr, bool blocking) const
         {
@@ -816,6 +847,38 @@ class vector : public vector_terminal_expression {
                     size_t stop  = std::min(offset + size, part[d + 1]);
 
                     if (start < stop) queue[d].finish();
+                }
+        }
+
+        // Copy data from device(s) to host buffer .
+        void read_data(size_t offset, size_t size, T *hostptr,
+                bool blocking, std::vector<backend::command_queue> &q
+                ) const
+        {
+            precondition(q.size() == queue.size(), "The queue list has wrong size");
+
+            if (!size) return;
+
+            for(unsigned d = 0; d < q.size(); d++) {
+                precondition(
+                        backend::get_context_id(q[d]) == backend::get_context_id(queue[d]),
+                        "Wrong context!"
+                        );
+
+                size_t start = std::max(offset,        part[d]);
+                size_t stop  = std::min(offset + size, part[d + 1]);
+
+                if (stop <= start) continue;
+
+                buf[d].read(q[d], start - part[d], stop - start, hostptr + start - offset);
+            }
+
+            if (blocking)
+                for(unsigned d = 0; d < q.size(); d++) {
+                    size_t start = std::max(offset,        part[d]);
+                    size_t stop  = std::min(offset + size, part[d + 1]);
+
+                    if (start < stop) q[d].finish();
                 }
         }
 
@@ -924,9 +987,41 @@ void copy(const T *hv, vex::vector<T> &dv, bool blocking = true) {
     dv.write_data(0, dv.size(), hv, blocking);
 }
 
+/// Copy device vector to host vector.
+template <class T>
+void copy(std::vector<backend::command_queue> &q,
+        const vex::vector<T> &dv, std::vector<T> &hv, bool blocking = true)
+{
+    dv.read_data(0, dv.size(), hv.data(), blocking, q);
+}
+
+/// Copy device vector to host pointer.
+template <class T>
+void copy(std::vector<backend::command_queue> &q,
+        const vex::vector<T> &dv, T *hv, bool blocking = true)
+{
+    dv.read_data(0, dv.size(), hv, blocking, q);
+}
+
+/// Copy host vector to device vector.
+template <class T>
+void copy(std::vector<backend::command_queue> &q,
+        const std::vector<T> &hv, vex::vector<T> &dv, bool blocking = true)
+{
+    dv.write_data(0, dv.size(), hv.data(), blocking, q);
+}
+
+/// Copy host pointer to device vector.
+template <class T>
+void copy(std::vector<backend::command_queue> &q,
+        const T *hv, vex::vector<T> &dv, bool blocking = true)
+{
+    dv.write_data(0, dv.size(), hv, blocking, q);
+}
+
 /// Copy device vector to device vector.
 template <class T>
-void copy(const vex::vector<T> &src, vex::vector<T> &dst) {
+void copy(vex::vector<T> &src, vex::vector<T> &dst) {
     dst = src;
 }
 
@@ -961,7 +1056,7 @@ copy(InputIterator first, InputIterator last,
 }
 
 /// Copy range from host vector to device vector.
-template<class InputIterator, class OutputIterator>
+template <class InputIterator, class OutputIterator>
 #ifdef DOXYGEN
 OutputIterator
 #else
@@ -979,6 +1074,52 @@ copy(InputIterator first, InputIterator last,
         OutputIterator result, bool blocking = true)
 {
     result.vec->write_data(result.pos, last - first, &first[0], blocking);
+    return result + (last - first);
+}
+
+/// Copy range from device vector to host vector.
+template<class InputIterator, class OutputIterator>
+#ifdef DOXYGEN
+OutputIterator
+#else
+typename std::enable_if<
+    std::is_same<
+        typename std::iterator_traits<InputIterator>::value_type,
+        typename std::iterator_traits<OutputIterator>::value_type
+        >::value &&
+    stored_on_device<InputIterator>::value &&
+    !stored_on_device<OutputIterator>::value,
+    OutputIterator
+    >::type
+#endif
+copy(std::vector<backend::command_queue> &q,
+        InputIterator first, InputIterator last,
+        OutputIterator result, bool blocking = true)
+{
+    first.vec->read_data(first.pos, last - first, &result[0], blocking, q);
+    return result + (last - first);
+}
+
+/// Copy range from host vector to device vector.
+template <class InputIterator, class OutputIterator>
+#ifdef DOXYGEN
+OutputIterator
+#else
+typename std::enable_if<
+    std::is_same<
+        typename std::iterator_traits<InputIterator>::value_type,
+        typename std::iterator_traits<OutputIterator>::value_type
+        >::value &&
+    !stored_on_device<InputIterator>::value &&
+    stored_on_device<OutputIterator>::value,
+    OutputIterator
+    >::type
+#endif
+copy(std::vector<backend::command_queue> &q,
+        InputIterator first, InputIterator last,
+        OutputIterator result, bool blocking = true)
+{
+    result.vec->write_data(result.pos, last - first, &first[0], blocking, q);
     return result + (last - first);
 }
 
