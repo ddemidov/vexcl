@@ -60,6 +60,7 @@ THE SOFTWARE.
 #include <vexcl/profiler.hpp>
 #include <vexcl/function.hpp>
 #include <vexcl/logical.hpp>
+#include <vexcl/enqueue.hpp>
 
 #ifndef VEXCL_BACKEND_CUDA
 #include <vexcl/constant_address_space.hpp>
