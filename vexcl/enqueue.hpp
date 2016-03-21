@@ -75,6 +75,49 @@ struct enqueue_vector_impl {
 #undef VEXCL_ASSIGNMENT
 };
 
+
+template <class LHS>
+struct enqueue_multiex_impl {
+    LHS &lhs;
+
+    std::vector<backend::command_queue> q;
+    std::vector<size_t> p;
+
+    enqueue_multiex_impl(LHS &lhs, const std::vector<backend::command_queue> &q)
+        : lhs(lhs), q(q)
+    {
+        detail::get_expression_properties prop;
+        detail::extract_terminals()(detail::subexpression<0>::get(lhs), prop);
+
+        p = prop.part;
+    }
+
+#ifdef DOXYGEN
+#define VEXCL_ASSIGNMENT(op, op_type)                                          \
+    /** Expression assignment operator. */                                     \
+    template <class RHS> const LHS& operator op(const RHS &rhs);
+#else
+#define VEXCL_ASSIGNMENT(op, op_type)                                          \
+    template <class RHS>                                                       \
+    auto operator op(const RHS &rhs) ->                                        \
+        typename std::enable_if<                                               \
+            boost::proto::matches<                                             \
+                typename boost::proto::result_of::as_expr<RHS>::type,          \
+                multivector_expr_grammar>::value || is_tuple<LHS>::value,      \
+            const LHS&>::type                                                  \
+    {                                                                          \
+        detail::assign_multiexpression<op_type>(lhs, rhs, q, p);                    \
+        return lhs;                                                            \
+    }
+#endif
+
+    VEXCL_ASSIGNMENTS(VEXCL_ASSIGNMENT)
+
+#undef VEXCL_ASSIGNMENT
+};
+
+
+
 /// Assignment operation proxy.
 /**
  * Allows to explicitly specify the command queue to use for the assignment
@@ -88,6 +131,17 @@ auto enqueue(const std::vector<backend::command_queue> &q, LHS &lhs) ->
         enqueue_vector_impl<LHS> >::type
 {
     return enqueue_vector_impl<LHS>(lhs, q);
+}
+
+template <class LHS>
+auto enqueue(const std::vector<backend::command_queue> &q, LHS &lhs) ->
+    typename std::enable_if<
+        boost::proto::matches<
+            typename boost::proto::result_of::as_expr<LHS>::type,
+            multivector_expr_grammar>::value || is_tuple<LHS>::value,
+        enqueue_multiex_impl<LHS> >::type
+{
+    return enqueue_multiex_impl<LHS>(lhs, q);
 }
 
 } // namespace vex
