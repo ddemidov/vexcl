@@ -42,7 +42,7 @@ namespace backend {
 namespace cuda {
 
 /// Create and build a program from source string.
-inline CUmodule build_sources(
+inline vex::backend::program build_sources(
         const command_queue &queue, const std::string &source,
         const std::string &options = ""
         )
@@ -108,10 +108,10 @@ inline CUmodule build_sources(
     }
 
     // Load the compiled ptx.
-    CUmodule program;
-    cuda_check( cuModuleLoad(&program, ptxfile.c_str()) );
+    CUmodule prg;
+    cuda_check( cuModuleLoad(&prg, ptxfile.c_str()) );
 
-    return program;
+    return program(queue.context(), prg);
 }
 
 } // namespace cuda

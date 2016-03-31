@@ -54,7 +54,7 @@ class kernel {
     public:
         kernel() : argpos(0), w_size(0), g_size(0) {}
 
-        /// Constructor. Creates a cl::Kernel instance from source.
+        /// Constructor. Creates a backend::kernel instance from source.
         kernel(const cl::CommandQueue &queue,
                const std::string &src,
                const std::string &name,
@@ -67,13 +67,37 @@ class kernel {
                     [smem_per_thread](size_t wgs){ return wgs * smem_per_thread; });
         }
 
-        /// Constructor. Creates a cl::Kernel instance from source.
+        /// Constructor. Creates a backend::kernel instance from source.
         kernel(const cl::CommandQueue &queue,
                const std::string &src, const std::string &name,
                std::function<size_t(size_t)> smem,
                const std::string &options = ""
                )
             : argpos(0), K(build_sources(queue, src, options), name.c_str())
+        {
+            config(queue, smem);
+        }
+
+        /// Constructor. Extracts a backend::kernel instance from backend::program.
+        kernel(const cl::CommandQueue &queue,
+               const cl::Program &program,
+               const std::string &name,
+               size_t smem_per_thread = 0,
+               const std::string &options = ""
+               )
+            : argpos(0), K(program, name.c_str())
+        {
+            config(queue,
+                    [smem_per_thread](size_t wgs){ return wgs * smem_per_thread; });
+        }
+
+        /// Constructor. Extracts a backend::kernel instance from backend::program.
+        kernel(const cl::CommandQueue &queue, const cl::Program &program,
+               const std::string &name,
+               std::function<size_t(size_t)> smem,
+               const std::string &options = ""
+               )
+            : argpos(0), K(program, name.c_str())
         {
             config(queue, smem);
         }

@@ -46,34 +46,58 @@ class kernel {
     public:
         kernel() : w_size(0), g_size(0), smem(0) {}
 
-        /// Constructor. Creates a cl::Kernel instance from source.
+        /// Constructor. Creates a backend::kernel instance from source.
         kernel(const command_queue &queue,
                const std::string &src,
                const std::string &name,
                size_t smem_per_thread = 0,
                const std::string &options = ""
                )
-            : ctx(queue.context()),
-              module(build_sources(queue, src, options), detail::deleter(queue.context().raw())),
-              smem(0)
+            : ctx(queue.context()), P(build_sources(queue, src, options)), smem(0)
         {
-            cuda_check( cuModuleGetFunction(&K, module.get(), name.c_str()) );
+            cuda_check( cuModuleGetFunction(&K, P.raw(), name.c_str()) );
 
             config(queue,
                     [smem_per_thread](size_t wgs){ return wgs * smem_per_thread; });
         }
 
-        /// Constructor. Creates a cl::Kernel instance from source.
+        /// Constructor. Creates a backend::kernel instance from source.
         kernel(const command_queue &queue,
                const std::string &src, const std::string &name,
                std::function<size_t(size_t)> smem,
                const std::string &options = ""
                )
-            : ctx(queue.context()),
-              module(build_sources(queue, src, options), detail::deleter(queue.context().raw())),
-              smem(0)
+            : ctx(queue.context()), P(build_sources(queue, src, options)), smem(0)
         {
-            cuda_check( cuModuleGetFunction(&K, module.get(), name.c_str()) );
+            cuda_check( cuModuleGetFunction(&K, P.raw(), name.c_str()) );
+            config(queue, smem);
+        }
+
+        /// Constructor. Extracts a backend::kernel instance from backend::program.
+        kernel(const command_queue &queue,
+               const program &P,
+               const std::string &name,
+               size_t smem_per_thread = 0,
+               const std::string &options = ""
+               )
+            : ctx(queue.context()), P(P), smem(0)
+        {
+            cuda_check( cuModuleGetFunction(&K, P.raw(), name.c_str()) );
+
+            config(queue,
+                    [smem_per_thread](size_t wgs){ return wgs * smem_per_thread; });
+        }
+
+        /// Constructor. Extracts a backend::kernel instance from backend::program.
+        kernel(const command_queue &queue,
+               const program &P,
+               const std::string &name,
+               std::function<size_t(size_t)> smem,
+               const std::string &options = ""
+               )
+            : ctx(queue.context()), P(P), smem(0)
+        {
+            cuda_check( cuModuleGetFunction(&K, P.raw(), name.c_str()) );
             config(queue, smem);
         }
 
@@ -186,7 +210,7 @@ class kernel {
         CUfunction get() const { return K; }
     private:
         context ctx;
-        std::shared_ptr< std::remove_pointer<CUmodule>::type > module;
+        program P;
         CUfunction K;
 
         ndrange  w_size;

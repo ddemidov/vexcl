@@ -45,6 +45,7 @@ namespace opencl {
 
 typedef cl::Context                 context;
 typedef cl::Device                  device;
+typedef cl::Program                 program;
 typedef cl::CommandQueue            command_queue;
 typedef cl_command_queue_properties command_queue_properties;
 typedef cl_device_id                device_id;

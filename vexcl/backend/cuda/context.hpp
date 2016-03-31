@@ -253,6 +253,27 @@ class command_queue {
         }
 };
 
+/// CUmodule wrapper.
+struct program {
+    public:
+        program() {}
+
+        program(vex::backend::context c, CUmodule m)
+            : c(c), m(m, detail::deleter(c.raw()))
+        {}
+
+        CUmodule raw() const {
+            return m.get();
+        }
+
+        operator CUmodule() const {
+            return m.get();
+        }
+    private:
+        vex::backend::context  c;
+        std::shared_ptr<std::remove_pointer<CUmodule>::type> m;
+};
+
 /// Binds the specified CUDA context to the calling CPU thread.
 inline void select_context(const command_queue &q) {
     q.context().set_current();

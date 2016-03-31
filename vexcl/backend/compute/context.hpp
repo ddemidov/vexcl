@@ -44,6 +44,7 @@ namespace compute {
 
 typedef boost::compute::context       context;
 typedef boost::compute::device        device;
+typedef boost::compute::program       program;
 typedef boost::compute::command_queue command_queue;
 typedef cl_command_queue_properties   command_queue_properties;
 typedef cl_device_id                  device_id;
