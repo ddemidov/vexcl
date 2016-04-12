@@ -77,8 +77,7 @@ class kernel {
         kernel(const command_queue &queue,
                const program &P,
                const std::string &name,
-               size_t smem_per_thread = 0,
-               const std::string &options = ""
+               size_t smem_per_thread = 0
                )
             : ctx(queue.context()), P(P), smem(0)
         {
@@ -92,8 +91,7 @@ class kernel {
         kernel(const command_queue &queue,
                const program &P,
                const std::string &name,
-               std::function<size_t(size_t)> smem,
-               const std::string &options = ""
+               std::function<size_t(size_t)> smem
                )
             : ctx(queue.context()), P(P), smem(0)
         {

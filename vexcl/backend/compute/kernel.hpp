@@ -74,8 +74,7 @@ class kernel {
         kernel(const boost::compute::command_queue &queue,
                const boost::compute::program &program,
                const std::string &name,
-               size_t smem_per_thread = 0,
-               const std::string &options = ""
+               size_t smem_per_thread = 0
                )
             : argpos(0), K(program, name)
         {
@@ -87,8 +86,7 @@ class kernel {
         kernel(const boost::compute::command_queue &queue,
                 const boost::compute::program &program,
                const std::string &name,
-               std::function<size_t(size_t)> smem,
-               const std::string &options = ""
+               std::function<size_t(size_t)> smem
                )
             : argpos(0), K(program, name)
         {

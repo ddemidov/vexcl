@@ -82,8 +82,7 @@ class kernel {
         kernel(const cl::CommandQueue &queue,
                const cl::Program &program,
                const std::string &name,
-               size_t smem_per_thread = 0,
-               const std::string &options = ""
+               size_t smem_per_thread = 0
                )
             : argpos(0), K(program, name.c_str())
         {
@@ -94,8 +93,7 @@ class kernel {
         /// Constructor. Extracts a backend::kernel instance from backend::program.
         kernel(const cl::CommandQueue &queue, const cl::Program &program,
                const std::string &name,
-               std::function<size_t(size_t)> smem,
-               const std::string &options = ""
+               std::function<size_t(size_t)> smem
                )
             : argpos(0), K(program, name.c_str())
         {
