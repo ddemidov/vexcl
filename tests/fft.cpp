@@ -1,5 +1,6 @@
 #define BOOST_TEST_MODULE FastFourierTransform
 #include <boost/test/unit_test.hpp>
+#include <boost/foreach.hpp>
 #include <vexcl/vector.hpp>
 #include <vexcl/fft.hpp>
 #include <vexcl/random.hpp>
@@ -113,6 +114,14 @@ BOOST_AUTO_TEST_CASE(test_dimensions)
     const size_t max = 1 << 12;
 
     vex::fft::planner p;
+
+    BOOST_FOREACH(size_t d, vex::fft::supported_kernel_sizes()) {
+        size_t batch = random_dim(5, 100);
+
+        std::vector<size_t> n;
+        n.push_back(d);
+        test(ctx, n, batch);
+    }
 
     for(size_t i = 0; i < 100; ++i) {
         // random number of dimensions, mostly 1.
