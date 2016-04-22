@@ -32,7 +32,7 @@ THE SOFTWARE.
  */
 
 #include <vexcl/backend/opencl/defines.hpp>
-#include <CL/cl2.hpp>
+#include <CL/cl.hpp>
 
 namespace vex {
 namespace backend {

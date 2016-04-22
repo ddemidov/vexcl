@@ -11,7 +11,7 @@ for backend in OpenCL Compute; do
     for dir in build-${backend,,}-*; do
         ninja -C ${dir}
 
-        platforms=$(${dir}/examples/devlist | grep CL_PLATFORM_NAME | sed 's/.*= \(\w*\).*/\1/' | sort -u)
+        platforms=$(${dir}/examples/devlist | grep -a CL_PLATFORM_NAME | sed 's/.*= \(\w*\).*/\1/' | sort -u)
 
         # and run the tests for each OpenCL platform:
         for platform in ${platforms}; do
