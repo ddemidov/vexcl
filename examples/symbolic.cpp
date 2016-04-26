@@ -61,11 +61,11 @@ int main( int argc , char **argv )
     vex::generator::set_recorder(body);
 
     // State types that would become kernel parameters:
-    sym_state sym_S = {{
-        sym_value::VectorParameter,
-        sym_value::VectorParameter,
-        sym_value::VectorParameter
-    }};
+    sym_state sym_S = {
+        sym_value(sym_value::VectorParameter),
+        sym_value(sym_value::VectorParameter),
+        sym_value(sym_value::VectorParameter)
+    };
 
     // Const kernel parameter.
     sym_value sym_R(sym_value::VectorParameter, sym_value::Const);
