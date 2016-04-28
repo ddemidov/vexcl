@@ -1,6 +1,6 @@
 # VexCL
 
-[<img src="http://readthedocs.org/projects/vexcl/badge/?version=latest" alt="Documentation" />](http://vexcl.readthedocs.org/en/latest/?badge=latest)
+[<img src="http://readthedocs.io/projects/vexcl/badge/?version=latest" alt="Documentation" />](http://vexcl.readthedocs.io/en/latest/?badge=latest)
 [<img src="https://travis-ci.org/ddemidov/vexcl.svg?branch=master" alt="g++ Build Status" />](https://travis-ci.org/ddemidov/vexcl)
 [<img src="https://ci.appveyor.com/api/projects/status/nmky93cldeywgru7/branch/master?svg=true" alt="Visual Studio Build Status"/>](https://ci.appveyor.com/project/ddemidov/vexcl/branch/master)
 [<img src="http://codecov.io/github/ddemidov/vexcl/coverage.svg?branch=master" alt="Coverage Status" />](http://codecov.io/github/ddemidov/vexcl?branch=master)
@@ -15,4 +15,4 @@ matrix-vectork products, etc. Multi-device and even multi-platform computations
 are supported. The source code of the library is distributed under very
 permissive MIT license.
 
-See VexCL documentation at http://vexcl.readthedocs.org/
+See VexCL documentation at http://vexcl.readthedocs.io/
