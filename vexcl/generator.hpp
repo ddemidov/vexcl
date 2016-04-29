@@ -446,19 +446,9 @@ class symbolic
         std::string init() const {
             std::ostringstream s;
 
-            if (scope != LocalVar) {
-                s << "\t\t" << type_name<T>() << " " << *this << " = p_" << *this;
-
-                switch (scope) {
-                    case VectorParameter:
-                        s << "[idx];\n";
-                        break;
-                    case ScalarParameter:
-                        s << ";\n";
-                        break;
-                    case LocalVar:
-                        break;
-                }
+            if (scope == VectorParameter) {
+                s << "\t\t" << type_name<T>() << " " << *this
+                    << " = p_" << *this << "[idx];\n";
             }
 
             return s.str();
@@ -482,11 +472,11 @@ class symbolic
                 s << "const ";
 
             if (scope == VectorParameter)
-                s << type_name< global_ptr<T> >();
+                s << type_name< global_ptr<T> >() << " p_";
             else
-                s << type_name< T >();
+                s << type_name< T >() << " ";
 
-            s << " p_" << *this;
+            s << *this;
 
             return s.str();
         }
