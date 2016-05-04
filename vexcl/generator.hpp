@@ -233,6 +233,8 @@ struct symbolic_context {
     VEXCL_UNARY_PRE_OPERATION(logical_not,  !);
     VEXCL_UNARY_PRE_OPERATION(pre_inc,     ++);
     VEXCL_UNARY_PRE_OPERATION(pre_dec,     --);
+    VEXCL_UNARY_PRE_OPERATION(address_of,   &);
+    VEXCL_UNARY_PRE_OPERATION(dereference,  *);
 
 #undef VEXCL_UNARY_PRE_OPERATION
 
