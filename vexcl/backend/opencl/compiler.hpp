@@ -85,7 +85,7 @@ inline boost::optional<cl::Program> load_program_binaries(
     bfile.read(buf.data(), n);
 
     cl::Program program(context, device, cl::Program::Binaries(
- -                1, std::make_pair(static_cast<const void*>(buf.data()), n)));
+                 1, std::make_pair(static_cast<const void*>(buf.data()), n)));
 
     try {
         program.build(device, options.c_str());
@@ -159,7 +159,7 @@ inline cl::Program build_sources(
             return *program;
     } catch (...) {
         // Shit happens.
-        std::cerr << "Shit happened" << std::endl;
+        std::cerr << "Failed to load precompiled binaries" << std::endl;
     }
 #endif
 
