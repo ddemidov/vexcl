@@ -1,5 +1,5 @@
-#ifndef VEXCL_BACKEND_OPENCL_HPP
-#define VEXCL_BACKEND_OPENCL_HPP
+#ifndef VEXCL_BACKEND_OPENCL_IMAGE_HPP
+#define VEXCL_BACKEND_OPENCL_IMAGE_HPP
 
 /*
 The MIT License
@@ -26,26 +26,32 @@ THE SOFTWARE.
 */
 
 /**
- * \file   vexcl/backend/opencl.hpp
+ * \file   vexcl/backend/opencl/image.hpp
  * \author Denis Demidov <dennis.demidov@gmail.com>
- * \brief  OpenCL backend for compute kernel generation/compilation/launching.
+ * \brief  Allow using OpenCL images in vector expressions.
  */
 
-#ifndef VEXCL_BACKEND_OPENCL
-#  define VEXCL_BACKEND_OPENCL
-#endif
-
+#include <vexcl/operations.hpp>
 #include <vexcl/backend/opencl/defines.hpp>
 #include <CL/cl.hpp>
 
-#include <vexcl/backend/opencl/error.hpp>
-#include <vexcl/backend/opencl/context.hpp>
-#include <vexcl/backend/opencl/filter.hpp>
-#include <vexcl/backend/opencl/device_vector.hpp>
-#include <vexcl/backend/opencl/source.hpp>
-#include <vexcl/backend/opencl/compiler.hpp>
-#include <vexcl/backend/opencl/kernel.hpp>
-#include <vexcl/backend/opencl/event.hpp>
-#include <vexcl/backend/opencl/image.hpp>
+namespace vex {
+
+#define VEXCL_ENABLE_CL_IMAGE(dim)                                             \
+namespace traits {                                                             \
+    template <>                                                                \
+    struct is_vector_expr_terminal<cl::Image ## dim ## D> : std::true_type {}; \
+}                                                                              \
+template <> struct type_name_impl<cl::Image ## dim ## D> {                     \
+    static std::string get() { return "image" #dim "d_t"; }                    \
+}
+
+VEXCL_ENABLE_CL_IMAGE(1);
+VEXCL_ENABLE_CL_IMAGE(2);
+VEXCL_ENABLE_CL_IMAGE(3);
+
+#undef VEXCL_ENABLE_CL_IMAGE
+
+} // namespace vex
 
 #endif

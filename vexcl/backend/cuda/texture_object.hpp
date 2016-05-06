@@ -1,5 +1,5 @@
-#ifndef VEXCL_BACKEND_OPENCL_HPP
-#define VEXCL_BACKEND_OPENCL_HPP
+#ifndef VEXCL_BACKEND_CUDA_TEXTURE_OBJECT_HPP
+#define VEXCL_BACKEND_CUDA_TEXTURE_OBJECT_HPP
 
 /*
 The MIT License
@@ -26,26 +26,27 @@ THE SOFTWARE.
 */
 
 /**
- * \file   vexcl/backend/opencl.hpp
+ * \file   vexcl/backend/cuda/texture_object.hpp
  * \author Denis Demidov <dennis.demidov@gmail.com>
- * \brief  OpenCL backend for compute kernel generation/compilation/launching.
+ * \brief  Allow using OpenCL images in vector expressions.
  */
 
-#ifndef VEXCL_BACKEND_OPENCL
-#  define VEXCL_BACKEND_OPENCL
-#endif
+#include <vexcl/operations.hpp>
+#include <vexcl/backend/cuda/context.hpp>
+#include <cuda.h>
 
-#include <vexcl/backend/opencl/defines.hpp>
-#include <CL/cl.hpp>
+namespace vex {
 
-#include <vexcl/backend/opencl/error.hpp>
-#include <vexcl/backend/opencl/context.hpp>
-#include <vexcl/backend/opencl/filter.hpp>
-#include <vexcl/backend/opencl/device_vector.hpp>
-#include <vexcl/backend/opencl/source.hpp>
-#include <vexcl/backend/opencl/compiler.hpp>
-#include <vexcl/backend/opencl/kernel.hpp>
-#include <vexcl/backend/opencl/event.hpp>
-#include <vexcl/backend/opencl/image.hpp>
+namespace traits {                                                             \
+template <> struct is_vector_expr_terminal<CUtexObject> : std::true_type {};
+}
+
+template <> struct type_name_impl<CUtexObject> {
+    static std::string get() { return "cudaTextureObject_t"; }
+};
+
+} // namespace vex
+
+
 
 #endif
