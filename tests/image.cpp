@@ -3,6 +3,7 @@
 #include <vexcl/vector.hpp>
 #include <vexcl/function.hpp>
 #include <vexcl/element_index.hpp>
+#include <vexcl/image.hpp>
 #include "context_setup.hpp"
 
 #if defined(VEXCL_BACKEND_OPENCL)

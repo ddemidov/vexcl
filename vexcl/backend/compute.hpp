@@ -56,6 +56,5 @@ namespace vex {
 #include <vexcl/backend/compute/compiler.hpp>
 #include <vexcl/backend/compute/kernel.hpp>
 #include <vexcl/backend/compute/event.hpp>
-#include <vexcl/backend/compute/image.hpp>
 
 #endif

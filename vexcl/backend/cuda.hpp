@@ -45,6 +45,5 @@ THE SOFTWARE.
 #include <vexcl/backend/cuda/compiler.hpp>
 #include <vexcl/backend/cuda/kernel.hpp>
 #include <vexcl/backend/cuda/event.hpp>
-#include <vexcl/backend/cuda/texture_object.hpp>
 
 #endif
