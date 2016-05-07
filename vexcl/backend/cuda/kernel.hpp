@@ -137,8 +137,7 @@ class kernel {
                         )
                     );
 
-            stack.clear();
-            prm_pos.clear();
+            reset();
         }
 
 #ifndef BOOST_NO_VARIADIC_TEMPLATES
@@ -206,6 +205,12 @@ class kernel {
 
         /// Get the underlying CUfunction
         CUfunction get() const { return K; }
+
+        /// Reset argument counter.
+        void reset() {
+            stack.clear();
+            prm_pos.clear();
+        }
     private:
         context ctx;
         program P;

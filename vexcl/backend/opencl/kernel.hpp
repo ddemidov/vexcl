@@ -231,6 +231,11 @@ class kernel {
         /// Get reference to the underlying object.
         const cl::Kernel& get() const { return K; }
         cl::Kernel& get() { return K; }
+
+        /// Reset argument counter.
+        void reset() {
+            argpos = 0;
+        }
     private:
         unsigned argpos;
 

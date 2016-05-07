@@ -206,6 +206,11 @@ class kernel {
         /// Get reference to the underlying object.
         const boost::compute::kernel& get() const { return K; }
         boost::compute::kernel& get() { return K; }
+
+        /// Reset argument counter.
+        void reset() {
+            argpos = 0;
+        }
     private:
         unsigned argpos;
 
