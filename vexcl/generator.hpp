@@ -508,13 +508,17 @@ class kernel {
                 const std::vector<backend::command_queue> &queue,
                 const std::string &name
               ) : queue(queue), name(name), psize(queue.size(), 0)
-        {}
+        {
+            prm_decl.reset(new std::ostringstream);
+            prm_read.reset(new std::ostringstream);
+            prm_save.reset(new std::ostringstream);
+        }
 
         template <class SymVar>
         void add_param(const SymVar &var) {
-            prm_decl << "\t" << var.prmdecl() << ",\n";
-            prm_read << var.init();
-            prm_save << var.write();
+            *prm_decl << "\t" << var.prmdecl() << ",\n";
+            *prm_read << var.init();
+            *prm_save << var.write();
         }
 
         void build(const std::string &body) {
@@ -525,11 +529,11 @@ class kernel {
 
                 source.kernel(name).open("(");
 
-                source << prm_decl.str() << "\t" << type_name<size_t>() << " n";
+                source << prm_decl->str() << "\t" << type_name<size_t>() << " n";
 
                 source.close(")").open("{").grid_stride_loop().open("{");
 
-                source.new_line() << prm_read.str() << body << prm_save.str();
+                source.new_line() << prm_read->str() << body << prm_save->str();
 
                 source.close("}").close("}");
 
@@ -610,7 +614,7 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_FUNCALL_OPERATOR, ~)
         std::vector<backend::command_queue> queue;
         std::string name;
         std::vector<size_t> psize;
-        std::ostringstream prm_decl, prm_read, prm_save;
+        std::unique_ptr<std::ostringstream> prm_decl, prm_read, prm_save;
         std::map<vex::backend::context_id, vex::backend::kernel> cache;
 
         struct push_args {
