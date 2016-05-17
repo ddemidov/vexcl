@@ -577,10 +577,10 @@ class kernel {
 
 #ifndef BOOST_NO_VARIADIC_TEMPLATES
         /// Launches the kernel with the provided parameters.
-        template <class... Param>
-        void operator()(const Param&... param) {
-            boost::fusion::for_each(boost::fusion::vector_tie(param...), push_args(*this));
-            (*this)();
+        template <class Head, class... Tail>
+        void operator()(const Head &head, const Tail&... tail) {
+            push_arg(head);
+            (*this)(tail...);
         }
 #else
 
@@ -600,16 +600,13 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_FUNCALL_OPERATOR, ~)
 
 #endif
 
-        struct add_params {
-            kernel &K;
+        static void add_params(kernel &K) {}
 
-            add_params(kernel &K) : K(K) {}
-
-            template <class T>
-            void operator()(const T &v) const {
-                K.add_param(v);
-            }
-        };
+        template <class Head, class... Tail>
+        static void add_params(kernel &K, const Head &head, const Tail&... tail) {
+            K.add_param(head);
+            add_params(K, tail...);
+        }
     private:
         std::vector<backend::command_queue> queue;
         std::string name;
@@ -674,10 +671,7 @@ kernel build_kernel(
         )
 {
     kernel K(queue, name);
-    boost::fusion::for_each(
-            boost::fusion::vector_tie(args...),
-            kernel::add_params(K)
-            );
+    kernel::add_params(K, args...);
     K.build(body);
     return K;
 }

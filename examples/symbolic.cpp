@@ -89,6 +89,8 @@ int main( int argc , char **argv )
     sym_stepper.do_step(std::ref(sys), sym_S, 0, dt);
 
     auto kernel = vex::generator::build_kernel(ctx, "lorenz", body.str(),
+            sym_S[0], sym_S[1], sym_S[2], sym_R,
+            sym_S[0], sym_S[1], sym_S[2], sym_R,
             sym_S[0], sym_S[1], sym_S[2], sym_R
             );
 
@@ -109,7 +111,11 @@ int main( int argc , char **argv )
 
     // Integration loop:
     for(value_type t = 0; t < t_max; t += dt)
-        kernel(X, Y, Z, R);
+        kernel(
+                X, Y, Z, R,
+                X, Y, Z, R,
+                X, Y, Z, R
+                );
 
     std::vector< value_type > result( n );
     vex::copy( X , result );
