@@ -6,6 +6,50 @@
 #include <vexcl/image.hpp>
 #include "context_setup.hpp"
 
+#if defined(VEXCL_BACKEND_CUDA)
+BOOST_AUTO_TEST_CASE(image1d)
+{
+    if (!vex::Filter::CC(3, 0)(ctx.device(0))) return;
+
+    VEX_FUNCTION(float, imread, (CUtexObject, tex)(int, i),
+            return tex1Dfetch<float>(tex, i);
+            );
+
+    std::vector<vex::backend::command_queue> q1(1, ctx.queue(0));
+
+    const int n = 1024;
+    const int m = 16;
+
+    vex::vector<float> imdata(q1, m);
+    imdata = 42;
+
+    CUDA_RESOURCE_DESC res_desc; memset(&res_desc, 0, sizeof(res_desc));
+
+    res_desc.resType = CU_RESOURCE_TYPE_LINEAR;
+    res_desc.res.linear.devPtr = imdata(0).raw();
+    res_desc.res.linear.format = CU_AD_FORMAT_FLOAT;
+    res_desc.res.linear.numChannels = 1;
+    res_desc.res.linear.sizeInBytes = m * sizeof(float);
+
+    CUDA_TEXTURE_DESC tex_desc; memset(&tex_desc, 0, sizeof(tex_desc));
+
+    CUtexObject tex;
+    cuTexObjectCreate(&tex, &res_desc, &tex_desc, NULL);
+
+    vex::vector<int> p(q1, n);
+    p = vex::element_index() % m;
+
+    vex::vector<float> x(q1, n);
+
+    x = imread(tex, p);
+
+    check_sample(x, [](size_t, float a) {
+            BOOST_CHECK_EQUAL(a, 42);
+            });
+
+    cuTexObjectDestroy(tex);
+}
+#elif defined(CL_VERSION_1_2)
 #if defined(VEXCL_BACKEND_OPENCL)
 BOOST_AUTO_TEST_CASE(image1d)
 {
@@ -105,49 +149,7 @@ BOOST_AUTO_TEST_CASE(image1d)
             BOOST_CHECK_EQUAL(a.s[3], 3);
             });
 }
-#elif defined(VEXCL_BACKEND_CUDA)
-BOOST_AUTO_TEST_CASE(image1d)
-{
-    if (!vex::Filter::CC(3, 0)(ctx.device(0))) return;
-
-    VEX_FUNCTION(float, imread, (CUtexObject, tex)(int, i),
-            return tex1Dfetch<float>(tex, i);
-            );
-
-    std::vector<vex::backend::command_queue> q1(1, ctx.queue(0));
-
-    const int n = 1024;
-    const int m = 16;
-
-    vex::vector<float> imdata(q1, m);
-    imdata = 42;
-
-    CUDA_RESOURCE_DESC res_desc; memset(&res_desc, 0, sizeof(res_desc));
-
-    res_desc.resType = CU_RESOURCE_TYPE_LINEAR;
-    res_desc.res.linear.devPtr = imdata(0).raw();
-    res_desc.res.linear.format = CU_AD_FORMAT_FLOAT;
-    res_desc.res.linear.numChannels = 1;
-    res_desc.res.linear.sizeInBytes = m * sizeof(float);
-
-    CUDA_TEXTURE_DESC tex_desc; memset(&tex_desc, 0, sizeof(tex_desc));
-
-    CUtexObject tex;
-    cuTexObjectCreate(&tex, &res_desc, &tex_desc, NULL);
-
-    vex::vector<int> p(q1, n);
-    p = vex::element_index() % m;
-
-    vex::vector<float> x(q1, n);
-
-    x = imread(tex, p);
-
-    check_sample(x, [](size_t, float a) {
-            BOOST_CHECK_EQUAL(a, 42);
-            });
-
-    cuTexObjectDestroy(tex);
-}
+#endif
 #endif
 
 BOOST_AUTO_TEST_SUITE_END()

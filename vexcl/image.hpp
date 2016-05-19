@@ -33,10 +33,12 @@ THE SOFTWARE.
 
 #if defined(VEXCL_BACKEND_CUDA)
 #  include <vexcl/backend/cuda/texture_object.hpp>
-#elif defined(VEXCL_BACKEND_COMPUTE)
-#  include <vexcl/backend/compute/image.hpp>
-#else // either defined(VEXCL_BACKEND_OPENCL) or by default
-#  include <vexcl/backend/opencl/image.hpp>
+#elif defined (CL_VERSION_1_2)
+#  if defined(VEXCL_BACKEND_COMPUTE)
+#    include <vexcl/backend/compute/image.hpp>
+#  else // either defined(VEXCL_BACKEND_OPENCL) or by default
+#    include <vexcl/backend/opencl/image.hpp>
+#  endif
 #endif
 
 #endif
