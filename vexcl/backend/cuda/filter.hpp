@@ -43,6 +43,17 @@ namespace vex {
 
 /// Device filters.
 namespace Filter {
+    /// Dummy filter, returns true or false for any device
+    struct DummyFilter {
+        bool v;
+        DummyFilter(bool v) : v(v) {}
+        bool operator()(const backend::device &d) const { return v; }
+    };
+
+    /// Any device on CUDA backend is a GPU:
+    const DummyFilter GPU(true);
+    const DummyFilter CPU(false);
+    const DummyFilter Accelerator(false);
 
     /// Selects devices whose names match given value.
     struct Name {
