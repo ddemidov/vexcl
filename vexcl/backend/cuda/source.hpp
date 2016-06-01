@@ -237,7 +237,7 @@ class source_generator {
     private:
         template <class T>
         friend inline
-        source_generator& operator<<(source_generator &src, T &&t) {
+        source_generator& operator<<(source_generator &src, const T &t) {
             src.src << t;
             return src;
         }
