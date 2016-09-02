@@ -134,6 +134,23 @@ inline void pop_compile_options(const std::vector<backend::command_queue> &queue
         device_options<compile_options>::pop(*q);
 }
 
+/// Pushes compile options on construction, pops them on destruction
+struct scoped_compile_options {
+    const std::vector<backend::command_queue> &q;
+
+    scoped_compile_options(
+            const std::vector<backend::command_queue> &q,
+            const std::string &str
+            ) : q(q)
+    {
+        push_compile_options(q, str);
+    }
+
+    ~scoped_compile_options() {
+        pop_compile_options(q);
+    }
+};
+
 /// Set global OpenCL program header for each device in queue list.
 inline void push_program_header(const std::vector<backend::command_queue> &queue, const std::string &str) {
     for(auto q = queue.begin(); q != queue.end(); ++q)
@@ -145,6 +162,23 @@ inline void pop_program_header(const std::vector<backend::command_queue> &queue)
     for(auto q = queue.begin(); q != queue.end(); ++q)
         device_options<program_header>::pop(*q);
 }
+
+/// Pushes program header on construction, pops it on destruction
+struct scoped_program_header {
+    const std::vector<backend::command_queue> &q;
+
+    scoped_program_header(
+            const std::vector<backend::command_queue> &q,
+            const std::string &str
+            ) : q(q)
+    {
+        push_program_header(q, str);
+    }
+
+    ~scoped_program_header() {
+        pop_program_header(q);
+    }
+};
 
 /// Path delimiter symbol.
 inline const std::string& path_delim() {
