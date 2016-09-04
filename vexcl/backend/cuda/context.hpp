@@ -282,6 +282,11 @@ inline void select_context(const command_queue &q) {
 /// Raw device handle.
 typedef CUdevice  device_id;
 
+/// Returns device associated with the given queue.
+inline device get_device(const command_queue &q) {
+    return q.device();
+}
+
 /// Returns id of the device associated with the given queue.
 inline device_id get_device_id(const command_queue &q) {
     return q.device().raw();

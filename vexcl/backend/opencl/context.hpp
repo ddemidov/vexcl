@@ -59,6 +59,11 @@ typedef cl::NDRange                 ndrange;
 inline void select_context(const command_queue&) {
 }
 
+/// Returns device associated with the given queue.
+inline device get_device(const command_queue &q) {
+    return q.getInfo<CL_QUEUE_DEVICE>();
+}
+
 /// Returns id of the device associated with the given queue.
 inline device_id get_device_id(const command_queue &q) {
     return q.getInfo<CL_QUEUE_DEVICE>()();
