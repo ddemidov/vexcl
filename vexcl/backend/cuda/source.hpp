@@ -114,10 +114,11 @@ class source_generator {
     public:
         source_generator() : indent(0), first_prm(true), cpu(false) { }
 
-        source_generator(const command_queue &queue)
+        source_generator(const command_queue &queue, bool include_standard_header = true)
             : indent(0), first_prm(true)
         {
-            src << standard_kernel_header(queue);
+            if (include_standard_header)
+                src << standard_kernel_header(queue);
         }
 
         source_generator& new_line() {
