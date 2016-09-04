@@ -67,7 +67,7 @@ class ell {
             std::vector<Ptr> _csr_ptr(n+1);
             _csr_ptr[0] = 0;
             for(size_t i = 0; i < n; ++i) {
-                Ptr w = ptr[i+1] - ptr[i];
+                size_t w = ptr[i+1] - ptr[i];
                 _csr_ptr[i+1] = _csr_ptr[i] + (w > ell_width ? w - ell_width : 0);
             }
             csr_nnz = _csr_ptr[n];
@@ -79,9 +79,9 @@ class ell {
             std::vector<Val> _csr_val(csr_nnz);
 
             for(size_t i = 0; i < n; ++i) {
-                for(Ptr j = ptr[i], e = ptr[i+1], w = 0, csr_head = _csr_ptr[i];
-                        j < e; ++j, ++w)
-                {
+                size_t w = 0;
+                Ptr csr_head = _csr_ptr[i];
+                for(Ptr j = ptr[i], e = ptr[i+1]; j < e; ++j, ++w) {
                     Col c = col[j];
                     Val v = val[j];
 
