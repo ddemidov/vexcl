@@ -176,11 +176,15 @@ class source_generator {
             return *this;
         }
 
+        source_generator& function(const std::string &return_type, const std::string &name) {
+            first_prm = true;
+            new_line() << return_type << " " << name;
+            return *this;
+        }
+
         template <class Return>
         source_generator& function(const std::string &name) {
-            first_prm = true;
-            new_line() << type_name<Return>() << " " << name;
-            return *this;
+            return function(type_name<Return>(), name);
         }
 
         source_generator& kernel(const std::string &name) {
