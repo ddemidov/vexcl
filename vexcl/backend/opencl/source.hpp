@@ -193,12 +193,14 @@ class source_generator {
             return *this;
         }
 
+        source_generator& parameter(const std::string &prm_type, const std::string &name) {
+            prm_separator().new_line() << prm_type << " " << name;
+            return *this;
+        }
+
         template <class Prm>
         source_generator& parameter(const std::string &name) {
-            prm_separator().new_line() <<
-                type_name<typename std::decay<Prm>::type>() << " " << name;
-
-            return *this;
+            return parameter(type_name<typename std::decay<Prm>::type>(), name);
         }
 
         template <class Prm>
