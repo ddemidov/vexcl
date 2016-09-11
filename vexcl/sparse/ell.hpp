@@ -27,14 +27,13 @@ class ell {
         template <class PtrRange, class ColRange, class ValRange>
         ell(
                 const std::vector<backend::command_queue> &q,
+                size_t nrows, size_t ncols,
                 const PtrRange &ptr,
                 const ColRange &col,
                 const ValRange &val
            ) :
-            q(q[0]),
-            n(boost::size(ptr) - 1),
-            nnz(boost::size(val)),
-            ell_pitch(alignup(n, 16U))
+            q(q[0]), n(nrows), m(ncols), nnz(boost::size(val)),
+            ell_pitch(alignup(nrows, 16U))
         {
             precondition(q.size() == 1,
                     "sparse::ell is only supported for single-device contexts");
@@ -266,12 +265,12 @@ class ell {
         }
 
         size_t rows()     const { return n; }
-        size_t cols()     const { return n; }
+        size_t cols()     const { return m; }
         size_t nonzeros() const { return nnz; }
     private:
         backend::command_queue q;
 
-        size_t n, nnz, ell_width, csr_nnz, ell_pitch;
+        size_t n, m, nnz, ell_width, csr_nnz, ell_pitch;
 
         backend::device_vector<Col> ell_col;
         backend::device_vector<Val> ell_val;

@@ -21,11 +21,12 @@ class csr {
         template <class PtrRange, class ColRange, class ValRange>
         csr(
                 const std::vector<backend::command_queue> &q,
+                size_t nrows, size_t ncols,
                 const PtrRange &ptr,
                 const ColRange &col,
                 const ValRange &val
            )
-            : q(q[0]), n(boost::size(ptr) - 1), nnz(boost::size(val)),
+            : q(q[0]), n(nrows), m(ncols), nnz(boost::size(val)),
               ptr(q[0], boost::size(ptr), &ptr[0]),
               col(q[0], boost::size(col), &col[0]),
               val(q[0], boost::size(val), &val[0])
@@ -135,12 +136,12 @@ class csr {
         }
 
         size_t rows()     const { return n; }
-        size_t cols()     const { return n; }
+        size_t cols()     const { return m; }
         size_t nonzeros() const { return nnz; }
     private:
         backend::command_queue q;
 
-        size_t n, nnz;
+        size_t n, m, nnz;
 
         backend::device_vector<Ptr> ptr;
         backend::device_vector<Col> col;

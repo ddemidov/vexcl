@@ -20,7 +20,7 @@ BOOST_AUTO_TEST_CASE(csr)
 
     std::vector<double> x = random_vector<double>(n);
 
-    vex::sparse::csr<double> A(q, row, col, val);
+    vex::sparse::csr<double> A(q, n, n, row, col, val);
     vex::vector<double> X(q, x);
     vex::vector<double> Y(q, n);
 
@@ -49,7 +49,7 @@ BOOST_AUTO_TEST_CASE(ell)
 
     std::vector<double> x = random_vector<double>(n);
 
-    vex::sparse::ell<double> A(q, row, col, val);
+    vex::sparse::ell<double> A(q, n, n, row, col, val);
     vex::vector<double> X(q, x);
     vex::vector<double> Y(q, n);
 
