@@ -62,11 +62,11 @@ void inclusive_scan(const vex::vector<T> &src, vex::vector<T> &dst) {
             boost::compute::buffer sbuf( src(d).raw() );
             boost::compute::buffer dbuf( dst(d).raw() );
 
-            boost::compute::detail::scan(
+            boost::compute::inclusive_scan(
                     boost::compute::make_buffer_iterator<T>(sbuf, 0),
                     boost::compute::make_buffer_iterator<T>(sbuf, src.part_size(d)),
                     boost::compute::make_buffer_iterator<T>(dbuf, 0),
-                    false, q
+                    q
                     );
         }
     }
@@ -122,11 +122,11 @@ void exclusive_scan(const vex::vector<T> &src, vex::vector<T> &dst) {
             boost::compute::buffer sbuf( src(d).raw() );
             boost::compute::buffer dbuf( dst(d).raw() );
 
-            boost::compute::detail::scan(
+            boost::compute::exclusive_scan(
                     boost::compute::make_buffer_iterator<T>(sbuf, 0),
                     boost::compute::make_buffer_iterator<T>(sbuf, src.part_size(d)),
                     boost::compute::make_buffer_iterator<T>(dbuf, 0),
-                    true, q
+                    q
                     );
         }
     }
