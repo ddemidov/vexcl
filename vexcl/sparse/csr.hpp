@@ -18,6 +18,10 @@ class csr {
     public:
         typedef Val value_type;
 
+        typedef Val val_type;
+        typedef Col col_type;
+        typedef Ptr ptr_type;
+
         template <class PtrRange, class ColRange, class ValRange>
         csr(
                 const std::vector<backend::command_queue> &q,
@@ -35,6 +39,11 @@ class csr {
                     "sparse::csr is only supported for single-device contexts");
         }
 
+        // Dummy matrix; used internally to pass empty parameters to kernels.
+        csr(const backend::command_queue q)
+            : q(q), n(0), m(0), nnz(0)
+        {}
+
         template <class Expr>
         friend
         typename std::enable_if<
@@ -49,18 +58,18 @@ class csr {
         }
 
         template <class Vector>
-        void terminal_preamble(const Vector &x, backend::source_generator &src,
+        static void terminal_preamble(const Vector &x, backend::source_generator &src,
             const backend::command_queue &q, const std::string &prm_name,
-            detail::kernel_generator_state_ptr state) const
+            detail::kernel_generator_state_ptr state)
         {
             detail::output_terminal_preamble tp(src, q, prm_name + "_x", state);
             boost::proto::eval(boost::proto::as_child(x), tp);
         }
 
         template <class Vector>
-        void local_terminal_init(const Vector &x, backend::source_generator &src,
+        static void local_terminal_init(const Vector &x, backend::source_generator &src,
             const backend::command_queue &q, const std::string &prm_name,
-            detail::kernel_generator_state_ptr state) const
+            detail::kernel_generator_state_ptr state)
         {
             typedef typename detail::return_type<Vector>::type x_type;
             typedef decltype(std::declval<Val>() * std::declval<x_type>()) res_type;
@@ -91,9 +100,9 @@ class csr {
         }
 
         template <class Vector>
-        void kernel_param_declaration(const Vector &x, backend::source_generator &src,
+        static void kernel_param_declaration(const Vector &x, backend::source_generator &src,
             const backend::command_queue &q, const std::string &prm_name,
-            detail::kernel_generator_state_ptr state) const
+            detail::kernel_generator_state_ptr state)
         {
             src.parameter< global_ptr<Ptr> >(prm_name + "_ptr");
             src.parameter< global_ptr<Col> >(prm_name + "_col");
@@ -104,9 +113,9 @@ class csr {
         }
 
         template <class Vector>
-        void partial_vector_expr(const Vector &x, backend::source_generator &src,
+        static void partial_vector_expr(const Vector &x, backend::source_generator &src,
             const backend::command_queue&, const std::string &prm_name,
-            detail::kernel_generator_state_ptr) const
+            detail::kernel_generator_state_ptr)
         {
             src << prm_name << "_sum";
         }

@@ -24,6 +24,10 @@ class ell {
     public:
         typedef Val value_type;
 
+        typedef Val val_type;
+        typedef Col col_type;
+        typedef Ptr ptr_type;
+
         template <class PtrRange, class ColRange, class ValRange>
         ell(
                 const std::vector<backend::command_queue> &q,
@@ -107,6 +111,11 @@ class ell {
             }
         }
 
+        // Dummy matrix; used internally to pass empty parameters to kernels.
+        ell(backend::command_queue q)
+            : q(q), n(0), m(0), nnz(0), ell_width(0), ell_pitch(0), csr_nnz(0)
+        {}
+
         template <class Expr>
         friend
         typename std::enable_if<
@@ -121,18 +130,18 @@ class ell {
         }
 
         template <class Vector>
-        void terminal_preamble(const Vector &x, backend::source_generator &src,
+        static void terminal_preamble(const Vector &x, backend::source_generator &src,
             const backend::command_queue &q, const std::string &prm_name,
-            detail::kernel_generator_state_ptr state) const
+            detail::kernel_generator_state_ptr state)
         {
             detail::output_terminal_preamble tp(src, q, prm_name + "_x", state);
             boost::proto::eval(boost::proto::as_child(x), tp);
         }
 
         template <class Vector>
-        void local_terminal_init(const Vector &x, backend::source_generator &src,
+        static void local_terminal_init(const Vector &x, backend::source_generator &src,
             const backend::command_queue &q, const std::string &prm_name,
-            detail::kernel_generator_state_ptr state) const
+            detail::kernel_generator_state_ptr state)
         {
             typedef typename detail::return_type<Vector>::type x_type;
             typedef decltype(std::declval<Val>() * std::declval<x_type>()) res_type;
@@ -200,9 +209,9 @@ class ell {
         }
 
         template <class Vector>
-        void kernel_param_declaration(const Vector &x, backend::source_generator &src,
+        static void kernel_param_declaration(const Vector &x, backend::source_generator &src,
             const backend::command_queue &q, const std::string &prm_name,
-            detail::kernel_generator_state_ptr state) const
+            detail::kernel_generator_state_ptr state)
         {
             src.parameter< size_t >(prm_name + "_ell_width");
             src.parameter< size_t >(prm_name + "_ell_pitch");
@@ -218,9 +227,9 @@ class ell {
         }
 
         template <class Vector>
-        void partial_vector_expr(const Vector &x, backend::source_generator &src,
+        static void partial_vector_expr(const Vector &x, backend::source_generator &src,
             const backend::command_queue&, const std::string &prm_name,
-            detail::kernel_generator_state_ptr) const
+            detail::kernel_generator_state_ptr)
         {
             src << prm_name << "_sum";
         }
@@ -270,7 +279,7 @@ class ell {
     private:
         backend::command_queue q;
 
-        size_t n, m, nnz, ell_width, csr_nnz, ell_pitch;
+        size_t n, m, nnz, ell_width, ell_pitch, csr_nnz;
 
         backend::device_vector<Col> ell_col;
         backend::device_vector<Val> ell_val;

@@ -179,7 +179,10 @@ class device_vector {
 
         /// Returns raw CUdeviceptr handle.
         CUdeviceptr raw() const {
-            return static_cast<CUdeviceptr>(reinterpret_cast<size_t>(buffer.get()));
+            if (buffer)
+                return static_cast<CUdeviceptr>(reinterpret_cast<size_t>(buffer.get()));
+            else
+                return static_cast<CUdeviceptr>(0);
         }
 
         const T* raw_ptr() const {
