@@ -61,11 +61,12 @@ target_link_libraries(fft_benchmark ${FFT_BENCHMARK_LIBS})
 # Thrust interoperation examples
 #----------------------------------------------------------------------------
 if ("${VEXCL_BACKEND}" STREQUAL "CUDA")
+    set(CUDA_OPTIONS "-arch=sm_${CUDA_COMPUTE_CAPABILITY}")
     if (NOT WIN32)
 	set(CUDA_PROPAGATE_HOST_FLAGS OFF)
+        set(CUDA_OPTIONS "${CUDA_OPTIONS} -Xcompiler -std=c++03")
     endif()
-    set(CUDA_NVCC_FLAGS "-arch=sm_20")
-    cuda_add_executable(thrust-sort thrust-sort.cpp thrust-sort.cu)
+    cuda_add_executable(thrust-sort thrust-sort.cpp thrust-sort.cu OPTIONS ${CUDA_OPTIONS})
     target_link_libraries(thrust-sort ${Boost_LIBRARIES} ${BACKEND_LIBS})
 endif()
 

@@ -122,6 +122,7 @@ elseif ("${VEXCL_BACKEND}" STREQUAL "CUDA")
     include_directories( ${CUDA_INCLUDE_DIRS} )
     set(BACKEND_LIBS ${CUDA_CUDA_LIBRARY})
     add_definitions(-DVEXCL_BACKEND_CUDA)
+    set(CUDA_COMPUTE_CAPABILITY "35" CACHE STRING "CUDA Compute Capability")
 endif()
 
 #----------------------------------------------------------------------------
