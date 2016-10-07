@@ -22,7 +22,7 @@ if( NOT FFTW_ROOT AND ENV{FFTWDIR} )
 endif()
 
 # Check if we can use PkgConfig
-find_package(PkgConfig)
+find_package(PkgConfig QUIET)
 
 #Determine from PKG
 if( PKG_CONFIG_FOUND AND NOT FFTW_ROOT )
