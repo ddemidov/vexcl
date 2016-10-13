@@ -45,7 +45,7 @@ class distributed {
 #ifdef _OPENMP
 #  pragma omp parallel for schedule(static,1)
 #endif
-            for(size_t d = 0; d < q.size(); ++d) {
+            for(int d = 0; d < static_cast<int>(q.size()); ++d) {
                 size_t loc_rows = row_part[d+1] - row_part[d];
 
                 col_type col_beg = col_part[d];

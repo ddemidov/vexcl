@@ -112,7 +112,7 @@ class ell {
         }
 
         // Dummy matrix; used internally to pass empty parameters to kernels.
-        ell(backend::command_queue q)
+        ell(const backend::command_queue &q)
             : q(q), n(0), m(0), nnz(0), ell_width(0), ell_pitch(0), csr_nnz(0)
         {}
 

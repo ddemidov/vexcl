@@ -40,7 +40,7 @@ class csr {
         }
 
         // Dummy matrix; used internally to pass empty parameters to kernels.
-        csr(const backend::command_queue q)
+        csr(const backend::command_queue &q)
             : q(q), n(0), m(0), nnz(0)
         {}
 
