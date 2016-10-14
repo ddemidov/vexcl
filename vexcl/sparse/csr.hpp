@@ -80,6 +80,7 @@ class csr {
             src.new_line()
                 << type_name<res_type>() << " " << prm_name << "_sum = "
                 << res_type() << ";";
+            src.new_line() << "if (" << prm_name << "_ptr)";
             src.open("{");
             src.new_line() << type_name<Ptr>() << " row_beg = " << prm_name << "_ptr[idx];";
             src.new_line() << type_name<Ptr>() << " row_end = " << prm_name << "_ptr[idx+1];";
@@ -128,9 +129,15 @@ class csr {
             backend::kernel &kernel, unsigned part, size_t index_offset,
             detail::kernel_generator_state_ptr state) const
         {
-            kernel.push_arg(ptr);
-            kernel.push_arg(col);
-            kernel.push_arg(val);
+            if (nnz) {
+                kernel.push_arg(ptr);
+                kernel.push_arg(col);
+                kernel.push_arg(val);
+            } else {
+                kernel.push_arg(static_cast<size_t>(0));
+                kernel.push_arg(static_cast<size_t>(0));
+                kernel.push_arg(static_cast<size_t>(0));
+            }
 
             detail::set_expression_argument x_args(kernel, part, index_offset, state);
             detail::extract_terminals()( boost::proto::as_child(x), x_args);

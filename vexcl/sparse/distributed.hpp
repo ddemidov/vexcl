@@ -49,6 +49,8 @@ class distributed {
             for(int d = 0; d < static_cast<int>(q.size()); ++d) {
                 size_t loc_rows = row_part[d+1] - row_part[d];
 
+                if (!loc_rows) continue;
+
                 col_type col_beg = col_part[d];
                 col_type col_end = col_part[d+1];
 
@@ -116,9 +118,10 @@ class distributed {
                 // Create local and remote parts of the matrix on the current
                 // device.
                 std::vector<backend::command_queue> qd = {q[d]};
-                A_loc[d] = std::make_shared<Matrix>(
-                        qd, loc_rows, col_end - col_beg,
-                        loc_ptr, loc_col, loc_val, fast_setup);
+                if (loc_nnz)
+                    A_loc[d] = std::make_shared<Matrix>(
+                            qd, loc_rows, col_end - col_beg,
+                            loc_ptr, loc_col, loc_val, fast_setup);
 
                 if (nrcols)
                     A_rem[d] = std::make_shared<Matrix>(
@@ -169,6 +172,7 @@ class distributed {
             // See what elements of rem_vals each GPU needs to receive:
             for(size_t d = 0; d < q.size(); ++d) {
                 size_t nrecv = rcols[d].size();
+                if (!nrecv) continue;
 
                 ex[d].vals_to_recv.resize(nrecv);
                 ex[d].rem_x = backend::device_vector<rhs_type>(q[d], nrecv);
@@ -199,9 +203,11 @@ class distributed {
 
                 size_t nsend = rval_ptr[d+1] - rval_ptr[d];
 
-                ex[d].vals_to_send = backend::device_vector<rhs_type>(q[d], nsend);
-                ex[d].cols_to_send = backend::device_vector<col_type>(q[d], nsend,
-                        &rem_cols[rval_ptr[d]]);
+                if (nsend) {
+                    ex[d].vals_to_send = backend::device_vector<rhs_type>(q[d], nsend);
+                    ex[d].cols_to_send = backend::device_vector<col_type>(q[d], nsend,
+                            &rem_cols[rval_ptr[d]]);
+                }
             }
 
             rem_vals.resize(rem_cols.size());
@@ -273,7 +279,14 @@ class distributed {
             backend::kernel &kernel, unsigned part, size_t index_offset,
             detail::kernel_generator_state_ptr state) const
         {
-            A_loc[part]->kernel_arg_setter(x, kernel, part, index_offset, state);
+            if (A_loc[part]) {
+                A_loc[part]->kernel_arg_setter(x, kernel, part, index_offset, state);
+            } else {
+                Matrix dummy_A(q[part]);
+                backend::device_vector<rhs_type> dummy_x;
+                dummy_A.kernel_arg_setter(dummy_x, kernel, part, index_offset, state);
+            }
+
             if (A_rem[part]) {
                 A_rem[part]->kernel_arg_setter(ex[part].rem_x, kernel, part, index_offset, state);
             } else {
