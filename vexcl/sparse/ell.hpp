@@ -16,6 +16,15 @@
 #include <vexcl/tagged_terminal.hpp>
 #include <vexcl/reductor.hpp>
 
+#include <vexcl/reductor.hpp>
+#include <vexcl/vector_view.hpp>
+#include <vexcl/element_index.hpp>
+#include <vexcl/function.hpp>
+#include <vexcl/eval.hpp>
+#include <vexcl/vector_pointer.hpp>
+#include <vexcl/scan.hpp>
+#include <vexcl/sparse/csr.hpp>
+
 namespace vex {
 namespace sparse {
 
@@ -34,13 +43,19 @@ class ell {
                 size_t nrows, size_t ncols,
                 const PtrRange &ptr,
                 const ColRange &col,
-                const ValRange &val
+                const ValRange &val,
+                bool fast = true
            ) :
             q(q[0]), n(nrows), m(ncols), nnz(boost::size(val)),
-            ell_pitch(alignup(nrows, 16U))
+            ell_pitch(alignup(nrows, 16U)), csr_nnz(0)
         {
             precondition(q.size() == 1,
                     "sparse::ell is only supported for single-device contexts");
+
+            if (fast) {
+                convert(csr<Val,Col,Ptr>(q, nrows, ncols, ptr, col, val));
+                return;
+            }
 
             /* 1. Get optimal ELL widths for local and remote parts. */
             // Speed of ELL relative to CSR:
@@ -66,24 +81,43 @@ class ell {
                 }
             }
 
-            /* 2. Count nonzeros in CSR part of the matrix. */
-            std::vector<Ptr> _csr_ptr(n+1);
-            _csr_ptr[0] = 0;
-            for(size_t i = 0; i < n; ++i) {
-                size_t w = ptr[i+1] - ptr[i];
-                _csr_ptr[i+1] = _csr_ptr[i] + (w > ell_width ? w - ell_width : 0);
+            if (ell_width == 0) {
+                assert(csr_nnz == nnz);
+
+                csr_ptr = backend::device_vector<Col>(q[0], n + 1,   &ptr[0]);
+                csr_col = backend::device_vector<Col>(q[0], csr_nnz, &col[0]);
+                csr_val = backend::device_vector<Val>(q[0], csr_nnz, &val[0]);
+
+                return;
             }
-            csr_nnz = _csr_ptr[n];
+
+            // Count nonzeros in CSR part of the matrix.
+            for(size_t i = ell_width + 1; i <= max_width; ++i)
+                csr_nnz += hist[i] * (i - ell_width);
 
             /* 3. Split the input matrix into ELL and CSR submatrices. */
             std::vector<Col> _ell_col(ell_pitch * ell_width, static_cast<Col>(-1));
             std::vector<Val> _ell_val(ell_pitch * ell_width);
-            std::vector<Col> _csr_col(csr_nnz);
-            std::vector<Val> _csr_val(csr_nnz);
+            std::vector<Ptr> _csr_ptr;
+            std::vector<Col> _csr_col;
+            std::vector<Val> _csr_val;
+
+            if (csr_nnz) {
+                _csr_ptr.resize(n + 1);
+                _csr_col.resize(csr_nnz);
+                _csr_val.resize(csr_nnz);
+
+                _csr_ptr[0] = 0;
+                for(size_t i = 0; i < n; ++i) {
+                    size_t w = ptr[i+1] - ptr[i];
+                    _csr_ptr[i+1] = _csr_ptr[i] + (w > ell_width ? w - ell_width : 0);
+                }
+            }
+
 
             for(size_t i = 0; i < n; ++i) {
                 size_t w = 0;
-                Ptr csr_head = _csr_ptr[i];
+                Ptr csr_head = csr_nnz ? _csr_ptr[i] : 0;
                 for(Ptr j = ptr[i], e = ptr[i+1]; j < e; ++j, ++w) {
                     Col c = col[j];
                     Val v = val[j];
@@ -99,10 +133,8 @@ class ell {
                 }
             }
 
-            if (ell_width) {
-                ell_col = backend::device_vector<Col>(q[0], ell_pitch * ell_width, _ell_col.data());
-                ell_val = backend::device_vector<Val>(q[0], ell_pitch * ell_width, _ell_val.data());
-            }
+            ell_col = backend::device_vector<Col>(q[0], ell_pitch * ell_width, _ell_col.data());
+            ell_val = backend::device_vector<Val>(q[0], ell_pitch * ell_width, _ell_val.data());
 
             if (csr_nnz) {
                 csr_ptr = backend::device_vector<Col>(q[0], n + 1,   _csr_ptr.data());
@@ -287,6 +319,156 @@ class ell {
         backend::device_vector<Ptr> csr_ptr;
         backend::device_vector<Col> csr_col;
         backend::device_vector<Val> csr_val;
+
+        backend::kernel& csr2ell_kernel() const {
+            using namespace vex::detail;
+            static kernel_cache cache;
+
+            auto kernel = cache.find(q);
+            if (kernel == cache.end()) {
+                backend::source_generator src(q);
+
+                src.kernel("convert_csr2ell").open("(")
+                    .template parameter<size_t>("n")
+                    .template parameter<size_t>("ell_width")
+                    .template parameter<size_t>("ell_pitch")
+                    .template parameter< global_ptr<const ptr_type> >("ptr")
+                    .template parameter< global_ptr<const col_type> >("col")
+                    .template parameter< global_ptr<const val_type> >("val")
+                    .template parameter< global_ptr<col_type> >("ell_col")
+                    .template parameter< global_ptr<val_type> >("ell_val")
+                    .template parameter< global_ptr<const ptr_type> >("csr_ptr")
+                    .template parameter< global_ptr<col_type> >("csr_col")
+                    .template parameter< global_ptr<val_type> >("csr_val")
+                    .close(")").open("{")
+                    .grid_stride_loop().open("{");
+
+                src.new_line() << type_name<int>() << " w = 0;";
+                src.new_line() << type_name<ptr_type>() << " csr_head = 0;";
+                src.new_line() << "if (csr_ptr) csr_head = csr_ptr[idx];";
+                src.new_line() << "for(" << type_name<ptr_type>() << " j = ptr[idx], e = ptr[idx+1]; j < e; ++j, ++w)";
+                src.open("{");
+                src.new_line() << type_name<col_type>() << " c = col[j];";
+                src.new_line() << type_name<val_type>() << " v = val[j];";
+                src.new_line() << "if (w < ell_width) {";
+                src.new_line() << "  ell_col[idx + w * ell_pitch] = c;";
+                src.new_line() << "  ell_val[idx + w * ell_pitch] = v;";
+                src.new_line() << "} else {";
+                src.new_line() << "  csr_col[csr_head] = c;";
+                src.new_line() << "  csr_val[csr_head] = v;";
+                src.new_line() << "  ++csr_head;";
+                src.new_line() << "}";
+                src.close("}");
+                //src.new_line() << "for(; w < ell_width; ++w)";
+                //src.new_line() << "  ell_col[idx + w * ell_pitch] = (" << type_name<col_type>() << ")(-1);";
+                src.close("}");
+                src.close("}");
+
+                kernel = cache.insert(q, backend::kernel(q, src.str(), "convert_csr2ell"));
+            }
+
+            return kernel->second;
+        }
+
+        void convert(const csr<val_type, col_type, ptr_type> &A) {
+            /* 1. Get optimal ELL widths for local and remote parts. */
+            // Speed of ELL relative to CSR:
+            const double ell_vs_csr = 3.0;
+
+            // Find maximum widths for local and remote parts:
+            std::vector<backend::command_queue> ctx(1, q);
+            Reductor<int, MAX> max(ctx);
+
+            vex::vector<ptr_type> ptr(q, A.ptr);
+            vex::vector<col_type> col(q, A.col);
+            vex::vector<val_type> val(q, A.val);
+
+            VEX_FUNCTION(ptr_type, row_width, (size_t, i)(const ptr_type*, ptr),
+                    return ptr[i+1] - ptr[i];
+                    );
+
+            int max_width = max(row_width(element_index(0, n), raw_pointer(ptr)));
+
+            // Build width distribution histogram.
+            vex::vector<int> hist(ctx, max_width + 1);
+            hist = 0;
+            eval(atomic_add(&permutation(row_width(element_index(0, n), raw_pointer(ptr)))(hist), 1));
+
+            // Estimate optimal width for ELL part of the matrix,
+            // count nonzeros in CSR part of the matrix
+            ell_width = max_width;
+            {
+                auto h = hist.map(0);
+
+                for(int i = 0, rows = n; i < max_width; ++i) {
+                    rows -= h[i]; // Number of rows wider than i.
+                    if (ell_vs_csr * rows < n) {
+                        ell_width = i;
+                        break;
+                    }
+                }
+
+                for(int i = ell_width + 1; i <= max_width; ++i)
+                    csr_nnz += h[i] * (i - ell_width);
+            }
+
+            if (ell_width == 0) {
+                assert(csr_nnz == nnz);
+
+                csr_ptr = A.ptr;
+                csr_col = A.col;
+                csr_val = A.val;
+
+                return;
+            }
+
+            if (csr_nnz) {
+                VEX_FUNCTION(int, csr_width, (size_t, ell_width)(size_t, i)(const ptr_type*, ptr),
+                        if (i == 0) return 0;
+                        int w = ptr[i] - ptr[i-1];
+                        return (w > ell_width) ? (w - ell_width) : 0;
+                        );
+
+                vex::vector<ptr_type> csr_w(ctx, n+1);
+
+                csr_ptr = backend::device_vector<ptr_type>(q, n + 1);
+                csr_col = backend::device_vector<col_type>(q, csr_nnz);
+                csr_val = backend::device_vector<val_type>(q, csr_nnz);
+
+                csr_w = csr_width(ell_width, element_index(), raw_pointer(ptr));
+                vector<ptr_type> csr_p(q, csr_ptr);
+                inclusive_scan(csr_w, csr_p);
+            }
+
+
+            /* 3. Split the input matrix into ELL and CSR submatrices. */
+            ell_col = backend::device_vector<Col>(q, ell_pitch * ell_width);
+            ell_val = backend::device_vector<Val>(q, ell_pitch * ell_width);
+
+            vector<col_type>(q, ell_col) = -1;
+
+            auto &convert = csr2ell_kernel();
+
+            convert.push_arg(n);
+            convert.push_arg(ell_width);
+            convert.push_arg(ell_pitch);
+            convert.push_arg(A.ptr);
+            convert.push_arg(A.col);
+            convert.push_arg(A.val);
+            convert.push_arg(ell_col);
+            convert.push_arg(ell_val);
+            if (csr_nnz) {
+                convert.push_arg(csr_ptr);
+                convert.push_arg(csr_col);
+                convert.push_arg(csr_val);
+            } else {
+                convert.push_arg(static_cast<size_t>(0));
+                convert.push_arg(static_cast<size_t>(0));
+                convert.push_arg(static_cast<size_t>(0));
+            }
+            convert(q);
+        }
+
 };
 
 } // namespace sparse

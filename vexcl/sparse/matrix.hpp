@@ -22,13 +22,14 @@ class matrix {
                 size_t nrows, size_t ncols,
                 const PtrRange &ptr,
                 const ColRange &col,
-                const ValRange &val
+                const ValRange &val,
+                bool fast_setup = true
            ) : q(q[0])
         {
             if (is_cpu(q[0])) {
                 Acpu = std::make_shared<Csr>(q, nrows, ncols, ptr, col, val);
             } else {
-                Agpu = std::make_shared<Ell>(q, nrows, ncols, ptr, col, val);
+                Agpu = std::make_shared<Ell>(q, nrows, ncols, ptr, col, val, fast_setup);
             }
         }
 

@@ -29,14 +29,15 @@ class distributed {
                 size_t nrows, size_t ncols,
                 const PtrRange &ptr,
                 const ColRange &col,
-                const ValRange &val
+                const ValRange &val,
+                bool fast_setup = true
            )
             : q(q), n(nrows), m(ncols), nnz(boost::size(val)),
               row_part(partition(n, q)), col_part(partition(m, q)),
               A_loc(q.size()), A_rem(q.size())
         {
             if (q.size() == 1) {
-                A_loc[0] = std::make_shared<Matrix>(q, nrows, ncols, ptr, col, val);
+                A_loc[0] = std::make_shared<Matrix>(q, nrows, ncols, ptr, col, val, fast_setup);
                 return;
             }
 
@@ -116,11 +117,13 @@ class distributed {
                 // device.
                 std::vector<backend::command_queue> qd = {q[d]};
                 A_loc[d] = std::make_shared<Matrix>(
-                        qd, loc_rows, col_end - col_beg, loc_ptr, loc_col, loc_val);
+                        qd, loc_rows, col_end - col_beg,
+                        loc_ptr, loc_col, loc_val, fast_setup);
 
                 if (nrcols)
                     A_rem[d] = std::make_shared<Matrix>(
-                            qd, loc_rows, nrcols, rem_ptr, rem_col, rem_val);
+                            qd, loc_rows, nrcols, rem_ptr, rem_col, rem_val,
+                            fast_setup);
             }
 
 
