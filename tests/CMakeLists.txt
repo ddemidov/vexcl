@@ -67,6 +67,7 @@ add_vexcl_test(svm                      svm.cpp)
 add_vexcl_test(events                   events.cpp)
 add_vexcl_test(image                    image.cpp)
 add_vexcl_test(custom_kernel            custom_kernel.cpp)
+add_vexcl_test(eval                     eval.cpp)
 add_vexcl_test(multiple_objects         "dummy1.cpp;dummy2.cpp")
 
 if (NOT DEFINED ENV{APPVEYOR})

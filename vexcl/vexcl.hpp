@@ -62,6 +62,7 @@ THE SOFTWARE.
 #include <vexcl/logical.hpp>
 #include <vexcl/enqueue.hpp>
 #include <vexcl/image.hpp>
+#include <vexcl/eval.hpp>
 
 #ifndef VEXCL_BACKEND_CUDA
 #include <vexcl/constant_address_space.hpp>

@@ -265,6 +265,21 @@ rtype operator()(VEXCL_DUAL_FUNCTOR_ARGS(args)) const {                        \
                 nargs, VEXCL_BUILTIN_PRINT_BOOST_REF, ~));                     \
     }
 
+#define VEX_BUILTIN_FUNCTION_ALIAS(nargs, alias, func)                         \
+    struct func##_alias : vex::builtin_function {                              \
+        static const char *name() { return #func; }                            \
+    };                                                                         \
+    template <BOOST_PP_ENUM_PARAMS(nargs, class Arg)>                          \
+    typename boost::proto::result_of::make_expr<                               \
+        boost::proto::tag::function, func##_alias,                             \
+        BOOST_PP_ENUM_BINARY_PARAMS(nargs, const Arg,                          \
+                                    &BOOST_PP_INTERCEPT)>::type const          \
+    alias(BOOST_PP_ENUM_BINARY_PARAMS(nargs, const Arg, &arg)) {               \
+        return boost::proto::make_expr<boost::proto::tag::function>(           \
+            func##_alias(), BOOST_PP_ENUM(                                     \
+                nargs, VEXCL_BUILTIN_PRINT_BOOST_REF, ~));                     \
+    }
+
 /// \defgroup builtins Builtin device functions
 /** @{ */
 VEX_BUILTIN_FUNCTION( 2, abs_diff )
@@ -390,6 +405,50 @@ VEX_BUILTIN_FUNCTION( 1, tgamma )
 VEX_BUILTIN_FUNCTION( 1, trunc )
 VEX_BUILTIN_FUNCTION( 2, upsample )
 
+// Atomic functions
+#if defined(VEXCL_BACKEND_CUDA)
+
+VEX_BUILTIN_FUNCTION( 2, atomicAdd  )
+VEX_BUILTIN_FUNCTION( 2, atomicSub  )
+VEX_BUILTIN_FUNCTION( 2, atomicExch )
+VEX_BUILTIN_FUNCTION( 2, atomicMin  )
+VEX_BUILTIN_FUNCTION( 2, atomicMax  )
+VEX_BUILTIN_FUNCTION( 2, atomicInc  )
+VEX_BUILTIN_FUNCTION( 2, atomicDec  )
+VEX_BUILTIN_FUNCTION( 3, atomicCAS  )
+VEX_BUILTIN_FUNCTION( 2, atomicAnd  )
+VEX_BUILTIN_FUNCTION( 2, atomicOr   )
+VEX_BUILTIN_FUNCTION( 2, atomicXor  )
+
+// Also provide aliases for OpenCL-style functions
+VEX_BUILTIN_FUNCTION_ALIAS(2, atomic_add,     atomicAdd  )
+VEX_BUILTIN_FUNCTION_ALIAS(2, atomic_sub,     atomicSub  )
+VEX_BUILTIN_FUNCTION_ALIAS(2, atomic_xchg,    atomicExch )
+VEX_BUILTIN_FUNCTION_ALIAS(2, atomic_min,     atomicMin  )
+VEX_BUILTIN_FUNCTION_ALIAS(2, atomic_max,     atomicMax  )
+VEX_BUILTIN_FUNCTION_ALIAS(3, atomic_cmpxchg, atomicCAS  )
+VEX_BUILTIN_FUNCTION_ALIAS(2, atomic_and,     atomicAnd  )
+VEX_BUILTIN_FUNCTION_ALIAS(2, atomic_or,      atomicOr   )
+VEX_BUILTIN_FUNCTION_ALIAS(2, atomic_xor,     atomicXor  )
+
+#else
+
+VEX_BUILTIN_FUNCTION(2, atomic_add     )
+VEX_BUILTIN_FUNCTION(2, atomic_sub     )
+VEX_BUILTIN_FUNCTION(2, atomic_xchg    )
+VEX_BUILTIN_FUNCTION(2, atomic_xchg    )
+VEX_BUILTIN_FUNCTION(2, atomic_min     )
+VEX_BUILTIN_FUNCTION(2, atomic_max     )
+VEX_BUILTIN_FUNCTION(1, atomic_inc     )
+VEX_BUILTIN_FUNCTION(1, atomic_dec     )
+VEX_BUILTIN_FUNCTION(3, atomic_cmpxchg )
+VEX_BUILTIN_FUNCTION(2, atomic_and     )
+VEX_BUILTIN_FUNCTION(2, atomic_or      )
+VEX_BUILTIN_FUNCTION(2, atomic_xor     )
+
+#endif
+
+
 // Special case: abs() overloaded with floating point arguments should call
 // fabs in the OpenCL code
 struct abs_func : builtin_function {
@@ -397,7 +456,6 @@ struct abs_func : builtin_function {
         return "abs";
     }
 };
-
 
 namespace detail {
     template <class Expr> struct return_type;
