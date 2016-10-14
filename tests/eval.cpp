@@ -21,10 +21,10 @@ BOOST_AUTO_TEST_CASE(eval_atomic) {
     x = vex::element_index() % M;
 
     vex::eval(atomic_add(&vex::permutation(x)(y), 1));
-    check_sample(y, [](size_t, int v) { BOOST_CHECK_EQUAL(v, C); });
+    check_sample(y, [=](size_t, int v) { BOOST_CHECK_EQUAL(v, C); });
 
     vex::eval(atomic_sub(&vex::permutation(x)(y), 1));
-    check_sample(y, [](size_t, int v) { BOOST_CHECK_EQUAL(v, 0); });
+    check_sample(y, [=](size_t, int v) { BOOST_CHECK_EQUAL(v, 0); });
 }
 
 BOOST_AUTO_TEST_SUITE_END()
