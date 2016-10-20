@@ -114,6 +114,11 @@ class kernel {
         }
 
         /// Adds local memory to the kernel.
+        void set_smem(size_t smem_per_thread) {
+            smem = workgroup_size() * smem_per_thread;
+        }
+
+        /// Adds local memory to the kernel.
         template <class F>
         void set_smem(F &&f) {
             smem = f(workgroup_size());
