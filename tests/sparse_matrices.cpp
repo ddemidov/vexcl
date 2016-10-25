@@ -1,6 +1,7 @@
 #define BOOST_TEST_MODULE SparseMatrices
 #include <boost/test/unit_test.hpp>
 #include <vexcl/vector.hpp>
+#include <vexcl/multivector.hpp>
 #include <vexcl/sparse/csr.hpp>
 #include <vexcl/sparse/ell.hpp>
 #include <vexcl/sparse/matrix.hpp>
@@ -179,6 +180,53 @@ BOOST_AUTO_TEST_CASE(distributed_single)
 
         BOOST_CHECK_CLOSE(y, sum, 1e-8);
     }
+}
+
+BOOST_AUTO_TEST_CASE(multivector_product)
+{
+    const size_t n = 1024;
+    const size_t m = 2;
+
+    typedef std::array<double, m> elem_t;
+
+    std::vector<int>    ptr;
+    std::vector<int>    col;
+    std::vector<double> val;
+
+    random_matrix(n, n, 16, ptr, col, val);
+
+    std::vector<double> x = random_vector<double>(n * m);
+
+    vex::sparse::distributed<vex::sparse::matrix<double>> A(ctx, n, n, ptr, col, val);
+
+    vex::multivector<double,m> X(ctx, x);
+    vex::multivector<double,m> Y(ctx, n);
+
+    Y = A * X;
+
+    check_sample(Y, [&](size_t idx, elem_t a) {
+            double sum[] = {0, 0};
+            for(size_t j = ptr[idx]; j < ptr[idx + 1]; j++) {
+                sum[0] += val[j] * x[0 + col[j]];
+                sum[1] += val[j] * x[n + col[j]];
+            }
+
+            BOOST_CHECK_CLOSE(a[0], sum[0], 1e-8);
+            BOOST_CHECK_CLOSE(a[1], sum[1], 1e-8);
+            });
+
+    Y = X + A * X;
+
+    check_sample(Y, [&](size_t idx, elem_t a) {
+            double sum[] = {0, 0};
+            for(size_t j = ptr[idx]; j < ptr[idx + 1]; j++) {
+                sum[0] += val[j] * x[0 + col[j]];
+                sum[1] += val[j] * x[n + col[j]];
+            }
+
+            BOOST_CHECK_CLOSE(a[0], x[0 + idx] + sum[0], 1e-8);
+            BOOST_CHECK_CLOSE(a[1], x[n + idx] + sum[1], 1e-8);
+            });
 }
 
 BOOST_AUTO_TEST_SUITE_END()
