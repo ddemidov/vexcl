@@ -560,6 +560,13 @@ class kernel {
             }
         }
 
+        template <class T>
+        void push_arg(const std::vector<T> &args) {
+            for(unsigned d = 0; d < queue.size(); d++) {
+                cache.find(backend::get_context_id(queue[d]))->second.push_arg(args[d]);
+            }
+        }
+
         void operator()() {
             for(unsigned d = 0; d < queue.size(); d++) {
                 auto &K = cache.find(backend::get_context_id(queue[d]))->second;
