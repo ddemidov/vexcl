@@ -70,6 +70,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <vexcl/detail/fusion.hpp>
 #include <vexcl/function.hpp>
 
+#ifndef VEX_SORT_NT_GPU
+#  define VEX_SORT_NT_GPU 256
+#endif
+
 namespace vex {
 namespace detail {
 
@@ -1719,7 +1723,7 @@ void sort(const backend::command_queue &queue, KT &keys, Comp) {
     backend::select_context(queue);
 
     const int NT_cpu = 1;
-    const int NT_gpu = 256;
+    const int NT_gpu = VEX_SORT_NT_GPU;
     const int NT = is_cpu(queue) ? NT_cpu : NT_gpu;
     const int VT = (sizeof_keys::value > 4) ? 7 : 11;
     const int NV = NT * VT;
@@ -1788,7 +1792,7 @@ void sort_by_key(const backend::command_queue &queue, KTup &&keys, VTup &&vals, 
     backend::select_context(queue);
 
     const int NT_cpu = 1;
-    const int NT_gpu = 256;
+    const int NT_gpu = VEX_SORT_NT_GPU;
     const int NT = is_cpu(queue) ? NT_cpu : NT_gpu;
     const int VT = (sizeof(K) > 4) ? 7 : 11;
     const int NV = NT * VT;
