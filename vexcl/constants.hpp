@@ -143,8 +143,9 @@ struct kernel_arg_setter< user_constant<Impl> >
   struct constant_##name {                                                     \
     typedef decltype(value) value_type;                                        \
     static std::string get() {                                                 \
+      static const value_type v = value;                                       \
       std::ostringstream s;                                                    \
-      s << "( " << std::scientific << std::setprecision(16) << value << " )";  \
+      s << "( " << std::scientific << std::setprecision(16) << v << " )";      \
       return s.str();                                                          \
     }                                                                          \
     decltype(boost::proto::as_expr<vex::vector_domain>(                        \
@@ -152,6 +153,10 @@ struct kernel_arg_setter< user_constant<Impl> >
     operator()() const {                                                       \
       return boost::proto::as_expr<vex::vector_domain>(                        \
           vex::user_constant<constant_##name>());                              \
+    }                                                                          \
+    operator value_type() const {                                              \
+      static const value_type v = value;                                       \
+      return v;                                                                \
     }                                                                          \
   };                                                                           \
   const constant_##name name = {}
