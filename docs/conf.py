@@ -48,8 +48,8 @@ import sphinx_bootstrap_theme
 extensions = ['breathe', 'sphinx.ext.mathjax',
         'matplotlib.sphinxext.plot_directive']
 
-breathe_projects = {'AMGCL' : 'xml'}
-breathe_default_project = 'AMGCL'
+breathe_projects = {'VEXCL' : 'xml'}
+breathe_default_project = 'VEXCL'
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
