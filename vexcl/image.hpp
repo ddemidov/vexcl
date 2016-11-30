@@ -36,7 +36,7 @@ THE SOFTWARE.
 #elif defined (CL_VERSION_1_2)
 #  if defined(VEXCL_BACKEND_COMPUTE)
 #    include <vexcl/backend/compute/image.hpp>
-#  else // either defined(VEXCL_BACKEND_OPENCL) or by default
+#  elif defined(VEXCL_BACKEND_OPENCL)
 #    include <vexcl/backend/opencl/image.hpp>
 #  endif
 #endif
