@@ -101,7 +101,7 @@ if (WIN32)
 endif ()
 
 set(VEXCL_BACKEND "OpenCL" CACHE STRING "Select VexCL backend (OpenCL/CUDA)")
-set_property(CACHE VEXCL_BACKEND PROPERTY STRINGS "OpenCL" "CUDA" "Compute")
+set_property(CACHE VEXCL_BACKEND PROPERTY STRINGS "OpenCL" "CUDA" "Compute" "JIT")
 
 #----------------------------------------------------------------------------
 # Find Backend
@@ -123,6 +123,8 @@ elseif ("${VEXCL_BACKEND}" STREQUAL "CUDA")
     set(BACKEND_LIBS ${CUDA_CUDA_LIBRARY})
     add_definitions(-DVEXCL_BACKEND_CUDA)
     set(CUDA_COMPUTE_CAPABILITY "35" CACHE STRING "CUDA Compute Capability")
+elseif ("${VEXCL_BACKEND}" STREQUAL "JIT")
+    add_definitions(-DVEXCL_BACKEND_JIT)
 endif()
 
 #----------------------------------------------------------------------------
