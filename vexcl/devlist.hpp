@@ -38,7 +38,8 @@ THE SOFTWARE.
 
 #include <vexcl/backend.hpp>
 #include <vexcl/util.hpp>
-#include <vexcl/operations.hpp>
+#include <vexcl/cache.hpp>
+//#include <vexcl/operations.hpp>
 
 #ifdef __GNUC__
 #  ifndef _GLIBCXX_USE_NANOSLEEP

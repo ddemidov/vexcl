@@ -62,6 +62,17 @@ namespace vex {
 
 #include <vexcl/backend/compute.hpp>
 
+#elif defined(VEXCL_BACKEND_JIT)
+
+namespace vex {
+    namespace backend {
+        namespace jit {}
+        using namespace jit;
+    }
+}
+
+#include <vexcl/backend/jit.hpp>
+
 #else // either defined(VEXCL_BACKEND_OPENCL) or by default
 
 namespace vex {
@@ -80,8 +91,10 @@ namespace vex {
     using backend::command_queue;
     using backend::command_queue_properties;
     using backend::error;
+#ifndef VEXCL_BACKEND_JIT
     using backend::device_vector;
     using backend::is_cpu;
+#endif
 } // namespace vex
 
 #endif
