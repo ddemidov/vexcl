@@ -527,15 +527,18 @@ class kernel {
 
                 source << get_preamble().str();
 
-                source.kernel(name).open("(");
+                source.begin_kernel(name);
+                source.begin_kernel_parameters();
 
                 source << prm_decl->str() << "\t" << type_name<size_t>() << " n";
 
-                source.close(")").open("{").grid_stride_loop().open("{");
+                source.end_kernel_parameters();
+                source.grid_stride_loop().open("{");
 
                 source.new_line() << prm_read->str() << body << prm_save->str();
 
-                source.close("}").close("}");
+                source.close("}");
+                source.end_kernel();
 
                 backend::select_context(*q);
                 cache.insert(std::make_pair(

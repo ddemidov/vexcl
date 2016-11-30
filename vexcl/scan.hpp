@@ -75,15 +75,15 @@ backend::kernel block_inclusive_scan(const backend::command_queue &queue)
 
         Oper::define(src, "oper");
 
-        src.kernel("block_inclusive_scan")
-            .open("(")
-                .template parameter< size_t              >("n")
-                .template parameter< global_ptr<const T> >("input")
-                .template parameter< T                   >("identity")
-                .template parameter< global_ptr<T>       >("scan_buf1")
-                .template parameter< global_ptr<T>       >("scan_buf2")
-                .template parameter< int                 >("exclusive")
-            .close(")").open("{");
+        src.begin_kernel("block_inclusive_scan");
+        src.begin_kernel_parameters();
+        src.template parameter< size_t              >("n");
+        src.template parameter< global_ptr<const T> >("input");
+        src.template parameter< T                   >("identity");
+        src.template parameter< global_ptr<T>       >("scan_buf1");
+        src.template parameter< global_ptr<T>       >("scan_buf2");
+        src.template parameter< int                 >("exclusive");
+        src.end_kernel_parameters();
 
         src.new_line() << "size_t l_id  = " << src.local_id(0)   << ";";
         src.new_line() << "size_t g_id  = " << src.global_id(0)  << ";";
@@ -133,7 +133,7 @@ backend::kernel block_inclusive_scan(const backend::command_queue &queue)
         src.new_line() << "scan_buf1[ block ] = shared[" << NT * 2 - 1 << "];";
         src.new_line() << "scan_buf2[ block ] = shared[" << NT - 1 << "];";
         src.close("}");
-        src.close("}");
+        src.end_kernel();
 
         kernel = cache.insert(queue, backend::kernel(
                     queue, src.str(), "block_inclusive_scan"));
@@ -154,14 +154,14 @@ backend::kernel intra_block_inclusive_scan(const backend::command_queue &queue)
 
         Oper::define(src, "oper");
 
-        src.kernel("intra_block_inclusive_scan")
-            .open("(")
-                .template parameter< size_t              >("n")
-                .template parameter< global_ptr<T>       >("post_sum")
-                .template parameter< global_ptr<const T> >("pre_sum")
-                .template parameter< T                   >("identity")
-                .template parameter< uint                >("work_per_thread")
-            .close(")").open("{");
+        src.begin_kernel("intra_block_inclusive_scan");
+        src.begin_kernel_parameters();
+        src.template parameter< size_t              >("n");
+        src.template parameter< global_ptr<T>       >("post_sum");
+        src.template parameter< global_ptr<const T> >("pre_sum");
+        src.template parameter< T                   >("identity");
+        src.template parameter< uint                >("work_per_thread");
+        src.end_kernel_parameters();
 
         src.new_line() << "size_t l_id   = " << src.local_id(0)   << ";";
         src.new_line() << "size_t g_id   = " << src.global_id(0)  << ";";
@@ -234,7 +234,7 @@ backend::kernel intra_block_inclusive_scan(const backend::command_queue &queue)
         src.new_line() << "work_sum = post_sum[map_id + offset];";
         src.close("}");
         src.close("}");
-        src.close("}");
+        src.end_kernel();
 
         kernel = cache.insert(queue, backend::kernel(
                     queue, src.str(), "intra_block_inclusive_scan"));
@@ -257,16 +257,16 @@ backend::kernel block_addition(
 
         Oper::define(src, "oper");
 
-        src.kernel("block_addition")
-            .open("(")
-                .template parameter< size_t              >("n")
-                .template parameter< global_ptr<const T> >("input")
-                .template parameter< global_ptr<T>       >("output")
-                .template parameter< global_ptr<T>       >("post_sum")
-                .template parameter< global_ptr<T>       >("pre_sum")
-                .template parameter< T                   >("identity")
-                .template parameter< int                 >("exclusive")
-            .close(")").open("{");
+        src.begin_kernel("block_addition");
+        src.begin_kernel_parameters();
+        src.template parameter< size_t              >("n");
+        src.template parameter< global_ptr<const T> >("input");
+        src.template parameter< global_ptr<T>       >("output");
+        src.template parameter< global_ptr<T>       >("post_sum");
+        src.template parameter< global_ptr<T>       >("pre_sum");
+        src.template parameter< T                   >("identity");
+        src.template parameter< int                 >("exclusive");
+        src.end_kernel_parameters();
 
         src.new_line() << "size_t l_id  = " << src.local_id(0)   << ";";
         src.new_line() << "size_t g_id  = " << src.global_id(0)  << ";";
@@ -322,7 +322,7 @@ backend::kernel block_addition(
         src.new_line().barrier();
         src.new_line() << "if(g_id < n) output[ g_id ] = sum;";
 
-        src.close("}");
+        src.end_kernel();
 
         kernel = cache.insert(queue, backend::kernel(
                     queue, src.str(), "block_addition"));

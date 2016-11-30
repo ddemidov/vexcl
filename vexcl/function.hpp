@@ -159,10 +159,12 @@ struct vex_function_##func_name                                                \
             const std::string &fname)                                          \
     {                                                                          \
         BOOST_PP_SEQ_FOR_EACH(VEXCL_FUNCTION_DEFINE_DEP, ~, deps)              \
-        src.function< rtype >(fname).open("(");                                \
+        src.begin_function< rtype >(fname);                                    \
+        src.begin_function_parameters();                                       \
         BOOST_PP_REPEAT(nargs, VEXCL_FUNCTION_DEF_ARG, args)                   \
-        src.close(")").open("{").new_line() << body;                           \
-        src.close("}");                                                        \
+        src.end_function_parameters();                                         \
+        src.new_line() << body;                                                \
+        src.end_function();                                                    \
     }                                                                          \
 } const func_name
 

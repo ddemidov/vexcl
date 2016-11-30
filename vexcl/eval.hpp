@@ -73,17 +73,15 @@ void eval(const Expr &expr,
 
             boost::proto::eval(boost::proto::as_child(expr), termpream);
 
-            source.kernel("vexcl_eval_kernel")
-                .open("(")
-                    .parameter<size_t>("n");
+            source.begin_kernel("vexcl_eval_kernel");
+            source.begin_kernel_parameters();
+            source.parameter<size_t>("n");
 
             declare_expression_parameter declare(source, queue[d], "prm", empty_state());
             extract_terminals()(boost::proto::as_child(expr), declare);
 
-            source.close(")")
-                .open("{")
-                    .grid_stride_loop()
-                    .open("{");
+            source.end_kernel_parameters();
+            source.grid_stride_loop().open("{");
 
             output_local_preamble loc_init(source, queue[d], "prm", empty_state());
             boost::proto::eval(boost::proto::as_child(expr), loc_init);
@@ -92,7 +90,8 @@ void eval(const Expr &expr,
             vector_expr_context expr_ctx(source, queue[d], "prm", empty_state());
             boost::proto::eval(boost::proto::as_child(expr), expr_ctx);
             source << ";";
-            source.close("}").close("}");
+            source.close("}");
+            source.end_kernel();
 
             kernel = cache.insert(queue[d], backend::kernel(
                         queue[d], source.str(), "vexcl_eval_kernel"));

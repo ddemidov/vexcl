@@ -148,10 +148,11 @@ struct CombineReductors {
             static void define(backend::source_generator &src, const std::string &fname = name()) {
                 define_scalar_fun<R...>(src);
 
-                src.function<result_type>(fname).open("(")
-                    .template parameter<result_type>("a")
-                    .template parameter<T>("b")
-                    .close(")").open("{");
+                src.begin_function<result_type>(fname);
+                src.begin_function_parameters();
+                src.template parameter<result_type>("a");
+                src.template parameter<T>("b");
+                src.end_function_parameters();
                 src.new_line() << type_name<result_type>() << " r = { ";
 
                 int pos = 0;
@@ -159,7 +160,7 @@ struct CombineReductors {
 
                 src << "};";
                 src.new_line() << "return r;";
-                src.close("}");
+                src.end_function();
             }
 
             template <class Head>
@@ -195,10 +196,11 @@ struct CombineReductors {
             static std::string name() { return "CombinedReductor_out_" + type_name<T>(); }
 
             static void define(backend::source_generator &src, const std::string &fname = name()) {
-                src.function<result_type>(fname).open("(")
-                    .template parameter<result_type>("a")
-                    .template parameter<result_type>("b")
-                    .close(")").open("{");
+                src.begin_function<result_type>(fname);
+                src.begin_function_parameters();
+                src.template parameter<result_type>("a");
+                src.template parameter<result_type>("b");
+                src.end_function_parameters();
                 src.new_line() << type_name<result_type>() << " r = { ";
 
                 int pos = 0;
@@ -206,7 +208,7 @@ struct CombineReductors {
 
                 src << "};";
                 src.new_line() << "return r;";
-                src.close("}");
+                src.end_function();
             }
 
             template <class Head>
@@ -338,8 +340,9 @@ class Reductor {
                     boost::proto::eval(boost::proto::as_child( fun_in()( result_type(), ScalarType()) ), termpream);
                     boost::proto::eval(boost::proto::as_child( fun_out()( result_type(), result_type()) ), termpream);
 
-                    source.kernel("vexcl_reductor_kernel")
-                        .open("(").template parameter<size_t>("n");
+                    source.begin_kernel("vexcl_reductor_kernel");
+                    source.begin_kernel_parameters();
+                    source.template parameter<size_t>("n");
 
                     extract_terminals()( expr, declare_expression_parameter(source, queue[d], "prm", empty_state()) );
 
@@ -348,16 +351,13 @@ class Reductor {
                     if (!backend::is_cpu(queue[d]))
                         source.template smem_parameter<result_type>();
 
-                    source.close(")");
-
-
-                    source.open("{");
+                    source.end_kernel_parameters();
 
                     local_sum<Expr, RDC>::get(queue[d], expr, source);
 
                     if ( backend::is_cpu(queue[d]) ) {
                         source.new_line() << "g_odata[" << source.group_id(0) << "] = mySum;";
-                        source.close("}");
+                        source.end_kernel();
 
                         kernel = cache.insert(queue[d], backend::kernel(
                                     queue[d], source.str(), "vexcl_reductor_kernel"));
@@ -377,7 +377,7 @@ class Reductor {
                             source.new_line().barrier().close("}");
                         }
                         source.new_line() << "if (tid == 0) g_odata[" << source.group_id(0) << "] = sdata[0];";
-                        source.close("}");
+                        source.end_kernel();
 
                         kernel = cache.insert(queue[d], backend::kernel(
                                     queue[d], source.str(), "vexcl_reductor_kernel",

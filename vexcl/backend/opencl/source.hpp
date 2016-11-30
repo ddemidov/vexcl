@@ -177,21 +177,45 @@ class source_generator {
             return *this;
         }
 
-        source_generator& function(const std::string &return_type, const std::string &name) {
-            first_prm = true;
+        source_generator& begin_function(const std::string &return_type, const std::string &name) {
             new_line() << return_type << " " << name;
             return *this;
         }
 
         template <class Return>
-        source_generator& function(const std::string &name) {
-            return function(type_name<Return>(), name);
+        source_generator& begin_function(const std::string &name) {
+            return begin_function(type_name<Return>(), name);
         }
 
-        source_generator& kernel(const std::string &name) {
+        source_generator& begin_function_parameters() {
             first_prm = true;
+            return open("(");
+        }
+
+        source_generator& end_function_parameters() {
+            return close(")").open("{");
+        }
+
+        source_generator& end_function() {
+            return close("}");
+        }
+
+        source_generator& begin_kernel(const std::string &name) {
             new_line() << "kernel void " << name;
             return *this;
+        }
+
+        source_generator& begin_kernel_parameters() {
+            first_prm = true;
+            return open("(");
+        }
+
+        source_generator& end_kernel_parameters() {
+            return close(")").open("{");
+        }
+
+        source_generator& end_kernel() {
+            return close("}");
         }
 
         source_generator& parameter(const std::string &prm_type, const std::string &name) {

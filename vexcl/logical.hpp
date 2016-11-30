@@ -109,8 +109,9 @@ class any_of {
                 output_terminal_preamble gpre(src, q, "prm", empty_state());
                 boost::proto::eval(boost::proto::as_child(expr), gpre);
 
-                src.kernel("vexcl_any_of_kernel")
-                    .open("(").parameter<size_t>("n");
+                src.begin_kernel("vexcl_any_of_kernel");
+                src.begin_kernel_parameters();
+                src.parameter<size_t>("n");
 
                 extract_terminals()(expr,
                         declare_expression_parameter(
@@ -120,7 +121,7 @@ class any_of {
 
                 src.template parameter< global_ptr<char> >("result");
 
-                src.close(")").open("{");
+                src.end_kernel_parameters();
                 src.new_line() << "for(ulong idx = 0; idx < n; ++idx)";
                 src.open("{");
 
@@ -140,7 +141,7 @@ class any_of {
 
                 src.close("}");
                 src.new_line() << "result[0] = 0;";
-                src.close("}");
+                src.end_kernel();
 
                 kernel = cache.insert(q, backend::kernel(
                             q, src.str(), "vexcl_any_of_kernel"

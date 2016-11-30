@@ -255,17 +255,17 @@ namespace detail {
 
 template <typename T>
 inline void define_read_x(backend::source_generator &source) {
-    source.function<T>("read_x")
-        .open("(")
-            .template parameter<ptrdiff_t>("g_id")
-            .template parameter<size_t>("n")
-            .template parameter<char>("has_left")
-            .template parameter<char>("has_right")
-            .template parameter<int>("lhalo")
-            .template parameter<int>("rhalo")
-            .template parameter< global_ptr<const T> >("xloc")
-            .template parameter< global_ptr<const T> >("xrem")
-        .close(")").open("{");
+    source.begin_function<T>("read_x");
+    source.begin_function_parameters();
+    source.template parameter<ptrdiff_t>("g_id");
+    source.template parameter<size_t>("n");
+    source.template parameter<char>("has_left");
+    source.template parameter<char>("has_right");
+    source.template parameter<int>("lhalo");
+    source.template parameter<int>("rhalo");
+    source.template parameter< global_ptr<const T> >("xloc");
+    source.template parameter< global_ptr<const T> >("xrem");
+    source.end_function_parameters();
 
     source.new_line() << "if (g_id >= 0 && g_id < n)";
     source.open("{");
@@ -282,7 +282,8 @@ inline void define_read_x(backend::source_generator &source) {
     source.new_line() << "if (has_right) "
         "return (g_id < n + rhalo) ? xrem[lhalo + g_id - n] : 0;";
     source.new_line() << "else return xloc[n - 1];";
-    source.close("}").close("}");
+    source.close("}");
+    source.end_function();
 }
 
 }
@@ -302,20 +303,20 @@ const backend::kernel& stencil<T>::slow_conv(const backend::command_queue &queue
 
         define_read_x<T>(source);
 
-        source.kernel("slow_conv")
-            .open("(")
-                .template parameter<size_t>("n")
-                .template parameter<char>("has_left")
-                .template parameter<char>("has_right")
-                .template parameter<int>("lhalo")
-                .template parameter<int>("rhalo")
-                .template parameter< global_ptr<const T> >("s")
-                .template parameter< global_ptr<const T> >("xloc")
-                .template parameter< global_ptr<const T> >("xrem")
-                .template parameter< global_ptr<T> >("y")
-                .template parameter<T>("alpha")
-                .template parameter<T>("beta")
-            .close(")").open("{");
+        source.begin_kernel("slow_conv");
+        source.begin_kernel_parameters();
+        source.template parameter<size_t>("n");
+        source.template parameter<char>("has_left");
+        source.template parameter<char>("has_right");
+        source.template parameter<int>("lhalo");
+        source.template parameter<int>("rhalo");
+        source.template parameter< global_ptr<const T> >("s");
+        source.template parameter< global_ptr<const T> >("xloc");
+        source.template parameter< global_ptr<const T> >("xrem");
+        source.template parameter< global_ptr<T> >("y");
+        source.template parameter<T>("alpha");
+        source.template parameter<T>("beta");
+        source.end_kernel_parameters();
 
         source.grid_stride_loop().open("{");
 
@@ -328,7 +329,8 @@ const backend::kernel& stencil<T>::slow_conv(const backend::command_queue &queue
         source.close("}");
         source.new_line() << "if (alpha) y[idx] = alpha * y[idx] + beta * sum;";
         source.new_line() << "else y[idx] = beta * sum;";
-        source.close("}").close("}");
+        source.close("}");
+        source.end_kernel();
 
         kernel = cache.insert(queue, backend::kernel(
                     queue, source.str(), "slow_conv"));
@@ -352,21 +354,21 @@ const backend::kernel& stencil<T>::fast_conv(const backend::command_queue &queue
 
         define_read_x<T>(source);
 
-        source.kernel("fast_conv")
-            .open("(")
-                .template parameter<size_t>("n")
-                .template parameter<char>("has_left")
-                .template parameter<char>("has_right")
-                .template parameter<int>("lhalo")
-                .template parameter<int>("rhalo")
-                .template parameter< global_ptr<const T> >("s")
-                .template parameter< global_ptr<const T> >("xloc")
-                .template parameter< global_ptr<const T> >("xrem")
-                .template parameter< global_ptr<T> >("y")
-                .template parameter<T>("alpha")
-                .template parameter<T>("beta")
-                .template smem_parameter< T >()
-            .close(")").open("{");
+        source.begin_kernel("fast_conv");
+        source.begin_kernel_parameters();
+        source.template parameter<size_t>("n");
+        source.template parameter<char>("has_left");
+        source.template parameter<char>("has_right");
+        source.template parameter<int>("lhalo");
+        source.template parameter<int>("rhalo");
+        source.template parameter< global_ptr<const T> >("s");
+        source.template parameter< global_ptr<const T> >("xloc");
+        source.template parameter< global_ptr<const T> >("xrem");
+        source.template parameter< global_ptr<T> >("y");
+        source.template parameter<T>("alpha");
+        source.template parameter<T>("beta");
+        source.template smem_parameter< T >();
+        source.end_kernel_parameters();
 
         source.smem_declaration<T>();
         source.new_line() << type_name< shared_ptr<T> >() << " S = smem;";
@@ -395,7 +397,8 @@ const backend::kernel& stencil<T>::fast_conv(const backend::command_queue &queue
         source.new_line() << "else y[g_id] = beta * sum;";
         source.close("}");
         source.new_line().barrier();
-        source.close("}").close("}");
+        source.close("}");
+        source.end_kernel();
 
         kernel = cache.insert(queue, backend::kernel(
                     queue, source.str(), "fast_conv"));
@@ -565,27 +568,27 @@ void StencilOperator<T, width, center, Impl>::apply(
 
             define_read_x<T>(source);
 
-            source.function<T>("stencil_oper")
-                .open("(")
-                    .template parameter< shared_ptr<const T> >("X")
-                .close(")").open("{").new_line();
-            source << Impl::body();
-            source.close("}");
+            source.begin_function<T>("stencil_oper");
+            source.begin_function_parameters();
+            source.template parameter< shared_ptr<const T> >("X");
+            source.end_function_parameters();
+            source.new_line() << Impl::body();
+            source.end_function();
 
-            source.kernel("convolve")
-                .open("(")
-                    .template parameter<size_t>("n")
-                    .template parameter<char>("has_left")
-                    .template parameter<char>("has_right")
-                    .template parameter<int>("lhalo")
-                    .template parameter<int>("rhalo")
-                    .template parameter< global_ptr<const T> >("xloc")
-                    .template parameter< global_ptr<const T> >("xrem")
-                    .template parameter< global_ptr<T> >("y")
-                    .template parameter<T>("alpha")
-                    .template parameter<T>("beta")
-                    .template smem_parameter<T>()
-                .close(")").open("{");
+            source.begin_kernel("convolve");
+            source.begin_kernel_parameters();
+            source.template parameter<size_t>("n");
+            source.template parameter<char>("has_left");
+            source.template parameter<char>("has_right");
+            source.template parameter<int>("lhalo");
+            source.template parameter<int>("rhalo");
+            source.template parameter< global_ptr<const T> >("xloc");
+            source.template parameter< global_ptr<const T> >("xrem");
+            source.template parameter< global_ptr<T> >("y");
+            source.template parameter<T>("alpha");
+            source.template parameter<T>("beta");
+            source.template smem_parameter<T>();
+            source.end_kernel_parameters();
 
             source.smem_declaration<T>();
             source.new_line() << type_name< shared_ptr<T> >() << " X = smem;";
@@ -608,7 +611,8 @@ void StencilOperator<T, width, center, Impl>::apply(
             source.new_line() << "else y[g_id] = beta * sum;";
             source.close("}");
             source.new_line().barrier();
-            source.close("}").close("}");
+            source.close("}");
+            source.end_kernel();
 
             kernel = cache.insert(queue[d], backend::kernel(
                         queue[d], source.str(), "convolve",

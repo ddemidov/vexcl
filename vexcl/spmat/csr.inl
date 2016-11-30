@@ -150,25 +150,25 @@ struct SpMatCSR : public sparse_matrix {
         if (kernel == cache.end()) {
             backend::source_generator source(queue);
 
-            source.kernel("csr_spmv")
-                .open("(")
-                    .template parameter<size_t>("n")
-                    .template parameter<scalar_type>("scale")
-                    .template parameter< global_ptr< const idx_t > >("row")
-                    .template parameter< global_ptr< const col_t > >("col")
-                    .template parameter< global_ptr< const val_t > >("val")
-                    .template parameter< global_ptr< const val_t > >("in")
-                    .template parameter< global_ptr< val_t > >("out")
-                .close(")")
-                .open("{")
-                    .grid_stride_loop("i").open("{");
+            source.begin_kernel("csr_spmv");
+            source.begin_kernel_parameters();
+            source.template parameter<size_t>("n");
+            source.template parameter<scalar_type>("scale");
+            source.template parameter< global_ptr< const idx_t > >("row");
+            source.template parameter< global_ptr< const col_t > >("col");
+            source.template parameter< global_ptr< const val_t > >("val");
+            source.template parameter< global_ptr< const val_t > >("in");
+            source.template parameter< global_ptr< val_t > >("out");
+            source.end_kernel_parameters();
+            source.grid_stride_loop("i").open("{");
             source.new_line() << type_name<val_t>() << " sum = 0;";
             source.new_line() << "for(size_t j = row[i], e = row[i + 1]; j < e; ++j)";
             source.open("{");
             source.new_line() << "sum += val[j] * in[col[j]];";
             source.close("}");
             source.new_line() << "out[i] " << OP::string() << " scale * sum;";
-            source.close("}").close("}");
+            source.close("}");
+            source.end_kernel();
 
             kernel = cache.insert(queue, backend::kernel(
                         queue, source.str(), "csr_spmv"));
@@ -211,21 +211,21 @@ struct SpMatCSR : public sparse_matrix {
     static void inline_preamble(backend::source_generator &src,
             const std::string &prm_name)
     {
-        src.function<val_t>(prm_name + "_csr_spmv")
-            .open("(")
-                .template parameter< global_ptr<const idx_t> >("row")
-                .template parameter< global_ptr<const col_t> >("col")
-                .template parameter< global_ptr<const val_t> >("val")
-                .template parameter< global_ptr<const val_t> >("in")
-                .template parameter< size_t >("i")
-            .close(")").open("{");
+        src.begin_function<val_t>(prm_name + "_csr_spmv");
+        src.begin_function_parameters();
+        src.template parameter< global_ptr<const idx_t> >("row");
+        src.template parameter< global_ptr<const col_t> >("col");
+        src.template parameter< global_ptr<const val_t> >("val");
+        src.template parameter< global_ptr<const val_t> >("in");
+        src.template parameter< size_t >("i");
+        src.end_function_parameters();
         src.new_line() << type_name<val_t>() << " sum = 0;";
         src.new_line() << "for(size_t j = row[i], e = row[i + 1]; j < e; ++j)";
         src.open("{");
         src.new_line() << "sum += val[j] * in[col[j]];";
         src.close("}");
         src.new_line() << "return sum;";
-        src.close("}");
+        src.end_function();
     }
 
     static void inline_expression(backend::source_generator &src,

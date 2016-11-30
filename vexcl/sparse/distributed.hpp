@@ -357,18 +357,17 @@ class distributed {
                     output_terminal_preamble otp(src, q[d], "prm", empty_state());
                     boost::proto::eval(boost::proto::as_child(expr), otp);
 
-                    src.kernel("vexcl_sparse_gather")
-                        .open("(")
-                        .template parameter<size_t>("n")
-                        .template parameter< global_ptr<const col_type> >("cols_to_send")
-                        .template parameter< global_ptr<rhs_type> >("vals_to_send")
-                        ;
+                    src.begin_kernel("vexcl_sparse_gather");
+                    src.begin_kernel_parameters();
+                    src.template parameter<size_t>("n");
+                    src.template parameter< global_ptr<const col_type> >("cols_to_send");
+                    src.template parameter< global_ptr<rhs_type> >("vals_to_send");
 
                     extract_terminals()(boost::proto::as_child(expr),
                             declare_expression_parameter(src, q[d], "prm", empty_state()));
 
-                    src.close(")").open("{")
-                        .grid_stride_loop().open("{");
+                    src.end_kernel_parameters();
+                    src.grid_stride_loop().open("{");
 
                     src.new_line() << type_name<rhs_type>() << " cur_val;";
                     src.open("{");
@@ -387,7 +386,8 @@ class distributed {
                     src.close("}");
                     src.new_line() << "vals_to_send[idx] = cur_val;";
 
-                    src.close("}").close("}");
+                    src.close("}");
+                    src.end_kernel();
 
                     K = cache.insert(q[d], backend::kernel(
                                 q[d], src.str(), "vexcl_sparse_gather"));

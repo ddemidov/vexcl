@@ -98,10 +98,11 @@ struct Random : UserFunction<Random<T, Generator>, T(cl_ulong, cl_ulong)> {
 
         generator::define(src);
 
-        src.function<T>(fname).open("(")
-            .template parameter<cl_ulong>("prm1")
-            .template parameter<cl_ulong>("prm2")
-        .close(")").open("{");
+        src.begin_function<T>(fname);
+        src.begin_function_parameters();
+        src.template parameter<cl_ulong>("prm1");
+        src.template parameter<cl_ulong>("prm2");
+        src.end_function_parameters();
 
         src.new_line() << "union ";
         src.open("{");
@@ -147,7 +148,7 @@ struct Random : UserFunction<Random<T, Generator>, T(cl_ulong, cl_ulong)> {
         }
         src.new_line() << "return ctr.res;";
 
-        src.close("}");
+        src.end_function();
     }
 };
 
@@ -183,10 +184,11 @@ struct RandomNormal : UserFunction<RandomNormal<T,Generator>, T(cl_ulong, cl_ulo
 
         generator::define(src);
 
-        src.function<T>(fname).open("(")
-            .template parameter<cl_ulong>("prm1")
-            .template parameter<cl_ulong>("prm2")
-        .close(")").open("{");
+        src.begin_function<T>(fname);
+        src.begin_function_parameters();
+        src.template parameter<cl_ulong>("prm1");
+        src.template parameter<cl_ulong>("prm2");
+        src.end_function_parameters();
 
         src.new_line() << "union ";
         src.open("{");
@@ -261,7 +263,7 @@ struct RandomNormal : UserFunction<RandomNormal<T,Generator>, T(cl_ulong, cl_ulo
         if (N > 1)
             src.new_line() << "return res.v;";
 
-        src.close("}");
+        src.end_function();
     }
 };
 

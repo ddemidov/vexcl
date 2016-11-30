@@ -312,15 +312,16 @@ struct gslice {
             const std::string &prm_name,
             const backend::command_queue&, detail::kernel_generator_state_ptr) const
     {
-        src.function<size_t>(prm_name + "_func").open("(")
-            .parameter<size_t>("start");
+        src.begin_function<size_t>(prm_name + "_func");
+        src.begin_function_parameters();
+        src.parameter<size_t>("start");
 
         for(size_t k = 0; k < NDIM; ++k) {
             src.parameter<size_t>("length") << k;
             src.parameter<ptrdiff_t>("stride") << k;
         }
         src.parameter<size_t>("idx");
-        src.close(")").open("{");
+        src.end_function_parameters();
 
         if (NDIM == 1) {
             src.new_line() << "return start + idx * stride0;";
@@ -336,7 +337,7 @@ struct gslice {
             }
             src.new_line() << "return ptr;";
         }
-        src.close("}");
+        src.end_function();
     }
 
     void parameter_declaration(backend::source_generator &src,

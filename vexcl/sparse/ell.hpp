@@ -328,20 +328,21 @@ class ell {
             if (kernel == cache.end()) {
                 backend::source_generator src(q);
 
-                src.kernel("convert_csr2ell").open("(")
-                    .template parameter<size_t>("n")
-                    .template parameter<size_t>("ell_width")
-                    .template parameter<size_t>("ell_pitch")
-                    .template parameter< global_ptr<const ptr_type> >("ptr")
-                    .template parameter< global_ptr<const col_type> >("col")
-                    .template parameter< global_ptr<const val_type> >("val")
-                    .template parameter< global_ptr<col_type> >("ell_col")
-                    .template parameter< global_ptr<val_type> >("ell_val")
-                    .template parameter< global_ptr<const ptr_type> >("csr_ptr")
-                    .template parameter< global_ptr<col_type> >("csr_col")
-                    .template parameter< global_ptr<val_type> >("csr_val")
-                    .close(")").open("{")
-                    .grid_stride_loop().open("{");
+                src.begin_kernel("convert_csr2ell");
+                src.begin_kernel_parameters();
+                src.template parameter<size_t>("n");
+                src.template parameter<size_t>("ell_width");
+                src.template parameter<size_t>("ell_pitch");
+                src.template parameter< global_ptr<const ptr_type> >("ptr");
+                src.template parameter< global_ptr<const col_type> >("col");
+                src.template parameter< global_ptr<const val_type> >("val");
+                src.template parameter< global_ptr<col_type> >("ell_col");
+                src.template parameter< global_ptr<val_type> >("ell_val");
+                src.template parameter< global_ptr<const ptr_type> >("csr_ptr");
+                src.template parameter< global_ptr<col_type> >("csr_col");
+                src.template parameter< global_ptr<val_type> >("csr_val");
+                src.end_kernel_parameters();
+                src.grid_stride_loop().open("{");
 
                 src.new_line() << type_name<int>() << " w = 0;";
                 src.new_line() << type_name<ptr_type>() << " csr_head = 0;";
@@ -362,7 +363,7 @@ class ell {
                 //src.new_line() << "for(; w < ell_width; ++w)";
                 //src.new_line() << "  ell_col[idx + w * ell_pitch] = (" << type_name<col_type>() << ")(-1);";
                 src.close("}");
-                src.close("}");
+                src.end_kernel();
 
                 kernel = cache.insert(q, backend::kernel(q, src.str(), "convert_csr2ell"));
             }
