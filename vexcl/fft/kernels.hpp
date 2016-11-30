@@ -76,12 +76,13 @@ inline void kernel_radix(backend::source_generator &o, pow radix, bool invert) {
     o << in_place_dft(radix.value, invert);
 
     // kernel.
-    o.kernel("radix").open("(")
-        .template parameter< global_ptr<const T2> >("x")
-        .template parameter< global_ptr<      T2> >("y")
-        .template parameter< cl_uint              >("p")
-        .template parameter< cl_uint              >("threads")
-    .close(")").open("{");
+    o.begin_kernel("radix");
+    o.begin_kernel_parameters();
+    o.template parameter< global_ptr<const T2> >("x");
+    o.template parameter< global_ptr<      T2> >("y");
+    o.template parameter< cl_uint              >("p");
+    o.template parameter< cl_uint              >("threads");
+    o.end_kernel_parameters();
 
     o.new_line() << "const size_t i = " << o.global_id(0) << ";";
     o.new_line() << "if(i >= threads) return;";
@@ -115,7 +116,7 @@ inline void kernel_radix(backend::source_generator &o, pow radix, bool invert) {
     o.new_line() << "y += j + batch_offset;";
     for(size_t i = 0; i < radix.value; i++)
         o.new_line() << "y[" << i << " * p] = v" << i << ";";
-    o.close("}");
+    o.end_kernel();
 }
 
 
@@ -139,10 +140,11 @@ inline void kernel_common(backend::source_generator &o, const backend::command_q
 // Return A*B (complex multiplication)
 template <class T2>
 inline void mul_code(backend::source_generator &o, bool invert) {
-    o.function<T2>("mul").open("(")
-        .template parameter<T2>("a")
-        .template parameter<T2>("b")
-    .close(")").open("{");
+    o.begin_function<T2>("mul");
+    o.begin_function_parameters();
+    o.template parameter<T2>("a");
+    o.template parameter<T2>("b");
+    o.end_function_parameters();
 
     if(invert) { // conjugate b
         o.new_line() << type_name<T2>() << " r = {"
@@ -155,16 +157,17 @@ inline void mul_code(backend::source_generator &o, bool invert) {
     }
 
     o.new_line() << "return r;";
-    o.close("}");
+    o.end_function();
 }
 
 // A * exp(alpha * I) == A  * (cos(alpha) + I * sin(alpha))
 // native_cos(), native_sin() is a *lot* faster than sincos, on nVidia.
 template <class T, class T2>
 inline void twiddle_code(backend::source_generator &o) {
-    o.function<T2>("twiddle").open("(")
-        .template parameter<T>("alpha")
-    .close(")").open("{");
+    o.begin_function<T2>("twiddle");
+    o.begin_function_parameters();
+    o.template parameter<T>("alpha");
+    o.end_function_parameters();
 
     if(std::is_same<T, cl_double>::value) {
         // use sincos with double since we probably want higher precision
@@ -188,7 +191,7 @@ inline void twiddle_code(backend::source_generator &o) {
     }
 
     o.new_line() << "return r;";
-    o.close("}");
+    o.end_function();
 }
 
 
@@ -267,12 +270,13 @@ inline kernel_call transpose_kernel(
     }
 
     // from NVIDIA SDK.
-    o.kernel("transpose").open("(")
-        .template parameter< global_ptr<const T2> >("input")
-        .template parameter< global_ptr<      T2> >("output")
-        .template parameter< cl_uint              >("width")
-        .template parameter< cl_uint              >("height")
-    .close(")").open("{");
+    o.begin_kernel("transpose");
+    o.begin_kernel_parameters();
+        o.template parameter< global_ptr<const T2> >("input");
+        o.template parameter< global_ptr<      T2> >("output");
+        o.template parameter< cl_uint              >("width");
+        o.template parameter< cl_uint              >("height");
+    o.end_kernel_parameters();
 
     o.new_line() << "const size_t global_x = " << o.global_id(0) << ";";
     o.new_line() << "const size_t global_y = " << o.global_id(1) << ";";
@@ -302,7 +306,7 @@ inline kernel_call transpose_kernel(
     o.new_line() << "if(range) "
       << "output[target_x + target_y * height] = block[local_x + local_y * " << block_size << "];";
 
-    o.close("}");
+    o.end_kernel();
 
     backend::kernel kernel(queue, o.str(), "transpose");
 
@@ -338,10 +342,11 @@ inline kernel_call bluestein_twiddle(
     kernel_common<T>(o, queue);
     twiddle_code<T, T2>(o);
 
-    o.kernel("bluestein_twiddle").open("(")
-        .template parameter< size_t         >("n")
-        .template parameter< global_ptr<T2> >("output")
-    .close(")").open("{");
+    o.begin_kernel("bluestein_twiddle");
+    o.begin_kernel_parameters();
+    o.template parameter< size_t         >("n");
+    o.template parameter< global_ptr<T2> >("output");
+    o.end_kernel_parameters();
 
     o.new_line() << "const size_t x = " << o.global_id(0) << ";";
 
@@ -351,7 +356,7 @@ inline kernel_call bluestein_twiddle(
         << (inverse ? 1 : -1) * boost::math::constants::pi<T>()
         << " * xx / n);";
 
-    o.close("}");
+    o.end_kernel();
 
     backend::kernel kernel(queue, o.str(), "bluestein_twiddle");
     kernel.push_arg(n);
@@ -377,19 +382,21 @@ inline kernel_call bluestein_pad_kernel(
     backend::source_generator o;
     kernel_common<T>(o, queue);
 
-    o.function<T2>("conj").open("(")
-        .template parameter<T2>("v")
-    .close(")").open("{");
+    o.begin_function<T2>("conj");
+    o.begin_function_parameters();
+    o.template parameter<T2>("v");
+    o.end_function_parameters();
     o.new_line() << type_name<T2>() << " r = {v.x, -v.y};";
     o.new_line() << "return r;";
-    o.close("}");
+    o.end_function();
 
-    o.kernel("bluestein_pad_kernel").open("(")
-        .template parameter< global_ptr<const T2> >("input")
-        .template parameter< global_ptr<      T2> >("output")
-        .template parameter< cl_uint              >("n")
-        .template parameter< cl_uint              >("m")
-    .close(")").open("{");
+    o.begin_kernel("bluestein_pad_kernel");
+    o.begin_kernel_parameters();
+    o.template parameter< global_ptr<const T2> >("input");
+    o.template parameter< global_ptr<      T2> >("output");
+    o.template parameter< cl_uint              >("n");
+    o.template parameter< cl_uint              >("m");
+    o.end_kernel_parameters();
     o.new_line() << "const uint x = " << o.global_id(0) << ";";
     o.new_line() << "if (x < m)";
     o.open("{");
@@ -403,7 +410,7 @@ inline kernel_call bluestein_pad_kernel(
     o.new_line() << "output[x] = r;";
     o.close("}");
     o.close("}");
-    o.close("}");
+    o.end_kernel();
 
     backend::kernel kernel(queue, o.str(), "bluestein_pad_kernel");
     kernel.push_arg(in);
@@ -435,14 +442,15 @@ inline kernel_call bluestein_mul_in(
     mul_code<T2>(o, false);
     twiddle_code<T, T2>(o);
 
-    o.kernel("bluestein_mul_in").open("(")
-        .template parameter< global_ptr<const T2> >("data")
-        .template parameter< global_ptr<const T2> >("exp")
-        .template parameter< global_ptr<      T2> >("output")
-        .template parameter< cl_uint              >("radix")
-        .template parameter< cl_uint              >("p")
-        .template parameter< cl_uint              >("out_stride")
-    .close(")").open("{");
+    o.begin_kernel("bluestein_mul_in");
+    o.begin_kernel_parameters();
+    o.template parameter< global_ptr<const T2> >("data");
+    o.template parameter< global_ptr<const T2> >("exp");
+    o.template parameter< global_ptr<      T2> >("output");
+    o.template parameter< cl_uint              >("radix");
+    o.template parameter< cl_uint              >("p");
+    o.template parameter< cl_uint              >("out_stride");
+    o.end_kernel_parameters();
 
     o.new_line() << "const size_t thread  = " << o.global_id(0)   << ";";
     o.new_line() << "const size_t threads = " << o.global_size(0) << ";";
@@ -482,7 +490,7 @@ inline kernel_call bluestein_mul_in(
 
     o.close("}");
     o.close("}");
-    o.close("}");
+    o.end_kernel();
 
     backend::kernel kernel(queue, o.str(), "bluestein_mul_in");
     kernel.push_arg(data);
@@ -518,24 +526,26 @@ inline kernel_call bluestein_mul_out(
     kernel_common<T>(o, queue);
     mul_code<T2>(o, false);
 
-    o.function<T2>("scale").open("(")
-        .template parameter<T2>("x")
-        .template parameter<T >("a")
-    .close(")").open("{");
+    o.begin_function<T2>("scale");
+    o.begin_function_parameters();
+    o.template parameter<T2>("x");
+    o.template parameter<T >("a");
+    o.end_function_parameters();
 
     o.new_line() << type_name<T2>() << " r = {x.x * a, x.y * a};";
     o.new_line() << "return r;";
-    o.close("}");
+    o.end_function();
 
-    o.kernel("bluestein_mul_out").open("(")
-        .template parameter< global_ptr<const T2> >("data")
-        .template parameter< global_ptr<const T2> >("exp")
-        .template parameter< global_ptr<      T2> >("output")
-        .template parameter< T                    >("div")
-        .template parameter< cl_uint              >("p")
-        .template parameter< cl_uint              >("in_stride")
-        .template parameter< cl_uint              >("radix")
-    .close(")").open("{");
+    o.begin_kernel("bluestein_mul_out");
+    o.begin_kernel_parameters();
+    o.template parameter< global_ptr<const T2> >("data");
+    o.template parameter< global_ptr<const T2> >("exp");
+    o.template parameter< global_ptr<      T2> >("output");
+    o.template parameter< T                    >("div");
+    o.template parameter< cl_uint              >("p");
+    o.template parameter< cl_uint              >("in_stride");
+    o.template parameter< cl_uint              >("radix");
+    o.end_kernel_parameters();
 
     o.new_line() << "const size_t i = " << o.global_id(0) << ";";
     o.new_line() << "const size_t threads = " << o.global_size(0) << ";";
@@ -553,7 +563,7 @@ inline kernel_call bluestein_mul_out(
     o.new_line() << "output[out_off] = mul(scale(data[in_off], div), exp[l]);";
 
     o.close("}");
-    o.close("}");
+    o.end_kernel();
 
     backend::kernel kernel(queue, o.str(), "bluestein_mul_out");
     kernel.push_arg(data);
@@ -589,12 +599,13 @@ inline kernel_call bluestein_mul(
     kernel_common<T>(o, queue);
     mul_code<T2>(o, false);
 
-    o.kernel("bluestein_mul").open("(")
-        .template parameter< global_ptr<const T2> >("data")
-        .template parameter< global_ptr<const T2> >("exp")
-        .template parameter< global_ptr<      T2> >("output")
-        .template parameter< cl_uint              >("stride")
-    .close(")").open("{");
+    o.begin_kernel("bluestein_mul");
+    o.begin_kernel_parameters();
+    o.template parameter< global_ptr<const T2> >("data");
+    o.template parameter< global_ptr<const T2> >("exp");
+    o.template parameter< global_ptr<      T2> >("output");
+    o.template parameter< cl_uint              >("stride");
+    o.end_kernel_parameters();
 
     o.new_line() << "const size_t x = " << o.global_id(0) << ";";
     o.new_line() << "const size_t y = " << o.global_id(1) << ";";
@@ -606,7 +617,7 @@ inline kernel_call bluestein_mul(
     o.new_line() << "output[off] = mul(data[off], exp[x]);";
 
     o.close("}");
-    o.close("}");
+    o.end_kernel();
 
     backend::kernel kernel(queue, o.str(), "bluestein_mul");
     kernel.push_arg(data);

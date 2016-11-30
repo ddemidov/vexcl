@@ -511,39 +511,36 @@ struct terminal_preamble< mba_interp<MBA, ExprTuple> > {
 
         std::string B = prm_name + "_B";
 
-        src.function<real>(B + "0")
-            .open("(")
-                .template parameter<real>("t")
-            .close(")")
-            .open("{")
-                .new_line() << "return (t * (t * (-t + 3) - 3) + 1) / 6;";
-            src.close("}");
+        src.begin_function<real>(B + "0");
+        src.begin_function_parameters();
+        src.template parameter<real>("t");
+        src.end_function_parameters();
+        src.new_line() << "return (t * (t * (-t + 3) - 3) + 1) / 6;";
+        src.end_function();
 
-        src.function<real>(B + "1")
-            .open("(")
-                .template parameter<real>("t")
-            .close(")")
-            .open("{")
-                .new_line() << "return (t * t * (3 * t - 6) + 4) / 6;";
-            src.close("}");
+        src.begin_function<real>(B + "1");
+        src.begin_function_parameters();
+        src.template parameter<real>("t");
+        src.end_function_parameters();
+        src.new_line() << "return (t * t * (3 * t - 6) + 4) / 6;";
+        src.end_function();
 
-        src.function<real>(B + "2")
-            .open("(")
-                .template parameter<real>("t")
-            .close(")")
-            .open("{")
-                .new_line() << "return (t * (t * (-3 * t + 3) + 3) + 1) / 6;";
-            src.close("}");
+        src.begin_function<real>(B + "2");
+        src.begin_function_parameters();
+        src.template parameter<real>("t");
+        src.end_function_parameters();
+        src.new_line() << "return (t * (t * (-3 * t + 3) + 3) + 1) / 6;";
+        src.end_function();
 
-        src.function<real>(B + "3")
-            .open("(")
-                .template parameter<real>("t")
-            .close(")")
-            .open("{")
-                .new_line() << "return t * t * t / 6;";
-            src.close("}");
+        src.begin_function<real>(B + "3");
+        src.begin_function_parameters();
+        src.template parameter<real>("t");
+        src.end_function_parameters();
+        src.new_line() << "return t * t * t / 6;";
+        src.end_function();
 
-        src.function<real>(prm_name + "_mba").open("(");
+        src.begin_function<real>(prm_name + "_mba");
+        src.begin_function_parameters();
 
         for(size_t k = 0; k < MBA::ndim; ++k)
             src.template parameter<real>("x") << k;
@@ -556,7 +553,7 @@ struct terminal_preamble< mba_interp<MBA, ExprTuple> > {
         }
 
         src.template parameter< global_ptr<const real> >("phi");
-        src.close(")").open("{");
+        src.end_function_parameters();
         src.new_line() << type_name<real>() << " u;";
         for(size_t k = 0; k < MBA::ndim; ++k) {
             src.new_line() << "u = (x" << k << " - c" << k << ") * h" << k << ";";
@@ -586,7 +583,7 @@ struct terminal_preamble< mba_interp<MBA, ExprTuple> > {
                 src.close("}");
         }
         src.new_line() << "return f;";
-        src.close("}");
+        src.end_function();
     }
 };
 

@@ -134,10 +134,11 @@ struct philox {
                 }
             }
 
-            src.function<void>( name() ).open("(")
-                .template parameter< regstr_ptr<T> >("ctr")
-                .template parameter< regstr_ptr<T> >("key")
-            .close(")").open("{");
+            src.begin_function<void>( name() );
+            src.begin_function_parameters();
+            src.template parameter< regstr_ptr<T> >("ctr");
+            src.template parameter< regstr_ptr<T> >("key");
+            src.end_function_parameters();
 
             src.new_line() << type_name<T>() << " m[" << N << "];";
 
@@ -172,7 +173,7 @@ struct philox {
             src.new_line() << "#undef mul_hi";
 #endif
 
-            src.close("}");
+            src.end_function();
         }
     };
 };

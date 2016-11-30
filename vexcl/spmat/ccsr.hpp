@@ -181,15 +181,15 @@ struct terminal_preamble< ccsr_product<val_t, col_t, idx_t, T> > {
     {
         typedef decltype(val_t() * T()) res_t;
 
-        src.function<res_t>(prm_name + "_spmv")
-            .open("(")
-                .template parameter< global_ptr<const idx_t> >("idx")
-                .template parameter< global_ptr<const idx_t> >("row")
-                .template parameter< global_ptr<const col_t> >("col")
-                .template parameter< global_ptr<const val_t> >("val")
-                .template parameter< global_ptr<const T>     >("vec")
-                .template parameter< size_t >("i")
-            .close(")").open("{");
+        src.begin_function<res_t>(prm_name + "_spmv");
+        src.begin_function_parameters();
+        src.template parameter< global_ptr<const idx_t> >("idx");
+        src.template parameter< global_ptr<const idx_t> >("row");
+        src.template parameter< global_ptr<const col_t> >("col");
+        src.template parameter< global_ptr<const val_t> >("val");
+        src.template parameter< global_ptr<const T>     >("vec");
+        src.template parameter< size_t >("i");
+        src.end_function_parameters();
 
         src.new_line() << type_name<res_t>() << " sum = 0;";
         src.new_line() << "for(size_t pos = idx[i], j = row[pos], end = row[pos+1]; j < end; ++j)";
@@ -197,7 +197,7 @@ struct terminal_preamble< ccsr_product<val_t, col_t, idx_t, T> > {
         src.new_line() << "sum += val[j] * vec[i + col[j]];";
         src.close("}");
         src.new_line() << "return sum;";
-        src.close("}");
+        src.end_function();
     }
 };
 

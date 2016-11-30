@@ -160,10 +160,11 @@ struct threefry {
             const size_t bits = sizeof(T) * 8;
             auto rot = detail::rotation_table<bits, N>::get();
 
-            src.function<void>( name() ).open("(")
-                .template parameter< regstr_ptr<T> >("ctr")
-                .template parameter< regstr_ptr<T> >("key")
-            .close(")").open("{");
+            src.begin_function<void>( name() );
+            src.begin_function_parameters();
+            src.template parameter< regstr_ptr<T> >("ctr");
+            src.template parameter< regstr_ptr<T> >("key");
+            src.end_function_parameters();
 
 #ifdef VEXCL_BACKEND_CUDA
             src.new_line() << "#define rotate(x, b) "
@@ -217,7 +218,7 @@ struct threefry {
             src.new_line() << "#undef rotate";
 #endif
 
-            src.close("}");
+            src.end_function();
         }
     };
 };

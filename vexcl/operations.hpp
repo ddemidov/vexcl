@@ -607,10 +607,12 @@ struct UserFunction<Impl, RetType(ArgType...)> : user_function
     static void define(backend::source_generator &src, const std::string &name)
     {
         src << Impl::preamble();
-        src.function<RetType>(name).open("(");
+        src.begin_function<RetType>(name);
+        src.begin_function_parameters();
         show_arg<ArgType...>(src, 1);
-        src.close(")").open("{").new_line() << Impl::body();
-        src.close("}");
+        src.end_function_parameters();
+        src.new_line() << Impl::body();
+        src.end_function();
     }
 
     template <class Head>
@@ -656,10 +658,12 @@ struct UserFunction<Impl, RetType(ArgType...)> : user_function
     static void define(backend::source_generator &src,                         \
                        const std::string &name) {                              \
       src << Impl::preamble();                                                 \
-      src.function<RetType>(name).open("(");                                   \
+      src.begin_function<RetType>(name);                                       \
+      src.begin_function_parameters();                                         \
       BOOST_PP_REPEAT(n, VEXCL_PRINT_PRM_DEF, n)                               \
-      src.close(")").open("{").new_line() << Impl::body();                     \
-      src.close("}");                                                          \
+      src.end_function_parameters();                                           \
+      src.new_line() << Impl::body();                                          \
+      src.end_function();                                                      \
     }                                                                          \
   };
 
@@ -1849,19 +1853,17 @@ void assign_expression(LHS &lhs, const RHS &rhs,
             boost::proto::eval(boost::proto::as_child(lhs), termpream);
             boost::proto::eval(boost::proto::as_child(rhs), termpream);
 
-            source.kernel("vexcl_vector_kernel")
-                .open("(")
-                    .parameter<size_t>("n");
+            source.begin_kernel("vexcl_vector_kernel");
+            source.begin_kernel_parameters();
+            source.parameter<size_t>("n");
 
             declare_expression_parameter declare(source, queue[d], "prm", empty_state());
 
             extract_terminals()(boost::proto::as_child(lhs), declare);
             extract_terminals()(boost::proto::as_child(rhs), declare);
 
-            source.close(")")
-                .open("{")
-                    .grid_stride_loop()
-                    .open("{");
+            source.end_kernel_parameters();
+            source.grid_stride_loop().open("{");
 
             output_local_preamble loc_init(source, queue[d], "prm", empty_state());
             boost::proto::eval(boost::proto::as_child(lhs), loc_init);
@@ -1875,7 +1877,7 @@ void assign_expression(LHS &lhs, const RHS &rhs,
             boost::proto::eval(boost::proto::as_child(rhs), expr_ctx);
 
             source << ";";
-            source.close("}").close("}");
+            source.close("}").end_kernel();
 
             kernel = cache.insert(queue[d], backend::kernel(
                         queue[d], source.str(), "vexcl_vector_kernel"));
@@ -2138,21 +2140,21 @@ void assign_multiexpression( LHS &lhs, const RHS &rhs,
                     preamble_constructor<LHS, RHS>(lhs, rhs, source, queue[d])
                     );
 
-            source.kernel("vexcl_multivector_kernel")
-                .open("(")
-                    .parameter<size_t>("n");
+            source.begin_kernel("vexcl_multivector_kernel");
+            source.begin_kernel_parameters();
+            source.parameter<size_t>("n");
 
             static_for<0, N::value>::loop(
                     parameter_declarator<LHS, RHS>(lhs, rhs, source, queue[d])
                     );
 
-            source.close(")").open("{")
-                .grid_stride_loop().open("{");
+            source.end_kernel_parameters();
+            source.grid_stride_loop().open("{");
 
             static_for<0, N::value>::loop(expression_init<LHS, RHS>(lhs, rhs, source, queue[d]));
             static_for<0, N::value>::loop(expression_finalize<OP, LHS>(lhs, source, queue[d]));
 
-            source.close("}").close("}");
+            source.close("}").end_kernel();
 
             kernel = cache.insert(queue[d], backend::kernel(
                         queue[d], source.str(), "vexcl_multivector_kernel") );

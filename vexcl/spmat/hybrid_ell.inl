@@ -235,22 +235,21 @@ struct SpMatHELL : public sparse_matrix {
         if (kernel == cache.end()) {
             backend::source_generator source(queue);
 
-            source.kernel("hybrid_ell_spmv")
-                .open("(")
-                    .template parameter<size_t>("n")
-                    .template parameter<scalar_type>("scale")
-                    .template parameter<size_t>("ell_w")
-                    .template parameter<size_t>("ell_pitch")
-                    .template parameter< global_ptr<const col_t> >("ell_col")
-                    .template parameter< global_ptr<const val_t> >("ell_val")
-                    .template parameter< global_ptr<const idx_t> >("csr_row")
-                    .template parameter< global_ptr<const col_t> >("csr_col")
-                    .template parameter< global_ptr<const val_t> >("csr_val")
-                    .template parameter< global_ptr<const val_t> >("in")
-                    .template parameter< global_ptr<val_t> >("out")
-                .close(")")
-                .open("{")
-                    .grid_stride_loop("i").open("{");
+            source.begin_kernel("hybrid_ell_spmv");
+            source.begin_kernel_parameters();
+            source.template parameter<size_t>("n");
+            source.template parameter<scalar_type>("scale");
+            source.template parameter<size_t>("ell_w");
+            source.template parameter<size_t>("ell_pitch");
+            source.template parameter< global_ptr<const col_t> >("ell_col");
+            source.template parameter< global_ptr<const val_t> >("ell_val");
+            source.template parameter< global_ptr<const idx_t> >("csr_row");
+            source.template parameter< global_ptr<const col_t> >("csr_col");
+            source.template parameter< global_ptr<const val_t> >("csr_val");
+            source.template parameter< global_ptr<const val_t> >("in");
+            source.template parameter< global_ptr<val_t> >("out");
+            source.end_kernel_parameters();
+            source.grid_stride_loop("i").open("{");
 
             source.new_line() << type_name<val_t>() << " sum = 0;";
             source.new_line() << "for(size_t j = 0; j < ell_w; ++j)";
@@ -266,7 +265,8 @@ struct SpMatHELL : public sparse_matrix {
             source.new_line() << "sum += csr_val[j] * in[csr_col[j]];";
             source.close("}").close("}");
             source.new_line() << "out[i] " << OP::string() << " scale * sum;";
-            source.close("}").close("}");
+            source.close("}");
+            source.end_kernel();
 
             kernel = cache.insert(queue, backend::kernel(
                         queue, source.str(), "hybrid_ell_spmv"));
@@ -322,18 +322,18 @@ struct SpMatHELL : public sparse_matrix {
     static void inline_preamble(backend::source_generator &src,
         const std::string &prm_name)
     {
-        src.function<val_t>(prm_name + "_hell_spmv")
-            .open("(")
-                .template parameter<size_t>("ell_w")
-                .template parameter<size_t>("ell_pitch")
-                .template parameter< global_ptr<const col_t> >("ell_col")
-                .template parameter< global_ptr<const val_t> >("ell_val")
-                .template parameter< global_ptr<const idx_t> >("csr_row")
-                .template parameter< global_ptr<const col_t> >("csr_col")
-                .template parameter< global_ptr<const val_t> >("csr_val")
-                .template parameter< global_ptr<const val_t> >("in")
-                .template parameter< size_t >("i")
-            .close(")").open("{");
+        src.begin_function<val_t>(prm_name + "_hell_spmv");
+        src.begin_function_parameters();
+        src.template parameter<size_t>("ell_w");
+        src.template parameter<size_t>("ell_pitch");
+        src.template parameter< global_ptr<const col_t> >("ell_col");
+        src.template parameter< global_ptr<const val_t> >("ell_val");
+        src.template parameter< global_ptr<const idx_t> >("csr_row");
+        src.template parameter< global_ptr<const col_t> >("csr_col");
+        src.template parameter< global_ptr<const val_t> >("csr_val");
+        src.template parameter< global_ptr<const val_t> >("in");
+        src.template parameter< size_t >("i");
+        src.end_function_parameters();
         src.new_line() << type_name<val_t>() << " sum = 0;";
         src.new_line() << "for(size_t j = 0; j < ell_w; ++j)";
         src.open("{");
@@ -347,7 +347,7 @@ struct SpMatHELL : public sparse_matrix {
         src.open("{").new_line() << "sum += csr_val[j] * in[csr_col[j]];";
         src.close("}").close("}");
         src.new_line() << "return sum;";
-        src.close("}");
+        src.end_function();
     }
 
     static void inline_expression(backend::source_generator &src,

@@ -89,13 +89,13 @@ std::string global_to_regstr_pred() {
 
 template<int NT, int VT, typename T>
 void global_to_regstr_pred(backend::source_generator &src) {
-    src.function<void>( global_to_regstr_pred<NT,VT,T>() )
-        .open("(")
-            .template parameter< int                 >("count")
-            .template parameter< global_ptr<const T> >("data")
-            .template parameter< int                 >("tid")
-            .template parameter< regstr_ptr<T>       >("reg")
-        .close(")").open("{");
+    src.begin_function<void>( global_to_regstr_pred<NT,VT,T>() );
+    src.begin_function_parameters();
+    src.template parameter< int                 >("count");
+    src.template parameter< global_ptr<const T> >("data");
+    src.template parameter< int                 >("tid");
+    src.template parameter< regstr_ptr<T>       >("reg");
+    src.end_function_parameters();
 
     src.new_line() << type_name<int>() << " index;";
 
@@ -103,7 +103,7 @@ void global_to_regstr_pred(backend::source_generator &src) {
         src.new_line() << "index = " << NT * i << " + tid;";
         src.new_line() << "if (index < count) reg[" << i << "] = data[index];";
     }
-    src.close("}");
+    src.end_function();
 }
 
 //---------------------------------------------------------------------------
@@ -118,13 +118,13 @@ template<int NT, int VT, typename T>
 void global_to_regstr(backend::source_generator &src) {
     global_to_regstr_pred<NT, VT, T>(src);
 
-    src.function<void>( global_to_regstr<NT,VT,T>() )
-        .open("(")
-            .template parameter< int                 >("count")
-            .template parameter< global_ptr<const T> >("data")
-            .template parameter< int                 >("tid")
-            .template parameter< regstr_ptr<T>       >("reg")
-        .close(")").open("{");
+    src.begin_function<void>( global_to_regstr<NT,VT,T>() );
+    src.begin_function_parameters();
+    src.template parameter< int                 >("count");
+    src.template parameter< global_ptr<const T> >("data");
+    src.template parameter< int                 >("tid");
+    src.template parameter< regstr_ptr<T>       >("reg");
+    src.end_function_parameters();
 
     src.new_line() << "if (count >= " << NT * VT << ")";
     src.open("{");
@@ -135,7 +135,7 @@ void global_to_regstr(backend::source_generator &src) {
     src.close("}") << " else "
         << global_to_regstr_pred<NT, VT, T>() << "(count, data, tid, reg);";
 
-    src.close("}");
+    src.end_function();
 }
 
 //---------------------------------------------------------------------------
@@ -148,13 +148,13 @@ std::string regstr_to_global() {
 
 template<int NT, int VT, typename T>
 void regstr_to_global(backend::source_generator &src) {
-    src.function<void>( regstr_to_global<NT,VT,T>() )
-        .open("(")
-            .template parameter< int                 >("count")
-            .template parameter< regstr_ptr<const T> >("reg")
-            .template parameter< int                 >("tid")
-            .template parameter< global_ptr<T>       >("dest")
-        .close(")").open("{");
+    src.begin_function<void>( regstr_to_global<NT,VT,T>() );
+    src.begin_function_parameters();
+    src.template parameter< int                 >("count");
+    src.template parameter< regstr_ptr<const T> >("reg");
+    src.template parameter< int                 >("tid");
+    src.template parameter< global_ptr<T>       >("dest");
+    src.end_function_parameters();
 
     src.new_line() << type_name<int>() << " index;";
 
@@ -165,7 +165,7 @@ void regstr_to_global(backend::source_generator &src) {
 
     src.new_line().barrier();
 
-    src.close("}");
+    src.end_function();
 }
 
 //---------------------------------------------------------------------------
@@ -178,19 +178,19 @@ std::string shared_to_regstr() {
 
 template<int NT, int VT, typename T>
 void shared_to_regstr(backend::source_generator &src) {
-    src.function<void>( shared_to_regstr<NT,VT,T>() )
-        .open("(")
-            .template parameter< shared_ptr<const T> >("data")
-            .template parameter< int                 >("tid")
-            .template parameter< regstr_ptr<T>       >("reg")
-        .close(")").open("{");
+    src.begin_function<void>( shared_to_regstr<NT,VT,T>() );
+    src.begin_function_parameters();
+    src.template parameter< shared_ptr<const T> >("data");
+    src.template parameter< int                 >("tid");
+    src.template parameter< regstr_ptr<T>       >("reg");
+    src.end_function_parameters();
 
     for(int i = 0; i < VT; ++i)
         src.new_line() << "reg[" << i << "] = data[" << NT * i << " + tid];";
 
     src.new_line().barrier();
 
-    src.close("}");
+    src.end_function();
 }
 
 //---------------------------------------------------------------------------
@@ -203,19 +203,19 @@ std::string regstr_to_shared() {
 
 template<int NT, int VT, typename T>
 void regstr_to_shared(backend::source_generator &src) {
-    src.function<void>( regstr_to_shared<NT,VT,T>() )
-        .open("(")
-            .template parameter< regstr_ptr<const T> >("reg")
-            .template parameter< int                 >("tid")
-            .template parameter< shared_ptr<T>       >("dest")
-        .close(")").open("{");
+    src.begin_function<void>( regstr_to_shared<NT,VT,T>() );
+    src.begin_function_parameters();
+    src.template parameter< regstr_ptr<const T> >("reg");
+    src.template parameter< int                 >("tid");
+    src.template parameter< shared_ptr<T>       >("dest");
+    src.end_function_parameters();
 
     for(int i = 0; i < VT; ++i)
         src.new_line() << "dest[" << NT * i << " + tid] = reg[" << i << "];";
 
     src.new_line().barrier();
 
-    src.close("}");
+    src.end_function();
 }
 
 //---------------------------------------------------------------------------
@@ -228,19 +228,19 @@ std::string global_to_shared() {
 
 template<int NT, int VT, typename T>
 void global_to_shared(backend::source_generator &src) {
-    src.function<void>( global_to_shared<NT,VT,T>() )
-        .open("(")
-            .template parameter< int                 >("count")
-            .template parameter< global_ptr<const T> >("source")
-            .template parameter< int                 >("tid")
-            .template parameter< shared_ptr<T>       >("dest")
-        .close(")").open("{");
+    src.begin_function<void>( global_to_shared<NT,VT,T>() );
+    src.begin_function_parameters();
+    src.template parameter< int                 >("count");
+    src.template parameter< global_ptr<const T> >("source");
+    src.template parameter< int                 >("tid");
+    src.template parameter< shared_ptr<T>       >("dest");
+    src.end_function_parameters();
 
     src.new_line() << type_name<T>() << " reg[" << VT << "];";
     src.new_line() << global_to_regstr<NT, VT, T>() << "(count, source, tid, reg);";
     src.new_line() << regstr_to_shared<NT, VT, T>() << "(reg, tid, dest);";
 
-    src.close("}");
+    src.end_function();
 }
 
 //---------------------------------------------------------------------------
@@ -253,13 +253,13 @@ std::string shared_to_global() {
 
 template<int NT, int VT, typename T>
 void shared_to_global(backend::source_generator &src) {
-    src.function<void>( shared_to_global<NT,VT,T>() )
-        .open("(")
-            .template parameter< int                 >("count")
-            .template parameter< shared_ptr<const T> >("source")
-            .template parameter< int                 >("tid")
-            .template parameter< global_ptr<T>       >("dest")
-        .close(")").open("{");
+    src.begin_function<void>( shared_to_global<NT,VT,T>() );
+    src.begin_function_parameters();
+    src.template parameter< int                 >("count");
+    src.template parameter< shared_ptr<const T> >("source");
+    src.template parameter< int                 >("tid");
+    src.template parameter< global_ptr<T>       >("dest");
+    src.end_function_parameters();
 
     src.new_line() << type_name<int>() << " index;";
 
@@ -269,7 +269,7 @@ void shared_to_global(backend::source_generator &src) {
     }
 
     src.new_line().barrier();
-    src.close("}");
+    src.end_function();
 }
 
 //---------------------------------------------------------------------------
@@ -282,19 +282,19 @@ std::string shared_to_thread() {
 
 template<int VT, typename T>
 void shared_to_thread(backend::source_generator &src) {
-    src.function<void>( shared_to_thread<VT,T>() )
-        .open("(")
-            .template parameter< shared_ptr<const T> >("data")
-            .template parameter< int                 >("tid")
-            .template parameter< regstr_ptr<T>       >("reg")
-        .close(")").open("{");
+    src.begin_function<void>( shared_to_thread<VT,T>() );
+    src.begin_function_parameters();
+    src.template parameter< shared_ptr<const T> >("data");
+    src.template parameter< int                 >("tid");
+    src.template parameter< regstr_ptr<T>       >("reg");
+    src.end_function_parameters();
 
     for(int i = 0; i < VT; ++i)
         src.new_line() << "reg[" << i << "] = data[" << VT << " * tid + " << i << "];";
 
     src.new_line().barrier();
 
-    src.close("}");
+    src.end_function();
 }
 
 //---------------------------------------------------------------------------
@@ -307,19 +307,19 @@ std::string thread_to_shared() {
 
 template<int VT, typename T>
 void thread_to_shared(backend::source_generator &src) {
-    src.function<void>( thread_to_shared<VT,T>() )
-        .open("(")
-            .template parameter< regstr_ptr<const T> >("reg")
-            .template parameter< int                 >("tid")
-            .template parameter< shared_ptr<T>       >("dest")
-        .close(")").open("{");
+    src.begin_function<void>( thread_to_shared<VT,T>() );
+    src.begin_function_parameters();
+    src.template parameter< regstr_ptr<const T> >("reg");
+    src.template parameter< int                 >("tid");
+    src.template parameter< shared_ptr<T>       >("dest");
+    src.end_function_parameters();
 
     for(int i = 0; i < VT; ++i)
         src.new_line() << "dest[" << VT << " * tid + " << i << "] = reg[" << i << "];";
 
     src.new_line().barrier();
 
-    src.close("}");
+    src.end_function();
 }
 
 //---------------------------------------------------------------------------
@@ -351,12 +351,13 @@ std::string swap_function() {
 
 template <typename T>
 void swap_function(backend::source_generator &src) {
-    src.function<void>(swap_function<T>()).open("(");
+    src.begin_function<void>(swap_function<T>());
+    src.begin_function_parameters();
 
     boost::mpl::for_each<T>( pointer_param<regstr_ptr>(src, "a") );
     boost::mpl::for_each<T>( pointer_param<regstr_ptr>(src, "b") );
 
-    src.close(")").open("{");
+    src.end_function_parameters();
 
     boost::mpl::for_each<T>( type_iterator([&](size_t pos, std::string tname) {
                 src.open("{");
@@ -366,7 +367,7 @@ void swap_function(backend::source_generator &src) {
                 src.close("}");
                 }) );
 
-    src.close("}");
+    src.end_function();
 }
 
 //---------------------------------------------------------------------------
@@ -385,11 +386,11 @@ void odd_even_transpose_sort(backend::source_generator &src) {
     if (boost::mpl::size<V>::value && !std::is_same<K, V>::value)
         swap_function<V>(src);
 
-    src.function<void>(odd_even_transpose_sort<VT,K,V>());
-    src.open("(");
+    src.begin_function<void>(odd_even_transpose_sort<VT,K,V>());
+    src.begin_function_parameters();
     boost::mpl::for_each<K>( pointer_param<regstr_ptr>(src, "keys") );
     boost::mpl::for_each<V>( pointer_param<regstr_ptr>(src, "vals") );
-    src.close(")").open("{");
+    src.end_function_parameters();
 
     for(int I = 0; I < VT; ++I) {
         for(int i = 1 & I; i < VT - 1; i += 2) {
@@ -418,7 +419,7 @@ void odd_even_transpose_sort(backend::source_generator &src) {
         }
     }
 
-    src.close("}");
+    src.end_function();
 }
 
 //---------------------------------------------------------------------------
@@ -432,16 +433,16 @@ std::string merge_path() {
 
 template<template<class> class Address, typename T>
 void merge_path(backend::source_generator &src) {
-    src.function<int>(merge_path<Address, T>())
-        .open("(")
-            .template parameter< int >("a_count")
-            .template parameter< int >("b_count")
-            .template parameter< int >("diag");
+    src.begin_function<int>(merge_path<Address, T>());
+    src.begin_function_parameters();
+    src.template parameter< int >("a_count");
+    src.template parameter< int >("b_count");
+    src.template parameter< int >("diag");
 
     boost::mpl::for_each<T>( pointer_param<Address, true>(src, "a") );
     boost::mpl::for_each<T>( pointer_param<Address, true>(src, "b") );
 
-    src.close(")").open("{");
+    src.end_function_parameters();
 
     src.new_line() << "int begin = max(0, diag - b_count);";
     src.new_line() << "int end   = min(diag, a_count);";
@@ -460,7 +461,7 @@ void merge_path(backend::source_generator &src) {
 
     src.new_line() << "return begin;";
 
-    src.close("}");
+    src.end_function();
 }
 
 //---------------------------------------------------------------------------
@@ -474,18 +475,18 @@ std::string serial_merge() {
 
 template<int VT, typename T>
 void serial_merge(backend::source_generator &src) {
-    src.function<void>(serial_merge<VT, T>())
-        .open("(")
-            .template parameter< int                 >("a_begin")
-            .template parameter< int                 >("a_end")
-            .template parameter< int                 >("b_begin")
-            .template parameter< int                 >("b_end")
-            .template parameter< regstr_ptr<int>     >("indices");
+    src.begin_function<void>(serial_merge<VT, T>());
+    src.begin_function_parameters();
+    src.template parameter< int                 >("a_begin");
+    src.template parameter< int                 >("a_end");
+    src.template parameter< int                 >("b_begin");
+    src.template parameter< int                 >("b_end");
+    src.template parameter< regstr_ptr<int>     >("indices");
 
     boost::mpl::for_each<T>( pointer_param<shared_ptr, true>(src, "keys_shared") );
     boost::mpl::for_each<T>( pointer_param<regstr_ptr>(src, "results") );
 
-    src.close(")").open("{");
+    src.end_function_parameters();
 
     boost::mpl::for_each<T>( type_iterator([&](size_t pos, std::string tname) {
                 src.new_line() << tname << " a_key" << pos << " = keys_shared" << pos << "[a_begin];";
@@ -525,7 +526,7 @@ void serial_merge(backend::source_generator &src) {
 
     src.new_line().barrier();
 
-    src.close("}");
+    src.end_function();
 }
 
 //---------------------------------------------------------------------------
@@ -541,17 +542,17 @@ template<int NT, int VT, typename T>
 void block_sort_pass(backend::source_generator &src) {
     merge_path< shared_ptr, T >(src);
 
-    src.function<void>(block_sort_pass<NT, VT, T>())
-        .open("(")
-            .template parameter< int                 >("tid")
-            .template parameter< int                 >("count")
-            .template parameter< int                 >("coop")
-            .template parameter< regstr_ptr<int>     >("indices");
+    src.begin_function<void>(block_sort_pass<NT, VT, T>());
+    src.begin_function_parameters();
+    src.template parameter< int                 >("tid");
+    src.template parameter< int                 >("count");
+    src.template parameter< int                 >("coop");
+    src.template parameter< regstr_ptr<int>     >("indices");
 
     boost::mpl::for_each<T>( pointer_param<shared_ptr, true>(src, "keys_shared") );
     boost::mpl::for_each<T>( pointer_param<regstr_ptr>(src, "keys") );
 
-    src.close(")").open("{");
+    src.end_function_parameters();
 
     src.new_line() << "int list = ~(coop - 1) & tid;";
     src.new_line() << "int diag = min(count, " << VT << " * ((coop - 1) & tid));";
@@ -575,7 +576,7 @@ void block_sort_pass(backend::source_generator &src) {
         src << ", keys" << p;
     src << ");";
 
-    src.close("}");
+    src.end_function();
 }
 
 //---------------------------------------------------------------------------
@@ -589,14 +590,14 @@ std::string gather() {
 
 template<int NT, int VT, typename T>
 void gather(backend::source_generator &src) {
-    src.function<void>(gather<NT, VT, T>())
-        .open("(")
-            .template parameter< regstr_ptr<const int> >("indices")
-            .template parameter< int                   >("tid");
+    src.begin_function<void>(gather<NT, VT, T>());
+    src.begin_function_parameters();
+    src.template parameter< regstr_ptr<const int> >("indices");
+    src.template parameter< int                   >("tid");
 
     boost::mpl::for_each<T>( pointer_param<shared_ptr, true>(src, "data") );
     boost::mpl::for_each<T>( pointer_param<regstr_ptr>(src, "reg") );
-    src.close(")").open("{");;
+    src.end_function_parameters();
 
     for(int i = 0; i < VT; ++i)
         for(int p = 0; p < boost::mpl::size<T>::value; ++p)
@@ -604,7 +605,7 @@ void gather(backend::source_generator &src) {
 
     src.new_line().barrier();
 
-    src.close("}");
+    src.end_function();
 }
 
 //---------------------------------------------------------------------------
@@ -641,7 +642,8 @@ void block_sort_loop(backend::source_generator &src) {
     block_sort_pass<NT, VT, K >(src);
     if (boost::mpl::size<V>::value) gather<NT, VT, V>(src);
 
-    src.function<void>(block_sort_loop<NT, VT, K, V>()).open("(");
+    src.begin_function<void>(block_sort_loop<NT, VT, K, V>());
+    src.begin_function_parameters();
 
     src.template parameter< int >("tid");
     src.template parameter< int >("count");
@@ -650,7 +652,7 @@ void block_sort_loop(backend::source_generator &src) {
     boost::mpl::for_each<V>( pointer_param<regstr_ptr>(src, "thread_vals") );
     boost::mpl::for_each<V>( pointer_param<shared_ptr>(src, "vals_shared") );
 
-    src.close(")").open("{");
+    src.end_function_parameters();
 
     src.new_line() << "int indices[" << VT << "];";
 
@@ -684,7 +686,7 @@ void block_sort_loop(backend::source_generator &src) {
         boost::mpl::for_each<K>( call_thread_to_shared<VT>(src, "keys", "keys_shared") );
     }
 
-    src.close("}");
+    src.end_function();
 }
 
 //---------------------------------------------------------------------------
@@ -702,7 +704,8 @@ void mergesort(backend::source_generator &src) {
     odd_even_transpose_sort<VT, K, V>(src);
     block_sort_loop<NT, VT, K, V>(src);
 
-    src.function<void>(mergesort<NT, VT, K, V>()).open("(");
+    src.begin_function<void>(mergesort<NT, VT, K, V>());
+    src.begin_function_parameters();
 
     src.template parameter< int >("count");
     src.template parameter< int >("tid");
@@ -712,7 +715,7 @@ void mergesort(backend::source_generator &src) {
     boost::mpl::for_each<V>( pointer_param<regstr_ptr>(src, "thread_vals") );
     boost::mpl::for_each<V>( pointer_param<shared_ptr>(src, "vals_shared") );
 
-    src.close(")").open("{");
+    src.end_function_parameters();
 
     // Stable sort the keys in the thread.
     src.new_line() << "if(" << VT << " * tid < count) "
@@ -738,7 +741,7 @@ void mergesort(backend::source_generator &src) {
         src << ", vals_shared" << p;
     src << ");";
 
-    src.close("}");
+    src.end_function();
 }
 
 template <int NT, int VT>
@@ -841,8 +844,8 @@ backend::kernel& block_sort_kernel(const backend::command_queue &queue) {
         serial_merge<VT, K >(src);
         mergesort<NT, VT, K, V>(src);
 
-        src.kernel("block_sort");
-        src.open("(");
+        src.begin_kernel("block_sort");
+        src.begin_kernel_parameters();
         src.template parameter< int >("count");
 
         boost::mpl::for_each<K>( pointer_param<global_ptr, true>(src, "keys_src") );
@@ -850,7 +853,7 @@ backend::kernel& block_sort_kernel(const backend::command_queue &queue) {
         boost::mpl::for_each<V>( pointer_param<global_ptr, true>(src, "vals_src") );
         boost::mpl::for_each<V>( pointer_param<global_ptr      >(src, "vals_dst") );
 
-        src.close(")").open("{");
+        src.end_kernel_parameters();
 
         const int NV = NT * VT;
 
@@ -952,7 +955,7 @@ backend::kernel& block_sort_kernel(const backend::command_queue &queue) {
         boost::mpl::for_each<V>( call_thread_to_shared<VT>(src, "thread_vals", "shared.vals") );
         boost::mpl::for_each<V>( call_shared_to_global<NT, VT>(src, "count2", "shared.vals", "vals_dst", "gid") );
 
-        src.close("}");
+        src.end_kernel();
 
         kernel = cache.insert(queue, backend::kernel(
                     queue, src.str(), "block_sort"));
@@ -967,12 +970,12 @@ backend::kernel& block_sort_kernel(const backend::command_queue &queue) {
 
 //---------------------------------------------------------------------------
 inline void find_mergesort_frame(backend::source_generator &src) {
-    src.function<cl_int3>("find_mergesort_frame")
-        .open("(")
-        .parameter<int>("coop")
-        .parameter<int>("block")
-        .parameter<int>("nv")
-        .close(")").open("{");
+    src.begin_function<cl_int3>("find_mergesort_frame");
+    src.begin_function_parameters();
+    src.parameter<int>("coop");
+    src.parameter<int>("block");
+    src.parameter<int>("nv");
+    src.end_function_parameters();
 
     src.new_line() << "int start = ~(coop - 1) & block;";
     src.new_line() << "int size = nv * (coop>> 1);";
@@ -983,7 +986,7 @@ inline void find_mergesort_frame(backend::source_generator &src) {
     src.new_line() << "frame.z = size;";
     src.new_line() << "return frame;";
 
-    src.close("}");
+    src.end_function();
 }
 
 //---------------------------------------------------------------------------
@@ -1000,19 +1003,19 @@ backend::kernel merge_partition_kernel(const backend::command_queue &queue) {
         merge_path< global_ptr, T >(src);
         find_mergesort_frame(src);
 
-        src.kernel("merge_partition")
-            .open("(")
-                .template parameter< int                 >("a_count")
-                .template parameter< int                 >("b_count")
-                .template parameter< int                 >("nv")
-                .template parameter< int                 >("coop")
-                .template parameter< global_ptr<int>     >("mp_global")
-                .template parameter< int                 >("num_searches");
+        src.begin_kernel("merge_partition");
+        src.begin_kernel_parameters();
+        src.template parameter< int                 >("a_count");
+        src.template parameter< int                 >("b_count");
+        src.template parameter< int                 >("nv");
+        src.template parameter< int                 >("coop");
+        src.template parameter< global_ptr<int>     >("mp_global");
+        src.template parameter< int                 >("num_searches");
 
         boost::mpl::for_each<T>( pointer_param<global_ptr, true>(src, "a_global") );
         boost::mpl::for_each<T>( pointer_param<global_ptr, true>(src, "b_global") );
 
-        src.close(")").open("{");
+        src.end_kernel_parameters();
 
         src.new_line() << "int partition = " << src.global_id(0) << ";";
         src.new_line() << "if (partition < num_searches)";
@@ -1043,7 +1046,7 @@ backend::kernel merge_partition_kernel(const backend::command_queue &queue) {
 
         src.close("}");
 
-        src.close("}");
+        src.end_kernel();
 
         kernel = cache.insert(queue, backend::kernel(
                     queue, src.str(), "merge_partition"));
@@ -1095,16 +1098,16 @@ backend::device_vector<int> merge_path_partitions(
 // Merge kernel
 //---------------------------------------------------------------------------
 inline void find_mergesort_interval(backend::source_generator &src) {
-    src.function<cl_int4>("find_mergesort_interval")
-        .open("(")
-            .parameter< cl_int3 >("frame")
-            .parameter< int     >("coop")
-            .parameter< int     >("block")
-            .parameter< int     >("nv")
-            .parameter< int     >("count")
-            .parameter< int     >("mp0")
-            .parameter< int     >("mp1")
-        .close(")").open("{");
+    src.begin_function<cl_int4>("find_mergesort_interval");
+    src.begin_function_parameters();
+    src.parameter< cl_int3 >("frame");
+    src.parameter< int     >("coop");
+    src.parameter< int     >("block");
+    src.parameter< int     >("nv");
+    src.parameter< int     >("count");
+    src.parameter< int     >("mp0");
+    src.parameter< int     >("mp1");
+    src.end_function_parameters();
 
     // Locate diag from the start of the A sublist.
     src.new_line() << "int diag = nv * block - frame.x;";
@@ -1127,7 +1130,7 @@ inline void find_mergesort_interval(backend::source_generator &src) {
 
     src.new_line() << "return interval;";
 
-    src.close("}");
+    src.end_function();
 }
 
 //---------------------------------------------------------------------------
@@ -1135,15 +1138,15 @@ inline void compute_merge_range(backend::source_generator &src) {
     find_mergesort_frame(src);
     find_mergesort_interval(src);
 
-    src.function<cl_int4>("compute_merge_range")
-        .open("(")
-            .parameter< int >("a_count")
-            .parameter< int >("b_count")
-            .parameter< int >("block")
-            .parameter< int >("coop")
-            .parameter< int >("nv")
-            .parameter< global_ptr<const int> >("mp_global")
-        .close(")").open("{");
+    src.begin_function<cl_int4>("compute_merge_range");
+    src.begin_function_parameters();
+    src.parameter< int >("a_count");
+    src.parameter< int >("b_count");
+    src.parameter< int >("block");
+    src.parameter< int >("coop");
+    src.parameter< int >("nv");
+    src.parameter< global_ptr<const int> >("mp_global");
+    src.end_function_parameters();
 
     // Load the merge paths computed by the partitioning kernel.
     src.new_line() << "int mp0 = mp_global[block];";
@@ -1167,7 +1170,7 @@ inline void compute_merge_range(backend::source_generator &src) {
 
     src.new_line() << "return range;";
 
-    src.close("}");
+    src.end_function();
 }
 
 //---------------------------------------------------------------------------
@@ -1180,15 +1183,15 @@ std::string load2_to_regstr() {
 
 template<int NT, int VT0, int VT1, typename T>
 void load2_to_regstr(backend::source_generator &src) {
-    src.function<void>(load2_to_regstr<NT,VT0,VT1,T>())
-        .open("(")
-            .template parameter< global_ptr<const T> >("a_global")
-            .template parameter< int                 >("a_count")
-            .template parameter< global_ptr<const T> >("b_global")
-            .template parameter< int                 >("b_count")
-            .template parameter< int                 >("tid")
-            .template parameter< regstr_ptr<T>       >("reg")
-        .close(")").open("{");
+    src.begin_function<void>(load2_to_regstr<NT,VT0,VT1,T>());
+    src.begin_function_parameters();
+    src.template parameter< global_ptr<const T> >("a_global");
+    src.template parameter< int                 >("a_count");
+    src.template parameter< global_ptr<const T> >("b_global");
+    src.template parameter< int                 >("b_count");
+    src.template parameter< int                 >("tid");
+    src.template parameter< regstr_ptr<T>       >("reg");
+    src.end_function_parameters();
 
     src.new_line() << "b_global -= a_count;";
     src.new_line() << "int total = a_count + b_count;";
@@ -1220,7 +1223,7 @@ void load2_to_regstr(backend::source_generator &src) {
         src.new_line() << "else if (index < total) reg[" << i << "] = b_global[index];";
     }
 
-    src.close("}");
+    src.end_function();
 }
 
 //---------------------------------------------------------------------------
@@ -1235,15 +1238,15 @@ template<int NT, int VT0, int VT1, typename T>
 void load2_to_shared(backend::source_generator &src) {
     load2_to_regstr<NT, VT0, VT1, T>(src);
 
-    src.function<void>(load2_to_shared<NT,VT0,VT1,T>())
-        .open("(")
-            .template parameter< global_ptr<const T> >("a_global")
-            .template parameter< int                 >("a_count")
-            .template parameter< global_ptr<const T> >("b_global")
-            .template parameter< int                 >("b_count")
-            .template parameter< int                 >("tid")
-            .template parameter< shared_ptr<T>       >("shared")
-        .close(")").open("{");
+    src.begin_function<void>(load2_to_shared<NT,VT0,VT1,T>());
+    src.begin_function_parameters();
+    src.template parameter< global_ptr<const T> >("a_global");
+    src.template parameter< int                 >("a_count");
+    src.template parameter< global_ptr<const T> >("b_global");
+    src.template parameter< int                 >("b_count");
+    src.template parameter< int                 >("tid");
+    src.template parameter< shared_ptr<T>       >("shared");
+    src.end_function_parameters();
 
     src.new_line() << type_name<T>() << " reg[" << VT1 << "];";
     src.new_line() << load2_to_regstr<NT, VT0, VT1, T>()
@@ -1251,7 +1254,7 @@ void load2_to_shared(backend::source_generator &src) {
     src.new_line() << regstr_to_shared<NT, VT1, T>()
         << "(reg, tid, shared);";
 
-    src.close("}");
+    src.end_function();
 }
 
 //---------------------------------------------------------------------------
@@ -1308,20 +1311,20 @@ void merge_keys_indices(backend::source_generator &src) {
             >::type
         >( define_load2_to_shared<NT, VT>(src) );
 
-    src.function<void>(merge_keys_indices<NT, VT, T>())
-        .open("(")
-            .template parameter< int                 >("a_count")
-            .template parameter< int                 >("b_count")
-            .template parameter< cl_int4             >("range")
-            .template parameter< int                 >("tid")
-            .template parameter< regstr_ptr<int>     >("indices");
+    src.begin_function<void>(merge_keys_indices<NT, VT, T>());
+    src.begin_function_parameters();
+    src.template parameter< int                 >("a_count");
+    src.template parameter< int                 >("b_count");
+    src.template parameter< cl_int4             >("range");
+    src.template parameter< int                 >("tid");
+    src.template parameter< regstr_ptr<int>     >("indices");
 
     boost::mpl::for_each<T>( pointer_param<global_ptr, true>(src, "a_global") );
     boost::mpl::for_each<T>( pointer_param<global_ptr, true>(src, "b_global") );
     boost::mpl::for_each<T>( pointer_param<shared_ptr      >(src, "keys_shared") );
     boost::mpl::for_each<T>( pointer_param<regstr_ptr      >(src, "results") );
 
-    src.close(")").open("{");;
+    src.end_function_parameters();
 
     src.new_line() << "int a0 = range.x;";
     src.new_line() << "int a1 = range.y;";
@@ -1362,7 +1365,7 @@ void merge_keys_indices(backend::source_generator &src) {
         src << ", results" << p;
     src << ");";
 
-    src.close("}");
+    src.end_function();
 }
 
 //---------------------------------------------------------------------------
@@ -1376,18 +1379,18 @@ std::string transfer_merge_values_regstr() {
 
 template <int NT, int VT, typename T>
 void transfer_merge_values_regstr(backend::source_generator &src) {
-    src.function<void>(transfer_merge_values_regstr<NT, VT, T>())
-        .open("(")
-            .template parameter< int                   >("count")
-            .template parameter< int                   >("b_start")
-            .template parameter< regstr_ptr<const int> >("indices")
-            .template parameter< int                   >("tid");
+    src.begin_function<void>(transfer_merge_values_regstr<NT, VT, T>());
+    src.begin_function_parameters();
+    src.template parameter< int                   >("count");
+    src.template parameter< int                   >("b_start");
+    src.template parameter< regstr_ptr<const int> >("indices");
+    src.template parameter< int                   >("tid");
 
     boost::mpl::for_each<T>( pointer_param<global_ptr, true>(src, "a_global") );
     boost::mpl::for_each<T>( pointer_param<global_ptr, true>(src, "b_global") );
     boost::mpl::for_each<T>( pointer_param<regstr_ptr      >(src, "reg") );
 
-    src.close(")").open("{");
+    src.end_function_parameters();
 
     for(int p = 0; p < boost::mpl::size<T>::value; ++p)
         src.new_line() << "b_global" << p << " -= b_start;";
@@ -1433,7 +1436,7 @@ void transfer_merge_values_regstr(backend::source_generator &src) {
 
     src.new_line().barrier();
 
-    src.close("}");
+    src.end_function();
 }
 
 //---------------------------------------------------------------------------
@@ -1464,18 +1467,18 @@ template <int NT, int VT, typename T>
 void transfer_merge_values_shared(backend::source_generator &src) {
     transfer_merge_values_regstr<NT, VT, T >(src);
 
-    src.function<void>(transfer_merge_values_shared<NT, VT, T>())
-        .open("(")
-            .template parameter< int                   >("count")
-            .template parameter< int                   >("b_start")
-            .template parameter< shared_ptr<const int> >("indices_shared")
-            .template parameter< int                   >("tid");
+    src.begin_function<void>(transfer_merge_values_shared<NT, VT, T>());
+    src.begin_function_parameters();
+    src.template parameter< int                   >("count");
+    src.template parameter< int                   >("b_start");
+    src.template parameter< shared_ptr<const int> >("indices_shared");
+    src.template parameter< int                   >("tid");
 
     boost::mpl::for_each<T>( pointer_param<global_ptr, true>(src, "a_global") );
     boost::mpl::for_each<T>( pointer_param<global_ptr, true>(src, "b_global") );
     boost::mpl::for_each<T>( pointer_param<global_ptr      >(src, "dest_global") );
 
-    src.close(")").open("{");
+    src.end_function_parameters();
 
     src.new_line() << "int indices[" << VT << "];";
     src.new_line() << shared_to_regstr<NT, VT, int>()
@@ -1497,7 +1500,7 @@ void transfer_merge_values_shared(backend::source_generator &src) {
 
     boost::mpl::for_each<T>( call_regstr_to_global<NT, VT>(src) );
 
-    src.close("}");
+    src.end_function();
 }
 
 //---------------------------------------------------------------------------
@@ -1516,10 +1519,10 @@ void device_merge(backend::source_generator &src) {
     if (boost::mpl::size<V>::value)
         transfer_merge_values_shared<NT, VT, V >(src);
 
-    src.function<void>(device_merge<NT, VT, K, V>());
-    src.open("(");
-    src.template parameter< int                   >("a_count");
-    src.template parameter< int                   >("b_count");
+    src.begin_function<void>(device_merge<NT, VT, K, V>());
+    src.begin_function_parameters();
+    src.template parameter< int >("a_count");
+    src.template parameter< int >("b_count");
 
     boost::mpl::for_each<K>( pointer_param<global_ptr, true>(src, "a_keys_global"));
     boost::mpl::for_each<K>( pointer_param<global_ptr, true>(src, "b_keys_global"));
@@ -1530,11 +1533,11 @@ void device_merge(backend::source_generator &src) {
     boost::mpl::for_each<V>( pointer_param<global_ptr, true>(src, "b_vals_global"));
     boost::mpl::for_each<V>( pointer_param<global_ptr      >(src, "vals_global"));
 
-    src.template parameter< int                   >("tid");
-    src.template parameter< int                   >("block");
-    src.template parameter< cl_int4               >("range");
-    src.template parameter< shared_ptr<int>       >("indices_shared");
-    src.close(")").open("{");
+    src.template parameter< int             >("tid");
+    src.template parameter< int             >("block");
+    src.template parameter< cl_int4         >("range");
+    src.template parameter< shared_ptr<int> >("indices_shared");
+    src.end_function_parameters();
 
     boost::mpl::for_each<K>( type_iterator([&](size_t pos, std::string tname) {
                 src.new_line() << tname << " results" << pos++ << "[" << VT << "];";
@@ -1586,7 +1589,7 @@ void device_merge(backend::source_generator &src) {
         src << ");";
     }
 
-    src.close("}");
+    src.end_function();
 }
 
 //---------------------------------------------------------------------------
@@ -1617,8 +1620,8 @@ backend::kernel merge_kernel(const backend::command_queue &queue) {
 
         device_merge<NT, VT, K, V >(src);
 
-        src.kernel("merge");
-        src.open("(");
+        src.begin_kernel("merge");
+        src.begin_kernel_parameters();
         src.template parameter< int >("a_count");
         src.template parameter< int >("b_count");
 
@@ -1632,7 +1635,7 @@ backend::kernel merge_kernel(const backend::command_queue &queue) {
 
         src.template parameter< global_ptr<const int> >("mp_global");
         src.template parameter< int                   >("coop");
-        src.close(")").open("{");
+        src.end_kernel_parameters();
 
         const int NV = NT * VT;
 
@@ -1678,7 +1681,7 @@ backend::kernel merge_kernel(const backend::command_queue &queue) {
 
         src << ", tid, block, range, shared.indices);";
 
-        src.close("}");
+        src.end_kernel();
 
         kernel = cache.insert(queue, backend::kernel(
                     queue, src.str(), "merge"));

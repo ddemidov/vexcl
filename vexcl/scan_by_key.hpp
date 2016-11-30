@@ -86,19 +86,19 @@ backend::kernel block_scan_by_key(const backend::command_queue &queue) {
         Comp::define(src, "comp");
         Oper::define(src, "oper");
 
-        src.kernel( "block_scan_by_key")
-            .open("(")
-                .template parameter< size_t              >("n")
-                .template parameter< global_ptr<const V> >("ivals")
-                .template parameter< global_ptr<      V> >("ovals1")
-                .template parameter< global_ptr<      V> >("ovals2");
+        src.begin_kernel( "block_scan_by_key");
+        src.begin_kernel_parameters();
+        src.template parameter< size_t              >("n");
+        src.template parameter< global_ptr<const V> >("ivals");
+        src.template parameter< global_ptr<      V> >("ovals1");
+        src.template parameter< global_ptr<      V> >("ovals2");
 
         boost::mpl::for_each<K>(pointer_param<global_ptr, true>(src, "ikeys"));
         boost::mpl::for_each<K>(pointer_param<global_ptr      >(src, "okeys"));
 
         if (exclusive) src.template parameter<V>("init");
 
-        src.close(")").open("{");
+        src.end_kernel_parameters();
 
         src.new_line() << "size_t g_id   = " << src.global_id(0)  << ";";
         src.new_line() << "size_t l_id   = " << src.local_id(0)   << ";";
@@ -241,7 +241,7 @@ backend::kernel block_scan_by_key(const backend::command_queue &queue) {
         src.new_line() << "ovals1[block] = shared.vals[" << wgsz - 1 << "];";
         src.new_line() << "ovals2[block] = shared.vals[" << NT - 1 << "];";
         src.close("}");
-        src.close("}");
+        src.end_kernel();
 
         kernel = cache.insert(queue, backend::kernel(
                     queue, src.str(), "block_scan_by_key"));
@@ -266,15 +266,15 @@ backend::kernel block_inclusive_scan_by_key(const backend::command_queue &queue)
 
         const size_t nK = boost::mpl::size<K>::value;
 
-        src.kernel("block_inclusive_scan_by_key")
-            .open("(")
-                .template parameter< size_t        >("n")
-                .template parameter< global_ptr<V> >("pre_sum")
-                .template parameter< cl_uint       >("work_per_thread");
+        src.begin_kernel("block_inclusive_scan_by_key");
+        src.begin_kernel_parameters();
+        src.template parameter< size_t        >("n");
+        src.template parameter< global_ptr<V> >("pre_sum");
+        src.template parameter< cl_uint       >("work_per_thread");
 
         boost::mpl::for_each<K>(pointer_param<global_ptr, true>(src, "key_sum"));
 
-        src.close(")").open("{");
+        src.end_kernel_parameters();
 
         src.new_line() << "size_t block  = " << src.group_id(0)  << ";";
         src.new_line() << "size_t g_id   = " << src.global_id(0) << ";";
@@ -413,7 +413,7 @@ backend::kernel block_inclusive_scan_by_key(const backend::command_queue &queue)
         src.new_line() << "pre_sum[map_id + offset] = y;";
         src.close("}");
         src.close("}");
-        src.close("}");
+        src.end_kernel();
 
         kernel = cache.insert(queue, backend::kernel(
                     queue, src.str(), "block_inclusive_scan_by_key"));
@@ -434,19 +434,19 @@ backend::kernel block_add_by_key(const backend::command_queue &queue) {
         Comp::define(src, "comp");
         Oper::define(src, "oper");
 
-        src.kernel("block_add_by_key")
-            .open("(")
-                .template parameter<size_t>("n")
-                .template parameter< global_ptr<const V> >("pre_sum")
-                .template parameter< global_ptr<const V> >("pre_sum1")
-                .template parameter< global_ptr<const V> >("ivals")
-                .template parameter< global_ptr<      V> >("ovals");
+        src.begin_kernel("block_add_by_key");
+        src.begin_kernel_parameters();
+        src.template parameter<size_t>("n");
+        src.template parameter< global_ptr<const V> >("pre_sum");
+        src.template parameter< global_ptr<const V> >("pre_sum1");
+        src.template parameter< global_ptr<const V> >("ivals");
+        src.template parameter< global_ptr<      V> >("ovals");
 
         boost::mpl::for_each<K>(pointer_param<global_ptr, true>(src, "ikeys"));
 
         if (exclusive) src.template parameter<V>("init");
 
-        src.close(")").open("{");
+        src.end_kernel_parameters();
 
         src.new_line() << "size_t g_id   = " << src.global_id(0) << ";";
         src.new_line() << "size_t l_id   = " << src.local_id(0)  << ";";
@@ -609,7 +609,7 @@ backend::kernel block_add_by_key(const backend::command_queue &queue) {
 
         src.new_line() << "if (g_id < n) ovals[g_id] = sum;";
 
-        src.close("}");
+        src.end_kernel();
 
         kernel = cache.insert(queue, backend::kernel(
                     queue, src.str(), "block_add_by_key"));
