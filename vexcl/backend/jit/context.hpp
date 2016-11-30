@@ -4,6 +4,8 @@
 #include <string>
 #include <stdexcept>
 
+#include <boost/dll/shared_library.hpp>
+
 namespace vex {
 namespace backend {
 
@@ -33,6 +35,8 @@ struct command_queue {
         return vex::backend::device();
     }
 };
+
+typedef boost::dll::shared_library program;
 
 typedef unsigned device_id;
 
@@ -95,6 +99,12 @@ queue_list(DevFilter &&filter, unsigned queue_flags = 0)
 
 typedef std::exception error;
 
+struct ndrange {
+    size_t x, y, z;
+
+    ndrange(size_t x = 1, size_t y = 1, size_t z = 1)
+        : x(x), y(y), z(z) {}
+};
 
 } // namespace jit
 } // namespace backend

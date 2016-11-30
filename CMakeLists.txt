@@ -125,6 +125,7 @@ elseif ("${VEXCL_BACKEND}" STREQUAL "CUDA")
     set(CUDA_COMPUTE_CAPABILITY "35" CACHE STRING "CUDA Compute Capability")
 elseif ("${VEXCL_BACKEND}" STREQUAL "JIT")
     add_definitions(-DVEXCL_BACKEND_JIT)
+    set(BACKEND_LIBS dl)
 endif()
 
 #----------------------------------------------------------------------------

@@ -86,7 +86,7 @@ inline vex::backend::program build_sources(
         std::string cufile = basename + ".cu";
 
         {
-            std::ofstream f(basename + ".cu");
+            std::ofstream f(cufile);
             f << source;
         }
 

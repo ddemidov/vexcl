@@ -79,6 +79,8 @@ struct hold_terminal_by_reference< T,
 #  include <vexcl/backend/compute/svm_vector.hpp>
 #elif defined(VEXCL_BACKEND_CUDA)
 #  include <vexcl/backend/cuda/svm_vector.hpp>
+#else
+#  error Unsupported backend!
 #endif
 
 #undef VEXCL_SVM_ASSIGNMENT
