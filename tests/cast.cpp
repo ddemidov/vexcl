@@ -15,7 +15,7 @@ BOOST_AUTO_TEST_CASE(casted_expession)
     check_sample(x, [](size_t, double a) { BOOST_CHECK_EQUAL(a, 5); });
 }
 
-#ifndef VEXCL_BACKEND_CUDA
+#if defined(VEXCL_BACKEND_OPENCL) || defined(VEXCL_BACKEND_COMPUTE)
 BOOST_AUTO_TEST_CASE(convert_functions)
 {
     const size_t N = 1024;

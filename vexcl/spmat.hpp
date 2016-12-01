@@ -276,7 +276,7 @@ class SpMat {
 
         std::vector< std::unique_ptr<sparse_matrix> > mtx;
 
-        std::vector<exdata> exc;
+        mutable std::vector<exdata> exc;
         std::vector<size_t> cidx;
         mutable std::vector<val_t> rx;
 

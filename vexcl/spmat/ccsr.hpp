@@ -208,11 +208,11 @@ struct kernel_param_declaration< ccsr_product<val_t, col_t, idx_t, T> > {
             const backend::command_queue&, const std::string &prm_name,
             detail::kernel_generator_state_ptr)
     {
-        src.template parameter< global_ptr<const idx_t> >(prm_name) << "_idx";
-        src.template parameter< global_ptr<const idx_t> >(prm_name) << "_row";
-        src.template parameter< global_ptr<const col_t> >(prm_name) << "_col";
-        src.template parameter< global_ptr<const val_t> >(prm_name) << "_val";
-        src.template parameter< global_ptr<const T    > >(prm_name) << "_vec";
+        src.template parameter< global_ptr<const idx_t> >(prm_name + "_idx");
+        src.template parameter< global_ptr<const idx_t> >(prm_name + "_row");
+        src.template parameter< global_ptr<const col_t> >(prm_name + "_col");
+        src.template parameter< global_ptr<const val_t> >(prm_name + "_val");
+        src.template parameter< global_ptr<const T    > >(prm_name + "_vec");
     }
 };
 

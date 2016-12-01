@@ -190,6 +190,10 @@ struct RandomNormal : UserFunction<RandomNormal<T,Generator>, T(cl_ulong, cl_ulo
         src.template parameter<cl_ulong>("prm2");
         src.end_function_parameters();
 
+#if defined(VEXCL_BACKEND_JIT)
+        src.new_line() << "#define cospi(x) cos(M_PI * (x))";
+#endif
+
         src.new_line() << "union ";
         src.open("{");
         src.new_line() << type_name<cl_uint>() << " ctr[" << ctr_n << "];";

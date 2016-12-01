@@ -7,7 +7,7 @@
 #include "context_setup.hpp"
 
 bool nvidia_cl(const vex::Context &ctx) {
-#ifdef VEXCL_BACKEND_CUDA
+#if defined(VEXCL_BACKEND_CUDA) || defined(VEXCL_BACKEND_JIT)
     return false;
 #else
     return vex::Filter::Platform("NVIDIA")(ctx.device(0));

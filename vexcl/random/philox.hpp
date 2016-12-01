@@ -142,8 +142,10 @@ struct philox {
 
             src.new_line() << type_name<T>() << " m[" << N << "];";
 
-#ifdef VEXCL_BACKEND_CUDA
+#if defined(VEXCL_BACKEND_CUDA)
             src.new_line() << "#define mul_hi __umulhi";
+#elif defined(VEXCL_BACKEND_JIT)
+            src.new_line() << "#define mul_hi mulhi";
 #endif
 
             for(size_t round = 0; round < R; ++round) {

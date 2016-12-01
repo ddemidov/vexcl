@@ -91,10 +91,8 @@ namespace vex {
     using backend::command_queue;
     using backend::command_queue_properties;
     using backend::error;
-#ifndef VEXCL_BACKEND_JIT
     using backend::device_vector;
     using backend::is_cpu;
-#endif
 } // namespace vex
 
 #endif

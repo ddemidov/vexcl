@@ -141,7 +141,7 @@ BOOST_AUTO_TEST_CASE(element_index)
     check_sample(x, [](size_t idx, double a) { BOOST_CHECK_CLOSE(a, sin(0.5 * idx), 1e-6); });
 }
 
-#ifndef VEXCL_BACKEND_CUDA
+#if !defined(VEXCL_BACKEND_CUDA) && !defined(VEXCL_BACKEND_JIT)
 BOOST_AUTO_TEST_CASE(vector_values)
 {
     const size_t N = 1024;

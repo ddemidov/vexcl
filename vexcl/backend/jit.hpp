@@ -7,7 +7,9 @@
 
 #include <vexcl/backend/jit/context.hpp>
 #include <vexcl/backend/jit/filter.hpp>
+#include <vexcl/backend/jit/device_vector.hpp>
 #include <vexcl/backend/jit/source.hpp>
 #include <vexcl/backend/jit/kernel.hpp>
+#include <vexcl/backend/jit/event.hpp>
 
 #endif

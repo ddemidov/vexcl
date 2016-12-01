@@ -8,6 +8,7 @@
 #  include <omp.h>
 #endif
 
+#include <vexcl/util.hpp>
 #include <vexcl/backend/jit/compiler.hpp>
 
 namespace vex {
@@ -16,39 +17,59 @@ namespace jit {
 
 namespace detail {
 
-struct grid_info {
-    ndrange grid_dim;
-    ndrange block_dim;
-
-    grid_info() :
-#ifdef _OPENMP
-          grid_dim(omp_get_num_threads() * 8)
-#endif
-        , block_dim(1024)
-    {
-    }
-};
-
-struct thread_info {
-    ndrange block_id;
-    ndrange thread_id;
-};
-
 struct kernel_api {
-    virtual void execute(const grid_info*, const thread_info*, char *) const = 0;
+    virtual void execute(
+            const ndrange *dim, const ndrange *id, char *smem, char *prm
+            ) const = 0;
 };
 
 } // namespace detail
 
 class kernel {
     public:
+        kernel() : smem(0) {}
+
         kernel(
                 const command_queue &q,
                 const std::string &src, const std::string &name,
                 size_t smem_per_thread = 0,
                 const std::string &options = ""
               )
-            : K(boost::dll::import<detail::kernel_api>(build_sources(q, src, options), name))
+            : K(boost::dll::import<detail::kernel_api>(build_sources(q, src, options), name)),
+              grid(num_workgroups(q)), smem(smem_per_thread)
+        {
+            stack.reserve(256);
+        }
+
+        kernel(const command_queue &q,
+               const std::string &src, const std::string &name,
+               std::function<size_t(size_t)> smem,
+               const std::string &options = ""
+               )
+            : K(boost::dll::import<detail::kernel_api>(build_sources(q, src, options), name)),
+              grid(num_workgroups(q)), smem(smem(1))
+        {
+            stack.reserve(256);
+        }
+
+        kernel(const command_queue &q,
+               const program &P,
+               const std::string &name,
+               size_t smem_per_thread = 0
+               )
+            : K(boost::dll::import<detail::kernel_api>(P, name)),
+              grid(num_workgroups(q)), smem(smem_per_thread)
+        {
+            stack.reserve(256);
+        }
+
+        /// Constructor. Extracts a backend::kernel instance from backend::program.
+        kernel(const command_queue &q, const program &P,
+               const std::string &name,
+               std::function<size_t(size_t)> smem
+               )
+            : K(boost::dll::import<detail::kernel_api>(P, name)),
+              grid(num_workgroups(q)), smem(smem(1))
         {
             stack.reserve(256);
         }
@@ -59,19 +80,28 @@ class kernel {
             stack.insert(stack.end(), c, c + sizeof(arg));
         }
 
+        template <typename T>
+        void push_arg(const device_vector<T> &arg) {
+            push_arg(arg.raw());
+        }
+
+        void set_smem(size_t smem_per_thread) {
+            smem.resize(smem_per_thread);
+        }
+
+        template <class F>
+        void set_smem(F &&f) {
+            smem.resize(f(1));
+        }
+
         void operator()(const command_queue&) {
             // All parameters have been pushed; time to call the kernel:
-#pragma omp parallel for collapse(3)
-            for(size_t g_id_z = 0; g_id_z < grid.grid_dim.z; ++g_id_z) {
-                for(size_t g_id_y = 0; g_id_y < grid.grid_dim.y; ++g_id_y) {
-                    for(size_t g_id_x = 0; g_id_x < grid.grid_dim.x; ++g_id_x) {
-
-                        detail::thread_info t{ndrange(g_id_x, g_id_y, g_id_z), ndrange()};
-
-                        for(t.thread_id.z = 0; t.thread_id.z < grid.block_dim.z; ++t.thread_id.z)
-                            for(t.thread_id.y = 0; t.thread_id.y < grid.block_dim.y; ++t.thread_id.y)
-                                for(t.thread_id.x = 0; t.thread_id.x < grid.block_dim.x; ++t.thread_id.x)
-                                    K->execute(&grid, &t, stack.data());
+#pragma omp parallel for collapse(3) firstprivate(smem)
+            for(size_t z = 0; z < grid.z; ++z) {
+                for(size_t y = 0; y < grid.y; ++y) {
+                    for(size_t x = 0; x < grid.x; ++x) {
+                        ndrange id(x, y, z);
+                        K->execute(&grid, &id, smem.data(), stack.data());
                     }
                 }
             }
@@ -80,10 +110,49 @@ class kernel {
             stack.clear();
         }
 
+#ifndef BOOST_NO_VARIADIC_TEMPLATES
         template <class Head, class... Tail>
         void operator()(const command_queue &q, const Head &head, const Tail&... tail) {
             push_arg(head);
             (*this)(q, tail...);
+        }
+#endif
+        size_t workgroup_size() const {
+            return 1UL;
+        }
+
+        static inline size_t num_workgroups(const command_queue&) {
+#ifdef _OPENMP
+            return omp_get_num_procs() * 8;
+#else
+            return 1UL;
+#endif
+        }
+
+        size_t max_threads_per_block(const command_queue&) const {
+            return 1UL;
+        }
+
+        size_t max_shared_memory_per_block(const command_queue&) const {
+            return 32768UL;
+        }
+
+        size_t preferred_work_group_size_multiple(const backend::command_queue &q) const {
+            return 1;
+        }
+
+        void config(const command_queue &q, std::function<size_t(size_t)> smem) {
+            config(num_workgroups(q), 1);
+        }
+
+        void config(ndrange blocks, ndrange threads) {
+            precondition(threads == ndrange(), "Maximum workgroup size for the JIT backend is 1");
+            grid = blocks;
+        }
+
+        void config(size_t blocks, size_t threads) {
+            precondition(threads == 1, "Maximum workgroup size for the JIT backend is 1");
+            config(ndrange(blocks), ndrange(threads));
         }
 
         void reset() {
@@ -91,8 +160,9 @@ class kernel {
         }
     private:
         boost::shared_ptr<detail::kernel_api> K;
-        detail::grid_info grid;
+        ndrange grid;
         std::vector<char> stack;
+        std::vector<char> smem;
 };
 
 } // namespace jit

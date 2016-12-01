@@ -4,10 +4,10 @@
 #include <vexcl/vector.hpp>
 
 void local_context() {
-#ifdef VEXCL_BACKEND_CUDA
-    vex::Context ctx( vex::Filter::Env );
-#else
+#if defined(VEXCL_BACKEND_OPENCL) || defined(VEXCL_BACKEND_COMPUTE)
     vex::Context ctx( vex::Filter::Exclusive( vex::Filter::Env ) );
+#else
+    vex::Context ctx( vex::Filter::Env );
 #endif
     std::cout << ctx << std::endl;
 

@@ -317,8 +317,11 @@ struct gslice {
         src.parameter<size_t>("start");
 
         for(size_t k = 0; k < NDIM; ++k) {
-            src.parameter<size_t>("length") << k;
-            src.parameter<ptrdiff_t>("stride") << k;
+            std::ostringstream plen, pstr;
+            plen << "length" << k;
+            pstr << "stride" << k;
+            src.parameter<size_t>(plen.str());
+            src.parameter<ptrdiff_t>(pstr.str());
         }
         src.parameter<size_t>("idx");
         src.end_function_parameters();
@@ -347,8 +350,11 @@ struct gslice {
         src.parameter<size_t>(prm_name + "_start");
 
         for(size_t k = 0; k < NDIM; ++k) {
-            src.parameter<size_t>(prm_name + "_length") << k;
-            src.parameter<ptrdiff_t>(prm_name + "_stride") << k;
+            std::ostringstream plen, pstr;
+            plen << prm_name << "_length" << k;
+            pstr << prm_name << "_stride" << k;
+            src.parameter<size_t>(plen.str());
+            src.parameter<ptrdiff_t>(pstr.str());
         }
     }
 

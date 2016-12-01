@@ -166,7 +166,7 @@ struct threefry {
             src.template parameter< regstr_ptr<T> >("key");
             src.end_function_parameters();
 
-#ifdef VEXCL_BACKEND_CUDA
+#if defined(VEXCL_BACKEND_CUDA) || defined(VEXCL_BACKEND_JIT)
             src.new_line() << "#define rotate(x, b) "
                 "(((x) << (b)) | ((x) >> (sizeof(x)*8 - (b))))";
 #endif

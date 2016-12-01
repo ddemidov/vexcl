@@ -102,9 +102,9 @@ struct pointer_param {
     template <typename T>
         void operator()(T) {
             if (Const)
-                src.template parameter< Address<const T> >(name) << pos++;
+                src.template parameter< Address<const T> >(name + std::to_string(pos++));
             else
-                src.template parameter< Address<T> >(name) << pos++;
+                src.template parameter< Address<T> >(name + std::to_string(pos++));
         }
 };
 

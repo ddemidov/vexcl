@@ -18,6 +18,7 @@ struct DummyFilter {
 const DummyFilter GPU(false);
 const DummyFilter CPU(true);
 const DummyFilter Accelerator(false);
+const DummyFilter DoublePrecision(true);
 
 struct Name {
     explicit Name(std::string name) : devname(std::move(name)) {}

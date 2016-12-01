@@ -241,10 +241,10 @@ struct SpMatCSR : public sparse_matrix {
     static void inline_parameters(backend::source_generator &src,
             const std::string &prm_name)
     {
-        src.template parameter< global_ptr<const idx_t> >(prm_name) << "_row";
-        src.template parameter< global_ptr<const col_t> >(prm_name) << "_col";
-        src.template parameter< global_ptr<const val_t> >(prm_name) << "_val";
-        src.template parameter< global_ptr<const val_t> >(prm_name) << "_vec";
+        src.template parameter< global_ptr<const idx_t> >(prm_name + "_row");
+        src.template parameter< global_ptr<const col_t> >(prm_name + "_col");
+        src.template parameter< global_ptr<const val_t> >(prm_name + "_val");
+        src.template parameter< global_ptr<const val_t> >(prm_name + "_vec");
     }
 
     void setArgs(backend::kernel &krn, unsigned device, const vector<val_t> &x) const {

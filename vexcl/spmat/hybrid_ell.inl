@@ -369,12 +369,12 @@ struct SpMatHELL : public sparse_matrix {
     {
         src.template parameter<size_t>(prm_name) << "_ell_w";
         src.template parameter<size_t>(prm_name) << "_ell_pitch";
-        src.template parameter< global_ptr<const col_t> >(prm_name) << "_ell_col";
-        src.template parameter< global_ptr<const val_t> >(prm_name) << "_ell_val";
-        src.template parameter< global_ptr<const idx_t> >(prm_name) << "_csr_row";
-        src.template parameter< global_ptr<const col_t> >(prm_name) << "_csr_col";
-        src.template parameter< global_ptr<const val_t> >(prm_name) << "_csr_val";
-        src.template parameter< global_ptr<const val_t> >(prm_name) << "_vec";
+        src.template parameter< global_ptr<const col_t> >(prm_name + "_ell_col");
+        src.template parameter< global_ptr<const val_t> >(prm_name + "_ell_val");
+        src.template parameter< global_ptr<const idx_t> >(prm_name + "_csr_row");
+        src.template parameter< global_ptr<const col_t> >(prm_name + "_csr_col");
+        src.template parameter< global_ptr<const val_t> >(prm_name + "_csr_val");
+        src.template parameter< global_ptr<const val_t> >(prm_name + "_vec");
     }
 
     void setArgs(backend::kernel &krn, unsigned device, const vector<val_t> &x) const {
