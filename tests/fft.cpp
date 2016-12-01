@@ -104,7 +104,7 @@ size_t random_dim(double p, double s) {
 
 BOOST_AUTO_TEST_CASE(test_dimensions)
 {
-#ifndef VEXCL_BACKEND_CUDA
+#if defined(VEXCL_BACKEND_OPENCL) || defined(VEXCL_BACKEND_COMPUTE)
     // TODO: POCL fails this test.
     if (vex::Filter::Platform("Portable Computing Language")(ctx.device(0)))
         return;

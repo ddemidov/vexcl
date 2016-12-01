@@ -12,6 +12,7 @@ struct ContextSetup {
 
         srand(seed);
 
+#ifndef VEXCL_BACKEND_JIT
         // If there is only one device in context, duplicate the command queues
         // in order to properly test multi-device capabilities.
         if (context.queue().size() == 1) {
@@ -26,6 +27,7 @@ struct ContextSetup {
             context = vex::Context(c, q);
             vex::StaticContext<>::set(context);
         }
+#endif
 
         std::cout << context << std::endl;
     }

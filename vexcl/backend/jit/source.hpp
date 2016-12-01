@@ -61,24 +61,99 @@ namespace jit {
 
 inline std::string standard_kernel_header(const command_queue &q) {
     return std::string(R"(
-#include <boost/config.hpp>
+#include <limits>
+#include <algorithm>
 #include <cmath>
+#include <boost/config.hpp>
+
+using std::max;
+using std::min;
+
 struct ndrange {
     size_t x,y,z;
 };
-struct grid_info {
-    ndrange grid_dim;
-    ndrange block_dim;
+
+template <typename T>
+struct vector_type2 {
+    union {
+        T s[2];
+        struct { T s0, s1; };
+        struct { T x, y; };
+    };
 };
-struct thread_info {
-    ndrange block_id;
-    ndrange thread_id;
+
+template <typename T>
+struct vector_type4 {
+    union {
+        T s[4];
+        struct { T s0, s1, s2, s3; };
+        struct { T x, y, z, w; };
+    };
 };
+
+#define VECTOR_TYPES(T) \
+    typedef vector_type2<T> T ## 2; \
+    typedef vector_type4<T> T ## 3; \
+    typedef vector_type4<T> T ## 4;
+
+typedef unsigned char uchar;
+
+VECTOR_TYPES(float)
+VECTOR_TYPES(double)
+VECTOR_TYPES(char)
+VECTOR_TYPES(uchar)
+VECTOR_TYPES(short)
+VECTOR_TYPES(ushort)
+VECTOR_TYPES(int)
+VECTOR_TYPES(uint)
+VECTOR_TYPES(long)
+VECTOR_TYPES(ulong)
+
+template <typename Uint>
+inline Uint mulhi(Uint a, Uint b) {
+    const unsigned WHALF = std::numeric_limits<Uint>::digits/2;
+    const Uint LOMASK = ((Uint)(~(Uint)0)) >> WHALF;
+    Uint lo = a*b;
+    Uint ahi = a>>WHALF;
+    Uint alo = a& LOMASK;
+    Uint bhi = b>>WHALF;
+    Uint blo = b& LOMASK;
+    Uint ahbl = ahi*blo;
+    Uint albh = alo*bhi;
+    Uint ahbl_albh = ((ahbl&LOMASK) + (albh&LOMASK));
+    Uint hi = (ahi*bhi) + (ahbl>>WHALF) +  (albh>>WHALF);
+    hi += ahbl_albh >> WHALF;
+    hi += ((lo >> WHALF) < (ahbl_albh&LOMASK));
+    return hi;
+}
+
+template <class T>
+T atomic_add(T *p, T val) {
+    T old;
+#pragma omp atomic capture
+    {
+        old = *p; *p += val;
+    }
+    return old;
+}
+
+template <class T>
+T atomic_sub(T *p, T val) {
+    T old;
+#pragma omp atomic capture
+    {
+        old = *p; *p -= val;
+    }
+    return old;
+}
+
 struct kernel_api {
-    virtual void execute(const grid_info *_g, const thread_info *_t, char *_p) const = 0;
+    virtual void execute(const ndrange*, const ndrange*, char*, char*) const = 0;
 };
+
 #define KERNEL_PARAMETER(type, name) \
     type name = *reinterpret_cast<type*>(_p); _p+= sizeof(type)
+
 )") + get_program_header(q);
 }
 
@@ -96,8 +171,8 @@ class source_generator {
         std::ostringstream src;
 
     public:
-        source_generator()
-            : indent(0), first_prm(true), prm_state(undefined) {}
+        source_generator() : indent(0), first_prm(true), prm_state(undefined)
+        { }
 
         source_generator(const command_queue &q, bool include_standard_header = true)
             : indent(0), first_prm(true), prm_state(undefined)
@@ -131,31 +206,31 @@ class source_generator {
 
         template <class Return>
         source_generator& begin_function(const std::string &name) {
-            return function(type_name<Return>(), name);
+            return begin_function(type_name<Return>(), name);
         }
 
         source_generator& begin_function_parameters() {
+            prm_state = inside_function;
             first_prm = true;
             return open("(");
         }
 
         source_generator& end_function_parameters() {
-            prm_state = inside_function;
+            prm_state = undefined;
             return close(")").open("{");
         }
 
         source_generator& end_function() {
-            prm_state = undefined;
             return close("}");
         }
 
         source_generator& begin_kernel(const std::string &name) {
             new_line() << "struct " << name << "_t : public kernel_api {";
-            new_line() << "  void execute(const grid_info*, const thread_info*, char*) const;";
+            new_line() << "  void execute(const ndrange*, const ndrange*, char*, char*) const;";
             new_line() << "};";
             new_line() << "extern \"C\" BOOST_SYMBOL_EXPORT " << name << "_t " << name << ";";
             new_line() << name << "_t " << name << ";";
-            new_line() << "void " << name << "_t::execute(const grid_info *_g, const thread_info *_t, char *_p) const";
+            new_line() << "void " << name << "_t::execute(const ndrange *_dim, const ndrange *_id, char *_smem, char *_p) const";
             open("{");
             return *this;
         }
@@ -190,18 +265,64 @@ class source_generator {
             return parameter(type_name<typename std::decay<Prm>::type>(), name);
         }
 
+        template <class Prm>
+        source_generator& smem_parameter(const std::string& = "smem") {
+            return *this;
+        }
+
+        template <class Prm>
+        source_generator& smem_declaration(const std::string &name = "smem") {
+            new_line() << type_name<shared_ptr<Prm>>() << " " << name
+                << " = reinterpret_cast<" << type_name< shared_ptr<Prm> >()
+                << ">(_smem);";
+            return *this;
+        }
+
         source_generator& grid_stride_loop(
                 const std::string &idx = "idx", const std::string &bnd = "n"
                 )
         {
-            new_line() << "size_t global_size = _g->grid_dim.x * _g->block_dim.x;";
-            new_line() << "size_t global_id   = _t->block_id.x * _g->block_dim.x + _t->thread_id.x;";
-            new_line() << "size_t chunk_size = (n + global_size - 1) / global_size;";
-            new_line() << "size_t chunk_start = chunk_size * global_id;";
+            new_line() << "size_t chunk_size = (" << bnd << " + " << global_size(0) << " - 1) / " << global_size(0) << ";";
+            new_line() << "size_t chunk_start = chunk_size * " << global_id(0) << ";";
             new_line() << "size_t chunk_end = chunk_start + chunk_size;";
-            new_line() << "if (n < chunk_end) chunk_end = n;";
-            new_line() << "for(size_t idx = chunk_start; idx < chunk_end; ++idx)";
+            new_line() << "if (" << bnd << " < chunk_end) chunk_end = " << bnd << ";";
+            new_line() << "for(size_t " << idx << " = chunk_start; " << idx << " < chunk_end; ++" << idx << ")";
 
+            return *this;
+        }
+
+        std::string global_id(int d) const {
+            const char dim[] = {'x', 'y', 'z'};
+            std::ostringstream s;
+            s << "_id->" << dim[d];
+            return s.str();
+        }
+
+        std::string global_size(int d) const {
+            const char dim[] = {'x', 'y', 'z'};
+            std::ostringstream s;
+            s << "_dim->" << dim[d];
+            return s.str();
+        }
+
+        std::string local_id(int d) const {
+            return "0";
+        }
+
+        std::string local_size(int d) const {
+            return "1";
+        }
+
+        std::string group_id(int d) const {
+            return global_id(d);
+        }
+
+        source_generator& barrier(bool /*global*/ = false) {
+            return *this;
+        }
+
+        source_generator& smem_static_var(const std::string &type, const std::string &name) {
+            new_line() << type <<  " " << name << ";";
             return *this;
         }
 

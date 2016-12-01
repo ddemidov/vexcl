@@ -254,7 +254,7 @@ class vector : public vector_terminal_expression {
                 }
 
             private:
-                element(const backend::command_queue &q,
+                element(const backend::command_queue    &q,
                         const backend::device_vector<T> &b,
                         size_t i
                         ) : queue(q), buf(b), index(i)

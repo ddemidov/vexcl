@@ -18,6 +18,10 @@ struct device {
     std::string name() const {
         return "CPU";
     }
+
+    // Took the constants from Intel OpenCL:
+    size_t max_shared_memory_per_block() const { return 32768UL; }
+    size_t max_threads_per_block()       const { return 1024UL; }
 };
 
 struct context {};
@@ -56,6 +60,16 @@ inline context_id get_context_id(const command_queue&) {
 
 inline context get_context(const command_queue&) {
     return context();
+}
+
+inline void select_context(const command_queue&) {}
+
+inline command_queue duplicate_queue(const command_queue &q) {
+    return command_queue();
+}
+
+inline bool is_cpu(const command_queue &q) {
+    return true;
 }
 
 struct compare_contexts {
@@ -104,6 +118,10 @@ struct ndrange {
 
     ndrange(size_t x = 1, size_t y = 1, size_t z = 1)
         : x(x), y(y), z(z) {}
+
+    bool operator==(const ndrange &o) const {
+        return x == o.x && y == o.y && z == o.z;
+    }
 };
 
 } // namespace jit

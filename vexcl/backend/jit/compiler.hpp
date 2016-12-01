@@ -14,7 +14,11 @@
 #endif
 
 #ifndef VEXCL_JIT_COMPILER_OPTIONS
-#  define VEXCL_JIT_COMPILER_OPTIONS "-g -fPIC -shared"
+#  ifdef NDEBUG
+#    define VEXCL_JIT_COMPILER_OPTIONS "-O3 -fPIC -shared -fopenmp"
+#  else
+#    define VEXCL_JIT_COMPILER_OPTIONS "-g -fPIC -shared -fopenmp"
+#  endif
 #endif
 
 namespace vex {

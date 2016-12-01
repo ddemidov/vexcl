@@ -546,10 +546,10 @@ struct terminal_preamble< mba_interp<MBA, ExprTuple> > {
             src.template parameter<real>("x") << k;
 
         for(size_t k = 0; k < MBA::ndim; ++k) {
-            src.template parameter<real>("c") << k;
-            src.template parameter<real>("h") << k;
-            src.parameter<size_t>("n") << k;
-            src.parameter<size_t>("m") << k;
+            src.template parameter<real>("c" + std::to_string(k));
+            src.template parameter<real>("h" + std::to_string(k));
+            src.parameter<size_t>("n" + std::to_string(k));
+            src.parameter<size_t>("m" + std::to_string(k));
         }
 
         src.template parameter< global_ptr<const real> >("phi");
@@ -598,10 +598,10 @@ struct kernel_param_declaration< mba_interp<MBA, ExprTuple> > {
         boost::fusion::for_each(term.coord, prmdecl(src, queue, prm_name, state));
 
         for(size_t k = 0; k < MBA::ndim; ++k) {
-            src.template parameter<real>(prm_name + "_c") << k;
-            src.template parameter<real>(prm_name + "_h") << k;
-            src.parameter<size_t>(prm_name + "_n") << k;
-            src.parameter<size_t>(prm_name + "_m") << k;
+            src.template parameter<real>(prm_name + "_c" + std::to_string(k));
+            src.template parameter<real>(prm_name + "_h" + std::to_string(k));
+            src.parameter<size_t>(prm_name + "_n" + std::to_string(k));
+            src.parameter<size_t>(prm_name + "_m" + std::to_string(k));
         }
 
         src.parameter< global_ptr<const real> >(prm_name + "_phi");

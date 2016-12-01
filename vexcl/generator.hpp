@@ -466,21 +466,23 @@ class symbolic
             return s.str();
         }
 
-        // Returns string for parameter declaration.
-        std::string prmdecl() const {
-            std::ostringstream s;
+        // Returns parameter type and name as strings.
+        std::tuple<std::string, std::string> prmdecl() const {
+            std::ostringstream name;
+            name << "p_" << *this;
 
-            if (constness == Const)
-                s << "const ";
+            std::string prm_type;
 
-            if (scope == VectorParameter)
-                s << type_name< global_ptr<T> >() << " p_";
-            else
-                s << type_name< T >() << " ";
+            if (scope == VectorParameter) {
+                if (constness == Const)
+                    prm_type = type_name< global_ptr<const T> >();
+                else
+                    prm_type = type_name< global_ptr<T> >();
+            } else {
+                prm_type = type_name<T>();
+            }
 
-            s << *this;
-
-            return s.str();
+            return std::make_tuple(prm_type, name.str());
         }
     private:
         size_t         num;
@@ -509,14 +511,13 @@ class kernel {
                 const std::string &name
               ) : queue(queue), name(name), psize(queue.size(), 0)
         {
-            prm_decl.reset(new std::ostringstream);
             prm_read.reset(new std::ostringstream);
             prm_save.reset(new std::ostringstream);
         }
 
         template <class SymVar>
         void add_param(const SymVar &var) {
-            *prm_decl << "\t" << var.prmdecl() << ",\n";
+            prm_decl.push_back(var.prmdecl());
             *prm_read << var.init();
             *prm_save << var.write();
         }
@@ -530,7 +531,10 @@ class kernel {
                 source.begin_kernel(name);
                 source.begin_kernel_parameters();
 
-                source << prm_decl->str() << "\t" << type_name<size_t>() << " n";
+                for(auto p = prm_decl.begin(); p != prm_decl.end(); ++p)
+                    source.parameter(std::get<0>(*p), std::get<1>(*p));
+
+                source.parameter<size_t>("n");
 
                 source.end_kernel_parameters();
                 source.grid_stride_loop().open("{");
@@ -621,7 +625,8 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_FUNCALL_OPERATOR, ~)
         std::vector<backend::command_queue> queue;
         std::string name;
         std::vector<size_t> psize;
-        std::unique_ptr<std::ostringstream> prm_decl, prm_read, prm_save;
+        std::vector< std::tuple<std::string, std::string> > prm_decl;
+        std::unique_ptr<std::ostringstream> prm_read, prm_save;
         std::map<vex::backend::context_id, vex::backend::kernel> cache;
 
         struct push_args {

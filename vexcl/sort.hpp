@@ -1065,14 +1065,18 @@ backend::device_vector<int> merge_path_partitions(
 {
     typedef typename extract_value_types<KT>::type K;
 
-    const int NT = 64;
+    const int NT_cpu = 1;
+    const int NT_gpu = 64;
+    const int NT = is_cpu(queue) ? NT_cpu : NT_gpu;
 
     int num_partitions       = (count + nv - 1) / nv;
     int num_partition_blocks = (num_partitions + NT) / NT;
 
     backend::device_vector<int> partitions(queue, num_partitions + 1);
 
-    auto merge_partition = merge_partition_kernel<NT, K, Comp>(queue);
+    auto merge_partition = is_cpu(queue) ?
+        merge_partition_kernel<NT_cpu, K, Comp>(queue) :
+        merge_partition_kernel<NT_gpu, K, Comp>(queue);
 
     int a_count = static_cast<int>(boost::fusion::at_c<0>(keys).size());
     int b_count = 0;

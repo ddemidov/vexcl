@@ -33,6 +33,16 @@ THE SOFTWARE.
 
 #include <boost/math/constants/constants.hpp>
 
+#ifndef VEX_FAST_MATH_OPTS
+#  if defined(VEXCL_BACKEND_OPENCL) || defined(VEXCL_BACKEND_COMPUTE)
+#    define VEX_FAST_MATH_OPTS "-cl-mad-enable -cl-fast-relaxed-math"
+#  elif defined(VEXCL_BACKEND_CUDA)
+#    define VEX_FAST_MATH_OPTS "--use_fast_math"
+#  elif defined(VEXCL_BACKEND_JIT)
+#    define VEX_FAST_MATH_OPTS "-ffast-math"
+#  endif
+#endif
+
 namespace vex {
 namespace fft {
 
@@ -127,14 +137,9 @@ inline void kernel_common(backend::source_generator &o, const backend::command_q
 #else
     o << "#define DEVICE __device__\n";
 #endif
-    if(std::is_same<T, cl_double>::value) {
-        o << backend::standard_kernel_header(q)
-          << "typedef double real_t;\n"
-          << "typedef double2 real2_t;\n";
-    } else {
-        o << "typedef float real_t;\n"
-          << "typedef float2 real2_t;\n";
-    }
+    o << backend::standard_kernel_header(q)
+      << "typedef " << type_name<T>() << " real_t;\n"
+      << "typedef " << type_name<T>() << "2 real2_t;\n";
 }
 
 // Return A*B (complex multiplication)
@@ -171,7 +176,7 @@ inline void twiddle_code(backend::source_generator &o) {
 
     if(std::is_same<T, cl_double>::value) {
         // use sincos with double since we probably want higher precision
-#ifndef VEXCL_BACKEND_CUDA
+#if defined(VEXCL_BACKEND_OPENCL) || defined(VEXCL_BACKEND_COMPUTE)
         o.new_line() << type_name<T>() << " cs, sn = sincos(alpha, &cs);";
 #else
         o.new_line() << type_name<T>() << " sn, cs;";
@@ -180,13 +185,19 @@ inline void twiddle_code(backend::source_generator &o) {
         o.new_line() << type_name<T2>() << " r = {cs, sn};";
     } else {
         // use native with float since we probably want higher performance
-#ifndef VEXCL_BACKEND_CUDA
+#if defined(VEXCL_BACKEND_OPENCL) || defined(VEXCL_BACKEND_COMPUTE)
         o.new_line() << type_name<T2>() << " r = {"
             "native_cos(alpha), native_sin(alpha)};";
-#else
+#elif defined(VEXCL_BACKEND_CUDA)
         o.new_line() << type_name<T>() << " sn, cs;";
         o.new_line() << "__sincosf(alpha, &sn, &cs);";
         o.new_line() << type_name<T2>() << " r = {cs, sn};";
+#elif defined(VEXCL_BACKEND_JIT)
+        o.new_line() << type_name<T>() << " sn, cs;";
+        o.new_line() << "sincosf(alpha, &sn, &cs);";
+        o.new_line() << type_name<T2>() << " r = {cs, sn};";
+#else
+#  error Unsupported backend!
 #endif
     }
 
@@ -212,13 +223,7 @@ inline kernel_call radix_kernel(
     const size_t m = n / radix.value;
     kernel_radix<T, T2>(o, radix, invert);
 
-    backend::kernel kernel(queue, o.str(), "radix", 0,
-#ifndef VEXCL_BACKEND_CUDA
-            "-cl-mad-enable -cl-fast-relaxed-math"
-#else
-            "--use_fast_math"
-#endif
-            );
+    backend::kernel kernel(queue, o.str(), "radix", 0, VEX_FAST_MATH_OPTS);
 
     kernel.push_arg(in);
     kernel.push_arg(out);
@@ -253,9 +258,9 @@ inline kernel_call transpose_kernel(
     kernel_common<T>(o, queue);
 
     // determine max block size to fit into local memory/workgroup
-    size_t block_size = 128;
+    size_t block_size = is_cpu(queue) ? 1 : 128;
     {
-#ifndef VEXCL_BACKEND_CUDA
+#if defined(VEXCL_BACKEND_OPENCL) || defined(VEXCL_BACKEND_COMPUTE)
         cl_device_id dev = backend::get_device_id(queue);
         cl_ulong local_size;
         size_t workgroup;
@@ -272,20 +277,16 @@ inline kernel_call transpose_kernel(
     // from NVIDIA SDK.
     o.begin_kernel("transpose");
     o.begin_kernel_parameters();
-        o.template parameter< global_ptr<const T2> >("input");
-        o.template parameter< global_ptr<      T2> >("output");
-        o.template parameter< cl_uint              >("width");
-        o.template parameter< cl_uint              >("height");
+    o.template parameter< global_ptr<const T2> >("input");
+    o.template parameter< global_ptr<      T2> >("output");
+    o.template parameter< cl_uint              >("width");
+    o.template parameter< cl_uint              >("height");
     o.end_kernel_parameters();
 
     o.new_line() << "const size_t global_x = " << o.global_id(0) << ";";
     o.new_line() << "const size_t global_y = " << o.global_id(1) << ";";
     o.new_line() << "const size_t local_x  = " << o.local_id(0)  << ";";
     o.new_line() << "const size_t local_y  = " << o.local_id(1)  << ";";
-    o.new_line() << "const size_t group_x  = " << o.group_id(0)  << ";";
-    o.new_line() << "const size_t group_y  = " << o.group_id(1)  << ";";
-    o.new_line() << "const size_t target_x = local_y + group_y * " << block_size << ";";
-    o.new_line() << "const size_t target_y = local_x + group_x * " << block_size << ";";
     o.new_line() << "const bool range = global_x < width && global_y < height;";
 
     // local memory
@@ -304,7 +305,7 @@ inline kernel_call transpose_kernel(
 
     // transpose local block to target
     o.new_line() << "if(range) "
-      << "output[target_x + target_y * height] = block[local_x + local_y * " << block_size << "];";
+      << "output[global_x * height + global_y] = block[local_x + local_y * " << block_size << "];";
 
     o.end_kernel();
 
