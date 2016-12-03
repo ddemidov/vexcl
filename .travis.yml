@@ -7,7 +7,12 @@ compiler:
 
 env:
   global:
+      - BOOST_BASENAME=boost_1_62_0
+      - AMDAPPSDKROOT=${HOME}/AMDAPPSDK
       - secure: "A5GuWMfy2tamED4Xq/h1hXSAX18qemLuhaX3mLD77VMv6Hx2ZPAPXXDuRwg+Htoqccz3DQ3ezA5tf/D2PXffbOvkQeXMKkOBqHLy4aReZm9L+UajPETrQVW2bWBAuVJXMJbJEqdOv+QAEXf82Eml25zGp2r7L0J+FO5nrPtSeqE="
+  matrix:
+      - VEXCL_BACKEND=OpenCL
+      - VEXCL_BACKEND=JIT
 
 addons:
   coverity_scan:
@@ -18,28 +23,28 @@ addons:
     build_command_prepend: mkdir build-coverity && cd build-coverity && cmake -DCMAKE_BUILD_TYPE=Release ..
     build_command: make
     branch_pattern: coverity_scan
+  apt:
+    sources:
+      - ubuntu-toolchain-r-test
+    packages:
+      - opencl-headers
+      - lcov
+
+cache:
+    directories:
+        - ${HOME}/${BOOST_BASENAME}/boost
+        - ${HOME}/${BOOST_BASENAME}/stage/lib
+        - ${AMDAPPSDKROOT}
 
 before_install:
-    - sudo apt-get update -qq
-    - sudo apt-get install -qq opencl-headers
-      libboost-chrono-dev libboost-date-time-dev libboost-filesystem-dev
-      libboost-system-dev libboost-thread-dev libboost-program-options-dev
-      libboost-test-dev python-yaml lcov
-    - bash .travis/amd_sdk.sh;
-    - tar -xjf AMD-SDK.tar.bz2;
-    - AMDAPPSDKROOT=${HOME}/AMDAPPSDK;
-    - export OPENCL_VENDOR_PATH=${AMDAPPSDKROOT}/etc/OpenCL/vendors;
-    - mkdir -p ${OPENCL_VENDOR_PATH};
-    - sh AMD-APP-SDK*.sh --tar -xf -C ${AMDAPPSDKROOT};
-    - echo libamdocl64.so > ${OPENCL_VENDOR_PATH}/amdocl64.icd;
-    - export LD_LIBRARY_PATH=${AMDAPPSDKROOT}/lib/x86_64:${LD_LIBRARY_PATH};
-    - export CMAKE_LIBRARY_PATH=${AMDAPPSDKROOT}/lib/x86_64;
-    - chmod +x ${AMDAPPSDKROOT}/bin/x86_64/clinfo;
-    - ${AMDAPPSDKROOT}/bin/x86_64/clinfo;
+    - ls -l ${HOME}
+    - . .travis/install_amd_sdk.sh;
+    - . .travis/install_boost.sh;
 script:
     - mkdir -p build && cd build
-    - cmake -DTEST_COVERAGE=ON ..
+    - cmake -DTEST_COVERAGE=ON -DVEXCL_BACKEND=${VEXCL_BACKEND} ..
     - make
+    - export CPATH=${CPATH}:${BOOST_ROOT}
     - ./examples/devlist && ctest --output-on-failure
 after_success:
     - lcov --directory tests --base-directory ../vexcl --capture --output-file coverage.info

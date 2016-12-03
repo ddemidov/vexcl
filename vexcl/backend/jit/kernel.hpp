@@ -27,7 +27,7 @@ struct kernel_api {
 
 class kernel {
     public:
-        kernel() : smem(0) {}
+        kernel() : smem_size(0) {}
 
         kernel(
                 const command_queue &q,
@@ -36,7 +36,7 @@ class kernel {
                 const std::string &options = ""
               )
             : K(boost::dll::import<detail::kernel_api>(build_sources(q, src, options), name)),
-              grid(num_workgroups(q)), smem(smem_per_thread)
+              grid(num_workgroups(q)), smem_size(smem_per_thread)
         {
             stack.reserve(256);
         }
@@ -47,7 +47,7 @@ class kernel {
                const std::string &options = ""
                )
             : K(boost::dll::import<detail::kernel_api>(build_sources(q, src, options), name)),
-              grid(num_workgroups(q)), smem(smem(1))
+              grid(num_workgroups(q)), smem_size(smem(1))
         {
             stack.reserve(256);
         }
@@ -58,7 +58,7 @@ class kernel {
                size_t smem_per_thread = 0
                )
             : K(boost::dll::import<detail::kernel_api>(P, name)),
-              grid(num_workgroups(q)), smem(smem_per_thread)
+              grid(num_workgroups(q)), smem_size(smem_per_thread)
         {
             stack.reserve(256);
         }
@@ -69,7 +69,7 @@ class kernel {
                std::function<size_t(size_t)> smem
                )
             : K(boost::dll::import<detail::kernel_api>(P, name)),
-              grid(num_workgroups(q)), smem(smem(1))
+              grid(num_workgroups(q)), smem_size(smem(1))
         {
             stack.reserve(256);
         }
@@ -86,16 +86,17 @@ class kernel {
         }
 
         void set_smem(size_t smem_per_thread) {
-            smem.resize(smem_per_thread);
+            smem_size = smem_per_thread;
         }
 
         template <class F>
         void set_smem(F &&f) {
-            smem.resize(f(1));
+            smem_size = f(1);
         }
 
         void operator()(const command_queue&) {
             // All parameters have been pushed; time to call the kernel:
+            std::vector<char> smem(smem_size);
 #pragma omp parallel for collapse(3) firstprivate(smem)
             for(size_t z = 0; z < grid.z; ++z) {
                 for(size_t y = 0; y < grid.y; ++y) {
@@ -162,7 +163,7 @@ class kernel {
         boost::shared_ptr<detail::kernel_api> K;
         ndrange grid;
         std::vector<char> stack;
-        std::vector<char> smem;
+        size_t smem_size;
 };
 
 } // namespace jit
