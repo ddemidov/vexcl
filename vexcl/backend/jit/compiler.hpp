@@ -46,7 +46,10 @@ inline vex::backend::program build_sources(const command_queue &q,
     std::string compile_options = options + " " + get_compile_options(q);
 
     sha1_hasher sha1;
-    sha1.process(source).process(compile_options);
+    sha1.process(source)
+        .process(compile_options)
+        .process(VEXCL_JIT_COMPILER)
+        .process(VEXCL_JIT_COMPILER_OPTIONS);
 
     std::string hash = static_cast<std::string>(sha1);
 
