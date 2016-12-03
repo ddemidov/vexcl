@@ -37,7 +37,6 @@ cache:
         - ${AMDAPPSDKROOT}
 
 before_install:
-    - ls -l ${HOME}
     - . .travis/install_amd_sdk.sh;
     - . .travis/install_boost.sh;
 script:
