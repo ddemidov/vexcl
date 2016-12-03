@@ -19,10 +19,6 @@ if ("${VEXCL_BACKEND}" STREQUAL "OpenCL")
     add_vexcl_example(exclusive)
 endif()
 
-if ("${VEXCL_BACKEND}" STREQUAL "JIT")
-    add_vexcl_example(test_jit)
-endif()
-
 if (CLOGS)
     target_link_libraries(benchmark ${CLOGS_LIB})
 endif()
