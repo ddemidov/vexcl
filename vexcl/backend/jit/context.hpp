@@ -51,7 +51,7 @@ struct device {
 
     // Took the constants from Intel OpenCL:
     size_t max_shared_memory_per_block() const { return 32768UL; }
-    size_t max_threads_per_block()       const { return 1024UL; }
+    size_t max_threads_per_block()       const { return 1L; }
 };
 
 struct context {};
