@@ -231,6 +231,22 @@ if(TARGET JIT)
     message(STATUS "Found VexCL::JIT")
 endif()
 
+if (NOT "${Boost_VERSION}" STRLESS "106100")
+    add_library(Maxeler INTERFACE)
+    add_library(VexCL::Maxeler ALIAS Maxeler)
+
+    target_link_libraries(Maxeler INTERFACE
+        Common
+        $<$<CXX_COMPILER_ID:GNU>:${OpenMP_CXX_FLAGS} dl>
+        $<$<CXX_COMPILER_ID:Clang>:${OpenMP_CXX_FLAGS} dl>
+        $<$<CXX_COMPILER_ID:Intel>:${OpenMP_CXX_FLAGS} dl>
+        )
+
+    target_compile_definitions(Maxeler INTERFACE VEXCL_BACKEND_MAXELER)
+
+    message(STATUS "Found VexCL::Maxeler")
+endif()
+
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/VexCLTools.cmake")
 
 #----------------------------------------------------------------------------

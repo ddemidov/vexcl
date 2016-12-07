@@ -1859,7 +1859,10 @@ void assign_expression(LHS &lhs, const RHS &rhs,
 
             declare_expression_parameter declare(source, queue[d], "prm", empty_state());
 
+            source.output_parameters();
             extract_terminals()(boost::proto::as_child(lhs), declare);
+
+            source.input_parameters();
             extract_terminals()(boost::proto::as_child(rhs), declare);
 
             source.end_kernel_parameters();

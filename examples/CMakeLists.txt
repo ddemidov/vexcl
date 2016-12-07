@@ -40,6 +40,10 @@ if (TARGET clogs_target)
     target_link_libraries(benchmark ${LIB_TYPE} clogs_target)
 endif()
 
+if ("${VEXCL_BACKEND}" STREQUAL "Maxeler")
+    add_vexcl_example(maxeler)
+endif()
+
 if (VEXCL_BACKEND MATCHES "CUDA")
     target_link_libraries(benchmark PUBLIC ${CUDA_cusparse_LIBRARY})
 elseif (VEXCL_BACKEND MATCHES "All" AND TARGET VexCL::CUDA)
