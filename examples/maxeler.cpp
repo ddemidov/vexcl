@@ -22,5 +22,14 @@ int main() {
     src.new_line() << "y = mul2.apply(x);";
     src.end_kernel();
 
-    auto lib = vex::backend::build_sources(q, src.str());
+    auto K = vex::backend::kernel(q, src.str(), "simple");
+
+    int n = 16;
+    std::vector<float> x(n), y(n);
+
+    for(int i = 0; i < 16; ++i) x[i] = i;
+    K(q, n, x.data(), y.data());
+
+    for(int i = 0; i < 16; ++i)
+        std::cout << "y[" << i << "] = " << y[i] << std::endl;
 }
