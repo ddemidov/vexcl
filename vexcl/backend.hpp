@@ -73,6 +73,17 @@ namespace vex {
 
 #include <vexcl/backend/jit.hpp>
 
+#elif defined(VEXCL_BACKEND_MAXELER)
+
+namespace vex {
+    namespace backend {
+        namespace maxeler {}
+        using namespace maxeler;
+    }
+}
+
+#include <vexcl/backend/maxeler.hpp>
+
 #else // either defined(VEXCL_BACKEND_OPENCL) or by default
 
 namespace vex {
@@ -86,6 +97,7 @@ namespace vex {
 
 #endif
 
+#if !defined(VEXCL_BACKEND_MAXELER)
 namespace vex {
     using backend::device;
     using backend::command_queue;
@@ -94,5 +106,6 @@ namespace vex {
     using backend::device_vector;
     using backend::is_cpu;
 } // namespace vex
+#endif
 
 #endif

@@ -22,6 +22,10 @@ if (TARGET clogs_target)
     target_link_libraries(benchmark clogs_target)
 endif()
 
+if ("${VEXCL_BACKEND}" STREQUAL "Maxeler")
+    add_vexcl_example(maxeler)
+endif()
+
 if (VEXCL_BACKEND MATCHES "CUDA")
     target_link_libraries(benchmark ${CUDA_cusparse_LIBRARY})
 endif()
