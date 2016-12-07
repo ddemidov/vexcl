@@ -131,15 +131,18 @@ inline void kernel_radix(backend::source_generator &o, pow radix, bool invert) {
 
 
 template <class T>
-inline void kernel_common(backend::source_generator &o, const backend::command_queue& q) {
+inline std::string fft_kernel_header() {
+    std::ostringstream src;
+    src
 #ifndef VEXCL_BACKEND_CUDA
-    o << "#define DEVICE\n";
+      << "#define DEVICE\n"
 #else
-    o << "#define DEVICE __device__\n";
+      << "#define DEVICE __device__\n"
 #endif
-    o << backend::standard_kernel_header(q)
       << "typedef " << type_name<T>() << " real_t;\n"
       << "typedef " << type_name<T>() << "2 real2_t;\n";
+
+    return src.str();
 }
 
 // Return A*B (complex multiplication)
@@ -214,9 +217,11 @@ inline kernel_call radix_kernel(
         const backend::device_vector<T2> &out
         )
 {
-    backend::source_generator o;
+    scoped_program_header header(queue, fft_kernel_header<T>());
+
+    backend::source_generator o(queue);
     o << std::setprecision(25);
-    kernel_common<T>(o, queue);
+
     mul_code<T2>(o, invert);
     twiddle_code<T, T2>(o);
 
@@ -254,8 +259,10 @@ inline kernel_call transpose_kernel(
         const backend::device_vector<T2> &out
         )
 {
-    backend::source_generator o;
-    kernel_common<T>(o, queue);
+    scoped_program_header header(queue, fft_kernel_header<T>());
+
+    backend::source_generator o(queue);
+    o << std::setprecision(25);
 
     // determine max block size to fit into local memory/workgroup
     size_t block_size = is_cpu(queue) ? 1 : 128;
@@ -339,8 +346,11 @@ inline kernel_call bluestein_twiddle(
         const backend::device_vector<T2> &out
         )
 {
-    backend::source_generator o;
-    kernel_common<T>(o, queue);
+    scoped_program_header header(queue, fft_kernel_header<T>());
+
+    backend::source_generator o(queue);
+    o << std::setprecision(25);
+
     twiddle_code<T, T2>(o);
 
     o.begin_kernel("bluestein_twiddle");
@@ -380,8 +390,10 @@ inline kernel_call bluestein_pad_kernel(
         const backend::device_vector<T2> &out
         )
 {
-    backend::source_generator o;
-    kernel_common<T>(o, queue);
+    scoped_program_header header(queue, fft_kernel_header<T>());
+
+    backend::source_generator o(queue);
+    o << std::setprecision(25);
 
     o.begin_function<T2>("conj");
     o.begin_function_parameters();
@@ -438,8 +450,11 @@ inline kernel_call bluestein_mul_in(
         const backend::device_vector<T2> &out
         )
 {
-    backend::source_generator o;
-    kernel_common<T>(o, queue);
+    scoped_program_header header(queue, fft_kernel_header<T>());
+
+    backend::source_generator o(queue);
+    o << std::setprecision(25);
+
     mul_code<T2>(o, false);
     twiddle_code<T, T2>(o);
 
@@ -523,8 +538,11 @@ inline kernel_call bluestein_mul_out(
         const backend::device_vector<T2> &out
         )
 {
-    backend::source_generator o;
-    kernel_common<T>(o, queue);
+    scoped_program_header header(queue, fft_kernel_header<T>());
+
+    backend::source_generator o(queue);
+    o << std::setprecision(25);
+
     mul_code<T2>(o, false);
 
     o.begin_function<T2>("scale");
@@ -596,8 +614,11 @@ inline kernel_call bluestein_mul(
         const backend::device_vector<T2> &out
         )
 {
-    backend::source_generator o;
-    kernel_common<T>(o, queue);
+    scoped_program_header header(queue, fft_kernel_header<T>());
+
+    backend::source_generator o(queue);
+    o << std::setprecision(25);
+
     mul_code<T2>(o, false);
 
     o.begin_kernel("bluestein_mul");

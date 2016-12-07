@@ -136,7 +136,7 @@ inline void pop_compile_options(const std::vector<backend::command_queue> &queue
 
 /// Pushes compile options on construction, pops them on destruction
 struct scoped_compile_options {
-    const std::vector<backend::command_queue> &q;
+    std::vector<backend::command_queue> q;
 
     scoped_compile_options(
             const std::vector<backend::command_queue> &q,
@@ -144,6 +144,14 @@ struct scoped_compile_options {
             ) : q(q)
     {
         push_compile_options(q, str);
+    }
+
+    scoped_compile_options(
+            const backend::command_queue &q,
+            const std::string &str
+            ) : q(1, q)
+    {
+        push_compile_options(this->q, str);
     }
 
     ~scoped_compile_options() {
@@ -165,7 +173,7 @@ inline void pop_program_header(const std::vector<backend::command_queue> &queue)
 
 /// Pushes program header on construction, pops it on destruction
 struct scoped_program_header {
-    const std::vector<backend::command_queue> &q;
+    std::vector<backend::command_queue> q;
 
     scoped_program_header(
             const std::vector<backend::command_queue> &q,
@@ -173,6 +181,14 @@ struct scoped_program_header {
             ) : q(q)
     {
         push_program_header(q, str);
+    }
+
+    scoped_program_header(
+            const backend::command_queue &q,
+            const std::string &str
+            ) : q(1, q)
+    {
+        push_program_header(this->q, str);
     }
 
     ~scoped_program_header() {
