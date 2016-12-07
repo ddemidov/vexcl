@@ -1,10 +1,10 @@
-#ifndef VEXCL_BACKEND_JIT_COMPILER_HPP
-#define VEXCL_BACKEND_JIT_COMPILER_HPP
+#ifndef VEXCL_BACKEND_MAXELER_COMPILER_HPP
+#define VEXCL_BACKEND_MAXELER_COMPILER_HPP
 
 /*
 The MIT License
 
-Copyright (c) 2012-2017 Denis Demidov <dennis.demidov@gmail.com>
+Copyright (c) 2012-2016 Denis Demidov <dennis.demidov@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -26,9 +26,9 @@ THE SOFTWARE.
 */
 
 /**
- * \file   vexcl/backend/jit/compiler.hpp
+ * \file   vexcl/backend/maxeler/compiler.hpp
  * \author Denis Demidov <dennis.demidov@gmail.com>
- * \brief  JIT compile support.
+ * \brief  Compilation of Maxeler kernels.
  */
 
 #include <string>
@@ -39,80 +39,73 @@ THE SOFTWARE.
 #include <vexcl/backend/common.hpp>
 #include <vexcl/detail/backtrace.hpp>
 
-#ifndef VEXCL_JIT_COMPILER
-#  define VEXCL_JIT_COMPILER "g++"
-#endif
-
-#ifndef VEXCL_JIT_COMPILER_OPTIONS
-#  ifdef NDEBUG
-#    define VEXCL_JIT_COMPILER_OPTIONS "-O3 -fPIC -shared -fopenmp"
-#  else
-#    define VEXCL_JIT_COMPILER_OPTIONS "-g -fPIC -shared -fopenmp"
-#  endif
-#endif
-
 namespace vex {
 namespace backend {
-namespace jit {
+namespace maxeler {
+
+inline std::string dfe_compiler() {
+    const char *cc = getenv("VEXCL_DFE_COMPILER");
+    return cc ? cc : "vexcl_dfe_cc";
+}
 
 /// Compile and load a program from source string.
 inline vex::backend::program build_sources(const command_queue &q,
-        const std::string &source, const std::string &options = ""
+        const std::tuple<std::string, std::string> &source,
+        const std::string &options = ""
         )
 {
+    using std::get;
+
 #ifndef VEXCL_SHOW_KERNELS
     if (getenv("VEXCL_SHOW_KERNELS"))
 #endif
-        std::cout << source << std::endl;
+        std::cout
+            << "// ----- MAXJ -----\n"
+            << get<0>(source) << std::endl
+            << "// ----- C++ -----\n"
+            << get<1>(source) << std::endl
+            ;
 
-    static const std::string cxx      = getenv("CXX",      VEXCL_JIT_COMPILER);
-    static const std::string cxxflags = getenv("CXXFLAGS", VEXCL_JIT_COMPILER_OPTIONS);
-
-    std::string compile_options = options + " " + get_compile_options(q);
+    static const std::string compiler = dfe_compiler();
 
     sha1_hasher sha1;
-    sha1.process(source)
-        .process(compile_options)
-        .process(cxx)
-        .process(cxxflags);
+    sha1.process(get<0>(source))
+        .process(get<1>(source))
+        .process(compiler)
+        ;
 
     std::string hash = static_cast<std::string>(sha1);
 
-    // Write source to a .cpp file
-    std::string basename = program_binaries_path(hash, true) + "kernel";
-#if BOOST_OS_WINDOWS
-    std::string sofile = basename + ".dll";
-#elif BOOST_OS_MACOS || BOOST_OS_IOS
-    std::string sofile = basename + ".dylib";
-#else
-    std::string sofile = basename + ".so";
-#endif
+    // Write sources
+    std::string root = program_binaries_path(hash, true);
+    std::string lib_file = root + "vexcl_dfe_kernel.so";
 
-    if ( !boost::filesystem::exists(sofile) ) {
-        std::string cppfile = basename + ".cpp";
+    if (!boost::filesystem::exists(lib_file)) {
+        boost::filesystem::create_directories(root + "src");
 
         {
-            std::ofstream f(cppfile);
-            f << source;
+            std::ofstream f(root + "src" + path_delim() + "vexcl_dfe_kernel.maxj");
+            f << get<0>(source);
         }
 
-        // Compile the source.
+        {
+            std::ofstream f(root + "vexcl_dfe_kernel.cpp");
+            f << get<1>(source);
+        }
+
+        // Compile the sources.
         std::ostringstream cmdline;
-        cmdline << cxx << " -o " << sofile << " " << cppfile << " "
-                << cxxflags << " " << compile_options;
+
+        cmdline << compiler << " -C " << root;
 
         if (0 != system(cmdline.str().c_str()) ) {
-#ifndef VEXCL_SHOW_KERNELS
-            std::cerr << source << std::endl;
-#endif
-
             vex::detail::print_backtrace();
             throw std::runtime_error("Kernel compilation failed");
         }
     }
 
     // Load the compiled shared library.
-    return boost::dll::shared_library(sofile);
+    return boost::dll::shared_library(lib_file);
 }
 
 } // namespace cuda

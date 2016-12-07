@@ -214,6 +214,14 @@ class source_generator {
             return close(")").open("{");
         }
 
+        source_generator& input_parameters() {
+            return *this;
+        }
+
+        source_generator& output_parameters() {
+            return *this;
+        }
+
         source_generator& end_kernel() {
             return close("}");
         }

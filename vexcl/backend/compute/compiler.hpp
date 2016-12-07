@@ -54,12 +54,10 @@ inline boost::compute::program build_sources(
         const std::string &options = ""
         )
 {
-#ifdef VEXCL_SHOW_KERNELS
-    std::cout << source << std::endl;
-#else
+#ifndef VEXCL_SHOW_KERNELS
     if (getenv("VEXCL_SHOW_KERNELS"))
-        std::cout << source << std::endl;
 #endif
+        std::cout << source << std::endl;
 
     return boost::compute::program::build_with_source(
             source, queue.get_context(),

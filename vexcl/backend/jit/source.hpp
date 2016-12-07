@@ -298,6 +298,14 @@ class source_generator {
             return close("}");
         }
 
+        source_generator& input_parameters() {
+            return *this;
+        }
+
+        source_generator& output_parameters() {
+            return *this;
+        }
+
         source_generator& parameter(const std::string &prm_type, const std::string &name) {
             switch(prm_state) {
                 case inside_kernel:

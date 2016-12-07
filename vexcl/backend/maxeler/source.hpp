@@ -37,12 +37,57 @@ THE SOFTWARE.
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
+#include <type_traits>
 #include <cassert>
 
 #include <vexcl/backend/common.hpp>
 #include <vexcl/types.hpp>
 
 namespace vex {
+
+template <class T> struct global_ptr {};
+template <class T> struct shared_ptr {};
+template <class T> struct regstr_ptr {};
+template <class T> struct constant_ptr {};
+
+template <class T>
+struct type_name_impl <global_ptr<T> > {
+    static std::string get() {
+        std::ostringstream s;
+        s << type_name<T>() << " *";
+        return s.str();
+    }
+};
+
+template <class T>
+struct type_name_impl < global_ptr<const T> > {
+    static std::string get() {
+        std::ostringstream s;
+        s << "const " << type_name<T>() << " *";
+        return s.str();
+    }
+};
+
+template <class T>
+struct type_name_impl <shared_ptr<T> >
+  : type_name_impl<global_ptr<T>>
+{};
+
+template <class T>
+struct type_name_impl <regstr_ptr<T> >
+  : type_name_impl<global_ptr<T>>
+{};
+
+template <class T>
+struct type_name_impl <constant_ptr<T> >
+  : type_name_impl<global_ptr<const typename std::decay<T>::type> >
+{};
+
+template<typename T>
+struct type_name_impl<T*>
+  : type_name_impl<global_ptr<T>>
+{};
+
 namespace backend {
 namespace maxeler {
 
@@ -88,7 +133,7 @@ class source_generator {
             inside_kernel
         } prm_state;
 
-        std::ostringstream src;
+        std::ostringstream src, c_src, c_prm;
         std::string kernel_name;
         std::ostringstream output_section;
 
@@ -102,13 +147,24 @@ class source_generator {
             if (include_standard_header) src << standard_kernel_header(q);
 
             src <<
-                "package vexcl;\n"
+                "package vexcl_dfe_kernel;\n"
                 "import com.maxeler.maxcompiler.v2.kernelcompiler.Kernel;\n"
                 "import com.maxeler.maxcompiler.v2.kernelcompiler.KernelParameters;\n"
                 "import com.maxeler.maxcompiler.v2.kernelcompiler.types.base.DFEVar;\n"
                 "import com.maxeler.maxcompiler.v2.managers.standard.Manager;\n"
                 "import com.maxeler.maxcompiler.v2.managers.standard.Manager.IOType;\n"
                 "import com.maxeler.maxcompiler.v2.build.EngineParameters;\n"
+                ;
+
+            c_src <<
+                "#include <boost/config.hpp>\n"
+                "#include <MaxSLiCInterface.h>\n"
+                "#include \"vexcl_dfe_kernel.h\"\n\n"
+                "struct kernel_api {\n"
+                "    virtual void execute(char*) const = 0;\n"
+                "};\n\n"
+                "#define KERNEL_PARAMETER(type, name) \\\n"
+                "    type name = *reinterpret_cast<type*>(_p); _p+= sizeof(type)\n\n"
                 ;
         }
 
@@ -154,7 +210,7 @@ class source_generator {
         }
 
         source_generator& end_function() {
-            return close("}").close("}");
+            return close("}").close("}\n");
         }
 
         source_generator& begin_kernel(const std::string &name) {
@@ -162,15 +218,25 @@ class source_generator {
 
             new_line() << "class " << name << "_kernel extends Kernel";
             open("{");
-            new_line() << "name" << "_kernel(KernelParameters parameters)";
+            new_line() << name << "_kernel(KernelParameters parameters)";
             open("{");
             new_line() << "super(parameters);";
+
+            c_src <<
+                "struct " << name << "_t : public kernel_api {\n"
+                "  void execute(char*) const;\n"
+                "};\n\n"
+                "extern \"C\" BOOST_SYMBOL_EXPORT " << name << "_t " << name << ";\n"
+                << name << "_t " << name << ";\n"
+                "void " << name << "_t::execute(char *_p) const {";
 
             return *this;
         }
 
         source_generator& begin_kernel_parameters() {
             prm_state = inside_kernel;
+            first_prm = true;
+            c_prm.str() = "";
             return *this;
         }
 
@@ -185,14 +251,18 @@ class source_generator {
         }
 
         source_generator& end_kernel_parameters() {
+            c_src << "\n  vexcl_dfe_kernel(" << c_prm.str() << ");";
             prm_state = undefined;
             return *this;
         }
 
         source_generator& end_kernel() {
             src << output_section.str();
+            close("}").close("}\n");
 
-            return close("}").close("}");
+            c_src << "\n}\n";
+
+            return *this;
         }
 
         template <class Prm>
@@ -252,10 +322,10 @@ class source_generator {
             return *this;
         }
 
-        std::string str() {
+        std::tuple<std::string, std::string> str() {
             new_line() << "class vexcl_manager";
             open("{");
-            new_line() << "public static main(String[] args);";
+            new_line() << "public static void main(String[] args)";
             open("{");
             new_line() << "EngineParameters params = new EngineParameters(args);";
             new_line() << "Manager manager = new Manager(params);";
@@ -271,7 +341,7 @@ class source_generator {
             close("}");
             close("}");
 
-            return src.str();
+            return std::make_tuple(src.str(), c_src.str());
         }
 
     private:
@@ -297,7 +367,11 @@ class source_generator {
         }
 
         template <class Prm>
-        source_generator& kernel_parameter(const std::string &name) {
+        typename std::enable_if<
+            std::is_pointer<Prm>::value,
+            source_generator&
+            >::type
+        kernel_parameter(const std::string &name) {
             if (input_prm) {
                 new_line() << "DFEVar " << name << " = io.input(\""
                     << name << "\", "
@@ -310,6 +384,34 @@ class source_generator {
                     << detail::maxeler_type<typename std::remove_pointer<Prm>::type>()
                     <<");";
             }
+
+            if (first_prm) {
+                first_prm = false;
+            } else {
+                c_prm << ", ";
+            }
+            c_prm << name;
+
+            c_src << "\n  KERNEL_PARAMETER(" << type_name<Prm>() << ", " << name << ");";
+
+            return *this;
+        }
+
+        template <class Prm>
+        typename std::enable_if<
+            !std::is_pointer<Prm>::value,
+            source_generator&
+            >::type
+        kernel_parameter(const std::string &name) {
+            if (first_prm) {
+                first_prm = false;
+            } else {
+                c_prm << ", ";
+            }
+            c_prm << name;
+
+            c_src << "\n  KERNEL_PARAMETER(" << type_name<Prm>() << ", " << name << ");";
+
             return *this;
         }
 };

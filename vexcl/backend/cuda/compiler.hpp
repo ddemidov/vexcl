@@ -47,12 +47,10 @@ inline vex::backend::program build_sources(
         const std::string &options = ""
         )
 {
-#ifdef VEXCL_SHOW_KERNELS
-    std::cout << source << std::endl;
-#else
+#ifndef VEXCL_SHOW_KERNELS
     if (getenv("VEXCL_SHOW_KERNELS"))
-        std::cout << source << std::endl;
 #endif
+        std::cout << source << std::endl;
 
     std::string compile_options = options + " " + get_compile_options(queue);
 
