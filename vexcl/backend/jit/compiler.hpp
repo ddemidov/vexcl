@@ -79,12 +79,10 @@ inline vex::backend::program build_sources(const command_queue &q,
         const std::string &source, const std::string &options = ""
         )
 {
-#ifdef VEXCL_SHOW_KERNELS
-    std::cout << source << std::endl;
-#else
+#ifndef VEXCL_SHOW_KERNELS
     if (getenv("VEXCL_SHOW_KERNELS"))
-        std::cout << source << std::endl;
 #endif
+        std::cout << source << std::endl;
 
     static const std::string cxx      = getenv("CXX",      VEXCL_JIT_COMPILER);
     static const std::string cxxflags = getenv("CXXFLAGS", VEXCL_JIT_COMPILER_OPTIONS);

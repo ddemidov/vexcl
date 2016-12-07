@@ -180,6 +180,14 @@ class source_generator {
             return close("}");
         }
 
+        source_generator& input_parameters() {
+            return *this;
+        }
+
+        source_generator& output_parameters() {
+            return *this;
+        }
+
         source_generator& parameter(const std::string &prm_name, const std::string &name) {
             prm_separator().new_line() << prm_name << " " << name;
             return *this;

@@ -109,12 +109,10 @@ inline cl::Program build_sources(
         const std::string &options = ""
         )
 {
-#ifdef VEXCL_SHOW_KERNELS
-    std::cout << source << std::endl;
-#else
+#ifndef VEXCL_SHOW_KERNELS
     if (getenv("VEXCL_SHOW_KERNELS"))
-        std::cout << source << std::endl;
 #endif
+        std::cout << source << std::endl;
 
     auto context = queue.getInfo<CL_QUEUE_CONTEXT>();
     auto device  = context.getInfo<CL_CONTEXT_DEVICES>();
