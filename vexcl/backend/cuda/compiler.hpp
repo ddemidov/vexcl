@@ -50,15 +50,8 @@ inline vex::backend::program build_sources(
 #ifdef VEXCL_SHOW_KERNELS
     std::cout << source << std::endl;
 #else
-#  ifdef _MSC_VER
-#    pragma warning(push)
-#    pragma warning(disable: 4996)
-#  endif
     if (getenv("VEXCL_SHOW_KERNELS"))
         std::cout << source << std::endl;
-#  ifdef _MSC_VER
-#    pragma warning(pop)
-#  endif
 #endif
 
     std::string compile_options = options + " " + get_compile_options(queue);

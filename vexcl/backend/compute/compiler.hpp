@@ -57,7 +57,7 @@ inline boost::compute::program build_sources(
 #ifdef VEXCL_SHOW_KERNELS
     std::cout << source << std::endl;
 #else
-    if (boost::compute::detail::getenv("VEXCL_SHOW_KERNELS"))
+    if (getenv("VEXCL_SHOW_KERNELS"))
         std::cout << source << std::endl;
 #endif
 

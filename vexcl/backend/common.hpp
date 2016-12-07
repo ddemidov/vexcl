@@ -205,14 +205,7 @@ inline const std::string& path_delim() {
 /// Path to appdata folder.
 inline const std::string& appdata_path() {
 #ifdef WIN32
-#  ifdef _MSC_VER
-#    pragma warning(push)
-#    pragma warning(disable: 4996)
-#  endif
     static const std::string appdata = getenv("APPDATA") + path_delim() + "vexcl";
-#  ifdef _MSC_VER
-#    pragma warning(pop)
-#  endif
 #else
     static const std::string appdata = getenv("HOME") + path_delim() + ".vexcl";
 #endif

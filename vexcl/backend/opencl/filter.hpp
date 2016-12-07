@@ -177,24 +177,20 @@ namespace Filter {
     {
         std::vector< std::function<bool(const cl::Device&)> > filter;
 
-#ifdef _MSC_VER
-#  pragma warning(push)
-#  pragma warning(disable: 4996)
-#endif
-        const char *platform  = getenv("OCL_PLATFORM");
-        const char *vendor    = getenv("OCL_VENDOR");
-        const char *name      = getenv("OCL_DEVICE");
-        const char *devtype   = getenv("OCL_TYPE");
-        const char *extension = getenv("OCL_EXTENSION");
-#ifdef _MSC_VER
-#  pragma warning(pop)
-#endif
+        if (const char *platform = getenv("OCL_PLATFORM"))
+            filter.push_back(Platform(platform));
 
-        if (platform)  filter.push_back(Platform(platform));
-        if (vendor)    filter.push_back(Vendor(vendor));
-        if (name)      filter.push_back(Name(name));
-        if (devtype)   filter.push_back(Type(devtype));
-        if (extension) filter.push_back(Extension(extension));
+        if (const char *vendor = getenv("OCL_VENDOR"))
+            filter.push_back(Vendor(vendor));
+
+        if (const char *name = getenv("OCL_DEVICE"))
+            filter.push_back(Name(name));
+
+        if (const char *devtype = getenv("OCL_TYPE"))
+            filter.push_back(Type(devtype));
+
+        if (const char *extension = getenv("OCL_EXTENSION"))
+            filter.push_back(Extension(extension));
 
         return filter;
     }
@@ -210,14 +206,7 @@ namespace Filter {
                 std::vector<cl::Platform> platform;
                 cl::Platform::get(&platform);
 
-#ifdef _MSC_VER
-#  pragma warning(push)
-#  pragma warning(disable: 4996)
-#endif
                 const char *lock_dir = getenv("VEXCL_LOCK_DIR");
-#ifdef _MSC_VER
-#  pragma warning(pop)
-#endif
 
                 for(size_t p_id = 0; p_id < platform.size(); p_id++) {
                     std::vector<cl::Device> device;
@@ -227,14 +216,7 @@ namespace Filter {
                     for(size_t d_id = 0; d_id < device.size(); d_id++) {
                         std::ostringstream id;
 #ifdef WIN32
-#  ifdef _MSC_VER
-#    pragma warning(push)
-#    pragma warning(disable: 4996)
-#  endif
                         id << (lock_dir ? lock_dir : getenv("TEMP")) << "\\";
-#  ifdef _MSC_VER
-#    pragma warning(pop)
-#  endif
 #else
                         id << (lock_dir ? lock_dir : "/tmp") << "/";
 #endif

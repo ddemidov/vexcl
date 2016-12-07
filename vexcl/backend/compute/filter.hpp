@@ -168,17 +168,20 @@ namespace Filter {
     {
         std::vector< std::function<bool(const boost::compute::device&)> > filter;
 
-        const char *platform  = boost::compute::detail::getenv("OCL_PLATFORM");
-        const char *vendor    = boost::compute::detail::getenv("OCL_VENDOR");
-        const char *name      = boost::compute::detail::getenv("OCL_DEVICE");
-        const char *devtype   = boost::compute::detail::getenv("OCL_TYPE");
-        const char *extension = boost::compute::detail::getenv("OCL_EXTENSION");
+        if (const char *platform = getenv("OCL_PLATFORM"))
+            filter.push_back(Platform(platform));
 
-        if (platform)  filter.push_back(Platform(platform));
-        if (vendor)    filter.push_back(Vendor(vendor));
-        if (name)      filter.push_back(Name(name));
-        if (devtype)   filter.push_back(Type(devtype));
-        if (extension) filter.push_back(Extension(extension));
+        if (const char *vendor = getenv("OCL_VENDOR"))
+            filter.push_back(Vendor(vendor));
+
+        if (const char *name = getenv("OCL_DEVICE"))
+            filter.push_back(Name(name));
+
+        if (const char *devtype = getenv("OCL_TYPE"))
+            filter.push_back(Type(devtype));
+
+        if (const char *extension = getenv("OCL_EXTENSION"))
+            filter.push_back(Extension(extension));
 
         return filter;
     }
@@ -193,12 +196,12 @@ namespace Filter {
 
                 std::vector<boost::compute::device> device = boost::compute::system::devices();
 
-                const char *lock_dir = boost::compute::detail::getenv("VEXCL_LOCK_DIR");
+                const char *lock_dir = getenv("VEXCL_LOCK_DIR");
 
                 for(size_t d_id = 0; d_id < device.size(); d_id++) {
                     std::ostringstream id;
 #ifdef WIN32
-                    id << (lock_dir ? lock_dir : boost::compute::detail::getenv("TEMP")) << "\\";
+                    id << (lock_dir ? lock_dir : getenv("TEMP")) << "\\";
 #else
                     id << (lock_dir ? lock_dir : "/tmp") << "/";
 #endif

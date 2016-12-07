@@ -66,16 +66,8 @@ backend_env_filters()
 {
     std::vector< std::function<bool(const backend::device&)> > filter;
 
-#ifdef _MSC_VER
-#  pragma warning(push)
-#  pragma warning(disable: 4996)
-#endif
-    const char *name = getenv("OCL_DEVICE");
-#ifdef _MSC_VER
-#  pragma warning(pop)
-#endif
-
-    if (name) filter.push_back(Name(name));
+    if (const char *name = getenv("OCL_DEVICE"))
+        filter.push_back(Name(name));
 
     return filter;
 }

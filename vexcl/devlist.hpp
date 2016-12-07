@@ -186,18 +186,11 @@ namespace Filter {
         EnvFilter()
             : filter( backend_env_filters() )
         {
-#ifdef _MSC_VER
-#  pragma warning(push)
-#  pragma warning(disable: 4996)
-#endif
-            const char *maxdev   = getenv("OCL_MAX_DEVICES");
-            const char *position = getenv("OCL_POSITION");
-#ifdef _MSC_VER
-#  pragma warning(pop)
-#endif
+            if (const char *maxdev = getenv("OCL_MAX_DEVICES"))
+                filter.push_back(Count(std::stoi(maxdev)));
 
-            if (maxdev)   filter.push_back(Count(std::stoi(maxdev)));
-            if (position) filter.push_back(Position(std::stoi(position)));
+            if (const char *position = getenv("OCL_POSITION"))
+                filter.push_back(Position(std::stoi(position)));
         }
 
         bool operator()(const backend::device &d) const {
