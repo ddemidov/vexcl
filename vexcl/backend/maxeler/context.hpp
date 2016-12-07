@@ -141,6 +141,17 @@ queue_list(DevFilter &&filter, unsigned queue_flags = 0)
 
 typedef std::exception error;
 
+struct ndrange {
+    size_t x, y, z;
+
+    ndrange(size_t x = 1, size_t y = 1, size_t z = 1)
+        : x(x), y(y), z(z) {}
+
+    bool operator==(const ndrange &o) const {
+        return x == o.x && y == o.y && z == o.z;
+    }
+};
+
 } // namespace maxeler
 } // namespace backend
 } // namespace vex

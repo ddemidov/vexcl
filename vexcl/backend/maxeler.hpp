@@ -38,6 +38,7 @@ THE SOFTWARE.
 #include <vexcl/backend/maxeler/context.hpp>
 #include <vexcl/backend/maxeler/source.hpp>
 #include <vexcl/backend/maxeler/compiler.hpp>
+#include <vexcl/backend/maxeler/kernel.hpp>
 
 
 #endif
