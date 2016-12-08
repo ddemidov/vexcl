@@ -12,46 +12,42 @@ int main(int argc, char *argv[]) {
 
     for(int i = 0; i < n; ++i) x[i] = i;
 
-    int case_to_run = argc > 1 ? std::stoi(argv[1]) : 1;
-    if (case_to_run == 1) {
-        // 1. An expression:
-        VEX_FUNCTION(float, square, (float, v),
-                return v * v;
-                );
+    // 1. An expression:
+    VEX_FUNCTION(float, square, (float, v),
+            return v * v;
+            );
 
-        y = square(x + 3.0f);
-        std::cout << "y = " << y << std::endl;
-    } else {
-        // 2. A custom kernel:
-        // Generate the sources:
-        vex::backend::command_queue q = ctx.queue(0);
-        vex::backend::source_generator src{q};
+    y = square(x + 3.0f);
+    std::cout << "y = " << y << std::endl;
 
-        src.begin_function<float>("mul2");
-        src.begin_function_parameters();
-        src.parameter<float>("x");
-        src.end_function_parameters();
-        src.new_line() << "return 2 * x;";
-        src.end_function();
+    // 2. A custom kernel:
+    // Generate the sources:
+    vex::backend::command_queue q = ctx.queue(0);
+    vex::backend::source_generator src{q};
 
-        src.begin_kernel("simple");
-        src.begin_kernel_parameters();
-        src.input_parameters();
-        src.parameter<int>("n");
-        src.parameter<const float*>("x");
-        src.output_parameters();
-        src.parameter<float*>("y");
-        src.end_kernel_parameters();
-        src.new_line() << "y = mul2.apply(x);";
-        src.end_kernel();
+    src.begin_function<float>("mul2");
+    src.begin_function_parameters();
+    src.parameter<float>("x");
+    src.end_function_parameters();
+    src.new_line() << "return 2 * x;";
+    src.end_function();
 
-        // Compile the kernel:
-        auto K = vex::backend::kernel(q, src.str(), "simple");
+    src.begin_kernel("simple");
+    src.begin_kernel_parameters();
+    src.input_parameters();
+    src.parameter<int>("n");
+    src.parameter<const float*>("x");
+    src.output_parameters();
+    src.parameter<float*>("y");
+    src.end_kernel_parameters();
+    src.new_line() << "y = mul2.apply(x);";
+    src.end_kernel();
 
-        // Launch the kernel:
-        K(q, n, x(), y());
+    // Compile the kernel:
+    auto K = vex::backend::kernel(q, src.str(), "simple");
 
-        std::cout << "y = " << y << std::endl;
-    }
+    // Launch the kernel:
+    K(q, n, x(), y());
 
+    std::cout << "y = " << y << std::endl;
 }
