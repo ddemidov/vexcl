@@ -164,8 +164,6 @@ class source_generator {
                 "struct kernel_api {\n"
                 "    virtual void execute(char*) const = 0;\n"
                 "};\n\n"
-                "#define KERNEL_PARAMETER(type, name) \\\n"
-                "    type name = *reinterpret_cast<type*>(_p); _p+= sizeof(type)\n\n"
                 ;
         }
 
@@ -236,7 +234,7 @@ class source_generator {
 
         source_generator& begin_kernel_parameters() {
             prm_state = inside_kernel;
-            first_prm = true;
+            c_src << "\n  vexcl_dfe_kernel_actions_t kprm;";
             return *this;
         }
 
@@ -251,25 +249,11 @@ class source_generator {
         }
 
         source_generator& end_kernel_parameters() {
-            c_src << "\n  vexcl_dfe_kernel(";
-            bool first = true;
+            c_src << "\n  static max_file_t *mf = vexcl_dfe_kernel_init();";
+            c_src << "\n  max_engine_t *me = max_load(mf, \"*\");";
+            c_src << "\n  vexcl_dfe_kernel_run(me, &kprm);";
+            c_src << "\n  max_unload(me);";
 
-            auto dump_params = [&, this](const std::list<std::string> &prm) {
-                for(auto p = prm.begin(); p != prm.end(); ++p) {
-                    if (first) {
-                        first = false;
-                    } else {
-                        c_src << ", ";
-                    }
-                    c_src << *p;
-                }
-            };
-
-            dump_params(c_in_scalar);
-            dump_params(c_in_prm);
-            dump_params(c_out_prm);
-
-            c_src << ");";
             prm_state = undefined;
             return *this;
         }
@@ -430,17 +414,20 @@ class source_generator {
         source_generator& kernel_parameter(const std::string &name) {
             kernel_parameter_impl<Prm>::apply(*this, name);
 
-            c_src << "\n  KERNEL_PARAMETER(" << type_name<Prm>() << ", " << name << ");";
-
-            if (input_prm) {
-                if (std::is_scalar<Prm>::value) {
-                    c_in_scalar.push_back(name);
+            if (name == "n") {
+                c_src << "\n  kprm.param_N";
+            } else if (input_prm) {
+                if (std::is_arithmetic<Prm>::value) {
+                    c_src << "\n  kprm.inscalar_" << kernel_name << "_" << name;
                 } else {
-                    c_in_prm.push_back(name);
+                    c_src << "\n  kprm.instream_" << name;
                 }
             } else {
-                c_out_prm.push_back(name);
+                c_src << "\n  kprm.outstream_" << name;
             }
+
+            c_src << " = *reinterpret_cast<" << type_name<Prm>() << "*>(_p);"
+                  << " _p+= sizeof(" << type_name<Prm>() << ");";
 
             return *this;
         }
