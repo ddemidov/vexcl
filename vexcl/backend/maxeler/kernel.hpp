@@ -105,12 +105,10 @@ class kernel {
             stack.insert(stack.end(), c, c + sizeof(arg));
         }
 
-        /*
         template <typename T>
         void push_arg(const device_vector<T> &arg) {
             push_arg(arg.raw());
         }
-        */
 
         void set_smem(size_t smem_per_thread) { }
 

@@ -97,7 +97,7 @@ inline command_queue duplicate_queue(const command_queue &q) {
 }
 
 inline bool is_cpu(const command_queue &q) {
-    return true;
+    return false;
 }
 
 struct compare_contexts {
