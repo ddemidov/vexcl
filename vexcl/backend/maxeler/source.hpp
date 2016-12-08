@@ -134,7 +134,6 @@ class source_generator {
         } prm_state;
 
         std::ostringstream src, c_src;
-        std::list<std::string> c_in_scalar, c_in_prm, c_out_prm;
         std::string kernel_name;
         std::ostringstream output_section;
 
