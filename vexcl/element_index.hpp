@@ -83,7 +83,11 @@ struct partial_vector_expr< elem_index >
             const backend::command_queue&, const std::string &prm_name,
             detail::kernel_generator_state_ptr)
     {
+#if defined(VEXCL_BACKEND_MAXELER)
+        src << "(" << prm_name << " + control.count.simpleCounter(64))";
+#else
         src << "(" << prm_name << " + idx)";
+#endif
     }
 };
 

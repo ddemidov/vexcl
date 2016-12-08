@@ -1,5 +1,6 @@
 #include <vexcl/devlist.hpp>
 #include <vexcl/vector.hpp>
+#include <vexcl/element_index.hpp>
 #include <vexcl/function.hpp>
 #include <vexcl/tagged_terminal.hpp>
 
@@ -10,7 +11,11 @@ int main(int argc, char *argv[]) {
     int n = 32;
     vex::vector<float> x(ctx, n), y(ctx, n);
 
+#if 0
+    x = vex::element_index();
+#else
     for(int i = 0; i < n; ++i) x[i] = i;
+#endif
 
     // 1. An expression:
     VEX_FUNCTION(float, square, (float, v),
