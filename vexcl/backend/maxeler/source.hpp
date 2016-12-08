@@ -110,7 +110,7 @@ VEXCL_DEFINE_MAXTYPE(float,        dfeFloat(8, 24));
 VEXCL_DEFINE_MAXTYPE(double,       dfeFloat(11, 53));
 VEXCL_DEFINE_MAXTYPE(int,          dfeInt(32));
 VEXCL_DEFINE_MAXTYPE(unsigned int, dfeUInt(32));
-VEXCL_DEFINE_MAXTYPE(size_t,       dfeUint(64));
+VEXCL_DEFINE_MAXTYPE(size_t,       dfeUInt(64));
 
 #undef VEXCL_DEFINE_MAXTYPE
 
@@ -296,11 +296,11 @@ class source_generator {
         }
 
         std::string global_id(int d) const {
-            return "";
+            return "control.count.simpleCounter(64)";
         }
 
         std::string global_size(int d) const {
-            return "";
+            return "n";
         }
 
         std::string local_id(int d) const {
