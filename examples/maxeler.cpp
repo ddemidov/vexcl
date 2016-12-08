@@ -1,7 +1,7 @@
 #include <vexcl/devlist.hpp>
 #include <vexcl/vector.hpp>
 #include <vexcl/function.hpp>
-#include <vexcl/backend.hpp>
+#include <vexcl/tagged_terminal.hpp>
 
 int main(int argc, char *argv[]) {
     vex::Context ctx(vex::Filter::Any);
@@ -20,7 +20,12 @@ int main(int argc, char *argv[]) {
     y = square(x + 3.0f);
     std::cout << "y = " << y << std::endl;
 
-    // 2. A custom kernel:
+    // 2. A multiexpression
+    auto X = vex::tag<1>(x);
+    auto Y = vex::tag<2>(y);
+    vex::tie(x, y) = std::tie(X + Y, X - Y);
+
+    // 3. A custom kernel:
     // Generate the sources:
     vex::backend::command_queue q = ctx.queue(0);
     vex::backend::source_generator src{q};

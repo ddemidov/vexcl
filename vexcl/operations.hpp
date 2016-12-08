@@ -1989,20 +1989,24 @@ struct parameter_declarator {
     const LHS &lhs;
     const RHS &rhs;
 
+    backend::source_generator &src;
     kernel_generator_state_ptr state;
     mutable detail::declare_expression_parameter lhs_ctx;
     mutable detail::declare_expression_parameter rhs_ctx;
 
     parameter_declarator(const LHS &lhs, const RHS &rhs,
             backend::source_generator &source, const backend::command_queue &queue)
-        : lhs(lhs), rhs(rhs), state(empty_state()),
+        : lhs(lhs), rhs(rhs), src(source), state(empty_state()),
           lhs_ctx(source, queue, "lhs", state),
           rhs_ctx(source, queue, "rhs", state)
     { }
 
     template <size_t I>
     void apply() const {
+        src.output_parameters();
         extract_terminals()(subexpression<I>::get(lhs), lhs_ctx);
+
+        src.input_parameters();
         extract_terminals()(subexpression<I>::get(rhs), rhs_ctx);
     }
 };
@@ -2029,11 +2033,17 @@ struct expression_init {
     void apply() const {
         boost::proto::eval(subexpression<I>::get(rhs), rhs_pre);
 
+#if defined(VEXCL_BACKEND_MAXELER)
+        source.new_line() << "DFEVar";
+#else
         typedef
             typename return_type<decltype(subexpression<I>::get(lhs))>::type
             RT;
 
-        source.new_line() << type_name<RT>() << " buf_" << I + 1 << " = ";
+        source.new_line() << type_name<RT>();
+#endif
+
+        source << " buf_" << I + 1 << " = ";
 
         boost::proto::eval(subexpression<I>::get(rhs), rhs_ctx);
         source << ";";
@@ -2149,6 +2159,8 @@ void assign_multiexpression( LHS &lhs, const RHS &rhs,
 
             source.begin_kernel("vexcl_multivector_kernel");
             source.begin_kernel_parameters();
+            source.input_parameters();
+
             source.parameter<size_t>("n");
 
             static_for<0, N::value>::loop(
