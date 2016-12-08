@@ -40,6 +40,7 @@ THE SOFTWARE.
 #include <type_traits>
 #include <cassert>
 
+#include <vexcl/util.hpp>
 #include <vexcl/backend/common.hpp>
 #include <vexcl/types.hpp>
 
@@ -100,19 +101,18 @@ namespace detail {
 template <class T, class Enable = void>
 struct maxeler_type_impl;
 
-template <>
-struct maxeler_type_impl<float> {
-    static std::string get() {
-        return "dfeFloat(8, 24)";
-    }
-};
+#define VEXCL_DEFINE_MAXTYPE(ctype, maxtype)                                   \
+  template <> struct maxeler_type_impl<ctype> {                                \
+    static std::string get() { return #maxtype; }                              \
+  }
 
-template <>
-struct maxeler_type_impl<double> {
-    static std::string get() {
-        return "dfeFloat(11, 53)";
-    }
-};
+VEXCL_DEFINE_MAXTYPE(float,        dfeFloat(8, 24));
+VEXCL_DEFINE_MAXTYPE(double,       dfeFloat(11, 53));
+VEXCL_DEFINE_MAXTYPE(int,          dfeInt(32));
+VEXCL_DEFINE_MAXTYPE(unsigned int, dfeUInt(32));
+VEXCL_DEFINE_MAXTYPE(size_t,       dfeUint(64));
+
+#undef VEXCL_DEFINE_MAXTYPE
 
 template <class T>
 inline std::string maxeler_type() {
@@ -133,7 +133,8 @@ class source_generator {
             inside_kernel
         } prm_state;
 
-        std::ostringstream src, c_src, c_prm;
+        std::ostringstream src, c_src;
+        std::list<std::string> c_in_scalar, c_in_prm, c_out_prm;
         std::string kernel_name;
         std::ostringstream output_section;
 
@@ -216,9 +217,9 @@ class source_generator {
         source_generator& begin_kernel(const std::string &name) {
             kernel_name = name;
 
-            new_line() << "class " << name << "_kernel extends Kernel";
+            new_line() << "class " << name << " extends Kernel";
             open("{");
-            new_line() << name << "_kernel(KernelParameters parameters)";
+            new_line() << name << "(KernelParameters parameters)";
             open("{");
             new_line() << "super(parameters);";
 
@@ -236,7 +237,6 @@ class source_generator {
         source_generator& begin_kernel_parameters() {
             prm_state = inside_kernel;
             first_prm = true;
-            c_prm.str() = "";
             return *this;
         }
 
@@ -251,7 +251,25 @@ class source_generator {
         }
 
         source_generator& end_kernel_parameters() {
-            c_src << "\n  vexcl_dfe_kernel(" << c_prm.str() << ");";
+            c_src << "\n  vexcl_dfe_kernel(";
+            bool first = true;
+
+            auto dump_params = [&, this](const std::list<std::string> &prm) {
+                for(auto p = prm.begin(); p != prm.end(); ++p) {
+                    if (first) {
+                        first = false;
+                    } else {
+                        c_src << ", ";
+                    }
+                    c_src << *p;
+                }
+            };
+
+            dump_params(c_in_scalar);
+            dump_params(c_in_prm);
+            dump_params(c_out_prm);
+
+            c_src << ");";
             prm_state = undefined;
             return *this;
         }
@@ -330,11 +348,11 @@ class source_generator {
             new_line() << "EngineParameters params = new EngineParameters(args);";
             new_line() << "Manager manager = new Manager(params);";
 
-            new_line() << "Kernel " << kernel_name << " = new "
-                << kernel_name << "_kernel(manager.makeKernelParameters(\""
+            new_line() << "Kernel k = new "
+                << kernel_name << "(manager.makeKernelParameters(\""
                 << kernel_name << "\"));";
 
-            new_line() << "manager.setKernel(" << kernel_name << ");";
+            new_line() << "manager.setKernel(k);";
             new_line() << "manager.setIO(IOType.ALL_CPU);";
             new_line() << "manager.createSLiCinterface();";
             new_line() << "manager.build();";
@@ -366,51 +384,63 @@ class source_generator {
             return *this;
         }
 
+        template <class Prm, class Enable = void>
+        friend struct kernel_parameter_impl;
+
+        template <class Prm, class Enable = void>
+        struct kernel_parameter_impl {};
+
+        template <class T>
+        struct kernel_parameter_impl< global_ptr<T> > {
+            static void apply(source_generator &s, const std::string &name) {
+                if (s.input_prm) {
+                    s.new_line() << "DFEVar " << name << " = io.input(\""
+                        << name << "\", " << detail::maxeler_type<T>() << ");";
+                } else {
+                    s.new_line() << "DFEVar " << name << ";";
+                    s.output_section << "\n" << std::string(2 * s.indent, ' ')
+                        << "io.output(\"" << name << "\", " << name << ", "
+                        << detail::maxeler_type<T>()
+                        <<");";
+                }
+            }
+        };
+
+        template <class T>
+        struct kernel_parameter_impl< T* >
+            : kernel_parameter_impl< global_ptr<T> >
+        {};
+
+        template <class T>
+        struct kernel_parameter_impl<T,
+            typename std::enable_if< std::is_arithmetic<T>::value >::type
+            >
+        {
+            static void apply(source_generator &s, const std::string &name) {
+                // "n" is special; kernels get their size automatically.
+                if (name == "n") return;
+
+                precondition(s.input_prm, "Scalar output is not supported");
+                s.new_line() << "DFEVar " << name << " = io.scalarInput(\""
+                    << name << "\", " << detail::maxeler_type<T>() << ");";
+            }
+        };
+
         template <class Prm>
-        typename std::enable_if<
-            std::is_pointer<Prm>::value,
-            source_generator&
-            >::type
-        kernel_parameter(const std::string &name) {
+        source_generator& kernel_parameter(const std::string &name) {
+            kernel_parameter_impl<Prm>::apply(*this, name);
+
+            c_src << "\n  KERNEL_PARAMETER(" << type_name<Prm>() << ", " << name << ");";
+
             if (input_prm) {
-                new_line() << "DFEVar " << name << " = io.input(\""
-                    << name << "\", "
-                    << detail::maxeler_type<typename std::remove_pointer<Prm>::type>()
-                    << ");";
+                if (std::is_scalar<Prm>::value) {
+                    c_in_scalar.push_back(name);
+                } else {
+                    c_in_prm.push_back(name);
+                }
             } else {
-                new_line() << "DFEVar " << name << ";";
-                output_section << "\n" << std::string(2 * indent, ' ')
-                    << "io.output(\"" << name << "\", " << name << ", "
-                    << detail::maxeler_type<typename std::remove_pointer<Prm>::type>()
-                    <<");";
+                c_out_prm.push_back(name);
             }
-
-            if (first_prm) {
-                first_prm = false;
-            } else {
-                c_prm << ", ";
-            }
-            c_prm << name;
-
-            c_src << "\n  KERNEL_PARAMETER(" << type_name<Prm>() << ", " << name << ");";
-
-            return *this;
-        }
-
-        template <class Prm>
-        typename std::enable_if<
-            !std::is_pointer<Prm>::value,
-            source_generator&
-            >::type
-        kernel_parameter(const std::string &name) {
-            if (first_prm) {
-                first_prm = false;
-            } else {
-                c_prm << ", ";
-            }
-            c_prm << name;
-
-            c_src << "\n  KERNEL_PARAMETER(" << type_name<Prm>() << ", " << name << ");";
 
             return *this;
         }

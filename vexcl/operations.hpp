@@ -1319,7 +1319,11 @@ struct vector_expr_context : public expression_context {
 
         template <class FunCall>
         void operator()(const FunCall &expr, vector_expr_context &ctx) const {
-            ctx.src << boost::proto::value(boost::proto::child_c<0>(expr)).name() << "( ";
+            ctx.src << boost::proto::value(boost::proto::child_c<0>(expr)).name()
+#if defined(VEXCL_BACKEND_MAXELER)
+                << ".apply"
+#endif
+                << "( ";
             boost::fusion::for_each(
                     boost::fusion::pop_front(expr), do_eval(ctx)
                     );

@@ -660,7 +660,7 @@ class vector : public vector_terminal_expression {
          * upon destruction */
         typename backend::device_vector<T>::mapped_array
         map(unsigned d = 0) const {
-            return buf[d].map(queue[d]);
+            return const_cast<typename backend::device_vector<T>::mapped_array>(buf[d].map(queue[d]));
         }
 
         /// Copy assignment
@@ -963,7 +963,11 @@ struct partial_vector_expr< vector<T> > {
             const backend::command_queue&, const std::string &prm_name,
             detail::kernel_generator_state_ptr)
     {
+#if defined(VEXCL_BACKEND_MAXELER)
+        src << prm_name;
+#else
         src << prm_name << "[idx]";
+#endif
     }
 };
 

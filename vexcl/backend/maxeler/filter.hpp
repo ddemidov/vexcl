@@ -1,5 +1,5 @@
-#ifndef VEXCL_BACKEND_MAXELER_HPP
-#define VEXCL_BACKEND_MAXELER_HPP
+#ifndef VEXCL_BACKEND_MAXELER_FILTER_HPP
+#define VEXCL_BACKEND_MAXELER_FILTER_HPP
 
 /*
 The MIT License
@@ -26,21 +26,54 @@ THE SOFTWARE.
 */
 
 /**
- * \file   vexcl/backend/maxeler.hpp
+ * \file   vexcl/backend/maxeler/filter.hpp
  * \author Denis Demidov <dennis.demidov@gmail.com>
- * \brief  Backend for the Maxeler dataflow engine.
+ * \brief  Device filters for the Maxeler backend.
  */
 
-#ifndef VEXCL_BACKEND_MAXELER
-#  define VEXCL_BACKEND_MAXELER
-#endif
+#include <string>
+#include <vector>
+#include <functional>
+#include <cstdlib>
 
-#include <vexcl/backend/maxeler/context.hpp>
-#include <vexcl/backend/maxeler/filter.hpp>
-#include <vexcl/backend/maxeler/source.hpp>
-#include <vexcl/backend/maxeler/compiler.hpp>
-#include <vexcl/backend/maxeler/device_vector.hpp>
-#include <vexcl/backend/maxeler/kernel.hpp>
+namespace vex {
+namespace Filter {
+
+struct DummyFilter {
+    bool v;
+    DummyFilter(bool v) : v(v) {}
+    bool operator()(const backend::device &d) const { return v; }
+};
+
+const DummyFilter GPU(false);
+const DummyFilter CPU(false);
+const DummyFilter Accelerator(true);
+const DummyFilter DoublePrecision(true);
+
+struct Name {
+    explicit Name(std::string name) : devname(std::move(name)) {}
+
+    bool operator()(const backend::device &d) const {
+        return d.name().find(devname) != std::string::npos;
+    }
+
+    private:
+        std::string devname;
+};
+
+inline std::vector< std::function<bool(const backend::device&)> >
+backend_env_filters()
+{
+    std::vector< std::function<bool(const backend::device&)> > filter;
+
+    if (const char *name = getenv("OCL_DEVICE"))
+        filter.push_back(Name(name));
+
+    return filter;
+}
+
+} // namespace Filter
+} // namespace vex
 
 
 #endif
