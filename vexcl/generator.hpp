@@ -467,7 +467,7 @@ class symbolic
         }
 
         // Returns parameter type and name as strings.
-        std::tuple<std::string, std::string> prmdecl() const {
+        void prmdecl(backend::source_generator &src) const {
             std::ostringstream name;
             name << "p_" << *this;
 
@@ -475,14 +475,12 @@ class symbolic
 
             if (scope == VectorParameter) {
                 if (constness == Const)
-                    prm_type = type_name< global_ptr<const T> >();
+                    src.template parameter<global_ptr<const T>>(name.str());
                 else
-                    prm_type = type_name< global_ptr<T> >();
+                    src.template parameter<global_ptr<T>>(name.str());
             } else {
-                prm_type = type_name<T>();
+                src.template parameter<T>(name.str());
             }
-
-            return std::make_tuple(prm_type, name.str());
         }
     private:
         size_t         num;
@@ -511,18 +509,10 @@ class kernel {
                 const std::string &name
               ) : queue(queue), name(name), psize(queue.size(), 0)
         {
-            prm_read.reset(new std::ostringstream);
-            prm_save.reset(new std::ostringstream);
         }
 
-        template <class SymVar>
-        void add_param(const SymVar &var) {
-            prm_decl.push_back(var.prmdecl());
-            *prm_read << var.init();
-            *prm_save << var.write();
-        }
-
-        void build(const std::string &body) {
+        template <class Params>
+        void build(const std::string &body, const Params& params) {
             for(auto q = queue.begin(); q != queue.end(); q++) {
                 backend::source_generator source(*q);
 
@@ -531,15 +521,16 @@ class kernel {
                 source.begin_kernel(name);
                 source.begin_kernel_parameters();
 
-                for(auto p = prm_decl.begin(); p != prm_decl.end(); ++p)
-                    source.parameter(std::get<0>(*p), std::get<1>(*p));
+                boost::fusion::for_each(params, prm_decl(source));
 
                 source.parameter<size_t>("n");
 
                 source.end_kernel_parameters();
                 source.grid_stride_loop().open("{");
 
-                source.new_line() << prm_read->str() << body << prm_save->str();
+                boost::fusion::for_each(params, prm_init(source));
+                source << body;
+                boost::fusion::for_each(params, prm_save(source));
 
                 source.close("}");
                 source.end_kernel();
@@ -614,19 +605,10 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_FUNCALL_OPERATOR, ~)
 
 #endif
 
-        static void add_params(kernel &K) {}
-
-        template <class Head, class... Tail>
-        static void add_params(kernel &K, const Head &head, const Tail&... tail) {
-            K.add_param(head);
-            add_params(K, tail...);
-        }
     private:
         std::vector<backend::command_queue> queue;
         std::string name;
         std::vector<size_t> psize;
-        std::vector< std::tuple<std::string, std::string> > prm_decl;
-        std::unique_ptr<std::ostringstream> prm_read, prm_save;
         std::map<vex::backend::context_id, vex::backend::kernel> cache;
 
         struct push_args {
@@ -636,6 +618,36 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_FUNCALL_OPERATOR, ~)
             template <class T>
             void operator()(const T &p) const {
                 K.push_arg(p);
+            }
+        };
+
+        struct prm_decl {
+            backend::source_generator &src;
+            prm_decl(backend::source_generator &src) : src(src) {}
+
+            template <class T>
+            void operator()(const T &p) const {
+                p.prmdecl(src);
+            }
+        };
+
+        struct prm_init {
+            backend::source_generator &src;
+            prm_init(backend::source_generator &src) : src(src) {}
+
+            template <class T>
+            void operator()(const T &p) const {
+                src << p.init();
+            }
+        };
+
+        struct prm_save {
+            backend::source_generator &src;
+            prm_save(backend::source_generator &src) : src(src) {}
+
+            template <class T>
+            void operator()(const T &p) const {
+                src << p.write();
             }
         };
 };
@@ -686,8 +698,7 @@ kernel build_kernel(
         )
 {
     kernel K(queue, name);
-    kernel::add_params(K, args...);
-    K.build(body);
+    K.build(body, boost::fusion::vector_tie(args...));
     return K;
 }
 
@@ -704,14 +715,11 @@ std::string make_function(std::string body, const Ret &ret, const Args&... args)
 
 #define VEXCL_BUILD_KERNEL(z, n, data)                                         \
   template <BOOST_PP_ENUM_PARAMS(n, class Arg)>                                \
-  kernel build_kernel(const std::vector<backend::command_queue> & queue,    \
+  kernel build_kernel(const std::vector<backend::command_queue> & queue,       \
                          const std::string & name, const std::string & body,   \
                          BOOST_PP_ENUM_BINARY_PARAMS(n, const Arg, &arg)) {    \
     kernel K(queue, name);                                                     \
-    boost::fusion::for_each(                                                   \
-            boost::fusion::vector_tie(BOOST_PP_ENUM_PARAMS(n, arg)),           \
-            detail::kernel_add_param(K));                                      \
-    K.build(body);                                                             \
+    K.build(body, boost::fusion::vector_tie(BOOST_PP_ENUM_PARAMS(n, arg)));    \
     return K;                                                                  \
   }
 
