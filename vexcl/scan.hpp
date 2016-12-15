@@ -136,7 +136,7 @@ backend::kernel block_inclusive_scan(const backend::command_queue &queue)
         src.end_kernel();
 
         kernel = cache.insert(queue, backend::kernel(
-                    queue, src.str(), "block_inclusive_scan"));
+                    queue, src.sources(), "block_inclusive_scan"));
     }
 
     return kernel->second;
@@ -237,7 +237,7 @@ backend::kernel intra_block_inclusive_scan(const backend::command_queue &queue)
         src.end_kernel();
 
         kernel = cache.insert(queue, backend::kernel(
-                    queue, src.str(), "intra_block_inclusive_scan"));
+                    queue, src.sources(), "intra_block_inclusive_scan"));
     }
 
     return kernel->second;
@@ -325,7 +325,7 @@ backend::kernel block_addition(
         src.end_kernel();
 
         kernel = cache.insert(queue, backend::kernel(
-                    queue, src.str(), "block_addition"));
+                    queue, src.sources(), "block_addition"));
     }
 
     return kernel->second;

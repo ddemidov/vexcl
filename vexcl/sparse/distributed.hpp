@@ -397,7 +397,7 @@ class distributed {
                     src.end_kernel();
 
                     K = cache.insert(q[d], backend::kernel(
-                                q[d], src.str(), "vexcl_sparse_gather"));
+                                q[d], src.sources(), "vexcl_sparse_gather"));
                 }
 
                 auto &krn = K->second;

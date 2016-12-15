@@ -96,7 +96,7 @@ backend::kernel offset_calculation(const backend::command_queue &queue) {
         src.end_kernel();
 
         kernel = cache.insert(queue, backend::kernel(
-                    queue, src.str(), "offset_calculation"));
+                    queue, src.sources(), "offset_calculation"));
     }
 
     return kernel->second;
@@ -178,7 +178,7 @@ backend::kernel block_scan_by_key(const backend::command_queue &queue) {
         src.end_kernel();
 
         kernel = cache.insert(queue, backend::kernel(
-                    queue, src.str(), "block_scan_by_key"));
+                    queue, src.sources(), "block_scan_by_key"));
     }
 
     return kernel->second;
@@ -302,7 +302,7 @@ backend::kernel block_inclusive_scan_by_key(const backend::command_queue &queue)
         src.end_kernel();
 
         kernel = cache.insert(queue, backend::kernel(
-                    queue, src.str(), "block_inclusive_scan_by_key"));
+                    queue, src.sources(), "block_inclusive_scan_by_key"));
     }
 
     return kernel->second;
@@ -349,7 +349,7 @@ backend::kernel block_sum_by_key(const backend::command_queue &queue) {
         src.end_kernel();
 
         kernel = cache.insert(queue, backend::kernel(
-                    queue, src.str(), "block_sum_by_key"));
+                    queue, src.sources(), "block_sum_by_key"));
     }
 
     return kernel->second;
@@ -401,7 +401,7 @@ backend::kernel key_value_mapping(const backend::command_queue &queue) {
         src.end_kernel();
 
         kernel = cache.insert(queue, backend::kernel(
-                    queue, src.str(), "key_value_mapping"));
+                    queue, src.sources(), "key_value_mapping"));
     }
 
     return kernel->second;

@@ -516,7 +516,7 @@ class kernel {
             for(auto q = queue.begin(); q != queue.end(); q++) {
                 backend::source_generator source(*q);
 
-                source << get_preamble().str();
+                source << get_preamble().sources();
 
                 source.begin_kernel(name);
                 source.begin_kernel_parameters();
@@ -538,7 +538,7 @@ class kernel {
                 backend::select_context(*q);
                 cache.insert(std::make_pair(
                             backend::get_context_id(*q),
-                            backend::kernel(*q, source.str(), name.c_str())
+                            backend::kernel(*q, source.sources(), name.c_str())
                             ));
             }
         }

@@ -333,7 +333,7 @@ const backend::kernel& stencil<T>::slow_conv(const backend::command_queue &queue
         source.end_kernel();
 
         kernel = cache.insert(queue, backend::kernel(
-                    queue, source.str(), "slow_conv"));
+                    queue, source.sources(), "slow_conv"));
     }
 
     return kernel->second;
@@ -401,7 +401,7 @@ const backend::kernel& stencil<T>::fast_conv(const backend::command_queue &queue
         source.end_kernel();
 
         kernel = cache.insert(queue, backend::kernel(
-                    queue, source.str(), "fast_conv"));
+                    queue, source.sources(), "fast_conv"));
     }
 
     return kernel->second;
@@ -615,7 +615,7 @@ void StencilOperator<T, width, center, Impl>::apply(
             source.end_kernel();
 
             kernel = cache.insert(queue[d], backend::kernel(
-                        queue[d], source.str(), "convolve",
+                        queue[d], source.sources(), "convolve",
                         [](size_t wgs) { return (width + wgs - 1) * sizeof(T); }
                         ));
 

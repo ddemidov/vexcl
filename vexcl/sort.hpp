@@ -958,7 +958,7 @@ backend::kernel& block_sort_kernel(const backend::command_queue &queue) {
         src.end_kernel();
 
         kernel = cache.insert(queue, backend::kernel(
-                    queue, src.str(), "block_sort"));
+                    queue, src.sources(), "block_sort"));
     }
 
     return kernel->second;
@@ -1049,7 +1049,7 @@ backend::kernel merge_partition_kernel(const backend::command_queue &queue) {
         src.end_kernel();
 
         kernel = cache.insert(queue, backend::kernel(
-                    queue, src.str(), "merge_partition"));
+                    queue, src.sources(), "merge_partition"));
     }
 
     return kernel->second;
@@ -1688,7 +1688,7 @@ backend::kernel merge_kernel(const backend::command_queue &queue) {
         src.end_kernel();
 
         kernel = cache.insert(queue, backend::kernel(
-                    queue, src.str(), "merge"));
+                    queue, src.sources(), "merge"));
     }
 
     return kernel->second;

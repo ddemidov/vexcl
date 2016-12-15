@@ -54,7 +54,7 @@ int main(int argc, char *argv[]) {
     src.end_kernel();
 
     // Compile the kernel:
-    auto K = vex::backend::kernel(q, src.str(), "simple");
+    auto K = vex::backend::kernel(q, src.sources(), "simple");
 
     // Launch the kernel:
     K(q, n, x(), y());
