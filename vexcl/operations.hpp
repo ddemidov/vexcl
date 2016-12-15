@@ -1863,10 +1863,10 @@ void assign_expression(LHS &lhs, const RHS &rhs,
 
             declare_expression_parameter declare(source, queue[d], "prm", empty_state());
 
-            source.output_parameters();
+            source.out_params();
             extract_terminals()(boost::proto::as_child(lhs), declare);
 
-            source.input_parameters();
+            source.in_params();
             extract_terminals()(boost::proto::as_child(rhs), declare);
 
             source.end_kernel_parameters();
@@ -2003,10 +2003,10 @@ struct parameter_declarator {
 
     template <size_t I>
     void apply() const {
-        src.output_parameters();
+        src.out_params();
         extract_terminals()(subexpression<I>::get(lhs), lhs_ctx);
 
-        src.input_parameters();
+        src.in_params();
         extract_terminals()(subexpression<I>::get(rhs), rhs_ctx);
     }
 };
@@ -2159,7 +2159,7 @@ void assign_multiexpression( LHS &lhs, const RHS &rhs,
 
             source.begin_kernel("vexcl_multivector_kernel");
             source.begin_kernel_parameters();
-            source.input_parameters();
+            source.in_params();
 
             source.parameter<size_t>("n");
 

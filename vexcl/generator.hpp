@@ -471,14 +471,16 @@ class symbolic
             std::ostringstream name;
             name << "p_" << *this;
 
-            std::string prm_type;
-
             if (scope == VectorParameter) {
-                if (constness == Const)
+                if (constness == Const) {
+                    src.in_params();
                     src.template parameter<global_ptr<const T>>(name.str());
-                else
+                } else {
+                    src.inout_params();
                     src.template parameter<global_ptr<T>>(name.str());
+                }
             } else {
+                src.in_params();
                 src.template parameter<T>(name.str());
             }
         }

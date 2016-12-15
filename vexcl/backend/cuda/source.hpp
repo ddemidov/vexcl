@@ -180,11 +180,15 @@ class source_generator {
             return close("}");
         }
 
-        source_generator& input_parameters() {
+        source_generator& in_params() {
             return *this;
         }
 
-        source_generator& output_parameters() {
+        source_generator& out_params() {
+            return *this;
+        }
+
+        source_generator& inout_params() {
             return *this;
         }
 
