@@ -42,6 +42,7 @@ endif()
 
 if ("${VEXCL_BACKEND}" STREQUAL "Maxeler")
     add_vexcl_example(maxeler)
+    add_vexcl_example(odeint_symbolic)
 endif()
 
 if (VEXCL_BACKEND MATCHES "CUDA")
