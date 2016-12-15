@@ -44,10 +44,10 @@ int main(int argc, char *argv[]) {
 
     src.begin_kernel("simple");
     src.begin_kernel_parameters();
-    src.input_parameters();
+    src.in_params();
     src.parameter<int>("n");
     src.parameter<const float*>("x");
-    src.output_parameters();
+    src.out_params();
     src.parameter<float*>("y");
     src.end_kernel_parameters();
     src.new_line() << "y = mul2.apply(x);";
