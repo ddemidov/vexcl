@@ -516,7 +516,7 @@ class kernel {
             for(auto q = queue.begin(); q != queue.end(); q++) {
                 backend::source_generator source(*q);
 
-                source << get_preamble().sources();
+                source << get_preamble().str();
 
                 source.begin_kernel(name);
                 source.begin_kernel_parameters();
