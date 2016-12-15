@@ -125,7 +125,12 @@ class source_generator {
     private:
         unsigned indent;
         bool first_prm;
-        bool input_prm;
+
+        enum {
+            in_prm,
+            out_prm,
+            inout_prm
+        } prm_kind;
 
         enum {
             undefined,
@@ -138,11 +143,11 @@ class source_generator {
         std::ostringstream output_section;
 
     public:
-        source_generator() : indent(0), first_prm(true), input_prm(true), prm_state(undefined)
+        source_generator() : indent(0), first_prm(true), prm_kind(in_prm), prm_state(undefined)
         { }
 
         source_generator(const command_queue &q, bool include_standard_header = true)
-            : indent(0), first_prm(true), input_prm(true), prm_state(undefined)
+            : indent(0), first_prm(true), prm_kind(in_prm), prm_state(undefined)
         {
             if (include_standard_header) src << standard_kernel_header(q);
 
@@ -237,13 +242,18 @@ class source_generator {
             return *this;
         }
 
-        source_generator& input_parameters() {
-            input_prm = true;
+        source_generator& in_params() {
+            prm_kind = in_prm;
             return *this;
         }
 
-        source_generator& output_parameters() {
-            input_prm = false;
+        source_generator& out_params() {
+            prm_kind = out_prm;
+            return *this;
+        }
+
+        source_generator& inout_params() {
+            prm_kind = inout_prm;
             return *this;
         }
 
@@ -380,15 +390,28 @@ class source_generator {
         template <class T>
         struct kernel_parameter_impl< global_ptr<T> > {
             static void apply(source_generator &s, const std::string &name) {
-                if (s.input_prm) {
-                    s.new_line() << "DFEVar " << name << " = io.input(\""
-                        << name << "\", " << detail::maxeler_type<T>() << ");";
-                } else {
-                    s.new_line() << "DFEVar " << name << ";";
-                    s.output_section << "\n" << std::string(2 * s.indent, ' ')
-                        << "io.output(\"" << name << "\", " << name << ", "
-                        << detail::maxeler_type<T>()
-                        <<");";
+                switch(s.prm_kind) {
+                    case source_generator::in_prm:
+                        s.new_line() << "DFEVar " << name << " = io.input(\""
+                            << name << "\", " << detail::maxeler_type<T>() << ");";
+                        break;
+                    case source_generator::out_prm:
+                        s.new_line() << "DFEVar " << name << ";";
+
+                        s.output_section << "\n" << std::string(2 * s.indent, ' ')
+                            << "io.output(\"" << name << "\", " << name << ", "
+                            << detail::maxeler_type<T>()
+                            <<");";
+                        break;
+                    case source_generator::inout_prm:
+                        s.new_line() << "DFEVar " << name << " = io.input(\""
+                            << name << "_in\", " << detail::maxeler_type<T>() << ");";
+
+                        s.output_section << "\n" << std::string(2 * s.indent, ' ')
+                            << "io.output(\"" << name << "_out\", " << name << ", "
+                            << detail::maxeler_type<T>()
+                            <<");";
+                        break;
                 }
             }
         };
@@ -407,7 +430,7 @@ class source_generator {
                 // "n" is special; kernels get their size automatically.
                 if (name == "n") return;
 
-                precondition(s.input_prm, "Scalar output is not supported");
+                precondition(s.prm_kind == source_generator::in_prm, "Scalar output is not supported");
                 s.new_line() << "DFEVar " << name << " = io.scalarInput(\""
                     << name << "\", " << detail::maxeler_type<T>() << ");";
             }
@@ -417,20 +440,30 @@ class source_generator {
         source_generator& kernel_parameter(const std::string &name) {
             kernel_parameter_impl<Prm>::apply(*this, name);
 
+            std::string val = std::string("*reinterpret_cast<") + type_name<Prm>() + "*>(_p)";
+
             if (name == "n") {
-                c_src << "\n  kprm.param_N";
-            } else if (input_prm) {
-                if (std::is_arithmetic<Prm>::value) {
-                    c_src << "\n  kprm.inscalar_" << kernel_name << "_" << name;
-                } else {
-                    c_src << "\n  kprm.instream_" << name;
-                }
+                c_src << "\n  kprm.param_N = " << val << ";";
             } else {
-                c_src << "\n  kprm.outstream_" << name;
+                switch (prm_kind) {
+                    case in_prm:
+                        if (std::is_arithmetic<Prm>::value) {
+                            c_src << "\n  kprm.inscalar_" << kernel_name << "_" << name << " = " << val << ";";
+                        } else {
+                            c_src << "\n  kprm.instream_" << name << " = " << val << ";";
+                        }
+                        break;
+                    case out_prm:
+                        c_src << "\n  kprm.outstream_" << name << " = " << val << ";";
+                        break;
+                    case inout_prm:
+                        c_src << "\n  kprm.instream_" << name << "_in = " << val << ";";
+                        c_src << "\n  kprm.outstream_" << name << "_out = " << val << ";";
+                        break;
+                }
             }
 
-            c_src << " = *reinterpret_cast<" << type_name<Prm>() << "*>(_p);"
-                  << " _p+= sizeof(" << type_name<Prm>() << ");";
+            c_src << "\n  _p+= sizeof(" << type_name<Prm>() << ");";
 
             return *this;
         }

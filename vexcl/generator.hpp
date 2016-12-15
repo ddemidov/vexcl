@@ -424,7 +424,11 @@ class symbolic
         /// Default constructor. Results in a local variable declaration.
         symbolic() : num(generator::var_id()), scope(LocalVar), constness(NonConst)
         {
+#if defined(VEXCL_BACKEND_MAXELER)
+            generator::get_recorder() << "\t\tDFEVar " << *this << ";\n";
+#else
             generator::get_recorder() << "\t\t" << type_name<T>() << " " << *this << " = " << T() << ";\n";
+#endif
         }
 
         /// Constructor.
@@ -432,7 +436,11 @@ class symbolic
             : num(generator::var_id()), scope(scope), constness(constness)
         {
             if (scope == LocalVar) {
+#if defined(VEXCL_BACKEND_MAXELER)
+                generator::get_recorder() << "\t\tDFEVar " << *this << ";\n";
+#else
                 generator::get_recorder() << "\t\t" << type_name<T>() << " " << *this << ";\n";
+#endif
             }
         }
 
@@ -450,7 +458,11 @@ class symbolic
         symbolic(const Expr &expr)
             : num(generator::var_id()), scope(LocalVar), constness(NonConst)
         {
+#if defined(VEXCL_BACKEND_MAXELER)
+            generator::get_recorder() << "\t\tDFEVar " << *this << " = ";
+#else
             generator::get_recorder() << "\t\t" << type_name<T>() << " " << *this << " = ";
+#endif
             record(expr);
             generator::get_recorder() << ";\n";
         }
@@ -486,11 +498,21 @@ class symbolic
             std::ostringstream s;
 
             if (scope == VectorParameter) {
+#if defined(VEXCL_BACKEND_MAXELER)
+                s << "\t\tDFEVar " << *this << " = p_" << *this << ";\n";
+#else
                 s << "\t\t" << type_name<T>() << " " << *this
                     << " = p_" << *this << "[idx];\n";
+#endif
             } else if (scope == ScalarParameter) {
+#if defined(VEXCL_BACKEND_MAXELER)
+                // Matthias: not sure if this is correct (the else part was not
+                // here when we implemented the maxeler backend)
+                s << "\t\tDFEVar " << *this << " = p_" << *this << ";\n";
+#else
                 s << "\t\t" << type_name<T>() << " " << *this
                     << " = p_" << *this << ";\n";
+#endif
             }
 
             return s.str();
@@ -500,8 +522,13 @@ class symbolic
         std::string write() const {
             std::ostringstream s;
 
-            if (scope == VectorParameter && constness == NonConst)
+            if (scope == VectorParameter && constness == NonConst) {
+#if defined(VEXCL_BACKEND_MAXELER)
+                s << "\t\tp_" << *this << " = " << *this << ";\n";
+#else
                 s << "\t\tp_" << *this << "[idx] = " << *this << ";\n";
+#endif
+            }
 
             return s.str();
         }

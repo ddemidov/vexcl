@@ -47,7 +47,7 @@ int main( int argc , char **argv )
 {
     size_t n;
     const value_type dt = 0.01;
-    const value_type t_max = 100.0;
+    const value_type t_max = 0.1;
 
     using namespace std;
 
