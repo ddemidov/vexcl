@@ -360,7 +360,7 @@ class Reductor {
                         source.end_kernel();
 
                         kernel = cache.insert(queue[d], backend::kernel(
-                                    queue[d], source.str(), "vexcl_reductor_kernel"));
+                                    queue[d], source.sources(), "vexcl_reductor_kernel"));
                     } else {
                         source.smem_declaration<result_type>();
                         source.new_line() << type_name< shared_ptr<result_type> >() << " sdata = smem;";
@@ -380,7 +380,7 @@ class Reductor {
                         source.end_kernel();
 
                         kernel = cache.insert(queue[d], backend::kernel(
-                                    queue[d], source.str(), "vexcl_reductor_kernel",
+                                    queue[d], source.sources(), "vexcl_reductor_kernel",
                                     sizeof(ScalarType)));
                     }
                 }

@@ -94,7 +94,7 @@ void eval(const Expr &expr,
             source.end_kernel();
 
             kernel = cache.insert(queue[d], backend::kernel(
-                        queue[d], source.str(), "vexcl_eval_kernel"));
+                        queue[d], source.sources(), "vexcl_eval_kernel"));
         }
 
         if (size_t psize = part[d + 1] - part[d]) {

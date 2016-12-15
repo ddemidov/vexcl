@@ -244,7 +244,7 @@ backend::kernel block_scan_by_key(const backend::command_queue &queue) {
         src.end_kernel();
 
         kernel = cache.insert(queue, backend::kernel(
-                    queue, src.str(), "block_scan_by_key"));
+                    queue, src.sources(), "block_scan_by_key"));
     }
 
     return kernel->second;
@@ -416,7 +416,7 @@ backend::kernel block_inclusive_scan_by_key(const backend::command_queue &queue)
         src.end_kernel();
 
         kernel = cache.insert(queue, backend::kernel(
-                    queue, src.str(), "block_inclusive_scan_by_key"));
+                    queue, src.sources(), "block_inclusive_scan_by_key"));
     }
 
     return kernel->second;
@@ -612,7 +612,7 @@ backend::kernel block_add_by_key(const backend::command_queue &queue) {
         src.end_kernel();
 
         kernel = cache.insert(queue, backend::kernel(
-                    queue, src.str(), "block_add_by_key"));
+                    queue, src.sources(), "block_add_by_key"));
     }
 
     return kernel->second;

@@ -26,7 +26,7 @@ BOOST_AUTO_TEST_CASE(custom_kernel)
         src.close("}");
         src.end_kernel();
 
-        vex::backend::kernel zeros(queue[0], src.str(), "zeros");
+        vex::backend::kernel zeros(queue[0], src.sources(), "zeros");
 
 #ifdef BOOST_NO_VARIADIC_TEMPLATES
         zeros.push_arg(n);
@@ -63,7 +63,7 @@ BOOST_AUTO_TEST_CASE(custom_kernel)
         src.close("}");
         src.end_kernel();
 
-        auto program = vex::backend::build_sources(queue[0], src.str());
+        auto program = vex::backend::build_sources(queue[0], src.sources());
 
         vex::backend::kernel ones(queue[0], program, "ones");
         vex::backend::kernel twos(queue[0], program, "twos");

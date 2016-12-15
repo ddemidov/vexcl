@@ -323,7 +323,7 @@ class source_generator {
             return *this;
         }
 
-        std::tuple<std::string, std::string> str() {
+        std::tuple<std::string, std::string> sources() {
             new_line() << "class vexcl_manager";
             open("{");
             new_line() << "public static void main(String[] args)";

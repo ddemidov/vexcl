@@ -390,7 +390,7 @@ class ell {
                 src.close("}");
                 src.end_kernel();
 
-                kernel = cache.insert(q, backend::kernel(q, src.str(), "convert_csr2ell"));
+                kernel = cache.insert(q, backend::kernel(q, src.sources(), "convert_csr2ell"));
             }
 
             return kernel->second;

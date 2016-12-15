@@ -228,7 +228,7 @@ inline kernel_call radix_kernel(
     const size_t m = n / radix.value;
     kernel_radix<T, T2>(o, radix, invert);
 
-    backend::kernel kernel(queue, o.str(), "radix", 0, VEX_FAST_MATH_OPTS);
+    backend::kernel kernel(queue, o.sources(), "radix", 0, VEX_FAST_MATH_OPTS);
 
     kernel.push_arg(in);
     kernel.push_arg(out);
@@ -316,7 +316,7 @@ inline kernel_call transpose_kernel(
 
     o.end_kernel();
 
-    backend::kernel kernel(queue, o.str(), "transpose");
+    backend::kernel kernel(queue, o.sources(), "transpose");
 
     kernel.push_arg(in);
     kernel.push_arg(out);
@@ -369,7 +369,7 @@ inline kernel_call bluestein_twiddle(
 
     o.end_kernel();
 
-    backend::kernel kernel(queue, o.str(), "bluestein_twiddle");
+    backend::kernel kernel(queue, o.sources(), "bluestein_twiddle");
     kernel.push_arg(n);
     kernel.push_arg(out);
 
@@ -425,7 +425,7 @@ inline kernel_call bluestein_pad_kernel(
     o.close("}");
     o.end_kernel();
 
-    backend::kernel kernel(queue, o.str(), "bluestein_pad_kernel");
+    backend::kernel kernel(queue, o.sources(), "bluestein_pad_kernel");
     kernel.push_arg(in);
     kernel.push_arg(out);
     kernel.push_arg(static_cast<cl_uint>(n));
@@ -508,7 +508,7 @@ inline kernel_call bluestein_mul_in(
     o.close("}");
     o.end_kernel();
 
-    backend::kernel kernel(queue, o.str(), "bluestein_mul_in");
+    backend::kernel kernel(queue, o.sources(), "bluestein_mul_in");
     kernel.push_arg(data);
     kernel.push_arg(exp);
     kernel.push_arg(out);
@@ -584,7 +584,7 @@ inline kernel_call bluestein_mul_out(
     o.close("}");
     o.end_kernel();
 
-    backend::kernel kernel(queue, o.str(), "bluestein_mul_out");
+    backend::kernel kernel(queue, o.sources(), "bluestein_mul_out");
     kernel.push_arg(data);
     kernel.push_arg(exp);
     kernel.push_arg(out);
@@ -641,7 +641,7 @@ inline kernel_call bluestein_mul(
     o.close("}");
     o.end_kernel();
 
-    backend::kernel kernel(queue, o.str(), "bluestein_mul");
+    backend::kernel kernel(queue, o.sources(), "bluestein_mul");
     kernel.push_arg(data);
     kernel.push_arg(exp);
     kernel.push_arg(out);

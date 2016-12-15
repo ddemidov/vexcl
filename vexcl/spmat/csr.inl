@@ -171,7 +171,7 @@ struct SpMatCSR : public sparse_matrix {
             source.end_kernel();
 
             kernel = cache.insert(queue, backend::kernel(
-                        queue, source.str(), "csr_spmv"));
+                        queue, source.sources(), "csr_spmv"));
         }
 
         kernel->second.push_arg(n);

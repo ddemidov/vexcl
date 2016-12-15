@@ -269,7 +269,7 @@ struct SpMatHELL : public sparse_matrix {
             source.end_kernel();
 
             kernel = cache.insert(queue, backend::kernel(
-                        queue, source.str(), "hybrid_ell_spmv"));
+                        queue, source.sources(), "hybrid_ell_spmv"));
         }
 
         kernel->second.push_arg(n);

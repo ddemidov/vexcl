@@ -144,7 +144,7 @@ class any_of {
                 src.end_kernel();
 
                 kernel = cache.insert(q, backend::kernel(
-                            q, src.str(), "vexcl_any_of_kernel"
+                            q, src.sources(), "vexcl_any_of_kernel"
                             ));
                 kernel->second.config(1, 1);
             }
