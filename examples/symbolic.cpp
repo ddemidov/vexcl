@@ -105,7 +105,9 @@ int main( int argc , char **argv )
     X = 10.0;
     Y = 10.0;
     Z = 10.0;
-    R = Rmin + dR * vex::element_index();
+
+    //R = Rmin + dR * vex::element_index();
+    for(size_t i = 0; i < n; ++i) R[i] = Rmin + dR * i;
 
     // Integration loop:
     for(value_type t = 0; t < t_max; t += dt)
