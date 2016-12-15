@@ -168,6 +168,19 @@ class source_generator {
                 "struct kernel_api {\n"
                 "    virtual void execute(char*) const = 0;\n"
                 "};\n\n"
+                "template <bool dummy = true>\n"
+                "struct max_loader {\n"
+                "  static max_engine_t* load(max_file_t* f) {\n"
+                "    static max_file_t   *last_f = 0;\n"
+                "    static max_engine_t *last_e = 0;\n"
+                "    if (f != last_f) {\n"
+                "      if (last_e) max_unload(last_e);\n"
+                "      last_e = max_load(f, \"*\");\n"
+                "      last_f = f;\n"
+                "    }\n"
+                "    return last_e;\n"
+                "  }\n"
+                "};\n"
                 ;
         }
 
@@ -259,9 +272,8 @@ class source_generator {
 
         source_generator& end_kernel_parameters() {
             c_src << "\n  static max_file_t *mf = vexcl_dfe_kernel_init();";
-            c_src << "\n  max_engine_t *me = max_load(mf, \"*\");";
+            c_src << "\n  max_engine_t *me = max_loader<>::load(mf);";
             c_src << "\n  vexcl_dfe_kernel_run(me, &kprm);";
-            c_src << "\n  max_unload(me);";
 
             prm_state = undefined;
             return *this;
