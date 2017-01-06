@@ -79,7 +79,13 @@ inline vex::backend::program build_sources(const command_queue &q,
 
     // Write source to a .cpp file
     std::string basename = program_binaries_path(hash, true) + "kernel";
-    std::string sofile   = basename + ".so";
+#if BOOST_OS_WINDOWS
+    std::string sofile = basename + ".dll";
+#elif BOOST_OS_MACOS || BOOST_OS_IOS
+    std::string sofile = basename + ".dylib";
+#else
+    std::string sofile = basename + ".so";
+#endif
 
     if ( !boost::filesystem::exists(sofile) ) {
         std::string cppfile = basename + ".cpp";
