@@ -67,13 +67,16 @@ inline vex::backend::program build_sources(const command_queue &q,
         std::cout << source << std::endl;
 #endif
 
+    static const std::string cxx      = getenv("CXX",      VEXCL_JIT_COMPILER);
+    static const std::string cxxflags = getenv("CXXFLAGS", VEXCL_JIT_COMPILER_OPTIONS);
+
     std::string compile_options = options + " " + get_compile_options(q);
 
     sha1_hasher sha1;
     sha1.process(source)
         .process(compile_options)
-        .process(VEXCL_JIT_COMPILER)
-        .process(VEXCL_JIT_COMPILER_OPTIONS);
+        .process(cxx)
+        .process(cxxflags);
 
     std::string hash = static_cast<std::string>(sha1);
 
@@ -97,8 +100,8 @@ inline vex::backend::program build_sources(const command_queue &q,
 
         // Compile the source.
         std::ostringstream cmdline;
-        cmdline << VEXCL_JIT_COMPILER << " -o " << sofile << " " << cppfile << " "
-                << VEXCL_JIT_COMPILER_OPTIONS << " " << compile_options;
+        cmdline << cxx << " -o " << sofile << " " << cppfile << " "
+                << cxxflags << " " << compile_options;
 
         if (0 != system(cmdline.str().c_str()) ) {
 #ifndef VEXCL_SHOW_KERNELS
