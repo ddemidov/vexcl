@@ -151,15 +151,19 @@ struct column_owner {
     }
 };
 
-inline const char* getenv(const char *name) {
+inline const char* getenv(const char *name, const char *defval = NULL) {
 #ifdef _MSC_VER
 #  pragma warning(push)
 #  pragma warning(disable: 4996)
 #endif
-    return ::getenv(name);
+
+    const char *val = ::getenv(name);
+
 #ifdef _MSC_VER
 #  pragma warning(pop)
 #endif
+
+    return val ? val : (defval ? defval : NULL);
 }
 
 } // namespace vex
