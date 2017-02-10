@@ -1159,18 +1159,19 @@ std::ostream &operator<<(std::ostream &o, const vex::vector<T> &t) {
 
     o << "{" << std::setprecision(6);
     for(unsigned p = 0; p < t.nparts(); ++p) {
-        size_t ps = t.part_size(p);
-        auto ptr = t.map(p);
+        if (size_t ps = t.part_size(p)) {
+            auto ptr = t.map(p);
 
-        for(size_t i = t.part_start(p), j = 0; j < ps; ++j, ++i) {
-            if (i % chunk == 0) o << "\n" << std::setw(6) << i << ":";
+            for(size_t i = t.part_start(p), j = 0; j < ps; ++j, ++i) {
+                if (i % chunk == 0) o << "\n" << std::setw(6) << i << ":";
 
-            if (std::is_integral<T>::value)
-                o << " " << std::setw(6) << ptr[j];
-            else if (std::is_arithmetic<T>::value)
-                o << std::scientific << std::setw(14) << ptr[j];
-            else
-                o << " " << ptr[j];
+                if (std::is_integral<T>::value)
+                    o << " " << std::setw(6) << ptr[j];
+                else if (std::is_arithmetic<T>::value)
+                    o << std::scientific << std::setw(14) << ptr[j];
+                else
+                    o << " " << ptr[j];
+            }
         }
     }
     return o << "\n}\n";

@@ -80,7 +80,7 @@ class device_vector {
             return buffer ? buffer->data() : nullptr;
         }
 
-        const T* map(const command_queue&) const {
+        T* map(const command_queue&) const {
             return buffer ? buffer->data() : nullptr;
         }
 
