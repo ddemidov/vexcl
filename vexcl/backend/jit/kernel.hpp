@@ -49,7 +49,7 @@ namespace detail {
 
 struct kernel_api {
     virtual void execute(
-            const ndrange *dim, const ndrange *id, char *smem, char *prm
+            const ndrange *dim, size_t smem_size, char *prm
             ) const = 0;
 };
 
@@ -126,16 +126,7 @@ class kernel {
 
         void operator()(const command_queue&) {
             // All parameters have been pushed; time to call the kernel:
-            std::vector<char> smem(smem_size);
-#pragma omp parallel for collapse(3) firstprivate(smem)
-            for(size_t z = 0; z < grid.z; ++z) {
-                for(size_t y = 0; y < grid.y; ++y) {
-                    for(size_t x = 0; x < grid.x; ++x) {
-                        ndrange id(x, y, z);
-                        K->execute(&grid, &id, smem.data(), stack.data());
-                    }
-                }
-            }
+            K->execute(&grid, smem_size, stack.data());
 
             // Reset parameter stack:
             stack.clear();

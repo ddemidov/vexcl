@@ -94,6 +94,7 @@ inline std::string standard_kernel_header(const command_queue &q) {
 #include <limits>
 #include <algorithm>
 #include <cmath>
+#include <vector>
 #include <boost/config.hpp>
 
 using std::max;
@@ -178,7 +179,7 @@ T atomic_sub(T *p, T val) {
 }
 
 struct kernel_api {
-    virtual void execute(const ndrange*, const ndrange*, char*, char*) const = 0;
+    virtual void execute(const ndrange*, size_t, char*) const = 0;
 };
 
 #define KERNEL_PARAMETER(type, name) \
@@ -255,12 +256,20 @@ class source_generator {
         }
 
         source_generator& begin_kernel(const std::string &name) {
-            new_line() << "struct " << name << "_t : public kernel_api {";
-            new_line() << "  void execute(const ndrange*, const ndrange*, char*, char*) const;";
-            new_line() << "};";
+            new_line() << "struct " << name << "_t : public kernel_api"; open("{");
+            new_line() << "void work(const ndrange*, const ndrange*, char*, char*) const;";
+            new_line() << "void execute(const ndrange *dim, size_t smem_size, char *prm) const"; open("{");
+            new_line() << "std::vector<char> smem(smem_size);";
+            new_line() << "#pragma omp parallel for collapse(3) firstprivate(smem)";
+            new_line() << "for(size_t id_z = 0; id_z < dim->z; ++id_z)"; open("{");
+            new_line() << "for(size_t id_y = 0; id_y < dim->y; ++id_y)"; open("{");
+            new_line() << "for(size_t id_x = 0; id_x < dim->x; ++id_x)"; open("{");
+            new_line() << "ndrange id = {id_x, id_y, id_z};";
+            new_line() << "work(dim, &id, smem.data(), prm);";
+            close("}").close("}").close("}").close("}").close("};");
             new_line() << "extern \"C\" BOOST_SYMBOL_EXPORT " << name << "_t " << name << ";";
             new_line() << name << "_t " << name << ";";
-            new_line() << "void " << name << "_t::execute(const ndrange *_dim, const ndrange *_id, char *_smem, char *_p) const";
+            new_line() << "void " << name << "_t::work(const ndrange *_dim, const ndrange *_id, char *_smem, char *_p) const";
             open("{");
             return *this;
         }
