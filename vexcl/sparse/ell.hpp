@@ -186,13 +186,10 @@ class ell {
             // ELL part
             src.new_line() << "for(size_t j = 0; j < " << prm_name << "_ell_width; ++j)";
             src.open("{");
-            src.new_line()
-                << type_name<Col>() << " c = " << prm_name << "_ell_col[idx + j * "
-                << prm_name << "_ell_pitch];";
+            src.new_line() << type_name<Col>() << " nnz_idx = idx + j * " << prm_name << "_ell_pitch;";
+            src.new_line() << type_name<Col>() << " c = " << prm_name << "_ell_col[nnz_idx];";
             src.new_line() << "if (c != (" << type_name<Col>() << ")(-1))";
             src.open("{");
-            src.new_line() << type_name<Val>() << " v = " << prm_name
-                << "_ell_val[idx + j * " << prm_name << "_ell_pitch];";
 
             src.new_line() << type_name<Col>() << " idx = c;";
 
@@ -201,7 +198,7 @@ class ell {
                 boost::proto::eval(boost::proto::as_child(x), init_x);
             }
 
-            src.new_line() << prm_name << "_sum += v * ";
+            src.new_line() << prm_name << "_sum += " << prm_name << "_ell_val[nnz_idx] * ";
 
             {
                 detail::vector_expr_context expr_x(src, q, prm_name + "_x", state);
