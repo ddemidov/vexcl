@@ -1,6 +1,36 @@
 #ifndef VEXCL_SPARSE_ELL_HPP
 #define VEXCL_SPARSE_ELL_HPP
 
+/*
+The MIT License
+
+Copyright (c) 2012-2017 Denis Demidov <dennis.demidov@gmail.com>
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+*/
+
+/**
+ * \file   vexcl/sparse/ell.hpp
+ * \author Denis Demidov <dennis.demidov@gmail.com>
+ * \brief  Sparse matrix in ELL format.
+ */
+
 #include <vector>
 #include <type_traits>
 #include <utility>
@@ -24,6 +54,7 @@
 #include <vexcl/vector_pointer.hpp>
 #include <vexcl/scan.hpp>
 #include <vexcl/sparse/csr.hpp>
+#include <vexcl/sparse/spmv_ops.hpp>
 
 namespace vex {
 namespace sparse {
@@ -176,11 +207,9 @@ class ell {
             detail::kernel_generator_state_ptr state)
         {
             typedef typename detail::return_type<Vector>::type x_type;
-            typedef decltype(std::declval<Val>() * std::declval<x_type>()) res_type;
+            typedef spmv_ops_impl<Val, x_type> spmv_ops;
 
-            src.new_line()
-                << type_name<res_type>() << " " << prm_name << "_sum = "
-                << res_type() << ";";
+            spmv_ops::decl_accum_var(src, prm_name + "_sum");
             src.open("{");
 
             // ELL part
@@ -196,15 +225,13 @@ class ell {
             {
                 detail::output_local_preamble init_x(src, q, prm_name + "_x", state);
                 boost::proto::eval(boost::proto::as_child(x), init_x);
-            }
 
-            src.new_line() << prm_name << "_sum += " << prm_name << "_ell_val[nnz_idx] * ";
-
-            {
-                detail::vector_expr_context expr_x(src, q, prm_name + "_x", state);
+                backend::source_generator vec_value;
+                detail::vector_expr_context expr_x(vec_value, q, prm_name + "_x", state);
                 boost::proto::eval(boost::proto::as_child(x), expr_x);
+
+                spmv_ops::append_product(src, prm_name + "_sum", prm_name + "_ell_val[nnz_idx]", vec_value.str());
             }
-            src << ";";
 
             src.close("} else break;");
             src.close("}");
