@@ -8,6 +8,7 @@
 #include <vexcl/util.hpp>
 #include <vexcl/backend.hpp>
 #include <vexcl/operations.hpp>
+#include <vexcl/sparse/spmv_ops.hpp>
 
 namespace vex {
 namespace sparse {
@@ -243,10 +244,21 @@ class distributed {
             const backend::command_queue &q, const std::string &prm_name,
             detail::kernel_generator_state_ptr state)
         {
+            typedef typename detail::return_type<Vector>::type x_type;
+            typedef spmv_ops_impl<value_type, x_type> spmv_ops;
+
             vex::vector<rhs_type> dummy;
 
             Matrix::local_terminal_init(x,     src, q, prm_name + "_loc", state);
             Matrix::local_terminal_init(dummy, src, q, prm_name + "_rem", state);
+
+            src.new_line() << type_name<rhs_type>() << " " << prm_name << "_sum = ";
+            Matrix::partial_vector_expr(x, src, q, prm_name + "_loc", state);
+            src << ";";
+
+            backend::source_generator rem_value;
+            Matrix::partial_vector_expr(dummy, rem_value, q, prm_name + "_rem", state);
+            spmv_ops::append(src, prm_name + "_sum", rem_value.str());
         }
 
         template <class Vector>
@@ -265,13 +277,7 @@ class distributed {
             const backend::command_queue &q, const std::string &prm_name,
             detail::kernel_generator_state_ptr state)
         {
-            vex::vector<rhs_type> dummy;
-
-            src << "(";
-            Matrix::partial_vector_expr(x,     src, q, prm_name + "_loc", state);
-            src << " + ";
-            Matrix::partial_vector_expr(dummy, src, q, prm_name + "_rem", state);
-            src << ")";
+            src << prm_name << "_sum";
         }
 
         template <class Vector>

@@ -44,6 +44,12 @@ struct spmv_ops_impl {
         src.new_line() << type_name<res_type>() << " " << name << " = " << res_type() << ";";
     }
 
+    static void append(backend::source_generator &src,
+            const std::string &sum, const std::string &val)
+    {
+        src.new_line() << sum << " += " << val << ";";
+    }
+
     static void append_product(backend::source_generator &src,
             const std::string &sum, const std::string &mat_val, const std::string &vec_val)
     {
