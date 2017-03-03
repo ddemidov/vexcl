@@ -249,15 +249,13 @@ class ell {
             {
                 detail::output_local_preamble init_x(src, q, prm_name + "_x", state);
                 boost::proto::eval(boost::proto::as_child(x), init_x);
-            }
 
-            src.new_line() << prm_name << "_sum += " << prm_name << "_csr_val[j] * ";
-
-            {
-                detail::vector_expr_context expr_x(src, q, prm_name + "_x", state);
+                backend::source_generator vec_value;
+                detail::vector_expr_context expr_x(vec_value, q, prm_name + "_x", state);
                 boost::proto::eval(boost::proto::as_child(x), expr_x);
+
+                spmv_ops::append_product(src, prm_name + "_sum", prm_name + "_csr_val[j]", vec_value.str());
             }
-            src << ";";
 
             src.close("}");
             src.close("}");
