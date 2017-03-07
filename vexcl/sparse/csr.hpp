@@ -44,8 +44,6 @@ THE SOFTWARE.
 namespace vex {
 namespace sparse {
 
-template <typename Val, typename Col, typename Ptr> class ell;
-
 template <typename Val, typename Col = int, typename Ptr = Col>
 class csr {
     public:
@@ -195,8 +193,6 @@ class csr {
         backend::device_vector<Ptr> ptr;
         backend::device_vector<Col> col;
         backend::device_vector<Val> val;
-
-        friend class ell<val_type, col_type, ptr_type>;
 };
 
 } // namespace sparse

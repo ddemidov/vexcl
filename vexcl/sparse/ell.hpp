@@ -53,7 +53,6 @@ THE SOFTWARE.
 #include <vexcl/eval.hpp>
 #include <vexcl/vector_pointer.hpp>
 #include <vexcl/scan.hpp>
-#include <vexcl/sparse/csr.hpp>
 #include <vexcl/sparse/spmv_ops.hpp>
 
 namespace vex {
@@ -84,7 +83,7 @@ class ell {
                     "sparse::ell is only supported for single-device contexts");
 
             if (fast) {
-                convert(csr<Val,Col,Ptr>(q, nrows, ncols, ptr, col, val));
+                convert(ptr, col, val);
                 return;
             }
 
@@ -393,7 +392,19 @@ class ell {
             return kernel->second;
         }
 
-        void convert(const csr<val_type, col_type, ptr_type> &A) {
+        template <class PtrRange, class ColRange, class ValRange>
+        void convert(
+                const PtrRange &host_ptr,
+                const ColRange &host_col,
+                const ValRange &host_val
+                )
+        {
+            size_t nnz = host_ptr[n];
+
+            backend::device_vector<Ptr> Aptr(q, n+1, &host_ptr[0]);
+            backend::device_vector<Col> Acol(q, nnz, &host_col[0]);
+            backend::device_vector<Val> Aval(q, nnz, &host_val[0]);
+
             /* 1. Get optimal ELL widths for local and remote parts. */
             // Speed of ELL relative to CSR:
             const double ell_vs_csr = 3.0;
@@ -402,9 +413,7 @@ class ell {
             std::vector<backend::command_queue> ctx(1, q);
             Reductor<int, MAX> max(ctx);
 
-            vex::vector<ptr_type> ptr(q, A.ptr);
-            vex::vector<col_type> col(q, A.col);
-            vex::vector<val_type> val(q, A.val);
+            vex::vector<Ptr> ptr(q, Aptr);
 
             VEX_FUNCTION(ptr_type, row_width, (size_t, i)(const ptr_type*, ptr),
                     return ptr[i+1] - ptr[i];
@@ -438,9 +447,9 @@ class ell {
             if (ell_width == 0) {
                 assert(csr_nnz == nnz);
 
-                csr_ptr = A.ptr;
-                csr_col = A.col;
-                csr_val = A.val;
+                csr_ptr = Aptr;
+                csr_col = Acol;
+                csr_val = Aval;
 
                 return;
             }
@@ -454,9 +463,9 @@ class ell {
 
                 vex::vector<ptr_type> csr_w(ctx, n+1);
 
-                csr_ptr = backend::device_vector<ptr_type>(q, n + 1);
-                csr_col = backend::device_vector<col_type>(q, csr_nnz);
-                csr_val = backend::device_vector<val_type>(q, csr_nnz);
+                csr_ptr = backend::device_vector<Ptr>(q, n + 1);
+                csr_col = backend::device_vector<Col>(q, csr_nnz);
+                csr_val = backend::device_vector<Val>(q, csr_nnz);
 
                 csr_w = csr_width(ell_width, element_index(), raw_pointer(ptr));
                 vector<ptr_type> csr_p(q, csr_ptr);
@@ -468,16 +477,16 @@ class ell {
             ell_col = backend::device_vector<Col>(q, ell_pitch * ell_width);
             ell_val = backend::device_vector<Val>(q, ell_pitch * ell_width);
 
-            vector<col_type>(q, ell_col) = -1;
+            vex::vector<Col>(q, ell_col) = -1;
 
             auto &convert = csr2ell_kernel();
 
             convert.push_arg(n);
             convert.push_arg(ell_width);
             convert.push_arg(ell_pitch);
-            convert.push_arg(A.ptr);
-            convert.push_arg(A.col);
-            convert.push_arg(A.val);
+            convert.push_arg(Aptr);
+            convert.push_arg(Acol);
+            convert.push_arg(Aval);
             convert.push_arg(ell_col);
             convert.push_arg(ell_val);
             if (csr_nnz) {
