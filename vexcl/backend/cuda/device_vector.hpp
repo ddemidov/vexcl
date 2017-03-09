@@ -108,6 +108,16 @@ class device_vector {
             }
         }
 
+        template <typename U>
+        device_vector<U> reinterpret() const {
+            device_vector<U> r;
+            r.ctx    = ctx;
+            r.n      = n * sizeof(T) / sizeof(U);
+            r.buffer = buffer;
+
+            return r;
+        }
+
         /// Selects correct device before automatic deleter kicks in.
         ~device_vector() {
             if (buffer) ctx.set_current();
@@ -196,6 +206,9 @@ class device_vector {
         context ctx;
         size_t n;
         std::shared_ptr<char> buffer;
+
+        template <typename U>
+        friend class device_vector;
 };
 
 } // namespace cuda

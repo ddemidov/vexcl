@@ -65,6 +65,11 @@ class device_vector {
 
         device_vector(cl::Buffer buffer) : buffer( std::move(buffer) ) {}
 
+        template <typename U>
+        device_vector<U> reinterpret() const {
+            return device_vector<U>(buffer);
+        }
+
         void write(const cl::CommandQueue &q, size_t offset, size_t size, const T *host,
                 bool blocking = false) const
         {

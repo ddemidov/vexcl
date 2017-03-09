@@ -474,6 +474,19 @@ class vector : public vector_terminal_expression {
             *this = expr;
         }
 
+        template <typename U>
+        vector<U> reinterpret() const {
+            vector<U> r;
+            r.queue = queue;
+            r.part  = part;
+            r.buf.reserve(buf.size());
+            for(size_t i = 0; i < buf.size(); ++i) {
+                r.buf.push_back(buf[i].reinterpret<U>());
+                r.part[i+1] = r.part[i+1] * sizeof(T) / sizeof(U);
+            }
+            return r;
+        }
+
         /// Swap function.
         void swap(vector &v) {
             std::swap(queue,   v.queue);
@@ -898,6 +911,9 @@ class vector : public vector_terminal_expression {
                             hostptr ? hostptr + part[d] : 0, flags)
                         );
         }
+
+        template <typename U>
+        friend class vector;
 
         template <typename S, size_t N>
         friend class multivector;
