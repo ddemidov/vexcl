@@ -71,6 +71,7 @@ add_vexcl_test(custom_kernel            custom_kernel.cpp)
 add_vexcl_test(eval                     eval.cpp)
 add_vexcl_test(constants                constants.cpp)
 add_vexcl_test(vector_io                vector_io.cpp)
+add_vexcl_test(reinterpret              reinterpret.cpp)
 add_vexcl_test(multiple_objects         "dummy1.cpp;dummy2.cpp")
 
 if (NOT DEFINED ENV{APPVEYOR})
