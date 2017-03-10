@@ -481,7 +481,7 @@ class vector : public vector_terminal_expression {
             r.part  = part;
             r.buf.reserve(buf.size());
             for(size_t i = 0; i < buf.size(); ++i) {
-                r.buf.push_back(buf[i].reinterpret<U>());
+                r.buf.push_back(buf[i].template reinterpret<U>());
                 r.part[i+1] = r.part[i+1] * sizeof(T) / sizeof(U);
             }
             return r;
