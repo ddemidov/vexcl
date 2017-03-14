@@ -491,13 +491,13 @@ class Reductor {
 
         template <typename result_type>
         static typename std::enable_if<cl_vector_length<result_type>::value == 1, void>::type
-        initial_value(backend::source_generator &src, result_type initial) {
+        initial_value(backend::source_generator &src, const result_type &initial) {
             src.new_line() << type_name<result_type>() << " mySum = " << initial << ";";
         }
 
         template <typename result_type>
         static typename std::enable_if<(cl_vector_length<result_type>::value > 1), void>::type
-        initial_value(backend::source_generator &src, result_type initial) {
+        initial_value(backend::source_generator &src, const result_type &initial) {
             src.new_line() << type_name<result_type>() << " mySum = {" << initial.s[0];
             for(unsigned i = 1; i < cl_vector_length<result_type>::value; ++i)
                 src << ", " << initial.s[i];
