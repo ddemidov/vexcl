@@ -8,6 +8,7 @@
 #include <vexcl/util.hpp>
 #include <vexcl/backend.hpp>
 #include <vexcl/operations.hpp>
+#include <vexcl/sparse/product.hpp>
 #include <vexcl/sparse/spmv_ops.hpp>
 
 namespace vex {
