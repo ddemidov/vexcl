@@ -46,6 +46,8 @@ THE SOFTWARE.
 #include <vexcl/multivector.hpp>
 #include <vexcl/reductor.hpp>
 #include <vexcl/spmat.hpp>
+#include <vexcl/sparse/distributed.hpp>
+#include <vexcl/sparse/matrix.hpp>
 #include <vexcl/stencil.hpp>
 #include <vexcl/gather.hpp>
 #include <vexcl/random.hpp>
