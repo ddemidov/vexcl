@@ -14,10 +14,10 @@ template <class Matrix, class Vector>
 struct matrix_vector_product : matrix_vector_product_expression
 {
     const Matrix &A;
-    const Vector &x;
+    typename boost::proto::result_of::as_child<const Vector, vector_domain>::type x;
 
     matrix_vector_product(const Matrix &A, const Vector &x)
-        : A(A), x(x) {}
+        : A(A), x(boost::proto::as_child(x)) {}
 };
 
 } // namespace sparse
