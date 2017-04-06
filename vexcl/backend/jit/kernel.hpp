@@ -163,18 +163,19 @@ class kernel {
             return 1;
         }
 
-        void config(const command_queue &q, std::function<size_t(size_t)> smem) {
-            config(num_workgroups(q), 1);
+        kernel& config(const command_queue &q, std::function<size_t(size_t)> smem) {
+            return config(num_workgroups(q), 1);
         }
 
-        void config(ndrange blocks, ndrange threads) {
+        kernel& config(ndrange blocks, ndrange threads) {
             precondition(threads == ndrange(), "Maximum workgroup size for the JIT backend is 1");
             grid = blocks;
+            return *this;
         }
 
-        void config(size_t blocks, size_t threads) {
+        kernel& config(size_t blocks, size_t threads) {
             precondition(threads == 1, "Maximum workgroup size for the JIT backend is 1");
-            config(ndrange(blocks), ndrange(threads));
+            return config(ndrange(blocks), ndrange(threads));
         }
 
         void reset() {

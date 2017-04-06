@@ -179,7 +179,7 @@ class kernel {
         }
 
         /// Select best launch configuration for the given shared memory requirements.
-        void config(const command_queue &q, std::function<size_t(size_t)> smem) {
+        kernel& config(const command_queue &q, std::function<size_t(size_t)> smem) {
             // Select workgroup size that would fit into the device.
             size_t ws = q.device().max_threads_per_block() / 2;
 
@@ -190,18 +190,20 @@ class kernel {
             while( (ws > max_ws) || (smem(ws) > max_smem) )
                 ws /= 2;
 
-            config(num_workgroups(q), ws);
+            return config(num_workgroups(q), ws);
         }
 
         /// Set launch configuration.
-        void config(ndrange blocks, ndrange threads) {
+        kernel& config(ndrange blocks, ndrange threads) {
             g_size = blocks;
             w_size = threads;
+
+            return *this;
         }
 
         /// Set launch configuration.
-        void config(size_t blocks, size_t threads) {
-            config(ndrange(blocks), ndrange(threads));
+        kernel& config(size_t blocks, size_t threads) {
+            return config(ndrange(blocks), ndrange(threads));
         }
 
         size_t preferred_work_group_size_multiple(const backend::command_queue &q) const {

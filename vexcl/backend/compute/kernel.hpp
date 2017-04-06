@@ -163,7 +163,7 @@ class kernel {
         }
 
         /// Select best launch configuration for the given shared memory requirements.
-        void config(const boost::compute::command_queue &queue, std::function<size_t(size_t)> smem) {
+        kernel& config(const boost::compute::command_queue &queue, std::function<size_t(size_t)> smem) {
             boost::compute::device dev = queue.get_device();
 
             size_t ws;
@@ -182,21 +182,23 @@ class kernel {
                     ws /= 2;
             }
 
-            config(num_workgroups(queue), ws);
+            return config(num_workgroups(queue), ws);
         }
 
         /// Set launch configuration.
-        void config(ndrange blocks, ndrange threads) {
+        kernel& config(ndrange blocks, ndrange threads) {
             const size_t *b = blocks.dim;
             const size_t *t = threads.dim;
 
             g_size = ndrange(b[0] * t[0], b[1] * t[1], b[2] * t[2]);
             w_size = threads;
+
+            return *this;
         }
 
         /// Set launch configuration.
-        void config(size_t blocks, size_t threads) {
-            config(ndrange(blocks), ndrange(threads));
+        kernel& config(size_t blocks, size_t threads) {
+            return config(ndrange(blocks), ndrange(threads));
         }
 
         size_t preferred_work_group_size_multiple(const boost::compute::command_queue &q) const {
