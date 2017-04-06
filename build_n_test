@@ -25,11 +25,22 @@ for backend in OpenCL Compute; do
     done
 done
 
-# Run tests for CUDA backend built with every possible compiler:
+# Run tests for the CUDA backend built with every possible compiler:
 for dir in build-cuda-*; do
     echo
     echo "----------------------------------------------------------------------"
     echo "Backend=CUDA Test=${dir}"
+    echo "----------------------------------------------------------------------"
+    echo
+    ninja -C ${dir}
+    ninja -C ${dir} test
+done
+
+# Run tests for the JIT backend built with every possible compiler:
+for dir in build-jit-*; do
+    echo
+    echo "----------------------------------------------------------------------"
+    echo "Backend=JIT Test=${dir}"
     echo "----------------------------------------------------------------------"
     echo
     ninja -C ${dir}
