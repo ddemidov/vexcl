@@ -99,31 +99,42 @@ inline std::string standard_kernel_header(const command_queue &q) {
 namespace detail {
 
 template <class T, class Enable = void>
-struct maxeler_type_impl;
+struct maxeler_dfe_type_impl;
 
-#define VEXCL_DEFINE_MAXTYPE(ctype, maxtype)                                   \
-  template <> struct maxeler_type_impl<ctype> {                                \
-    static std::string get() { return #maxtype; }                              \
+template <class T, class Enable = void>
+struct maxeler_cpu_type_impl;
+
+#define VEXCL_DEFINE_MAXTYPE(ctype, dfetype, cputype)                          \
+  template <> struct maxeler_dfe_type_impl<ctype> {                            \
+    static std::string get() { return #dfetype; }                              \
+  };                                                                           \
+  template <> struct maxeler_cpu_type_impl<ctype> {                            \
+    static std::string get() { return #cputype; }                              \
   }
 
-VEXCL_DEFINE_MAXTYPE(float,        dfeFloat(8, 24));
-VEXCL_DEFINE_MAXTYPE(double,       dfeFloat(11, 53));
-VEXCL_DEFINE_MAXTYPE(int,          dfeInt(32));
-VEXCL_DEFINE_MAXTYPE(unsigned int, dfeUInt(32));
-VEXCL_DEFINE_MAXTYPE(size_t,       dfeUInt(64));
+VEXCL_DEFINE_MAXTYPE(float,        dfeFloat(8, 24),  CPUTypes.FLOAT);
+VEXCL_DEFINE_MAXTYPE(double,       dfeFloat(11, 53), CPUTypes.DOUBLE);
+VEXCL_DEFINE_MAXTYPE(int,          dfeInt(32),       CPUTypes.INT32);
+VEXCL_DEFINE_MAXTYPE(unsigned int, dfeUInt(32),      CPUTypes.UINT32);
+VEXCL_DEFINE_MAXTYPE(size_t,       dfeUInt(64),      CPUTypes.UINT64);
 
 #undef VEXCL_DEFINE_MAXTYPE
 
 template <class T>
-inline std::string maxeler_type() {
-    return maxeler_type_impl<typename std::decay<T>::type>::get();
+inline std::string maxeler_dfe_type() {
+    return maxeler_dfe_type_impl<typename std::decay<T>::type>::get();
+}
+
+template <class T>
+inline std::string maxeler_cpu_type() {
+    return maxeler_cpu_type_impl<typename std::decay<T>::type>::get();
 }
 
 } // namespace detail
 
 class source_generator {
     private:
-        unsigned indent;
+        unsigned indent_size;
         bool first_prm;
 
         enum {
@@ -140,14 +151,14 @@ class source_generator {
 
         std::ostringstream src, c_src;
         std::string kernel_name;
-        std::ostringstream output_section;
+        std::ostringstream output_section, stream_setup, stream_sizes;
 
     public:
-        source_generator() : indent(0), first_prm(true), prm_kind(in_prm), prm_state(undefined)
+        source_generator() : indent_size(0), first_prm(true), prm_kind(in_prm), prm_state(undefined)
         { }
 
         source_generator(const command_queue &q, bool include_standard_header = true)
-            : indent(0), first_prm(true), prm_kind(in_prm), prm_state(undefined)
+            : indent_size(0), first_prm(true), prm_kind(in_prm), prm_state(undefined)
         {
             if (include_standard_header) src << standard_kernel_header(q);
 
@@ -156,9 +167,13 @@ class source_generator {
                 "import com.maxeler.maxcompiler.v2.kernelcompiler.Kernel;\n"
                 "import com.maxeler.maxcompiler.v2.kernelcompiler.KernelParameters;\n"
                 "import com.maxeler.maxcompiler.v2.kernelcompiler.types.base.DFEVar;\n"
-                "import com.maxeler.maxcompiler.v2.managers.standard.Manager;\n"
-                "import com.maxeler.maxcompiler.v2.managers.standard.Manager.IOType;\n"
                 "import com.maxeler.maxcompiler.v2.build.EngineParameters;\n"
+                "import com.maxeler.maxcompiler.v2.managers.custom.CustomManager;\n"
+                "import com.maxeler.maxcompiler.v2.managers.custom.blocks.KernelBlock;\n"
+                "import com.maxeler.maxcompiler.v2.managers.engine_interfaces.CPUTypes;\n"
+                "import com.maxeler.maxcompiler.v2.managers.engine_interfaces.EngineInterface;\n"
+                "import com.maxeler.maxcompiler.v2.managers.engine_interfaces.InterfaceParam;\n"
+
                 ;
 
             c_src <<
@@ -184,20 +199,28 @@ class source_generator {
                 ;
         }
 
+        std::string indent() const {
+            return std::string(2 * indent_size, ' ');
+        }
+
+        std::string indent(int size) const {
+            return std::string(2 * size, ' ');
+        }
+
         source_generator& new_line() {
-            src << "\n" << std::string(2 * indent, ' ');
+            src << "\n" << indent();
             return *this;
         }
 
         source_generator& open(const char *bracket) {
             new_line() << bracket;
-            ++indent;
+            ++indent_size;
             return *this;
         }
 
         source_generator& close(const char *bracket) {
-            assert(indent > 0);
-            --indent;
+            assert(indent_size > 0);
+            --indent_size;
             new_line() << bracket;
             return *this;
         }
@@ -346,21 +369,28 @@ class source_generator {
         }
 
         std::tuple<std::string, std::string> sources() {
-            new_line() << "class vexcl_manager";
+            new_line() << "class vexcl_manager extends CustomManager";
             open("{");
+            new_line() << "vexcl_manager(EngineParameters ep)";
+            open("{");
+            new_line() << "super(ep);";
+            new_line() << "KernelBlock k = addKernel(new " << kernel_name << "(makeKernelParameters(\"" << kernel_name << "\")));"
+                       << stream_setup.str();
+            close("}");
+
+            new_line() << "private static EngineInterface interfaceDefault()";
+            open("{");
+            new_line() << "EngineInterface ei = new EngineInterface();";
+            new_line() << "InterfaceParam N = ei.addParam(\"N\", " << detail::maxeler_cpu_type<int>() << ");";
+            new_line() << "ei.setTicks(\"" << kernel_name << "\", N);"
+                       << stream_sizes.str();
+            new_line() << "return ei;";
+            close("}");
             new_line() << "public static void main(String[] args)";
             open("{");
-            new_line() << "EngineParameters params = new EngineParameters(args);";
-            new_line() << "Manager manager = new Manager(params);";
-
-            new_line() << "Kernel k = new "
-                << kernel_name << "(manager.makeKernelParameters(\""
-                << kernel_name << "\"));";
-
-            new_line() << "manager.setKernel(k);";
-            new_line() << "manager.setIO(IOType.ALL_CPU);";
-            new_line() << "manager.createSLiCinterface();";
-            new_line() << "manager.build();";
+            new_line() << "vexcl_manager m = new vexcl_manager(new EngineParameters(args));";
+            new_line() << "m.createSLiCinterface(interfaceDefault());";
+            new_line() << "m.build();";
             close("}");
             close("}");
 
@@ -405,24 +435,35 @@ class source_generator {
                 switch(s.prm_kind) {
                     case source_generator::in_prm:
                         s.new_line() << "DFEVar " << name << " = io.input(\""
-                            << name << "\", " << detail::maxeler_type<T>() << ");";
+                            << name << "\", " << detail::maxeler_dfe_type<T>() << ");";
+
+                        s.stream_setup << "\n" << s.indent(2) << "k.getInput(\"" << name << "\") <== addStreamFromCPU(\"" << name << "\");";
+                        s.stream_sizes << "\n" << s.indent(2) << "ei.setStream(\"" << name << "\", " << detail::maxeler_cpu_type<T>() << ", N * " << detail::maxeler_cpu_type<T>() << ".sizeInBytes());";
                         break;
                     case source_generator::out_prm:
                         s.new_line() << "DFEVar " << name << ";";
 
-                        s.output_section << "\n" << std::string(2 * s.indent, ' ')
+                        s.output_section << "\n" << s.indent()
                             << "io.output(\"" << name << "\", " << name << ", "
-                            << detail::maxeler_type<T>()
+                            << detail::maxeler_dfe_type<T>()
                             <<");";
+
+                        s.stream_setup << "\n" << s.indent(2) << "addStreamToCPU(\"" << name << "\") <== k.getOutput(\"" << name << "\");";
+                        s.stream_sizes << "\n" << s.indent(2) << "ei.setStream(\"" << name << "\", " << detail::maxeler_cpu_type<T>() << ", N * " << detail::maxeler_cpu_type<T>() << ".sizeInBytes());";
                         break;
                     case source_generator::inout_prm:
                         s.new_line() << "DFEVar " << name << " = io.input(\""
-                            << name << "_in\", " << detail::maxeler_type<T>() << ");";
+                            << name << "_in\", " << detail::maxeler_dfe_type<T>() << ");";
 
-                        s.output_section << "\n" << std::string(2 * s.indent, ' ')
+                        s.output_section << "\n" << s.indent()
                             << "io.output(\"" << name << "_out\", " << name << ", "
-                            << detail::maxeler_type<T>()
+                            << detail::maxeler_dfe_type<T>()
                             <<");";
+
+                        s.stream_setup << "\n" << s.indent(2) << "k.getInput(\"" << name << "_in\") <== addStreamFromCPU(\"" << name << "_in\");";
+                        s.stream_setup << "\n" << s.indent(2) << "addStreamToCPU(\"" << name << "_out\") <== k.getOutput(\"" << name << "_out\");";
+                        s.stream_sizes << "\n" << s.indent(2) << "ei.setStream(\"" << name << "_in\", " << detail::maxeler_cpu_type<T>() << ", N * " << detail::maxeler_cpu_type<T>() << ".sizeInBytes());";
+                        s.stream_sizes << "\n" << s.indent(2) << "ei.setStream(\"" << name << "_out\", " << detail::maxeler_cpu_type<T>() << ", N * " << detail::maxeler_cpu_type<T>() << ".sizeInBytes());";
                         break;
                 }
             }
@@ -444,7 +485,7 @@ class source_generator {
 
                 precondition(s.prm_kind == source_generator::in_prm, "Scalar output is not supported");
                 s.new_line() << "DFEVar " << name << " = io.scalarInput(\""
-                    << name << "\", " << detail::maxeler_type<T>() << ");";
+                    << name << "\", " << detail::maxeler_dfe_type<T>() << ");";
             }
         };
 
