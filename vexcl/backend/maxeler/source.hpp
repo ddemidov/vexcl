@@ -151,14 +151,20 @@ class source_generator {
 
         std::ostringstream src, c_src;
         std::string kernel_name;
-        std::ostringstream output_section, stream_setup, stream_sizes;
+        std::ostringstream kernel_output, stream_design;
+        std::ostringstream write_lmem_j, read_lmem_j, execute_j;
+        std::ostringstream write_lmem_c, read_lmem_c, execute_c;
+        int input_streams, output_streams;
 
     public:
-        source_generator() : indent_size(0), first_prm(true), prm_kind(in_prm), prm_state(undefined)
+        source_generator()
+            : indent_size(0), first_prm(true), prm_kind(in_prm), prm_state(undefined),
+              input_streams(0), output_streams(0)
         { }
 
         source_generator(const command_queue &q, bool include_standard_header = true)
-            : indent_size(0), first_prm(true), prm_kind(in_prm), prm_state(undefined)
+            : indent_size(0), first_prm(true), prm_kind(in_prm), prm_state(undefined),
+              input_streams(0), output_streams(0)
         {
             if (include_standard_header) src << standard_kernel_header(q);
 
@@ -170,10 +176,12 @@ class source_generator {
                 "import com.maxeler.maxcompiler.v2.build.EngineParameters;\n"
                 "import com.maxeler.maxcompiler.v2.managers.custom.CustomManager;\n"
                 "import com.maxeler.maxcompiler.v2.managers.custom.blocks.KernelBlock;\n"
+                "import com.maxeler.maxcompiler.v2.managers.custom.stdlib.LMemCommandGroup;\n"
+                "import com.maxeler.maxcompiler.v2.managers.custom.stdlib.LMemInterface;\n"
                 "import com.maxeler.maxcompiler.v2.managers.engine_interfaces.CPUTypes;\n"
                 "import com.maxeler.maxcompiler.v2.managers.engine_interfaces.EngineInterface;\n"
+                "import com.maxeler.maxcompiler.v2.managers.engine_interfaces.EngineInterface.Direction;\n"
                 "import com.maxeler.maxcompiler.v2.managers.engine_interfaces.InterfaceParam;\n"
-
                 ;
 
             c_src <<
@@ -181,8 +189,14 @@ class source_generator {
                 "#include <MaxSLiCInterface.h>\n"
                 "#include \"vexcl_dfe_kernel.h\"\n\n"
                 "struct kernel_api {\n"
+                "    virtual void write_lmem(char*) const = 0;\n"
+                "    virtual void read_lmem(char*) const = 0;\n"
                 "    virtual void execute(char*) const = 0;\n"
                 "};\n\n"
+                "max_file_t* vexcl_dfe_max_file() {\n"
+                "  static max_file_t *mf = vexcl_dfe_kernel_init();\n"
+                "  return mf;\n"
+                "}\n\n"
                 "template <bool dummy = true>\n"
                 "struct max_loader {\n"
                 "  static max_engine_t* load(max_file_t* f) {\n"
@@ -195,7 +209,7 @@ class source_generator {
                 "    }\n"
                 "    return last_e;\n"
                 "  }\n"
-                "};\n"
+                "};\n\n"
                 ;
         }
 
@@ -261,20 +275,11 @@ class source_generator {
             open("{");
             new_line() << "super(parameters);";
 
-            c_src <<
-                "struct " << name << "_t : public kernel_api {\n"
-                "  void execute(char*) const;\n"
-                "};\n\n"
-                "extern \"C\" BOOST_SYMBOL_EXPORT " << name << "_t " << name << ";\n"
-                << name << "_t " << name << ";\n"
-                "void " << name << "_t::execute(char *_p) const {";
-
             return *this;
         }
 
         source_generator& begin_kernel_parameters() {
             prm_state = inside_kernel;
-            c_src << "\n  vexcl_dfe_kernel_actions_t kprm;";
             return *this;
         }
 
@@ -294,19 +299,13 @@ class source_generator {
         }
 
         source_generator& end_kernel_parameters() {
-            c_src << "\n  static max_file_t *mf = vexcl_dfe_kernel_init();";
-            c_src << "\n  max_engine_t *me = max_loader<>::load(mf);";
-            c_src << "\n  vexcl_dfe_kernel_run(me, &kprm);";
-
             prm_state = undefined;
             return *this;
         }
 
         source_generator& end_kernel() {
-            src << output_section.str();
+            src << kernel_output.str();
             close("}").close("}\n");
-
-            c_src << "\n}\n";
 
             return *this;
         }
@@ -374,25 +373,88 @@ class source_generator {
             new_line() << "vexcl_manager(EngineParameters ep)";
             open("{");
             new_line() << "super(ep);";
-            new_line() << "KernelBlock k = addKernel(new " << kernel_name << "(makeKernelParameters(\"" << kernel_name << "\")));"
-                       << stream_setup.str();
+            new_line() << "KernelBlock k = addKernel(new " << kernel_name << "(makeKernelParameters(\"" << kernel_name << "\")));";
+            new_line() << "LMemInterface lmem = addLMemInterface();"
+                       << stream_design.str();
             close("}");
 
-            new_line() << "private static EngineInterface interfaceDefault()";
+            new_line() << "private static EngineInterface write_lmem()";
             open("{");
-            new_line() << "EngineInterface ei = new EngineInterface();";
-            new_line() << "InterfaceParam N = ei.addParam(\"N\", " << detail::maxeler_cpu_type<int>() << ");";
-            new_line() << "ei.setTicks(\"" << kernel_name << "\", N);"
-                       << stream_sizes.str();
+            new_line() << "EngineInterface ei = new EngineInterface(\"write_lmem\");";
+            new_line() << "InterfaceParam size = ei.addParam(\"N\", " << detail::maxeler_cpu_type<int>() << ");";
+            new_line() << "InterfaceParam head = ei.addConstant(0l);"
+                       << write_lmem_j.str();
+            new_line() << "ei.ignoreAll(Direction.IN_OUT);";
+            new_line() << "return ei;";
+            close("}");
+            new_line() << "private static EngineInterface read_lmem()";
+            open("{");
+            new_line() << "EngineInterface ei = new EngineInterface(\"read_lmem\");";
+            new_line() << "InterfaceParam size = ei.addParam(\"N\", " << detail::maxeler_cpu_type<int>() << ");";
+            new_line() << "InterfaceParam head = ei.addConstant(0l);"
+                       << read_lmem_j.str();
+            new_line() << "ei.ignoreAll(Direction.IN_OUT);";
+            new_line() << "return ei;";
+            close("}");
+            new_line() << "private static EngineInterface execute()";
+            open("{");
+            new_line() << "EngineInterface ei = new EngineInterface(\"execute\");";
+            new_line() << "InterfaceParam size = ei.addParam(\"N\", " << detail::maxeler_cpu_type<int>() << ");";
+            new_line() << "InterfaceParam head = ei.addConstant(0l);";
+            new_line() << "ei.setTicks(\"" << kernel_name << "\", size);"
+                       << execute_j.str();
+            new_line() << "ei.ignoreAll(Direction.IN_OUT);";
             new_line() << "return ei;";
             close("}");
             new_line() << "public static void main(String[] args)";
             open("{");
             new_line() << "vexcl_manager m = new vexcl_manager(new EngineParameters(args));";
-            new_line() << "m.createSLiCinterface(interfaceDefault());";
+            new_line() << "m.createSLiCinterface(write_lmem());";
+            new_line() << "m.createSLiCinterface(read_lmem());";
+            new_line() << "m.createSLiCinterface(execute());";
             new_line() << "m.build();";
             close("}");
             close("}");
+
+            // TODO: finish c_src
+            c_src <<
+                "struct " << kernel_name << "_t : public kernel_api {\n"
+                "  void write_lmem(char*) const;\n"
+                "  void read_lmem(char*) const;\n"
+                "  void execute(char*) const;\n"
+                "};\n\n"
+                "extern \"C\" BOOST_SYMBOL_EXPORT " << kernel_name << "_t " << kernel_name << ";\n"
+                << kernel_name << "_t " << kernel_name << ";\n\n";
+
+            c_src << "void " << kernel_name << "_t::write_lmem(char *_p) const {\n";
+            if (input_streams) {
+                c_src <<
+                    "  vexcl_dfe_kernel_write_lmem_actions_t kprm;"
+                    << write_lmem_c.str() << "\n"
+                    "  max_file_t *mf = vexcl_dfe_max_file();\n"
+                    "  max_engine_t *me = max_loader<>::load(mf);\n"
+                    "  vexcl_dfe_kernel_write_lmem_run(me, &kprm);\n";
+            }
+            c_src <<
+                "}\n\n"
+                "void " << kernel_name << "_t::read_lmem(char *_p) const {\n";
+            if (output_streams) {
+                c_src <<
+                    "  vexcl_dfe_kernel_read_lmem_actions_t kprm;"
+                    << read_lmem_c.str() << "\n"
+                    "  max_file_t *mf = vexcl_dfe_max_file();\n"
+                    "  max_engine_t *me = max_loader<>::load(mf);\n"
+                    "  vexcl_dfe_kernel_read_lmem_run(me, &kprm);\n";
+            }
+            c_src <<
+                "}\n\n"
+                "void " << kernel_name << "_t::execute(char *_p) const {\n"
+                "  vexcl_dfe_kernel_execute_actions_t kprm;"
+                << execute_c.str() << "\n"
+                "  max_file_t *mf = vexcl_dfe_max_file();\n"
+                "  max_engine_t *me = max_loader<>::load(mf);\n"
+                "  vexcl_dfe_kernel_execute_run(me, &kprm);\n"
+                "}\n";
 
             return std::make_tuple(src.str(), c_src.str());
         }
@@ -434,36 +496,151 @@ class source_generator {
             static void apply(source_generator &s, const std::string &name) {
                 switch(s.prm_kind) {
                     case source_generator::in_prm:
+                        s.input_streams++;
+
                         s.new_line() << "DFEVar " << name << " = io.input(\""
                             << name << "\", " << detail::maxeler_dfe_type<T>() << ");";
 
-                        s.stream_setup << "\n" << s.indent(2) << "k.getInput(\"" << name << "\") <== addStreamFromCPU(\"" << name << "\");";
-                        s.stream_sizes << "\n" << s.indent(2) << "ei.setStream(\"" << name << "\", " << detail::maxeler_cpu_type<T>() << ", N * " << detail::maxeler_cpu_type<T>() << ".sizeInBytes());";
+                        s.stream_design << "\n" << s.indent(2) <<
+                            "k.getInput(\"" << name << "\")"
+                            " <== "
+                            "lmem.addStreamFromLMem(\"" << name << "\", LMemCommandGroup.MemoryAccessPattern.LINEAR_1D);";
+
+                        s.stream_design << "\n" << s.indent(2) <<
+                            "lmem.addStreamToLMem(\"" << name << "_to_lmem\", LMemCommandGroup.MemoryAccessPattern.LINEAR_1D)"
+                            " <== "
+                            "addStreamFromCPU(\"" << name << "_from_cpu\");";
+
+                        s.write_lmem_j << "\n" << s.indent(2) <<
+                            "ei.setStream(\"" << name << "_from_cpu\", " << detail::maxeler_cpu_type<T>() << ", size * " << detail::maxeler_cpu_type<T>() << ".sizeInBytes());"
+                            "\n" << s.indent(2) <<
+                            "ei.setLMemLinear(\"" << name << "_to_lmem\", head, size * " << detail::maxeler_cpu_type<T>() << ".sizeInBytes());"
+                            "\n" << s.indent(2) <<
+                            "head = head + size * " << detail::maxeler_cpu_type<T>() << ".sizeInBytes();";
+
+                        s.read_lmem_j << "\n" << s.indent(2) <<
+                            "head = head + size * " << detail::maxeler_cpu_type<T>() << ".sizeInBytes();";
+
+                        s.execute_j << "\n" << s.indent(2) <<
+                            "ei.setLMemLinear(\"" << name << "\", head, size * " << detail::maxeler_cpu_type<T>() << ".sizeInBytes());"
+                            "\n" << s.indent(2) <<
+                            "head = head + size * " << detail::maxeler_cpu_type<T>() << ".sizeInBytes();";
+
+                        s.write_lmem_c << "\n" << s.indent(1) <<
+                            "kprm.instream_" << name << "_from_cpu = " << "*reinterpret_cast<" << type_name<typename std::decay<T>::type*>() << "*>(_p);"
+                            "\n" << s.indent(1) << "_p+= sizeof(" << type_name<typename std::decay<T>::type>() << "*);";
+                        s.read_lmem_c << "\n" << s.indent(1) <<
+                            "_p+= sizeof(" << type_name<typename std::decay<T>::type>() << "*);";
+                        s.execute_c << "\n" << s.indent(1) <<
+                            "_p+= sizeof(" << type_name<typename std::decay<T>::type>() << "*);";
+
                         break;
                     case source_generator::out_prm:
+                        s.output_streams++;
+
                         s.new_line() << "DFEVar " << name << ";";
 
-                        s.output_section << "\n" << s.indent()
+                        s.kernel_output << "\n" << s.indent()
                             << "io.output(\"" << name << "\", " << name << ", "
                             << detail::maxeler_dfe_type<T>()
                             <<");";
 
-                        s.stream_setup << "\n" << s.indent(2) << "addStreamToCPU(\"" << name << "\") <== k.getOutput(\"" << name << "\");";
-                        s.stream_sizes << "\n" << s.indent(2) << "ei.setStream(\"" << name << "\", " << detail::maxeler_cpu_type<T>() << ", N * " << detail::maxeler_cpu_type<T>() << ".sizeInBytes());";
+                        s.stream_design << "\n" << s.indent(2) <<
+                            "lmem.addStreamToLMem(\"" << name << "\", LMemCommandGroup.MemoryAccessPattern.LINEAR_1D)"
+                            " <== "
+                            "k.getOutput(\"" << name << "\");";
+
+                        s.stream_design << "\n" << s.indent(2) <<
+                            "addStreamToCPU(\"" << name << "_to_cpu\")"
+                            " <== "
+                            "lmem.addStreamFromLMem(\"" << name << "_from_lmem\", LMemCommandGroup.MemoryAccessPattern.LINEAR_1D);";
+
+                        s.write_lmem_j << "\n" << s.indent(2) <<
+                            "head = head + size * " << detail::maxeler_cpu_type<T>() << ".sizeInBytes();";
+
+                        s.read_lmem_j << "\n" << s.indent(2) <<
+                            "ei.setLMemLinear(\"" << name << "_from_lmem\", head, size * " << detail::maxeler_cpu_type<T>() << ".sizeInBytes());"
+                            "\n" << s.indent(2) <<
+                            "ei.setStream(\"" << name << "_to_cpu\", " << detail::maxeler_cpu_type<T>() << ", size * " << detail::maxeler_cpu_type<T>() << ".sizeInBytes());"
+                            "\n" << s.indent(2) <<
+                            "head = head + size * " << detail::maxeler_cpu_type<T>() << ".sizeInBytes();";
+
+                        s.execute_j << "\n" << s.indent(2) <<
+                            "ei.setLMemLinear(\"" << name << "\", head, size * " << detail::maxeler_cpu_type<T>() << ".sizeInBytes());"
+                            "\n" << s.indent(2) <<
+                            "head = head + size * " << detail::maxeler_cpu_type<T>() << ".sizeInBytes();";
+
+                        s.write_lmem_c << "\n" << s.indent(1) <<
+                            "_p+= sizeof(" << type_name<typename std::decay<T>::type>() << "*);";
+                        s.read_lmem_c << "\n" << s.indent(1) <<
+                            "kprm.outstream_" << name << "_to_cpu = " << "*reinterpret_cast<" << type_name<typename std::decay<T>::type*>() << "*>(_p);"
+                            "\n" << s.indent(1) << "_p+= sizeof(" << type_name<typename std::decay<T>::type>() << "*);";
+                        s.execute_c << "\n" << s.indent(1) <<
+                            "_p+= sizeof(" << type_name<typename std::decay<T>::type>() << "*);";
+
                         break;
                     case source_generator::inout_prm:
+                        s.input_streams++;
+                        s.output_streams++;
+
                         s.new_line() << "DFEVar " << name << " = io.input(\""
                             << name << "_in\", " << detail::maxeler_dfe_type<T>() << ");";
 
-                        s.output_section << "\n" << s.indent()
+                        s.kernel_output << "\n" << s.indent()
                             << "io.output(\"" << name << "_out\", " << name << ", "
                             << detail::maxeler_dfe_type<T>()
                             <<");";
 
-                        s.stream_setup << "\n" << s.indent(2) << "k.getInput(\"" << name << "_in\") <== addStreamFromCPU(\"" << name << "_in\");";
-                        s.stream_setup << "\n" << s.indent(2) << "addStreamToCPU(\"" << name << "_out\") <== k.getOutput(\"" << name << "_out\");";
-                        s.stream_sizes << "\n" << s.indent(2) << "ei.setStream(\"" << name << "_in\", " << detail::maxeler_cpu_type<T>() << ", N * " << detail::maxeler_cpu_type<T>() << ".sizeInBytes());";
-                        s.stream_sizes << "\n" << s.indent(2) << "ei.setStream(\"" << name << "_out\", " << detail::maxeler_cpu_type<T>() << ", N * " << detail::maxeler_cpu_type<T>() << ".sizeInBytes());";
+                        s.stream_design << "\n" << s.indent(2) <<
+                            "k.getInput(\"" << name << "_in\")"
+                            " <== "
+                            "lmem.addStreamFromLMem(\"" << name << "_in\", LMemCommandGroup.MemoryAccessPattern.LINEAR_1D);";
+
+                        s.stream_design << "\n" << s.indent(2) <<
+                            "lmem.addStreamToLMem(\"" << name << "_out\", LMemCommandGroup.MemoryAccessPattern.LINEAR_1D)"
+                            " <== "
+                            "k.getOutput(\"" << name << "_out\");";
+
+                        s.stream_design << "\n" << s.indent(2) <<
+                            "lmem.addStreamToLMem(\"" << name << "_to_lmem\", LMemCommandGroup.MemoryAccessPattern.LINEAR_1D)"
+                            " <== "
+                            "addStreamFromCPU(\"" << name << "_from_cpu\");";
+
+                        s.stream_design << "\n" << s.indent(2) <<
+                            "addStreamToCPU(\"" << name << "_to_cpu\")"
+                            " <== "
+                            "lmem.addStreamFromLMem(\"" << name << "_from_lmem\", LMemCommandGroup.MemoryAccessPattern.LINEAR_1D);";
+
+                        s.write_lmem_j << "\n" << s.indent(2) <<
+                            "ei.setStream(\"" << name << "_from_cpu\", " << detail::maxeler_cpu_type<T>() << ", size * " << detail::maxeler_cpu_type<T>() << ".sizeInBytes());"
+                            "\n" << s.indent(2) <<
+                            "ei.setLMemLinear(\"" << name << "_to_lmem\", head, size * " << detail::maxeler_cpu_type<T>() << ".sizeInBytes());"
+                            "\n" << s.indent(2) <<
+                            "head = head + size * " << detail::maxeler_cpu_type<T>() << ".sizeInBytes();";
+
+                        s.read_lmem_j << "\n" << s.indent(2) <<
+                            "ei.setLMemLinear(\"" << name << "_from_lmem\", head, size * " << detail::maxeler_cpu_type<T>() << ".sizeInBytes());"
+                            "\n" << s.indent(2) <<
+                            "ei.setStream(\"" << name << "_to_cpu\", " << detail::maxeler_cpu_type<T>() << ", size * " << detail::maxeler_cpu_type<T>() << ".sizeInBytes());"
+                            "\n" << s.indent(2) <<
+                            "head = head + size * " << detail::maxeler_cpu_type<T>() << ".sizeInBytes();";
+
+                        s.execute_j << "\n" << s.indent(2) <<
+                            "ei.setLMemLinear(\"" << name << "_in\", head, size * " << detail::maxeler_cpu_type<T>() << ".sizeInBytes());"
+                            "\n" << s.indent(2) <<
+                            "ei.setLMemLinear(\"" << name << "_out\", head, size * " << detail::maxeler_cpu_type<T>() << ".sizeInBytes());"
+                            "\n" << s.indent(2) <<
+                            "head = head + size * " << detail::maxeler_cpu_type<T>() << ".sizeInBytes();";
+
+                        s.write_lmem_c << "\n" << s.indent(1) <<
+                            "kprm.instream_" << name << "_from_cpu = " << "*reinterpret_cast<" << type_name<typename std::decay<T>::type*>() << "*>(_p);"
+                            "\n" << s.indent(1) << "_p+= sizeof(" << type_name<typename std::decay<T>::type>() << "*);";
+                        s.read_lmem_c << "\n" << s.indent(1) <<
+                            "kprm.outstream_" << name << "_to_cpu = " << "*reinterpret_cast<" << type_name<typename std::decay<T>::type*>() << "*>(_p);"
+                            "\n" << s.indent(1) << "_p+= sizeof(" << type_name<typename std::decay<T>::type>() << "*);";
+                        s.execute_c << "\n" << s.indent(1) <<
+                            "_p+= sizeof(" << type_name<typename std::decay<T>::type>() << "*);";
+
                         break;
                 }
             }
@@ -480,44 +657,43 @@ class source_generator {
             >
         {
             static void apply(source_generator &s, const std::string &name) {
-                // "n" is special; kernels get their size automatically.
-                if (name == "n") return;
+                // "n" is special:
+                if (name == "n") {
+                    s.write_lmem_c <<
+                        "\n" << s.indent(1) << "kprm.param_N = " << "*reinterpret_cast<" << type_name<T>() << "*>(_p);"
+                        "\n" << s.indent(1) << "_p+= sizeof(" << type_name<T>() << ");";
+                    s.read_lmem_c <<
+                        "\n" << s.indent(1) << "kprm.param_N = " << "*reinterpret_cast<" << type_name<T>() << "*>(_p);"
+                        "\n" << s.indent(1) << "_p+= sizeof(" << type_name<T>() << ");";
+                    s.execute_c <<
+                        "\n" << s.indent(1) << "kprm.param_N = " << "*reinterpret_cast<" << type_name<T>() << "*>(_p);"
+                        "\n" << s.indent(1) << "_p+= sizeof(" << type_name<T>() << ");";
+                    return;
+                }
 
                 precondition(s.prm_kind == source_generator::in_prm, "Scalar output is not supported");
+
                 s.new_line() << "DFEVar " << name << " = io.scalarInput(\""
                     << name << "\", " << detail::maxeler_dfe_type<T>() << ");";
+
+                s.execute_j << "\n" << s.indent(2) <<
+                    "InterfaceParam " << name << " = ei.addParam(\"" << name << "\", " << detail::maxeler_cpu_type<T>() << ");"
+                    "\n" << s.indent(2) <<
+                    "ei.setScalar(\"" << s.kernel_name << "\", \"" << name << "\", " << name << ");";
+
+                s.write_lmem_c << "\n" << s.indent(1) <<
+                    "_p+= sizeof(" << type_name<T>() << ");";
+                s.read_lmem_c << "\n" << s.indent(1) <<
+                    "_p+= sizeof(" << type_name<T>() << ");";
+                s.execute_c << "\n" << s.indent(1) <<
+                    "kprm.param_" << name << " = " << "*reinterpret_cast<" << type_name<T>() << "*>(_p);"
+                    "\n" << s.indent(1) << "_p+= sizeof(" << type_name<T>() << ");";
             }
         };
 
         template <class Prm>
         source_generator& kernel_parameter(const std::string &name) {
             kernel_parameter_impl<Prm>::apply(*this, name);
-
-            std::string val = std::string("*reinterpret_cast<") + type_name<Prm>() + "*>(_p)";
-
-            if (name == "n") {
-                c_src << "\n  kprm.param_N = " << val << ";";
-            } else {
-                switch (prm_kind) {
-                    case in_prm:
-                        if (std::is_arithmetic<Prm>::value) {
-                            c_src << "\n  kprm.inscalar_" << kernel_name << "_" << name << " = " << val << ";";
-                        } else {
-                            c_src << "\n  kprm.instream_" << name << " = " << val << ";";
-                        }
-                        break;
-                    case out_prm:
-                        c_src << "\n  kprm.outstream_" << name << " = " << val << ";";
-                        break;
-                    case inout_prm:
-                        c_src << "\n  kprm.instream_" << name << "_in = " << val << ";";
-                        c_src << "\n  kprm.outstream_" << name << "_out = " << val << ";";
-                        break;
-                }
-            }
-
-            c_src << "\n  _p+= sizeof(" << type_name<Prm>() << ");";
-
             return *this;
         }
 };
