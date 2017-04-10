@@ -44,6 +44,8 @@ namespace maxeler {
 namespace detail {
 
 struct kernel_api {
+    virtual void write_lmem(char *prm) const = 0;
+    virtual void read_lmem(char *prm) const = 0;
     virtual void execute(char *prm) const = 0;
 };
 
@@ -115,9 +117,23 @@ class kernel {
         template <class F>
         void set_smem(F &&f) { }
 
+        void write_lmem() {
+            K->write_lmem(stack.data());
+        }
+
+        void read_lmem() {
+            K->read_lmem(stack.data());
+        }
+
+        void execute() {
+            K->execute(stack.data());
+        }
+
         void operator()(const command_queue&) {
             // All parameters have been pushed; time to call the kernel:
+            K->write_lmem(stack.data());
             K->execute(stack.data());
+            K->read_lmem(stack.data());
 
             // Reset parameter stack:
             stack.clear();

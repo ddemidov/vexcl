@@ -38,7 +38,7 @@ struct lorenz_system {
 
 //---------------------------------------------------------------------------
 int main(int argc, char *argv[]) {
-    const size_t n = argc > 1 ? atoi(argv[1]) : 1024;
+    const size_t n = argc > 1 ? atoi(argv[1]) : 1152;
     const double dt = 0.01;
     const double t_max = 0.1; // 10.0 in the paper
     const double Rmin = 0.1;
@@ -85,8 +85,18 @@ int main(int argc, char *argv[]) {
     // Integration loop
     vex::profiler<> prof(ctx);
     prof.tic_cl("Solving ODEs");
+
+    kernel.push_arg(X);
+    kernel.push_arg(Y);
+    kernel.push_arg(Z);
+    kernel.push_arg(R);
+    kernel.push_arg(n);
+    kernel.get().write_lmem();
+
     for(double t = 0; t < t_max; t += dt)
-        kernel(X, Y, Z, R);
+        kernel.get().execute();
+
+    kernel.get().read_lmem();
     prof.toc("Solving ODEs");
 
     std::cout << "X[0] = " << X[0] << std::endl;

@@ -8,7 +8,7 @@ int main(int argc, char *argv[]) {
     vex::Context ctx(vex::Filter::Any);
     std::cout << ctx << std::endl;
 
-    int n = 32;
+    int n = 96;
     vex::vector<float> x(ctx, n), y(ctx, n);
 
 #if 0
@@ -28,7 +28,7 @@ int main(int argc, char *argv[]) {
     // 2. A multiexpression
     auto X = vex::tag<1>(x);
     auto Y = vex::tag<2>(y);
-    vex::tie(x, y) = std::tie(X + Y, X - Y);
+    vex::tie(x, y) = std::make_tuple(X + Y, X - Y);
 
     // 3. A custom kernel:
     // Generate the sources:
