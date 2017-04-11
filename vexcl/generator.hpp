@@ -592,6 +592,27 @@ class kernel {
             return cache.find(backend::get_context_id(queue[0]))->second;
         }
 
+        void write_lmem() {
+            for(unsigned d = 0; d < queue.size(); d++) {
+                auto &K = cache.find(backend::get_context_id(queue[d]))->second;
+                K.write_lmem();
+            }
+        }
+
+        void read_lmem() {
+            for(unsigned d = 0; d < queue.size(); d++) {
+                auto &K = cache.find(backend::get_context_id(queue[d]))->second;
+                K.read_lmem();
+            }
+        }
+
+        void execute() {
+            for(unsigned d = 0; d < queue.size(); d++) {
+                auto &K = cache.find(backend::get_context_id(queue[d]))->second;
+                K.execute();
+            }
+        }
+
         void operator()() {
             for(unsigned d = 0; d < queue.size(); d++) {
                 auto &K = cache.find(backend::get_context_id(queue[d]))->second;
