@@ -91,12 +91,12 @@ int main(int argc, char *argv[]) {
     kernel.push_arg(Z);
     kernel.push_arg(R);
     kernel.push_arg(n);
-    kernel.get().write_lmem();
+    kernel.write_lmem();
 
     for(double t = 0; t < t_max; t += dt)
-        kernel.get().execute();
+        kernel.execute();
 
-    kernel.get().read_lmem();
+    kernel.read_lmem();
     prof.toc("Solving ODEs");
 
     std::cout << "X[0] = " << X[0] << std::endl;
