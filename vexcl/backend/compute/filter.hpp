@@ -200,7 +200,7 @@ namespace Filter {
 
                 for(size_t d_id = 0; d_id < device.size(); d_id++) {
                     std::ostringstream id;
-#ifdef WIN32
+#ifdef _WIN32
                     id << (lock_dir ? lock_dir : getenv("TEMP")) << "\\";
 #else
                     id << (lock_dir ? lock_dir : "/tmp") << "/";
