@@ -77,9 +77,12 @@ int main(int argc, char *argv[]) {
 
     // Real state initialization
     vex::vector<double> X(ctx, n), Y(ctx, n), Z(ctx, n), R(ctx, n);
-    X = Y = Z = 10.0;
-    // R = Rmin + dR * vex::element_index();
-    for(size_t i = 0; i < n; ++i) R[i] = Rmin + dR * i;
+    for(size_t i = 0; i < n; ++i) {
+        X[i] = 10.0;
+        Y[i] = 10.0;
+        Z[i] = 10.0;
+        R[i] = Rmin + dR * i;
+    }
 
 
     // Integration loop
