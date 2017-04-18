@@ -18,11 +18,11 @@
 #include <vexcl/sort.hpp>
 #include <vexcl/scan.hpp>
 
-#ifdef HAVE_BOOST_COMPUTE
+#ifdef VEXCL_HAVE_BOOST_COMPUTE
 #  include <vexcl/external/boost_compute.hpp>
 #endif
 
-#ifdef HAVE_CLOGS
+#ifdef VEXCL_HAVE_CLOGS
 #  include <vexcl/external/clogs.hpp>
 #endif
 
@@ -705,7 +705,7 @@ void benchmark_sort(
         << "Sort (" << vex::type_name<key_type>() << ")\n"
         << "    VexCL:         " << N * M / tot_time << " keys/sec\n";
 
-#ifdef HAVE_BOOST_COMPUTE
+#ifdef VEXCL_HAVE_BOOST_COMPUTE
     X1 = X0;
     vex::compute::sort(X1);
 
@@ -723,7 +723,7 @@ void benchmark_sort(
         << "    Boost.Compute: " << N * M / tot_time << " keys/sec\n";
 #endif
 
-#ifdef HAVE_CLOGS
+#ifdef VEXCL_HAVE_CLOGS
     X1 = X0;
     vex::clogs::sort(X1);
 
@@ -795,7 +795,7 @@ void benchmark_scan(
         << "Scan (" << vex::type_name<key_type>() << ")\n"
         << "    VexCL:         " << N * M / tot_time << " keys/sec\n";
 
-#ifdef HAVE_BOOST_COMPUTE
+#ifdef VEXCL_HAVE_BOOST_COMPUTE
     vex::compute::exclusive_scan(X0, X1);
 
     ctx.finish();
@@ -811,7 +811,7 @@ void benchmark_scan(
         << "    Boost.Compute: " << N * M / tot_time << " keys/sec\n";
 #endif
 
-#ifdef HAVE_CLOGS
+#ifdef VEXCL_HAVE_CLOGS
     vex::clogs::exclusive_scan(X0, X1);
 
     ctx.finish();

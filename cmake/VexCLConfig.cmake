@@ -1,0 +1,39 @@
+# Distributed under the MIT License.
+# Copyright (c) 2012-2017 Denis Demidov <dennis.demidov@gmail.com>
+
+#.rst
+# FindVexCL
+# ---------
+#
+# Try to find VexCL include dirs and libraries. Use this module by invoking
+# find_package with the form::
+#
+#   find_package(VexCL
+#     [REQUIRED]                 # Fail with error if VexCL is not found
+#     [COMPONENTS <backends>...] # Find the specified VexCL backends
+#     )
+#
+# The module defines the following :prop_tgt:`IMPORTED` targets::
+#
+#   VexCL::OpenCL
+#   VexCL::Compute
+#   VexCL::CUDA
+#   VexCL::JIT
+
+include("${CMAKE_CURRENT_LIST_DIR}/VexCLTargets.cmake")
+
+if(TARGET VexCL::OpenCL)
+    message(STATUS "Found VexCL::OpenCL")
+endif()
+
+if(TARGET VexCL::Compute)
+    message(STATUS "Found VexCL::Compute")
+endif()
+
+if(TARGET VexCL::CUDA)
+    message(STATUS "Found VexCL::CUDA")
+endif()
+
+if(TARGET VexCL::JIT)
+    message(STATUS "Found VexCL::JIT")
+endif()

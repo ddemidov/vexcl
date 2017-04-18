@@ -11,7 +11,7 @@ before_build:
     #- type msiexec.log
 build_script:
     - mkdir build && cd build
-    - cmake -G"Visual Studio 14 Win64" ..
+    - cmake -G"Visual Studio 14 Win64" -DVEXCL_BUILD_EXAMPLES=ON -DVEXCL_BUILD_TESTS=ON ..
     - cmake --build . --config Release
 test_script:
     - ctest --output-on-failure

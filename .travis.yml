@@ -41,7 +41,7 @@ before_install:
     - . .travis/install_boost.sh;
 script:
     - mkdir -p build && cd build
-    - cmake -DTEST_COVERAGE=ON -DVEXCL_BACKEND=${VEXCL_BACKEND} ..
+    - cmake -DTEST_COVERAGE=ON -DVEXCL_BUILD_TESTS=ON -DVEXCL_BUILD_EXAMPLES=ON -DVEXCL_BACKEND=${VEXCL_BACKEND} ..
     - make
     - export CPATH=${CPATH}:${BOOST_ROOT}
     - ./examples/devlist && ctest --output-on-failure

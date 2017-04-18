@@ -25,12 +25,22 @@ if(${TEST_COVERAGE})
         )
 endif()
 
+find_package(Boost REQUIRED COMPONENTS unit_test_framework)
+
 function(add_vexcl_test TEST_NAME TEST_SOURCE)
     add_executable(${TEST_NAME} ${TEST_SOURCE})
+
+    if (NOT "${VEXCL_EXAMPLES_INCLUDES}" STREQUAL "")
+        target_include_directories(${TEST_NAME} PRIVATE ${VEXCL_EXAMPLES_INCLUDES})
+    endif()
+
+    if (NOT "${VEXCL_EXAMPLES_DEFINITIONS}" STREQUAL "")
+        target_compile_definitions(${TEST_NAME} PRIVATE ${VEXCL_EXAMPLES_DEFINITIONS})
+    endif()
+
     target_link_libraries(${TEST_NAME}
-        ${BACKEND_LIBS}
-        ${Boost_LIBRARIES}
-        )
+        VexCL::Backend ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY})
+
     add_test(${TEST_NAME} ${TEST_NAME})
 endfunction()
 
@@ -100,18 +110,14 @@ endif ()
 #----------------------------------------------------------------------------
 # Test Fast Fourier Transform
 #----------------------------------------------------------------------------
-find_package(FFTW QUIET)
-
-if (FFTW_FOUND)
-    include_directories(${FFTW_INCLUDES})
-    add_definitions(-DHAVE_FFTW)
-endif ()
-
 add_vexcl_test(fft fft.cpp)
-
+find_package(FFTW QUIET)
 if (FFTW_FOUND)
+    target_compile_definitions(fft PRIVATE VEXCL_HAVE_FFTW)
+    target_include_directories(fft PRIVATE ${FFTW_INCLUDES})
     target_link_libraries(fft ${FFTW_LIBRARIES})
 endif ()
+
 
 if ("${VEXCL_BACKEND}" STREQUAL "CUDA")
     add_vexcl_test(cusparse cusparse.cpp)

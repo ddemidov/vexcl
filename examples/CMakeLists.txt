@@ -1,9 +1,18 @@
+#------------------------------------------------------------------------
+find_package(Boost REQUIRED COMPONENTS program_options)
+
 function(add_vexcl_example example)
     add_executable(${example} ${example}.cpp)
-    target_link_libraries(${example} ${BACKEND_LIBS} ${Boost_LIBRARIES})
 
-    list(APPEND binaries "${CMAKE_CURRENT_BINARY_DIR}/${example}")
-    list(APPEND sources  "${CMAKE_CURRENT_SOURCE_DIR}/${example}.cpp")
+    if (NOT "${VEXCL_EXAMPLES_INCLUDES}" STREQUAL "")
+        target_include_directories(${example} PRIVATE ${VEXCL_EXAMPLES_INCLUDES})
+    endif()
+
+    if (NOT "${VEXCL_EXAMPLES_DEFINITIONS}" STREQUAL "")
+        target_compile_definitions(${example} PRIVATE ${VEXCL_EXAMPLES_DEFINITIONS})
+    endif()
+
+    target_link_libraries(${example} VexCL::Backend ${Boost_PROGRAM_OPTIONS_LIBRARY})
 endfunction()
 
 #----------------------------------------------------------------------------
@@ -11,6 +20,8 @@ endfunction()
 #----------------------------------------------------------------------------
 add_vexcl_example(devlist)
 add_vexcl_example(benchmark)
+add_vexcl_example(fft_profile)
+
 if ("${VEXCL_BACKEND}" STREQUAL "CUDA")
     target_link_libraries(benchmark ${CUDA_cusparse_LIBRARY})
 endif()
@@ -25,8 +36,8 @@ endif()
 
 find_path(MBA_INCLUDE mba/mba.hpp)
 if (MBA_INCLUDE)
-    include_directories(${MBA_INCLUDE})
     add_vexcl_example(mba_benchmark)
+    target_include_directories(mba_benchmark ${MBA_INCLUDE})
 endif ()
 
 #----------------------------------------------------------------------------
@@ -39,23 +50,36 @@ endif ()
 #----------------------------------------------------------------------------
 # FFT benchmark
 #----------------------------------------------------------------------------
-add_vexcl_example(fft_profile)
-add_vexcl_example(fft_benchmark)
+set(VEXCL_FFT_INCLUDES    "")
+set(VEXCL_FFT_DEFINITIONS "")
+set(VEXCL_FFT_LIBRARIES   "")
+
 find_package(FFTW QUIET)
 if (FFTW_FOUND)
-    include_directories(${FFTW_INCLUDES})
-    add_definitions(-DHAVE_FFTW)
-    set(FFT_BENCHMARK_LIBS ${FFT_BENCHMARK_LIBS} ${FFTW_LIBRARIES})
+    list(APPEND VEXCL_FFT_INCLUDES    ${FFTW_INCLUDES})
+    list(APPEND VEXCL_FFT_DEFINITIONS VEXCL_HAVE_FFTW)
+    list(APPEND VEXCL_FFT_LIBRARIES   ${FFTW_LIBRARIES})
 endif ()
 
 find_package(CUDA QUIET)
 if(CUDA_FOUND)
-    include_directories(${CUDA_INCLUDE_DIRS})
-    add_definitions(-DHAVE_CUDA)
-    set(FFT_BENCHMARK_LIBS ${FFT_BENCHMARK_LIBS} ${CUDA_LIBRARIES} ${CUDA_cufft_LIBRARY})
+    list(APPEND VEXCL_FFT_INCLUDES    ${CUDA_INCLUDE_DIRS})
+    list(APPEND VEXCL_FFT_DEFINITIONS VEXCL_HAVE_CUDA)
+    list(APPEND VEXCL_FFT_LIBRARIES   ${CUDA_LIBRARIES} ${CUDA_cufft_LIBRARY})
 endif()
 
-target_link_libraries(fft_benchmark ${FFT_BENCHMARK_LIBS})
+
+add_vexcl_example(fft_benchmark)
+if (NOT "${VEXCL_FFT_INCLUDES}" STREQUAL "")
+    message(STATUS "FFTW: ${VEXCL_FFT_INCLUDES}")
+    target_include_directories(fft_benchmark PRIVATE ${VEXCL_FFT_INCLUDES})
+endif()
+if (NOT "${VEXCL_FFT_DEFINITIONS}" STREQUAL "")
+    target_compile_definitions(fft_benchmark PRIVATE ${VEXCL_FFT_DEFINITIONS})
+endif()
+if (NOT "${VEXCL_FFT_LIBRARIES}" STREQUAL "")
+    target_link_libraries(fft_benchmark ${VEXCL_FFT_LIBRARIES})
+endif()
 
 #----------------------------------------------------------------------------
 # Thrust interoperation examples
@@ -69,12 +93,6 @@ if ("${VEXCL_BACKEND}" STREQUAL "CUDA")
     cuda_add_executable(thrust-sort thrust-sort.cpp thrust-sort.cu OPTIONS ${CUDA_OPTIONS})
     target_link_libraries(thrust-sort ${Boost_LIBRARIES} ${BACKEND_LIBS})
 endif()
-
-#----------------------------------------------------------------------------
-# Install compiled examples and sources
-#----------------------------------------------------------------------------
-install(PROGRAMS ${binaries} DESTINATION share/vexcl/examples)
-install(FILES    ${sources}  DESTINATION share/vexcl/examples/src)
 
 #----------------------------------------------------------------------------
 add_subdirectory(viennacl)

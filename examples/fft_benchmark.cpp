@@ -12,7 +12,7 @@ using namespace vex;
 
 typedef stopwatch<> watch;
 
-#ifdef HAVE_CUDA
+#ifdef VEXCL_HAVE_CUDA
 #  include <cufft.h>
 #  include <cuda_runtime.h>
 
@@ -65,7 +65,7 @@ watch test_cufft(cl_float2 *, size_t, size_t, size_t, bool) {
 #endif
 
 
-#ifdef HAVE_FFTW
+#ifdef VEXCL_HAVE_FFTW
 #  ifdef _OPENMP
 #    include <omp.h>
 #  endif
@@ -158,7 +158,7 @@ int main(int argc, char **argv) {
         return EXIT_FAILURE;
     }
 
-#if defined(_OPENMP) && defined(USE_FFTW)
+#if defined(_OPENMP) && defined(VEXCL_HAVE_FFTW)
     fftwf_init_threads();
     fftwf_plan_with_nthreads(omp_get_max_threads());
 #endif
@@ -192,7 +192,7 @@ int main(int argc, char **argv) {
     const size_t max_len = *std::max_element(ns.begin(), ns.end());
 
     // random data
-#ifdef HAVE_FFTW
+#ifdef VEXCL_HAVE_FFTW
     cl_float2 *data = reinterpret_cast<cl_float2 *>(
         fftwf_malloc(sizeof(cl_float2) * max_len));
 #else
