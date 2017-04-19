@@ -26,5 +26,6 @@ Contents:
     symbolic
     customkernel
     interop
+    cmake
     talks
     indices
