@@ -11,6 +11,7 @@ for compiler in $*; do
             -DCMAKE_BUILD_TYPE=Release \
             -DVEXCL_CACHE_KERNELS=ON   \
             -DVEXCL_BACKEND=${backend} \
+            -DVEXCL_BUILD_TESTS=ON     \
             -G Ninja                   \
             ..
         popd
