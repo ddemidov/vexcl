@@ -274,6 +274,8 @@ if (VEXCL_MASTER_PROJECT)
         NAMESPACE VexCL::
         )
 
+    export(PACKAGE VexCL)
+
     install(EXPORT VexCLTargets
         FILE VexCLTargets.cmake
         NAMESPACE VexCL::
