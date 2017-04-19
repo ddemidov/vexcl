@@ -263,8 +263,14 @@ if (VEXCL_MASTER_PROJECT)
         install(TARGETS JIT EXPORT VexCLTargets)
     endif()
 
+    configure_file(
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VexCLConfig.cmake"
+        "${CMAKE_CURRENT_BINARY_DIR}/cmake/VexCLConfig.cmake"
+        COPYONLY
+        )
+
     export(EXPORT VexCLTargets
-        FILE "${CMAKE_CURRENT_BINARY_DIR}/vexcl/VexCLTargets.cmake"
+        FILE "${CMAKE_CURRENT_BINARY_DIR}/cmake/VexCLTargets.cmake"
         NAMESPACE VexCL::
         )
 
