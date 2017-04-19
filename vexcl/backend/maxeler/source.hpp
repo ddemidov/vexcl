@@ -149,6 +149,15 @@ class source_generator {
             inside_kernel
         } prm_state;
 
+
+        static const int kernel_freq = 180; 		// reasonable kernel freq on MAX4
+        static const int mem_freq = 533; 			// Max LMEM freq on MAX4 without quarter rate mode
+
+        static const int first_cost_table = 1;   	// which cost tables to build from 1..32 available
+        static const int last_cost_table = 8;
+        static const int cost_table_threads = 4; 	// how many cost tables to build in parallel
+        static const int near_miss_threshold = 500; // retry the cost table if score is below this threshold
+
         std::ostringstream src, c_src;
         std::string kernel_name;
         std::ostringstream kernel_output, stream_design;
@@ -182,6 +191,7 @@ class source_generator {
                 "import com.maxeler.maxcompiler.v2.managers.engine_interfaces.EngineInterface;\n"
                 "import com.maxeler.maxcompiler.v2.managers.engine_interfaces.EngineInterface.Direction;\n"
                 "import com.maxeler.maxcompiler.v2.managers.engine_interfaces.InterfaceParam;\n"
+                "import com.maxeler.maxcompiler.v2.managers.BuildConfig;\n"
                 ;
 
             c_src <<
@@ -373,6 +383,10 @@ class source_generator {
             new_line() << "vexcl_manager(EngineParameters ep)";
             open("{");
             new_line() << "super(ep);";
+
+            new_line() << "config.setDefaultStreamClockFrequency(" << kernel_freq << ");";
+            new_line() << "config.setOnCardMemoryFrequency(" << mem_freq <<");";
+
             new_line() << "KernelBlock k = addKernel(new " << kernel_name << "(makeKernelParameters(\"" << kernel_name << "\")));";
             new_line() << "LMemInterface lmem = addLMemInterface();"
                        << stream_design.str();
@@ -412,6 +426,10 @@ class source_generator {
             new_line() << "m.createSLiCinterface(write_lmem());";
             new_line() << "m.createSLiCinterface(read_lmem());";
             new_line() << "m.createSLiCinterface(execute());";
+            new_line() << "BuildConfig buildConfig = m.getBuildConfig();";
+            new_line() << "buildConfig.setMPPRCostTableSearchRange(" << first_cost_table << "," << last_cost_table << ");";
+            new_line() << "buildConfig.setMPPRParallelism(" << cost_table_threads << ");";
+            new_line() << "buildConfig.setMPPRRetryNearMissesThreshold(" << near_miss_threshold << ");";
             new_line() << "m.build();";
             close("}");
             close("}");
