@@ -38,7 +38,8 @@ struct lorenz_system {
 
 //---------------------------------------------------------------------------
 int main(int argc, char *argv[]) {
-    const size_t n = argc > 1 ? atoi(argv[1]) : 1152;
+    const size_t n = argc > 1 ? atoi(argv[1]) : 1152; // problem size
+    const size_t m = argc > 2 ? atoi(argv[2]) : 1;    // RK4 steps to do in single DFE execution step
     const double dt = 0.01;
     const double t_max = 0.1; // 10.0 in the paper
     const double Rmin = 0.1;
@@ -67,9 +68,10 @@ int main(int argc, char *argv[]) {
         odeint::range_algebra, odeint::default_operations
             > stepper;
 
-    // Record single RK4 step
+    // Record m RK4 steps
     lorenz_system sys(sym_R);
-    stepper.do_step(sys, sym_S, 0, dt);
+    for(int i = 0; i < m; ++i)
+        stepper.do_step(sys, sym_S, 0, dt);
 
     // Generate the kernel from the recorded sequence
     auto kernel = vex::generator::build_kernel(ctx, "lorenz",
@@ -98,7 +100,7 @@ int main(int argc, char *argv[]) {
     kernel.write_lmem();
     prof.toc("write_lmem");
 
-    for(double t = 0; t < t_max; t += dt)
+    for(double t = 0; t < t_max; t += dt * m)
         kernel.execute();
 
     prof.tic_cl("read_lmem");
