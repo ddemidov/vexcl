@@ -263,12 +263,6 @@ if (VEXCL_MASTER_PROJECT)
         install(TARGETS JIT EXPORT VexCLTargets)
     endif()
 
-    configure_file(
-        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VexCLConfig.cmake"
-        "${CMAKE_CURRENT_BINARY_DIR}/ClimbingStats/ClimbingStatsConfig.cmake"
-        COPYONLY
-        )
-
     export(EXPORT VexCLTargets
         FILE "${CMAKE_CURRENT_BINARY_DIR}/vexcl/VexCLTargets.cmake"
         NAMESPACE VexCL::
