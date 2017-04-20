@@ -68,14 +68,14 @@ list(APPEND VEXCL_LIBRARIES ${Boost_LIBRARIES})
 #----------------------------------------------------------------------------
 # Compile options
 #----------------------------------------------------------------------------
-if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     list(APPEND VEXCL_COMPILE_OPTIONS
         -std=c++0x
         -Wno-comment -Wno-type-limits -Wno-strict-aliasing -Wno-missing-braces
         -Wno-deprecated-declarations -Wno-unused-function
         -Wno-ignored-attributes
         )
-elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+elseif (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     list(APPEND VEXCL_COMPILE_OPTIONS
         -std=c++0x
         -Wno-comment -Wno-tautological-compare -Wno-missing-braces
@@ -86,7 +86,7 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     if (USE_LIBCPP)
         list(APPEND VEXCL_COMPILE_OPTIONS -stdlib=libc++)
     endif ()
-elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+elseif (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
     list(APPEND VEXCL_DEFINITIONS NOMINMAX _VARIADIC_MAX=10)
 
     list(APPEND VEXCL_COMPILE_OPTIONS
