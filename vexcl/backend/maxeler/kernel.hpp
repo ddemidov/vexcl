@@ -44,6 +44,7 @@ namespace maxeler {
 namespace detail {
 
 struct kernel_api {
+    virtual void load_dfe() const = 0;
     virtual void write_lmem(char *prm) const = 0;
     virtual void read_lmem(char *prm) const = 0;
     virtual void execute(char *prm) const = 0;
@@ -116,6 +117,10 @@ class kernel {
 
         template <class F>
         void set_smem(F &&f) { }
+
+        void load_dfe() {
+            K->load_dfe();
+        }
 
         void write_lmem() {
             K->write_lmem(stack.data());

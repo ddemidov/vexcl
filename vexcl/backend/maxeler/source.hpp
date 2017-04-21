@@ -199,6 +199,7 @@ class source_generator {
                 "#include <MaxSLiCInterface.h>\n"
                 "#include \"vexcl_dfe_kernel.h\"\n\n"
                 "struct kernel_api {\n"
+                "    virtual void load_dfe() const = 0;\n"
                 "    virtual void write_lmem(char*) const = 0;\n"
                 "    virtual void read_lmem(char*) const = 0;\n"
                 "    virtual void execute(char*) const = 0;\n"
@@ -437,6 +438,7 @@ class source_generator {
             // TODO: finish c_src
             c_src <<
                 "struct " << kernel_name << "_t : public kernel_api {\n"
+                "  void load_dfe() const;\n"
                 "  void write_lmem(char*) const;\n"
                 "  void read_lmem(char*) const;\n"
                 "  void execute(char*) const;\n"
@@ -444,7 +446,12 @@ class source_generator {
                 "extern \"C\" BOOST_SYMBOL_EXPORT " << kernel_name << "_t " << kernel_name << ";\n"
                 << kernel_name << "_t " << kernel_name << ";\n\n";
 
-            c_src << "void " << kernel_name << "_t::write_lmem(char *_p) const {\n";
+            c_src <<
+                "void " << kernel_name << "_t::load_dfe() const {\n"
+                "  max_file_t *mf = vexcl_dfe_max_file();\n"
+                "  max_engine_t *me = max_loader<>::load(mf);\n"
+                "}\n\n"
+                "void " << kernel_name << "_t::write_lmem(char *_p) const {\n";
             if (input_streams) {
                 c_src <<
                     "  vexcl_dfe_kernel_write_lmem_actions_t kprm;"

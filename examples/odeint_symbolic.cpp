@@ -70,7 +70,7 @@ int main(int argc, char *argv[]) {
 
     // Record m RK4 steps
     lorenz_system sys(sym_R);
-    for(int i = 0; i < m; ++i)
+    for(size_t i = 0; i < m; ++i)
         stepper.do_step(sys, sym_S, 0, dt);
 
     // Generate the kernel from the recorded sequence
@@ -90,6 +90,10 @@ int main(int argc, char *argv[]) {
     // Integration loop
     vex::profiler<> prof(ctx);
     prof.tic_cl("Solving ODEs");
+
+    prof.tic_cl("load_dfe");
+    kernel.load_dfe();
+    prof.toc("load_dfe");
 
     kernel.push_arg(X);
     kernel.push_arg(Y);
