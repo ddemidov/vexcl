@@ -638,6 +638,13 @@ class kernel {
             return cache.find(backend::get_context_id(queue[0]))->second;
         }
 
+        void load_dfe() {
+            for(unsigned d = 0; d < queue.size(); d++) {
+                auto &K = cache.find(backend::get_context_id(queue[d]))->second;
+                K.load_dfe();
+            }
+        }
+
         void write_lmem() {
             for(unsigned d = 0; d < queue.size(); d++) {
                 auto &K = cache.find(backend::get_context_id(queue[d]))->second;
