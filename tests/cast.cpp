@@ -22,20 +22,25 @@ BOOST_AUTO_TEST_CASE(convert_functions)
 
     vex::vector<cl_int2> x(ctx, N);
 
-    cl_float2 y = {{4.2f, 8.4f}};
+    union {
+        cl_float2 f;
+        cl_int2   i;
+    } y;
 
-    x = vex::convert_int2(y);
+    y.f = {{4.2f, 8.4f}};
+
+    x = vex::convert_int2(y.f);
 
     check_sample(x, [y](size_t, cl_int2 a) {
-            BOOST_CHECK_EQUAL(a.s[0], static_cast<int>(y.s[0]));
-            BOOST_CHECK_EQUAL(a.s[1], static_cast<int>(y.s[1]));
+            BOOST_CHECK_EQUAL(a.s[0], static_cast<int>(y.f.s[0]));
+            BOOST_CHECK_EQUAL(a.s[1], static_cast<int>(y.f.s[1]));
             });
 
-    x = vex::as_int2(y);
+    x = vex::as_int2(y.f);
 
     check_sample(x, [y](size_t, cl_int2 a) {
-            BOOST_CHECK_EQUAL(a.s[0], *reinterpret_cast<const int*>(y.s+0));
-            BOOST_CHECK_EQUAL(a.s[1], *reinterpret_cast<const int*>(y.s+1));
+            BOOST_CHECK_EQUAL(a.s[0], y.i.s[0]);
+            BOOST_CHECK_EQUAL(a.s[1], y.i.s[1]);
             });
 
 }

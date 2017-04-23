@@ -81,10 +81,6 @@ add_vexcl_test(vector_io                vector_io.cpp)
 add_vexcl_test(reinterpret              reinterpret.cpp)
 add_vexcl_test(multiple_objects         "dummy1.cpp;dummy2.cpp")
 
-target_compile_options(cast PRIVATE
-    $<$<CXX_COMPILER_ID:GNU>:-Wno-strict-aliasing>
-    )
-
 if (NOT DEFINED ENV{APPVEYOR})
     # This fails on AppVeyor-CI
     add_vexcl_test(context              context.cpp)

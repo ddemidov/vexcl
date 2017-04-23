@@ -70,14 +70,14 @@ endif()
 
 target_compile_options(Common INTERFACE
     # g++
-    $<$<CXX_COMPILER_ID:GNU>:$<BUILD_INTERFACE:-Wall>>
     $<$<CXX_COMPILER_ID:GNU>:-std=c++0x>
+    $<$<CXX_COMPILER_ID:GNU>:$<BUILD_INTERFACE:-Wall>>
     $<$<CXX_COMPILER_ID:GNU>:-Wno-missing-braces>
     $<$<CXX_COMPILER_ID:GNU>:-Wno-deprecated-declarations>
     $<$<CXX_COMPILER_ID:GNU>:-Wno-ignored-attributes>
     # Clang
-    $<$<CXX_COMPILER_ID:Clang>:$<BUILD_INTERFACE:-Wall>>
     $<$<CXX_COMPILER_ID:Clang>:-std=c++0x>
+    $<$<CXX_COMPILER_ID:Clang>:$<BUILD_INTERFACE:-Wall>>
     $<$<CXX_COMPILER_ID:Clang>:-Wno-missing-braces>
     $<$<CXX_COMPILER_ID:Clang>:-Wno-deprecated-declarations>
     $<$<CXX_COMPILER_ID:Clang>:-Wno-ignored-attributes>
