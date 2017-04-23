@@ -1,7 +1,8 @@
-option(TEST_COVERAGE "Analyze test coverage with gcov/lcov" OFF)
+option(VEXCL_TEST_COVERAGE "Analyze test coverage with gcov/lcov" OFF)
 
-if(${TEST_COVERAGE})
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --coverage")
+if(VEXCL_TEST_COVERAGE)
+    target_compile_options(Common INTERFACE --coverage)
+    target_link_libraries(Common INTERFACE --coverage)
 
     # Resets coverage statistics
     add_custom_target(coverage_reset
@@ -25,21 +26,17 @@ if(${TEST_COVERAGE})
         )
 endif()
 
-find_package(Boost REQUIRED COMPONENTS unit_test_framework)
-
 function(add_vexcl_test TEST_NAME TEST_SOURCE)
     add_executable(${TEST_NAME} ${TEST_SOURCE})
 
-    if (NOT "${VEXCL_EXAMPLES_INCLUDES}" STREQUAL "")
-        target_include_directories(${TEST_NAME} PRIVATE ${VEXCL_EXAMPLES_INCLUDES})
-    endif()
-
-    if (NOT "${VEXCL_EXAMPLES_DEFINITIONS}" STREQUAL "")
-        target_compile_definitions(${TEST_NAME} PRIVATE ${VEXCL_EXAMPLES_DEFINITIONS})
-    endif()
+    if (NOT Boost_USE_STATIC_LIBS)
+        target_compile_definitions(${TEST_NAME} PRIVATE BOOST_TEST_DYN_LINK)
+    endif ()
 
     target_link_libraries(${TEST_NAME}
-        VexCL::Backend ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY})
+        VexCL::Backend
+        ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
+        )
 
     add_test(${TEST_NAME} ${TEST_NAME})
 endfunction()
@@ -84,6 +81,10 @@ add_vexcl_test(vector_io                vector_io.cpp)
 add_vexcl_test(reinterpret              reinterpret.cpp)
 add_vexcl_test(multiple_objects         "dummy1.cpp;dummy2.cpp")
 
+target_compile_options(cast PRIVATE
+    $<$<CXX_COMPILER_ID:GNU>:-Wno-strict-aliasing>
+    )
+
 if (NOT DEFINED ENV{APPVEYOR})
     # This fails on AppVeyor-CI
     add_vexcl_test(context              context.cpp)
@@ -92,19 +93,23 @@ endif ()
 #----------------------------------------------------------------------------
 # Test interoperation with Boost.compute
 #----------------------------------------------------------------------------
-if (BOOST_COMPUTE)
+if (TARGET compute_target)
     add_vexcl_test(boost_compute_sort boost_compute_sort.cpp)
     add_vexcl_test(boost_compute_scan boost_compute_scan.cpp)
+
+    target_link_libraries(boost_compute_sort compute_target)
+    target_link_libraries(boost_compute_scan compute_target)
 endif ()
 
 #----------------------------------------------------------------------------
 # Test interoperation with clogs
 #----------------------------------------------------------------------------
-if (CLOGS)
+if (TARGET clogs_target)
     add_vexcl_test(clogs_scan clogs_scan.cpp)
-    target_link_libraries(clogs_scan ${CLOGS_LIB})
     add_vexcl_test(clogs_sort clogs_sort.cpp)
-    target_link_libraries(clogs_sort ${CLOGS_LIB})
+
+    target_link_libraries(clogs_scan clogs_target)
+    target_link_libraries(clogs_sort clogs_target)
 endif ()
 
 #----------------------------------------------------------------------------
@@ -119,7 +124,7 @@ if (FFTW_FOUND)
 endif ()
 
 
-if ("${VEXCL_BACKEND}" STREQUAL "CUDA")
+if (VEXCL_BACKEND MATCHES "CUDA")
     add_vexcl_test(cusparse cusparse.cpp)
     target_link_libraries(cusparse ${CUDA_cusparse_LIBRARY})
 endif()
