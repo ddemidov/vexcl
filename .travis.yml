@@ -12,6 +12,7 @@ env:
       - secure: "A5GuWMfy2tamED4Xq/h1hXSAX18qemLuhaX3mLD77VMv6Hx2ZPAPXXDuRwg+Htoqccz3DQ3ezA5tf/D2PXffbOvkQeXMKkOBqHLy4aReZm9L+UajPETrQVW2bWBAuVJXMJbJEqdOv+QAEXf82Eml25zGp2r7L0J+FO5nrPtSeqE="
   matrix:
       - VEXCL_BACKEND=OpenCL
+      - VEXCL_BACKEND=Compute
       - VEXCL_BACKEND=JIT
 
 addons:
