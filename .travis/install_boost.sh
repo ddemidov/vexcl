@@ -3,6 +3,7 @@
 export BOOST_ROOT=${HOME}/${BOOST_BASENAME}
 
 if [ ! -e ${BOOST_ROOT}/boost/config.hpp ]; then
+    cd ${HOME}
     wget https://downloads.sourceforge.net/project/boost/boost/1.62.0/${BOOST_BASENAME}.tar.bz2
     rm -rf $BOOST_BASENAME
     tar xf ${BOOST_BASENAME}.tar.bz2
