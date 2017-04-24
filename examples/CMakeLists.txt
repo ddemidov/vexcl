@@ -32,7 +32,7 @@ endif()
 find_path(MBA_INCLUDE mba/mba.hpp)
 if (MBA_INCLUDE)
     add_vexcl_example(mba_benchmark)
-    target_include_directories(mba_benchmark ${MBA_INCLUDE})
+    target_include_directories(mba_benchmark PRIVATE ${MBA_INCLUDE})
 endif ()
 
 #----------------------------------------------------------------------------
