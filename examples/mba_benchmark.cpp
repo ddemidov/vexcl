@@ -8,9 +8,6 @@
 #include <vexcl/multivector.hpp>
 #include <vexcl/mba.hpp>
 
-// https://github.com/ddemidov/mba
-#include <mba/mba.hpp>
-
 template <typename T = double>
 inline std::array<T, 2> make_array(T x, T y) {
     std::array<T, 2> p = {{x, y}};
@@ -73,27 +70,6 @@ int main(int argc, char *argv[]) {
         std::cout << "surf(0.5, 0.5) = " << Z[0] << std::endl;
     }
     prof.toc("GPU");
-
-    prof.tic_cpu("CPU");
-    {
-        prof.tic_cpu("setup");
-        mba::cloud<2> surf(
-                make_array(-0.01, -0.01), make_array(1.01, 1.01),
-                p, v, make_array<size_t>(2, 2)
-                );
-        prof.toc("setup");
-
-        std::vector<double> z(n);
-
-        prof.tic_cpu("interpolate");
-        for(size_t j = 0; j < m; ++j)
-#pragma omp parallel for
-            for(size_t i = 0; i < n; ++i)
-                z[i] = surf(x[i], y[i]);
-        prof.toc("interpolate");
-        std::cout << "surf(0.5, 0.5) = " << z[0] << std::endl;
-    }
-    prof.toc("CPU");
 
     std::cout << prof << std::endl;
 }

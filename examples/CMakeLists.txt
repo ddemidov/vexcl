@@ -12,6 +12,7 @@ endfunction()
 add_vexcl_example(devlist)
 add_vexcl_example(fft_profile)
 add_vexcl_example(benchmark)
+add_vexcl_example(mba_benchmark)
 
 if (TARGET compute_target)
     target_link_libraries(benchmark compute_target)
@@ -28,12 +29,6 @@ endif()
 if (VEXCL_BACKEND MATCHES "OpenCL")
     add_vexcl_example(exclusive)
 endif()
-
-find_path(MBA_INCLUDE mba/mba.hpp)
-if (MBA_INCLUDE)
-    add_vexcl_example(mba_benchmark)
-    target_include_directories(mba_benchmark PRIVATE ${MBA_INCLUDE})
-endif ()
 
 #----------------------------------------------------------------------------
 # Symbolic example uses Boost.odeint available since Boost v1.53
