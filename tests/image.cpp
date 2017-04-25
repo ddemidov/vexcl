@@ -79,7 +79,7 @@ BOOST_AUTO_TEST_CASE(image1d)
     std::vector<float> imdata;
     for(int i = 0; i < m; ++i)
         for(int j = 0; j < 4; ++j)
-            imdata.push_back(j);
+            imdata.push_back(static_cast<float>(j));
 
     cl::Image1D image(ctx.context(0), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
             cl::ImageFormat(CL_RGBA, CL_FLOAT), m, imdata.data());

@@ -53,8 +53,8 @@ class distributed {
 
                 if (!loc_rows) continue;
 
-                col_type col_beg = col_part[d];
-                col_type col_end = col_part[d+1];
+                col_type col_beg = static_cast<col_type>(col_part[d]);
+                col_type col_end = static_cast<col_type>(col_part[d+1]);
 
                 std::vector<ptr_type> loc_ptr(loc_rows + 1); loc_ptr[0] = 0;
                 std::vector<ptr_type> rem_ptr(loc_rows + 1); rem_ptr[0] = 0;
@@ -106,11 +106,11 @@ class distributed {
                 rcols[d].erase(std::unique(rcols[d].begin(), rcols[d].end()), rcols[d].end());
 
                 // Renumber remote columns.
-                col_type nrcols = rcols[d].size();
+                size_t nrcols = rcols[d].size();
                 std::unordered_map<col_type, col_type> idx(2 * nrcols);
 
-                for(col_type i = 0; i < nrcols; ++i) {
-                    idx.insert(idx.end(), std::make_pair(rcols[d][i], i));
+                for(size_t i = 0; i < nrcols; ++i) {
+                    idx.insert(idx.end(), std::make_pair(rcols[d][i], static_cast<col_type>(i)));
                 }
 
                 for(size_t i = 0; i < rem_nnz; ++i) {
@@ -185,7 +185,7 @@ class distributed {
                 for(auto c = rcols[d].begin(), e = rcols[d].end(); c != e; ++c) {
                     while(*rc < *c) ++rc;
                     assert(*rc == *c);
-                    ex[d].cols_to_recv.push_back(std::distance(rem_cols.begin(), rc));
+                    ex[d].cols_to_recv.push_back(static_cast<col_type>(std::distance(rem_cols.begin(), rc)));
                 }
             }
 
@@ -193,8 +193,8 @@ class distributed {
             rval_ptr.resize(q.size() + 1);
             rval_ptr[0] = 0;
             for(size_t d = 0; d < q.size(); ++d) {
-                size_t col_beg = col_part[d];
-                size_t col_end = col_part[d+1];
+                col_type col_beg = static_cast<col_type>(col_part[d]);
+                col_type col_end = static_cast<col_type>(col_part[d+1]);
 
                 rval_ptr[d+1] = std::distance(rem_cols.begin(),
                         std::lower_bound(
@@ -351,7 +351,7 @@ class distributed {
             if (q.size() == 1) return;
 
             // Gather values to send on the GPUs:
-            for(size_t d = 0; d < q.size(); ++d) {
+            for(unsigned d = 0; d < q.size(); ++d) {
                 size_t nsend = rval_ptr[d+1] - rval_ptr[d];
                 if (nsend == 0) continue;
 
@@ -414,10 +414,10 @@ class distributed {
                 ex[d].vals_to_send.read(q[d], 0, nsend, &rem_vals[rval_ptr[d]]);
             }
 
-            for(size_t d = 0; d < q.size(); ++d)
+            for(unsigned d = 0; d < q.size(); ++d)
                 if (rval_ptr[d+1] > rval_ptr[d]) q[d].finish();
 
-            for(size_t d = 0; d < q.size(); ++d) {
+            for(unsigned d = 0; d < q.size(); ++d) {
                 for(size_t i = 0; i < ex[d].cols_to_recv.size(); ++i)
                     ex[d].vals_to_recv[i] = rem_vals[ex[d].cols_to_recv[i]];
 

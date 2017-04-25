@@ -92,22 +92,25 @@ class ell {
             const double ell_vs_csr = 3.0;
 
             // Find maximum widths for local and remote parts:
-            size_t max_width = 0;
+            int max_width = 0;
             for(size_t i = 0; i < n; ++i)
-                max_width = std::max<size_t>(max_width, ptr[i+1] - ptr[i]);
+                max_width = std::max(max_width, static_cast<int>(ptr[i+1] - ptr[i]));
 
             // Build width distribution histogram.
-            std::vector<Ptr> hist(max_width + 1, 0);
+            std::vector<size_t> hist(max_width + 1, 0);
             for(size_t i = 0; i < n; ++i)
                 ++hist[ptr[i+1] - ptr[i]];
 
             // Estimate optimal width for ELL part of the matrix.
             ell_width = max_width;
-            for(size_t i = 0, rows = n; i < max_width; ++i) {
-                rows -= hist[i]; // Number of rows wider than i.
-                if (ell_vs_csr * rows < n) {
-                    ell_width = i;
-                    break;
+            {
+                size_t rows = n;
+                for(int i = 0; i < max_width; ++i) {
+                    rows -= hist[i]; // Number of rows wider than i.
+                    if (ell_vs_csr * rows < n) {
+                        ell_width = i;
+                        break;
+                    }
                 }
             }
 
@@ -122,7 +125,7 @@ class ell {
             }
 
             // Count nonzeros in CSR part of the matrix.
-            for(size_t i = ell_width + 1; i <= max_width; ++i)
+            for(int i = ell_width + 1; i <= max_width; ++i)
                 csr_nnz += hist[i] * (i - ell_width);
 
             /* 3. Split the input matrix into ELL and CSR submatrices. */
@@ -139,14 +142,14 @@ class ell {
 
                 _csr_ptr[0] = 0;
                 for(size_t i = 0; i < n; ++i) {
-                    size_t w = ptr[i+1] - ptr[i];
-                    _csr_ptr[i+1] = _csr_ptr[i] + (w > ell_width ? w - ell_width : 0);
+                    Ptr w = ptr[i+1] - ptr[i];
+                    _csr_ptr[i+1] = _csr_ptr[i] + static_cast<Ptr>(w > ell_width ? w - ell_width : 0);
                 }
             }
 
 
             for(size_t i = 0; i < n; ++i) {
-                size_t w = 0;
+                int w = 0;
                 Ptr csr_head = csr_nnz ? _csr_ptr[i] : 0;
                 for(Ptr j = ptr[i], e = ptr[i+1]; j < e; ++j, ++w) {
                     Col c = col[j];
@@ -175,7 +178,7 @@ class ell {
 
         // Dummy matrix; used internally to pass empty parameters to kernels.
         ell(const backend::command_queue &q)
-            : q(q), n(0), m(0), nnz(0), ell_width(0), ell_pitch(0), csr_nnz(0)
+            : q(q), n(0), m(0), nnz(0), ell_pitch(0), csr_nnz(0), ell_width(0)
         {}
 
         template <class Expr>
@@ -266,7 +269,7 @@ class ell {
             const backend::command_queue &q, const std::string &prm_name,
             detail::kernel_generator_state_ptr state)
         {
-            src.parameter< size_t >(prm_name + "_ell_width");
+            src.parameter< int >(prm_name + "_ell_width");
             src.parameter< size_t >(prm_name + "_ell_pitch");
 
             src.parameter< global_ptr<Col> >(prm_name + "_ell_col");
@@ -332,7 +335,8 @@ class ell {
     private:
         backend::command_queue q;
 
-        size_t n, m, nnz, ell_width, ell_pitch, csr_nnz;
+        size_t n, m, nnz, ell_pitch, csr_nnz;
+        int ell_width;
 
         backend::device_vector<Col> ell_col;
         backend::device_vector<Val> ell_val;
@@ -352,7 +356,7 @@ class ell {
                 src.begin_kernel("convert_csr2ell");
                 src.begin_kernel_parameters();
                 src.template parameter<size_t>("n");
-                src.template parameter<size_t>("ell_width");
+                src.template parameter<int>("ell_width");
                 src.template parameter<size_t>("ell_pitch");
                 src.template parameter< global_ptr<const ptr_type> >("ptr");
                 src.template parameter< global_ptr<const col_type> >("col");
@@ -432,7 +436,7 @@ class ell {
             {
                 auto h = hist.map(0);
 
-                for(int i = 0, rows = n; i < max_width; ++i) {
+                for(int i = 0, rows = static_cast<int>(n); i < max_width; ++i) {
                     rows -= h[i]; // Number of rows wider than i.
                     if (ell_vs_csr * rows < n) {
                         ell_width = i;
@@ -455,7 +459,7 @@ class ell {
             }
 
             if (csr_nnz) {
-                VEX_FUNCTION(int, csr_width, (size_t, ell_width)(size_t, i)(const ptr_type*, ptr),
+                VEX_FUNCTION(int, csr_width, (int, ell_width)(size_t, i)(const ptr_type*, ptr),
                         if (i == 0) return 0;
                         int w = ptr[i] - ptr[i-1];
                         return (w > ell_width) ? (w - ell_width) : 0;

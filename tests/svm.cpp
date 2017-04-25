@@ -11,7 +11,7 @@
 
 BOOST_AUTO_TEST_CASE(svm)
 {
-    const size_t n = 1024;
+    const int n = 1024;
 
     std::vector<vex::command_queue> queue(1, ctx.queue(0));
 
@@ -26,19 +26,19 @@ BOOST_AUTO_TEST_CASE(svm)
 
     {
         auto p = x.map(vex::backend::MAP_WRITE);
-        for(size_t i = 0; i < n; ++i) p[i] = i;
+        for(int i = 0; i < n; ++i) p[i] = i;
     }
 
     vex::vector<int> y(queue, n);
     y = x * 2;
 
-    check_sample(y, [&](int idx, int v){ BOOST_CHECK_EQUAL(2 * idx, v); });
+    check_sample(y, [&](size_t idx, int v){ BOOST_CHECK_EQUAL(2 * idx, v); });
 
     x = y / 2;
 
     {
         auto p = x.map(vex::backend::MAP_READ);
-        for(size_t i = 0; i < n; ++i)
+        for(int i = 0; i < n; ++i)
             BOOST_CHECK_EQUAL(p[i], i);
     }
 
@@ -47,7 +47,7 @@ BOOST_AUTO_TEST_CASE(svm)
 
     {
         auto p = z.map(vex::backend::MAP_READ);
-        for(size_t i = 0; i < n; ++i)
+        for(int i = 0; i < n; ++i)
             BOOST_CHECK_EQUAL(p[i], i);
     }
 
@@ -56,7 +56,7 @@ BOOST_AUTO_TEST_CASE(svm)
             );
 
     y = dbl(vex::element_index(), vex::raw_pointer(x));
-    check_sample(y, [&](int idx, int v){ BOOST_CHECK_EQUAL(2 * idx, v); });
+    check_sample(y, [&](size_t idx, int v){ BOOST_CHECK_EQUAL(2 * idx, v); });
 }
 
 BOOST_AUTO_TEST_SUITE_END()

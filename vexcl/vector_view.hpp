@@ -1036,7 +1036,7 @@ struct reshape_helper {
     static T fake_instance();
 
     template <size_t I, class Enable = void>
-    struct return_type;
+    struct return_type {};
 
     template <size_t I>
     struct return_type<I, typename std::enable_if<I == 0>::type> {

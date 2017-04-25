@@ -152,14 +152,14 @@ BOOST_AUTO_TEST_CASE(matrix)
 
 BOOST_AUTO_TEST_CASE(distributed)
 {
-    const size_t n = 1024;
+    const int n = 1024;
 
     std::vector<int>    ptr;
     std::vector<int>    col;
     std::vector<double> val;
 
     ptr.push_back(0);
-    for(size_t i = 0; i < n; ++i) {
+    for(int i = 0; i < n; ++i) {
         if (i > 0) {
             col.push_back(i-1);
             val.push_back(-1);
@@ -171,7 +171,7 @@ BOOST_AUTO_TEST_CASE(distributed)
             val.push_back(-1);
         }
 
-        ptr.push_back(col.size());
+        ptr.push_back(static_cast<int>(col.size()));
     }
 
     vex::sparse::distributed<vex::sparse::ell<double>> A(ctx, n, n, ptr, col, val);
@@ -182,7 +182,7 @@ BOOST_AUTO_TEST_CASE(distributed)
 
     Y = A * X;
 
-    for(size_t i = 0; i < n; ++i) {
+    for(int i = 0; i < n; ++i) {
         double y = Y[i];
         double sum = 0;
         for(int j = ptr[i]; j < ptr[i + 1]; j++)
@@ -196,14 +196,14 @@ BOOST_AUTO_TEST_CASE(distributed_single)
 {
     std::vector<vex::command_queue> q(1, ctx.queue(0));
 
-    const size_t n = 1024;
+    const int n = 1024;
 
     std::vector<int>    ptr;
     std::vector<int>    col;
     std::vector<double> val;
 
     ptr.push_back(0);
-    for(size_t i = 0; i < n; ++i) {
+    for(int i = 0; i < n; ++i) {
         if (i > 0) {
             col.push_back(i-1);
             val.push_back(-1);
@@ -215,7 +215,7 @@ BOOST_AUTO_TEST_CASE(distributed_single)
             val.push_back(-1);
         }
 
-        ptr.push_back(col.size());
+        ptr.push_back(static_cast<int>(col.size()));
     }
 
     vex::sparse::distributed<vex::sparse::ell<double>> A(q, n, n, ptr, col, val);
@@ -226,7 +226,7 @@ BOOST_AUTO_TEST_CASE(distributed_single)
 
     Y = A * X;
 
-    for(size_t i = 0; i < n; ++i) {
+    for(int i = 0; i < n; ++i) {
         double y = Y[i];
         double sum = 0;
         for(int j = ptr[i]; j < ptr[i + 1]; j++)
@@ -238,14 +238,14 @@ BOOST_AUTO_TEST_CASE(distributed_single)
 
 BOOST_AUTO_TEST_CASE(custom_values)
 {
-    const size_t n = 1024;
+    const int n = 1024;
     std::vector<vex::command_queue> q(1, ctx.queue(0));
 
     std::vector<int> ptr, col;
     std::vector<matrix_value> val;
 
     ptr.push_back(0);
-    for(size_t i = 0; i < n; ++i) {
+    for(int i = 0; i < n; ++i) {
         if (i > 0) {
             col.push_back(i-1);
             val.push_back(mconst(-1));
@@ -257,7 +257,7 @@ BOOST_AUTO_TEST_CASE(custom_values)
             val.push_back(mconst(-1));
         }
 
-        ptr.push_back(col.size());
+        ptr.push_back(static_cast<int>(col.size()));
     }
 
     vex::sparse::matrix<matrix_value> A(q, n, n, ptr, col, val);
@@ -268,7 +268,7 @@ BOOST_AUTO_TEST_CASE(custom_values)
 
     Y = A * X;
 
-    for(size_t i = 0; i < n; ++i) {
+    for(int i = 0; i < n; ++i) {
         vector_value y = Y[i];
         vector_value sum = {0,0};
         for(int j = ptr[i]; j < ptr[i + 1]; j++) {
