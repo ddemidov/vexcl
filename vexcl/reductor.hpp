@@ -65,7 +65,7 @@ struct SUM {
         typedef device_in device_out;
 
         // Host-side reduction function.
-        T operator()(T a, T b) const {
+        T operator()(const T &a, const T &b) const {
             return a + b;
         }
     };
@@ -97,7 +97,7 @@ struct MAX {
 
         typedef device_in device_out;
 
-        T operator()(T a, T b) const {
+        T operator()(const T &a, const T &b) const {
             return a > b ? a : b;
         }
     };
@@ -121,7 +121,7 @@ struct MIN {
 
         typedef device_in device_out;
 
-        T operator()(T a, T b) const {
+        T operator()(const T &a, const T &b) const {
             return a < b ? a : b;
         }
     };
@@ -425,9 +425,13 @@ class Reductor {
 
                     queue[d].finish();
 
-                    result = rdc(result, std::accumulate(
-                                data->second.hbuf.begin(), data->second.hbuf.end(),
-                                initial, rdc));
+                    for(auto h = data->second.hbuf.cbegin(),
+                             e = data->second.hbuf.cend();
+                             h != e; ++h
+                       )
+                    {
+                        result = rdc(result, *h);
+                    }
                 }
             }
 
