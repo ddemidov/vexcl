@@ -226,7 +226,7 @@ if (VEXCL_MASTER_PROJECT)
     endif()
 
     configure_file(
-        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VexCLConfig.cmake"
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VexCLConfig.cmake.in"
         "${CMAKE_CURRENT_BINARY_DIR}/cmake/VexCLConfig.cmake"
         COPYONLY
         )
@@ -245,7 +245,7 @@ if (VEXCL_MASTER_PROJECT)
         )
 
     install(
-        FILES cmake/VexCLConfig.cmake
+        FILES ${CMAKE_CURRENT_BINARY_DIR}/cmake/VexCLConfig.cmake
         DESTINATION share/vexcl/cmake
         )
 endif()
