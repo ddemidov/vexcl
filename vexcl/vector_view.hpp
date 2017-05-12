@@ -418,23 +418,23 @@ struct gslice {
 
 /// An index range for use with slicer class.
 struct range {
-    size_t    start;
+    ptrdiff_t start;
     ptrdiff_t stride;
-    size_t    stop;
+    ptrdiff_t stop;
 
     /// Unbounded range (all elements along the current dimension).
     range () : start(0), stride(0), stop(0) {}
 
     /// Range with a single element.
-    range(size_t i)
+    range(ptrdiff_t i)
         : start(i), stride(1), stop(i + 1) {}
 
     /// Elements from open interval with given stride.
-    range(size_t start, ptrdiff_t stride, size_t stop)
+    range(ptrdiff_t start, ptrdiff_t stride, ptrdiff_t stop)
         : start(start), stride(stride), stop(stop) {}
 
     /// Every element from open interval.
-    range(size_t start, size_t stop)
+    range(ptrdiff_t start, ptrdiff_t stop)
         : start(start), stride(1), stop(stop) {}
 
     bool empty() const {
@@ -539,7 +539,7 @@ struct slicer {
             range r = idx.ranges[i].empty() ? range(0, dim[i]) : idx.ranges[i];
 
             start += r.start * stride[i];
-            len[i] = (r.stop - r.start + r.stride - 1) / r.stride;
+            len[i] = (std::abs(r.stop - r.start) + std::abs(r.stride) - 1) / std::abs(r.stride);
             str[i] = r.stride * stride[i];
         }
 
@@ -556,9 +556,7 @@ struct slicer {
         {
             static_assert(C == 0, "Wrong slice constructor!");
 
-            this->length[0] = r.stride > 0 ?
-                (r.stop - r.start + r.stride - 1) / r.stride :
-                (r.start - r.stop - r.stride - 1) / (-r.stride);
+            this->length[0] = (std::abs(r.stop - r.start) + std::abs(r.stride) - 1) / std::abs(r.stride);
             this->stride[0] *= r.stride;
         }
 
@@ -569,7 +567,7 @@ struct slicer {
             static_assert(C > 0, "Wrong slice constructor!");
 
             this->start += r.start * this->stride[C];
-            this->length[C] = (r.stop - r.start + r.stride - 1) / r.stride;
+            this->length[C] = (std::abs(r.stop - r.start) + std::abs(r.stride) - 1) / std::abs(r.stride);
             this->stride[C] *= r.stride;
         }
 
