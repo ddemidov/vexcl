@@ -356,6 +356,10 @@ class source_generator {
             return global_id(d);
         }
 
+        std::string num_groups(int d) const {
+            return global_size(d);
+        }
+
         source_generator& barrier(bool /*global*/ = false) {
             return *this;
         }

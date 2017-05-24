@@ -262,6 +262,13 @@ class source_generator {
             return s.str();
         }
 
+        std::string num_groups(int d) const {
+            const char dim[] = {'x', 'y', 'z'};
+            std::ostringstream s;
+            s << "gridDim." << dim[d];
+            return s.str();
+        }
+
         std::string str() const {
             return src.str();
         }

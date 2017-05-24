@@ -302,6 +302,12 @@ class source_generator {
             return s.str();
         }
 
+        std::string num_groups(int d) const {
+            std::ostringstream s;
+            s << "get_num_groups(" << d << ")";
+            return s.str();
+        }
+
         std::string str() const {
             return src.str();
         }
