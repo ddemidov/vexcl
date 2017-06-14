@@ -53,12 +53,15 @@ enum device_options_kind {
 /// Global program options holder
 template <device_options_kind kind>
 struct device_options {
-    static const std::string& get(const backend::command_queue &q) {
+    static std::string get(const backend::command_queue &q) {
         auto dev = backend::get_device_id(q);
 
+        std::ostringstream s;
+
         boost::lock_guard<boost::mutex> lock(options_mx);
-        if (options[dev].empty()) options[dev].push_back("");
-        return options[dev].back();
+        for(auto o = options[dev].begin(); o != options[dev].end(); ++o)
+            s << (kind == compile_options ? " " : "\n") << (*o);
+        return s.str();
     }
 
     static void push(const backend::command_queue &q, const std::string &str) {
