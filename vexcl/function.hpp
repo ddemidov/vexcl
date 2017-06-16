@@ -151,9 +151,9 @@ struct vex_function_##func_name                                                \
       >                                                                        \
 {                                                                              \
     vex_function_##func_name() {}                                              \
-    static std::string name() { return #func_name; }                           \
+    static std::string name() { return #func_name ".apply"; }                  \
     static void define(vex::backend::source_generator &src) {                  \
-        define(src, name());                                                   \
+        define(src, #func_name);                                               \
     }                                                                          \
     static void define(vex::backend::source_generator &src,                    \
             const std::string &fname)                                          \
@@ -254,7 +254,7 @@ rtype operator()(VEXCL_DUAL_FUNCTOR_ARGS(args)) const {                        \
 /// Define builtin function.
 #define VEX_BUILTIN_FUNCTION(nargs, func)                                      \
     struct func##_func : vex::builtin_function {                               \
-        static const char *name() { return #func; }                            \
+        static const char *name() { return "KernelMath." #func; }              \
     };                                                                         \
     template <BOOST_PP_ENUM_PARAMS(nargs, class Arg)>                          \
     typename boost::proto::result_of::make_expr<                               \

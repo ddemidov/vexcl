@@ -182,6 +182,7 @@ class source_generator {
                 "import com.maxeler.maxcompiler.v2.kernelcompiler.Kernel;\n"
                 "import com.maxeler.maxcompiler.v2.kernelcompiler.KernelParameters;\n"
                 "import com.maxeler.maxcompiler.v2.kernelcompiler.types.base.DFEVar;\n"
+                "import com.maxeler.maxcompiler.v2.kernelcompiler.stdlib.KernelMath;\n"
                 "import com.maxeler.maxcompiler.v2.build.EngineParameters;\n"
                 "import com.maxeler.maxcompiler.v2.managers.custom.CustomManager;\n"
                 "import com.maxeler.maxcompiler.v2.managers.custom.blocks.KernelBlock;\n"
