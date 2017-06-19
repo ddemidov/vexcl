@@ -396,7 +396,7 @@ class symbolic
         /// Default constructor. Results in a local variable declaration.
         symbolic() : num(generator::var_id()), scope(LocalVar), constness(NonConst)
         {
-            generator::get_recorder() << "\t\t" << type_name<T>() << " " << *this << ";\n";
+            generator::get_recorder() << "\t\t" << type_name<T>() << " " << *this << " = " << T() << ";\n";
         }
 
         /// Constructor.
