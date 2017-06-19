@@ -460,7 +460,7 @@ class vector : public vector_terminal_expression {
                 );
 #endif
             detail::get_expression_properties prop;
-            detail::extract_terminals()(expr, prop);
+            detail::extract_terminals()(boost::proto::as_child(expr), prop);
 
             precondition(!prop.queue.empty() && !prop.part.empty(),
                     "Can not determine expression size and queue list"
