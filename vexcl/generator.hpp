@@ -786,6 +786,11 @@ std::string FunctorAdapter<Signature, Functor>::name_string;
 template <class Signature, class Functor>
 std::string FunctorAdapter<Signature, Functor>::body_string;
 
+inline size_t get_gen_fun_id() {
+    static size_t id = 0;
+    return id++;
+}
+
 /// Generates a user-defined function from a generic functor.
 /**
  * Takes the function signature as template parameter and a generic functor as
@@ -796,9 +801,9 @@ template <class Signature, class Functor>
 auto make_function(Functor &&f) ->
     FunctorAdapter<Signature, Functor>
 {
-    static size_t id = 0;
+    size_t id = get_gen_fun_id();
     std::ostringstream name;
-    name << "generated_function_" << ++id;
+    name << "generated_function_" << id;
     return FunctorAdapter<Signature, Functor>(std::forward<Functor>(f), name.str());
 }
 
