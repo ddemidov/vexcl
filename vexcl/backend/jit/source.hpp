@@ -91,14 +91,24 @@ namespace jit {
 
 inline std::string standard_kernel_header(const command_queue &q) {
     return std::string(R"(
-#include <limits>
-#include <algorithm>
-#include <cmath>
 #include <vector>
+#include <algorithm>
+#include <limits>
+#include <cmath>
 #include <boost/config.hpp>
 
 using std::max;
 using std::min;
+
+#if defined(__APPLE__) || defined(__MACOSX)
+
+#include <cstdint>
+typedef uint64_t ulong;
+typedef uint32_t uint;
+typedef uint16_t ushort;
+typedef uint8_t  uchar;
+
+#endif
 
 struct ndrange {
     size_t x,y,z;
