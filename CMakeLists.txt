@@ -171,8 +171,8 @@ if (VEXCL_MASTER_PROJECT)
     option(VEXCL_BUILD_TESTS    OFF)
     option(VEXCL_BUILD_EXAMPLES OFF)
 
-    set(VEXCL_BACKEND "OpenCL" CACHE STRING "Select VexCL backend (OpenCL/CUDA/Compute/JIT)")
-    set_property(CACHE VEXCL_BACKEND PROPERTY STRINGS "OpenCL" "CUDA" "Compute" "JIT")
+    set(VEXCL_BACKEND "OpenCL" CACHE STRING "Select VexCL backend (OpenCL/CUDA/Compute/JIT/Maxeler)")
+    set_property(CACHE VEXCL_BACKEND PROPERTY STRINGS "OpenCL" "CUDA" "Compute" "JIT" "Maxeler")
 
     if("${VEXCL_BACKEND}" STREQUAL "OpenCL")
         add_library(VexCL::Backend ALIAS OpenCL)
@@ -182,6 +182,8 @@ if (VEXCL_MASTER_PROJECT)
         add_library(VexCL::Backend ALIAS CUDA)
     elseif("${VEXCL_BACKEND}" STREQUAL "JIT")
         add_library(VexCL::Backend ALIAS JIT)
+    elseif("${VEXCL_BACKEND}" STREQUAL "Maxeler")
+        add_library(VexCL::Backend ALIAS Maxeler)
     endif()
 
     #------------------------------------------------------------------------
