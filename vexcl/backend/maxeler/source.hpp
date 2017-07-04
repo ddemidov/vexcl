@@ -150,12 +150,13 @@ class source_generator {
         } prm_state;
 
 
-        static const int kernel_freq = 180; 		// reasonable kernel freq on MAX4
-        static const int mem_freq = 533; 			// Max LMEM freq on MAX4 without quarter rate mode
+        static const int kernel_freq = 180;         // reasonable kernel freq on MAX4
+        static const int mem_freq = 533;            // max LMEM freq on MAX4 without quarter rate mode
 
-        static const int first_cost_table = 1;   	// which cost tables to build from 1..32 available
+        static const int first_cost_table = 1;      // which cost tables to build from 1..32 available
         static const int last_cost_table = 8;
-        static const int cost_table_threads = 4; 	// how many cost tables to build in parallel
+
+        static const int cost_table_threads = 4;    // how many cost tables to build in parallel
         static const int near_miss_threshold = 500; // retry the cost table if score is below this threshold
 
         std::ostringstream src, c_src;
