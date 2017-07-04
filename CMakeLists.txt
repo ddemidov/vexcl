@@ -256,13 +256,13 @@ if (VEXCL_MASTER_PROJECT)
 
     foreach(target OpenCL CUDA Compute JIT)
         if (TARGET ${target})
-            set(VEXCL_BACKEND "${target}" CACHE STRING "Select VexCL backend (OpenCL/CUDA/Compute/JIT/All)")
+            set(VEXCL_BACKEND "${target}" CACHE STRING "Select VexCL backend (OpenCL/CUDA/Compute/JIT/Maxeler/All)")
             break()
         endif()
     endforeach()
     message(STATUS "Selected backend: ${VEXCL_BACKEND}")
 
-    set_property(CACHE VEXCL_BACKEND PROPERTY STRINGS "All" "OpenCL" "CUDA" "Compute" "JIT")
+    set_property(CACHE VEXCL_BACKEND PROPERTY STRINGS "All" "OpenCL" "CUDA" "Compute" "JIT" "Maxeler")
 
     if("${VEXCL_BACKEND}" STREQUAL "OpenCL")
         add_library(VexCL::Backend ALIAS OpenCL)
@@ -272,6 +272,8 @@ if (VEXCL_MASTER_PROJECT)
         add_library(VexCL::Backend ALIAS CUDA)
     elseif("${VEXCL_BACKEND}" STREQUAL "JIT")
         add_library(VexCL::Backend ALIAS JIT)
+    elseif("${VEXCL_BACKEND}" STREQUAL "Maxeler")
+        add_library(VexCL::Backend ALIAS Maxeler)
     endif()
 
     #------------------------------------------------------------------------
