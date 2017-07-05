@@ -227,6 +227,7 @@ class source_generator {
                 "import com.maxeler.maxcompiler.v2.managers.engine_interfaces.EngineInterface.Direction;\n"
                 "import com.maxeler.maxcompiler.v2.managers.engine_interfaces.InterfaceParam;\n"
                 "import com.maxeler.maxcompiler.v2.managers.BuildConfig;\n"
+                "import maxpower.kernel.io.AspectChangeIO;\n"
                 ;
 
             c_src <<
@@ -320,6 +321,9 @@ class source_generator {
             new_line() << name << "(KernelParameters parameters)";
             open("{");
             new_line() << "super(parameters);";
+            new_line() << "AspectChangeIO acio = new AspectChangeIO(this, 1536);";
+            new_line() << "DFEVar N = io.scalarInput(\"N\", dfeUInt(32));";
+            new_line() << "DFEVar flush = control.count.simpleCounter(32) === N - 1;";
 
             return *this;
         }
@@ -432,7 +436,7 @@ class source_generator {
             new_line() << "private static EngineInterface write_lmem()";
             open("{");
             new_line() << "EngineInterface ei = new EngineInterface(\"write_lmem\");";
-            new_line() << "InterfaceParam size = ei.addParam(\"N\", " << detail::maxeler_cpu_type<int>() << ");";
+            new_line() << "InterfaceParam size = ei.addParam(\"N\", " << detail::maxeler_cpu_type<unsigned int>() << ");";
             new_line() << "InterfaceParam head = ei.addConstant(0l);"
                        << write_lmem_j.str();
             new_line() << "ei.ignoreAll(Direction.IN_OUT);";
@@ -441,7 +445,7 @@ class source_generator {
             new_line() << "private static EngineInterface read_lmem()";
             open("{");
             new_line() << "EngineInterface ei = new EngineInterface(\"read_lmem\");";
-            new_line() << "InterfaceParam size = ei.addParam(\"N\", " << detail::maxeler_cpu_type<int>() << ");";
+            new_line() << "InterfaceParam size = ei.addParam(\"N\", " << detail::maxeler_cpu_type<unsigned int>() << ");";
             new_line() << "InterfaceParam head = ei.addConstant(0l);"
                        << read_lmem_j.str();
             new_line() << "ei.ignoreAll(Direction.IN_OUT);";
@@ -450,7 +454,8 @@ class source_generator {
             new_line() << "private static EngineInterface execute()";
             open("{");
             new_line() << "EngineInterface ei = new EngineInterface(\"execute\");";
-            new_line() << "InterfaceParam size = ei.addParam(\"N\", " << detail::maxeler_cpu_type<int>() << ");";
+            new_line() << "InterfaceParam size = ei.addParam(\"N\", " << detail::maxeler_cpu_type<unsigned int>() << ");";
+            new_line() << "ei.setScalar(\"" << kernel_name << "\", \"N\", size);";
             new_line() << "InterfaceParam head = ei.addConstant(0l);";
             new_line() << "ei.setTicks(\"" << kernel_name << "\", size);"
                        << execute_j.str();
@@ -559,7 +564,7 @@ class source_generator {
                     case source_generator::in_prm:
                         s.input_streams++;
 
-                        s.new_line() << "DFEVar " << name << " = io.input(\""
+                        s.new_line() << "DFEVar " << name << " = acio.input(\""
                             << name << "\", " << detail::maxeler_dfe_type<T>() << ");";
 
                         s.stream_design << "\n" << s.indent(2) <<
@@ -602,9 +607,7 @@ class source_generator {
                         s.new_line() << "DFEVar " << name << ";";
 
                         s.kernel_output << "\n" << s.indent()
-                            << "io.output(\"" << name << "\", " << name << ", "
-                            << detail::maxeler_dfe_type<T>()
-                            <<");";
+                            << "acio.output(\"" << name << "\", " << name << ", constant.var(true), flush);";
 
                         s.stream_design << "\n" << s.indent(2) <<
                             "lmem.addStreamToLMem(\"" << name << "\", LMemCommandGroup.MemoryAccessPattern.LINEAR_1D)"
@@ -644,13 +647,11 @@ class source_generator {
                         s.input_streams++;
                         s.output_streams++;
 
-                        s.new_line() << "DFEVar " << name << " = io.input(\""
+                        s.new_line() << "DFEVar " << name << " = acio.input(\""
                             << name << "_in\", " << detail::maxeler_dfe_type<T>() << ");";
 
                         s.kernel_output << "\n" << s.indent()
-                            << "io.output(\"" << name << "_out\", " << name << ", "
-                            << detail::maxeler_dfe_type<T>()
-                            <<");";
+                            << "acio.output(\"" << name << "_out\", " << name << ", constant.var(true), flush);";
 
                         s.stream_design << "\n" << s.indent(2) <<
                             "k.getInput(\"" << name << "_in\")"
@@ -723,7 +724,7 @@ class source_generator {
                     case source_generator::in_prm:
                         s.input_streams++;
 
-                        s.new_line() << "DFEVector<DFEVar> " << name << " = io.input(\""
+                        s.new_line() << "DFEVector<DFEVar> " << name << " = acio.input(\""
                             << name << "\", " << vector_type_name << ");";
 
                         s.stream_design << "\n" << s.indent(2) <<
@@ -766,8 +767,7 @@ class source_generator {
                         s.new_line() << "DFEVector<DFEVar> " << name << " = " << vector_type_name << ".newInstance(this);";
 
                         s.kernel_output << "\n" << s.indent()
-                            << "io.output(\"" << name << "\", " << name << ", "
-                            << vector_type_name <<");";
+                            << "acio.output(\"" << name << "\", " << name << ", constant.var(true), flush);";
 
                         s.stream_design << "\n" << s.indent(2) <<
                             "lmem.addStreamToLMem(\"" << name << "\", LMemCommandGroup.MemoryAccessPattern.LINEAR_1D)"
@@ -807,12 +807,11 @@ class source_generator {
                         s.input_streams++;
                         s.output_streams++;
 
-                        s.new_line() << "DFEVector<DFEVar> " << name << " = io.input(\""
+                        s.new_line() << "DFEVector<DFEVar> " << name << " = acio.input(\""
                             << name << "_in\", " << vector_type_name << ");";
 
                         s.kernel_output << "\n" << s.indent()
-                            << "io.output(\"" << name << "_out\", " << name << ", "
-                            << vector_type_name <<");";
+                            << "acio.output(\"" << name << "_out\", " << name << ", constant.var(true), flush);";
 
                         s.stream_design << "\n" << s.indent(2) <<
                             "k.getInput(\"" << name << "_in\")"
