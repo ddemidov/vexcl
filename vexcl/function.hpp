@@ -151,7 +151,7 @@ struct vex_function_##func_name                                                \
       >                                                                        \
 {                                                                              \
     vex_function_##func_name() {}                                              \
-    static std::string name() { return #func_name ".apply"; }                  \
+    static std::string name() { return #func_name; }                           \
     static void define(vex::backend::source_generator &src) {                  \
         define(src, #func_name);                                               \
     }                                                                          \
