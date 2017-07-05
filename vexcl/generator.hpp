@@ -349,6 +349,18 @@ struct symbolic_context {
     };
 
     template <typename Expr>
+    struct eval<Expr, boost::proto::tag::subscript> {
+        typedef void result_type;
+
+        void operator()(const Expr &expr, symbolic_context &ctx) const {
+            boost::proto::eval(boost::proto::child_c<0>(expr), ctx);
+            get_recorder() << "[";
+            boost::proto::eval(boost::proto::child_c<1>(expr), ctx);
+            get_recorder() << "]";
+        }
+    };
+
+    template <typename Expr>
     struct eval<Expr, boost::proto::tag::terminal> {
         typedef void result_type;
 
@@ -372,6 +384,55 @@ struct symbolic_context {
 //---------------------------------------------------------------------------
 // The symbolic class.
 //---------------------------------------------------------------------------
+template <class T, class Enable = void>
+struct symvar_empty_constr {
+    static void apply(const std::string &name) {
+#if defined(VEXCL_BACKEND_MAXELER)
+            generator::get_recorder() << "\t\tDFEVar " << name << ";\n";
+#else
+            generator::get_recorder() << "\t\t" << type_name<T>() << " " << name << " = " << T() << ";\n";
+#endif
+    }
+};
+
+template <typename T, size_t N>
+struct symvar_empty_constr< std::array<T, N> > {
+    static void apply(const std::string &name) {
+        generator::get_recorder() << "\t\tDFEVector<DFEVar> " << name << " = "
+            << backend::maxeler::detail::maxeler_dfe_type<std::array<T,N>>() << ".newInstance(this);\n";
+    }
+};
+
+template <class T, class Enable = void>
+struct symvar_copy_constr {
+    template <class Expr>
+    static void apply(const std::string &name, const Expr &expr) {
+#if defined(VEXCL_BACKEND_MAXELER)
+        generator::get_recorder() << "\t\tDFEVar " << name << " = ";
+#else
+        generator::get_recorder() << "\t\t" << type_name<T>() << " " << name << " = ";
+#endif
+
+        generator::detail::symbolic_context ctx;
+        boost::proto::eval(boost::proto::as_expr(expr), ctx);
+
+        generator::get_recorder() << ";\n";
+    }
+};
+
+template <typename T, size_t N>
+struct symvar_copy_constr< std::array<T, N> > {
+    template <class Expr>
+    static void apply(const std::string &name, const Expr &expr) {
+        generator::get_recorder() << "\t\tDFEVector<DFEVar> " << name << " = ";
+
+        generator::detail::symbolic_context ctx;
+        boost::proto::eval(boost::proto::as_expr(expr), ctx);
+
+        generator::get_recorder() << ";\n";
+    }
+};
+
 /// Symbolic variable
 template <typename T>
 class symbolic
@@ -396,11 +457,9 @@ class symbolic
         /// Default constructor. Results in a local variable declaration.
         symbolic() : num(generator::var_id()), scope(LocalVar), constness(NonConst)
         {
-#if defined(VEXCL_BACKEND_MAXELER)
-            generator::get_recorder() << "\t\tDFEVar " << *this << ";\n";
-#else
-            generator::get_recorder() << "\t\t" << type_name<T>() << " " << *this << " = " << T() << ";\n";
-#endif
+            std::ostringstream s;
+            s << *this;
+            symvar_empty_constr<T>::apply(s.str());
         }
 
         /// Constructor.
@@ -408,11 +467,9 @@ class symbolic
             : num(generator::var_id()), scope(scope), constness(constness)
         {
             if (scope == LocalVar) {
-#if defined(VEXCL_BACKEND_MAXELER)
-                generator::get_recorder() << "\t\tDFEVar " << *this << ";\n";
-#else
-                generator::get_recorder() << "\t\t" << type_name<T>() << " " << *this << ";\n";
-#endif
+                std::ostringstream s;
+                s << *this;
+                symvar_empty_constr<T>::apply(s.str());
             }
         }
 
@@ -421,13 +478,9 @@ class symbolic
         symbolic(const Expr &expr)
             : num(generator::var_id()), scope(LocalVar), constness(NonConst)
         {
-#if defined(VEXCL_BACKEND_MAXELER)
-            generator::get_recorder() << "\t\tDFEVar " << *this << " = ";
-#else
-            generator::get_recorder() << "\t\t" << type_name<T>() << " " << *this << " = ";
-#endif
-            record(expr);
-            generator::get_recorder() << ";\n";
+            std::ostringstream s;
+            s << *this;
+            symvar_copy_constr<T>::apply(s.str(), expr);
         }
 
         /// Assignment operator. Results in the assignment expression written to the recorder.
@@ -452,6 +505,14 @@ class symbolic
 
 #undef VEXCL_ASSIGNMENT
 
+
+        template <class Expr>
+        auto operator[](const Expr &expr) const
+            -> decltype(boost::proto::make_expr<boost::proto::tag::subscript>(*this, expr))
+        {
+            return boost::proto::make_expr<boost::proto::tag::subscript>(*this, expr);
+        }
+
         size_t id() const {
             return num;
         }
@@ -461,9 +522,7 @@ class symbolic
             std::ostringstream s;
 
             if (scope == VectorParameter) {
-#if defined(VEXCL_BACKEND_MAXELER)
-                s << "\t\tDFEVar " << *this << " = p_" << *this << ";\n";
-#else
+#if !defined(VEXCL_BACKEND_MAXELER)
                 s << "\t\t" << type_name<T>() << " " << *this
                     << " = p_" << *this << "[idx];\n";
 #endif
@@ -477,9 +536,7 @@ class symbolic
             std::ostringstream s;
 
             if (scope == VectorParameter && constness == NonConst) {
-#if defined(VEXCL_BACKEND_MAXELER)
-                s << "\t\tp_" << *this << " = " << *this << ";\n";
-#else
+#if !defined(VEXCL_BACKEND_MAXELER)
                 s << "\t\tp_" << *this << "[idx] = " << *this << ";\n";
 #endif
             }
@@ -490,12 +547,12 @@ class symbolic
         // Returns parameter type and name as strings.
         void prmdecl(backend::source_generator &src) const {
             std::ostringstream name;
-            name << "p_" << *this;
+            name << *this;
 
             if (scope == VectorParameter) {
                 if (constness == Const) {
                     src.in_params();
-                    src.template parameter<global_ptr<const T>>(name.str());
+                    src.template parameter<global_ptr<T>>(name.str());
                 } else {
                     src.inout_params();
                     src.template parameter<global_ptr<T>>(name.str());
@@ -549,7 +606,7 @@ class kernel {
                 source.parameter<size_t>("n");
 
                 source.end_kernel_parameters();
-                source.grid_stride_loop().open("{");
+                source.grid_stride_loop().open("{\n");
 
                 boost::fusion::for_each(params, prm_init(source));
                 source << body;
