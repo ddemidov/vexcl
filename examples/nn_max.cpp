@@ -32,13 +32,24 @@ struct maxeler_constant_var {
 };
 
 namespace vex {
-    template <>
-    struct is_cl_native<maxeler_constant_var> : std::true_type {};
+    template <> struct is_cl_native<maxeler_constant_var> : std::true_type {};
 }
 
-//---------------------------------------------------------------------------
-typedef vex::symbolic<double> sym_vector;
-typedef boost::array<sym_vector, 14> sym_state;
+typedef vex::symbolic< double > sym_var;
+typedef vex::symbolic< std::array<double,14> > sym_state;
+
+template <class LHS, class RHS>
+void connect(const LHS &lhs, const RHS &rhs) {
+    vex::generator::detail::symbolic_context ctx;
+
+    vex::generator::get_recorder() << "\t\t";
+
+    boost::proto::eval(boost::proto::as_expr(lhs), ctx);
+    vex::generator::get_recorder() << " <== ";
+    boost::proto::eval(boost::proto::as_expr(rhs), ctx);
+
+    vex::generator::get_recorder() << ";\n";
+}
 
 enum VarNames {
     V_DEND  ,  // dend.V_dend
@@ -97,20 +108,20 @@ struct nn_system {
 
         double Iapp = 0;
 
-        const auto &v_dend  = s[V_DEND];
-        const auto &v_soma  = s[V_SOMA];
-        const auto &v_axon  = s[V_AXON];
-        const auto &r_d     = s[R_D];
-        const auto &z_d     = s[Z_D];
-        const auto &n_d     = s[N_D];
-        const auto &ca_conc = s[CA_CONC];
-        const auto &k_s     = s[K_S];
-        const auto &l_s     = s[L_S];
-        const auto &h_s     = s[H_S];
-        const auto &n_s     = s[N_S];
-        const auto &x_s     = s[X_S];
-        const auto &h_a     = s[H_A];
-        const auto &x_a     = s[X_A];
+        sym_var v_dend  = s[V_DEND];
+        sym_var v_soma  = s[V_SOMA];
+        sym_var v_axon  = s[V_AXON];
+        sym_var r_d     = s[R_D];
+        sym_var z_d     = s[Z_D];
+        sym_var n_d     = s[N_D];
+        sym_var ca_conc = s[CA_CONC];
+        sym_var k_s     = s[K_S];
+        sym_var l_s     = s[L_S];
+        sym_var h_s     = s[H_S];
+        sym_var n_s     = s[N_S];
+        sym_var x_s     = s[X_S];
+        sym_var h_a     = s[H_A];
+        sym_var x_a     = s[X_A];
 
         auto Igap    = 0;
         auto Isd     = g_int / (1 - p1) * (v_dend - v_soma);
@@ -122,42 +133,42 @@ struct nn_system {
         auto Ids     = g_int / p1 * (v_soma - v_dend);
         auto Ias     = g_int / (1 - p2) * (v_soma - v_axon);
         auto Ical_s  = -g_cal_s * k_s * k_s * k_s * l_s * (Vcal_s - v_soma);
-        sym_vector m_s = 1 / (1 + exp(-(v_soma + 30) / 5.5));
+        sym_var m_s  = 1 / (1 + exp(-(v_soma + 30) / 5.5));
         auto Ina_s   = -g_na_s * m_s * m_s * m_s * h_s * (Vna_s - v_soma);
         auto Ikdr_s  = -g_kdr_s * n_s * n_s * n_s * n_s * (Vkdr_s - v_soma);
         auto Ik_s    = -g_k_s * x_s * x_s * x_s * x_s * (Vk_s - v_soma);
         auto Ileak_s = -g_leak_s * (Vleak_s - v_soma);
 
         auto Isa     = g_int / p2 * (v_axon - v_soma);
-        sym_vector m_a = 1 / (1 + exp(-(v_axon + 30)/5.5));
+        sym_var m_a  = 1 / (1 + exp(-(v_axon + 30)/5.5));
         auto Ina_a   = -g_na_a * m_a * m_a * m_a * h_a * (Vna_a - v_axon);
         auto Ik_a    = -g_k_a * x_a * x_a * x_a * x_a * (Vk_a - v_axon);
         auto Ileak_a = -g_leak_a * (Vleak_a - v_axon);
 
         maxeler_constant_var one_percent(1e-2);
 
-        dsdt[V_DEND ] = (-Igap + Iapp - Isd - Icah_d - Ikca_d - Ih_d - Ileak_d) / Cmd;
-        dsdt[V_SOMA ] = (-Ids - Ias - Ical_s - Ina_s - Ikdr_s - Ik_s - Ileak_s) / Cms;
-        dsdt[V_AXON ] = (-Isa - Ina_a - Ik_a - Ileak_a) / Cma;
-        dsdt[R_D    ] = 0.2 * 1.7 / (1 + exp(-(v_dend - 5)/13.9)) * (1 - r_d) -
-                        0.2 * 0.1 * (v_dend + 8.5) / (-5) * r_d / (1 - exp((v_dend + 8.5)/5));
-        dsdt[Z_D    ] = min(2e-5 * ca_conc, one_percent) * (1 - z_d) - 0.015 * z_d;
-        dsdt[N_D    ] = (1 / (1 + exp((v_dend + 80) / 4)) - n_d) *
-                        (exp(-0.086 * v_dend - 14.6) + exp(0.070 * v_dend - 1.87));
-        dsdt[CA_CONC] = -3 * Icah_d - 0.075 * ca_conc;
-        dsdt[K_S    ] = 1 / (1 + exp(-(v_soma + 61)/4.2)) - k_s;
-        dsdt[L_S    ] = (1 / (1 + exp((v_soma + 85.5) / 8.5)) - l_s) /
-                        ((20 * exp((v_soma + 160) / 30) / (1 + exp((v_soma + 84)/7.3))) + 35);
-        dsdt[H_S    ] = (1 / (1 + exp((v_soma + 70) / 5.8)) - h_s) /
-                        (3 * exp(-(v_soma + 40) / 33));
-        dsdt[N_S    ] = (1 / (1 + exp(-(v_soma + 3) / 10)) - n_s) /
-                        (5 + 47 * exp((v_soma + 50) / 900));
-        dsdt[X_S    ] = (1 - x_s) * (0.13 * (v_soma + 25)) / (1 - exp(-(v_soma + 25) / 10)) -
-                        x_s * 1.69 * exp(-(v_soma + 35) / 80);
-        dsdt[H_A    ] = (1 / (1 + exp((v_axon + 60) / 5.8)) - h_a) /
-                        (1.5 * exp(-(v_axon + 40) / 33));
-        dsdt[X_A    ] = (1 - x_a) * (0.13 * (v_axon + 25)) / (1 - exp(-(v_axon + 25) / 10)) -
-                        x_a * 1.69 * exp(-(v_axon + 35) / 80);
+        connect(dsdt[V_DEND ], (-Igap + Iapp - Isd - Icah_d - Ikca_d - Ih_d - Ileak_d) / Cmd);
+        connect(dsdt[V_SOMA ], (-Ids - Ias - Ical_s - Ina_s - Ikdr_s - Ik_s - Ileak_s) / Cms);
+        connect(dsdt[V_AXON ], (-Isa - Ina_a - Ik_a - Ileak_a) / Cma);
+        connect(dsdt[R_D    ], 0.2 * 1.7 / (1 + exp(-(v_dend - 5)/13.9)) * (1 - r_d) -
+                        0.2 * 0.1 * (v_dend + 8.5) / (-5) * r_d / (1 - exp((v_dend + 8.5)/5)));
+        connect(dsdt[Z_D    ], min(2e-5 * ca_conc, one_percent) * (1 - z_d) - 0.015 * z_d);
+        connect(dsdt[N_D    ], (1 / (1 + exp((v_dend + 80) / 4)) - n_d) *
+                        (exp(-0.086 * v_dend - 14.6) + exp(0.070 * v_dend - 1.87)));
+        connect(dsdt[CA_CONC], -3 * Icah_d - 0.075 * ca_conc);
+        connect(dsdt[K_S    ], 1 / (1 + exp(-(v_soma + 61)/4.2)) - k_s);
+        connect(dsdt[L_S    ], (1 / (1 + exp((v_soma + 85.5) / 8.5)) - l_s) /
+                        ((20 * exp((v_soma + 160) / 30) / (1 + exp((v_soma + 84)/7.3))) + 35));
+        connect(dsdt[H_S    ], (1 / (1 + exp((v_soma + 70) / 5.8)) - h_s) /
+                        (3 * exp(-(v_soma + 40) / 33)));
+        connect(dsdt[N_S    ], (1 / (1 + exp(-(v_soma + 3) / 10)) - n_s) /
+                        (5 + 47 * exp((v_soma + 50) / 900)));
+        connect(dsdt[X_S    ], (1 - x_s) * (0.13 * (v_soma + 25)) / (1 - exp(-(v_soma + 25) / 10)) -
+                        x_s * 1.69 * exp(-(v_soma + 35) / 80));
+        connect(dsdt[H_A    ], (1 / (1 + exp((v_axon + 60) / 5.8)) - h_a) /
+                        (1.5 * exp(-(v_axon + 40) / 33)));
+        connect(dsdt[X_A    ], (1 - x_a) * (0.13 * (v_axon + 25)) / (1 - exp(-(v_axon + 25) / 10)) -
+                        x_a * 1.69 * exp(-(v_axon + 35) / 80));
     }
 };
 
@@ -168,7 +179,7 @@ int main(int argc, char *argv[]) {
 
     desc.add_options()
         ("help,h", "Show this help.")
-        ("size,n",   po::value<int>()->default_value(1000),                 "number of cells to use")
+        ("size,n",   po::value<int>()->default_value(1152),                 "number of cells to use")
         ("steps,m",  po::value<int>()->default_value(1),                    "number of steps to merge in the kernel")
         ("tmax",     po::value<double>()->default_value(10.0, "10.0"),      "tmax")
         ("tau",      po::value<double>()->default_value(0.05, "0.05"),      "time step")
@@ -204,26 +215,11 @@ int main(int argc, char *argv[]) {
     vex::generator::set_recorder(body);
 
     // State types that would become kernel parameters
-    sym_state  sym_S = {{
-        sym_vector(sym_vector::VectorParameter),
-        sym_vector(sym_vector::VectorParameter),
-        sym_vector(sym_vector::VectorParameter),
-        sym_vector(sym_vector::VectorParameter),
-        sym_vector(sym_vector::VectorParameter),
-        sym_vector(sym_vector::VectorParameter),
-        sym_vector(sym_vector::VectorParameter),
-        sym_vector(sym_vector::VectorParameter),
-        sym_vector(sym_vector::VectorParameter),
-        sym_vector(sym_vector::VectorParameter),
-        sym_vector(sym_vector::VectorParameter),
-        sym_vector(sym_vector::VectorParameter),
-        sym_vector(sym_vector::VectorParameter),
-        sym_vector(sym_vector::VectorParameter)
-    }};
+    sym_state  sym_S{sym_state::VectorParameter};
 
-    odeint::euler/*runge_kutta4_classic*/<
+    odeint::euler<
         sym_state, double, sym_state, double,
-        odeint::range_algebra, odeint::default_operations
+        odeint::vector_space_algebra, odeint::default_operations
         > stepper;
 
     // Record m time steps
@@ -231,45 +227,27 @@ int main(int argc, char *argv[]) {
         stepper.do_step(NN, sym_S, 0, dt);
 
     // Generate the kernel from the recorded sequence
-    auto kernel = vex::generator::build_kernel(ctx, "nn_ode",
-            body.str(),
-            sym_S[ 0], sym_S[ 1], sym_S[ 2], sym_S[ 3], sym_S[ 4],
-            sym_S[ 5], sym_S[ 6], sym_S[ 7], sym_S[ 8], sym_S[ 9],
-            sym_S[10], sym_S[11], sym_S[12], sym_S[13]
-            );
+    auto kernel = vex::generator::build_kernel(ctx, "nn_ode", body.str(), sym_S);
 
     // Real state
-    vex::vector<double> v_dend (ctx, n);
-    vex::vector<double> v_soma (ctx, n);
-    vex::vector<double> v_axon (ctx, n);
-    vex::vector<double> r_d    (ctx, n);
-    vex::vector<double> z_d    (ctx, n);
-    vex::vector<double> n_d    (ctx, n);
-    vex::vector<double> ca_conc(ctx, n);
-    vex::vector<double> k_s    (ctx, n);
-    vex::vector<double> l_s    (ctx, n);
-    vex::vector<double> h_s    (ctx, n);
-    vex::vector<double> n_s    (ctx, n);
-    vex::vector<double> x_s    (ctx, n);
-    vex::vector<double> h_a    (ctx, n);
-    vex::vector<double> x_a    (ctx, n);
+    vex::vector<double> S(ctx, 14 * n);
 
     // Initial values
-    for(int i = 0; i < n; ++i) {
-        v_dend[i]  = -60;
-        v_soma[i]  = -60;
-        v_axon[i]  = -60;
-        r_d[i]     = 0.0112788;
-        z_d[i]     = 0.0049291;
-        n_d[i]     = 0.0337836;
-        ca_conc[i] = 3.7152;
-        k_s[i]     = 0.7423159;
-        l_s[i]     = 0.0321349;
-        h_s[i]     = 0.3596066;
-        n_s[i]     = 0.2369847;
-        x_s[i]     = 0.1;
-        h_a[i]     = 0.9;
-        x_a[i]     = 0.2369847;
+    for(int i = 0, j = 0; i < n; ++i, j += 14) {
+        S[j + V_DEND]  = -60;
+        S[j + V_SOMA]  = -60;
+        S[j + V_AXON]  = -60;
+        S[j + R_D]     = 0.0112788;
+        S[j + Z_D]     = 0.0049291;
+        S[j + N_D]     = 0.0337836;
+        S[j + CA_CONC] = 3.7152;
+        S[j + K_S]     = 0.7423159;
+        S[j + L_S]     = 0.0321349;
+        S[j + H_S]     = 0.3596066;
+        S[j + N_S]     = 0.2369847;
+        S[j + X_S]     = 0.1;
+        S[j + H_A]     = 0.9;
+        S[j + X_A]     = 0.2369847;
     }
 
     prof.tic_cl("Solving ODEs");
@@ -278,20 +256,8 @@ int main(int argc, char *argv[]) {
     kernel.load_dfe();
     prof.toc("load_dfe");
 
-    kernel.push_arg(v_dend);
-    kernel.push_arg(v_soma);
-    kernel.push_arg(v_axon);
-    kernel.push_arg(r_d);
-    kernel.push_arg(z_d);
-    kernel.push_arg(n_d);
-    kernel.push_arg(ca_conc);
-    kernel.push_arg(k_s);
-    kernel.push_arg(l_s);
-    kernel.push_arg(h_s);
-    kernel.push_arg(n_s);
-    kernel.push_arg(x_s);
-    kernel.push_arg(h_a);
-    kernel.push_arg(x_a);
+    kernel.push_arg(S);
+    kernel.push_arg(n);
 
     std::ofstream out(out_file);
     double chk_point = wstep;
@@ -311,8 +277,8 @@ int main(int argc, char *argv[]) {
             kernel.read_lmem();
 
             out << t;
-            for(int i = 0; i < n; ++i)
-                out << " " << v_axon[i];
+            for(int i = 0, j = 0; i < n; ++i, j += 14)
+                out << " " << S[j + V_AXON];
             out << std::endl;
             prof.toc("save");
         }
