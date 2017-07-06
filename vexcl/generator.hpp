@@ -361,7 +361,11 @@ struct symbolic_context {
                 fun::define(get_preamble());
             }
 
-            get_recorder() << fun::name() << "( ";
+            get_recorder() << fun::name()
+#ifdef VEXCL_BACKEND_MAXELER
+                << ".apply"
+#endif
+                << "( ";
 
             boost::fusion::for_each(
                     boost::fusion::pop_front(expr),
