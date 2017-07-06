@@ -16,25 +16,6 @@
 
 namespace odeint = boost::numeric::odeint;
 
-struct maxeler_constant_var {
-    std::string repr;
-
-    template <class T>
-    maxeler_constant_var(const T &val) {
-        std::ostringstream s;
-        s << "constant.var(" << val << ")";
-        repr = s.str();
-    }
-
-    friend std::ostream & operator<<(std::ostream &s, const maxeler_constant_var &v) {
-        return s << v.repr;
-    }
-};
-
-namespace vex {
-    template <> struct is_cl_native<maxeler_constant_var> : std::true_type {};
-}
-
 typedef vex::symbolic< double > sym_var;
 typedef vex::symbolic< std::array<double,14> > sym_state;
 
@@ -145,14 +126,12 @@ struct nn_system {
         auto Ik_a    = -g_k_a * x_a * x_a * x_a * x_a * (Vk_a - v_axon);
         auto Ileak_a = -g_leak_a * (Vleak_a - v_axon);
 
-        maxeler_constant_var one_percent(1e-2);
-
         connect(dsdt[V_DEND ], (-Igap + Iapp - Isd - Icah_d - Ikca_d - Ih_d - Ileak_d) / Cmd);
         connect(dsdt[V_SOMA ], (-Ids - Ias - Ical_s - Ina_s - Ikdr_s - Ik_s - Ileak_s) / Cms);
         connect(dsdt[V_AXON ], (-Isa - Ina_a - Ik_a - Ileak_a) / Cma);
         connect(dsdt[R_D    ], 0.2 * 1.7 / (1 + exp(-(v_dend - 5)/13.9)) * (1 - r_d) -
                         0.2 * 0.1 * (v_dend + 8.5) / (-5) * r_d / (1 - exp((v_dend + 8.5)/5)));
-        connect(dsdt[Z_D    ], min(2e-5 * ca_conc, one_percent) * (1 - z_d) - 0.015 * z_d);
+        connect(dsdt[Z_D    ], min(2e-5 * ca_conc, maxeler::constant::var(1e-2)) * (1 - z_d) - 0.015 * z_d);
         connect(dsdt[N_D    ], (1 / (1 + exp((v_dend + 80) / 4)) - n_d) *
                         (exp(-0.086 * v_dend - 14.6) + exp(0.070 * v_dend - 1.87)));
         connect(dsdt[CA_CONC], -3 * Icah_d - 0.075 * ca_conc);

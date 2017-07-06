@@ -1,10 +1,10 @@
-#ifndef VEXCL_BACKEND_MAXELER_HPP
-#define VEXCL_BACKEND_MAXELER_HPP
+#ifndef VEXCL_BACKEND_MAXELER_FUNCTION_HPP
+#define VEXCL_BACKEND_MAXELER_FUNCTION_HPP
 
 /*
 The MIT License
 
-Copyright (c) 2012-2016 Denis Demidov <dennis.demidov@gmail.com>
+Copyright (c) 2012-2017 Denis Demidov <dennis.demidov@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -26,22 +26,18 @@ THE SOFTWARE.
 */
 
 /**
- * \file   vexcl/backend/maxeler.hpp
+ * \file   vexcl/backend/maxeler/function.hpp
  * \author Denis Demidov <dennis.demidov@gmail.com>
- * \brief  Backend for the Maxeler dataflow engine.
+ * \brief  Maxeler-specific functions.
  */
 
-#ifndef VEXCL_BACKEND_MAXELER
-#  define VEXCL_BACKEND_MAXELER
-#endif
+#include <vexcl/function.hpp>
 
-#include <vexcl/backend/maxeler/context.hpp>
-#include <vexcl/backend/maxeler/filter.hpp>
-#include <vexcl/backend/maxeler/source.hpp>
-#include <vexcl/backend/maxeler/compiler.hpp>
-#include <vexcl/backend/maxeler/device_vector.hpp>
-#include <vexcl/backend/maxeler/kernel.hpp>
-#include <vexcl/backend/maxeler/function.hpp>
+namespace maxeler {
+    namespace constant {
+        VEX_BUILTIN_FUNCTION_ALIAS(1, var, constant.var)
+    }
+}
 
 
 #endif
