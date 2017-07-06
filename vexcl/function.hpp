@@ -268,17 +268,17 @@ rtype operator()(VEXCL_DUAL_FUNCTOR_ARGS(args)) const {                        \
     }
 
 #define VEX_BUILTIN_FUNCTION_ALIAS(nargs, alias, func)                         \
-    struct func##_alias : vex::builtin_function {                              \
+    struct alias##_func : vex::builtin_function {                              \
         static const char *name() { return #func; }                            \
     };                                                                         \
     template <BOOST_PP_ENUM_PARAMS(nargs, class Arg)>                          \
     typename boost::proto::result_of::make_expr<                               \
-        boost::proto::tag::function, func##_alias,                             \
+        boost::proto::tag::function, alias##_func,                             \
         BOOST_PP_ENUM_BINARY_PARAMS(nargs, const Arg,                          \
                                     &BOOST_PP_INTERCEPT)>::type const          \
     alias(BOOST_PP_ENUM_BINARY_PARAMS(nargs, const Arg, &arg)) {               \
         return boost::proto::make_expr<boost::proto::tag::function>(           \
-            func##_alias(), BOOST_PP_ENUM(                                     \
+            alias##_func(), BOOST_PP_ENUM(                                     \
                 nargs, VEXCL_BUILTIN_PRINT_BOOST_REF, ~));                     \
     }
 
