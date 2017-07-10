@@ -66,7 +66,7 @@ matrix:
     Eigen::SparseMatrix<double, Eigen::RowMajor, int> E;
 
     vex::SpMat<double, int> A(ctx, E.rows(), E.cols(),
-        E.outerIndexPtr(), E.innerIndexPtr(), E.valuesPtr());
+        E.outerIndexPtr(), E.innerIndexPtr(), E.valuePtr());
 
 
 Matrix-vector products may be used in vector expressions. The only restriction
