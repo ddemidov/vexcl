@@ -284,6 +284,13 @@ class profiler {
             stack.push_back(root);
         }
 
+        void reset() {
+            auto root = std::shared_ptr<profile_unit>(new profile_unit(stack.front()->name));
+            stack.clear();
+            root->tic();
+            stack.push_back(root);
+        }
+
     private:
         void tic(profile_unit *u) {
             assert(!stack.empty());
