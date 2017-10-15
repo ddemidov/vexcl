@@ -28,7 +28,7 @@ addons:
     packages:
       - opencl-headers
       - lcov
-
+      - python-pip
 cache:
     directories:
         - ${HOME}/${BOOST_BASENAME}/boost
@@ -36,14 +36,18 @@ cache:
         - ${AMDAPPSDKROOT}
 
 before_install:
+    - if [ "$VEXCL_BACKEND" = "JIT" ] && [ "$CC" = "clang" ] ; then pip install --user cmake ; fi
     - . .travis/install_amd_sdk.sh;
     - . .travis/install_boost.sh;
+    - cmake --version
+
 script:
     - mkdir -p build && cd build
     - cmake -DVEXCL_TEST_COVERAGE=ON -DVEXCL_BUILD_TESTS=ON -DVEXCL_BUILD_EXAMPLES=ON -DVEXCL_BACKEND=${VEXCL_BACKEND} ..
     - make -j2
     - export CPATH=${CPATH}:${BOOST_ROOT}
     - ./examples/devlist && ctest --output-on-failure
+
 after_success:
     - lcov --directory tests --base-directory ../vexcl --capture --output-file coverage.info
     - lcov --remove coverage.info '/usr*' '*/cl.hpp' -o coverage.info
