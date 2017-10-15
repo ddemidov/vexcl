@@ -41,7 +41,7 @@ before_install:
 script:
     - mkdir -p build && cd build
     - cmake -DVEXCL_TEST_COVERAGE=ON -DVEXCL_BUILD_TESTS=ON -DVEXCL_BUILD_EXAMPLES=ON -DVEXCL_BACKEND=${VEXCL_BACKEND} ..
-    - make
+    - make -j2
     - export CPATH=${CPATH}:${BOOST_ROOT}
     - ./examples/devlist && ctest --output-on-failure
 after_success:
