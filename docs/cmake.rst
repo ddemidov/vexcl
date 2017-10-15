@@ -6,7 +6,7 @@ a couple of lines in your ``CmakeLists.txt``:
 
 .. code-block:: cmake
 
-    cmake_minimum_required(VERSION 2.8)
+    cmake_minimum_required(VERSION 3.0)
     project(example)
 
     find_package(VexCL)
@@ -21,9 +21,14 @@ system. Possible choices are ``VexCL::OpenCL`` for the OpenCL backend,
 The targets will take care of the appropriate compiler and linker flags for the
 selected backend.
 
+If you are interested in generating all possible backends, you can use
+``vexcl_add_executableds(example exmaple.cpp)``, which will generate up to
+four different versions of the same program, with ``_cl``, ``_comp``, ``_cuda``,
+and ``_jit`` appended, depending on what backends were discovered.
+
 ``find_package(VexCL)`` may be used when VexCL was installed system wide. If
 that is not the case, you can just copy the VexCL into a subdirectory of your
-project and replace the line with
+project (or use git submodules) and replace the line with
 
 .. code-block:: cmake
 
