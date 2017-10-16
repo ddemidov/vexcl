@@ -22,7 +22,7 @@ The targets will take care of the appropriate compiler and linker flags for the
 selected backend.
 
 If you are interested in generating all possible backends, you can use
-``vexcl_add_executables(example exmaple.cpp)``, which will generate up to
+``vexcl_add_executables(example example.cpp)``, which will generate up to
 four different versions of the same program, with ``_cl``, ``_comp``, ``_cuda``,
 and ``_jit`` appended, depending on what backends were discovered.
 
