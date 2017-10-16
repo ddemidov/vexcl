@@ -40,7 +40,7 @@ before_install:
     - . .travis/install_amd_sdk.sh;
     - . .travis/install_boost.sh;
     - cmake --version
-    - ls -lR /usr/local/clang-3.9.0
+    - env
 
 script:
     - mkdir -p build && cd build
