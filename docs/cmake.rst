@@ -24,7 +24,16 @@ selected backend.
 If you are interested in generating all possible backends, you can use
 ``vexcl_add_executables(example example.cpp)``, which will generate up to
 four different versions of the same program, with ``_cl``, ``_comp``, ``_cuda``,
-and ``_jit`` appended, depending on what backends were discovered.
+and ``_jit`` appended, depending on what backends were discovered. An interface
+target is available for you to add dependencies to all targets at once:
+
+.. code-block:: cmake
+
+    vexcl_add_executables(example example.cpp)
+
+    target_link_libraries(example INTERFACE MyDependenices)
+    target_link_libraries(example_cl OpenCLOnlyDependency)
+
 
 ``find_package(VexCL)`` may be used when VexCL was installed system wide. If
 that is not the case, you can just copy the VexCL into a subdirectory of your
