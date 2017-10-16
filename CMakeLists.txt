@@ -51,6 +51,8 @@ target_compile_features(Common INTERFACE
     cxx_rvalue_references
     cxx_right_angle_brackets
     cxx_static_assert
+    cxx_variadic_templates
+    cxx_decltype
 )
 
 target_include_directories(Common INTERFACE
@@ -161,6 +163,8 @@ if (NOT "${Boost_VERSION}" STRLESS "106100")
 
         target_link_libraries(JIT INTERFACE Common ${CMAKE_DL_LIBS})
         target_compile_definitions(JIT INTERFACE VEXCL_BACKEND_JIT)
+
+        message(STATUS "Found VexCL::JIT")
 
     endif()
 endif()
