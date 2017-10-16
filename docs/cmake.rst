@@ -6,7 +6,7 @@ a couple of lines in your ``CmakeLists.txt``:
 
 .. code-block:: cmake
 
-    cmake_minimum_required(VERSION 3.0)
+    cmake_minimum_required(VERSION 3.1)
     project(example)
 
     find_package(VexCL)
