@@ -137,24 +137,21 @@ if (NOT "${Boost_VERSION}" STRLESS "106100")
     add_library(JIT INTERFACE)
     add_library(VexCL::JIT ALIAS JIT)
 
-    # CMake 3.9, allows correct linking with Clang
+    # CMake 3.9 FindOpenMP allows correct linking with Clang in more cases
     if(TARGET OpenMP::OpenMP_CXX)
         target_link_libraries(JIT INTERFACE OpenMP::OpenMP_CXX Common)
     else()
-        if(CXX_COMPILER_ID STREQUAL Clang)
-            message(WARNING "Clang JIT needs CMake 3.9 to properly detect OpenMP linker flags!")
-        endif()
         # Clang may need -fopenmp=libiomp5 instead, can't be detected here without CMake 3.9
         target_link_libraries(JIT INTERFACE
             $<$<CXX_COMPILER_ID:GNU>:${OpenMP_CXX_FLAGS}>
-            $<$<CXX_COMPILER_ID:Clang>:-fopenmp=libomp>
+            $<$<CXX_COMPILER_ID:Clang>:${OpenMP_CXX_FLAGS}>
             $<$<CXX_COMPILER_ID:Intel>:${OpenMP_CXX_FLAGS}>
             )
         target_compile_options(JIT INTERFACE ${OpenMP_CXX_FLAGS})
     endif()
 
-    target_compile_definitions(JIT INTERFACE VEXCL_BACKEND_JIT)
     target_link_libraries(JIT INTERFACE Common ${CMAKE_DL_LIBS})
+    target_compile_definitions(JIT INTERFACE VEXCL_BACKEND_JIT)
 
     message(STATUS "Found VexCL::JIT")
 endif()

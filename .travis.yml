@@ -28,7 +28,6 @@ addons:
     packages:
       - opencl-headers
       - lcov
-      - python-pip
 cache:
     directories:
         - ${HOME}/${BOOST_BASENAME}/boost
@@ -36,7 +35,6 @@ cache:
         - ${AMDAPPSDKROOT}
 
 before_install:
-    - if [ "$VEXCL_BACKEND" = "JIT" ] && [ "$CC" = "clang" ] ; then pip install --user cmake ; fi
     - . .travis/install_amd_sdk.sh;
     - . .travis/install_boost.sh;
     - cmake --version
