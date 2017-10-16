@@ -140,10 +140,10 @@ endif()
 if (NOT "${Boost_VERSION}" STRLESS "106100")
     find_package(OpenMP)
 
-    # Have to check OpenMP_CXX_FOUND due to bug in
-    # one version of CMake (fixed in patch release)
+    # Have to check several OPENMP_FOUND due to bug in
+    # one version of CMake and the docs (fixed in patch release)
     # OpenMP is missing on macOS llvm default, for example
-    if(OpenMP_FOUND OR OpenMP_CXX_FOUND)
+    if(OpenMP_FOUND OR OPENMP_FOUND OR OpenMP_CXX_FOUND)
 
         add_library(JIT INTERFACE)
         add_library(VexCL::JIT ALIAS JIT)
