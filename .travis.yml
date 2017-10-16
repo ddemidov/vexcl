@@ -46,7 +46,7 @@ script:
     - cmake -DVEXCL_TEST_COVERAGE=ON -DVEXCL_BUILD_TESTS=ON -DVEXCL_BUILD_EXAMPLES=ON -DVEXCL_BACKEND=${VEXCL_BACKEND} ..
     - make -j2
     - export CPATH=${CPATH}:${BOOST_ROOT}
-    - export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:$(dirname $(which clang++))/../lib
+    - if [ "$VEXCL_BACKEND" = "JIT" ] && [ "$CC" = "clang" ] ; then export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:$(dirname $(which clang++))/../lib ; fi
     - ./examples/devlist && ctest --output-on-failure
 
 after_success:
