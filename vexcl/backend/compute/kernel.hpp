@@ -33,6 +33,7 @@ THE SOFTWARE.
 
 #include <functional>
 
+#include <boost/compute/types.hpp>
 #include <boost/compute/core.hpp>
 #include <boost/compute/memory/local_buffer.hpp>
 #include <vexcl/backend/compute/compiler.hpp>
