@@ -8,7 +8,7 @@ export CMAKE_LIBRARY_PATH=${AMDAPPSDKROOT}/lib/x86_64
 
 if [ ! -e ${AMDAPPSDKROOT}/bin/x86_64/clinfo ]; then
     # Location from which get nonce and file name from
-    URL="http://developer.amd.com/tools-and-sdks/opencl-zone/opencl-tools-sdks/amd-accelerated-parallel-processing-app-sdk/"
+    URL="http://developer.amd.com/amd-accelerated-parallel-processing-app-sdk/"
     URLDOWN="http://developer.amd.com/amd-license-agreement-appsdk/"
 
     NONCE1_STRING='name="amd_developer_central_downloads_page_nonce"'
@@ -16,7 +16,8 @@ if [ ! -e ${AMDAPPSDKROOT}/bin/x86_64/clinfo ]; then
     POSTID_STRING='name="post_id"'
     NONCE2_STRING='name="amd_developer_central_nonce"'
 
-    #For newest FORM=`wget -qO - $URL | sed -n '/download-2/,/64-bit/p'`
+    # This gets the second latest (2.9.1 ATM, latest is 3.0)
+    # For newest: FORM=`wget -qO - $URL | sed -n '/download-2/,/64-bit/p'`
     FORM=`wget -qO - $URL | sed -n '/download-5/,/64-bit/p'`
 
     # Get nonce from form
