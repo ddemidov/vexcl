@@ -21,10 +21,13 @@ BOOST_AUTO_TEST_CASE(custom_kernel)
         src.parameter<size_t>("n");
         src.parameter<int*>("x");
         src.end_kernel_parameters();
-        src.new_line() << "for (ulong idx = get_global_id(0); idx < n; idx += get_global_size(0))";
-        src.open("{");
-        src.new_line() << "x[idx] = 42;";
-        src.close("}");
+        src << R"(
+        ulong chunk_size = (n + get_global_size(0) - 1) / get_global_size(0);
+        ulong chunk_start = get_global_id(0) * chunk_size;
+        for (ulong idx = chunk_start; idx < n && idx < chunk_start + chunk_size; ++idx)
+        {
+            x[idx] = 42;
+        })";
         src.end_kernel();
 
         vex::backend::kernel zeros(queue[0], src.str(), "the_answer");
