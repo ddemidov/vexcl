@@ -9,40 +9,14 @@ env:
 
 matrix:
   include:
-  - compiler: gcc
-    env: VEXCL_BACKEND=OpenCL
-  - compiler: gcc
-    env: VEXCL_BACKEND=Compute
-  - compiler: gcc
-    env: VEXCL_BACKEND=JIT
-  - compiler: clang
-    env: VEXCL_BACKEND=OpenCL
-    addons:
-  - compiler: clang
-    env: VEXCL_BACKEND=Compute
-  - compiler: clang
-    env: VEXCL_BACKEND=JIT
   - os: osx
     osx_image: xcode9.1
     env: VEXCL_BACKEND=OpenCL
-  - os: osx
-    osx_image: xcode9.1
-    env: VEXCL_BACKEND=Compute
-  allow_failures:
-  - os: osx
 
 addons:
   apt:
     packages:
     - opencl-headers
-    - lcov
-  coverity_scan:
-    project:
-      name: "ddemidov/vexcl"
-    notification_email: dennis.demidov@gmail.com
-    build_command_prepend: mkdir build-coverity && cd build-coverity && cmake -DCMAKE_BUILD_TYPE=Release ..
-    build_command: make
-    branch_pattern: coverity_scan
 
 cache:
     directories:
@@ -57,13 +31,8 @@ before_install:
 
 script:
     - mkdir -p build && cd build
-    - cmake -DVEXCL_TEST_COVERAGE=ON -DVEXCL_BUILD_TESTS=ON -DVEXCL_BUILD_EXAMPLES=ON -DVEXCL_BACKEND=${VEXCL_BACKEND} ..
+    - cmake -DVEXCL_TEST_COVERAGE=ON -DVEXCL_BUILD_TESTS=ON -DVEXCL_BACKEND=${VEXCL_BACKEND} ..
     - make -j2
     - export CPATH=${CPATH}:${BOOST_ROOT}
     - if [ "$VEXCL_BACKEND" = "JIT" ] && [ "$CC" = "clang" ] ; then export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:$(dirname $(which clang++))/../lib ; fi
-    - ./examples/devlist && ctest --output-on-failure
-
-after_success:
-    - lcov --directory tests --base-directory ../vexcl --capture --output-file coverage.info
-    - lcov --remove coverage.info '/usr*' '*/cl.hpp' -o coverage.info
-    - bash <(curl -s https://codecov.io/bash)
+    - ctest --output-on-failure
