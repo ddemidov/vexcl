@@ -30,6 +30,7 @@ matrix:
     env: VEXCL_BACKEND=Compute
   allow_failures:
   - os: osx
+    env: VEXCL_BACKEND=Compute
 
 addons:
   apt:
