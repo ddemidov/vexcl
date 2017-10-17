@@ -22,7 +22,8 @@ BOOST_AUTO_TEST_CASE(custom_kernel)
           int x
         )
         {
-          return (int4)(x, x, x, x);
+          int4 r = {x, x, x, x};
+          return r;
         })";
         src.begin_kernel("the_answer");
         src.begin_kernel_parameters();
