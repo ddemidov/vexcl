@@ -1,33 +1,49 @@
 language: cpp
-compiler:
-    - gcc
-    - clang
 
 env:
   global:
-      - BOOST_BASENAME=boost_1_62_0
-      - AMDAPPSDKROOT=${HOME}/AMDAPPSDK
-      - secure: "A5GuWMfy2tamED4Xq/h1hXSAX18qemLuhaX3mLD77VMv6Hx2ZPAPXXDuRwg+Htoqccz3DQ3ezA5tf/D2PXffbOvkQeXMKkOBqHLy4aReZm9L+UajPETrQVW2bWBAuVJXMJbJEqdOv+QAEXf82Eml25zGp2r7L0J+FO5nrPtSeqE="
-  matrix:
-      - VEXCL_BACKEND=OpenCL
-      - VEXCL_BACKEND=Compute
-      - VEXCL_BACKEND=JIT
+    - OMP_NUM_THREADS=4
+    - BOOST_BASENAME=boost_1_62_0
+    - AMDAPPSDKROOT=${HOME}/AMDAPPSDK
+    - secure: "A5GuWMfy2tamED4Xq/h1hXSAX18qemLuhaX3mLD77VMv6Hx2ZPAPXXDuRwg+Htoqccz3DQ3ezA5tf/D2PXffbOvkQeXMKkOBqHLy4aReZm9L+UajPETrQVW2bWBAuVJXMJbJEqdOv+QAEXf82Eml25zGp2r7L0J+FO5nrPtSeqE="
+
+matrix:
+  include:
+  - compiler: gcc
+    env: VEXCL_BACKEND=OpenCL
+  - compiler: gcc
+    env: VEXCL_BACKEND=Compute
+  - compiler: gcc
+    env: VEXCL_BACKEND=JIT
+  - compiler: clang
+    env: VEXCL_BACKEND=OpenCL
+    addons:
+  - compiler: clang
+    env: VEXCL_BACKEND=Compute
+  - compiler: clang
+    env: VEXCL_BACKEND=JIT
+  - os: osx
+    osx_image: xcode9.1
+    env: VEXCL_BACKEND=OpenCL
+  - os: osx
+    osx_image: xcode9.1
+    env: VEXCL_BACKEND=Compute
+  allow_failures:
+  - os: osx
 
 addons:
+  apt:
+    packages:
+    - opencl-headers
+    - lcov
   coverity_scan:
     project:
       name: "ddemidov/vexcl"
-      description: "Build submitted via Travis CI"
     notification_email: dennis.demidov@gmail.com
     build_command_prepend: mkdir build-coverity && cd build-coverity && cmake -DCMAKE_BUILD_TYPE=Release ..
     build_command: make
     branch_pattern: coverity_scan
-  apt:
-    sources:
-      - ubuntu-toolchain-r-test
-    packages:
-      - opencl-headers
-      - lcov
+
 cache:
     directories:
         - ${HOME}/${BOOST_BASENAME}/boost
@@ -35,8 +51,8 @@ cache:
         - ${AMDAPPSDKROOT}
 
 before_install:
-    - . .travis/install_amd_sdk.sh;
-    - . .travis/install_boost.sh;
+    - if [ "$TRAVIS_OS_NAME" = "linux" ] ; then source .travis/install_amd_sdk.sh ; fi
+    - if  [ "$TRAVIS_OS_NAME" = "linux" ] ; then source .travis/install_boost.sh ; fi
     - cmake --version
 
 script:
