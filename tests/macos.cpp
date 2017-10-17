@@ -16,14 +16,23 @@ BOOST_AUTO_TEST_CASE(custom_kernel)
     {
         vex::backend::source_generator src(queue[0]);
 
+        src << R"(
+        int4 make_int4
+        (
+          int x
+        )
+        {
+          return (int4)(x, x, x, x);
+        })";
         src.begin_kernel("the_answer");
         src.begin_kernel_parameters();
         src.parameter<size_t>("n");
         src.parameter<int*>("x");
         src.end_kernel_parameters();
+        src.new_line() << "int4 x4 = make_int4(42);";
         src.new_line() << "for (ulong idx = get_global_id(0); idx < n; idx += get_global_size(0))";
         src.open("{");
-        src.new_line() << "x[idx] = 42;";
+        src.new_line() << "x[idx] = x4.x;";
         src.close("}");
         src.end_kernel();
 
