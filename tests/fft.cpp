@@ -21,6 +21,14 @@ BOOST_AUTO_TEST_CASE(transform_expression)
 
 BOOST_AUTO_TEST_CASE(check_correctness)
 {
+#if defined(VEXCL_BACKEND_OPENCL) || defined(VEXCL_BACKEND_COMPUTE)
+    // Apple fails this test on CPUs
+#   if defined(__APPLE__)
+    if (vex::Filter::CPU(ctx.device(0)))
+        return;
+#   endif
+#endif
+
     const size_t N = 1024;
     std::vector<vex::backend::command_queue> queue(1, ctx.queue(0));
 
@@ -108,6 +116,12 @@ BOOST_AUTO_TEST_CASE(test_dimensions)
     // TODO: POCL fails this test.
     if (vex::Filter::Platform("Portable Computing Language")(ctx.device(0)))
         return;
+
+    // Apple fails this test on CPUs
+#if defined(__APPLE__)
+    if (vex::Filter::CPU(ctx.device(0)))
+        return;
+#endif
 #endif
 
     const size_t max = 1 << 12;
