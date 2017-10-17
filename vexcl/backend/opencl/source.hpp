@@ -247,7 +247,13 @@ class source_generator {
                 const std::string &idx = "idx", const std::string &bnd = "n"
                 )
         {
-            if ( cpu ) {
+            if (
+                    cpu
+#ifdef __APPLE__
+                    && 0
+#endif
+               )
+            {
                 new_line() << type_name<size_t>() << " chunk_size  = (" << bnd
                            << " + get_global_size(0) - 1) / get_global_size(0);";
                 new_line() << type_name<size_t>() << " chunk_start = get_global_id(0) * chunk_size;";
