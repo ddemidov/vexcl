@@ -21,8 +21,7 @@ BOOST_AUTO_TEST_CASE(custom_kernel)
         src.parameter<size_t>("n");
         src.parameter<int*>("x");
         src.end_kernel_parameters();
-        src.new_line() << vex::type_name<size_t>() << " idx = " << src.global_id(0) << ";";
-        src.new_line() << "if (idx < n)";
+        src.new_line() << "for (ulong idx = get_global_id(0); idx < n; idx += get_global_size(0))";
         src.open("{");
         src.new_line() << "x[idx] = 42;";
         src.close("}");
