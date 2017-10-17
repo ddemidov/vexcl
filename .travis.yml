@@ -28,6 +28,8 @@ matrix:
   - os: osx
     osx_image: xcode9.1
     env: VEXCL_BACKEND=Compute
+  allow_failures:
+  - os: osx
 
 addons:
   apt:
