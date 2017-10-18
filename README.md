@@ -12,7 +12,7 @@ VexCL is a vector expression template library for OpenCL/CUDA. It has been
 created for ease of GPGPU development with C++. VexCL strives to reduce amount
 of boilerplate code needed to develop GPGPU applications. The library provides
 convenient and intuitive notation for vector arithmetic, reduction, sparse
-matrix-vectork products, etc. Multi-device and even multi-platform computations
+matrix-vector products, etc. Multi-device and even multi-platform computations
 are supported. The source code of the library is distributed under very
 permissive MIT license.
 
