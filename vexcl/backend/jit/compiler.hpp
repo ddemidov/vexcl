@@ -40,14 +40,26 @@ THE SOFTWARE.
 #include <vexcl/detail/backtrace.hpp>
 
 #ifndef VEXCL_JIT_COMPILER
-#  define VEXCL_JIT_COMPILER "g++"
+#  ifdef __clang__
+#    define VEXCL_JIT_COMPILER "clang++"
+#  else
+#    define VEXCL_JIT_COMPILER "g++"
+#  endif
 #endif
 
 #ifndef VEXCL_JIT_COMPILER_OPTIONS
-#  ifdef NDEBUG
-#    define VEXCL_JIT_COMPILER_OPTIONS "-O3 -fPIC -shared -fopenmp"
+#  ifdef _OPENMP
+#    ifdef NDEBUG
+#      define VEXCL_JIT_COMPILER_OPTIONS "-O3 -fPIC -shared -fopenmp"
+#    else
+#      define VEXCL_JIT_COMPILER_OPTIONS "-g -fPIC -shared -fopenmp"
+#    endif
 #  else
-#    define VEXCL_JIT_COMPILER_OPTIONS "-g -fPIC -shared -fopenmp"
+#    ifdef NDEBUG
+#      define VEXCL_JIT_COMPILER_OPTIONS "-O3 -fPIC -shared"
+#    else
+#      define VEXCL_JIT_COMPILER_OPTIONS "-g -fPIC -shared"
+#    endif
 #  endif
 #endif
 

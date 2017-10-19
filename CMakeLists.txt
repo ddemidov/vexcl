@@ -138,15 +138,16 @@ if(CUDA_FOUND)
 endif()
 
 if (NOT "${Boost_VERSION}" STRLESS "106100")
+
+    add_library(JIT INTERFACE)
+    add_library(VexCL::JIT ALIAS JIT)
+
     find_package(OpenMP)
 
     # Have to check several OPENMP_FOUND due to bug in
     # one version of CMake and the docs (fixed in patch release)
     # OpenMP is missing on macOS llvm default, for example
     if(OpenMP_FOUND OR OPENMP_FOUND OR OpenMP_CXX_FOUND)
-
-        add_library(JIT INTERFACE)
-        add_library(VexCL::JIT ALIAS JIT)
 
         # CMake 3.9 FindOpenMP allows correct linking with Clang in more cases
         if(TARGET OpenMP::OpenMP_CXX)
@@ -160,13 +161,13 @@ if (NOT "${Boost_VERSION}" STRLESS "106100")
                 )
             target_compile_options(JIT INTERFACE ${OpenMP_CXX_FLAGS})
         endif()
-
-        target_link_libraries(JIT INTERFACE Common ${CMAKE_DL_LIBS})
-        target_compile_definitions(JIT INTERFACE VEXCL_BACKEND_JIT)
-
-        message(STATUS "Found VexCL::JIT")
-
     endif()
+
+    target_link_libraries(JIT INTERFACE Common ${CMAKE_DL_LIBS})
+    target_compile_definitions(JIT INTERFACE VEXCL_BACKEND_JIT)
+
+    message(STATUS "Found VexCL::JIT")
+
 endif()
 
 function(vexcl_add_executables targetname)
