@@ -60,7 +60,7 @@ class csr {
                 const PtrRange &ptr,
                 const ColRange &col,
                 const ValRange &val,
-                bool fast_setup = true
+                bool /*fast_setup*/ = true
            )
             : q(q[0]), n(nrows), m(ncols), nnz(boost::size(val)),
               ptr(q[0], boost::size(ptr), &ptr[0]),
@@ -145,7 +145,7 @@ class csr {
         }
 
         template <class Vector>
-        static void partial_vector_expr(const Vector &x, backend::source_generator &src,
+        static void partial_vector_expr(const Vector &, backend::source_generator &src,
             const backend::command_queue&, const std::string &prm_name,
             detail::kernel_generator_state_ptr)
         {

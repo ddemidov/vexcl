@@ -274,9 +274,9 @@ class distributed {
         }
 
         template <class Vector>
-        static void partial_vector_expr(const Vector &x, backend::source_generator &src,
-            const backend::command_queue &q, const std::string &prm_name,
-            detail::kernel_generator_state_ptr state)
+        static void partial_vector_expr(const Vector &, backend::source_generator &src,
+            const backend::command_queue &, const std::string &prm_name,
+            detail::kernel_generator_state_ptr)
         {
             src << prm_name << "_sum";
         }

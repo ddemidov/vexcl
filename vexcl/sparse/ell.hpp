@@ -283,7 +283,7 @@ class ell {
         }
 
         template <class Vector>
-        static void partial_vector_expr(const Vector &x, backend::source_generator &src,
+        static void partial_vector_expr(const Vector &, backend::source_generator &src,
             const backend::command_queue&, const std::string &prm_name,
             detail::kernel_generator_state_ptr)
         {
