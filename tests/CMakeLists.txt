@@ -26,7 +26,8 @@ if(VEXCL_TEST_COVERAGE)
         )
 endif()
 
-function(add_vexcl_test TEST_NAME TEST_SOURCE)
+# Add one test with backend
+function(_add_vexcl_test TEST_NAME TEST_SOURCE BACKEND)
     add_executable(${TEST_NAME} ${TEST_SOURCE})
 
     if (NOT Boost_USE_STATIC_LIBS)
@@ -34,11 +35,31 @@ function(add_vexcl_test TEST_NAME TEST_SOURCE)
     endif ()
 
     target_link_libraries(${TEST_NAME}
-        VexCL::Backend
+        ${BACKEND}
         ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
         )
 
     add_test(${TEST_NAME} ${TEST_NAME})
+endfunction()
+
+# Add all requested tests
+function(add_vexcl_test TEST_NAME TEST_SOURCE)
+    if (VEXCL_BACKEND MATCHES "All")
+        if(TARGET VexCL::OpenCL)
+            _add_vexcl_test(${TEST_NAME}_cl ${TEST_SOURCE} VexCL::OpenCL)
+        endif()
+        if(TARGET VexCL::Compute)
+            _add_vexcl_test(${TEST_NAME}_comp ${TEST_SOURCE} VexCL::Compute)
+        endif()
+        if(TARGET VexCL::CUDA)
+            _add_vexcl_test(${TEST_NAME}_cuda ${TEST_SOURCE} VexCL::CUDA)
+        endif()
+        if(TARGET VexCL::JIT)
+            _add_vexcl_test(${TEST_NAME}_jit ${TEST_SOURCE} VexCL::JIT)
+        endif()
+    else()
+        _add_vexcl_test(${TEST_NAME} ${TEST_SOURCE} VexCL::Backend)
+    endif()
 endfunction()
 
 #----------------------------------------------------------------------------
@@ -120,7 +141,9 @@ if (FFTW_FOUND)
 endif ()
 
 
-if (VEXCL_BACKEND MATCHES "CUDA")
-    add_vexcl_test(cusparse cusparse.cpp)
-    target_link_libraries(cusparse ${CUDA_cusparse_LIBRARY})
+if (VEXCL_BACKEND MATCHES "CUDA" OR VEXCL_BACKEND MATCHES "All")
+    if(TARGET VexCL::CUDA)
+        _add_vexcl_test(cusparse_cuda cusparse.cpp VexCL::CUDA)
+        target_link_libraries(cusparse_cuda ${CUDA_cusparse_LIBRARY})
+    endif()
 endif()

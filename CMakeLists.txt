@@ -230,8 +230,8 @@ if (VEXCL_MASTER_PROJECT)
     option(VEXCL_BUILD_TESTS    OFF)
     option(VEXCL_BUILD_EXAMPLES OFF)
 
-    set(VEXCL_BACKEND "OpenCL" CACHE STRING "Select VexCL backend (OpenCL/CUDA/Compute/JIT)")
-    set_property(CACHE VEXCL_BACKEND PROPERTY STRINGS "OpenCL" "CUDA" "Compute" "JIT")
+    set(VEXCL_BACKEND "OpenCL" CACHE STRING "Select VexCL backend (OpenCL/CUDA/Compute/JIT/All)")
+    set_property(CACHE VEXCL_BACKEND PROPERTY STRINGS "ALL" "OpenCL" "CUDA" "Compute" "JIT")
 
     if("${VEXCL_BACKEND}" STREQUAL "OpenCL")
         add_library(VexCL::Backend ALIAS OpenCL)

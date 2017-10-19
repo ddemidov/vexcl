@@ -10,27 +10,19 @@ env:
 matrix:
   include:
   - compiler: gcc
-    env: VEXCL_BACKEND=OpenCL
-  - compiler: gcc
-    env: VEXCL_BACKEND=Compute
-  - compiler: gcc
-    env: VEXCL_BACKEND=JIT
+    env: VEXCL_BACKEND=All
   - compiler: clang
-    env: VEXCL_BACKEND=OpenCL
+    env: VEXCL_BACKEND=All
     addons:
-  - compiler: clang
-    env: VEXCL_BACKEND=Compute
-  - compiler: clang
-    env: VEXCL_BACKEND=JIT
   - os: osx
     osx_image: xcode9.1
     env: VEXCL_BACKEND=OpenCL
   - os: osx
     osx_image: xcode9.1
-    env: VEXCL_BACKEND=Compute
+    env: VEXCL_BACKEND=All
   allow_failures:
   - os: osx
-    env: VEXCL_BACKEND=Compute
+    env: VEXCL_BACKEND=All
 
 addons:
   apt:
@@ -61,7 +53,7 @@ script:
     - cmake -DVEXCL_TEST_COVERAGE=ON -DVEXCL_BUILD_TESTS=ON -DVEXCL_BUILD_EXAMPLES=ON -DVEXCL_BACKEND=${VEXCL_BACKEND} ..
     - make -j2
     - export CPATH=${CPATH}:${BOOST_ROOT}
-    - if [ "$VEXCL_BACKEND" = "JIT" ] && [ "$CC" = "clang" ] ; then export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:$(dirname $(which clang++))/../lib ; fi
+    - if [ "$VEXCL_BACKEND" = "All" ] && [ "$CC" = "clang" ] ; then export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:$(dirname $(which clang++))/../lib ; fi
     - ./examples/devlist && ctest --output-on-failure
 
 after_success:
