@@ -27,14 +27,15 @@ if(VEXCL_TEST_COVERAGE)
 endif()
 
 # Add one test with backend
-function(_add_vexcl_test TEST_NAME TEST_SOURCE BACKEND)
-    add_executable(${TEST_NAME} ${TEST_SOURCE})
+function(_add_vexcl_test TEST_NAME BACKEND)
+    add_executable(${TEST_NAME} ${ARGN})
 
     if (NOT Boost_USE_STATIC_LIBS)
         target_compile_definitions(${TEST_NAME} PRIVATE BOOST_TEST_DYN_LINK)
     endif ()
 
     target_link_libraries(${TEST_NAME}
+        PUBLIC
         ${BACKEND}
         ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
         )
@@ -43,22 +44,27 @@ function(_add_vexcl_test TEST_NAME TEST_SOURCE BACKEND)
 endfunction()
 
 # Add all requested tests
-function(add_vexcl_test TEST_NAME TEST_SOURCE)
+function(add_vexcl_test TEST_NAME ${ARGN})
     if (VEXCL_BACKEND MATCHES "All")
+        add_library(${TEST_NAME} INTERFACE)
         if(TARGET VexCL::OpenCL)
-            _add_vexcl_test(${TEST_NAME}_cl ${TEST_SOURCE} VexCL::OpenCL)
+            _add_vexcl_test(${TEST_NAME}_cl VexCL::OpenCL ${ARGN})
+            target_link_libraries(${TEST_NAME}_cl INTERFACE ${TEST_NAME})
         endif()
         if(TARGET VexCL::Compute)
-            _add_vexcl_test(${TEST_NAME}_comp ${TEST_SOURCE} VexCL::Compute)
+            _add_vexcl_test(${TEST_NAME}_comp VexCL::Compute ${ARGN})
+            target_link_libraries(${TEST_NAME}_comp INTERFACE ${TEST_NAME})
         endif()
         if(TARGET VexCL::CUDA)
-            _add_vexcl_test(${TEST_NAME}_cuda ${TEST_SOURCE} VexCL::CUDA)
+            _add_vexcl_test(${TEST_NAME}_cuda VexCL::CUDA ${ARGN})
+            target_link_libraries(${TEST_NAME}_cuda INTERFACE ${TEST_NAME})
         endif()
         if(TARGET VexCL::JIT)
-            _add_vexcl_test(${TEST_NAME}_jit ${TEST_SOURCE} VexCL::JIT)
+            _add_vexcl_test(${TEST_NAME}_jit VexCL::JIT ${ARGN})
+            target_link_libraries(${TEST_NAME}_jit INTERFACE ${TEST_NAME})
         endif()
     else()
-        _add_vexcl_test(${TEST_NAME} ${TEST_SOURCE} VexCL::Backend)
+        _add_vexcl_test(${TEST_NAME} VexCL::Backend ${ARGN})
     endif()
 endfunction()
 
@@ -100,7 +106,7 @@ add_vexcl_test(eval                     eval.cpp)
 add_vexcl_test(constants                constants.cpp)
 add_vexcl_test(vector_io                vector_io.cpp)
 add_vexcl_test(reinterpret              reinterpret.cpp)
-add_vexcl_test(multiple_objects         "dummy1.cpp;dummy2.cpp")
+add_vexcl_test(multiple_objects         dummy1.cpp dummy2.cpp)
 
 if (NOT DEFINED ENV{APPVEYOR})
     # This fails on AppVeyor-CI
@@ -114,8 +120,8 @@ if (TARGET compute_target)
     add_vexcl_test(boost_compute_sort boost_compute_sort.cpp)
     add_vexcl_test(boost_compute_scan boost_compute_scan.cpp)
 
-    target_link_libraries(boost_compute_sort compute_target)
-    target_link_libraries(boost_compute_scan compute_target)
+    target_link_libraries(boost_compute_sort INTERFACE compute_target)
+    target_link_libraries(boost_compute_scan INTERFACE compute_target)
 endif ()
 
 #----------------------------------------------------------------------------
@@ -125,8 +131,8 @@ if (TARGET clogs_target)
     add_vexcl_test(clogs_scan clogs_scan.cpp)
     add_vexcl_test(clogs_sort clogs_sort.cpp)
 
-    target_link_libraries(clogs_scan clogs_target)
-    target_link_libraries(clogs_sort clogs_target)
+    target_link_libraries(clogs_scan INTERFACE clogs_target)
+    target_link_libraries(clogs_sort INTERFACE clogs_target)
 endif ()
 
 #----------------------------------------------------------------------------
@@ -135,15 +141,15 @@ endif ()
 add_vexcl_test(fft fft.cpp)
 find_package(FFTW QUIET)
 if (FFTW_FOUND)
-    target_compile_definitions(fft PRIVATE VEXCL_HAVE_FFTW)
-    target_include_directories(fft PRIVATE ${FFTW_INCLUDES})
-    target_link_libraries(fft ${FFTW_LIBRARIES})
+    target_compile_definitions(fft INTERFACE VEXCL_HAVE_FFTW)
+    target_include_directories(fft INTERFACE ${FFTW_INCLUDES})
+    target_link_libraries(fft INTERFACE ${FFTW_LIBRARIES})
 endif ()
 
 
 if (VEXCL_BACKEND MATCHES "CUDA" OR VEXCL_BACKEND MATCHES "All")
     if(TARGET VexCL::CUDA)
         _add_vexcl_test(cusparse_cuda cusparse.cpp VexCL::CUDA)
-        target_link_libraries(cusparse_cuda ${CUDA_cusparse_LIBRARY})
+        target_link_libraries(cusparse_cuda PUBLIC ${CUDA_cusparse_LIBRARY})
     endif()
 endif()
