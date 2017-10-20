@@ -108,6 +108,9 @@ typedef uint32_t uint;
 typedef uint16_t ushort;
 typedef uint8_t  uchar;
 
+#define sincosf __sincosf
+#define sincos __sincos
+
 #endif
 
 struct ndrange {
