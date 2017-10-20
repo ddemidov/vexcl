@@ -54,7 +54,10 @@ script:
     - make -j2
     - export CPATH=${CPATH}:${BOOST_ROOT}
     - if [ "$VEXCL_BACKEND" = "All" ] && [ "$CC" = "clang" ] ; then export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:$(dirname $(which clang++))/../lib ; fi
-    - ./examples/devlist && ctest --output-on-failure
+    - if [ -e ./examples/devlist_cl   ] ; then ./examples/devlist_cl   ; fi
+    - if [ -e ./examples/devlist_comp ] ; then ./examples/devlist_comp ; fi
+    - if [ -e ./examples/devlist_jit  ] ; then ./examples/devlist_jit  ; fi
+    - ctest --output-on-failure
 
 after_success:
     - lcov --directory tests --base-directory ../vexcl --capture --output-file coverage.info

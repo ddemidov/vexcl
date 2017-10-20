@@ -149,7 +149,7 @@ endif ()
 
 if (VEXCL_BACKEND MATCHES "CUDA" OR VEXCL_BACKEND MATCHES "All")
     if(TARGET VexCL::CUDA)
-        _add_vexcl_test(cusparse_cuda cusparse.cpp VexCL::CUDA)
+        _add_vexcl_test(cusparse_cuda VexCL::CUDA cusparse.cpp)
         target_link_libraries(cusparse_cuda PUBLIC ${CUDA_cusparse_LIBRARY})
     endif()
 endif()
