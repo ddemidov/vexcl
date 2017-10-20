@@ -138,15 +138,16 @@ if(CUDA_FOUND)
 endif()
 
 if (NOT "${Boost_VERSION}" STRLESS "106100")
+
+    add_library(JIT INTERFACE)
+    add_library(VexCL::JIT ALIAS JIT)
+
     find_package(OpenMP)
 
     # Have to check several OPENMP_FOUND due to bug in
     # one version of CMake and the docs (fixed in patch release)
     # OpenMP is missing on macOS llvm default, for example
     if(OpenMP_FOUND OR OPENMP_FOUND OR OpenMP_CXX_FOUND)
-
-        add_library(JIT INTERFACE)
-        add_library(VexCL::JIT ALIAS JIT)
 
         # CMake 3.9 FindOpenMP allows correct linking with Clang in more cases
         if(TARGET OpenMP::OpenMP_CXX)
@@ -160,13 +161,13 @@ if (NOT "${Boost_VERSION}" STRLESS "106100")
                 )
             target_compile_options(JIT INTERFACE ${OpenMP_CXX_FLAGS})
         endif()
-
-        target_link_libraries(JIT INTERFACE Common ${CMAKE_DL_LIBS})
-        target_compile_definitions(JIT INTERFACE VEXCL_BACKEND_JIT)
-
-        message(STATUS "Found VexCL::JIT")
-
     endif()
+
+    target_link_libraries(JIT INTERFACE Common ${CMAKE_DL_LIBS})
+    target_compile_definitions(JIT INTERFACE VEXCL_BACKEND_JIT)
+
+    message(STATUS "Found VexCL::JIT")
+
 endif()
 
 function(vexcl_add_executables targetname)
@@ -174,22 +175,22 @@ function(vexcl_add_executables targetname)
 
     if(TARGET VexCL::OpenCL)
         add_executable(${targetname}_cl ${ARGN})
-        target_link_libraries(${targetname}_cl VexCL::OpenCL ${targetname})
+        target_link_libraries(${targetname}_cl PUBLIC VexCL::OpenCL ${targetname})
         set_target_properties(${targetname}_cl PROPERTIES CXX_EXTENSIONS OFF)
     endif()
     if(TARGET VexCL::Compute)
         add_executable(${targetname}_comp ${ARGN})
-        target_link_libraries(${targetname}_comp VexCL::Compute ${targetname})
+        target_link_libraries(${targetname}_comp PUBLIC VexCL::Compute ${targetname})
         set_target_properties(${targetname}_comp PROPERTIES CXX_EXTENSIONS OFF)
     endif()
     if(TARGET VexCL::CUDA)
         add_executable(${targetname}_cuda ${ARGN})
-        target_link_libraries(${targetname}_cuda VexCL::CUDA ${targetname})
+        target_link_libraries(${targetname}_cuda PUBLIC VexCL::CUDA ${targetname})
         set_target_properties(${targetname}_cuda PROPERTIES CXX_EXTENSIONS OFF)
     endif()
     if(TARGET VexCL::JIT)
         add_executable(${targetname}_jit ${ARGN})
-        target_link_libraries(${targetname}_jit VexCL::JIT ${targetname})
+        target_link_libraries(${targetname}_jit PUBLIC VexCL::JIT ${targetname})
         set_target_properties(${targetname}_jit PROPERTIES CXX_EXTENSIONS OFF)
     endif()
 endfunction()
@@ -229,8 +230,8 @@ if (VEXCL_MASTER_PROJECT)
     option(VEXCL_BUILD_TESTS    OFF)
     option(VEXCL_BUILD_EXAMPLES OFF)
 
-    set(VEXCL_BACKEND "OpenCL" CACHE STRING "Select VexCL backend (OpenCL/CUDA/Compute/JIT)")
-    set_property(CACHE VEXCL_BACKEND PROPERTY STRINGS "OpenCL" "CUDA" "Compute" "JIT")
+    set(VEXCL_BACKEND "OpenCL" CACHE STRING "Select VexCL backend (OpenCL/CUDA/Compute/JIT/All)")
+    set_property(CACHE VEXCL_BACKEND PROPERTY STRINGS "All" "OpenCL" "CUDA" "Compute" "JIT")
 
     if("${VEXCL_BACKEND}" STREQUAL "OpenCL")
         add_library(VexCL::Backend ALIAS OpenCL)

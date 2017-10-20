@@ -115,22 +115,22 @@ struct philox {
         static void define(backend::source_generator &src) {
             std::string M[2], W[2];
             if(std::is_same<T, cl_uint>::value) { // 32
-                W[0] = "0x9E3779B9";
+                W[0] = "(" + type_name<T>() + ")0x9E3779B9";
                 if(N == 2) {
-                    M[0] = "0xD256D193";
+                    M[0] = "(" + type_name<T>() + ")0xD256D193";
                 } else {
-                    W[1] = "0xBB67AE85";
-                    M[0] = "0xD2511F53";
-                    M[1] = "0xCD9E8D57";
+                    W[1] = "(" + type_name<T>() + ")0xBB67AE85";
+                    M[0] = "(" + type_name<T>() + ")0xD2511F53";
+                    M[1] = "(" + type_name<T>() + ")0xCD9E8D57";
                 }
             } else { // 64
-                W[0] = "0x9E3779B97F4A7C15"; // golden ratio
+                W[0] = "(" + type_name<T>() + ")0x9E3779B97F4A7C15"; // golden ratio
                 if(N == 2) {
-                    M[0] = "0xD2B74407B1CE6E93";
+                    M[0] = "(" + type_name<T>() + ")0xD2B74407B1CE6E93";
                 } else {
-                    W[1] = "0xBB67AE8584CAA73B"; // sqrt(3)-1
-                    M[0] = "0xD2E7470EE14C6C93";
-                    M[1] = "0xCA5A826395121157";
+                    W[1] = "(" + type_name<T>() + ")0xBB67AE8584CAA73B"; // sqrt(3)-1
+                    M[0] = "(" + type_name<T>() + ")0xD2E7470EE14C6C93";
+                    M[1] = "(" + type_name<T>() + ")0xCA5A826395121157";
                 }
             }
 

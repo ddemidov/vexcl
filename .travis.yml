@@ -28,6 +28,9 @@ matrix:
   - os: osx
     osx_image: xcode9.1
     env: VEXCL_BACKEND=Compute
+  - os: osx
+    osx_image: xcode9.1
+    env: VEXCL_BACKEND=JIT
   allow_failures:
   - os: osx
     env: VEXCL_BACKEND=Compute
@@ -53,7 +56,7 @@ cache:
 
 before_install:
     - if [ "$TRAVIS_OS_NAME" = "linux" ] ; then source .travis/install_amd_sdk.sh ; fi
-    - if  [ "$TRAVIS_OS_NAME" = "linux" ] ; then source .travis/install_boost.sh ; fi
+    - if [ "$TRAVIS_OS_NAME" = "linux" ] ; then source .travis/install_boost.sh ; fi
     - cmake --version
 
 script:
@@ -62,7 +65,8 @@ script:
     - make -j2
     - export CPATH=${CPATH}:${BOOST_ROOT}
     - if [ "$VEXCL_BACKEND" = "JIT" ] && [ "$CC" = "clang" ] ; then export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:$(dirname $(which clang++))/../lib ; fi
-    - ./examples/devlist && ctest --output-on-failure
+    - ./examples/devlist
+    - ctest --output-on-failure
 
 after_success:
     - lcov --directory tests --base-directory ../vexcl --capture --output-file coverage.info
