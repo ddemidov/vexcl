@@ -10,19 +10,30 @@ env:
 matrix:
   include:
   - compiler: gcc
-    env: VEXCL_BACKEND=All
+    env: VEXCL_BACKEND=OpenCL
+  - compiler: gcc
+    env: VEXCL_BACKEND=Compute
+  - compiler: gcc
+    env: VEXCL_BACKEND=JIT
   - compiler: clang
-    env: VEXCL_BACKEND=All
+    env: VEXCL_BACKEND=OpenCL
     addons:
+  - compiler: clang
+    env: VEXCL_BACKEND=Compute
+  - compiler: clang
+    env: VEXCL_BACKEND=JIT
   - os: osx
     osx_image: xcode9.1
     env: VEXCL_BACKEND=OpenCL
   - os: osx
     osx_image: xcode9.1
-    env: VEXCL_BACKEND=All
+    env: VEXCL_BACKEND=Compute
+  - os: osx
+    osx_image: xcode9.1
+    env: VEXCL_BACKEND=JIT
   allow_failures:
   - os: osx
-    env: VEXCL_BACKEND=All
+    env: VEXCL_BACKEND=Compute
 
 addons:
   apt:
@@ -46,7 +57,6 @@ cache:
 before_install:
     - if [ "$TRAVIS_OS_NAME" = "linux" ] ; then source .travis/install_amd_sdk.sh ; fi
     - if [ "$TRAVIS_OS_NAME" = "linux" ] ; then source .travis/install_boost.sh ; fi
-    - if [ "$TRAVIS_OS_NAME" = "linux" ] ; then cp ${AMDAPPSDKROOT}/include/CL/cl_platform.h CL/ ; fi
     - cmake --version
 
 script:
@@ -54,10 +64,8 @@ script:
     - cmake -DVEXCL_TEST_COVERAGE=ON -DVEXCL_BUILD_TESTS=ON -DVEXCL_BUILD_EXAMPLES=ON -DVEXCL_BACKEND=${VEXCL_BACKEND} ..
     - make -j2
     - export CPATH=${CPATH}:${BOOST_ROOT}
-    - if [ "$VEXCL_BACKEND" = "All" ] && [ "$CC" = "clang" ] ; then export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:$(dirname $(which clang++))/../lib ; fi
-    - if [ -e ./examples/devlist_cl   ] ; then ./examples/devlist_cl   ; fi
-    - if [ -e ./examples/devlist_comp ] ; then ./examples/devlist_comp ; fi
-    - if [ -e ./examples/devlist_jit  ] ; then ./examples/devlist_jit  ; fi
+    - if [ "$VEXCL_BACKEND" = "JIT" ] && [ "$CC" = "clang" ] ; then export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:$(dirname $(which clang++))/../lib ; fi
+    - ./examples/devlist
     - ctest --output-on-failure
 
 after_success:
