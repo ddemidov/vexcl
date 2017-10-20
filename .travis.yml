@@ -5,7 +5,6 @@ env:
     - OMP_NUM_THREADS=4
     - BOOST_BASENAME=boost_1_62_0
     - AMDAPPSDKROOT=${HOME}/AMDAPPSDK
-    - secure: "A5GuWMfy2tamED4Xq/h1hXSAX18qemLuhaX3mLD77VMv6Hx2ZPAPXXDuRwg+Htoqccz3DQ3ezA5tf/D2PXffbOvkQeXMKkOBqHLy4aReZm9L+UajPETrQVW2bWBAuVJXMJbJEqdOv+QAEXf82Eml25zGp2r7L0J+FO5nrPtSeqE="
 
 matrix:
   include:
@@ -40,13 +39,6 @@ addons:
     packages:
     - opencl-headers
     - lcov
-  coverity_scan:
-    project:
-      name: "ddemidov/vexcl"
-    notification_email: dennis.demidov@gmail.com
-    build_command_prepend: mkdir build-coverity && cd build-coverity && cmake -DCMAKE_BUILD_TYPE=Release ..
-    build_command: make
-    branch_pattern: coverity_scan
 
 cache:
     directories:
