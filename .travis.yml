@@ -45,8 +45,8 @@ cache:
 
 before_install:
     - if [ "$TRAVIS_OS_NAME" = "linux" ] ; then source .travis/install_amd_sdk.sh ; fi
-    - if  [ "$TRAVIS_OS_NAME" = "linux" ] ; then source .travis/install_boost.sh ; fi
-    - if [ "$VEXCL_BACKEND" = "JIT" ] || [ "$VEXCL_BACKEND" = "All" ] ; then cp ${AMDAPPSDKROOT}/include/CL/cl_platform.h CL/ ; fi
+    - if [ "$TRAVIS_OS_NAME" = "linux" ] ; then source .travis/install_boost.sh ; fi
+    - if [ "$TRAVIS_OS_NAME" = "linux" ] ; then cp ${AMDAPPSDKROOT}/include/CL/cl_platform.h CL/ ; fi
     - cmake --version
 
 script:
