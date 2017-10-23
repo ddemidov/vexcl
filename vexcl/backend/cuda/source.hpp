@@ -108,11 +108,11 @@ inline std::string standard_kernel_header(const command_queue &q) {
 class source_generator {
     private:
         unsigned           indent;
-        bool               first_prm, cpu;
+        bool               first_prm;
         std::ostringstream src;
 
     public:
-        source_generator() : indent(0), first_prm(true), cpu(false) { }
+        source_generator() : indent(0), first_prm(true) { }
 
         source_generator(const command_queue &queue, bool include_standard_header = true)
             : indent(0), first_prm(true)
