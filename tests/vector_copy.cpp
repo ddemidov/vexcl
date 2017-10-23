@@ -78,7 +78,7 @@ BOOST_AUTO_TEST_CASE(gather)
     vex::vector<double> X(ctx, x);
 
     std::vector<size_t> i(m);
-    std::generate(i.begin(), i.end(), [](){ return rand() % n; });
+    std::generate(i.begin(), i.end(), [n](){ return rand() % n; });
     std::sort(i.begin(), i.end());
     i.resize( std::unique(i.begin(), i.end()) - i.begin() );
 
