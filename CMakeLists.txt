@@ -11,7 +11,7 @@ if(CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
     set(VEXCL_MASTER_PROJECT ON)
 endif()
 
-set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 #----------------------------------------------------------------------------
 # Compile-time options
@@ -170,60 +170,8 @@ if (NOT "${Boost_VERSION}" STRLESS "106100")
 
 endif()
 
-function(vexcl_add_executables targetname)
-    add_library(${targetname} INTERFACE)
 
-    if(TARGET VexCL::OpenCL)
-        add_executable(${targetname}_cl ${ARGN})
-        target_link_libraries(${targetname}_cl PUBLIC VexCL::OpenCL ${targetname})
-        set_target_properties(${targetname}_cl PROPERTIES CXX_EXTENSIONS OFF)
-    endif()
-    if(TARGET VexCL::Compute)
-        add_executable(${targetname}_comp ${ARGN})
-        target_link_libraries(${targetname}_comp PUBLIC VexCL::Compute ${targetname})
-        set_target_properties(${targetname}_comp PROPERTIES CXX_EXTENSIONS OFF)
-    endif()
-    if(TARGET VexCL::CUDA)
-        add_executable(${targetname}_cuda ${ARGN})
-        target_link_libraries(${targetname}_cuda PUBLIC VexCL::CUDA ${targetname})
-        set_target_properties(${targetname}_cuda PROPERTIES CXX_EXTENSIONS OFF)
-    endif()
-    if(TARGET VexCL::JIT)
-        add_executable(${targetname}_jit ${ARGN})
-        target_link_libraries(${targetname}_jit PUBLIC VexCL::JIT ${targetname})
-        set_target_properties(${targetname}_jit PROPERTIES CXX_EXTENSIONS OFF)
-    endif()
-endfunction()
-
-function(vexcl_add_libraries targetname typeoflib)
-    add_library(${targetname} INTERFACE)
-    add_library(${targetname}::Common ALIAS ${targetname})
-
-    if(TARGET VexCL::OpenCL)
-        add_library(${targetname}_cl ${TYPEOFLIB} ${ARGN})
-        target_link_libraries(${targetname}_cl PUBLIC VexCL::OpenCL ${targetname})
-        set_target_properties(${targetname}_cl PROPERTIES CXX_EXTENSIONS OFF)
-        add_library(${targetname}::OpenCl ALIAS ${targetname}_cl)
-    endif()
-    if(TARGET VexCL::Compute)
-        add_library(${targetname}_comp ${TYPEOFLIB} ${ARGN})
-        target_link_libraries(${targetname}_comp PUBLIC VexCL::Compute ${targetname})
-        set_target_properties(${targetname}_comp PROPERTIES CXX_EXTENSIONS OFF)
-        add_library(${targetname}::Compute ALIAS ${targetname}_comp)
-    endif()
-    if(TARGET VexCL::CUDA)
-        add_library(${targetname}_cuda ${TYPEOFLIB} ${ARGN})
-        target_link_libraries(${targetname}_cuda PUBLIC VexCL::CUDA ${targetname})
-        set_target_properties(${targetname}_cuda PROPERTIES CXX_EXTENSIONS OFF)
-        add_library(${targetname}::CUDA ALIAS ${targetname}_cuda)
-    endif()
-    if(TARGET VexCL::JIT)
-        add_library(${targetname}_jit ${TYPEOFLIB} ${ARGN})
-        target_link_libraries(${targetname}_jit PUBLIC VexCL::JIT ${targetname})
-        set_target_properties(${targetname}_jit PROPERTIES CXX_EXTENSIONS OFF)
-        add_library(${targetname}::JIT ALIAS ${targetname}_jit)
-    endif()
-endfunction()
+include(VexCLTools)
 
 #----------------------------------------------------------------------------
 if (VEXCL_MASTER_PROJECT)
@@ -306,6 +254,12 @@ if (VEXCL_MASTER_PROJECT)
         COPYONLY
         )
 
+    configure_file(
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VexCLTools.cmake"
+        "${CMAKE_CURRENT_BINARY_DIR}/cmake/VexCLTools.cmake"
+        COPYONLY
+        )
+
     export(EXPORT VexCLTargets
         FILE "${CMAKE_CURRENT_BINARY_DIR}/cmake/VexCLTargets.cmake"
         NAMESPACE VexCL::
@@ -321,6 +275,11 @@ if (VEXCL_MASTER_PROJECT)
 
     install(
         FILES ${CMAKE_CURRENT_BINARY_DIR}/cmake/VexCLConfig.cmake
+        DESTINATION share/vexcl/cmake
+        )
+
+    install(
+        FILES ${CMAKE_CURRENT_BINARY_DIR}/cmake/VexCLTools.cmake
         DESTINATION share/vexcl/cmake
         )
 endif()

@@ -37,3 +37,5 @@ endif()
 if(TARGET VexCL::JIT)
     message(STATUS "Found VexCL::JIT")
 endif()
+
+include("${CMAKE_CURRENT_LIST_DIR}/VexCLTools.cmake")
