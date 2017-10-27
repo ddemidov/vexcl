@@ -232,7 +232,7 @@ class vector : public vector_terminal_expression {
             public:
                 // Reads the associated element of a vector.
                 operator T() const {
-                    T val;
+                    T val = T();
                     buf.read(queue, index, 1, &val, true);
                     return val;
                 }

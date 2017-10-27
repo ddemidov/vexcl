@@ -527,7 +527,7 @@ int reduce_by_key_sink(
     krn3(queue[0]);
 
     /***** resize okeys and ovals *****/
-    int out_elements;
+    int out_elements = 0;
     offset.read(queue[0], count - 1, 1, &out_elements, true);
     ++out_elements;
 
