@@ -38,7 +38,13 @@ THE SOFTWARE.
 #include <sstream>
 #include <iomanip>
 #include <cstdlib>
-#include <boost/uuid/sha1.hpp>
+
+#include <boost/version.hpp>
+#if BOOST_VERSION >= 106600
+#  include <boost/uuid/detail/sha1.hpp>
+#else
+#  include <boost/uuid/sha1.hpp>
+#endif
 #include <boost/optional.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/thread.hpp>
