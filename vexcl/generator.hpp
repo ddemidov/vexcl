@@ -166,8 +166,20 @@ struct symbolic_expr;
 struct symbolic_domain
     : boost::proto::domain< boost::proto::generator< symbolic_expr >, symbolic_grammar >
 {
-    template <typename T>
+    // Store everything by value inside expressions...
+    template <typename T, class Enable = void>
     struct as_child : proto_base_domain::as_expr<T> {};
+
+    // ... except for symbolic variables:
+    template <typename T>
+    struct as_child< T,
+        typename std::enable_if<
+            boost::proto::matches<
+                typename boost::proto::result_of::as_expr< T >::type,
+                boost::proto::terminal< variable >
+                >::value
+            >::type
+        > : proto_base_domain::as_child< T > {};
 };
 
 template <class Expr>
@@ -408,6 +420,15 @@ class symbolic
             }
         }
 
+        /// Copy constructor.
+        symbolic(const symbolic &expr)
+            : num(generator::var_id()), scope(LocalVar), constness(NonConst)
+        {
+            generator::get_recorder() << "\t\t" << type_name<T>() << " " << *this << " = ";
+            record(expr);
+            generator::get_recorder() << ";\n";
+        }
+
         /// Expression constructor. Results in a local variable declaration initialized by the expression.
         template <class Expr>
         symbolic(const Expr &expr)
@@ -492,7 +513,7 @@ class symbolic
         template <class Expr>
         static void record(const Expr &expr) {
             generator::detail::symbolic_context ctx;
-            boost::proto::eval(boost::proto::as_expr(expr), ctx);
+            boost::proto::eval(boost::proto::as_child(expr), ctx);
         }
 };
 
