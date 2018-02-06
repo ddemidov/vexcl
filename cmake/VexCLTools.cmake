@@ -1,5 +1,5 @@
 # Distributed under the MIT License.
-# Copyright (c) 2012-2017 Denis Demidov <dennis.demidov@gmail.com>
+# Copyright (c) 2012-2018 Denis Demidov <dennis.demidov@gmail.com>
 
 function(vexcl_add_executables targetname)
     add_library(${targetname} INTERFACE)
