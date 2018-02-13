@@ -37,6 +37,14 @@ THE SOFTWARE.
 #include <vexcl/backend/common.hpp>
 #include <vexcl/detail/backtrace.hpp>
 
+#ifndef VEXCL_NVCC_OPTIONS
+#  ifdef NDEBUG
+#    define VEXCL_NVCC_OPTIONS "-O3 -Xcompiler -std=c++03"
+#  else
+#    define VEXCL_NVCC_OPTIONS "-g -Xcompiler -std=c++03"
+#  endif
+#endif
+
 namespace vex {
 namespace backend {
 namespace cuda {
@@ -86,9 +94,8 @@ inline vex::backend::program build_sources(
         // Compile the source to ptx.
         std::ostringstream cmdline;
         cmdline
-            << "nvcc -ptx -O3"
-            << " -arch=sm_" << std::get<0>(cc) << std::get<1>(cc)
-            << " " << compile_options
+            << "nvcc -ptx -arch=sm_" << std::get<0>(cc) << std::get<1>(cc)
+            << " " << VEXCL_NVCC_OPTIONS << " " << compile_options
             << " -o " << ptxfile << " " << cufile;
         if (0 != system(cmdline.str().c_str()) ) {
 #ifndef VEXCL_SHOW_KERNELS
