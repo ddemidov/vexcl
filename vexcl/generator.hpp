@@ -191,6 +191,18 @@ struct symbolic_expr
     symbolic_expr(const Expr &expr = Expr()) : base_type(expr) {}
 };
 
+//---------------------------------------------------------------------------
+struct index_t
+    : public generator::symbolic_expr< boost::proto::terminal< generator::variable >::type >
+{};
+
+inline auto index()
+    -> boost::proto::result_of::as_expr<index_t, symbolic_domain>::type const
+{
+    return boost::proto::as_expr<symbolic_domain>(index_t());
+}
+
+//---------------------------------------------------------------------------
 namespace detail {
 
 struct symbolic_context {
@@ -373,6 +385,10 @@ struct symbolic_context {
         template <typename T>
         void operator()(const symbolic<T> &v, symbolic_context &) const {
             get_recorder() << v;
+        }
+
+        void operator()(const index_t&, symbolic_context&) const {
+            get_recorder() << "idx";
         }
     };
 };
