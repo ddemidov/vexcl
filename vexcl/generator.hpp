@@ -472,6 +472,9 @@ class symbolic
             if (scope == VectorParameter) {
                 s << "\t\t" << type_name<T>() << " " << *this
                     << " = p_" << *this << "[idx];\n";
+            } else if (scope == ScalarParameter) {
+                s << "\t\t" << type_name<T>() << " " << *this
+                    << " = p_" << *this << ";\n";
             }
 
             return s.str();
