@@ -230,11 +230,12 @@ BOOST_AUTO_TEST_CASE(element_index)
     sym_vector sym_x(sym_vector::VectorParameter);
 
     sym_x = vex::generator::index();
-    auto kernel = vex::generator::build_kernel(ctx, "index", body.str(), sym_x);
+    auto kernel = vex::generator::build_kernel(queue, "index", body.str(), sym_x);
 
-    vex::vector<int> x(ctx, n);
+    vex::vector<int> x(queue, n);
 
     kernel(x);
+    std::cout << x << std::endl;
 
     check_sample(x, [&](size_t idx, int i) { BOOST_CHECK_EQUAL(i, idx); });
 }
