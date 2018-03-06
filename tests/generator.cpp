@@ -235,7 +235,6 @@ BOOST_AUTO_TEST_CASE(element_index)
     vex::vector<int> x(queue, n);
 
     kernel(x);
-    std::cout << x << std::endl;
 
     check_sample(x, [&](size_t idx, int i) { BOOST_CHECK_EQUAL(i, idx); });
 }

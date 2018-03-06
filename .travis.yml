@@ -33,6 +33,8 @@ matrix:
   allow_failures:
   - os: osx
     env: VEXCL_BACKEND=Compute
+  - compiler: gcc
+    env: VEXCL_BACKEND=JIT
 
 addons:
   apt:
