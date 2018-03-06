@@ -230,7 +230,7 @@ BOOST_AUTO_TEST_CASE(element_index)
     sym_vector sym_x(sym_vector::VectorParameter);
 
     sym_x = vex::generator::index();
-    auto kernel = vex::generator::build_kernel(queue, "index", body.str(), sym_x);
+    auto kernel = vex::generator::build_kernel(queue, "element_index", body.str(), sym_x);
 
     vex::vector<int> x(queue, n);
 
