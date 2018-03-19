@@ -79,7 +79,7 @@ class svm_vector : public svm_vector_terminal_expression {
             return q;
         }
 
-        T* map(backend::map_flags) {
+        mapped_pointer map(backend::map_flags) {
             q.finish();
             return p;
         }
