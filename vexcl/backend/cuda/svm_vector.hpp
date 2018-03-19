@@ -52,6 +52,8 @@ static const map_flags MAP_WRITE = 2;
 template <typename T>
 class svm_vector : public svm_vector_terminal_expression {
     public:
+        typedef T* mapped_pointer;
+
         svm_vector(const backend::command_queue &q, size_t n) : n(n), q(q), p(NULL) {
             q.context().set_current();
 
