@@ -3,7 +3,7 @@ language: cpp
 env:
   global:
     - OMP_NUM_THREADS=4
-    - BOOST_BASENAME=boost_1_62_0
+    - BOOST_BASENAME=boost_1_66_0
     - AMDAPPSDKROOT=${HOME}/AMDAPPSDK
 
 matrix:
@@ -30,9 +30,6 @@ matrix:
   - os: osx
     osx_image: xcode9.1
     env: VEXCL_BACKEND=JIT
-  allow_failures:
-  - os: osx
-    env: VEXCL_BACKEND=Compute
 
 addons:
   apt:
@@ -48,7 +45,7 @@ cache:
 
 before_install:
     - if [ "$TRAVIS_OS_NAME" = "linux" ] ; then source .travis/install_amd_sdk.sh ; fi
-    - if [ "$TRAVIS_OS_NAME" = "linux" ] ; then source .travis/install_boost.sh ; fi
+    - source .travis/install_boost.sh 2>&1 > /dev/null
     - cmake --version
 
 script:
