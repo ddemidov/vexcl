@@ -193,4 +193,21 @@ BOOST_AUTO_TEST_CASE(some_devices_are_empty)
     BOOST_CHECK(x[0] == 0);
 }
 
+BOOST_AUTO_TEST_CASE(expression_properties)
+{
+    const size_t n = 16;
+    vex::vector<int> x(ctx, n);
+
+    std::vector<vex::backend::command_queue> q;
+    size_t s;
+
+    std::tie(q, s) = vex::expression_properties(2 * x);
+    BOOST_CHECK_EQUAL(q.size(), ctx.size());
+    BOOST_CHECK_EQUAL(s, n);
+
+    std::tie(q, s) = vex::expression_properties(std::make_tuple(2 * x, x - 1));
+    BOOST_CHECK_EQUAL(q.size(), ctx.size());
+    BOOST_CHECK_EQUAL(s, n);
+}
+
 BOOST_AUTO_TEST_SUITE_END()

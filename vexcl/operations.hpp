@@ -2281,8 +2281,44 @@ struct is_vector_expression
 /// Meta-filter for VexCL multivector expressions
 template <class T>
 struct is_multivector_expression
-    : std::is_same< typename boost::proto::domain_of<T>::type, multivector_domain >
+    : boost::mpl::or_<
+        boost::proto::matches<
+          typename boost::proto::result_of::as_expr<T>::type,
+          multivector_full_grammar
+          >,
+        is_tuple<T>
+        >
 {};
+
+/// Helper function for getting command queue and size info from a vector expression
+template <class Expr>
+typename std::enable_if<
+    !is_multivector_expression<Expr>::value,
+    std::tuple<
+        std::vector<backend::command_queue>,
+        size_t
+        >
+    >::type
+expression_properties(const Expr &expr) {
+    detail::get_expression_properties prop;
+    detail::extract_terminals()(boost::proto::as_child(expr), prop);
+    return std::make_tuple(prop.queue, prop.size);
+}
+
+/// Helper function for getting command queue and size info from a vector multiexpression
+template <class Expr>
+typename std::enable_if<
+    is_multivector_expression<Expr>::value,
+    std::tuple<
+        std::vector<backend::command_queue>,
+        size_t
+        >
+    >::type
+expression_properties(const Expr &expr) {
+    detail::get_expression_properties prop;
+    detail::extract_terminals()(detail::subexpression<0>::get(expr), prop);
+    return std::make_tuple(prop.queue, prop.size);
+}
 
 } // namespace vex;
 
