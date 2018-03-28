@@ -3,6 +3,7 @@
 
 #include <vexcl/sparse/ell.hpp>
 #include <vexcl/sparse/csr.hpp>
+#include <vexcl/sparse/tag_matrix.hpp>
 
 namespace vex {
 namespace sparse {
@@ -147,6 +148,13 @@ class matrix {
 };
 
 } // namespace sparse
+
+template <size_t Tag, typename Val, typename Col = int, typename Ptr>
+sparse::tagged_matrix<Tag, sparse::matrix<Val, Col, Ptr>>
+tag(const sparse::matrix<Val, Col, Ptr> &A) {
+    return sparse::tagged_matrix<Tag, sparse::matrix<Val, Col, Ptr>>(A);
+}
+
 } // namespace vex
 
 #endif

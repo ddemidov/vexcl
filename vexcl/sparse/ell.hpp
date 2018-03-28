@@ -54,6 +54,7 @@ THE SOFTWARE.
 #include <vexcl/vector_pointer.hpp>
 #include <vexcl/scan.hpp>
 #include <vexcl/sparse/spmv_ops.hpp>
+#include <vexcl/sparse/tag_matrix.hpp>
 
 namespace vex {
 namespace sparse {
@@ -508,6 +509,13 @@ class ell {
 };
 
 } // namespace sparse
+
+template <size_t Tag, typename Val, typename Col = int, typename Ptr>
+sparse::tagged_matrix<Tag, sparse::ell<Val, Col, Ptr>>
+tag(const sparse::ell<Val, Col, Ptr> &A) {
+    return sparse::tagged_matrix<Tag, sparse::ell<Val, Col, Ptr>>(A);
+}
+
 } // namespace vex
 
 #endif

@@ -40,6 +40,7 @@ THE SOFTWARE.
 #include <vexcl/operations.hpp>
 #include <vexcl/sparse/product.hpp>
 #include <vexcl/sparse/spmv_ops.hpp>
+#include <vexcl/sparse/tag_matrix.hpp>
 
 namespace vex {
 namespace sparse {
@@ -196,6 +197,13 @@ class csr {
 };
 
 } // namespace sparse
+
+template <size_t Tag, typename Val, typename Col = int, typename Ptr>
+sparse::tagged_matrix<Tag, sparse::csr<Val, Col, Ptr>>
+tag(const sparse::csr<Val, Col, Ptr> &A) {
+    return sparse::tagged_matrix<Tag, sparse::csr<Val, Col, Ptr>>(A);
+}
+
 } // namespace vex
 
 #endif

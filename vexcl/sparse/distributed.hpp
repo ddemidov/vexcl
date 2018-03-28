@@ -10,6 +10,7 @@
 #include <vexcl/operations.hpp>
 #include <vexcl/sparse/product.hpp>
 #include <vexcl/sparse/spmv_ops.hpp>
+#include <vexcl/sparse/tag_matrix.hpp>
 
 namespace vex {
 namespace sparse {
@@ -427,6 +428,13 @@ class distributed {
 };
 
 } // namespace sparse
+
+template <size_t Tag, typename Matrix, typename RHS>
+sparse::tagged_matrix<Tag, sparse::distributed<Matrix, RHS>>
+tag(const sparse::distributed<Matrix, RHS> &A) {
+    return sparse::tagged_matrix<Tag, sparse::distributed<Matrix, RHS>>(A);
+}
+
 } // namespace vex
 
 #endif
