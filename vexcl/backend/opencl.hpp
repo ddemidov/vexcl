@@ -36,7 +36,11 @@ THE SOFTWARE.
 #endif
 
 #include <vexcl/backend/opencl/defines.hpp>
-#include <CL/cl.hpp>
+#if defined(__APPLE__) || defined(__MACOSX)
+#include <OpenCL/cl.h>
+#else
+#include <CL/cl.h>
+#endif
 
 #include <vexcl/backend/opencl/error.hpp>
 #include <vexcl/backend/opencl/context.hpp>
