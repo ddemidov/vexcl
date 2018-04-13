@@ -22,6 +22,11 @@ option(VEXCL_SHOW_COPIES "Log vector copies to stdout for debugging purposes" OF
 set(VEXCL_CHECK_SIZES 0 CACHE STRING "Check that expressions have correct sizes")
 
 #----------------------------------------------------------------------------
+# Installation options
+#----------------------------------------------------------------------------
+option(VEXCL_INSTALL_CL_HPP "Install the OpenCL C++ header provided by VexCL" OFF)
+
+#----------------------------------------------------------------------------
 # Find Boost
 #----------------------------------------------------------------------------
 option(Boost_USE_STATIC_LIBS "Use static versions of Boost libraries" OFF)
@@ -233,7 +238,9 @@ if (VEXCL_MASTER_PROJECT)
     install(TARGETS Common EXPORT VexCLTargets)
 
     if (TARGET VexCL::OpenCL)
-        install(DIRECTORY CL DESTINATION include)
+        if(VEXCL_INSTALL_CL_HPP)
+            install(DIRECTORY CL DESTINATION include)
+        endif()
         install(TARGETS OpenCL EXPORT VexCLTargets)
     endif()
 
