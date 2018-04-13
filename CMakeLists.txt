@@ -233,6 +233,7 @@ if (VEXCL_MASTER_PROJECT)
     install(TARGETS Common EXPORT VexCLTargets)
 
     if (TARGET VexCL::OpenCL)
+        install(DIRECTORY CL DESTINATION include)
         install(TARGETS OpenCL EXPORT VexCLTargets)
     endif()
 
