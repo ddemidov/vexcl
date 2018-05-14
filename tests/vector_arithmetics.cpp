@@ -16,6 +16,20 @@
 #include <boost/math/constants/constants.hpp>
 #include "context_setup.hpp"
 
+BOOST_AUTO_TEST_CASE(access_element)
+{
+    vex::vector<double> x(ctx, 5);
+    x = 5;
+    x[2] = 2;
+    x.at(3) = 3;
+
+
+    BOOST_CHECK_EQUAL(x[1], 5.0);
+    BOOST_CHECK_EQUAL(x.at(2), 2.0);
+    BOOST_CHECK_EQUAL(x[3], 3.0);
+    BOOST_CHECK_THROW(x.at(5), std::out_of_range);
+}
+
 BOOST_AUTO_TEST_CASE(assign_expression)
 {
     const size_t N = 1024;
