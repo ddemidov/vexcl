@@ -36,6 +36,7 @@ THE SOFTWARE.
 #include <iostream>
 #include <iomanip>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <type_traits>
 #include <functional>
@@ -596,6 +597,20 @@ class vector : public vector_terminal_expression {
                 std::upper_bound(part.begin(), part.end(), index) - part.begin() - 1
                 );
             return element(queue[d], buf[d], index - part[d]);
+        }
+
+        /// at() style access is identical to operator[]
+        const element at(size_t index) const {
+            if(index >= size())
+                throw std::out_of_range("vexcl::vector");
+            return operator[](index);
+        }
+
+        /// at() style access is identical to operator[]
+        element at(size_t index) {
+            if(index >= size())
+                throw std::out_of_range("vexcl::vector");
+            return operator[](index);
         }
 
         /// Returns vector size.
