@@ -1178,16 +1178,16 @@ inline void compute_merge_range(backend::source_generator &src) {
 }
 
 //---------------------------------------------------------------------------
-template<int NT, int VT0, int VT1, typename T>
+template<int NT, int vex_VT0, int vex_VT1, typename T>
 std::string load2_to_regstr() {
     std::ostringstream s;
-    s << "load2_to_regstr_" << NT << "_" << VT0 << "_" << VT1 << "_" << type_name<T>();
+    s << "load2_to_regstr_" << NT << "_" << vex_VT0 << "_" << vex_VT1 << "_" << type_name<T>();
     return s.str();
 }
 
-template<int NT, int VT0, int VT1, typename T>
+template<int NT, int vex_VT0, int vex_VT1, typename T>
 void load2_to_regstr(backend::source_generator &src) {
-    src.begin_function<void>(load2_to_regstr<NT,VT0,VT1,T>());
+    src.begin_function<void>(load2_to_regstr<NT,vex_VT0,vex_VT1,T>());
     src.begin_function_parameters();
     src.template parameter< global_ptr<const T> >("a_global");
     src.template parameter< int                 >("a_count");
@@ -1200,10 +1200,10 @@ void load2_to_regstr(backend::source_generator &src) {
     src.new_line() << "b_global -= a_count;";
     src.new_line() << "int total = a_count + b_count;";
     src.new_line() << "int index;";
-    src.new_line() << "if (total >= " << NT * VT0 << ")";
+    src.new_line() << "if (total >= " << NT * vex_VT0 << ")";
     src.open("{");
 
-    for(int i = 0; i < VT0; ++i) {
+    for(int i = 0; i < vex_VT0; ++i) {
         src.new_line() << "index = " << NT * i << " + tid;";
         src.new_line() << "if (index < a_count) reg[" << i << "] = a_global[index];";
         src.new_line() << "else reg[" << i << "] = b_global[index];";
@@ -1213,7 +1213,7 @@ void load2_to_regstr(backend::source_generator &src) {
     src.new_line() << "else";
     src.open("{");
 
-    for(int i = 0; i < VT0; ++i) {
+    for(int i = 0; i < vex_VT0; ++i) {
         src.new_line() << "index = " << NT * i << " + tid;";
         src.new_line() << "if (index < a_count) reg[" << i << "] = a_global[index];";
         src.new_line() << "else if (index < total) reg[" << i << "] = b_global[index];";
@@ -1221,7 +1221,7 @@ void load2_to_regstr(backend::source_generator &src) {
 
     src.close("}");
 
-    for(int i = VT0; i < VT1; ++i) {
+    for(int i = vex_VT0; i < vex_VT1; ++i) {
         src.new_line() << "index = " << NT * i << " + tid;";
         src.new_line() << "if (index < a_count) reg[" << i << "] = a_global[index];";
         src.new_line() << "else if (index < total) reg[" << i << "] = b_global[index];";
@@ -1231,18 +1231,18 @@ void load2_to_regstr(backend::source_generator &src) {
 }
 
 //---------------------------------------------------------------------------
-template<int NT, int VT0, int VT1, typename T>
+template<int NT, int vex_VT0, int vex_VT1, typename T>
 std::string load2_to_shared() {
     std::ostringstream s;
-    s << "load2_to_shared_" << NT << "_" << VT0 << "_" << VT1 << "_" << type_name<T>();
+    s << "load2_to_shared_" << NT << "_" << vex_VT0 << "_" << vex_VT1 << "_" << type_name<T>();
     return s.str();
 }
 
-template<int NT, int VT0, int VT1, typename T>
+template<int NT, int vex_VT0, int vex_VT1, typename T>
 void load2_to_shared(backend::source_generator &src) {
-    load2_to_regstr<NT, VT0, VT1, T>(src);
+    load2_to_regstr<NT, vex_VT0, vex_VT1, T>(src);
 
-    src.begin_function<void>(load2_to_shared<NT,VT0,VT1,T>());
+    src.begin_function<void>(load2_to_shared<NT,vex_VT0,vex_VT1,T>());
     src.begin_function_parameters();
     src.template parameter< global_ptr<const T> >("a_global");
     src.template parameter< int                 >("a_count");
@@ -1252,10 +1252,10 @@ void load2_to_shared(backend::source_generator &src) {
     src.template parameter< shared_ptr<T>       >("shared");
     src.end_function_parameters();
 
-    src.new_line() << type_name<T>() << " reg[" << VT1 << "];";
-    src.new_line() << load2_to_regstr<NT, VT0, VT1, T>()
+    src.new_line() << type_name<T>() << " reg[" << vex_VT1 << "];";
+    src.new_line() << load2_to_regstr<NT, vex_VT0, vex_VT1, T>()
         << "(a_global, a_count, b_global, b_count, tid, reg);";
-    src.new_line() << regstr_to_shared<NT, VT1, T>()
+    src.new_line() << regstr_to_shared<NT, vex_VT1, T>()
         << "(reg, tid, shared);";
 
     src.end_function();
