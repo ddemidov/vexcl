@@ -22,6 +22,8 @@ add_vexcl_examples(devlist)
 add_vexcl_examples(fft_profile)
 add_vexcl_examples(benchmark)
 add_vexcl_examples(mba_benchmark)
+add_vexcl_examples(complex_simple)
+add_vexcl_examples(complex_spmv)
 
 
 if (VEXCL_BACKEND MATCHES "All")
