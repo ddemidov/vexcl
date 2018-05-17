@@ -3,5 +3,4 @@ project(hello)
 
 find_package(VexCL)
 
-add_executable(hello hello.cpp)
-target_link_libraries(hello VexCL::OpenCL)
+vexcl_add_executables(hello hello.cpp)
