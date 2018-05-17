@@ -1,6 +1,7 @@
+image:
+    - Visual Studio 2015
 environment:
-    BOOST_ROOT: C:\Libraries\boost_1_59_0
-    BOOST_LIBRARYDIR: C:\Libraries\boost_1_59_0\lib64-msvc-14.0
+    BOOST_ROOT: C:\Libraries\boost_1_67_0
     INTELOCLSDKROOT: C:\Program Files (x86)\Intel\OpenCL SDK\5.3
 clone_folder: C:\vexcl
 platform:
