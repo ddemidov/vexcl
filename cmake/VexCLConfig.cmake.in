@@ -29,7 +29,7 @@ if(NOT BOOST_ROOT)
     set(BOOST_ROOT @BOOST_ROOT@)
 endif()
 
-find_dependency(Boost REQUIRED COMPONENTS
+find_package(Boost REQUIRED COMPONENTS
     chrono
     date_time
     filesystem
