@@ -153,3 +153,18 @@ if (VEXCL_BACKEND MATCHES "CUDA" OR VEXCL_BACKEND MATCHES "All")
         target_link_libraries(cusparse_cuda PUBLIC ${CUDA_cusparse_LIBRARY})
     endif()
 endif()
+
+#----------------------------------------------------------------------------
+# Test cmake build
+#----------------------------------------------------------------------------
+add_test(
+    NAME simple_cmake_build
+    COMMAND "${CMAKE_CTEST_COMMAND}"
+            --build-and-test
+            "${VexCL_SOURCE_DIR}/examples/simple/"
+            "${CMAKE_CURRENT_BINARY_DIR}/simple/"
+            --build-generator "${CMAKE_GENERATOR}"
+            --build-options -DBOOST_ROOT="${BOOST_ROOT}"
+            --test-command "${CMAKE_CTEST_COMMAND}"
+    )
+
