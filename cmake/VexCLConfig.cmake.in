@@ -20,9 +20,7 @@
 #   VexCL::CUDA
 #   VexCL::JIT
 
-include(CMakeFindDependencyMacro)
-
-find_dependency(OpenMP)
+find_package(OpenMP)
 
 set(Boost_USE_STATIC_LIBS @Boost_USE_STATIC_LIBS@)
 if(NOT BOOST_ROOT)
