@@ -20,7 +20,26 @@
 #   VexCL::CUDA
 #   VexCL::JIT
 
-find_package(OpenMP)
+include(CMakeFindDependencyMacro)
+
+find_dependency(OpenMP)
+
+set(Boost_USE_STATIC_LIBS @Boost_USE_STATIC_LIBS@)
+if(NOT BOOST_ROOT)
+    set(BOOST_ROOT @BOOST_ROOT@)
+endif()
+
+find_dependency(Boost REQUIRED COMPONENTS
+    chrono
+    date_time
+    filesystem
+    program_options
+    system
+    thread
+    unit_test_framework
+    )
+
+include("${CMAKE_CURRENT_LIST_DIR}/VexCLBoostTargets.cmake")
 
 include("${CMAKE_CURRENT_LIST_DIR}/VexCLTargets.cmake")
 

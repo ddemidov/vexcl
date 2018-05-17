@@ -50,6 +50,9 @@ find_package(Boost REQUIRED COMPONENTS
     unit_test_framework
     )
 
+# Ensure all targets are available
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/VexCLBoostTargets.cmake")
+
 #----------------------------------------------------------------------------
 # Generic target
 #----------------------------------------------------------------------------
@@ -67,22 +70,21 @@ target_compile_features(Common INTERFACE
 )
 
 target_include_directories(Common INTERFACE
-    ${Boost_INCLUDE_DIRS}
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
     $<INSTALL_INTERFACE:include>
     )
 
 
 target_link_libraries(Common INTERFACE
-    ${Boost_FILESYSTEM_LIBRARY}
-    ${Boost_SYSTEM_LIBRARY}
-    ${Boost_THREAD_LIBRARY}
+    Boost::filesystem
+    Boost::system
+    Boost::thread
     )
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
     target_link_libraries(Common INTERFACE
-        ${Boost_CHRONO_LIBRARY}
-        ${Boost_DATE_TIME_LIBRARY}
+        Boost::chrono
+        Boost::date_time
         )
 endif()
 
@@ -265,12 +267,18 @@ if (VEXCL_MASTER_PROJECT)
     configure_file(
         "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VexCLConfig.cmake.in"
         "${CMAKE_CURRENT_BINARY_DIR}/cmake/VexCLConfig.cmake"
-        COPYONLY
+        @ONLY
         )
 
     configure_file(
         "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VexCLTools.cmake"
         "${CMAKE_CURRENT_BINARY_DIR}/cmake/VexCLTools.cmake"
+        COPYONLY
+        )
+
+    configure_file(
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VexCLBoostTargets.cmake"
+        "${CMAKE_CURRENT_BINARY_DIR}/cmake/VexCLBoostTargets.cmake"
         COPYONLY
         )
 
@@ -293,7 +301,10 @@ if (VEXCL_MASTER_PROJECT)
         )
 
     install(
-        FILES ${CMAKE_CURRENT_BINARY_DIR}/cmake/VexCLTools.cmake
-        DESTINATION share/vexcl/cmake
+        FILES
+          ${CMAKE_CURRENT_BINARY_DIR}/cmake/VexCLTools.cmake
+          ${CMAKE_CURRENT_BINARY_DIR}/cmake/VexCLBoostTargets.cmake
+        DESTINATION
+          share/vexcl/cmake
         )
 endif()
