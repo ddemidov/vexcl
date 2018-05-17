@@ -184,7 +184,7 @@ if (NOT "${Boost_VERSION}" STRLESS "106100")
 endif()
 
 
-include(VexCLTools)
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/VexCLTools.cmake")
 
 #----------------------------------------------------------------------------
 if (VEXCL_MASTER_PROJECT)
@@ -270,6 +270,7 @@ if (VEXCL_MASTER_PROJECT)
         @ONLY
         )
 
+    # Copies needed so that VexCLConfig can find these files
     configure_file(
         "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VexCLTools.cmake"
         "${CMAKE_CURRENT_BINARY_DIR}/cmake/VexCLTools.cmake"
@@ -296,15 +297,11 @@ if (VEXCL_MASTER_PROJECT)
         )
 
     install(
-        FILES ${CMAKE_CURRENT_BINARY_DIR}/cmake/VexCLConfig.cmake
-        DESTINATION share/vexcl/cmake
-        )
-
-    install(
-        FILES
-          ${CMAKE_CURRENT_BINARY_DIR}/cmake/VexCLTools.cmake
-          ${CMAKE_CURRENT_BINARY_DIR}/cmake/VexCLBoostTargets.cmake
-        DESTINATION
-          share/vexcl/cmake
+      FILES
+        ${CMAKE_CURRENT_BINARY_DIR}/cmake/VexCLConfig.cmake
+        ${CMAKE_CURRENT_SOURCE_DIR}/cmake/VexCLTools.cmake
+        ${CMAKE_CURRENT_SOURCE_DIR}/cmake/VexCLBoostTargets.cmake
+      DESTINATION
+        share/vexcl/cmake
         )
 endif()
