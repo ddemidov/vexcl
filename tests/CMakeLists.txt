@@ -164,7 +164,6 @@ add_test(
             "${VexCL_SOURCE_DIR}/examples/simple/"
             "${CMAKE_CURRENT_BINARY_DIR}/simple/"
             --build-generator "${CMAKE_GENERATOR}"
-            --build-options -DBOOST_ROOT="${BOOST_ROOT}"
             --test-command "${CMAKE_CTEST_COMMAND}"
     )
 

@@ -4,7 +4,6 @@ if(${CMAKE_VERSION} VERSION_LESS 3.12)
     cmake_policy(VERSION ${CMAKE_VERSION})
 endif()
 
-
 if (NOT CMAKE_BUILD_TYPE)
     message(STATUS "No build type selected, default to RelWithDebInfo")
     set(CMAKE_BUILD_TYPE "RelWithDebInfo" CACHE STRING "Build type")
@@ -116,12 +115,15 @@ target_compile_definitions(Common INTERFACE
 # Find VexCL backends
 #----------------------------------------------------------------------------
 find_package(OpenCL)
+
+# Ensure all targets are available
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/VexCLOpenCLTarget.cmake")
+
 if(OpenCL_FOUND)
     add_library(OpenCL INTERFACE)
     add_library(VexCL::OpenCL ALIAS OpenCL)
 
-    target_include_directories(OpenCL INTERFACE ${OpenCL_INCLUDE_DIRS})
-    target_link_libraries(OpenCL INTERFACE Common ${OpenCL_LIBRARIES})
+    target_link_libraries(OpenCL INTERFACE Common OpenCL::OpenCL)
     target_compile_definitions(OpenCL INTERFACE VEXCL_BACKEND_OPENCL)
 
     message(STATUS "Found VexCL::OpenCL")
@@ -130,8 +132,7 @@ if(OpenCL_FOUND)
         add_library(Compute INTERFACE)
         add_library(VexCL::Compute ALIAS Compute)
 
-        target_include_directories(Compute INTERFACE ${OpenCL_INCLUDE_DIRS})
-        target_link_libraries(Compute INTERFACE Common ${OpenCL_LIBRARIES})
+        target_link_libraries(Compute INTERFACE Common OpenCL::OpenCL)
         target_compile_definitions(Compute INTERFACE VEXCL_BACKEND_COMPUTE)
 
         message(STATUS "Found VexCL::Compute")
@@ -143,8 +144,8 @@ if(CUDA_FOUND)
     add_library(CUDA INTERFACE)
     add_library(VexCL::CUDA ALIAS CUDA)
 
-    target_include_directories(CUDA INTERFACE ${CUDA_INCLUDE_DIRS})
-    target_link_libraries(CUDA INTERFACE Common ${CUDA_CUDA_LIBRARY})
+    target_include_directories(CUDA INTERFACE "${CUDA_INCLUDE_DIRS}")
+    target_link_libraries(CUDA INTERFACE Common "${CUDA_CUDA_LIBRARY}")
     target_compile_definitions(CUDA INTERFACE VEXCL_BACKEND_CUDA)
 
     message(STATUS "Found VexCL::CUDA")
@@ -278,6 +279,12 @@ if (VEXCL_MASTER_PROJECT)
         )
 
     configure_file(
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VexCLOpenCLTarget.cmake"
+        "${CMAKE_CURRENT_BINARY_DIR}/cmake/VexCLOpenCLTarget.cmake"
+        COPYONLY
+        )
+
+    configure_file(
         "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VexCLBoostTargets.cmake"
         "${CMAKE_CURRENT_BINARY_DIR}/cmake/VexCLBoostTargets.cmake"
         COPYONLY
@@ -300,6 +307,7 @@ if (VEXCL_MASTER_PROJECT)
       FILES
         ${CMAKE_CURRENT_BINARY_DIR}/cmake/VexCLConfig.cmake
         ${CMAKE_CURRENT_SOURCE_DIR}/cmake/VexCLTools.cmake
+        ${CMAKE_CURRENT_SOURCE_DIR}/cmake/VexCLOpenCLTarget.cmake
         ${CMAKE_CURRENT_SOURCE_DIR}/cmake/VexCLBoostTargets.cmake
       DESTINATION
         share/vexcl/cmake
