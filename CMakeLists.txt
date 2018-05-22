@@ -153,7 +153,27 @@ endif()
 
 if (NOT "${Boost_VERSION}" STRLESS "106100")
 
-    add_library(JIT INTERFACE)
+    if(OpenCL_INCLUDE_DIR)
+        add_library(JIT INTERFACE)
+        target_include_directories(JIT INTERFACE "${OpenCL_INCLUDE_DIR}")
+    else()
+        include(CheckIncludeFile)
+        check_include_file("CL/cl_platform.h" HAVE_OpenCL_PLATFORM_H)
+        if(HAVE_OpenCL_PLATFORM_H)
+            add_library(JIT INTERFACE)
+        endif()
+    endif()
+
+    if(NOT TARGET JIT)
+        message(WARNING "The JIT interface requires OpenCL headers to be available."
+                        "You can download them from https://github.com/KhronosGroup/OpenCL-Headers"
+                        "Set OpenCL_INCLUDE_DIR to the location of the headers."
+                        "For now, disabling the JIT target.")
+    endif()
+endif()
+
+
+if(TARGET JIT)
     add_library(VexCL::JIT ALIAS JIT)
 
     find_package(OpenMP)
@@ -181,9 +201,7 @@ if (NOT "${Boost_VERSION}" STRLESS "106100")
     target_compile_definitions(JIT INTERFACE VEXCL_BACKEND_JIT)
 
     message(STATUS "Found VexCL::JIT")
-
 endif()
-
 
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/VexCLTools.cmake")
 
