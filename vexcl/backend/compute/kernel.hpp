@@ -102,8 +102,16 @@ class kernel {
 
         /// Adds an argument to the kernel.
         template <class Arg>
-        void push_arg(Arg &&arg) {
+        typename boost::enable_if<boost::compute::is_fundamental<Arg>, void>::type
+        push_arg(Arg &&arg) {
             K.set_arg(argpos++, arg);
+        }
+
+        /// Adds an argument to the kernel.
+        template <class Arg>
+        typename boost::disable_if<boost::compute::is_fundamental<Arg>, void>::type
+        push_arg(Arg &&arg) {
+            K.set_arg(argpos++, sizeof(arg), &arg);
         }
 
         /// Adds local memory to the kernel.
