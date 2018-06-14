@@ -126,6 +126,10 @@ if(OpenCL_FOUND)
     target_link_libraries(OpenCL INTERFACE Common OpenCL::OpenCL)
     target_compile_definitions(OpenCL INTERFACE VEXCL_BACKEND_OPENCL)
 
+    target_compile_options(Common INTERFACE
+        $<$<CXX_COMPILER_ID:GNU>:-Wno-catch-value>
+        )
+
     message(STATUS "Found VexCL::OpenCL")
 
     if (NOT "${Boost_VERSION}" STRLESS "106100")
