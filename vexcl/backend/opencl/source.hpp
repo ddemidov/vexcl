@@ -139,7 +139,12 @@ inline std::string standard_kernel_header(const command_queue &q) {
         "#elif defined(cl_amd_fp64)\n"
         "#  pragma OPENCL EXTENSION cl_amd_fp64: enable\n"
         "#endif\n"
-        ) + get_program_header(q);
+        )
+        + get_program_header(q)
+#ifdef VEXCL_AMD_SI_WORKAROUND
+        + "kernel void __null_kernel() {}\n"
+#endif
+        ;
 }
 
 /// Helper class for OpenCL source code generation.

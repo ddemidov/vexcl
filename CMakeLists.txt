@@ -24,6 +24,7 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 option(VEXCL_SHOW_KERNELS "Show generated kernels in tests and examples" OFF)
 option(VEXCL_CACHE_KERNELS "Cache compiled kernels offline" ON)
 option(VEXCL_SHOW_COPIES "Log vector copies to stdout for debugging purposes" OFF)
+option(VEXCL_AMD_SI_WORKAROUND "Implement workaround for AMD SI GPUs" OFF)
 set(VEXCL_CHECK_SIZES 0 CACHE STRING "Check that expressions have correct sizes")
 
 #----------------------------------------------------------------------------
@@ -67,6 +68,10 @@ target_compile_features(Common INTERFACE
     cxx_variadic_templates
     cxx_decltype
 )
+
+if (VEXCL_AMD_SI_WORKAROUND)
+    target_compile_definitions(Common INTERFACE VEXCL_AMD_SI_WORKAROUND)
+endif()
 
 target_include_directories(Common INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>

@@ -60,9 +60,15 @@ class kernel {
                const std::string &name,
                size_t smem_per_thread = 0,
                const std::string &options = ""
-               )
-            : argpos(0), K(build_sources(queue, src, options), name.c_str())
+               ) : argpos(0)
         {
+            auto P = build_sources(queue, src, options);
+
+            K = cl::Kernel(P, name.c_str());
+#ifdef VEXCL_AMD_SI_WORKAROUND
+            N = cl::Kernel(P, "__null_kernel");
+#endif
+
             config(queue,
                     [smem_per_thread](size_t wgs){ return wgs * smem_per_thread; });
         }
@@ -128,6 +134,9 @@ class kernel {
         /// Enqueue the kernel to the specified command queue.
         void operator()(const cl::CommandQueue &q) {
             q.enqueueNDRangeKernel(K, cl::NullRange, g_size, w_size);
+#ifdef VEXCL_AMD_SI_WORKAROUND
+            q.enqueueNDRangeKernel(N, cl::NullRange, 1, cl::NullRange);
+#endif
             argpos = 0;
         }
 
@@ -242,6 +251,9 @@ class kernel {
         unsigned argpos;
 
         cl::Kernel K;
+#ifdef VEXCL_AMD_SI_WORKAROUND
+        cl::Kernel N;
+#endif
 
         backend::ndrange w_size;
         backend::ndrange g_size;
