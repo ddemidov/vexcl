@@ -1,5 +1,6 @@
 # VexCL
 
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/0514f59fd4854077a91c95658e695b1b)](https://app.codacy.com/app/ddemidov/vexcl?utm_source=github.com&utm_medium=referral&utm_content=ddemidov/vexcl&utm_campaign=badger)
 [![Documentation Status](https://readthedocs.org/projects/vexcl/badge/?version=latest)](http://vexcl.readthedocs.io/en/latest/?badge=latest)
 [![DOI](https://zenodo.org/badge/4479068.svg)](https://zenodo.org/badge/latestdoi/4479068)
 [![Build Status](https://travis-ci.org/ddemidov/vexcl.svg?branch=master)](https://travis-ci.org/ddemidov/vexcl)
