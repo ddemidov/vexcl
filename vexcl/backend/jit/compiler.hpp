@@ -118,6 +118,7 @@ inline vex::backend::program build_sources(const command_queue &q,
                 << cxxflags << " " << compile_options;
 
         if (0 != system(cmdline.str().c_str()) ) {
+            std::cerr << "Command line: " << cmdline.str() << std::endl;
 #ifndef VEXCL_SHOW_KERNELS
             std::cerr << source << std::endl;
 #endif
