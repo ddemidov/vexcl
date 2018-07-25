@@ -200,12 +200,11 @@ if(TARGET JIT)
 
         set(VEXCL_OMP_FLAGS "${OpenMP_CXX_FLAGS}")
         foreach(item ${OpenMP_CXX_LIBRARIES})
-            set(VEXCL_OMP_FLAGS "${VEXCL_OMP_FLAGS} -l${item}")
+            set(VEXCL_OMP_FLAGS "${VEXCL_OMP_FLAGS} ${item}")
         endforeach()
-	message(STATUS "VEXCL_OMP_FLAGS=${VEXCL_OMP_FLAGS}")
 
         # Pass the required flags to code
-        target_compile_definitions(JIT INTERFACE VEXCL_OMP_FLAGS="${VEXCL_OMP_FLAGS}")
+        target_compile_definitions(JIT INTERFACE VEXCL_OMP_FLAGS=${VEXCL_OMP_FLAGS})
     endif()
 
     target_link_libraries(JIT INTERFACE Common ${CMAKE_DL_LIBS})
