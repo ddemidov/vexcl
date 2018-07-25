@@ -39,9 +39,9 @@ THE SOFTWARE.
 
 #ifndef VEXCL_NVCC_OPTIONS
 #  ifdef NDEBUG
-#    define VEXCL_NVCC_OPTIONS "-O3 -Xcompiler -std=c++03"
+#    define VEXCL_NVCC_OPTIONS "-O3"
 #  else
-#    define VEXCL_NVCC_OPTIONS "-g -Xcompiler -std=c++03"
+#    define VEXCL_NVCC_OPTIONS "-g"
 #  endif
 #endif
 
