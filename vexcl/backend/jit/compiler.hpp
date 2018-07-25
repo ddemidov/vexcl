@@ -35,6 +35,7 @@ THE SOFTWARE.
 #include <sstream>
 #include <fstream>
 #include <boost/dll/shared_library.hpp>
+#include <boost/preprocessor/stringize.hpp>
 
 #include <vexcl/backend/common.hpp>
 #include <vexcl/detail/backtrace.hpp>
@@ -47,12 +48,13 @@ THE SOFTWARE.
 #  endif
 #endif
 
+
 #ifndef VEXCL_JIT_COMPILER_OPTIONS
 #  ifdef _OPENMP
 #    ifdef NDEBUG
-#      define VEXCL_JIT_COMPILER_OPTIONS "-O3 -fPIC -shared -fopenmp"
+#      define VEXCL_JIT_COMPILER_OPTIONS "-O3 -fPIC -shared " BOOST_PP_STRINGIZE(VEXCL_OMP_FLAGS)
 #    else
-#      define VEXCL_JIT_COMPILER_OPTIONS "-g -fPIC -shared -fopenmp"
+#      define VEXCL_JIT_COMPILER_OPTIONS "-g -fPIC -shared " BOOST_PP_STRINGIZE(VEXCL_OMP_FLAGS)
 #    endif
 #  else
 #    ifdef NDEBUG
@@ -116,6 +118,7 @@ inline vex::backend::program build_sources(const command_queue &q,
                 << cxxflags << " " << compile_options;
 
         if (0 != system(cmdline.str().c_str()) ) {
+            std::cerr << "Command line: " << cmdline.str() << std::endl;
 #ifndef VEXCL_SHOW_KERNELS
             std::cerr << source << std::endl;
 #endif

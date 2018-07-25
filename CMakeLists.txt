@@ -1,7 +1,9 @@
-cmake_minimum_required(VERSION 3.1...3.11)
+cmake_minimum_required(VERSION 3.1)
 
 if(${CMAKE_VERSION} VERSION_LESS 3.12)
-    cmake_policy(VERSION ${CMAKE_VERSION})
+    cmake_policy(VERSION ${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION})
+else()
+    cmake_policy(VERSION 3.12)
 endif()
 
 if (NOT CMAKE_BUILD_TYPE)
@@ -204,6 +206,18 @@ if(TARGET JIT)
                 )
             target_compile_options(JIT INTERFACE ${OpenMP_CXX_FLAGS})
         endif()
+
+        set(VEXCL_OMP_FLAGS "${OpenMP_CXX_FLAGS}")
+
+        # We only need to add libraries to link to if this is using a preprocessor only OpenMP flag
+        if("${OpenMP_CXX_FLAGS}" MATCHES ".*X(clang|preprocessor).*")
+            foreach(item ${OpenMP_CXX_LIBRARIES})
+                set(VEXCL_OMP_FLAGS "${VEXCL_OMP_FLAGS} ${item}")
+            endforeach()
+        endif()
+
+        # Pass the required flags to code
+        target_compile_definitions(JIT INTERFACE VEXCL_OMP_FLAGS=${VEXCL_OMP_FLAGS})
     endif()
 
     target_link_libraries(JIT INTERFACE Common ${CMAKE_DL_LIBS})
