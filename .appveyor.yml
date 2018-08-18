@@ -16,6 +16,7 @@ before_build:
   - start /wait msiexec /i opencl_runtime_16.1.2_x64_setup.msi /qn  /l*v msiexec2.log
   - git clone --depth 1 https://github.com/KhronosGroup/OpenCL-Headers.git %OPENCL_INCLUDE_DIR%
 build_script:
+    - dir C:\Intel\OpenCL\sdk\
     - mkdir build && cd build
     - cmake .. -G"Visual Studio 14 Win64" -DVEXCL_BUILD_EXAMPLES=ON -DVEXCL_BUILD_TESTS=ON -DOpenCL_INCLUDE_DIR="%OPENCL_INCLUDE_DIR%"
     - cmake --build . --config Release
