@@ -2,6 +2,7 @@ image:
     - Visual Studio 2017
 environment:
     BOOST_ROOT: C:\Libraries\boost_1_67_0
+    BOOST_LIBRARYDIR: C:\Libraries\boost_1_67_0\lib64-msvc-19.0
     INTELOCLSDKROOT: C:\Intel\OpenCL\sdk\
     OPENCL_INCLUDE_DIR: C:\opencl\include
     OPENCL_HEADERS_VER: 21
@@ -16,6 +17,7 @@ before_build:
   - git clone --depth 1 https://github.com/KhronosGroup/OpenCL-Headers.git %OPENCL_INCLUDE_DIR%
 build_script:
     - dir C:\Libraries
+    - dir C:\Libraries\boost_1_67_0
     - mkdir build && cd build
     - cmake .. -G"Visual Studio 14 Win64" -DVEXCL_BUILD_EXAMPLES=ON -DVEXCL_BUILD_TESTS=ON -DOpenCL_INCLUDE_DIR="%OPENCL_INCLUDE_DIR%"
     - cmake --build . --config Release
