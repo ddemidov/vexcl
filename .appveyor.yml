@@ -1,24 +1,32 @@
-image:
-    - Visual Studio 2017
 environment:
-    BOOST_ROOT: C:\Libraries\boost_1_67_0
-    BOOST_LIBRARYDIR: C:\Libraries\boost_1_67_0\lib64-msvc-14.1
-    INTELOCLSDKROOT: C:\Intel\OpenCL\sdk\
-    OPENCL_INCLUDE_DIR: C:\opencl\include
-    OPENCL_HEADERS_VER: 21
+  INTELOCLSDKROOT: C:\Intel\OpenCL\sdk
+  OPENCL_INCLUDE_DIR: C:\opencl\include
+  OPENCL_HEADERS_VER: 21
+  matrix:
+  - BOOST_ROOT: C:\Libraries\boost_1_58_0
+    GENERATOR: Visual Studio 12 2013 Win64
+    APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2013
+  - BOOST_ROOT: C:\Libraries\boost_1_67_0
+    GENERATOR: Visual Studio 14 2015 Win64
+    APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+  - BOOST_ROOT: C:\Libraries\boost_1_67_0
+    GENERATOR: Visual Studio 15 2017 Win64
+    APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
+
+
 clone_folder: C:\vexcl
-platform:
-    - x64
+
 before_build:
   - appveyor DownloadFile "http://registrationcenter-download.intel.com/akdlm/irc_nas/vcp/12527/intel_sdk_for_opencl_2017_7.0.0.2567.exe"
   - start /wait .\intel_sdk_for_opencl_2017_7.0.0.2567.exe install --output=output.log --eula=accept
   - type output.log
   - appveyor DownloadFile "http://registrationcenter-download.intel.com/akdlm/irc_nas/12512/opencl_runtime_16.1.2_x64_setup.msi"
   - start /wait msiexec /i opencl_runtime_16.1.2_x64_setup.msi /qn  /l*v msiexec2.log
+  - type msiexec2.log
   - git clone --depth 1 https://github.com/KhronosGroup/OpenCL-Headers.git %OPENCL_INCLUDE_DIR%
 build_script:
     - mkdir build && cd build
-    - cmake .. -G"Visual Studio 15 Win64" -DVEXCL_BUILD_EXAMPLES=ON -DVEXCL_BUILD_TESTS=ON -DOpenCL_INCLUDE_DIR="%OPENCL_INCLUDE_DIR%"
+    - cmake .. -G"%GENERATOR%" -DVEXCL_BUILD_EXAMPLES=ON -DVEXCL_BUILD_TESTS=ON -DOpenCL_INCLUDE_DIR="%OPENCL_INCLUDE_DIR%"
     - cmake --build . --config Release
 test_script:
     - ctest -C Release --output-on-failure
