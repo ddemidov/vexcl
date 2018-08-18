@@ -1,5 +1,5 @@
 image:
-    - Visual Studio 2017
+    - Visual Studio 2015
 environment:
     BOOST_ROOT: C:\Libraries\boost_1_67_0
     BOOST_LIBRARYDIR: C:\Libraries\boost_1_67_0\lib64-msvc-14.1
