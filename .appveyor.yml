@@ -2,12 +2,11 @@ environment:
   INTELOCLSDKROOT: C:\Intel\OpenCL\sdk
   matrix:
   - BOOST_ROOT: C:\Libraries\boost_1_58_0
+    BOOST_LIBRARYDIR: C:\Libraries\boost_1_67_0\lib64-msvc-12.0
     GENERATOR: Visual Studio 12 2013 Win64
     APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2013
   - BOOST_ROOT: C:\Libraries\boost_1_67_0
-    GENERATOR: Visual Studio 14 2015 Win64
-    APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
-  - BOOST_ROOT: C:\Libraries\boost_1_67_0
+    BOOST_LIBRARYDIR: C:\Libraries\boost_1_67_0\lib64-msvc-14.1
     GENERATOR: Visual Studio 15 2017 Win64
     APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
 
@@ -20,6 +19,7 @@ before_build:
   - start /wait .\intel_sdk_for_opencl_2017_7.0.0.2567.exe install --output=output.log --eula=accept
   - type output.log
 build_script:
+  - dir %BOOST_ROOT%
   - mkdir build && cd build
   - cmake .. -G"%GENERATOR%" -DVEXCL_BUILD_EXAMPLES=ON -DVEXCL_BUILD_TESTS=ON -DOpenCL_INCLUDE_DIR="%OPENCL_INCLUDE_DIR%"
   - cmake --build . --config Release
