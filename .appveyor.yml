@@ -1,16 +1,13 @@
+image:
+    - Visual Studio 2017
+
 environment:
   INTELOCLSDKROOT: C:\Intel\OpenCL\sdk
   OPENCL_INCLUDE_DIR: C:\opencl\include
   OPENCL_HEADERS_VER: 21
-  matrix:
-  - BOOST_ROOT: C:\Libraries\boost_1_58_0
-    BOOST_LIBRARYDIR: C:\Libraries\boost_1_67_0\lib64-msvc-12.0
-    GENERATOR: Visual Studio 12 2013 Win64
-    APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2013
-  - BOOST_ROOT: C:\Libraries\boost_1_67_0
-    BOOST_LIBRARYDIR: C:\Libraries\boost_1_67_0\lib64-msvc-14.1
-    GENERATOR: Visual Studio 15 2017 Win64
-    APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
+  BOOST_ROOT: C:\Libraries\boost_1_67_0
+  BOOST_LIBRARYDIR: C:\Libraries\boost_1_67_0\lib64-msvc-14.1
+  GENERATOR: Visual Studio 15 2017 Win64
 
 clone_folder: C:\vexcl
 
