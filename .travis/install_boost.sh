@@ -8,7 +8,6 @@ if [ ! -e ${BOOST_ROOT}/boost/config.hpp ]; then
     wget https://dl.bintray.com/boostorg/release/$BOOST_VERSION/source/$BOOST_BASENAME.tar.bz2
     rm -rf $BOOST_BASENAME
     tar xf ${BOOST_BASENAME}.tar.bz2
-    (cd ${BOOST_BASENAME} && ./bootstrap.sh --with-libraries=chrono,date_time,filesystem,program_options,system,thread,test && ./b2)
+    (cd ${BOOST_BASENAME} && ./bootstrap.sh && ./b2)
     popd
 fi
-
