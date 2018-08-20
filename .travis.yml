@@ -1,17 +1,21 @@
 language: cpp
+dist: xenial
+sudo: required
 
 env:
   global:
     - OMP_NUM_THREADS=4
     - BOOST_BASENAME=boost_1_67_0
-    - AMDAPPSDKROOT=${HOME}/AMDAPPSDK
+    - AMDAPPSDKROOT=/opt/intel/opencl/
 
 matrix:
   include:
   - compiler: gcc
     env: VEXCL_BACKEND=OpenCL
     before_install: &opencl_install
-    - .travis/install_amd_sdk.sh
+    - wget https://cmake.org/files/v3.12/cmake-3.12.1-Linux-x86_64.sh
+    - sudo sh cmake-3.12.1-Linux-x86_64.sh --prefix=/home/travis/.local/ --exclude-subdir
+    - source .travis/opencl_install.sh
   - compiler: gcc
     env: VEXCL_BACKEND=Compute
     before_install: *opencl_install
@@ -34,6 +38,7 @@ matrix:
     - echo 'brew "boost"' > Brewfile
     - echo 'brew "libomp"' >> Brewfile
     - echo 'brew "cmake"' >> Brewfile
+    - echo 'brew "clinfo"' >> Brewfile
     - brew bundle
   - os: osx
     osx_image: xcode9.3
@@ -49,18 +54,14 @@ addons:
     packages:
     - opencl-headers
     - lcov
-
-cache:
-    directories:
-        - ${HOME}/${BOOST_BASENAME}/boost
-        - ${HOME}/${BOOST_BASENAME}/stage/lib
-        - ${AMDAPPSDKROOT}
+    - clinfo
 
 install:
-    - source .travis/install_boost.sh 2>&1 > /dev/null
+    - source .travis/install_boost.sh
 
 script:
     - cmake --version
+    - clinfo
     - mkdir -p build && cd build
     - cmake -DVEXCL_TEST_COVERAGE=ON -DVEXCL_BUILD_TESTS=ON -DVEXCL_BUILD_EXAMPLES=ON -DVEXCL_BACKEND=${VEXCL_BACKEND} ..
     - make -j2
