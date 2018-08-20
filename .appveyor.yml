@@ -1,15 +1,11 @@
 image:
-    - Visual Studio 2017
+  - Visual Studio 2017
+  - Ubuntu
 
 environment:
   INTELOCLSDKROOT: C:\Intel\OpenCL\sdk
-  OPENCL_INCLUDE_DIR: C:\opencl\include
-  OPENCL_HEADERS_VER: 21
   BOOST_ROOT: C:\Libraries\boost_1_67_0
-  BOOST_LIBRARYDIR: C:\Libraries\boost_1_67_0\lib64-msvc-14.1
   GENERATOR: Visual Studio 15 2017 Win64
-
-clone_folder: C:\vexcl
 
 before_build:
   - appveyor DownloadFile "http://registrationcenter-download.intel.com/akdlm/irc_nas/12512/opencl_runtime_16.1.2_x64_setup.msi"
@@ -17,12 +13,26 @@ before_build:
   - appveyor DownloadFile "http://registrationcenter-download.intel.com/akdlm/irc_nas/vcp/12527/intel_sdk_for_opencl_2017_7.0.0.2567.exe"
   - start /wait .\intel_sdk_for_opencl_2017_7.0.0.2567.exe install --output=output.log --eula=accept
   - type output.log
-  - git clone --depth 1 https://github.com/KhronosGroup/OpenCL-Headers.git %OPENCL_INCLUDE_DIR%
 
 build_script:
   - mkdir build && cd build
-  - cmake .. -G"%GENERATOR%" -DVEXCL_BUILD_EXAMPLES=ON -DVEXCL_BUILD_TESTS=ON -DOpenCL_INCLUDE_DIR="%OPENCL_INCLUDE_DIR%"
+  - cmake .. -G"%GENERATOR%" -DVEXCL_BUILD_EXAMPLES=ON -DVEXCL_BUILD_TESTS=ON
   - cmake --build . --config Release
 
 test_script:
   - ctest -C Release --output-on-failure
+
+for:
+-
+  matrix:
+    only:
+    - image: Ubuntu
+
+  environment:
+    AMDAPPSDKROOT: /opt/intel/opencl/
+    GENERATOR: Unix Makefiles
+
+  before_build:
+  - sudo apt-get install libboost-all-dev
+  - sudo apt-get install opencl-headers -y
+  - sudo sh .travis/opencl_install.sh
