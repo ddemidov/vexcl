@@ -24,7 +24,6 @@ matrix:
   - compiler: clang
     env: VEXCL_BACKEND=OpenCL
     before_install: *opencl_install
-    addons:
   - compiler: clang
     env: VEXCL_BACKEND=Compute
     before_install: *opencl_install
@@ -55,6 +54,10 @@ addons:
     - opencl-headers
     - lcov
     - clinfo
+
+cache:
+  directories:
+    - ${HOME}/${BOOST_BASENAME}/
 
 install:
     - source .travis/install_boost.sh
