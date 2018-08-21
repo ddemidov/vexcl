@@ -33,6 +33,6 @@ for:
     GENERATOR: Unix Makefiles
 
   before_build:
-  - sudo apt-get install libboost-all-dev
-  - sudo apt-get install opencl-headers -y
-  - sudo sh .travis/opencl_install.sh
+  - sudo apt-get install libboost-all-dev -y
+  - sudo apt-get install opencl-headers lcov clinfo -y
+  - source .travis/opencl_install.sh
