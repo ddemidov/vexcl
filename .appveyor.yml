@@ -14,14 +14,6 @@ before_build:
   - start /wait .\intel_sdk_for_opencl_2017_7.0.0.2567.exe install --output=output.log --eula=accept
   - type output.log
 
-build_script:
-  - mkdir build && cd build
-  - cmake .. -G"%GENERATOR%" -DVEXCL_BUILD_EXAMPLES=ON -DVEXCL_BUILD_TESTS=ON
-  - cmake --build . --config Release
-
-test_script:
-  - ctest -C Release --output-on-failure
-
 for:
 -
   matrix:
@@ -36,3 +28,12 @@ for:
   - sudo apt-get install libboost-all-dev -y
   - sudo apt-get install opencl-headers lcov clinfo -y
   - source .travis/opencl_install.sh
+
+build_script:
+  - mkdir build && cd build
+  - cmake .. -G"%GENERATOR%" -DVEXCL_BUILD_EXAMPLES=ON -DVEXCL_BUILD_TESTS=ON
+  - cmake --build . --config Release
+
+test_script:
+  - ctest -C Release --output-on-failure
+
