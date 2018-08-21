@@ -31,7 +31,7 @@ for:
 
 build_script:
   - mkdir build && cd build
-  - cmake .. -G"%GENERATOR%" -DVEXCL_BUILD_EXAMPLES=ON -DVEXCL_BUILD_TESTS=ON
+  - cmake .. -G"$GENERATOR" -DVEXCL_BUILD_EXAMPLES=ON -DVEXCL_BUILD_TESTS=ON
   - cmake --build . --config Release
 
 test_script:
