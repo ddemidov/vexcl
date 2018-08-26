@@ -995,64 +995,135 @@ struct expression_properties< vector<T> > {
 
 //---------------------------------------------------------------------------
 /// Copy device vector to host vector.
-template <class T>
-void copy(const vex::vector<T> &dv, std::vector<T> &hv, bool blocking = true) {
+template <class Td, class Th>
+typename std::enable_if<std::is_same<Td, Th>::value, void>::type
+copy(const vex::vector<Td> &dv, std::vector<Th> &hv, bool blocking = true) {
     dv.read_data(0, dv.size(), hv.data(), blocking);
 }
 
+template <class Td, class Th>
+typename std::enable_if<!std::is_same<Td, Th>::value, void>::type
+copy(const vex::vector<Td> &dv, std::vector<Th> &hv, bool blocking = true) {
+    std::vector<Td> tmp(dv.size());
+    dv.read_data(0, dv.size(), tmp.data(), true);
+    std::copy(tmp.begin(), tmp.end(), hv.begin());
+}
+
 /// Copy device vector to host pointer.
-template <class T>
-void copy(const vex::vector<T> &dv, T *hv, bool blocking = true) {
+template <class Td, class Th>
+typename std::enable_if<std::is_same<Td, Th>::value, void>::type
+copy(const vex::vector<Td> &dv, Th *hv, bool blocking = true) {
     dv.read_data(0, dv.size(), hv, blocking);
 }
 
+template <class Td, class Th>
+typename std::enable_if<!std::is_same<Td, Th>::value, void>::type
+copy(const vex::vector<Td> &dv, Th *hv, bool blocking = true) {
+    std::vector<Td> tmp(dv.size());
+    dv.read_data(0, dv.size(), tmp.data(), true);
+    std::copy(tmp.begin(), tmp.end(), hv);
+}
+
 /// Copy host vector to device vector.
-template <class T>
-void copy(const std::vector<T> &hv, vex::vector<T> &dv, bool blocking = true) {
+template <class Th, class Td>
+typename std::enable_if<std::is_same<Td, Th>::value, void>::type
+copy(const std::vector<Th> &hv, vex::vector<Td> &dv, bool blocking = true) {
     dv.write_data(0, dv.size(), hv.data(), blocking);
 }
 
+template <class Th, class Td>
+typename std::enable_if<!std::is_same<Td, Th>::value, void>::type
+copy(const std::vector<Th> &hv, vex::vector<Td> &dv, bool blocking = true) {
+    std::vector<Td> tmp(hv.begin(), hv.end());
+    dv.write_data(0, dv.size(), tmp.data(), true);
+}
+
 /// Copy host pointer to device vector.
-template <class T>
-void copy(const T *hv, vex::vector<T> &dv, bool blocking = true) {
+template <class Th, class Td>
+typename std::enable_if<std::is_same<Td, Th>::value, void>::type
+copy(const Th *hv, vex::vector<Td> &dv, bool blocking = true) {
     dv.write_data(0, dv.size(), hv, blocking);
 }
 
+template <class Th, class Td>
+typename std::enable_if<!std::is_same<Td, Th>::value, void>::type
+copy(const Th *hv, vex::vector<Td> &dv, bool blocking = true) {
+    std::vector<Td> tmp(hv, hv + dv.size());
+    dv.write_data(0, dv.size(), tmp.data(), true);
+}
+
 /// Copy device vector to host vector.
-template <class T>
+template <class Td, class Th>
 void copy(std::vector<backend::command_queue> &q,
-        const vex::vector<T> &dv, std::vector<T> &hv, bool blocking = true)
+        const vex::vector<Td> &dv, std::vector<Th> &hv, bool blocking = true)
 {
-    dv.read_data(0, dv.size(), hv.data(), blocking, q);
+    if (std::is_same<Td, Th>::value) {
+        dv.read_data(0, dv.size(), hv.data(), blocking, q);
+    } else {
+        std::vector<Td> tmp(dv.size());
+        dv.read_data(0, dv.size(), tmp.data(), true, q);
+        std::copy(tmp.begin(), tmp.end(), hv.begin());
+    }
 }
 
 /// Copy device vector to host pointer.
-template <class T>
-void copy(std::vector<backend::command_queue> &q,
-        const vex::vector<T> &dv, T *hv, bool blocking = true)
+template <class Td, class Th>
+typename std::enable_if<std::is_same<Td, Th>::value, void>::type
+copy(std::vector<backend::command_queue> &q,
+        const vex::vector<Td> &dv, Th *hv, bool blocking = true)
 {
     dv.read_data(0, dv.size(), hv, blocking, q);
 }
 
+template <class Td, class Th>
+typename std::enable_if<!std::is_same<Td, Th>::value, void>::type
+copy(std::vector<backend::command_queue> &q,
+        const vex::vector<Td> &dv, Th *hv, bool blocking = true)
+{
+    std::vector<Td> tmp(dv.size());
+    dv.read_data(0, dv.size(), tmp.data(), true, q);
+    std::copy(tmp.begin(), tmp.end(), hv);
+}
+
 /// Copy host vector to device vector.
-template <class T>
-void copy(std::vector<backend::command_queue> &q,
-        const std::vector<T> &hv, vex::vector<T> &dv, bool blocking = true)
+template <class Th, class Td>
+typename std::enable_if<std::is_same<Td, Th>::value, void>::type
+copy(std::vector<backend::command_queue> &q,
+        const std::vector<Th> &hv, vex::vector<Td> &dv, bool blocking = true)
 {
     dv.write_data(0, dv.size(), hv.data(), blocking, q);
 }
 
+template <class Th, class Td>
+typename std::enable_if<!std::is_same<Td, Th>::value, void>::type
+copy(std::vector<backend::command_queue> &q,
+        const std::vector<Th> &hv, vex::vector<Td> &dv, bool blocking = true)
+{
+    std::vector<Td> tmp(hv.begin(), hv.end());
+    dv.write_data(0, dv.size(), tmp.data(), true, q);
+}
+
 /// Copy host pointer to device vector.
-template <class T>
-void copy(std::vector<backend::command_queue> &q,
-        const T *hv, vex::vector<T> &dv, bool blocking = true)
+template <class Th, class Td>
+typename std::enable_if<std::is_same<Td, Th>::value, void>::type
+copy(std::vector<backend::command_queue> &q,
+        const Th *hv, vex::vector<Td> &dv, bool blocking = true)
 {
     dv.write_data(0, dv.size(), hv, blocking, q);
 }
 
+template <class Th, class Td>
+typename std::enable_if<!std::is_same<Td, Th>::value, void>::type
+copy(std::vector<backend::command_queue> &q,
+        const Th *hv, vex::vector<Td> &dv, bool blocking = true)
+{
+    std::vector<Td> tmp(hv, hv + dv.size());
+    dv.write_data(0, dv.size(), tmp.data(), true, q);
+}
+
 /// Copy device vector to device vector.
-template <class T>
-void copy(const vex::vector<T> &src, vex::vector<T> &dst) {
+template <class T1, class T2>
+void copy(const vex::vector<T1> &src, vex::vector<T2> &dst) {
     dst = src;
 }
 
