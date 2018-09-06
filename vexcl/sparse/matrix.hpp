@@ -33,6 +33,9 @@ class matrix {
             }
         }
 
+        // Dummy matrix
+        matrix() {}
+        
         // Dummy matrix; used internally to pass empty parameters to kernels.
         matrix(const backend::command_queue &q) : q(q) {}
 
