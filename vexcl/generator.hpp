@@ -192,14 +192,14 @@ struct symbolic_expr
 };
 
 //---------------------------------------------------------------------------
-struct index_t
+struct index_expr
     : public generator::symbolic_expr< boost::proto::terminal< generator::variable >::type >
 {};
 
 inline auto index()
-    -> boost::proto::result_of::as_expr<index_t, symbolic_domain>::type const
+    -> boost::proto::result_of::as_expr<index_expr, symbolic_domain>::type const
 {
-    return boost::proto::as_expr<symbolic_domain>(index_t());
+    return boost::proto::as_expr<symbolic_domain>(index_expr());
 }
 
 //---------------------------------------------------------------------------
@@ -387,7 +387,7 @@ struct symbolic_context {
             get_recorder() << v;
         }
 
-        void operator()(const index_t&, symbolic_context&) const {
+        void operator()(const index_expr&, symbolic_context&) const {
             get_recorder() << "idx";
         }
     };
