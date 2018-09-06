@@ -72,8 +72,9 @@ namespace vex {
 #define VEXCL_BIN_OP(name, len, op)                                            \
   inline cl_##name##len &operator op## =(cl_##name##len & a,                   \
                                          const cl_##name##len & b) {           \
-    for (size_t i = 0; i < len; i++)                                           \
+    for (size_t i = 0; i < len; i++) {                                         \
       a.s[i] op## = b.s[i];                                                    \
+    }                                                                          \
     return a;                                                                  \
   }                                                                            \
   inline cl_##name##len operator op(const cl_##name##len & a,                  \
@@ -87,8 +88,9 @@ namespace vex {
 #define VEXCL_BIN_SCALAR_OP(name, len, op)                                     \
   inline cl_##name##len &operator op## =(cl_##name##len & a,                   \
                                          const cl_##name & b) {                \
-    for (size_t i = 0; i < len; i++)                                           \
+    for (size_t i = 0; i < len; i++) {                                         \
       a.s[i] op## = b;                                                         \
+    }                                                                          \
     return a;                                                                  \
   }                                                                            \
   inline cl_##name##len operator op(const cl_##name##len & a,                  \
@@ -113,8 +115,9 @@ namespace vex {
   VEXCL_BIN_SCALAR_OP(name, len, /)                                            \
   inline cl_##name##len operator-(const cl_##name##len & a) {                  \
     cl_##name##len res;                                                        \
-    for (size_t i = 0; i < len; i++)                                           \
+    for (size_t i = 0; i < len; i++) {                                         \
       res.s[i] = -a.s[i];                                                      \
+    }                                                                          \
     return res;                                                                \
   }                                                                            \
   inline std::ostream &operator<<(std::ostream & os,                           \
@@ -122,7 +125,7 @@ namespace vex {
     boost::io::ios_all_saver stream_state(os);                                 \
     os << "(";                                                                 \
     for (std::size_t i = 0; i < len; i++) {                                    \
-      if (i != 0) os << ',';                                                   \
+      if (i != 0) { os << ','; }                                               \
       os << std::setw(13) << std::scientific << value.s[i];                    \
     }                                                                          \
     return os << ')';                                                          \
