@@ -83,7 +83,7 @@ struct deleter {
 
     template <class Handle>
     void operator()(Handle handle) const {
-	if (ctx) cuda_check( cuCtxSetCurrent(ctx) );
+        if (ctx) cuda_check( cuCtxSetCurrent(ctx) );
         deleter_impl<Handle>::dispose(handle);
     }
 
@@ -95,9 +95,9 @@ struct deleter {
 /// Wrapper around CUdevice.
 class device {
     public:
-	/// Empty constructor.
-	device() {}
-	
+        /// Empty constructor.
+        device() {}
+        
         /// Constructor.
         device(CUdevice d) : d(d) {}
 
@@ -204,9 +204,9 @@ typedef unsigned command_queue_properties;
 /** With the CUDA backend, this is a wrapper around CUstream. */
 class command_queue {
     public:
-	/// Empty constructor.
-	command_queue() {}
-	
+        /// Empty constructor.
+        command_queue() {}
+        
         /// Create command queue for the given context and device.
         command_queue(const vex::backend::context &ctx, vex::backend::device dev, unsigned flags)
             : ctx(ctx), dev(dev), s( create(ctx, flags), detail::deleter(ctx.raw()) ), f(flags)
