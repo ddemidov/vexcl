@@ -38,7 +38,7 @@ THE SOFTWARE.
 #include <sstream>
 #include <iomanip>
 #include <cstdlib>
-#include <boost/uuid/sha1.hpp>
+#include <boost/uuid/detail/sha1.hpp>
 #include <boost/optional.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/thread.hpp>

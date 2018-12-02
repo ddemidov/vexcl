@@ -95,7 +95,6 @@ inline CUmodule build_sources(
 #  endif
 #endif
 
-    std::cout << "options: " << options << std::endl;
     queue.context().set_current();
 
     nvrtcProgram prog;
