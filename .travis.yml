@@ -1,6 +1,5 @@
 language: cpp
 dist: xenial
-sudo: required
 
 env:
   global:
@@ -13,14 +12,14 @@ matrix:
   - compiler: gcc
     env: VEXCL_BACKEND=OpenCL
     before_install: &opencl_install
-    - wget https://cmake.org/files/v3.12/cmake-3.12.1-Linux-x86_64.sh
-    - sudo sh cmake-3.12.1-Linux-x86_64.sh --prefix=/home/travis/.local/ --exclude-subdir
     - source .travis/opencl_install.sh
+    - source .travis/install_boost.sh
   - compiler: gcc
     env: VEXCL_BACKEND=Compute
     before_install: *opencl_install
   - compiler: gcc
     env: VEXCL_BACKEND=JIT
+    before_install: *opencl_install
   - compiler: clang
     env: VEXCL_BACKEND=OpenCL
     before_install: *opencl_install
@@ -29,24 +28,13 @@ matrix:
     before_install: *opencl_install
   - compiler: clang
     env: VEXCL_BACKEND=JIT
+    before_install: *opencl_install
   - os: osx
-    osx_image: xcode9.3
     env: VEXCL_BACKEND=OpenCL
-    install: &mac_install
-    - brew update
-    - echo 'brew "boost"' > Brewfile
-    - echo 'brew "libomp"' >> Brewfile
-    - echo 'brew "cmake"' >> Brewfile
-    - echo 'brew "clinfo"' >> Brewfile
-    - brew bundle
   - os: osx
-    osx_image: xcode9.3
     env: VEXCL_BACKEND=Compute
-    install: *mac_install
   - os: osx
-    osx_image: xcode9.3
     env: VEXCL_BACKEND=JIT
-    install: *mac_install
 
 addons:
   apt:
@@ -54,13 +42,17 @@ addons:
     - opencl-headers
     - lcov
     - clinfo
+  homebrew:
+    packages:
+    - boost
+    - libomp
+    - cmake
+    - lcov
+    - clinfo
 
 cache:
   directories:
     - ${HOME}/${BOOST_BASENAME}/
-
-install:
-    - source .travis/install_boost.sh
 
 script:
     - cmake --version
