@@ -1,40 +1,31 @@
-image:
-  - Visual Studio 2017
-  - Ubuntu
-
 environment:
-  INTELOCLSDKROOT: C:\Intel\OpenCL\sdk
-  BOOST_ROOT: C:\Libraries\boost_1_67_0
-  GENERATOR: Visual Studio 15 2017 Win64
+    matrix:
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
+      GENERATOR: Visual Studio 15 2017 Win64
+      BOOST_ROOT: C:\Libraries\boost_1_67_0
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+      GENERATOR: Visual Studio 14 2015 Win64
+      BOOST_ROOT: C:\Libraries\boost_1_63_0
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2013
+      GENERATOR: Visual Studio 12 2013 Win64
+      BOOST_ROOT: C:\Libraries\boost_1_58_0
 
 before_build:
-  - appveyor DownloadFile "http://registrationcenter-download.intel.com/akdlm/irc_nas/12512/opencl_runtime_16.1.2_x64_setup.msi"
-  - start /wait msiexec /i opencl_runtime_16.1.2_x64_setup.msi /qn
-  - appveyor DownloadFile "http://registrationcenter-download.intel.com/akdlm/irc_nas/vcp/12527/intel_sdk_for_opencl_2017_7.0.0.2567.exe"
-  - start /wait .\intel_sdk_for_opencl_2017_7.0.0.2567.exe install --output=output.log --eula=accept
-  - type output.log
-
-for:
--
-  matrix:
-    only:
-    - image: Ubuntu
-
-  environment:
-    AMDAPPSDKROOT: /opt/intel/opencl/
-    GENERATOR: Unix Makefiles
-
-  before_build:
-  - sudo apt-get install libboost-all-dev -y
-  - sudo apt-get install opencl-headers lcov clinfo -y
-  - source .travis/opencl_install.sh
+  # Install OpenCL headers and libraries
+  - set NUGETDIR=C:\NUGET
+  - nuget install opencl-nug -Version 0.777.77 -OutputDirectory %NUGETDIR%
+  - dir %NUGETDIR%\opencl-nug.0.777.77\build\native\
+  - set OCL_ROOT=%NUGETDIR%\opencl-nug.0.777.77\build\native
+  # Install OpenCL Runtime
+  - choco install opencl-intel-cpu-runtime
+  # Check if it's working
+  - ps: appveyor DownloadFile "https://ci.appveyor.com/api/projects/oblomov/clinfo/artifacts/clinfo.exe?job=platform:+x64" -FileName clinfo.exe
+  - .\clinfo.exe
 
 build_script:
   - mkdir build && cd build
-  - cmd: cmake .. -G"%GENERATOR%" -DVEXCL_BUILD_EXAMPLES=ON -DVEXCL_BUILD_TESTS=ON
-  - sh: cmake .. -G"$GENERATOR" -DVEXCL_BUILD_EXAMPLES=ON -DVEXCL_BUILD_TESTS=ON
+  - cmake .. -G"%GENERATOR%" -DVEXCL_BUILD_EXAMPLES=ON -DVEXCL_BUILD_TESTS=ON
   - cmake --build . --config Release
 
 test_script:
   - ctest -C Release --output-on-failure
-
