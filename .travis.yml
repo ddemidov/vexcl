@@ -35,6 +35,11 @@ matrix:
     env: VEXCL_BACKEND=Compute
   - os: osx
     env: VEXCL_BACKEND=JIT
+  allow_failures:
+    - compiler: clang
+      env: VEXCL_BACKEND=JIT
+      before_install: *opencl_install
+
 
 addons:
   apt:
