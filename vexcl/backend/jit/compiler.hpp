@@ -48,20 +48,25 @@ THE SOFTWARE.
 #  endif
 #endif
 
+#ifndef VEXCL_JIT_COMPILER_FLAGS
+#  define VEXCL_JIT_COMPILER_FLAGS ""
+#endif
+
+#if !defined(_OPENMP) || !defined(VEXCL_OMP_FLAGS)
+#  define VEXCL_OMP_FLAGS ""
+#endif
 
 #ifndef VEXCL_JIT_COMPILER_OPTIONS
-#  ifdef _OPENMP
-#    ifdef NDEBUG
-#      define VEXCL_JIT_COMPILER_OPTIONS "-O3 -fPIC -shared " BOOST_PP_STRINGIZE(VEXCL_OMP_FLAGS)
-#    else
-#      define VEXCL_JIT_COMPILER_OPTIONS "-g -fPIC -shared " BOOST_PP_STRINGIZE(VEXCL_OMP_FLAGS)
-#    endif
+#  ifdef NDEBUG
+#    define VEXCL_JIT_COMPILER_OPTIONS                                         \
+         "-O3 -fPIC -shared"                                                   \
+         " " BOOST_PP_STRINGIZE(VEXCL_OMP_FLAGS)                               \
+         " " BOOST_PP_STRINGIZE(VEXCL_JIT_COMPILER_FLAGS)
 #  else
-#    ifdef NDEBUG
-#      define VEXCL_JIT_COMPILER_OPTIONS "-O3 -fPIC -shared"
-#    else
-#      define VEXCL_JIT_COMPILER_OPTIONS "-g -fPIC -shared"
-#    endif
+#    define VEXCL_JIT_COMPILER_OPTIONS                                         \
+         "-g -fPIC -shared"                                                    \
+         " " BOOST_PP_STRINGIZE(VEXCL_OMP_FLAGS)                               \
+         " " BOOST_PP_STRINGIZE(VEXCL_JIT_COMPILER_FLAGS)
 #  endif
 #endif
 

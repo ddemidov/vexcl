@@ -187,6 +187,9 @@ endif()
 if(TARGET JIT)
     add_library(VexCL::JIT ALIAS JIT)
 
+    set(VEXCL_JIT_COMPILER_FLAGS "" CACHE STRING "VexCL JIT compiler flags")
+    target_compile_definitions(JIT INTERFACE VEXCL_JIT_COMPILER_FLAGS=${VEXCL_JIT_COMPILER_FLAGS})
+
     find_package(OpenMP)
 
     # Have to check several OPENMP_FOUND due to bug in
