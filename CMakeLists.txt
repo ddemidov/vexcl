@@ -101,6 +101,7 @@ target_compile_options(Common INTERFACE
     $<$<CXX_COMPILER_ID:GNU>:-Wno-deprecated-declarations>
     $<$<CXX_COMPILER_ID:GNU>:-Wno-ignored-attributes>
     $<$<CXX_COMPILER_ID:GNU>:-Wno-unused-local-typedefs>
+    $<$<CXX_COMPILER_ID:GNU>:-Wno-variadic-macros>
     # Clang
     $<$<CXX_COMPILER_ID:Clang>:$<BUILD_INTERFACE:-Wall>>
     $<$<CXX_COMPILER_ID:Clang>:-Wno-missing-braces>
