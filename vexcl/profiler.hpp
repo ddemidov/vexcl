@@ -251,14 +251,14 @@ class profiler {
                 cl_profile_unit(const std::string &name, std::vector<backend::command_queue> &queue)
                     : profile_unit(name), queue(queue) {}
 
-                void tic() {
+                void tic() override {
                     for(auto q = queue.begin(); q != queue.end(); ++q)
                         q->finish();
 
                     profile_unit::tic();
                 }
 
-                double toc() {
+                double toc() override {
                     for(auto q = queue.begin(); q != queue.end(); ++q)
                         q->finish();
 

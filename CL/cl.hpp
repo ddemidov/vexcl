@@ -296,7 +296,7 @@ public:
      *
      * \return A memory pointer to the error message string.
      */
-    virtual const char * what() const throw ()
+    virtual const char * what() const throw () override
     {
         if (errStr_ == NULL) {
             return "empty";

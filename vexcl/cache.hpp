@@ -150,12 +150,12 @@ struct object_cache : public object_cache_base, boost::noncopyable {
         return store.find( Key::get(q) );
     }
 
-    void clear() {
+    void clear() override {
         boost::lock_guard<boost::mutex> lock(store_mx);
         store.clear();
     }
 
-    void erase(const backend::command_queue &q) {
+    void erase(const backend::command_queue &q) override {
         boost::lock_guard<boost::mutex> lock(store_mx);
         store.erase( Key::get(q) );
     }
