@@ -59,12 +59,12 @@ THE SOFTWARE.
 #ifndef VEXCL_JIT_COMPILER_OPTIONS
 #  ifdef NDEBUG
 #    define VEXCL_JIT_COMPILER_OPTIONS                                         \
-         "-std=c++11 -O3 -fPIC -shared"                                        \
+         "-O3 -fPIC -shared"                                                   \
          " " BOOST_PP_STRINGIZE(VEXCL_OMP_FLAGS)                               \
          " " BOOST_PP_STRINGIZE(VEXCL_JIT_COMPILER_FLAGS)
 #  else
 #    define VEXCL_JIT_COMPILER_OPTIONS                                         \
-         "-std=c++11 -g -fPIC -shared"                                         \
+         "-g -fPIC -shared"                                                    \
          " " BOOST_PP_STRINGIZE(VEXCL_OMP_FLAGS)                               \
          " " BOOST_PP_STRINGIZE(VEXCL_JIT_COMPILER_FLAGS)
 #  endif
