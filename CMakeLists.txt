@@ -237,7 +237,14 @@ if (VEXCL_MASTER_PROJECT)
     option(VEXCL_BUILD_TESTS    OFF)
     option(VEXCL_BUILD_EXAMPLES OFF)
 
-    set(VEXCL_BACKEND "OpenCL" CACHE STRING "Select VexCL backend (OpenCL/CUDA/Compute/JIT/All)")
+    foreach(target OpenCL CUDA Compute JIT)
+        if (TARGET ${target})
+            set(VEXCL_BACKEND "${target}" CACHE STRING "Select VexCL backend (OpenCL/CUDA/Compute/JIT/All)")
+            break()
+        endif()
+    endforeach()
+    message(STATUS "Selected backend: ${VEXCL_BACKEND}")
+
     set_property(CACHE VEXCL_BACKEND PROPERTY STRINGS "All" "OpenCL" "CUDA" "Compute" "JIT")
 
     if("${VEXCL_BACKEND}" STREQUAL "OpenCL")
