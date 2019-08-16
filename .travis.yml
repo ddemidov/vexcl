@@ -69,5 +69,5 @@ script:
 
 after_success:
     - lcov --directory tests --base-directory ../vexcl --capture --output-file coverage.info
-    - lcov --remove coverage.info '/usr*' '*/cl.hpp' -o coverage.info
+    - lcov --remove coverage.info '/usr*' '*/cl.hpp' '*/boost/*' -o coverage.info
     - bash <(curl -s https://codecov.io/bash)
