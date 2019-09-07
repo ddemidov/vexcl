@@ -91,7 +91,9 @@ class device_vector {
         }
 
         size_t size() const {
-            return buffer.getInfo<CL_MEM_SIZE>() / sizeof(T);
+            if (buffer())
+                return buffer.getInfo<CL_MEM_SIZE>() / sizeof(T);
+            return 0;
         }
 
         struct buffer_unmapper {
