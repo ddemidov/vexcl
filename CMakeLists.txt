@@ -76,6 +76,7 @@ if (VEXCL_AMD_SI_WORKAROUND)
 endif()
 
 target_include_directories(Common INTERFACE
+    ${Boost_INCLUDE_DIRS}
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
     $<INSTALL_INTERFACE:include>
     )
