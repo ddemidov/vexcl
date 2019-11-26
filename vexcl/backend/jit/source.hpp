@@ -157,9 +157,23 @@ struct vector_type2 {
         return *this;
     }
 
+    template <typename U>
+    const vector_type2& operator+=(U o) {
+        s0 += o;
+        s1 += o;
+        return *this;
+    }
+
     const vector_type2& operator-=(const vector_type2 &o) {
         s0 -= o.s0;
         s1 -= o.s1;
+        return *this;
+    }
+
+    template <typename U>
+    const vector_type2& operator-=(U o) {
+        s0 -= o;
+        s1 -= o;
         return *this;
     }
 };
