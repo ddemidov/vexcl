@@ -164,8 +164,8 @@ if(CUDA_FOUND)
     message(STATUS "Found VexCL::CUDA")
 endif()
 
-if (NOT "${Boost_VERSION}" STRLESS "106100")
-
+find_path(Boost_DLL NAMES boost/dll PATHS ${Boost_INCLUDE_DIRS})
+if (Boost_DLL)
     if(OpenCL_INCLUDE_DIR)
         add_library(JIT INTERFACE)
         target_include_directories(JIT INTERFACE "${OpenCL_INCLUDE_DIR}")
