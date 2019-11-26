@@ -208,8 +208,20 @@ vector_type2<T> operator+(vector_type2<T> a, const vector_type2<T> &b) {
     return a;
 }
 
+template <typename T, typename U>
+vector_type2<T> operator+(vector_type2<T> a, U b) {
+    a += b;
+    return a;
+}
+
 template <typename T>
 vector_type2<T> operator-(vector_type2<T> a, const vector_type2<T> &b) {
+    a -= b;
+    return a;
+}
+
+template <typename T, typename U>
+vector_type2<T> operator-(vector_type2<T> a, U b) {
     a -= b;
     return a;
 }
@@ -264,11 +276,29 @@ struct vector_type4 {
         return *this;
     }
 
+    template <typename U>
+    const vector_type4& operator+=(U o) {
+        s0 += o;
+        s1 += o;
+        s2 += o;
+        s3 += o;
+        return *this;
+    }
+
     const vector_type4& operator-=(const vector_type4 &o) {
         s0 -= o.s0;
         s1 -= o.s1;
         s2 -= o.s2;
         s3 -= o.s3;
+        return *this;
+    }
+
+    template <typename U>
+    const vector_type4& operator-=(U o) {
+        s0 -= o;
+        s1 -= o;
+        s2 -= o;
+        s3 -= o;
         return *this;
     }
 };
@@ -303,8 +333,20 @@ vector_type4<T> operator+(vector_type4<T> a, const vector_type4<T> &b) {
     return a;
 }
 
+template <typename T, typename U>
+vector_type4<T> operator+(vector_type4<T> a, U b) {
+    a += b;
+    return a;
+}
+
 template <typename T>
 vector_type4<T> operator-(vector_type4<T> a, const vector_type4<T> &b) {
+    a -= b;
+    return a;
+}
+
+template <typename T, typename U>
+vector_type4<T> operator-(vector_type4<T> a, U b) {
     a -= b;
     return a;
 }
