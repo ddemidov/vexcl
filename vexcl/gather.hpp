@@ -48,12 +48,12 @@ class index_partition {
     public:
         index_partition(
                 const std::vector<backend::command_queue> &q,
-                size_t size, std::vector<size_t> indices
+                size_t size, std::vector<size_t> &indices
                 )
             : queue(q), ptr(q.size() + 1, 0),
               idx(q.size()), val(q.size())
         {
-            assert(std::is_sorted(indices.begin(), indices.end()));
+            assert(queue.size() == 1 || std::is_sorted(indices.begin(), indices.end()));
 
             std::vector<size_t> part = partition(size, queue);
             column_owner owner(part);
