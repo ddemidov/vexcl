@@ -87,8 +87,8 @@ BOOST_AUTO_TEST_CASE(gather)
         }
 
         std::vector<double>  data(i.size());
-        vex::gather<double>  get(ctx, x.size(), i);
-        vex::scatter<double> put(ctx, x.size(), i);
+        vex::gather  get(ctx, x.size(), i);
+        vex::scatter put(ctx, x.size(), i);
 
         get(X, data);
 

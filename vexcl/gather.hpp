@@ -43,7 +43,6 @@ namespace vex {
 
 namespace detail {
 
-template <class T>
 class index_partition {
     public:
         index_partition(
@@ -88,8 +87,7 @@ class index_partition {
 } // namespace detail
 
 /// Gathers vector elements at specified indices.
-template <typename T>
-class gather : protected detail::index_partition<T> {
+class gather : protected detail::index_partition {
     public:
         /// Constructor.
         /**
@@ -103,11 +101,9 @@ class gather : protected detail::index_partition<T> {
         {}
 
         /// Gather elements of device vector into host vector.
-        template <class HostVector>
+        template <class T, class HostVector>
         void operator()(const vex::vector<T> &src, HostVector &dst) {
             using namespace detail;
-
-            static kernel_cache cache;
 
             for(unsigned d = 0; d < Base::queue.size(); d++) {
                 if (size_t n = Base::ptr[d + 1] - Base::ptr[d]) {
@@ -124,12 +120,11 @@ class gather : protected detail::index_partition<T> {
             }
         }
     private:
-        typedef detail::index_partition<T> Base;
+        typedef detail::index_partition Base;
 };
 
 /// Scatters vector elements to specified indices.
-template <typename T>
-class scatter : protected detail::index_partition<T> {
+class scatter : protected detail::index_partition {
     public:
         /// Constructor.
         /**
@@ -143,11 +138,9 @@ class scatter : protected detail::index_partition<T> {
         {}
 
         /// Scatter elements of host vector to device vector.
-        template <class HostVector>
+        template <class HostVector, class T>
         void operator()(const HostVector &src, vex::vector<T> &dst) {
             using namespace detail;
-
-            static kernel_cache cache;
 
             for(unsigned d = 0; d < Base::queue.size(); d++) {
                 if (size_t n = Base::ptr[d + 1] - Base::ptr[d]) {
@@ -163,7 +156,7 @@ class scatter : protected detail::index_partition<T> {
             }
         }
     private:
-        typedef detail::index_partition<T> Base;
+        typedef detail::index_partition Base;
 };
 
 } // namespace vex
