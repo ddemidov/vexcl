@@ -204,7 +204,7 @@ class kernel {
         }
 
         /// Set launch configuration.
-        kernel& config(ndrange blocks, ndrange threads) {
+        kernel& config(ndrange blocks, ndrange threads, size_t shared_memory = 0) {
             size_t dim = std::max(blocks.dimensions(), threads.dimensions());
 
             const size_t *b = blocks;
@@ -225,12 +225,17 @@ class kernel {
 
             w_size = threads;
 
+            if (shared_memory) {
+                cl::LocalSpaceArg smem = { shared_memory };
+                K.setArg(argpos++, smem);
+            }
+
             return *this;
         }
 
         /// Set launch configuration.
-        kernel& config(size_t blocks, size_t threads) {
-            return config(ndrange(blocks), ndrange(threads));
+        kernel& config(size_t blocks, size_t threads, size_t shared_memory = 0) {
+            return config(ndrange(blocks), ndrange(threads), shared_memory);
         }
 
         size_t preferred_work_group_size_multiple(const backend::command_queue &q) const {

@@ -167,9 +167,10 @@ class kernel {
             return config(num_workgroups(q), 1);
         }
 
-        kernel& config(ndrange blocks, ndrange threads) {
+        kernel& config(ndrange blocks, ndrange threads, size_t shared_memory = 0) {
             precondition(threads == ndrange(), "Maximum workgroup size for the JIT backend is 1");
             grid = blocks;
+            if (shared_memory) smem_size = shared_memory;
             return *this;
         }
 
