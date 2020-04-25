@@ -41,9 +41,9 @@ if (TARGET clogs_target)
 endif()
 
 if ("${VEXCL_BACKEND}" STREQUAL "Maxeler")
-    add_vexcl_example(maxeler)
-    add_vexcl_example(odeint_symbolic)
-    add_vexcl_example(nn_max)
+    add_vexcl_examples(maxeler)
+    add_vexcl_examples(odeint_symbolic)
+    add_vexcl_examples(nn_max)
 endif()
 
 if (VEXCL_BACKEND MATCHES "CUDA")

@@ -551,7 +551,7 @@ class source_generator {
             return *this;
         }
 
-        template <class Prm, class Enable = void>
+        template <class Prm, class Enable>
         friend struct kernel_parameter_impl;
 
         template <class Prm, class Enable = void>
