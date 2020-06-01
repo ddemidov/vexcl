@@ -47,6 +47,17 @@ namespace vex {
 
 #include <vexcl/backend/cuda.hpp>
 
+#elif defined(VEXCL_BACKEND_HIP)
+
+namespace vex {
+    namespace backend {
+        namespace hip {}
+        using namespace hip;
+    }
+}
+
+#include <vexcl/backend/hip.hpp>
+
 #elif defined(VEXCL_BACKEND_COMPUTE)
 
 namespace vex {

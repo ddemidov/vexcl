@@ -89,6 +89,11 @@ int main() {
         unsigned pos = 0;
         for(auto d = dev.begin(); d != dev.end(); d++)
             cout << ++pos << ". " << *d << endl;
+#elif defined(VEXCL_BACKEND_HIP)
+        cout << "HIP devices:" << endl << endl;
+        unsigned pos = 0;
+        for(auto d = dev.begin(); d != dev.end(); d++)
+            cout << ++pos << ". " << *d << endl;	
 #elif defined(VEXCL_BACKEND_JIT)
         cout << "Devices:" << endl << endl;
         unsigned pos = 0;
