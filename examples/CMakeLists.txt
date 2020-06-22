@@ -56,7 +56,7 @@ endif()
 #----------------------------------------------------------------------------
 # Symbolic example uses Boost.odeint available since Boost v1.53
 #----------------------------------------------------------------------------
-if (NOT ${Boost_VERSION} STRLESS "105300")
+if (${Boost_VERSION} VERSION_GREATER_EQUAL "1.53.0")
     add_vexcl_examples(symbolic)
 endif ()
 

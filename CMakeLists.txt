@@ -141,7 +141,7 @@ if(OpenCL_FOUND)
 
     message(STATUS "Found VexCL::OpenCL")
 
-    if (NOT "${Boost_VERSION}" STRLESS "106100")
+    if ("${Boost_VERSION}" VERSION_GREATER_EQUAL "1.61.0")
         add_library(Compute INTERFACE)
         add_library(VexCL::Compute ALIAS Compute)
 
