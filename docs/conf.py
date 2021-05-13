@@ -45,7 +45,7 @@ import sphinx_bootstrap_theme
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ['breathe', 'sphinx.ext.mathjax',
+extensions = ['breathe', 'sphinx.ext.mathjax', 'sphinx.ext.autodoc',
         'matplotlib.sphinxext.plot_directive']
 
 breathe_projects = {'VEXCL' : 'xml'}
