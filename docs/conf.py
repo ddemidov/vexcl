@@ -25,9 +25,6 @@ sys.path.append('.')
 from git_version import git_version
 
 if on_rtd:
-    pip.main(['install', 'sphinx_bootstrap_theme'])
-    pip.main(['install', 'breathe'])
-
     subprocess.call('doxygen', shell=True)
 
 import sphinx_bootstrap_theme
