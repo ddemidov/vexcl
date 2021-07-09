@@ -87,7 +87,7 @@ if (VEXCL_BACKEND MATCHES "CUDA")
     list(APPEND CUDA_NVCC_FLAGS
         ${CUDA_ARCH_FLAGS}
         -Wno-deprecated-gpu-targets
-        $<$<CXX_COMPILER_ID:GNU>:-Xcompiler -std=c++03>
+        -std=c++14
         )
     cuda_add_executable(thrust-sort thrust-sort.cpp thrust-sort.cu)
     target_link_libraries(thrust-sort VexCL::CUDA)
