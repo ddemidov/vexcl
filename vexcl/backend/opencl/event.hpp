@@ -34,7 +34,7 @@ THE SOFTWARE.
 #include <vector>
 
 #include <vexcl/backend/opencl/defines.hpp>
-#include <CL/cl.hpp>
+#include <CL/opencl.hpp>
 
 #include <vexcl/backend/opencl/filter.hpp>
 

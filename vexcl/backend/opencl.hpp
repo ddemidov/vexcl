@@ -36,7 +36,7 @@ THE SOFTWARE.
 #endif
 
 #include <vexcl/backend/opencl/defines.hpp>
-#include <CL/cl.hpp>
+#include <CL/opencl.hpp>
 
 #include <vexcl/backend/opencl/error.hpp>
 #include <vexcl/backend/opencl/context.hpp>

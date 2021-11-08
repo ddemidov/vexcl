@@ -46,7 +46,7 @@ THE SOFTWARE.
 #include <boost/version.hpp>
 
 #include <vexcl/backend/opencl/defines.hpp>
-#include <CL/cl.hpp>
+#include <CL/opencl.hpp>
 
 
 namespace vex {
