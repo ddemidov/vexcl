@@ -129,11 +129,23 @@ find_package(OpenCL)
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/VexCLOpenCLTarget.cmake")
 
 if(OpenCL_FOUND)
+    set(CL_HPP_TARGET_OPENCL_VERSION 120 CACHE STRING "Target OpenCL version")
+    set(CL_HPP_MINIMUM_OPENCL_VERSION 120 CACHE STRING "Minimum OpenCL version")
+
     add_library(OpenCL INTERFACE)
     add_library(VexCL::OpenCL ALIAS OpenCL)
 
     target_link_libraries(OpenCL INTERFACE Common OpenCL::OpenCL)
     target_compile_definitions(OpenCL INTERFACE VEXCL_BACKEND_OPENCL)
+    target_compile_definitions(OpenCL INTERFACE CL_TARGET_OPENCL_VERSION=${CL_HPP_TARGET_OPENCL_VERSION})
+    target_compile_definitions(OpenCL INTERFACE CL_HPP_TARGET_OPENCL_VERSION=${CL_HPP_TARGET_OPENCL_VERSION})
+    target_compile_definitions(OpenCL INTERFACE CL_HPP_MINIMUM_OPENCL_VERSION=${CL_HPP_MINIMUM_OPENCL_VERSION})
+
+    find_file(OPENCL_HPP CL/opencl.hpp HINTS ${OpenCL_INCLUDE_DIRS})
+    message(STATUS " -- ${OPENCL_HPP} --")
+    if(OPENCL_HPP)
+        target_compile_definitions(OpenCL INTERFACE VEXCL_HAVE_OPENCL_HPP)
+    endif()
 
     target_compile_options(Common INTERFACE
         $<$<CXX_COMPILER_ID:GNU>:-Wno-catch-value>

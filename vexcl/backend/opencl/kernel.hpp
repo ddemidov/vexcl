@@ -34,7 +34,11 @@ THE SOFTWARE.
 #include <functional>
 
 #include <vexcl/backend/opencl/defines.hpp>
-#include <CL/opencl.hpp>
+#ifdef VEXCL_HAVE_OPENCL_HPP
+#  include <CL/opencl.hpp>
+#else
+#  include <CL/cl2.hpp>
+#endif
 
 #include <vexcl/backend/opencl/compiler.hpp>
 
