@@ -158,8 +158,28 @@ if(OpenCL_FOUND)
     endif()
 endif()
 
-find_package(CUDA)
-if(CUDA_FOUND)
+# find_package(CUDA) has been deprecated since CMake 3.10,
+# but checking for CUDA availability without enabling language
+# support for it (using FindCUDAToolkit) was only added in
+# CMake 3.17. To use the deprecated method in versions < 3.17,
+# CMP0146 must be set.
+if (${CMAKE_VERSION} VERSION_LESS 3.17)
+    # Use the deprecated find_package(CUDA) to check for
+    # CUDA availability.
+    cmake_policy(SET CMP0146 NEW)
+    find_package(CUDA)
+    set(VEXCL_CUDA_FOUND ${CUDA_FOUND})
+else()
+    # Check for CUDA availability using FindCUDAToolkit and add
+    # support for the CUDA language if it is successful.
+    find_package(CUDAToolkit)
+    if (CUDAToolkit_FOUND)
+        enable_language(CUDA)
+    endif()
+    set(VEXCL_CUDA_FOUND ${CUDAToolkit_FOUND})
+endif()
+
+if(VEXCL_CUDA_FOUND)
     add_library(CUDA INTERFACE)
     add_library(VexCL::CUDA ALIAS CUDA)
 
