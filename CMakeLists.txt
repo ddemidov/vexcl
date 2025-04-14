@@ -119,9 +119,6 @@ target_compile_definitions(Common INTERFACE
 #----------------------------------------------------------------------------
 find_package(OpenCL)
 
-# Ensure all targets are available
-include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/VexCLOpenCLTarget.cmake")
-
 if(OpenCL_FOUND)
     set(CL_HPP_TARGET_OPENCL_VERSION 120 CACHE STRING "Target OpenCL version")
     set(CL_HPP_MINIMUM_OPENCL_VERSION 120 CACHE STRING "Minimum OpenCL version")
@@ -358,12 +355,6 @@ if (VEXCL_MASTER_PROJECT)
         )
 
     configure_file(
-        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VexCLOpenCLTarget.cmake"
-        "${CMAKE_CURRENT_BINARY_DIR}/cmake/VexCLOpenCLTarget.cmake"
-        COPYONLY
-        )
-
-    configure_file(
         "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VexCLBoostTargets.cmake"
         "${CMAKE_CURRENT_BINARY_DIR}/cmake/VexCLBoostTargets.cmake"
         COPYONLY
@@ -386,7 +377,6 @@ if (VEXCL_MASTER_PROJECT)
       FILES
         ${CMAKE_CURRENT_BINARY_DIR}/cmake/VexCLConfig.cmake
         ${CMAKE_CURRENT_SOURCE_DIR}/cmake/VexCLTools.cmake
-        ${CMAKE_CURRENT_SOURCE_DIR}/cmake/VexCLOpenCLTarget.cmake
         ${CMAKE_CURRENT_SOURCE_DIR}/cmake/VexCLBoostTargets.cmake
       DESTINATION
         share/vexcl/cmake
