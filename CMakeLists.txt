@@ -189,7 +189,6 @@ else()
 
         message(STATUS "Found VexCL::CUDA")
     endif()
-    set(VEXCL_CUDA_FOUND ${CUDAToolkit_FOUND})
 endif()
 
 find_path(Boost_DLL NAMES boost/dll PATHS ${Boost_INCLUDE_DIRS})
