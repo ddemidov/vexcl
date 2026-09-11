@@ -752,8 +752,14 @@ template <class Expr>
 struct vector_expression
     : boost::proto::extends< Expr, vector_expression<Expr>, vector_domain>
 {
-    vector_expression(const Expr &expr = Expr())
+    vector_expression(const Expr &expr)
         : boost::proto::extends< Expr, vector_expression<Expr>, vector_domain>(expr) {}
+
+    template <typename E = Expr,
+              typename std::enable_if<std::is_default_constructible<E>::value, int>::type = 0>
+    vector_expression()
+        : boost::proto::extends< Expr, vector_expression<Expr>, vector_domain>(Expr()) {}
+
 };
 
 template <class M, class V>
@@ -854,8 +860,14 @@ template <class Expr>
 struct multivector_expression
     : boost::proto::extends< Expr, multivector_expression<Expr>, multivector_domain>
 {
-    multivector_expression(const Expr &expr = Expr())
+    multivector_expression(const Expr &expr)
         : boost::proto::extends< Expr, multivector_expression<Expr>, multivector_domain>(expr) {}
+
+    template <typename E = Expr,
+              typename std::enable_if<std::is_default_constructible<E>::value, int>::type = 0>
+    multivector_expression()
+        : boost::proto::extends< Expr, multivector_expression<Expr>, multivector_domain>(Expr()) {}
+
 };
 
 template <class M, class V>

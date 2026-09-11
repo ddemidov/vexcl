@@ -188,7 +188,12 @@ struct symbolic_expr
 {
     typedef boost::proto::extends< Expr, symbolic_expr< Expr >, symbolic_domain > base_type;
 
-    symbolic_expr(const Expr &expr = Expr()) : base_type(expr) {}
+    symbolic_expr(const Expr &expr) : base_type(expr) {}
+
+    template <typename E = Expr,
+              typename std::enable_if<std::is_default_constructible<E>::value, int>::type = 0>
+    symbolic_expr() : base_type(Expr()) {}
+
 };
 
 //---------------------------------------------------------------------------
