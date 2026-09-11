@@ -33,7 +33,6 @@ THE SOFTWARE.
 
 #include <algorithm>
 #include <memory>
-#include <vector>
 
 namespace vex {
 namespace backend {

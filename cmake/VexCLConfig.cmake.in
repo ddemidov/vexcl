@@ -29,6 +29,10 @@ if(@OpenCL_FOUND@)
     find_package(OpenCL)
 endif()
 
+if(@CUDAToolkit_FOUND@)
+    find_package(CUDAToolkit)
+endif()
+
 
 find_package(OpenMP)
 
@@ -50,6 +54,7 @@ find_package(Boost REQUIRED COMPONENTS
     )
 
 include("${CMAKE_CURRENT_LIST_DIR}/VexCLBoostTargets.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/VexCLTargets.cmake")
 
 if(TARGET VexCL::OpenCL)
     message(STATUS "Found VexCL::OpenCL")

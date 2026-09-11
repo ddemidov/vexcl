@@ -32,6 +32,7 @@ THE SOFTWARE.
  */
 
 #include <string>
+#include <memory>
 #include <boost/dll/import.hpp>
 
 #ifdef _OPENMP
@@ -199,7 +200,11 @@ class kernel {
             stack.clear();
         }
     private:
+#if BOOST_VERSION >= 107600
+        std::shared_ptr<detail::kernel_api> K;
+#else
         boost::shared_ptr<detail::kernel_api> K;
+#endif
         ndrange grid;
         std::vector<char> stack;
         size_t smem_size;

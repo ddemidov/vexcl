@@ -369,6 +369,7 @@ if (VEXCL_MASTER_PROJECT)
         NAMESPACE VexCL::
         )
 
+    set(CMAKE_EXPORT_PACKAGE_REGISTRY ON)
     export(PACKAGE VexCL)
 
     install(EXPORT VexCLTargets
