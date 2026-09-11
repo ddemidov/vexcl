@@ -39,7 +39,7 @@ THE SOFTWARE.
 #ifdef VEXCL_HAVE_OPENCL_HPP
 #  include <CL/opencl.hpp>
 #else
-#  include <CL/cl2.hpp>
+#  include <CL/opencl.hpp>
 #endif
 
 #include <vexcl/backend/opencl/error.hpp>
