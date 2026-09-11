@@ -73,7 +73,7 @@ if (FFTW_FOUND)
 endif ()
 
 if (CUDAToolkit_FOUND)
-    target_link_libraries(fft_benchmark ${LIB_TYPE} CUDA::cufft)
+    target_link_libraries(fft_benchmark ${LIB_TYPE} CUDA::cufft CUDA::cudart)
     target_compile_definitions(fft_benchmark ${LIB_TYPE} VEXCL_HAVE_CUDA)
 endif()
 
@@ -83,11 +83,10 @@ endif()
 if (VEXCL_BACKEND MATCHES "CUDA")
     add_executable(thrust-sort thrust-sort.cpp thrust-sort.cu)
     target_link_libraries(thrust-sort VexCL::CUDA)
-    set_target_properties(thrust-sort PROPERTIES
-        CUDA_ARCHITECTURES Auto
-        CUDA_STANDARD 14
+    set_target_properties(thrust-sort PROPERTIES CUDA_STANDARD 17)
+    target_compile_options(thrust-sort PRIVATE
+        $<$<COMPILE_LANGUAGE:CUDA>:-Wno-deprecated-gpu-targets>
     )
-    target_compile_options(thrust-sort PRIVATE -Wno-deprecated-gpu-targets)
 endif()
 
 #----------------------------------------------------------------------------

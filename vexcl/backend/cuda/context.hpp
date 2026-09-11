@@ -187,7 +187,7 @@ class context {
 
         static CUcontext create(device dev, unsigned flags) {
             CUcontext h = 0;
-            cuda_check( cuCtxCreate(&h, flags, dev.raw()) );
+            cuda_check( cuCtxCreate(&h, nullptr, flags, dev.raw()) );
             return h;
         }
 };
