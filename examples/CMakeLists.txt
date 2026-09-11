@@ -41,9 +41,9 @@ if (TARGET clogs_target)
 endif()
 
 if (VEXCL_BACKEND MATCHES "CUDA")
-    target_link_libraries(benchmark PUBLIC ${CUDA_cusparse_LIBRARY})
+    target_link_libraries(benchmark PUBLIC CUDA::cusparse)
 elseif (VEXCL_BACKEND MATCHES "All" AND TARGET VexCL::CUDA)
-    target_link_libraries(benchmark_cuda PUBLIC ${CUDA_cusparse_LIBRARY})
+    target_link_libraries(benchmark_cuda PUBLIC CUDA::cusparse)
 endif()
 
 if (VEXCL_BACKEND MATCHES "OpenCL")
@@ -72,25 +72,22 @@ if (FFTW_FOUND)
     target_link_libraries(fft_benchmark ${LIB_TYPE} ${FFTW_LIBRARIES})
 endif ()
 
-find_package(CUDA QUIET)
-if(CUDA_FOUND)
-    target_include_directories(fft_benchmark ${LIB_TYPE} ${CUDA_INCLUDE_DIRS})
+if (CUDAToolkit_FOUND)
+    target_link_libraries(fft_benchmark ${LIB_TYPE} CUDA::cufft)
     target_compile_definitions(fft_benchmark ${LIB_TYPE} VEXCL_HAVE_CUDA)
-    target_link_libraries(fft_benchmark ${LIB_TYPE} ${CUDA_LIBRARIES} ${CUDA_cufft_LIBRARY})
 endif()
 
 #----------------------------------------------------------------------------
 # Thrust interoperation examples
 #----------------------------------------------------------------------------
 if (VEXCL_BACKEND MATCHES "CUDA")
-    cuda_select_nvcc_arch_flags(CUDA_ARCH_FLAGS Auto)
-    list(APPEND CUDA_NVCC_FLAGS
-        ${CUDA_ARCH_FLAGS}
-        -Wno-deprecated-gpu-targets
-        -std=c++14
-        )
-    cuda_add_executable(thrust-sort thrust-sort.cpp thrust-sort.cu)
+    add_executable(thrust-sort thrust-sort.cpp thrust-sort.cu)
     target_link_libraries(thrust-sort VexCL::CUDA)
+    set_target_properties(thrust-sort PROPERTIES
+        CUDA_ARCHITECTURES Auto
+        CUDA_STANDARD 14
+    )
+    target_compile_options(thrust-sort PRIVATE -Wno-deprecated-gpu-targets)
 endif()
 
 #----------------------------------------------------------------------------
