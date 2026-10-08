@@ -40,6 +40,7 @@ THE SOFTWARE.
 #include <boost/proto/proto.hpp>
 #include <boost/mpl/max.hpp>
 #include <boost/any.hpp>
+#include <boost/utility/result_of.hpp>
 
 #include <vexcl/backend.hpp>
 #include <vexcl/types.hpp>
@@ -929,7 +930,7 @@ struct get_dimension<Expr, typename std::enable_if<
         !is_tuple<typename std::decay<Expr>::type>::value
     >::type>
 {
-    const static size_t value = std::result_of<traits::multiex_dimension(Expr)>::type::value;
+    const static size_t value = boost::result_of<traits::multiex_dimension(Expr)>::type::value;
 };
 
 template <class Expr>
