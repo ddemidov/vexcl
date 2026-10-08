@@ -36,6 +36,8 @@ THE SOFTWARE.
 #include <string>
 #include <cstdlib>
 
+#include <boost/utility/result_of.hpp>
+
 #include <vexcl/backend.hpp>
 #include <vexcl/util.hpp>
 #include <vexcl/cache.hpp>
@@ -259,7 +261,7 @@ template <class T>
 struct is_device_filter<T,
     typename std::enable_if<
             std::is_same<
-                bool, typename std::result_of<T(const backend::device&)>::type
+                bool, typename boost::result_of<T(const backend::device&)>::type
             >::value
         >::type
     > : std::true_type
