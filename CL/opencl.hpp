@@ -2073,51 +2073,6 @@ inline bool operator!=(const Wrapper<T> &lhs, const Wrapper<T> &rhs)
 //! \endcond
 
 
-using BuildLogType = vector<std::pair<cl::Device, typename detail::param_traits<detail::cl_program_build_info, CL_PROGRAM_BUILD_LOG>::param_type>>;
-#if defined(CL_HPP_ENABLE_EXCEPTIONS)
-/**
-* Exception class for build errors to carry build info
-*/
-class BuildError : public Error
-{
-private:
-    BuildLogType buildLogs;
-public:
-    BuildError(cl_int err, const char * errStr, const BuildLogType &vec) : Error(err, errStr), buildLogs(vec)
-    {
-    }
-
-    BuildLogType getBuildLog() const
-    {
-        return buildLogs;
-    }
-};
-namespace detail {
-    static inline cl_int buildErrHandler(
-        cl_int err,
-        const char * errStr,
-        const BuildLogType &buildLogs)
-    {
-        if (err != CL_SUCCESS) {
-            throw BuildError(err, errStr, buildLogs);
-        }
-        return err;
-    }
-} // namespace detail
-
-#else
-namespace detail {
-    static inline cl_int buildErrHandler(
-        cl_int err,
-        const char * errStr,
-        const BuildLogType &buildLogs)
-    {
-        (void)buildLogs; // suppress unused variable warning
-        (void)errStr;
-        return err;
-    }
-} // namespace detail
-#endif // #if defined(CL_HPP_ENABLE_EXCEPTIONS)
 
 
 /*! \stuct ImageFormat
@@ -2426,6 +2381,52 @@ public:
     }
 #endif // defined(CL_HPP_USE_CL_DEVICE_FISSION)
 };
+
+using BuildLogType = vector<std::pair<cl::Device, typename detail::param_traits<detail::cl_program_build_info, CL_PROGRAM_BUILD_LOG>::param_type>>;
+#if defined(CL_HPP_ENABLE_EXCEPTIONS)
+/**
+* Exception class for build errors to carry build info
+*/
+class BuildError : public Error
+{
+private:
+    BuildLogType buildLogs;
+public:
+    BuildError(cl_int err, const char * errStr, const BuildLogType &vec) : Error(err, errStr), buildLogs(vec)
+    {
+    }
+
+    BuildLogType getBuildLog() const
+    {
+        return buildLogs;
+    }
+};
+namespace detail {
+    static inline cl_int buildErrHandler(
+        cl_int err,
+        const char * errStr,
+        const BuildLogType &buildLogs)
+    {
+        if (err != CL_SUCCESS) {
+            throw BuildError(err, errStr, buildLogs);
+        }
+        return err;
+    }
+} // namespace detail
+
+#else
+namespace detail {
+    static inline cl_int buildErrHandler(
+        cl_int err,
+        const char * errStr,
+        const BuildLogType &buildLogs)
+    {
+        (void)buildLogs; // suppress unused variable warning
+        (void)errStr;
+        return err;
+    }
+} // namespace detail
+#endif // #if defined(CL_HPP_ENABLE_EXCEPTIONS)
 
 CL_HPP_DEFINE_STATIC_MEMBER_ std::once_flag Device::default_initialized_;
 CL_HPP_DEFINE_STATIC_MEMBER_ Device Device::default_;
