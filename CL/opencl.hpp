@@ -9538,15 +9538,15 @@ inline cl_int copy( const CommandQueue &queue, IteratorType startIterator, Itera
     if( error != CL_SUCCESS ) {
         return error;
     }
-#if defined(_MSC_VER)
+#if defined(_MSC_VER) && _MSC_VER < 1920
     std::copy(
-        startIterator, 
-        endIterator, 
+        startIterator,
+        endIterator,
         stdext::checked_array_iterator<DataType*>(
             pointer, length));
 #else
     std::copy(startIterator, endIterator, pointer);
-#endif
+#endif // defined(_MSC_VER) && _MSC_VER < 1920
     Event endEvent;
     error = queue.enqueueUnmapMemObject(buffer, pointer, 0, &endEvent);
     // if exceptions enabled, enqueueUnmapMemObject will throw
